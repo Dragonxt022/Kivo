@@ -22,10 +22,24 @@
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Un</th><th></th></tr></thead>
+      <thead><tr><th></th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Un</th><th></th></tr></thead>
       <tbody>
         <template x-for="p in rows" :key="p.id">
-          <tr>
+          <tr
+            <% if (user.permissions.has('commercial.products.edit')) { %>
+              @click="openEdit(p)" style="cursor:pointer"
+            <% } %>
+          >
+            <td @click.stop style="width:1%">
+              <% if (user.permissions.has('commercial.products.edit')) { %>
+              <button class="icon-btn" :class="{ active: p.favorite }" @click="toggleFavorite(p)"
+                      :title="p.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'">
+                <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+              <% } %>
+            </td>
             <td>
               <span x-text="p.name"></span>
               <span class="badge off" x-show="p.track_stock && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
@@ -36,16 +50,28 @@
             <td class="muted" x-text="brl(p.cost_cents)"></td>
             <td :style="p.track_stock && p.stock_qty < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="p.track_stock ? p.stock_qty : '—'"></td>
             <td class="muted" x-text="p.unit"></td>
-            <td style="text-align:right">
-              <% if (user.permissions.has('commercial.stock.move')) { %>
-                <button class="btn secondary small" @click="openMove(p)" x-show="p.track_stock">Estoque</button>
-              <% } %>
-              <% if (user.permissions.has('commercial.products.edit')) { %>
-                <button class="btn secondary small" @click="openEdit(p)">Editar</button>
-              <% } %>
-              <% if (user.permissions.has('commercial.products.delete')) { %>
-                <button class="btn small" @click="remove(p)">Excluir</button>
-              <% } %>
+            <td style="text-align:right" @click.stop>
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === p.id ? null : p.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                  </svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === p.id" x-cloak @click.outside="openMenu = null">
+                  <% if (user.permissions.has('commercial.stock.move')) { %>
+                    <button x-show="p.track_stock" @click="openMenu = null; openMove(p)">Estoque</button>
+                  <% } %>
+                  <% if (user.permissions.has('commercial.products.edit')) { %>
+                    <button @click="openMenu = null; openEdit(p)">Editar</button>
+                  <% } %>
+                  <% if (user.permissions.has('commercial.products.create')) { %>
+                    <button @click="openMenu = null; duplicate(p)">Duplicar</button>
+                  <% } %>
+                  <% if (user.permissions.has('commercial.products.delete')) { %>
+                    <button class="danger" @click="openMenu = null; remove(p)">Excluir</button>
+                  <% } %>
+                </div>
+              </div>
             </td>
           </tr>
         </template>
@@ -108,7 +134,7 @@
   <script>
     function productsPage() {
       return {
-        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
+        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '', openMenu: null,
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
@@ -154,6 +180,16 @@
         async remove(p) {
           if (!await window.confirmDlg(`Excluir "${p.name}"?`)) return;
           const r = await fetch(`/api/commercial/products/${p.id}`, { method: 'DELETE' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        async toggleFavorite(p) {
+          const r = await fetch(`/api/commercial/products/${p.id}/favorite`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ favorite: !p.favorite }),
+          });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        async duplicate(p) {
+          const r = await fetch(`/api/commercial/products/${p.id}/duplicate`, { method: 'POST' });
           if (r.ok) this.load(); else this.error = (await r.json()).error;
         },
         openMove(p) { this.move = { productId: p.id, name: p.name, current: p.stock_qty, type: 'entrada', qty: '', reason: '' }; this.mvError = ''; this.$refs.mv.showModal(); },

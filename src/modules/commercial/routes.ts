@@ -37,7 +37,7 @@ router.post('/categories', requirePermission('commercial.products.create'), (req
 
 // ---------- Produtos (RBAC fino: preço separado de edição) ----------
 const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
-  p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.active, p.updated_at`;
+  p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active, p.updated_at`;
 const getProduct = (id: string | number) =>
   db().prepare(`SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.id = ? AND p.deleted_at IS NULL`).get(id);
@@ -46,7 +46,7 @@ router.get('/products', requirePermission('commercial.products.view'), (req, res
   const q = String(req.query.q ?? '').trim();
   const where = q ? 'AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)' : '';
   const stmt = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
-                WHERE p.deleted_at IS NULL ${where} ORDER BY p.name`;
+                WHERE p.deleted_at IS NULL ${where} ORDER BY p.favorite DESC, p.name`;
   res.json(q ? db().prepare(stmt).all(`%${q}%`, q, q) : db().prepare(stmt).all());
 });
 
@@ -134,6 +134,43 @@ router.delete('/products/:id', requirePermission('commercial.products.delete'), 
   db().prepare(`UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
   audit(req, 'excluir', 'product', id, before, null);
   res.json({ ok: true });
+});
+
+router.put('/products/:id/favorite', requirePermission('commercial.products.edit'), (req, res) => {
+  const id = String(req.params.id);
+  const before = getProduct(id) as { favorite: number } | undefined;
+  if (!before) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  const favorite = req.body?.favorite ? 1 : 0;
+  db().prepare(`UPDATE products SET favorite = ?, updated_at = datetime('now') WHERE id = ?`).run(favorite, id);
+  const after = getProduct(id);
+  audit(req, 'editar', 'product', id, before, after);
+  res.json(after);
+});
+
+router.post('/products/:id/duplicate', requirePermission('commercial.products.create'), (req, res) => {
+  const id = String(req.params.id);
+  const source = getProduct(id) as
+    | { name: string; description: string | null; category_id: number | null; unit: string; price_cents: number; cost_cents: number; track_stock: number; min_stock: number }
+    | undefined;
+  if (!source) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  // sku/barcode não são copiados: duplicá-los junto criaria dois produtos com o
+  // mesmo código de barras, ambíguo na hora de escanear no PDV.
+  const info = db().prepare(
+    `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, uuid)
+     VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    `${source.name} (cópia)`, source.description, source.category_id, source.unit,
+    source.price_cents, source.cost_cents, source.track_stock, source.min_stock, randomUUID(),
+  );
+  const created = getProduct(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'product', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
 });
 
 // ---------- Estoque ----------
