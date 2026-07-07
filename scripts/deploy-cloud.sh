@@ -19,6 +19,8 @@ ssh -i "$KEY" -o BatchMode=yes "${SSH_USER}@${HOST}" "
     cd cloud
     npm install
     npm run build
+    export \$(cat .env | xargs)
+    npm run migrate
   '
   systemctl restart katsu-cloud
   sleep 2
