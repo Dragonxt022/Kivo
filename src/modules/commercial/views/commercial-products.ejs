@@ -21,8 +21,17 @@
              style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text);min-width:280px" />
       <span class="error" x-text="error"></span>
     </div>
-    <table>
-      <thead><tr><th></th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Un</th><th></th></tr></thead>
+      <table>
+        <thead><tr>
+          <th></th>
+          <th @click="sort('name')" class="sortable">Produto<span class="sort-arrow" x-text="sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th @click="sort('category')" class="sortable">Categoria<span class="sort-arrow" x-text="sortBy === 'category' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th @click="sort('price')" class="sortable">Preço<span class="sort-arrow" x-text="sortBy === 'price' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th @click="sort('cost')" class="sortable">Custo<span class="sort-arrow" x-text="sortBy === 'cost' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th @click="sort('stock')" class="sortable">Estoque<span class="sort-arrow" x-text="sortBy === 'stock' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th @click="sort('unit')" class="sortable">Un<span class="sort-arrow" x-text="sortBy === 'unit' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th></th>
+        </tr></thead>
       <tbody>
         <template x-for="p in rows" :key="p.id">
           <tr
@@ -59,16 +68,28 @@
                 </button>
                 <div class="dropdown-menu" x-show="openMenu === p.id" x-cloak @click.outside="openMenu = null">
                   <% if (user.permissions.has('commercial.stock.move')) { %>
-                    <button x-show="p.track_stock" @click="openMenu = null; openMove(p)">Estoque</button>
+                    <button x-show="p.track_stock" @click="openMenu = null; openMove(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                      Estoque
+                    </button>
                   <% } %>
                   <% if (user.permissions.has('commercial.products.edit')) { %>
-                    <button @click="openMenu = null; openEdit(p)">Editar</button>
+                    <button @click="openMenu = null; openEdit(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      Editar
+                    </button>
                   <% } %>
                   <% if (user.permissions.has('commercial.products.create')) { %>
-                    <button @click="openMenu = null; duplicate(p)">Duplicar</button>
+                    <button @click="openMenu = null; duplicate(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                      Duplicar
+                    </button>
                   <% } %>
                   <% if (user.permissions.has('commercial.products.delete')) { %>
-                    <button class="danger" @click="openMenu = null; remove(p)">Excluir</button>
+                    <button class="danger" @click="openMenu = null; remove(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      Excluir
+                    </button>
                   <% } %>
                 </div>
               </div>
@@ -92,6 +113,7 @@
       <div style="display:flex;gap:.4rem;margin-top:.3rem">
         <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
         <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
+        <button class="btn secondary small" type="button" @click="openCatMgr()">Gerenciar</button>
       </div>
       <% if (user.permissions.has('commercial.products.price')) { %>
         <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
@@ -129,19 +151,116 @@
         <button class="btn" @click="saveMove()">Confirmar</button>
       </div>
     </dialog>
+
+    <dialog x-ref="catDlg">
+      <h1>Gerenciar categorias</h1>
+      <template x-for="c in categories" :key="c.id">
+        <div style="display:flex;align-items:center;gap:.4rem;padding:.35rem 0">
+          <template x-if="catEditId !== c.id">
+            <span style="flex:1" x-text="c.name"></span>
+          </template>
+          <template x-if="catEditId === c.id">
+            <input type="text" x-model="catEditName" style="flex:1" @keydown.enter="renameCategory(c.id)" />
+          </template>
+          <template x-if="catEditId !== c.id">
+            <button class="icon-btn" @click="catEditId = c.id; catEditName = c.name" title="Renomear">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+            </button>
+          </template>
+          <template x-if="catEditId === c.id">
+            <button class="icon-btn" @click="renameCategory(c.id)" title="Salvar">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+          </template>
+          <button class="icon-btn" @click="catDelId = c.id; catDelAction = 'unset'; catDelMigrateTo = null" title="Excluir">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </template>
+
+      <template x-if="catDelId">
+        <div style="margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border-light)">
+          <p style="margin-bottom:.8rem" x-text="'Excluir "' + categories.find(c => c.id === catDelId)?.name + '"?""></p>
+          <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
+            <input type="radio" value="unset" x-model="catDelAction" /> Deixar produtos sem categoria
+          </label>
+          <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
+            <input type="radio" value="migrate" x-model="catDelAction" /> Migrar produtos para:
+          </label>
+          <select x-show="catDelAction === 'migrate'" x-model.number="catDelMigrateTo" style="width:100%;margin-bottom:.8rem">
+            <option value="">Selecione…</option>
+            <template x-for="c in categories.filter(c => c.id !== catDelId)" :key="c.id">
+              <option :value="c.id" x-text="c.name"></option>
+            </template>
+          </select>
+          <div class="error" x-text="dlgError"></div>
+          <div class="actions">
+            <button class="btn secondary" @click="catDelId = null; catDelAction = 'unset'; catDelMigrateTo = null">Cancelar</button>
+            <button class="btn danger" @click="deleteCategory()" :disabled="catDelAction === 'migrate' && !catDelMigrateTo">Confirmar exclusão</button>
+          </div>
+        </div>
+      </template>
+
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.catDlg.close()">Fechar</button>
+      </div>
+    </dialog>
   </main>
   <script src="/js/masks.js"></script>
   <script>
     function productsPage() {
       return {
-        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '', openMenu: null,
+        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '', openMenu: null, sortBy: 'name', sortDir: 'asc',
+        catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [],
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
           const r = await fetch('/api/commercial/products' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
-          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
-          const c = await fetch('/api/commercial/categories');
+          if (r.ok) { this.rows = await r.json(); this.sort(this.sortBy, true); }
+          else this.error = (await r.json()).error;
+          const [c, s] = await Promise.all([
+            fetch('/api/commercial/categories'),
+            fetch('/api/settings'),
+          ]);
           if (c.ok) this.categories = await c.json();
+          if (s.ok) this.appSettings = await s.json();
+        },
+        sort(col, silent) {
+          if (!silent) this.sortDir = this.sortBy === col && this.sortDir === 'asc' ? 'desc' : 'asc';
+          this.sortBy = col;
+          this.rows.sort((a, b) => {
+            let va, vb;
+            if (col === 'name' || col === 'unit') { va = (a[col] ?? '').toLowerCase(); vb = (b[col] ?? '').toLowerCase(); }
+            else if (col === 'category') { va = (a.category ?? '').toLowerCase(); vb = (b.category ?? '').toLowerCase(); }
+            else if (col === 'price') { va = a.price_cents; vb = b.price_cents; }
+            else if (col === 'cost') { va = a.cost_cents; vb = b.cost_cents; }
+            else if (col === 'stock') { va = a.track_stock ? a.stock_qty : -Infinity; vb = b.track_stock ? b.stock_qty : -Infinity; }
+            if (typeof va === 'string') return this.sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+            return this.sortDir === 'asc' ? va - vb : vb - va;
+          });
+        },
+        openCatMgr() { this.dlgError = ''; this.$refs.catDlg.showModal(); },
+        async renameCategory(id) {
+          if (!this.catEditName.trim()) return;
+          const r = await fetch(`/api/commercial/categories/${id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: this.catEditName.trim() }),
+          });
+          if (r.ok) {
+            this.catEditId = null; this.catEditName = '';
+            const c = await fetch('/api/commercial/categories');
+            if (c.ok) this.categories = await c.json();
+          } else this.dlgError = (await r.json()).error;
+        },
+        async deleteCategory() {
+          const body = this.catDelAction === 'migrate' && this.catDelMigrateTo ? { migrateToId: this.catDelMigrateTo } : {};
+          const r = await fetch(`/api/commercial/categories/${this.catDelId}`, {
+            method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (r.ok) {
+            this.catDelId = null; this.catDelAction = 'unset'; this.catDelMigrateTo = null;
+            const c = await fetch('/api/commercial/categories');
+            if (c.ok) this.categories = await c.json();
+          } else this.dlgError = (await r.json()).error;
         },
         async addCategory() {
           if (!this.newCat.trim()) return;
@@ -155,7 +274,14 @@
             this.newCat = '';
           } else this.dlgError = (await r.json()).error;
         },
-        openNew() { this.form = { unit: 'un' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openNew() {
+          this.form = { unit: 'un' }; this.dlgError = '';
+          const autoSku = this.appSettings?.find(s => s.key === 'estoque.auto_sku')?.value;
+          if (autoSku === '1') this.form.sku = 'SKU-' + String(Date.now()).slice(-8);
+          const defMinStock = this.appSettings?.find(s => s.key === 'estoque.min_stock_padrao')?.value;
+          if (defMinStock) this.form.minStock = Number(defMinStock);
+          this.$refs.dlg.showModal();
+        },
         openEdit(p) {
           this.form = { id: p.id, name: p.name, barcode: p.barcode ?? '', sku: p.sku ?? '', unit: p.unit,
             categoryId: p.category_id ?? '',

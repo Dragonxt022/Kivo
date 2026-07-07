@@ -12,91 +12,130 @@
 <body>
   <%- include('partials/nav', { user, page: 'settings' }) %>
   <main x-data="settingsPage()" x-init="load()">
-    <% var canEditVar = user.permissions.has('settings.edit'); %>
     <h1>Configurações</h1>
 
-    <% if (user.permissions.has('license.view')) { %>
-    <section class="panel">
-      <h2>Licença</h2>
-      <table>
-        <tbody>
-          <tr><th>Status</th><td><span class="badge" :class="license.status === 'valida' ? 'ok' : 'off'" x-text="license.message"></span></td></tr>
-          <tr><th>Empresa (UUID)</th><td class="muted" x-text="license.companyUuid ?? 'não configurada'"></td></tr>
-          <tr><th>Machine ID</th><td class="muted" x-text="license.machineId"></td></tr>
-          <tr><th>Plano</th><td x-text="license.plan ?? '—'"></td></tr>
-          <tr>
-            <th>Módulos</th>
-            <td>
-              <template x-if="license.modules">
-                <template x-for="m in license.modules" :key="m"><span class="badge module" x-text="m"></span></template>
-              </template>
-              <span x-show="!license.modules" class="muted">sem restrição</span>
-            </td>
-          </tr>
-          <tr><th>Válida até</th><td x-text="license.validUntil ?? '—'"></td></tr>
-        </tbody>
-      </table>
+    <div class="tabs">
+      <button :class="{ active: tab === 'license' }" @click="tab = 'license'">Licença</button>
+      <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">Estoque</button>
+      <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">Vendas</button>
+      <button :class="{ active: tab === 'advanced' }" @click="tab = 'advanced'">Avançado</button>
+    </div>
 
-      <% if (user.permissions.has('license.edit')) { %>
-      <h3>Ativar / trocar licença</h3>
-      <div class="field">
-        <label>Empresa (UUID)</label>
-        <input class="input" type="text" x-model="licenseForm.companyUuid" placeholder="uuid fornecido na ativação">
-      </div>
-      <div class="field">
-        <label>Chave de licença</label>
-        <input class="input" type="text" x-model="licenseForm.licenseKey" placeholder="chave fornecida na ativação">
-      </div>
-      <div class="toolbar">
-        <button class="btn" @click="saveLicense()" x-text="savingLicense ? 'Salvando…' : 'Salvar licença'"></button>
-        <% if (user.permissions.has('sync.run')) { %>
-        <button class="btn secondary" @click="syncNow()" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'"></button>
-        <% } %>
-        <span class="error" x-text="licenseError"></span>
-      </div>
-      <% } %>
-
-      <% if (user.permissions.has('settings.edit')) { %>
-      <h3>Servidor de sincronização (cloud)</h3>
-      <div class="field">
-        <label>URL do servidor</label>
-        <input class="input" type="text" x-model="cloudUrlForm.value" placeholder="https://katsu.buscamais.org (padrão do instalador)">
-        <p class="hint">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</p>
-      </div>
-      <div class="toolbar">
-        <button class="btn secondary" @click="saveCloudUrl()" x-text="savingCloudUrl ? 'Salvando…' : 'Salvar servidor'"></button>
-      </div>
-      <% } %>
-    </section>
-    <% } %>
-
-    <% if (canEditVar) { %>
-    <details class="advanced">
-      <summary>Configurações avançadas (técnicas)</summary>
-      <div class="advanced-body">
-        <div class="toolbar" x-show="canEdit">
-          <button class="btn secondary small" @click="openNew()">Nova configuração</button>
-          <span class="error" x-text="error"></span>
-        </div>
+    <!-- ═══════ ABA: LICENÇA ═══════ -->
+    <div x-show="tab === 'license'">
+      <% if (user.permissions.has('license.view')) { %>
+      <section class="panel">
+        <h2>Status da licença</h2>
         <table>
-          <thead><tr><th>Chave</th><th>Valor</th><th>Atualizada</th><th></th></tr></thead>
           <tbody>
-            <template x-for="s in settings" :key="s.key">
-              <tr>
-                <td x-text="s.key"></td>
-                <td x-text="s.value ?? '—'"></td>
-                <td class="muted" x-text="s.updated_at"></td>
-                <td style="text-align:right">
-                  <button class="btn secondary small" x-show="canEdit" @click="openEdit(s)">Editar</button>
-                </td>
-              </tr>
-            </template>
+            <tr><th>Status</th><td><span class="badge" :class="license.status === 'valida' ? 'ok' : 'off'" x-text="license.message"></span></td></tr>
+            <tr><th>Empresa (UUID)</th><td class="muted" x-text="license.companyUuid ?? 'não configurada'"></td></tr>
+            <tr><th>Machine ID</th><td class="muted" x-text="license.machineId"></td></tr>
+            <tr><th>Plano</th><td x-text="license.plan ?? '—'"></td></tr>
+            <tr>
+              <th>Módulos</th>
+              <td>
+                <template x-if="license.modules">
+                  <template x-for="m in license.modules" :key="m"><span class="badge module" x-text="m"></span></template>
+                </template>
+                <span x-show="!license.modules" class="muted">sem restrição</span>
+              </td>
+            </tr>
+            <tr><th>Válida até</th><td x-text="license.validUntil ?? '—'"></td></tr>
           </tbody>
         </table>
-      </div>
-    </details>
-    <% } %>
+        <% if (user.permissions.has('license.edit')) { %>
+        <div class="actions" style="margin-top:1rem">
+          <button class="btn" @click="openLicenseDlg()">Ativar / trocar licença</button>
+          <% if (user.permissions.has('sync.run')) { %>
+          <button class="btn secondary" @click="syncNow()" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'"></button>
+          <% } %>
+          <span class="error" x-text="licenseError"></span>
+        </div>
+        <% } %>
+      </section>
+      <% } %>
+    </div>
 
+    <!-- ═══════ ABA: ESTOQUE ═══════ -->
+    <div x-show="tab === 'stock'" x-cloak>
+      <section class="panel">
+        <h2>Configurações de estoque</h2>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input type="checkbox" x-model="stock.autoSku" />
+            Gerar SKU automaticamente ao cadastrar produto
+          </label>
+        </div>
+        <div class="field">
+          <label>Valor padrão para estoque mínimo</label>
+          <input class="input" type="number" min="0" x-model="stock.minStockPadrao" placeholder="0" style="max-width:120px" />
+          <p class="hint">Todo produto novo será cadastrado com este valor como estoque mínimo.</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn" @click="saveStock()" x-text="savingStock ? 'Salvando…' : 'Salvar configurações'"></button>
+          <span class="muted" x-show="stockSaved" x-text="stockSaved"></span>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════ ABA: VENDAS ═══════ -->
+    <div x-show="tab === 'sales'" x-cloak>
+      <section class="panel">
+        <h2>Configurações de vendas</h2>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input type="checkbox" x-model="sales.exibirCupom" />
+            Exibir mensagem "Imprimir cupom fiscal" ao finalizar venda
+          </label>
+        </div>
+        <div class="toolbar">
+          <button class="btn" @click="saveSales()" x-text="savingSales ? 'Salvando…' : 'Salvar configurações'"></button>
+          <span class="muted" x-show="salesSaved" x-text="salesSaved"></span>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═══════ ABA: AVANÇADO ═══════ -->
+    <div x-show="tab === 'advanced'" x-cloak>
+      <% if (user.permissions.has('settings.edit')) { %>
+      <div class="toolbar">
+        <button class="btn secondary small" @click="openNew()">Nova configuração</button>
+        <span class="error" x-text="error"></span>
+      </div>
+      <table>
+        <thead><tr><th>Chave</th><th>Valor</th><th>Atualizada</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="s in settings" :key="s.key">
+            <tr>
+              <td x-text="s.key"></td>
+              <td x-text="s.value ?? '—'"></td>
+              <td class="muted" x-text="s.updated_at"></td>
+              <td style="text-align:right">
+                <button class="btn secondary small" @click="openEdit(s)">Editar</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <% } %>
+    </div>
+
+    <!-- ─── MODAL: Ativar / trocar licença ─── -->
+    <dialog x-ref="licenseDlg">
+      <h1>Ativar / trocar licença</h1>
+      <label>Empresa (UUID)</label>
+      <input type="text" x-model="licenseForm.companyUuid" placeholder="uuid fornecido na ativação" />
+      <label>Chave de licença</label>
+      <input type="text" x-model="licenseForm.licenseKey" placeholder="chave fornecida na ativação" />
+      <div class="error" x-text="licenseError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.licenseDlg.close()">Cancelar</button>
+        <button class="btn" @click="saveLicense()" x-text="savingLicense ? 'Salvando…' : 'Salvar licença'"></button>
+      </div>
+    </dialog>
+
+    <!-- ─── MODAL: Configuração avulsa (aba Avançado) ─── -->
     <dialog x-ref="dlg">
       <h1>Configuração</h1>
       <label>Chave</label><input type="text" x-model="form.key" :disabled="form.locked" />
@@ -110,21 +149,35 @@
   <script>
     function settingsPage() {
       return {
+        tab: 'license',
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
-        cloudUrlForm: { value: '' }, savingCloudUrl: false,
-        canEdit: <%= canEditVar ? 'true' : 'false' %>,
+        stock: { autoSku: false, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
+        sales: { exibirCupom: true }, savingSales: false, salesSaved: '',
+
         async load() {
           const r = await fetch('/api/settings');
           if (r.ok) {
             this.settings = await r.json();
-            const cu = this.settings.find((s) => s.key === 'sync.server_url');
-            this.cloudUrlForm.value = cu?.value ?? '';
+            this.syncSettings();
           }
           <% if (user.permissions.has('license.view')) { %>
           const l = await fetch('/api/license');
           if (l.ok) this.license = await l.json();
           <% } %>
+        },
+        syncSettings() {
+          const auto = this.settings.find(s => s.key === 'estoque.auto_sku');
+          this.stock.autoSku = auto?.value === '1';
+          const minStock = this.settings.find(s => s.key === 'estoque.min_stock_padrao');
+          this.stock.minStockPadrao = minStock?.value ? Number(minStock.value) : 0;
+          const cupom = this.settings.find(s => s.key === 'vendas.exibir_cupom_fiscal');
+          this.sales.exibirCupom = cupom?.value !== '0';
+        },
+        openLicenseDlg() {
+          this.licenseForm = { companyUuid: '', licenseKey: '' };
+          this.licenseError = '';
+          this.$refs.licenseDlg.showModal();
         },
         <% if (user.permissions.has('license.edit')) { %>
         async saveLicense() {
@@ -138,8 +191,10 @@
             body: JSON.stringify({ companyUuid: this.licenseForm.companyUuid, licenseKey: this.licenseForm.licenseKey }),
           });
           this.savingLicense = false;
-          if (r.ok) { this.license = await r.json(); this.licenseForm = { companyUuid: '', licenseKey: '' }; }
-          else this.licenseError = (await r.json()).error ?? 'Falha ao salvar licença.';
+          if (r.ok) {
+            this.license = await r.json();
+            this.$refs.licenseDlg.close();
+          } else this.licenseError = (await r.json()).error ?? 'Falha ao salvar licença.';
         },
         <% } %>
         <% if (user.permissions.has('sync.run')) { %>
@@ -153,18 +208,32 @@
           } else this.licenseError = (await r.json()).error ?? 'Falha ao sincronizar.';
         },
         <% } %>
-        <% if (user.permissions.has('settings.edit')) { %>
-        async saveCloudUrl() {
-          this.savingCloudUrl = true;
-          const r = await fetch('/api/settings/sync.server_url', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: this.cloudUrlForm.value || null }),
-          });
-          this.savingCloudUrl = false;
-          if (r.ok) this.load();
+        async saveStock() {
+          this.savingStock = true; this.stockSaved = '';
+          const upsert = async (key, value) => {
+            await fetch(`/api/settings/${encodeURIComponent(key)}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value }),
+            });
+          };
+          await Promise.all([
+            upsert('estoque.auto_sku', this.stock.autoSku ? '1' : '0'),
+            upsert('estoque.min_stock_padrao', String(this.stock.minStockPadrao)),
+          ]);
+          this.savingStock = false; this.stockSaved = 'Salvo.';
+          const r = await fetch('/api/settings');
+          if (r.ok) this.settings = await r.json();
         },
-        <% } %>
+        async saveSales() {
+          this.savingSales = true; this.salesSaved = '';
+          await fetch('/api/settings/vendas.exibir_cupom_fiscal', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.sales.exibirCupom ? '1' : '0' }),
+          });
+          this.savingSales = false; this.salesSaved = 'Salvo.';
+          const r = await fetch('/api/settings');
+          if (r.ok) this.settings = await r.json();
+        },
         openNew() { this.form = { locked: false }; this.$refs.dlg.showModal(); },
         openEdit(s) { this.form = { key: s.key, value: s.value ?? '', locked: true }; this.$refs.dlg.showModal(); },
         async save() {

@@ -421,7 +421,7 @@
         highlightIdx: -1, searching: false,
         valueDlg: { kind: 'desconto', amount: '', error: '' },
         pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, customerId: '', dueDate: '' },
-        error: '', payError: '', saving: false,
+        error: '', payError: '', saving: false, appSettings: [],
 
         // ─── Utilitários ───
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
@@ -430,8 +430,12 @@
 
         // ─── Inicialização ───
         async init() {
-          const m = await fetch('/api/store/payment-methods');
+          const [m, s] = await Promise.all([
+            fetch('/api/store/payment-methods'),
+            fetch('/api/settings'),
+          ]);
           if (m.ok) { this.methods = await m.json(); if (this.methods.length) this.pay.methodId = this.methods[0].id; }
+          if (s.ok) this.appSettings = await s.json();
           this.focusSearch();
           document.addEventListener('keydown', (e) => {
             const dialogsOpen = document.querySelectorAll('dialog[open]').length > 0;
@@ -621,7 +625,8 @@
             this.lastSaleId = d.id;
             this.$refs.pay.close();
             this.cart = []; this.discountCents = 0; this.surchargeCents = 0;
-            this.$refs.postSale.showModal();
+            const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
+            if (exibir !== '0') this.$refs.postSale.showModal(); else this.focusSearch();
           } else {
             this.payError = (await r.json()).error ?? 'Erro ao registrar a venda.';
           }

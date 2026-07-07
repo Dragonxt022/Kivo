@@ -358,13 +358,25 @@ main {
 /* ─── Tables ─── */
 h1 { font-size: 1.3rem; margin-bottom: 1.2rem; font-weight: 600; }
 table {
-  width: 100%; border-collapse: collapse;
-  background: var(--surface); border-radius: var(--radius); overflow: hidden;
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-xs);
 }
-th, td { text-align: left; padding: .65rem 1rem; font-size: .9rem; border-bottom: 1px solid var(--border-light); }
+th, td {
+  text-align: left; padding: .65rem 1rem; font-size: .9rem;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--surface);
+}
 th { color: var(--text-muted); font-weight: 500; background: var(--surface-hover); }
 tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--surface-hover); }
+thead tr:first-child th:first-child { border-radius: var(--radius) 0 0 0; }
+thead tr:first-child th:last-child { border-radius: 0 var(--radius) 0 0; }
+tr:last-child td:first-child { border-radius: 0 0 0 var(--radius); }
+tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
+.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable:hover { color: var(--text); }
+.sort-arrow { font-size: .6rem; margin-left: .15rem; }
 
 /* ─── Buttons ─── */
 .btn {
@@ -380,6 +392,8 @@ tr:last-child td { border-bottom: 0; }
 }
 .btn.secondary:hover { background: #eae8ea; }
 .btn.small { padding: .3rem .7rem; font-size: .8rem; }
+.btn.danger { background: var(--danger); }
+.btn.danger:hover { background: #dc2626; }
 
 /* ─── Toolbar ─── */
 .toolbar { display: flex; gap: .75rem; margin-bottom: 1rem; align-items: center; }
@@ -485,7 +499,7 @@ dialog .actions { display: flex; gap: .6rem; justify-content: flex-end; margin-t
   box-shadow: var(--shadow); min-width: 160px; padding: .3rem; text-align: left;
 }
 .dropdown-menu button {
-  display: flex; align-items: center; width: 100%; padding: .5rem .6rem; border: 0; border-radius: 7px;
+  display: flex; align-items: center; gap: .4rem; width: 100%; padding: .5rem .6rem; border: 0; border-radius: 7px;
   background: transparent; color: var(--text); font-size: .85rem; cursor: pointer; text-align: left;
 }
 .dropdown-menu button:hover { background: var(--surface-hover); }
@@ -538,6 +552,17 @@ dialog .actions { display: flex; gap: .6rem; justify-content: flex-end; margin-t
   .fab { bottom: 20px; right: 20px; width: 48px; height: 48px; }
   .fab svg { width: 20px; height: 20px; }
 }
+
+/* ─── Tabs ─── */
+.tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-light); }
+.tabs button {
+  padding: .6rem 1.2rem; border: 0; background: transparent;
+  color: var(--text-muted); font-size: .9rem; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: color var(--transition), border-color var(--transition);
+}
+.tabs button:hover { color: var(--text); }
+.tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 
 @media (max-width: 400px) {
   .app-grid { grid-template-columns: 1fr; gap: .7rem; }
