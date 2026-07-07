@@ -1,4 +1,5 @@
 import { getLicenseCredentials } from '../license/service';
+import { getCloudServerUrl } from '../config/cloud';
 import type { OutgoingRecord, IncomingRecord } from './types';
 
 export interface PullPage {
@@ -7,8 +8,8 @@ export interface PullPage {
 }
 
 function baseUrl(): string {
-  const url = process.env.KATSU_SYNC_SERVER_URL;
-  if (!url) throw new Error('KATSU_SYNC_SERVER_URL não configurado.');
+  const url = getCloudServerUrl();
+  if (!url) throw new Error('Servidor de sincronização não configurado (veja Configurações → Licença).');
   return url.replace(/\/$/, '');
 }
 

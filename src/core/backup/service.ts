@@ -4,6 +4,7 @@ import path from 'node:path';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { getSqlite, closeDb } from '../database/connection';
 import { getLicenseCredentials, machineId } from '../license/service';
+import { getCloudServerUrl } from '../config/cloud';
 
 /**
  * Backup local (KATSU_PLANO.md §8):
@@ -95,7 +96,7 @@ export function listBackups() {
 }
 
 function cloudBaseUrl(): string | null {
-  const url = process.env.KATSU_SYNC_SERVER_URL;
+  const url = getCloudServerUrl();
   return url ? url.replace(/\/$/, '') : null;
 }
 

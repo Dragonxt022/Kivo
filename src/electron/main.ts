@@ -7,7 +7,6 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { checkAppUpdates, checkModuleUpdates } from '../core/updater';
 import { getSqlite } from '../core/database/connection';
-import { PRODUCTION_CLOUD_URL } from '../core/config/cloud';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
 
@@ -48,10 +47,6 @@ function reportFatalBootError(err: unknown): void {
 }
 
 async function boot() {
-  if (!process.env.KATSU_SYNC_SERVER_URL && PRODUCTION_CLOUD_URL) {
-    process.env.KATSU_SYNC_SERVER_URL = PRODUCTION_CLOUD_URL;
-  }
-
   migrateUp();
   runSeeds();
   seedPackagedBackupDir();

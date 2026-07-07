@@ -42,6 +42,17 @@
         </div>
       </div>
       <% } %>
+
+      <% if (user.permissions.has('settings.edit')) { %>
+      <div style="margin-top:1.2rem">
+        <label>Servidor de sincronização (cloud)</label>
+        <input type="text" x-model="cloudUrlForm.value" placeholder="https://katsu.buscamais.org (padrão do instalador)">
+        <div class="toolbar">
+          <button class="btn secondary" @click="saveCloudUrl()" x-text="savingCloudUrl ? 'Salvando…' : 'Salvar servidor'"></button>
+          <span class="muted" style="font-size:.85rem">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</span>
+        </div>
+      </div>
+      <% } %>
     </section>
     <% } %>
 
@@ -80,10 +91,15 @@
       return {
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
+        cloudUrlForm: { value: '' }, savingCloudUrl: false,
         canEdit: <%= user.permissions.has('settings.edit') ? 'true' : 'false' %>,
         async load() {
           const r = await fetch('/api/settings');
-          if (r.ok) this.settings = await r.json();
+          if (r.ok) {
+            this.settings = await r.json();
+            const cu = this.settings.find((s) => s.key === 'sync.server_url');
+            this.cloudUrlForm.value = cu?.value ?? '';
+          }
           <% if (user.permissions.has('license.view')) { %>
           const l = await fetch('/api/license');
           if (l.ok) this.license = await l.json();
@@ -114,6 +130,18 @@
             const l = await fetch('/api/license');
             if (l.ok) this.license = await l.json();
           } else this.licenseError = (await r.json()).error ?? 'Falha ao sincronizar.';
+        },
+        <% } %>
+        <% if (user.permissions.has('settings.edit')) { %>
+        async saveCloudUrl() {
+          this.savingCloudUrl = true;
+          const r = await fetch('/api/settings/sync.server_url', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.cloudUrlForm.value || null }),
+          });
+          this.savingCloudUrl = false;
+          if (r.ok) this.load();
         },
         <% } %>
         openNew() { this.form = { locked: false }; this.$refs.dlg.showModal(); },

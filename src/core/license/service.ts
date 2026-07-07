@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import os from 'node:os';
 import { getSqlite } from '../database/connection';
+import { getCloudServerUrl } from '../config/cloud';
 
 /**
  * Licenciamento base (KATSU_PLANO.md §7): Machine ID + Empresa UUID + License Key.
@@ -98,7 +99,7 @@ export function isModuleEntitled(moduleId: string): boolean {
  */
 export async function refreshLicenseFromCloud(): Promise<void> {
   const { companyUuid, licenseKey } = getLicenseCredentials();
-  const url = process.env.KATSU_SYNC_SERVER_URL;
+  const url = getCloudServerUrl();
   if (!companyUuid || !licenseKey || !url) return;
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/api/license/validate`, {
