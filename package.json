@@ -1,6 +1,6 @@
 {
   "name": "katsu",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Katsu — plataforma comercial modular desktop-first",
   "private": true,
   "main": "dist/electron/bootstrap.js",
