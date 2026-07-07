@@ -181,6 +181,19 @@ recompilam `better-sqlite3` contra o ABI do Electron — isso pode deixar `npm r
 `npm run test:faseN` (que usam o Node do sistema via `tsx`) quebrados com erro de
 `NODE_MODULE_VERSION` até rodar `npm rebuild better-sqlite3` de volta.
 
+**Auto-update de verdade (substituiu o esqueleto `src/core/updater/`):** usa
+`electron-updater` + GitHub Releases (`build.publish` no `package.json`, provider
+`github`, detectado do remote `Dragonxt022/katsu`). `npm run release:win` builda **e**
+publica a Release (instalador + `latest.yml`) — precisa de `GH_TOKEN` (Personal Access
+Token com escopo de `repo`/`public_repo`) na env no momento de rodar. Importante: dar
+`git push` sozinho **não** libera nada para quem já tem o app instalado — só
+`npm run release:win` publica uma Release de verdade, que é o que o
+`autoUpdater.checkForUpdates()` (chamado no boot, só quando `app.isPackaged`) enxerga.
+Update baixado dispara um diálogo perguntando se reinicia agora ou depois; eventos vão
+para `update.log` em `app.getPath('userData')` (sem console num app empacotado).
+Só cobre o **app inteiro** (módulos vão juntos, empacotados) — atualização
+independente por módulo continua sem existir.
+
 ### Fase 1 — Core: segurança
 **Objetivo:** ninguém entra sem autenticar; nada acontece sem permissão; tudo fica registrado.
 **Entregáveis:**

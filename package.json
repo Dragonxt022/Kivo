@@ -1,6 +1,6 @@
 {
   "name": "katsu",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Katsu — plataforma comercial modular desktop-first",
   "private": true,
   "main": "dist/electron/bootstrap.js",
@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
     "dist:win": "npm run build && npm run rebuild:electron && electron-builder --win",
+    "release:win": "npm run build && npm run rebuild:electron && electron-builder --win --publish always",
     "lint": "eslint src",
     "format": "prettier --write \"src/**/*.ts\"",
     "db:migrate": "tsx src/core/database/cli.ts up",
@@ -41,6 +42,7 @@
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.44.0",
     "ejs": "^3.1.10",
+    "electron-updater": "^6.8.9",
     "express": "^5.1.0"
   },
   "devDependencies": {
@@ -74,6 +76,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Dragonxt022",
+      "repo": "katsu"
     },
     "directories": {
       "output": "dist-installer",

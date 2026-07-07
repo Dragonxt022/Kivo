@@ -1,11 +1,11 @@
 import { app, BrowserWindow, dialog, Menu } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
-import { checkAppUpdates, checkModuleUpdates } from '../core/updater';
 import { getSqlite } from '../core/database/connection';
 import { refreshLicenseFromCloud } from '../core/license/service';
 
@@ -47,6 +47,48 @@ function reportFatalBootError(err: unknown): void {
   app.quit();
 }
 
+/**
+ * Auto-update de verdade (substitui o esqueleto da Fase 0): checa Releases do
+ * GitHub (owner/repo/provider vêm do "publish" em package.json — `npm run
+ * release:win` publica lá). Só roda no app empacotado; em dev não há
+ * app-update.yml e o electron-updater erraria à toa. Sem console visível num app
+ * empacotado, os eventos vão para um log em userData.
+ */
+function setupAutoUpdater(): void {
+  if (!app.isPackaged) return;
+  const logPath = path.join(app.getPath('userData'), 'update.log');
+  const log = (msg: string) => {
+    try {
+      fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
+    } catch {
+      // log é best-effort — não deve derrubar o app.
+    }
+  };
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.on('checking-for-update', () => log('verificando atualização...'));
+  autoUpdater.on('update-available', (info) => log(`atualização disponível: ${info.version}`));
+  autoUpdater.on('update-not-available', () => log('nenhuma atualização disponível.'));
+  autoUpdater.on('error', (err) => log(`erro: ${err.message}`));
+  autoUpdater.on('update-downloaded', (info) => {
+    log(`atualização baixada: ${info.version} — perguntando ao usuário.`);
+    dialog
+      .showMessageBox({
+        type: 'info',
+        title: 'Katsu — atualização disponível',
+        message: `Uma nova versão (${info.version}) foi baixada. Reiniciar agora para instalar?`,
+        buttons: ['Reiniciar agora', 'Depois'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
+  });
+
+  autoUpdater.checkForUpdates().catch((err) => log(`falha ao checar: ${err.message}`));
+}
+
 async function boot() {
   Menu.setApplicationMenu(null);
 
@@ -63,6 +105,7 @@ async function boot() {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    show: false,
     // Relativo a __dirname (não process.cwd()): dev resolve para src/public; app
     // empacotado resolve para dist/public (ver scripts/copy-build-assets.js).
     icon: path.resolve(__dirname, '..', 'public', 'katsu_logo.png'),
@@ -72,11 +115,11 @@ async function boot() {
       nodeIntegration: false,
     },
   });
+  win.maximize();
+  win.show();
   await win.loadURL(`http://localhost:${PORT}/`);
 
-  // Esqueleto do auto-update (app e módulos separados) — Fase 0.
-  void checkAppUpdates();
-  void checkModuleUpdates();
+  setupAutoUpdater();
 }
 
 app.whenReady().then(boot).catch(reportFatalBootError);
