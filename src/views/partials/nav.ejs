@@ -1,7 +1,13 @@
 <div x-data="{
   appsOpen: false, userOpen: false,
   now: new Date().toLocaleTimeString('pt-BR'),
-  init() { setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR'); }, 1000); },
+  billingAlert: null,
+  init() {
+    setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR'); }, 1000);
+    <% if (user && user.permissions.has('billing.view')) { %>
+    fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; }).catch(() => {});
+    <% } %>
+  },
   theme: document.documentElement.getAttribute('data-theme') || 'light',
   toggleTheme() {
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
@@ -43,6 +49,17 @@
   </div>
   <% } %>
 </header>
+
+<% if (user && user.permissions.has('billing.view')) { %>
+<div x-show="billingAlert" x-cloak
+     style="position:fixed;top:calc(var(--header-height) + 8px);left:50%;transform:translateX(-50%);z-index:40;
+            background:var(--danger-bg);color:var(--danger-text);border-radius:10px;padding:.6rem 1rem;
+            display:flex;align-items:center;gap:.75rem;font-size:.88rem;box-shadow:var(--shadow-sm);max-width:90vw">
+  <span>⚠ <span x-text="billingAlert ? billingAlert.count : 0"></span> cobrança(s) vencendo em até 3 dias</span>
+  <a href="/admin/cobrancas" style="color:inherit;font-weight:600;text-decoration:underline">ver</a>
+  <button @click="billingAlert = null" style="background:none;border:0;color:inherit;cursor:pointer;font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
+</div>
+<% } %>
 
 <% if (user) { %>
 <dialog x-ref="userDlg" closedby="none" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:280px"
@@ -130,6 +147,7 @@
       if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'shield-check', page: 'audit' });
       if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', page: 'backup' });
       if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', page: 'settings' });
+      if (user.permissions.has('billing.view')) adminItems.push({ label: 'Cobranças', href: '/admin/cobrancas', icon: 'receipt', page: 'billing' });
     %>
     <% if (adminItems.length) { %>
     <div class="apps-drawer-divider"></div>

@@ -11,6 +11,7 @@ import settingsRoutes from './config/routes';
 import backupRoutes from './backup/routes';
 import licenseRoutes from './license/routes';
 import syncRoutes from './sync/routes';
+import billingRoutes from './billing/routes';
 import { startBackupScheduler } from './backup/service';
 import { validateLicense } from './license/service';
 
@@ -59,6 +60,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.use('/api/backup', requireAuth, backupRoutes);
   app.use('/api/license', requireAuth, licenseRoutes);
   app.use('/api/sync', requireAuth, syncRoutes);
+  app.use('/api/billing', requireAuth, billingRoutes);
 
   // Páginas do Core
   app.get('/', page('home'));
@@ -67,6 +69,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.get('/admin/auditoria', requireAuth, page('audit', 'audit.view'));
   app.get('/admin/backup', requireAuth, page('backup', 'backup.view'));
   app.get('/admin/configuracoes', requireAuth, page('settings', 'settings.view'));
+  app.get('/admin/cobrancas', requireAuth, page('billing', 'billing.view'));
 
   // Módulos: API (/api/<id>) e páginas (/app/<id>) exigem autenticação por padrão
   app.use('/api', requireAuth);

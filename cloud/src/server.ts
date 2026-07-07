@@ -3,6 +3,7 @@ import express from 'express';
 import syncRoutes from './routes/sync';
 import licenseRoutes from './routes/license';
 import backupRoutes from './routes/backup';
+import billingRoutes from './routes/billing';
 import adminRoutes from './routes/admin';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
@@ -17,6 +18,7 @@ export function createCloudServer() {
   app.use('/api/sync', syncRoutes);
   app.use('/api/license', licenseRoutes);
   app.use('/api/backup', backupRoutes);
+  app.use('/api/billing', billingRoutes);
   app.use('/admin', adminRoutes);
   return app;
 }

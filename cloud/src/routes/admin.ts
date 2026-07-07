@@ -141,11 +141,11 @@ router.post('/companies/:uuid/rotate-key', requireAdminAuth, async (req, res) =>
 
 router.post('/companies/:uuid/charges', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  const { description, amount, dueDate } = req.body ?? {};
+  const { description, amount, dueDate, instructions } = req.body ?? {};
   if (description && amount && dueDate) {
     await getPool().query(
-      'INSERT INTO charges (company_uuid, description, amount_cents, due_date) VALUES (?, ?, ?, ?)',
-      [uuid, description, Math.round(Number(amount) * 100), dueDate],
+      'INSERT INTO charges (company_uuid, description, instructions, amount_cents, due_date) VALUES (?, ?, ?, ?, ?)',
+      [uuid, description, instructions || null, Math.round(Number(amount) * 100), dueDate],
     );
   }
   res.redirect(`/admin/companies/${uuid}`);

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Cobranças</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'billing' }) %>
+  <main x-data="billingPage()" x-init="load()">
+    <h1>Cobranças</h1>
+    <p class="muted" style="margin-bottom:1rem">Histórico de cobranças registradas pela nuvem — gestão manual, sem cobrança automática por boleto/PIX.</p>
+
+    <div class="panel" x-show="urgent.length" x-cloak>
+      <h2 style="color:var(--danger)">⚠ Vencimento próximo</h2>
+      <template x-for="c in urgent" :key="c.id">
+        <p style="margin-bottom:.4rem">
+          <strong x-text="c.description"></strong> —
+          <span x-text="(c.amount_cents/100).toLocaleString('pt-BR', {minimumFractionDigits:2})"></span>
+          — vence <span x-text="c.due_date.slice(0,10)"></span>
+        </p>
+      </template>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Descrição</th><th>Valor (R$)</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th></tr>
+      </thead>
+      <tbody>
+        <template x-for="c in charges" :key="c.id">
+          <tr>
+            <td x-text="c.description"></td>
+            <td x-text="(c.amount_cents/100).toLocaleString('pt-BR', {minimumFractionDigits:2})"></td>
+            <td x-text="c.due_date.slice(0,10)"></td>
+            <td><span class="badge" :class="c.status === 'paga' ? 'ok' : (c.status === 'cancelada' ? '' : 'off')" x-text="c.status"></span></td>
+            <td class="muted" x-text="c.paid_at ? c.paid_at.slice(0,16).replace('T',' ') : '—'"></td>
+            <td class="muted" x-text="c.instructions || '—'" style="max-width:280px;white-space:pre-wrap"></td>
+          </tr>
+        </template>
+        <tr x-show="!charges.length"><td colspan="6" class="muted" style="text-align:center">Nenhuma cobrança encontrada.</td></tr>
+      </tbody>
+    </table>
+    <span class="error" x-text="error"></span>
+  </main>
+  <script>
+    function billingPage() {
+      return {
+        charges: [], urgent: [], error: '',
+        async load() {
+          const r = await fetch('/api/billing/charges');
+          if (r.ok) {
+            this.charges = await r.json();
+            const now = Date.now();
+            const threeDays = 3 * 24 * 3600e3;
+            this.urgent = this.charges.filter((c) => c.status === 'pendente' && new Date(c.due_date).getTime() - now <= threeDays);
+          } else this.error = 'Não foi possível carregar as cobranças (sem licença configurada ou nuvem indisponível).';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

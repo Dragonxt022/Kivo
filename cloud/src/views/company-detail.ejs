@@ -75,7 +75,7 @@
         <button class="btn" onclick="document.getElementById('modal-new-charge').showModal()">+ Nova cobrança</button>
       </div>
       <table>
-        <thead><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th></th></tr></thead>
+        <thead><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th><th></th></tr></thead>
         <tbody>
           <% charges.forEach(function(ch) { %>
           <tr>
@@ -84,6 +84,7 @@
             <td><%= String(ch.due_date).slice(0,10) %></td>
             <td class="<%= ch.status %>"><span class="badge <%= ch.status %>"><%= ch.status %></span></td>
             <td><%= ch.paid_at || '—' %></td>
+            <td class="instructions-cell" title="<%= ch.instructions || '' %>"><%= ch.instructions || '—' %></td>
             <td>
               <% if (ch.status === 'pendente') { %>
                 <form class="inline" method="post" action="/admin/companies/<%= company.company_uuid %>/charges/<%= ch.id %>/pay"><button type="submit" class="btn small">Marcar paga</button></form>
@@ -92,7 +93,7 @@
             </td>
           </tr>
           <% }) %>
-          <% if (!charges.length) { %><tr><td colspan="6" class="empty-state">Nenhuma cobrança ainda.</td></tr><% } %>
+          <% if (!charges.length) { %><tr><td colspan="7" class="empty-state">Nenhuma cobrança ainda.</td></tr><% } %>
         </tbody>
       </table>
     </div>
@@ -111,6 +112,9 @@
         <input type="number" step="0.01" name="amount" required>
         <label>Vencimento</label>
         <input type="date" name="dueDate" required>
+        <label>Instruções de pagamento</label>
+        <textarea name="instructions" rows="3" placeholder="ex.: chave PIX, dados bancários, como enviar o comprovante..."></textarea>
+        <p class="field-hint">Aparece para o cliente na tela de Cobranças do app instalado.</p>
         <div class="modal-actions">
           <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-charge').close()">Cancelar</button>
           <button type="submit" class="btn">Registrar cobrança</button>

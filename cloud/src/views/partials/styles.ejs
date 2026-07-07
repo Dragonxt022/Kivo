@@ -117,7 +117,7 @@
   form.inline { display: inline; }
 
   label { display: block; font-weight: 600; font-size: 0.82rem; margin-bottom: 6px; color: var(--text); }
-  input[type="text"], input[type="password"], input[type="number"], input[type="date"] {
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"], textarea {
     display: block;
     width: 100%;
     padding: 9px 12px;
@@ -126,8 +126,17 @@
     border-radius: 8px;
     font-size: 0.92rem;
     background: #fff;
+    font-family: inherit;
   }
-  input:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+  input:focus, textarea:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+  textarea { resize: vertical; }
+
+  .instructions-cell {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .field-hint { font-size: 0.78rem; color: var(--muted); margin: -12px 0 16px; }
 
   .module-toggles { margin-bottom: 16px; }
