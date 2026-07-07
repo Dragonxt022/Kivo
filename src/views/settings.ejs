@@ -12,69 +12,90 @@
 <body>
   <%- include('partials/nav', { user, page: 'settings' }) %>
   <main x-data="settingsPage()" x-init="load()">
+    <% var canEditVar = user.permissions.has('settings.edit'); %>
     <h1>Configurações</h1>
 
     <% if (user.permissions.has('license.view')) { %>
-    <section style="margin-bottom:2rem">
-      <h2 style="font-size:1.05rem;margin-bottom:.6rem">Licença</h2>
+    <section class="panel">
+      <h2>Licença</h2>
       <table>
         <tbody>
           <tr><th>Status</th><td><span class="badge" :class="license.status === 'valida' ? 'ok' : 'off'" x-text="license.message"></span></td></tr>
+          <tr><th>Empresa (UUID)</th><td class="muted" x-text="license.companyUuid ?? 'não configurada'"></td></tr>
           <tr><th>Machine ID</th><td class="muted" x-text="license.machineId"></td></tr>
           <tr><th>Plano</th><td x-text="license.plan ?? '—'"></td></tr>
-          <tr><th>Módulos</th><td x-text="license.modules ? license.modules.join(', ') : 'sem restrição'"></td></tr>
+          <tr>
+            <th>Módulos</th>
+            <td>
+              <template x-if="license.modules">
+                <template x-for="m in license.modules" :key="m"><span class="badge module" x-text="m"></span></template>
+              </template>
+              <span x-show="!license.modules" class="muted">sem restrição</span>
+            </td>
+          </tr>
           <tr><th>Válida até</th><td x-text="license.validUntil ?? '—'"></td></tr>
         </tbody>
       </table>
 
       <% if (user.permissions.has('license.edit')) { %>
-      <div style="margin-top:.8rem">
+      <h3>Ativar / trocar licença</h3>
+      <div class="field">
         <label>Empresa (UUID)</label>
-        <input type="text" x-model="licenseForm.companyUuid" placeholder="uuid fornecido na ativação">
+        <input class="input" type="text" x-model="licenseForm.companyUuid" placeholder="uuid fornecido na ativação">
+      </div>
+      <div class="field">
         <label>Chave de licença</label>
-        <input type="text" x-model="licenseForm.licenseKey" placeholder="chave fornecida na ativação">
-        <div class="toolbar">
-          <button class="btn" @click="saveLicense()" x-text="savingLicense ? 'Salvando…' : 'Salvar licença'"></button>
-          <% if (user.permissions.has('sync.run')) { %>
-          <button class="btn secondary" @click="syncNow()" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'"></button>
-          <% } %>
-          <span class="error" x-text="licenseError"></span>
-        </div>
+        <input class="input" type="text" x-model="licenseForm.licenseKey" placeholder="chave fornecida na ativação">
+      </div>
+      <div class="toolbar">
+        <button class="btn" @click="saveLicense()" x-text="savingLicense ? 'Salvando…' : 'Salvar licença'"></button>
+        <% if (user.permissions.has('sync.run')) { %>
+        <button class="btn secondary" @click="syncNow()" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'"></button>
+        <% } %>
+        <span class="error" x-text="licenseError"></span>
       </div>
       <% } %>
 
       <% if (user.permissions.has('settings.edit')) { %>
-      <div style="margin-top:1.2rem">
-        <label>Servidor de sincronização (cloud)</label>
-        <input type="text" x-model="cloudUrlForm.value" placeholder="https://katsu.buscamais.org (padrão do instalador)">
-        <div class="toolbar">
-          <button class="btn secondary" @click="saveCloudUrl()" x-text="savingCloudUrl ? 'Salvando…' : 'Salvar servidor'"></button>
-          <span class="muted" style="font-size:.85rem">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</span>
-        </div>
+      <h3>Servidor de sincronização (cloud)</h3>
+      <div class="field">
+        <label>URL do servidor</label>
+        <input class="input" type="text" x-model="cloudUrlForm.value" placeholder="https://katsu.buscamais.org (padrão do instalador)">
+        <p class="hint">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</p>
+      </div>
+      <div class="toolbar">
+        <button class="btn secondary" @click="saveCloudUrl()" x-text="savingCloudUrl ? 'Salvando…' : 'Salvar servidor'"></button>
       </div>
       <% } %>
     </section>
     <% } %>
 
-    <div class="toolbar" x-show="canEdit">
-      <button class="btn" @click="openNew()">Nova configuração</button>
-      <span class="error" x-text="error"></span>
-    </div>
-    <table>
-      <thead><tr><th>Chave</th><th>Valor</th><th>Atualizada</th><th></th></tr></thead>
-      <tbody>
-        <template x-for="s in settings" :key="s.key">
-          <tr>
-            <td x-text="s.key"></td>
-            <td x-text="s.value ?? '—'"></td>
-            <td class="muted" x-text="s.updated_at"></td>
-            <td style="text-align:right">
-              <button class="btn secondary small" x-show="canEdit" @click="openEdit(s)">Editar</button>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
+    <% if (canEditVar) { %>
+    <details class="advanced">
+      <summary>Configurações avançadas (técnicas)</summary>
+      <div class="advanced-body">
+        <div class="toolbar" x-show="canEdit">
+          <button class="btn secondary small" @click="openNew()">Nova configuração</button>
+          <span class="error" x-text="error"></span>
+        </div>
+        <table>
+          <thead><tr><th>Chave</th><th>Valor</th><th>Atualizada</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="s in settings" :key="s.key">
+              <tr>
+                <td x-text="s.key"></td>
+                <td x-text="s.value ?? '—'"></td>
+                <td class="muted" x-text="s.updated_at"></td>
+                <td style="text-align:right">
+                  <button class="btn secondary small" x-show="canEdit" @click="openEdit(s)">Editar</button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <% } %>
 
     <dialog x-ref="dlg">
       <h1>Configuração</h1>
@@ -92,7 +113,7 @@
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
-        canEdit: <%= user.permissions.has('settings.edit') ? 'true' : 'false' %>,
+        canEdit: <%= canEditVar ? 'true' : 'false' %>,
         async load() {
           const r = await fetch('/api/settings');
           if (r.ok) {
@@ -161,4 +182,3 @@
   </script>
 </body>
 </html>
-

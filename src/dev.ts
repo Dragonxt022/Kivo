@@ -6,6 +6,7 @@ import { migrateUp } from './core/database/migrator';
 import { runSeeds } from './core/database/seeds';
 import { createServer } from './core/server';
 import { closeDb } from './core/database/connection';
+import { refreshLicenseFromCloud } from './core/license/service';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
 const smoke = process.argv.includes('--smoke');
@@ -14,6 +15,7 @@ async function main() {
   const applied = migrateUp();
   if (applied.length) console.log(`[db] migrations aplicadas: ${applied.join(', ')}`);
   runSeeds();
+  await refreshLicenseFromCloud();
 
   const { app, modules } = await createServer();
   const server = app.listen(PORT, () => {

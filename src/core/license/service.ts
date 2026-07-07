@@ -104,6 +104,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/api/license/validate`, {
       headers: { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey },
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return;
     const body = (await res.json()) as { plan: string | null; modules: string[] | null; validUntil: string | null };

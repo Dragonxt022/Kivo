@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, Menu } from 'electron';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -7,6 +7,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { checkAppUpdates, checkModuleUpdates } from '../core/updater';
 import { getSqlite } from '../core/database/connection';
+import { refreshLicenseFromCloud } from '../core/license/service';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
 
@@ -47,9 +48,15 @@ function reportFatalBootError(err: unknown): void {
 }
 
 async function boot() {
+  Menu.setApplicationMenu(null);
+
   migrateUp();
   runSeeds();
   seedPackagedBackupDir();
+  // Antes de carregar os módulos (que decidem o que habilitar a partir do cache
+  // local de licença): sem isso, mudar o plano/módulos no painel cloud só entrava em
+  // vigor depois de um "Sincronizar agora" manual — reiniciar sozinho não bastava.
+  await refreshLicenseFromCloud();
   const { app: api } = await createServer();
   api.listen(PORT, '127.0.0.1');
 
