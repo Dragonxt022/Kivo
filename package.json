@@ -32,6 +32,7 @@
     "cloud:install": "npm --prefix cloud install",
     "cloud:migrate": "npm --prefix cloud run migrate",
     "cloud:dev": "npm --prefix cloud run dev",
+    "cloud:deploy": "bash scripts/deploy-cloud.sh",
     "postinstall": "node -e \"require('fs').cpSync(require.resolve('alpinejs/dist/cdn.min.js'), 'src/public/vendor/alpine.min.js')\""
   },
   "dependencies": {
