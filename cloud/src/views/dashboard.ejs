@@ -50,9 +50,7 @@
         <input type="text" name="name" required autofocus>
         <label>Plano</label>
         <input type="text" name="plan" placeholder="ex.: basico">
-        <label>Módulos</label>
-        <input type="text" name="modules" placeholder="ex.: commercial,finance,store">
-        <p class="field-hint">Separados por vírgula — vazio significa sem restrição de módulos.</p>
+        <%- include('partials/module-toggles', { checkedModules: [] }) %>
         <div class="modal-actions">
           <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-company').close()">Cancelar</button>
           <button type="submit" class="btn">Criar empresa</button>

@@ -1,0 +1,21 @@
+<%
+  var KNOWN_MODULES = [
+    { id: 'commercial', label: 'Comercial (cadastros e estoque)' },
+    { id: 'finance', label: 'Financeiro (caixa e contas)' },
+    { id: 'store', label: 'Loja (PDV e vendas)' },
+  ];
+  var checked = typeof checkedModules !== 'undefined' && checkedModules ? checkedModules : [];
+%>
+<label>Módulos</label>
+<div class="module-toggles">
+  <% KNOWN_MODULES.forEach(function(mod) { %>
+  <div class="module-toggle-row">
+    <span class="label"><%= mod.label %></span>
+    <label class="switch">
+      <input type="checkbox" name="modules" value="<%= mod.id %>" <%= checked.indexOf(mod.id) !== -1 ? 'checked' : '' %>>
+      <span class="slider"></span>
+    </label>
+  </div>
+  <% }) %>
+</div>
+<p class="field-hint">Nenhum módulo ligado = sem restrição (todos liberados, independente do plano).</p>

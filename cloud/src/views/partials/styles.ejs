@@ -130,6 +130,37 @@
   input:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
   .field-hint { font-size: 0.78rem; color: var(--muted); margin: -12px 0 16px; }
 
+  .module-toggles { margin-bottom: 16px; }
+  .module-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .module-toggle-row:last-child { border-bottom: none; }
+  .module-toggle-row .label { font-weight: 500; font-size: 0.9rem; color: var(--text); }
+  .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background-color: var(--border);
+    transition: 0.15s;
+    border-radius: 999px;
+  }
+  .switch .slider::before {
+    position: absolute;
+    content: "";
+    height: 18px; width: 18px;
+    left: 3px; bottom: 3px;
+    background-color: #fff;
+    transition: 0.15s;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .switch input:checked + .slider { background-color: var(--primary); }
+  .switch input:checked + .slider::before { transform: translateX(18px); }
+
   .key-reveal {
     background: var(--warning-soft);
     border: 1px solid #f0d9a8;
