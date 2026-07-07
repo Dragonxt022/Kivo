@@ -43,15 +43,17 @@
       </tbody>
     </table>
 
-    <dialog x-ref="dlg">
+    <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar fornecedor' : 'Novo fornecedor'"></h1>
-      <label>Razão social</label><input type="text" x-model="form.name" />
-      <label>Nome fantasia</label><input type="text" x-model="form.trade_name" />
-      <label>CNPJ/CPF</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="00.000.000/0000-00" />
-      <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
-      <label>E-mail</label><input type="text" x-model="form.email" />
-      <label>Endereço</label><input type="text" x-model="form.address" />
-      <div class="error" x-text="dlgError"></div>
+      <div class="dialog-body">
+        <label>Razão social</label><input type="text" x-model="form.name" />
+        <label>Nome fantasia</label><input type="text" x-model="form.trade_name" />
+        <label>CNPJ/CPF</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="00.000.000/0000-00" />
+        <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
+        <label>E-mail</label><input type="text" x-model="form.email" />
+        <label>Endereço</label><input type="text" x-model="form.address" />
+        <div class="error" x-text="dlgError"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
         <button class="btn" @click="save()">Salvar</button>

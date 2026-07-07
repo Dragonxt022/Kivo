@@ -444,7 +444,8 @@ dialog {
   inset: 0;
   margin: auto;
   background: var(--surface); color: var(--text); border: 1px solid var(--border-light);
-  border-radius: 16px; padding: 1.5rem; width: 380px; max-height: calc(100vh - 2rem); overflow-y: auto;
+  border-radius: 16px; padding: 1.5rem; width: min(520px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem); overflow-y: auto;
   box-shadow: 0 16px 48px rgba(0,0,0,.15);
   animation: dialog-in var(--transition);
 }
@@ -475,7 +476,22 @@ dialog input:focus, dialog select:focus {
   outline: none; border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
 }
-dialog .actions { display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1.2rem; }
+dialog .actions {
+  display: flex; gap: .6rem; justify-content: flex-end;
+  position: sticky; bottom: -1.5rem; z-index: 1;
+  background: var(--surface); margin-top: 1rem; padding: 1rem 0 0;
+  border-top: 1px solid var(--border-light);
+}
+/* Dialog com rodapé fixo: o corpo (dialog-body) rola, actions ficam sempre visíveis */
+dialog.dialog-fixed {
+  overflow: hidden; height: min(85vh, 600px);
+}
+dialog.dialog-fixed > .dialog-body {
+  flex: 1; overflow-y: auto; min-height: 0;
+}
+dialog.dialog-fixed > .actions {
+  flex-shrink: 0; position: static; border-top: 1px solid var(--border-light); margin-top: 1rem; padding-top: 1rem;
+}
 
 /* ─── Input states ─── */
 .input-error { border-color: var(--danger) !important; }

@@ -43,15 +43,17 @@
       </tbody>
     </table>
 
-    <dialog x-ref="dlg">
+    <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar cliente' : 'Novo cliente'"></h1>
-      <label>Nome</label><input type="text" x-model="form.name" />
-      <label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="000.000.000-00" />
-      <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
-      <label>E-mail</label><input type="text" x-model="form.email" />
-      <label>Endereço</label><input type="text" x-model="form.address" />
-      <label>Observações</label><input type="text" x-model="form.notes" />
-      <div class="error" x-text="dlgError"></div>
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="form.name" />
+        <label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="000.000.000-00" />
+        <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
+        <label>E-mail</label><input type="text" x-model="form.email" />
+        <label>Endereço</label><input type="text" x-model="form.address" />
+        <label>Observações</label><input type="text" x-model="form.notes" />
+        <div class="error" x-text="dlgError"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
         <button class="btn" @click="save()">Salvar</button>

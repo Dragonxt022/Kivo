@@ -99,34 +99,36 @@
       </tbody>
     </table>
 
-    <dialog x-ref="dlg">
+    <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar produto' : 'Novo produto'"></h1>
-      <label>Nome</label><input type="text" x-model="form.name" />
-      <label>Código de barras</label><input type="text" x-model="form.barcode" />
-      <label>SKU</label><input type="text" x-model="form.sku" />
-      <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
-      <label>Categoria</label>
-      <select x-model.number="form.categoryId">
-        <option value="">— sem categoria —</option>
-        <template x-for="c in categories" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
-      </select>
-      <div style="display:flex;gap:.4rem;margin-top:.3rem">
-        <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
-        <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
-        <button class="btn secondary small" type="button" @click="openCatMgr()">Gerenciar</button>
-      </div>
-      <% if (user.permissions.has('commercial.products.price')) { %>
-        <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
-      <% } %>
-      <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
-      <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
-      <template x-if="!form.id">
-        <div>
-          <label>Estoque inicial (opcional)</label>
-          <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="form.name" />
+        <label>Código de barras</label><input type="text" x-model="form.barcode" />
+        <label>SKU</label><input type="text" x-model="form.sku" />
+        <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
+        <label>Categoria</label>
+        <select x-model.number="form.categoryId">
+          <option value="">— sem categoria —</option>
+          <template x-for="c in categories" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+        </select>
+        <div style="display:flex;gap:.4rem;margin-top:.3rem">
+          <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
+          <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
+          <button class="btn secondary small" type="button" @click="openCatMgr()">Gerenciar</button>
         </div>
-      </template>
-      <div class="error" x-text="dlgError"></div>
+        <% if (user.permissions.has('commercial.products.price')) { %>
+          <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
+        <% } %>
+        <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
+        <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
+        <template x-if="!form.id">
+          <div>
+            <label>Estoque inicial (opcional)</label>
+            <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
+          </div>
+        </template>
+        <div class="error" x-text="dlgError"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
         <button class="btn" @click="save()">Salvar</button>
@@ -152,54 +154,56 @@
       </div>
     </dialog>
 
-    <dialog x-ref="catDlg">
+    <dialog x-ref="catDlg" class="dialog-fixed">
       <h1>Gerenciar categorias</h1>
-      <template x-for="c in categories" :key="c.id">
-        <div style="display:flex;align-items:center;gap:.4rem;padding:.35rem 0">
-          <template x-if="catEditId !== c.id">
-            <span style="flex:1" x-text="c.name"></span>
-          </template>
-          <template x-if="catEditId === c.id">
-            <input type="text" x-model="catEditName" style="flex:1" @keydown.enter="renameCategory(c.id)" />
-          </template>
-          <template x-if="catEditId !== c.id">
-            <button class="icon-btn" @click="catEditId = c.id; catEditName = c.name" title="Renomear">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-            </button>
-          </template>
-          <template x-if="catEditId === c.id">
-            <button class="icon-btn" @click="renameCategory(c.id)" title="Salvar">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </button>
-          </template>
-          <button class="icon-btn" @click="catDelId = c.id; catDelAction = 'unset'; catDelMigrateTo = null" title="Excluir">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-          </button>
-        </div>
-      </template>
-
-      <template x-if="catDelId">
-        <div style="margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border-light)">
-          <p style="margin-bottom:.8rem" x-text="'Excluir "' + categories.find(c => c.id === catDelId)?.name + '"?""></p>
-          <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
-            <input type="radio" value="unset" x-model="catDelAction" /> Deixar produtos sem categoria
-          </label>
-          <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
-            <input type="radio" value="migrate" x-model="catDelAction" /> Migrar produtos para:
-          </label>
-          <select x-show="catDelAction === 'migrate'" x-model.number="catDelMigrateTo" style="width:100%;margin-bottom:.8rem">
-            <option value="">Selecione…</option>
-            <template x-for="c in categories.filter(c => c.id !== catDelId)" :key="c.id">
-              <option :value="c.id" x-text="c.name"></option>
+      <div class="dialog-body">
+        <template x-for="c in categories" :key="c.id">
+          <div style="display:flex;align-items:center;gap:.4rem;padding:.35rem 0">
+            <template x-if="catEditId !== c.id">
+              <span style="flex:1" x-text="c.name"></span>
             </template>
-          </select>
-          <div class="error" x-text="dlgError"></div>
-          <div class="actions">
-            <button class="btn secondary" @click="catDelId = null; catDelAction = 'unset'; catDelMigrateTo = null">Cancelar</button>
-            <button class="btn danger" @click="deleteCategory()" :disabled="catDelAction === 'migrate' && !catDelMigrateTo">Confirmar exclusão</button>
+            <template x-if="catEditId === c.id">
+              <input type="text" x-model="catEditName" style="flex:1" @keydown.enter="renameCategory(c.id)" />
+            </template>
+            <template x-if="catEditId !== c.id">
+              <button class="icon-btn" @click="catEditId = c.id; catEditName = c.name" title="Renomear">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              </button>
+            </template>
+            <template x-if="catEditId === c.id">
+              <button class="icon-btn" @click="renameCategory(c.id)" title="Salvar">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </template>
+            <button class="icon-btn" @click="catDelId = c.id; catDelAction = 'unset'; catDelMigrateTo = null" title="Excluir">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
           </div>
-        </div>
-      </template>
+        </template>
+
+        <template x-if="catDelId">
+          <div style="margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border-light)">
+            <p style="margin-bottom:.8rem" x-text="'Excluir "' + categories.find(c => c.id === catDelId)?.name + '"?""></p>
+            <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
+              <input type="radio" value="unset" x-model="catDelAction" /> Deixar produtos sem categoria
+            </label>
+            <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
+              <input type="radio" value="migrate" x-model="catDelAction" /> Migrar produtos para:
+            </label>
+            <select x-show="catDelAction === 'migrate'" x-model.number="catDelMigrateTo" style="width:100%;margin-bottom:.8rem">
+              <option value="">Selecione…</option>
+              <template x-for="c in categories.filter(c => c.id !== catDelId)" :key="c.id">
+                <option :value="c.id" x-text="c.name"></option>
+              </template>
+            </select>
+            <div class="error" x-text="dlgError"></div>
+            <div class="actions" style="position:static;border-top:0;margin-top:.5rem;padding-top:0">
+              <button class="btn secondary" @click="catDelId = null; catDelAction = 'unset'; catDelMigrateTo = null">Cancelar</button>
+              <button class="btn danger" @click="deleteCategory()" :disabled="catDelAction === 'migrate' && !catDelMigrateTo">Confirmar exclusão</button>
+            </div>
+          </div>
+        </template>
+      </div>
 
       <div class="actions">
         <button class="btn secondary" @click="$refs.catDlg.close()">Fechar</button>

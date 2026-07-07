@@ -43,43 +43,45 @@
       </tbody>
     </table>
 
-    <dialog x-ref="dlg" style="width:600px">
+    <dialog x-ref="dlg" class="dialog-fixed" style="width:min(600px,calc(100vw - 2rem))">
       <h1 x-text="form.id ? 'Editar compra #' + form.id : 'Nova compra'"></h1>
-      <label>Fornecedor</label>
-      <select x-model.number="form.supplierId">
-        <option value="">Selecione…</option>
-        <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
-      </select>
+      <div class="dialog-body">
+        <label>Fornecedor</label>
+        <select x-model.number="form.supplierId">
+          <option value="">Selecione…</option>
+          <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
+        </select>
 
-      <template x-if="!form.id">
-        <div>
-          <label>Adicionar item</label>
-          <div style="display:grid;grid-template-columns:1fr 80px 110px 70px;gap:.4rem;align-items:end">
-            <select x-model.number="item.productId">
-              <option value="">Produto…</option>
-              <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
-            </select>
-            <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
-            <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
-            <button class="btn secondary" @click="addItem()">+</button>
-          </div>
+        <template x-if="!form.id">
+          <div>
+            <label>Adicionar item</label>
+            <div style="display:grid;grid-template-columns:1fr 80px 110px 70px;gap:.4rem;align-items:end">
+              <select x-model.number="item.productId">
+                <option value="">Produto…</option>
+                <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
+              </select>
+              <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
+              <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
+              <button class="btn secondary" @click="addItem()">+</button>
+            </div>
 
-          <div style="margin-top:.8rem;max-height:180px;overflow-y:auto">
-            <template x-for="(i, idx) in form.items" :key="idx">
-              <div style="display:flex;justify-content:space-between;gap:.5rem;padding:.3rem 0;font-size:.9rem">
-                <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
-                <span>
-                  <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
-                  <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button>
-                </span>
-              </div>
-            </template>
+            <div style="margin-top:.8rem;max-height:180px;overflow-y:auto">
+              <template x-for="(i, idx) in form.items" :key="idx">
+                <div style="display:flex;justify-content:space-between;gap:.5rem;padding:.3rem 0;font-size:.9rem">
+                  <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
+                  <span>
+                    <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
+                    <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button>
+                  </span>
+                </div>
+              </template>
+            </div>
+            <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
           </div>
-          <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
-        </div>
-      </template>
-      <label>Observações</label><input type="text" x-model="form.notes" />
-      <div class="error" x-text="dlgError"></div>
+        </template>
+        <label>Observações</label><input type="text" x-model="form.notes" />
+        <div class="error" x-text="dlgError"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
         <button class="btn" @click="save()" x-text="form.id ? 'Salvar' : 'Receber compra'"></button>

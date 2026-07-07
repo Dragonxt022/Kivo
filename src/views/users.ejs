@@ -46,23 +46,25 @@
       </tbody>
     </table>
 
-    <dialog x-ref="dlg">
+    <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar usuário' : 'Novo usuário'"></h1>
-      <label>Nome</label><input type="text" x-model="form.name" />
-      <label>Usuário</label><input type="text" x-model="form.username" :disabled="!!form.id" />
-      <label>E-mail</label><input type="text" x-model="form.email" />
-      <label>Cargo</label>
-      <select x-model="form.roleSlug">
-        <template x-for="r in roles"><option :value="r" x-text="r" :selected="r === form.roleSlug"></option></template>
-      </select>
-      <label x-text="form.id ? 'Nova senha (deixe vazio para manter)' : 'Senha'"></label>
-      <input type="password" x-model="form.password" />
-      <template x-if="form.id">
-        <label class="remember" style="display:flex;align-items:center;gap:.5rem;margin-top:.7rem">
-          <input type="checkbox" x-model="form.active" style="width:auto" /> Ativo
-        </label>
-      </template>
-      <div class="error" x-text="dlgError"></div>
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="form.name" />
+        <label>Usuário</label><input type="text" x-model="form.username" :disabled="!!form.id" />
+        <label>E-mail</label><input type="text" x-model="form.email" />
+        <label>Cargo</label>
+        <select x-model="form.roleSlug">
+          <template x-for="r in roles"><option :value="r" x-text="r" :selected="r === form.roleSlug"></option></template>
+        </select>
+        <label x-text="form.id ? 'Nova senha (deixe vazio para manter)' : 'Senha'"></label>
+        <input type="password" x-model="form.password" />
+        <template x-if="form.id">
+          <label class="remember" style="display:flex;align-items:center;gap:.5rem;margin-top:.7rem">
+            <input type="checkbox" x-model="form.active" style="width:auto" /> Ativo
+          </label>
+        </template>
+        <div class="error" x-text="dlgError"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
         <button class="btn" @click="save()">Salvar</button>
