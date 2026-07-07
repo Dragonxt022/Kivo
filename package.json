@@ -80,7 +80,8 @@
     "publish": {
       "provider": "github",
       "owner": "Dragonxt022",
-      "repo": "katsu"
+      "repo": "katsu",
+      "releaseType": "release"
     },
     "directories": {
       "output": "dist-installer",
