@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import path from 'node:path';
-import { loadModules, collectMenu } from './modules/loader';
+import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
 import authRoutes from './auth/routes';
@@ -42,6 +42,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.resolve(__dirname, '..', 'public')));
   app.use(attachUser);
+  app.use(filterModuleMenu);
 
   // Rotas públicas
   app.get('/api/health', (_req, res) => {

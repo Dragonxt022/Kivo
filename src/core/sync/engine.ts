@@ -1,7 +1,8 @@
 import type { Request } from 'express';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
-import { machineId, refreshLicenseFromCloud } from '../license/service';
+import { machineId, refreshLicenseFromCloud, validateLicense } from '../license/service';
+import { canSaveToCloud } from '../license/plans';
 import { getSyncTables, getRecomputeHook } from './registry';
 import {
   tableColumns,
@@ -324,11 +325,15 @@ async function pullAll(req: Request): Promise<number> {
   return count;
 }
 
-export async function runSync(req: Request): Promise<{ pushed: number; pulled: number }> {
+export async function runSync(req: Request): Promise<{ pushed: number; pulled: number; skipped?: boolean }> {
   // Reconectar também confirma entitlement/validade (Fase 6b) — best-effort, não
-  // interrompe o resto do sync se o cloud/ estiver fora do ar. Só reflete nas rotas
-  // montadas no próximo boot (o loader lê o cache local, não a rede).
+  // interrompe o resto do sync se o cloud/ estiver fora do ar. Módulos são checados
+  // dinamicamente por requisição (não só no boot), então o plano atualizado aqui já
+  // reflete imediatamente no restante do app.
   await refreshLicenseFromCloud();
+  if (!canSaveToCloud(validateLicense().plan)) {
+    return { pushed: 0, pulled: 0, skipped: true };
+  }
   const pushed = await pushAll();
   const pulled = await pullAll(req);
   return { pushed, pulled };

@@ -89,7 +89,7 @@ async function main() {
   const printQ = await fetch(`${base}/app/store/orcamentos/${quoteId}/imprimir`, { headers: { cookie: admin! } });
   const quoteHtml = await printQ.text();
   check('orçamento imprimível renderiza (200)', printQ.status === 200);
-  check('orçamento tem cliente e validade', quoteHtml.includes('Obra da Rua 7') && quoteHtml.includes('2027-01-01'));
+  check('orçamento tem cliente e validade', quoteHtml.includes('Obra da Rua 7') && quoteHtml.includes('01/01/2027'));
   check('cupom de venda inexistente → 404', (await fetch(`${base}/app/store/vendas/99999/cupom`, { headers: { cookie: admin! } })).status === 404);
 
   // auditoria

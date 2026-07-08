@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { Express, Router } from 'express';
+import type { Express, Router, Request, Response, NextFunction } from 'express';
 import { getSqlite } from '../database/connection';
 import { registerSyncTables } from '../sync/registry';
 import { isModuleEntitled } from '../license/service';
@@ -106,12 +106,49 @@ function registerPermissions(m: ModuleManifest): void {
   }
 }
 
-/** Menu agregado de todos os módulos carregados (para a UI). */
+/** Menu agregado de todos os módulos carregados (para a UI) — cada item marcado com
+ * o módulo dono, para ser filtrado por entitlement a cada requisição (ver
+ * `filterModuleMenu`), não travado no que valia no boot. */
 export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
-  return modules.flatMap((m) => m.manifest.menu ?? []);
+  return modules.flatMap((m) => (m.manifest.menu ?? []).map((item) => ({ ...item, moduleId: m.manifest.id })));
 }
 
-/** Descobre, valida e carrega todos os módulos em src/modules/. */
+/**
+ * Filtra `app.locals.moduleMenu` (todos os módulos compatíveis, sempre carregados)
+ * pelo entitlement ATUAL a cada requisição — troca de plano/módulo aparece no
+ * próximo clique, sem precisar reiniciar o Katsu.
+ */
+export function filterModuleMenu(req: Request, res: Response, next: NextFunction): void {
+  const all = (req.app.locals.moduleMenu ?? []) as ModuleMenuItem[];
+  res.locals.moduleMenu = all.filter((item) => !item.moduleId || isModuleEntitled(item.moduleId));
+  next();
+}
+
+/**
+ * Bloqueia acesso a um módulo fora do plano contratado — checado a cada requisição
+ * (não só no boot), então mudar de plano faz efeito imediato para quem estiver online.
+ */
+function requireModuleEntitlement(moduleId: string, kind: 'api' | 'page') {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (isModuleEntitled(moduleId)) {
+      next();
+      return;
+    }
+    if (kind === 'api') {
+      res.status(403).json({ error: `Módulo "${moduleId}" não incluído no plano contratado.` });
+    } else {
+      res.redirect('/');
+    }
+  };
+}
+
+/**
+ * Descobre, valida e carrega todos os módulos em src/modules/. Todo módulo
+ * compatível com o Core é sempre carregado — o plano contratado só decide se as
+ * rotas ficam ACESSÍVEIS (via `requireModuleEntitlement`, checado a cada
+ * requisição), nunca se o código é montado. Isso permite trocar de plano e ver o
+ * efeito na hora, sem reiniciar o app.
+ */
 export async function loadModules(app: Express): Promise<LoadedModule[]> {
   if (!fs.existsSync(MODULES_DIR)) return [];
   const loaded: LoadedModule[] = [];
@@ -131,15 +168,6 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
       continue;
     }
 
-    // Fase 6b: plano da empresa pode não incluir este módulo. Migrations já rodaram
-    // (dado não é apagado por perda de entitlement); só rotas/menu/serviços ficam de fora.
-    // Aplica no boot a partir do cache local — reavaliar exige reiniciar o Katsu.
-    if (!isModuleEntitled(manifest.id)) {
-      console.warn(`[modules] "${manifest.id}" não incluído no plano contratado — desabilitado.`);
-      registerInDb(manifest, false);
-      continue;
-    }
-
     // setup: registra serviços do módulo no Core ANTES das rotas (outros módulos dependem)
     if (manifest.setup) {
       const basePath = path.join(dir, manifest.setup);
@@ -151,10 +179,10 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
     }
 
     const router = manifest.routes ? await importRouter(dir, manifest.routes) : undefined;
-    if (router) app.use(`/api/${manifest.id}`, router);
+    if (router) app.use(`/api/${manifest.id}`, requireModuleEntitlement(manifest.id, 'api'), router);
 
     const pagesRouter = manifest.pages ? await importRouter(dir, manifest.pages) : undefined;
-    if (pagesRouter) app.use(`/app/${manifest.id}`, pagesRouter);
+    if (pagesRouter) app.use(`/app/${manifest.id}`, requireModuleEntitlement(manifest.id, 'page'), pagesRouter);
 
     const viewsDir = manifest.views ? path.join(dir, manifest.views) : undefined;
 

@@ -8,6 +8,8 @@ export interface ModuleMenuItem {
   permission?: string;
   description?: string;
   icon?: string;
+  /** Preenchido por collectMenu() — usado para filtrar o menu por entitlement a cada requisição. */
+  moduleId?: string;
 }
 
 /** Contrato do module.manifest.ts (KATSU_PLANO.md §4). */

@@ -4,6 +4,10 @@
   billingAlert: null,
   licenseStatus: null,
   cashAlert: null,
+  cloudStatus: { configured: false, online: false },
+  checkCloudStatus() {
+    fetch('/api/sync/status').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.cloudStatus = data; }).catch(() => { this.cloudStatus = { configured: true, online: false }; });
+  },
   init() {
     setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Porto_Velho' }); }, 1000);
     <% if (user && user.permissions.has('billing.view')) { %>
@@ -11,6 +15,8 @@
     <% } %>
     <% if (user) { %>
     fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; }).catch(() => {});
+    this.checkCloudStatus();
+    setInterval(() => this.checkCloudStatus(), 25000);
     <% } %>
     <% if (user && user.permissions.has('finance.cash.view')) { %>
     fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; }).catch(() => {});
@@ -44,6 +50,22 @@
 
   <% if (user) { %>
   <div class="nav-end">
+    <span :title="!cloudStatus.configured ? 'Licença não configurada' : (cloudStatus.online ? 'Conectado à nuvem' : 'Sem conexão com a nuvem')"
+          style="display:inline-flex;align-items:center;padding:.3rem;color:var(--text-muted)"
+          :style="{ color: !cloudStatus.configured ? 'var(--text-muted)' : (cloudStatus.online ? 'var(--primary)' : 'var(--danger)') }">
+      <template x-if="cloudStatus.configured && cloudStatus.online">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
+          <path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+      </template>
+      <template x-if="!cloudStatus.configured || !cloudStatus.online">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
+          <line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+          <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+      </template>
+    </span>
     <button class="user" @mousedown.prevent @click="userOpen = true" style="cursor:pointer;border:0;background:none;padding:0;color:inherit;font-size:inherit;line-height:inherit;text-align:left">
       <span class="name"><%= user.name %></span>
       <span class="role"><%= user.roleSlug %></span>

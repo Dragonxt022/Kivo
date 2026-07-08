@@ -1,8 +1,10 @@
 /**
  * Teste da DoD da Fase 6b (licenciamento remoto + módulos habilitados por plano):
  * sem licença configurada, tudo carrega (modo dev, comportamento preservado); com uma
- * licença cujo plano não inclui `store`, o módulo some das rotas depois de reiniciar;
- * se o plano voltar a incluir `store`, o módulo reaparece depois de reiniciar de novo.
+ * licença cujo plano não inclui `store`, o módulo passa a responder 403 (Fase 6f:
+ * checado a cada requisição, efeito imediato — não precisa mais reiniciar, embora
+ * reiniciar continue funcionando do mesmo jeito); se o plano voltar a incluir
+ * `store`, o módulo volta a responder na hora também.
  *
  * Pré-requisitos (mesmos da Fase 6a):
  *   1. docker compose -f cloud/docker-compose.yml up -d
@@ -146,7 +148,11 @@ async function main(): Promise<void> {
     const licenseInfo = (await (await api(m.base, '/api/license', {}, m.cookie)).json()) as { modules: string[] | null };
     check('cache local reflete módulos do plano', JSON.stringify(licenseInfo.modules) === JSON.stringify(['commercial', 'finance']), JSON.stringify(licenseInfo.modules));
 
-    // --- Reinicia: agora o loader deve montar só commercial/finance ---
+    // --- Fase 6f: efeito imediato, SEM reiniciar — o sync/run acima já deve bastar ---
+    const storeImmediate = await api(m.base, '/api/store/reports/daily', {}, m.cookie);
+    check('sem reiniciar: store já fica fora do plano (403) logo após o sync', storeImmediate.status === 403, String(storeImmediate.status));
+
+    // --- Reinicia: confirma que também se mantém correto depois de reiniciar ---
     await killAndWait(m.proc);
     m = startMachine(machinePort, dbPath, cloudUrl);
     await waitForHealth(`${m.base}/api/health`);
@@ -154,7 +160,7 @@ async function main(): Promise<void> {
     check('login admin após restart', !!m.cookie);
 
     const storeAfter = await api(m.base, '/api/store/reports/daily', {}, m.cookie);
-    check('após restart: store fora do plano → 404', storeAfter.status === 404, String(storeAfter.status));
+    check('após restart: store fora do plano → 403', storeAfter.status === 403, String(storeAfter.status));
     const commercialAfter = await api(m.base, '/api/commercial/products', {}, m.cookie);
     check('após restart: commercial segue funcionando', commercialAfter.ok, String(commercialAfter.status));
     const financeAfter = await api(m.base, '/api/finance/cash/current', {}, m.cookie);
@@ -164,6 +170,10 @@ async function main(): Promise<void> {
     provisionCompany(companyUuid, licenseKey, 'completo', ['commercial', 'finance', 'store']);
     const syncRes2 = await api(m.base, '/api/sync/run', { method: 'POST' }, m.cookie);
     check('sync/run após upgrade de plano', syncRes2.ok);
+
+    // --- Fase 6f: de novo, sem reiniciar — o upgrade já deve liberar store na hora ---
+    const storeImmediateUpgrade = await api(m.base, '/api/store/reports/daily', {}, m.cookie);
+    check('sem reiniciar: store já volta a carregar logo após o upgrade', storeImmediateUpgrade.status !== 403, String(storeImmediateUpgrade.status));
 
     await killAndWait(m.proc);
     m = startMachine(machinePort, dbPath, cloudUrl);

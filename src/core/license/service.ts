@@ -108,8 +108,9 @@ export function isModuleEntitled(moduleId: string): boolean {
 /**
  * Validação remota (Fase 6b): confirma plano/módulos/validade contra o cloud/ e
  * atualiza o cache local. Nunca lança — falha de rede mantém o último estado
- * conhecido (mesma tolerância offline de `validateLicense`); só reflete nas rotas
- * montadas no PRÓXIMO boot (o loader lê o cache local, não chama a rede).
+ * conhecido (mesma tolerância offline de `validateLicense`). Efeito imediato (Fase
+ * 6f): `isModuleEntitled()` é checado a cada requisição, não só no boot — assim que
+ * este cache é atualizado, o próximo clique já reflete o plano novo.
  */
 export async function refreshLicenseFromCloud(): Promise<void> {
   const { companyUuid, licenseKey } = getLicenseCredentials();

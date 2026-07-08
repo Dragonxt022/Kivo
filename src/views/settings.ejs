@@ -194,6 +194,34 @@
     </dialog>
     <% } %>
 
+    <!-- ─── MODAL: Licença ativada com sucesso ─── -->
+    <% if (user.permissions.has('license.edit')) { %>
+    <dialog x-ref="licenseThanksDlg" style="max-width:400px">
+      <div style="text-align:center;padding:1.5rem 1.5rem .5rem">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--primary-bg, #eef0fe);display:grid;place-items:center;margin:0 auto 1rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+        </div>
+        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.5rem">Licença ativada!</h2>
+        <p style="color:var(--text-secondary);font-size:.9rem;margin-bottom:1rem">Obrigado — já sincronizamos com a nuvem.</p>
+        <table style="text-align:left;margin-bottom:.5rem" x-show="licenseThanks.sync && !licenseThanks.sync.skipped">
+          <tbody>
+            <tr><th>Enviado</th><td x-text="licenseThanks.sync ? licenseThanks.sync.pushed : 0"></td></tr>
+            <tr><th>Recebido</th><td x-text="licenseThanks.sync ? licenseThanks.sync.pulled : 0"></td></tr>
+          </tbody>
+        </table>
+        <p class="muted" style="font-size:.85rem" x-show="licenseThanks.sync && licenseThanks.sync.skipped">
+          Sincronização em nuvem não incluída no plano atual — os dados continuam só nesta máquina.
+        </p>
+        <p class="error" style="font-size:.85rem" x-show="licenseThanks.syncError" x-text="'Não deu pra sincronizar agora (' + licenseThanks.syncError + ') — tente de novo em Sincronizar agora.'"></p>
+      </div>
+      <div class="actions" style="justify-content:center;padding-bottom:1.5rem">
+        <button class="btn" @click="$refs.licenseThanksDlg.close()">Ok</button>
+      </div>
+    </dialog>
+    <% } %>
+
     <!-- ─── MODAL: Configuração avulsa (aba Avançado) ─── -->
     <dialog x-ref="dlg">
       <h1>Configuração</h1>
@@ -211,6 +239,7 @@
         tab: 'license',
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
+        licenseThanks: { sync: null, syncError: null },
         stock: { autoSku: true, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true }, savingSales: false, salesSaved: '',
         empresa: { nome: '', documento: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
@@ -260,8 +289,11 @@
           });
           this.savingLicense = false;
           if (r.ok) {
-            this.license = await r.json();
+            const body = await r.json();
+            this.license = body;
+            this.licenseThanks = { sync: body.sync, syncError: body.syncError };
             this.$refs.licenseDlg.close();
+            this.$refs.licenseThanksDlg.showModal();
           } else this.licenseError = (await r.json()).error ?? 'Falha ao salvar licença.';
         },
         <% } %>

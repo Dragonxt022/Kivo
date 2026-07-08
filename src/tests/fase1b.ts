@@ -79,7 +79,11 @@ async function main() {
     method: 'PUT',
     body: JSON.stringify({ companyUuid: 'c0ffee00-0000-4000-8000-000000000000', licenseKey: 'KATSU-TESTE', plan: 'pro', validUntil: '2027-01-01' }),
   }, admin!);
-  check('admin configura licença → valida', setLic.status === 200 && ((await setLic.json()) as { status: string }).status === 'valida');
+  const setLicBody = (await setLic.json()) as { status: string; canSaveToCloud?: boolean; canAutoUpdate?: boolean };
+  check('admin configura licença → valida', setLic.status === 200 && setLicBody.status === 'valida');
+  // Regressão: PUT precisa devolver o mesmo formato do GET (canSaveToCloud/canAutoUpdate) —
+  // sem isso, o botão "Sincronizar agora" ficava desabilitado até a página recarregar.
+  check('PUT /api/license já devolve canSaveToCloud/canAutoUpdate', setLicBody.canSaveToCloud !== undefined && setLicBody.canAutoUpdate !== undefined);
 
   // Auditoria cobre as novas entidades
   const audit = getSqlite().prepare('SELECT DISTINCT entity FROM audit_logs').all() as { entity: string }[];
