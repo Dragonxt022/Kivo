@@ -346,6 +346,45 @@ O servidor mantém, por empresa: licença → módulos habilitados → plano →
   Express em tempo real. Gating ao vivo (sem reiniciar) fica fora de escopo por ora.
 - `GET /api/license` agora também devolve `modules` (lista atual ou `null`).
 
+### Fase 6e — Planos comerciais (Trial/Prata/Ouro/Diamante)
+
+Resolve o item em aberto da seção 12 ("modelo de precificação... híbrido"): quatro
+planos fixos, cada um com um conjunto de capacidades **fixo no código**, não mais um
+`companies.plan`/`modules` totalmente livre.
+
+- **Trial** (15 dias) e **Prata**: sem atualização automática, sem salvamento em nuvem
+  (sync push/pull e upload de backup). Trial existe só para o cliente provar o uso local
+  antes de assinar; tecnicamente idêntico ao Prata em capacidades.
+- **Ouro**: atualização automática + sincronização/backup em nuvem.
+- **Diamante**: tudo do Ouro + capacidade reservada `app.online` (futura versão web —
+  **não implementada**, só a flag existe para não quebrar o modelo depois).
+- `src/core/license/plans.ts` (app local) e `cloud/src/plans.ts` (servidor) — regra
+  **duplicada intencionalmente** entre os dois deployables (sem pacote compartilhado):
+  `canAutoUpdate(plan)`/`canSaveToCloud(plan)` retornam `false` só para
+  `plan IN ('trial', 'prata')` — **fail-open** para qualquer outro valor (`null`, texto
+  livre legado), diferente de `isModuleEntitled` (que é fail-open só quando
+  `modules_json` nunca foi configurado). Não reaproveita `modules_json`/`isModuleEntitled`
+  de propósito: usar o mesmo mecanismo faria empresas sem `modules` configurado (comum
+  antes desta fase) ganharem sync/update de graça por fail-open.
+- Enforcement em duas camadas: local (`POST /api/sync/run`, upload de backup em
+  `runBackup()`, `setupAutoUpdater()` no Electron) **e** no `cloud/`
+  (`requireCloudSavePlan` em `auth.ts`, aplicado a `sync push/pull` e
+  `backup upload` — não a `backup download/list`, que continua liberado para
+  recuperação de dados já salvos antes de uma eventual troca de plano).
+- Trial é provisionado manualmente pelo admin (painel `cloud/admin` ou
+  `provision-company.ts --plan trial`); se a validade não for informada, vira
+  automaticamente hoje + 15 dias (`trialValidUntil()`).
+- **UI de aviso** (`src/views/partials/nav.ejs`, incluído em toda página logada):
+  faixa fixa acima do menu quando `plan === 'trial'` mostrando dias restantes
+  (`GET /api/license/status`, endpoint enxuto sem `requirePermission('license.view')`
+  — qualquer usuário logado precisa dele, não só quem administra a licença); e um
+  `<dialog>` não fechável quando `status === 'expirada'`, pedindo para acionar o
+  suporte. **Esse bloqueio é só de UI** — não passou a rejeitar chamadas de API no
+  backend local, mantém a política de nunca travar a operação no servidor.
+- Contato de suporte (telefone/e-mail) é **global** (do fornecedor, não por empresa),
+  configurado em `/admin/settings` no `cloud/` (tabela `app_settings`, chave/valor) e
+  devolvido por `GET /api/license/validate` junto com `plan`/`modules`/`validUntil`.
+
 ---
 
 ## 8. Backup

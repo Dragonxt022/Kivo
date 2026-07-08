@@ -23,7 +23,7 @@
           <% companies.forEach(function(c) { %>
           <tr>
             <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || c.company_uuid %></a></td>
-            <td><% if (c.plan) { %><span class="badge plan"><%= c.plan %></span><% } else { %>—<% } %></td>
+            <td><% if (c.plan) { %><span class="badge plan"><%= planLabels[c.plan] || c.plan %></span><% } else { %>—<% } %></td>
             <td><%= c.modules ? c.modules.join(', ') : 'sem restrição' %></td>
             <td><%= c.valid_until || '—' %></td>
             <td><%= c.sync_count %></td>
@@ -49,7 +49,15 @@
         <label>Nome</label>
         <input type="text" name="name" required autofocus>
         <label>Plano</label>
-        <input type="text" name="plan" placeholder="ex.: basico">
+        <select name="plan">
+          <option value="">—</option>
+          <% planTiers.forEach(function(tier) { %>
+          <option value="<%= tier %>"><%= planLabels[tier] %></option>
+          <% }) %>
+        </select>
+        <label>Válido até</label>
+        <input type="date" name="validUntil">
+        <p class="field-hint">Deixe em branco no plano Trial para usar automaticamente hoje + 15 dias.</p>
         <%- include('partials/module-toggles', { checkedModules: [] }) %>
         <div class="modal-actions">
           <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-company').close()">Cancelar</button>

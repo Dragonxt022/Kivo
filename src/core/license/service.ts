@@ -19,6 +19,9 @@ export interface LicenseInfo {
   validUntil: string | null;
   lastValidatedAt: string | null;
   offlineGraceDays: number;
+  daysRemaining: number | null;
+  supportPhone: string | null;
+  supportEmail: string | null;
   message: string;
 }
 
@@ -33,6 +36,15 @@ export function machineId(): string {
   return createHash('sha256').update(raw).digest('hex').slice(0, 32);
 }
 
+/**
+ * `datetime('now')` do SQLite grava UTC como `YYYY-MM-DD HH:MM:SS` (sem `Z`/offset).
+ * `new Date(...)` do V8 interpreta essa forma (sem `T`) como horário LOCAL, não UTC —
+ * sem isso, `daysRemaining`/expiração ficam deslocados pelo fuso da máquina.
+ */
+function parseSqliteUtc(s: string): number {
+  return new Date(`${s}Z`).getTime();
+}
+
 function getRow() {
   return getSqlite().prepare('SELECT * FROM license LIMIT 1').get() as
     | {
@@ -45,6 +57,8 @@ function getRow() {
         valid_until: string | null;
         last_validated_at: string | null;
         offline_grace_days: number;
+        support_phone: string | null;
+        support_email: string | null;
       }
     | undefined;
 }
@@ -107,16 +121,28 @@ export async function refreshLicenseFromCloud(): Promise<void> {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return;
-    const body = (await res.json()) as { plan: string | null; modules: string[] | null; validUntil: string | null };
+    const body = (await res.json()) as {
+      plan: string | null;
+      modules: string[] | null;
+      validUntil: string | null;
+      supportPhone: string | null;
+      supportEmail: string | null;
+    };
     ensureLicenseRow();
     getSqlite()
       .prepare(
-        `UPDATE license SET plan = ?, modules_json = ?, valid_until = ?,
+        `UPDATE license SET plan = ?, modules_json = ?, valid_until = ?, support_phone = ?, support_email = ?,
          last_validated_at = datetime('now'), updated_at = datetime('now')`,
       )
       // `modules: null` do cloud = sem restrição configurada ainda (fail-open) — grava
       // NULL local, não '[]' (que bloquearia tudo em isModuleEntitled).
-      .run(body.plan, body.modules != null ? JSON.stringify(body.modules) : null, body.validUntil);
+      .run(
+        body.plan,
+        body.modules != null ? JSON.stringify(body.modules) : null,
+        body.validUntil,
+        body.supportPhone ?? null,
+        body.supportEmail ?? null,
+      );
   } catch {
     // offline ou cloud fora do ar: mantém o cache local, não interrompe o sync.
   }
@@ -126,6 +152,9 @@ export async function refreshLicenseFromCloud(): Promise<void> {
 export function validateLicense(): LicenseInfo {
   ensureLicenseRow();
   const row = getRow()!;
+  const daysRemaining = row.valid_until
+    ? Math.ceil((parseSqliteUtc(row.valid_until) - Date.now()) / 86_400_000)
+    : null;
   const base = {
     machineId: row.machine_id,
     companyUuid: row.company_uuid,
@@ -133,6 +162,9 @@ export function validateLicense(): LicenseInfo {
     validUntil: row.valid_until,
     lastValidatedAt: row.last_validated_at,
     offlineGraceDays: row.offline_grace_days,
+    daysRemaining,
+    supportPhone: row.support_phone,
+    supportEmail: row.support_email,
   };
 
   if (!row.license_key || !row.company_uuid) {
@@ -140,9 +172,9 @@ export function validateLicense(): LicenseInfo {
   }
 
   const now = Date.now();
-  if (row.valid_until && new Date(row.valid_until).getTime() < now) {
+  if (row.valid_until && parseSqliteUtc(row.valid_until) < now) {
     const grace = row.last_validated_at
-      ? new Date(row.last_validated_at).getTime() + row.offline_grace_days * 24 * 3600e3
+      ? parseSqliteUtc(row.last_validated_at) + row.offline_grace_days * 24 * 3600e3
       : 0;
     if (grace > now) {
       return { ...base, status: 'tolerancia', message: 'Licença vencida — operando em tolerância offline.' };

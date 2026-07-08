@@ -2,11 +2,35 @@ import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
 import { validateLicense, setLicense, getEntitledModules } from './service';
+import { canAutoUpdate, canSaveToCloud } from './plans';
 
 const router = Router();
 
 router.get('/', requirePermission('license.view'), (_req, res) => {
-  res.json({ ...validateLicense(), modules: getEntitledModules() });
+  const info = validateLicense();
+  res.json({
+    ...info,
+    modules: getEntitledModules(),
+    canAutoUpdate: canAutoUpdate(info.plan),
+    canSaveToCloud: canSaveToCloud(info.plan),
+  });
+});
+
+/**
+ * Versão enxuta, sem `license.view`: qualquer usuário logado precisa disso para a
+ * faixa de trial / modal de bloqueio por vencimento (nav.ejs), não só quem administra
+ * a licença. Protegida apenas pelo `requireAuth` já aplicado ao router em server.ts.
+ */
+router.get('/status', (_req, res) => {
+  const info = validateLicense();
+  res.json({
+    status: info.status,
+    plan: info.plan,
+    daysRemaining: info.daysRemaining,
+    message: info.message,
+    supportPhone: info.supportPhone,
+    supportEmail: info.supportEmail,
+  });
 });
 
 router.put('/', requirePermission('license.edit'), (req, res) => {

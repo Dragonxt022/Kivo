@@ -2,10 +2,14 @@
   appsOpen: false, userOpen: false,
   now: new Date().toLocaleTimeString('pt-BR'),
   billingAlert: null,
+  licenseStatus: null,
   init() {
     setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR'); }, 1000);
     <% if (user && user.permissions.has('billing.view')) { %>
     fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; }).catch(() => {});
+    <% } %>
+    <% if (user) { %>
+    fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; }).catch(() => {});
     <% } %>
   },
   theme: document.documentElement.getAttribute('data-theme') || 'light',
@@ -15,6 +19,13 @@
     try { localStorage.setItem('katsu-theme', this.theme); } catch (e) {}
   },
 }">
+<% if (user) { %>
+<div x-show="licenseStatus && licenseStatus.plan === 'trial' && licenseStatus.status !== 'expirada'" x-cloak
+     style="background:var(--warning-bg);color:var(--warning-text);text-align:center;padding:.45rem 1rem;font-size:.85rem;font-weight:600">
+  Período de teste —
+  <span x-text="licenseStatus && licenseStatus.daysRemaining != null ? (licenseStatus.daysRemaining > 0 ? `faltam ${licenseStatus.daysRemaining} dia(s)` : 'expira hoje') : ''"></span>
+</div>
+<% } %>
 <header class="nav">
   <div class="nav-left">
     <svg class="nav-clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
@@ -59,6 +70,27 @@
   <a href="/admin/cobrancas" style="color:inherit;font-weight:600;text-decoration:underline">ver</a>
   <button @click="billingAlert = null" style="background:none;border:0;color:inherit;cursor:pointer;font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
 </div>
+<% } %>
+
+<% if (user) { %>
+<dialog x-ref="licenseBlockDlg" closedby="none" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:340px;max-width:90vw"
+        x-init="$watch('licenseStatus', v => (v && v.status === 'expirada') ? $refs.licenseBlockDlg.showModal() : $refs.licenseBlockDlg.close())"
+        @close.prevent="null">
+  <div style="padding:1.25rem">
+    <h2 style="margin:0 0 .5rem;font-size:1.05rem">Licença expirada</h2>
+    <p style="margin:0 0 1rem;font-size:.9rem;color:var(--text-secondary)">
+      Entre em contato com o suporte para renovar sua licença e continuar usando o Katsu.
+    </p>
+    <p style="margin:0 0 .25rem;font-size:.88rem" x-show="licenseStatus && licenseStatus.supportPhone">
+      Telefone: <strong x-text="licenseStatus && licenseStatus.supportPhone"></strong>
+    </p>
+    <p style="margin:0 0 1rem;font-size:.88rem" x-show="licenseStatus && licenseStatus.supportEmail">
+      E-mail: <strong x-text="licenseStatus && licenseStatus.supportEmail"></strong>
+    </p>
+    <button class="btn secondary" style="width:100%"
+            @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/')">Sair</button>
+  </div>
+</dialog>
 <% } %>
 
 <% if (user) { %>

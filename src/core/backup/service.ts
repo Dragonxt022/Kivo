@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { getSqlite, closeDb } from '../database/connection';
-import { getLicenseCredentials, machineId } from '../license/service';
+import { getLicenseCredentials, machineId, validateLicense } from '../license/service';
+import { canSaveToCloud } from '../license/plans';
 import { getCloudServerUrl } from '../config/cloud';
 
 /**
@@ -54,7 +55,7 @@ export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Prom
     .run(finalPath, compressed.length, checksum, trigger, backupUuid);
   const id = Number(info.lastInsertRowid);
 
-  if (getLicenseCredentials().companyUuid) {
+  if (getLicenseCredentials().companyUuid && canSaveToCloud(validateLicense().plan)) {
     try {
       await uploadBackupToCloud(id);
     } catch (e) {

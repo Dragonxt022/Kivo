@@ -2,6 +2,7 @@
   <a href="/admin" class="brand"><span class="dot"></span> Katsu Cloud</a>
   <nav>
     <a href="/admin" class="<%= typeof active !== 'undefined' && active === 'dashboard' ? 'active' : '' %>">Empresas</a>
+    <a href="/admin/settings" class="<%= typeof active !== 'undefined' && active === 'settings' ? 'active' : '' %>">Configurações</a>
   </nav>
   <div class="right">
     <form method="post" action="/admin/logout"><button type="submit" class="btn secondary small">Sair</button></form>

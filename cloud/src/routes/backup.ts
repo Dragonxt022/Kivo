@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express, { Router } from 'express';
 import { getPool } from '../db';
-import { requireCompanyAuth, type AuthedRequest } from '../auth';
+import { requireCompanyAuth, requireCloudSavePlan, type AuthedRequest } from '../auth';
 
 const router = Router();
 const rawGzip = express.raw({ type: 'application/gzip', limit: '200mb' });
@@ -24,7 +24,7 @@ interface CloudBackupRow {
   created_at: string;
 }
 
-router.post('/upload', rawGzip, requireCompanyAuth, async (req: AuthedRequest, res) => {
+router.post('/upload', rawGzip, requireCompanyAuth, requireCloudSavePlan, async (req: AuthedRequest, res) => {
   const uuid = req.header('X-Katsu-Backup-Uuid');
   const checksum = req.header('X-Katsu-Backup-Checksum');
   const machineId = req.header('X-Katsu-Machine-Id');

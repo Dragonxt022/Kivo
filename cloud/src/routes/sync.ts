@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getPool } from '../db';
-import { requireCompanyAuth, type AuthedRequest } from '../auth';
+import { requireCompanyAuth, requireCloudSavePlan, type AuthedRequest } from '../auth';
 
 const router = Router();
 
@@ -32,7 +32,7 @@ function decodeCursor(cursor: string): { serverReceivedAt: string; id: number } 
   return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
 }
 
-router.post('/push', requireCompanyAuth, async (req: AuthedRequest, res) => {
+router.post('/push', requireCompanyAuth, requireCloudSavePlan, async (req: AuthedRequest, res) => {
   const body = req.body as { machineId?: string; batch?: IncomingBatchItem[] };
   if (!Array.isArray(body.batch)) {
     res.status(400).json({ error: 'batch deve ser um array.' });
@@ -79,7 +79,7 @@ router.post('/push', requireCompanyAuth, async (req: AuthedRequest, res) => {
   res.json({ accepted, rejected });
 });
 
-router.get('/pull', requireCompanyAuth, async (req: AuthedRequest, res) => {
+router.get('/pull', requireCompanyAuth, requireCloudSavePlan, async (req: AuthedRequest, res) => {
   const limit = Math.min(Number(req.query.limit ?? 500) || 500, 1000);
   const cursor = req.query.cursor ? decodeCursor(String(req.query.cursor)) : null;
 

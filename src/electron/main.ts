@@ -7,7 +7,8 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite } from '../core/database/connection';
-import { refreshLicenseFromCloud } from '../core/license/service';
+import { refreshLicenseFromCloud, validateLicense } from '../core/license/service';
+import { canAutoUpdate } from '../core/license/plans';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
 
@@ -56,6 +57,7 @@ function reportFatalBootError(err: unknown): void {
  */
 function setupAutoUpdater(): void {
   if (!app.isPackaged) return;
+  if (!canAutoUpdate(validateLicense().plan)) return; // Prata/Trial: sem atualização automática.
   const logPath = path.join(app.getPath('userData'), 'update.log');
   const log = (msg: string) => {
     try {

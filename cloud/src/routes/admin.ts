@@ -2,6 +2,7 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import { getPool } from '../db';
 import { hashLicenseKey } from '../auth';
+import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
 import {
   verifyAdminCredentials,
   createAdminSession,
@@ -23,6 +24,12 @@ function parseModules(input: unknown): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/** Se o admin não informar validade e o plano for trial, calcula os 15 dias automaticamente. */
+function resolveValidUntil(plan: string | null, validUntil: unknown): string | null {
+  if (validUntil) return String(validUntil);
+  return plan === 'trial' ? trialValidUntil() : null;
 }
 
 interface CompanyRow {
@@ -89,20 +96,27 @@ router.get('/', requireAdminAuth, async (_req, res) => {
             (SELECT COALESCE(SUM(amount_cents),0) FROM charges ch WHERE ch.company_uuid = c.company_uuid AND ch.status = 'pendente') AS pending_cents
      FROM companies c ORDER BY c.created_at DESC`,
   );
-  res.render('dashboard', { companies });
+  res.render('dashboard', { companies, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
 });
 
 router.post('/companies', requireAdminAuth, async (req: AdminRequest, res) => {
-  const { name, plan, modules } = req.body ?? {};
+  const { name, plan, modules, validUntil } = req.body ?? {};
   const companyUuid = randomUUID();
   const licenseKey = generateLicenseKey();
   const modulesList = parseModules(modules);
   await getPool().query(
-    'INSERT INTO companies (company_uuid, license_key_hash, name, plan, modules) VALUES (?, ?, ?, ?, CAST(? AS JSON))',
-    [companyUuid, hashLicenseKey(licenseKey), name || null, plan || null, modulesList.length ? JSON.stringify(modulesList) : null],
+    'INSERT INTO companies (company_uuid, license_key_hash, name, plan, modules, valid_until) VALUES (?, ?, ?, ?, CAST(? AS JSON), ?)',
+    [
+      companyUuid,
+      hashLicenseKey(licenseKey),
+      name || null,
+      plan || null,
+      modulesList.length ? JSON.stringify(modulesList) : null,
+      resolveValidUntil(plan || null, validUntil),
+    ],
   );
   const detail = await loadCompanyDetail(companyUuid);
-  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey });
+  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
 });
 
 router.get('/companies/:uuid', requireAdminAuth, async (req, res) => {
@@ -111,7 +125,7 @@ router.get('/companies/:uuid', requireAdminAuth, async (req, res) => {
     res.status(404).send('Empresa não encontrada.');
     return;
   }
-  res.render('company-detail', { ...detail, revealedLicenseKey: null });
+  res.render('company-detail', { ...detail, revealedLicenseKey: null, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
 });
 
 router.post('/companies/:uuid', requireAdminAuth, async (req, res) => {
@@ -120,7 +134,7 @@ router.post('/companies/:uuid', requireAdminAuth, async (req, res) => {
   const modulesList = parseModules(modules);
   await getPool().query(
     'UPDATE companies SET name = ?, plan = ?, modules = CAST(? AS JSON), valid_until = ? WHERE company_uuid = ?',
-    [name || null, plan || null, modulesList.length ? JSON.stringify(modulesList) : null, validUntil || null, uuid],
+    [name || null, plan || null, modulesList.length ? JSON.stringify(modulesList) : null, resolveValidUntil(plan || null, validUntil), uuid],
   );
   res.redirect(`/admin/companies/${uuid}`);
 });
@@ -134,7 +148,7 @@ router.post('/companies/:uuid/rotate-key', requireAdminAuth, async (req, res) =>
     res.status(404).send('Empresa não encontrada.');
     return;
   }
-  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey });
+  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
 });
 
 // --- Cobrança manual (sem gateway — só registro e baixa manual) ---
@@ -164,6 +178,27 @@ router.post('/companies/:uuid/charges/:id/cancel', requireAdminAuth, async (req,
   const uuid = String(req.params.uuid);
   await getPool().query("UPDATE charges SET status = 'cancelada' WHERE id = ? AND company_uuid = ?", [req.params.id, uuid]);
   res.redirect(`/admin/companies/${uuid}`);
+});
+
+// --- Configurações globais (contato de suporte exibido no app quando a licença vence) ---
+
+router.get('/settings', requireAdminAuth, async (_req, res) => {
+  const [rows] = await getPool().query('SELECT setting_key, setting_value FROM app_settings');
+  const settings = Object.fromEntries(
+    (rows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
+  );
+  res.render('admin-settings', { settings });
+});
+
+router.post('/settings', requireAdminAuth, async (req, res) => {
+  const { supportPhone, supportEmail } = req.body ?? {};
+  const upsert = (key: string, value: unknown) =>
+    getPool().query(
+      'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)',
+      [key, value || null],
+    );
+  await Promise.all([upsert('support_phone', supportPhone), upsert('support_email', supportEmail)]);
+  res.redirect('/admin/settings');
 });
 
 export default router;

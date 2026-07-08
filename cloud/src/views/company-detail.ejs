@@ -31,7 +31,15 @@
         <label>Nome</label>
         <input type="text" name="name" value="<%= company.name || '' %>">
         <label>Plano</label>
-        <input type="text" name="plan" value="<%= company.plan || '' %>">
+        <select name="plan">
+          <option value="">—</option>
+          <% planTiers.forEach(function(tier) { %>
+          <option value="<%= tier %>" <%= company.plan === tier ? 'selected' : '' %>><%= planLabels[tier] %></option>
+          <% }) %>
+          <% if (company.plan && !planTiers.includes(company.plan)) { %>
+          <option value="<%= company.plan %>" selected><%= company.plan %> (legado)</option>
+          <% } %>
+        </select>
         <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
         <label>Validade</label>
         <input type="date" name="validUntil" value="<%= company.valid_until ? String(company.valid_until).slice(0,10) : '' %>">

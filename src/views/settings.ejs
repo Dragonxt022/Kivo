@@ -34,6 +34,8 @@
             <tr><th>Empresa (UUID)</th><td class="muted" x-text="license.companyUuid ?? 'não configurada'"></td></tr>
             <tr><th>Machine ID</th><td class="muted" x-text="license.machineId"></td></tr>
             <tr><th>Plano</th><td x-text="license.plan ?? '—'"></td></tr>
+            <tr><th>Atualizações automáticas</th><td><span class="badge" :class="license.canAutoUpdate ? 'ok' : 'off'" x-text="license.canAutoUpdate ? 'Incluídas' : 'Não incluídas neste plano'"></span></td></tr>
+            <tr><th>Sincronização/backup em nuvem</th><td><span class="badge" :class="license.canSaveToCloud ? 'ok' : 'off'" x-text="license.canSaveToCloud ? 'Incluído' : 'Não incluído neste plano'"></span></td></tr>
             <tr>
               <th>Módulos</th>
               <td>
@@ -44,13 +46,18 @@
               </td>
             </tr>
             <tr><th>Válida até</th><td x-text="license.validUntil ?? '—'"></td></tr>
+            <tr x-show="license.supportPhone || license.supportEmail"><th>Suporte</th><td>
+              <span x-show="license.supportPhone" x-text="license.supportPhone"></span>
+              <span x-show="license.supportPhone && license.supportEmail"> · </span>
+              <span x-show="license.supportEmail" x-text="license.supportEmail"></span>
+            </td></tr>
           </tbody>
         </table>
         <% if (user.permissions.has('license.edit')) { %>
         <div class="actions" style="margin-top:1rem">
           <button class="btn" @click="openLicenseDlg()">Ativar / trocar licença</button>
           <% if (user.permissions.has('sync.run')) { %>
-          <button class="btn secondary" @click="syncNow()" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'"></button>
+          <button class="btn secondary" @click="syncNow()" :disabled="!license.canSaveToCloud" :title="!license.canSaveToCloud ? 'Não incluído no plano atual' : ''" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'"></button>
           <% } %>
           <span class="error" x-text="licenseError"></span>
         </div>

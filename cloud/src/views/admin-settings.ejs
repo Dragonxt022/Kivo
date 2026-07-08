@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Katsu Cloud — Configurações</title>
+  <%- include('partials/styles') %>
+</head>
+<body>
+  <%- include('partials/navbar', { active: 'settings' }) %>
+
+  <div class="page">
+    <div class="page-header">
+      <h1>Configurações</h1>
+    </div>
+
+    <div class="card">
+      <h2>Contato de suporte</h2>
+      <p class="field-hint" style="margin-top:0">
+        Exibido no app do cliente quando a licença vence (modal de bloqueio) e no status da licença.
+      </p>
+      <form method="post" action="/admin/settings">
+        <label>Telefone</label>
+        <input type="text" name="supportPhone" value="<%= settings.support_phone || '' %>" placeholder="(11) 99999-9999">
+        <label>E-mail</label>
+        <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@katsu.com.br">
+        <div class="modal-actions" style="justify-content: flex-start;">
+          <button type="submit" class="btn">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
