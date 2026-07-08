@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <%- include('partials/theme-init') %>
+  <title>Katsu Cloud — Meu perfil</title>
+  <%- include('partials/styles') %>
+</head>
+<body>
+  <%- include('partials/navbar', {}) %>
+
+  <div class="page" style="max-width: 560px;">
+    <div class="page-header">
+      <h1>Meu perfil</h1>
+    </div>
+
+    <div class="card">
+      <h2>Conta</h2>
+      <table>
+        <tbody>
+          <tr><th>Usuário</th><td><%= admin.username %></td></tr>
+          <tr><th>Criado em</th><td><%= admin.created_at %></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Trocar senha</h2>
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="error-banner"><%= error %></div>
+      <% } %>
+      <% if (typeof success !== 'undefined' && success) { %>
+        <div class="error-banner" style="background: var(--success-soft); color: var(--success);"><%= success %></div>
+      <% } %>
+      <form method="post" action="/admin/profile/password">
+        <label>Senha atual</label>
+        <input type="password" name="currentPassword" required autocomplete="current-password">
+        <label>Nova senha</label>
+        <input type="password" name="newPassword" required minlength="8" autocomplete="new-password">
+        <label>Confirmar nova senha</label>
+        <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password">
+        <div class="modal-actions" style="justify-content: flex-start;">
+          <button type="submit" class="btn">Salvar nova senha</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

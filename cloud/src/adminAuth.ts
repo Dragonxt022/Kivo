@@ -59,6 +59,7 @@ export function requireAdminAuth(req: AdminRequest, res: Response, next: NextFun
     return;
   }
   req.adminUsername = session.username;
+  res.locals.adminUsername = session.username;
   next();
 }
 

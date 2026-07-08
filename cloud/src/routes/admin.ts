@@ -9,6 +9,7 @@ import {
   destroyAdminSession,
   requireAdminAuth,
   readAdminCookie,
+  hashPassword,
   ADMIN_SESSION_COOKIE,
   type AdminRequest,
 } from '../adminAuth';
@@ -199,6 +200,95 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
     );
   await Promise.all([upsert('support_phone', supportPhone), upsert('support_email', supportEmail)]);
   res.redirect('/admin/settings');
+});
+
+// --- Administradores do painel ---
+
+router.get('/admins', requireAdminAuth, async (_req, res) => {
+  const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
+  res.render('admins', { admins, error: null });
+});
+
+router.post('/admins', requireAdminAuth, async (req, res) => {
+  const { username, password } = req.body ?? {};
+  if (!username || !password) {
+    const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
+    res.status(400).render('admins', { admins, error: 'Preencha usuário e senha.' });
+    return;
+  }
+  try {
+    await getPool().query('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)', [
+      String(username).trim(),
+      hashPassword(String(password)),
+    ]);
+    res.redirect('/admin/admins');
+  } catch {
+    const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
+    res.status(400).render('admins', { admins, error: 'Já existe um administrador com esse usuário.' });
+  }
+});
+
+router.post('/admins/:id/delete', requireAdminAuth, async (req: AdminRequest, res) => {
+  const id = Number(req.params.id);
+  const [rows] = await getPool().query('SELECT username FROM admin_users WHERE id = ?', [id]);
+  const target = (rows as { username: string }[])[0];
+  const loadWithError = async (error: string) => {
+    const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
+    res.status(400).render('admins', { admins, error });
+  };
+  if (!target) {
+    await loadWithError('Administrador não encontrado.');
+    return;
+  }
+  if (target.username === req.adminUsername) {
+    await loadWithError('Você não pode excluir seu próprio usuário.');
+    return;
+  }
+  const [countRows] = await getPool().query('SELECT COUNT(*) AS total FROM admin_users');
+  if ((countRows as { total: number }[])[0].total <= 1) {
+    await loadWithError('Não é possível excluir o último administrador.');
+    return;
+  }
+  await getPool().query('DELETE FROM admin_users WHERE id = ?', [id]);
+  res.redirect('/admin/admins');
+});
+
+// --- Perfil do administrador logado ---
+
+router.get('/profile', requireAdminAuth, async (req: AdminRequest, res) => {
+  const [rows] = await getPool().query('SELECT username, created_at FROM admin_users WHERE username = ?', [req.adminUsername]);
+  const admin = (rows as { username: string; created_at: string }[])[0];
+  res.render('profile', { admin, error: null, success: null });
+});
+
+router.post('/profile/password', requireAdminAuth, async (req: AdminRequest, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
+  const [rows] = await getPool().query('SELECT username, created_at FROM admin_users WHERE username = ?', [req.adminUsername]);
+  const admin = (rows as { username: string; created_at: string }[])[0];
+  const fail = (error: string) => res.status(400).render('profile', { admin, error, success: null });
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    fail('Preencha todos os campos.');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    fail('A confirmação não bate com a nova senha.');
+    return;
+  }
+  if (String(newPassword).length < 8) {
+    fail('A nova senha precisa ter pelo menos 8 caracteres.');
+    return;
+  }
+  const ok = await verifyAdminCredentials(req.adminUsername!, String(currentPassword));
+  if (!ok) {
+    fail('Senha atual incorreta.');
+    return;
+  }
+  await getPool().query('UPDATE admin_users SET password_hash = ? WHERE username = ?', [
+    hashPassword(String(newPassword)),
+    req.adminUsername,
+  ]);
+  res.render('profile', { admin, error: null, success: 'Senha alterada com sucesso.' });
 });
 
 export default router;

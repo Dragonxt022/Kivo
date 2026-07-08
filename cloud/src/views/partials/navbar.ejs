@@ -1,10 +1,57 @@
 <div class="navbar">
-  <a href="/admin" class="brand"><span class="dot"></span> Katsu Cloud</a>
+  <a href="/admin" class="brand">
+    <img id="brand-logo" src="/favicon.png" alt="Katsu" />
+    Katsu Cloud
+  </a>
   <nav>
     <a href="/admin" class="<%= typeof active !== 'undefined' && active === 'dashboard' ? 'active' : '' %>">Empresas</a>
+    <a href="/admin/admins" class="<%= typeof active !== 'undefined' && active === 'admins' ? 'active' : '' %>">Administradores</a>
     <a href="/admin/settings" class="<%= typeof active !== 'undefined' && active === 'settings' ? 'active' : '' %>">Configurações</a>
   </nav>
   <div class="right">
-    <form method="post" action="/admin/logout"><button type="submit" class="btn secondary small">Sair</button></form>
+    <button type="button" class="theme-toggle" id="theme-toggle" title="Alternar tema" aria-label="Alternar tema">
+      <svg id="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+      </svg>
+      <svg id="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    <div class="user-menu">
+      <button type="button" class="user-menu-btn" id="user-menu-btn">
+        <span class="avatar"><%= (typeof adminUsername !== 'undefined' && adminUsername ? adminUsername : '?').charAt(0).toUpperCase() %></span>
+        <%= typeof adminUsername !== 'undefined' ? adminUsername : '' %>
+      </button>
+      <div class="user-menu-dropdown" id="user-menu-dropdown">
+        <a href="/admin/profile">Meu perfil</a>
+        <form method="post" action="/admin/logout"><button type="submit">Sair</button></form>
+      </div>
+    </div>
   </div>
 </div>
+<script>
+  (function () {
+    var root = document.documentElement;
+    var sun = document.getElementById('theme-icon-sun');
+    var moon = document.getElementById('theme-icon-moon');
+    var logo = document.getElementById('brand-logo');
+    function applyIcons() {
+      var dark = root.getAttribute('data-theme') === 'dark';
+      sun.style.display = dark ? 'none' : 'block';
+      moon.style.display = dark ? 'block' : 'none';
+      logo.src = dark ? '/favicon_branco.png' : '/favicon.png';
+    }
+    applyIcons();
+    document.getElementById('theme-toggle').addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('katsu-theme', next); } catch (e) {}
+      applyIcons();
+    });
+
+    var btn = document.getElementById('user-menu-btn');
+    var dropdown = document.getElementById('user-menu-dropdown');
+    btn.addEventListener('click', function (e) { e.stopPropagation(); dropdown.classList.toggle('open'); });
+    document.addEventListener('click', function () { dropdown.classList.remove('open'); });
+  })();
+</script>

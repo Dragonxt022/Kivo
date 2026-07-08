@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const src = path.resolve(__dirname, '..', 'src', 'views');
-const dest = path.resolve(__dirname, '..', 'dist', 'views');
+const root = path.resolve(__dirname, '..');
 
-fs.cpSync(src, dest, { recursive: true });
+fs.cpSync(path.join(root, 'src', 'views'), path.join(root, 'dist', 'views'), { recursive: true });
+fs.cpSync(path.join(root, 'src', 'public'), path.join(root, 'dist', 'public'), { recursive: true });
