@@ -90,6 +90,13 @@ const getProduct = (id: string | number) =>
   db().prepare(`SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.id = ? AND p.deleted_at IS NULL`).get(id);
 
+/** "estoque.auto_sku": ligado por padrão (ausente = ativo), como as demais preferências de UX do app. */
+function autoSkuEnabled(): boolean {
+  const row = db().prepare("SELECT value FROM settings WHERE key = 'estoque.auto_sku' AND deleted_at IS NULL").get() as
+    { value: string | null } | undefined;
+  return row?.value !== '0';
+}
+
 router.get('/products', requirePermission('commercial.products.view'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const where = q ? 'AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)' : '';
@@ -117,6 +124,9 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
     b.trackStock === false ? 0 : 1, b.minStock ?? 0, randomUUID(),
   );
   const newId = Number(info.lastInsertRowid);
+  if (!b.sku && autoSkuEnabled()) {
+    db().prepare("UPDATE products SET sku = ? WHERE id = ?").run(`P${String(newId).padStart(6, '0')}`, newId);
+  }
   // Estoque inicial opcional já no cadastro (vira movimentação de entrada auditada)
   if (b.initialStock != null && Number(b.initialStock) > 0) {
     if (!req.user!.permissions.has('commercial.stock.move')) {

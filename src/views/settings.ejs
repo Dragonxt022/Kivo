@@ -211,7 +211,7 @@
         tab: 'license',
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
-        stock: { autoSku: false, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
+        stock: { autoSku: true, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true }, savingSales: false, salesSaved: '',
         empresa: { nome: '', documento: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
@@ -229,7 +229,7 @@
         },
         syncSettings() {
           const auto = this.settings.find(s => s.key === 'estoque.auto_sku');
-          this.stock.autoSku = auto?.value === '1';
+          this.stock.autoSku = auto?.value !== '0';
           const minStock = this.settings.find(s => s.key === 'estoque.min_stock_padrao');
           this.stock.minStockPadrao = minStock?.value ? Number(minStock.value) : 0;
           const cupom = this.settings.find(s => s.key === 'vendas.exibir_cupom_fiscal');

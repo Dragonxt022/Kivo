@@ -1,11 +1,11 @@
 <div x-data="{
   appsOpen: false, userOpen: false,
-  now: new Date().toLocaleTimeString('pt-BR'),
+  now: new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Porto_Velho' }),
   billingAlert: null,
   licenseStatus: null,
   cashAlert: null,
   init() {
-    setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR'); }, 1000);
+    setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Porto_Velho' }); }, 1000);
     <% if (user && user.permissions.has('billing.view')) { %>
     fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; }).catch(() => {});
     <% } %>

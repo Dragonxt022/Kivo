@@ -496,7 +496,10 @@
           </template>
         </div>
 
-        <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.75rem">
+        <button type="button" class="btn secondary small" style="margin-bottom:.75rem" x-show="!showSplit" @click="showSplit = true">
+          Dividir conta
+        </button>
+        <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.75rem" x-show="showSplit" x-cloak>
           <span class="muted" style="font-size:.8rem">Dividir por</span>
           <input type="number" min="2" max="20" x-model.number="pay.split" style="width:55px;padding:.3rem .4rem" />
           <button class="btn secondary small" @click="splitEqual()">pessoas</button>
@@ -505,9 +508,14 @@
 
         <template x-if="needsCashReceived()">
           <div>
-            <span class="pay-label">Recebido em dinheiro (R$)</span>
-            <input type="text" x-model="pay.received" placeholder="0,00" style="margin-bottom:.6rem" @input="pay.received = maskMoney(pay.received); calcChange()" />
-            <p style="margin:-.3rem 0 .6rem;font-size:.85rem">Troco: <strong x-text="brl(pay.changeCents)"></strong></p>
+            <button type="button" class="btn secondary small" style="margin-bottom:.6rem" x-show="!showCashReceived" @click="showCashReceived = true">
+              Cliente pagou com nota maior (calcular troco)
+            </button>
+            <div x-show="showCashReceived" x-cloak>
+              <span class="pay-label">Recebido em dinheiro (R$)</span>
+              <input type="text" x-model="pay.received" placeholder="0,00" style="margin-bottom:.6rem" @input="pay.received = maskMoney(pay.received); calcChange()" />
+              <p style="margin:-.3rem 0 .6rem;font-size:.85rem">Troco: <strong x-text="brl(pay.changeCents)"></strong></p>
+            </div>
           </div>
         </template>
         <template x-if="hasPrazo()">
@@ -558,12 +566,7 @@
           <div class="pay-ready-banner" x-show="remaining() === 0">Venda pronta para finalizar</div>
           <div class="pay-pending-banner" x-show="remaining() !== 0" x-text="remaining() > 0 ? 'Falta ' + brl(remaining()) : 'Excedente de ' + brl(Math.abs(remaining()))"></div>
 
-          <div class="error" x-text="payError"></div>
-          <% if (user.permissions.has('finance.cash.open')) { %>
-          <div style="text-align:center;margin:-.3rem 0 .5rem" x-show="payError.includes('Abra o caixa')">
-            <button type="button" class="btn secondary small" @click="openRegisterFromSale()">Abrir caixa agora</button>
-          </div>
-          <% } %>
+          <div class="error" x-text="payError"<% if (user.permissions.has('finance.cash.open')) { %> x-show="!payError.includes('Abra o caixa')"<% } %>></div>
 
           <button class="pay-confirm-btn" :disabled="remaining() !== 0 || saving" @click="finish()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -575,6 +578,25 @@
     </dialog>
 
     <% if (user.permissions.has('finance.cash.open')) { %>
+    <!-- ─── MODAL: Aviso de caixa fechado ─── -->
+    <dialog x-ref="cashClosedWarnDlg" style="width:360px">
+      <div style="text-align:center;padding:.5rem 0">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--warning-bg);display:grid;place-items:center;margin:0 auto .75rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--warning-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.5rem">Caixa fechado</h2>
+        <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.25rem">
+          Para receber em dinheiro é preciso abrir o caixa. Deseja abrir agora?
+        </p>
+        <div class="actions" style="justify-content:center">
+          <button class="btn secondary" @click="$refs.cashClosedWarnDlg.close()">Não</button>
+          <button class="btn" @click="$refs.cashClosedWarnDlg.close(); openRegisterFromSale()">Sim</button>
+        </div>
+      </div>
+    </dialog>
+
     <!-- ─── MODAL: Abrir caixa (sem sair da venda em andamento) ─── -->
     <dialog x-ref="openRegisterDlg" style="width:360px">
       <h1>Abrir caixa</h1>
@@ -631,6 +653,7 @@
         set lastSaleId(v) { this.slots[this.activeSlot].lastSaleId = v; },
         valueDlg: { kind: 'desconto', amount: '', mode: 'valor', error: '' },
         pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, customerId: '', dueDate: '' },
+        showSplit: false, showCashReceived: false,
         error: '', payError: '', saving: false, appSettings: [],
         browseQ: '', browseResults: [],
         openRegisterForm: { opening: '', error: '' },
@@ -867,6 +890,7 @@
           this.payError = '';
           this.pay.list = []; this.pay.received = ''; this.pay.changeCents = 0;
           this.pay.amount = (this.total() / 100).toFixed(2).replace('.', ',');
+          this.showSplit = false; this.showCashReceived = false;
           if (!this.customers.length) {
             const r = await fetch('/api/commercial/customers');
             if (r.ok) this.customers = await r.json();
@@ -932,7 +956,11 @@
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
             if (exibir !== '0') this.$refs.postSale.showModal(); else this.focusSearch();
           } else {
-            this.payError = (await r.json()).error ?? 'Erro ao registrar a venda.';
+            const err = (await r.json()).error ?? 'Erro ao registrar a venda.';
+            this.payError = err;
+            <% if (user.permissions.has('finance.cash.open')) { %>
+            if (err.includes('Abra o caixa')) this.$refs.cashClosedWarnDlg.showModal();
+            <% } %>
           }
         },
 
