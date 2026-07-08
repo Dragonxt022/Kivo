@@ -22,7 +22,9 @@
 </head>
 <body>
   <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); } %>
-  <h1><%= company %></h1>
+  <h1><%= company.name %></h1>
+  <% if (company.document) { %><p class="muted"><%= company.document %></p><% } %>
+  <% if (company.address) { %><p class="muted"><%= company.address %></p><% } %>
   <p class="muted">Orçamento — documento sem valor fiscal</p>
 
   <h2>Orçamento nº <%= quote.id %><% if (quote.status !== 'aberto') { %> (<%= quote.status %>)<% } %></h2>

@@ -180,14 +180,20 @@
 
       <!-- ─── COLUNA ESQUERDA (68%) ─── -->
       <div class="pdv-left">
-        <div class="pdv-search">
-          <input type="text" x-ref="search" x-model="q"
+        <div class="pdv-search" style="display:flex;gap:.5rem;position:relative;z-index:10">
+          <input type="text" x-ref="search" x-model="q" style="flex:1"
                  @input.debounce.250ms="search()"
                  @keydown.enter.prevent="quickAdd()"
                  @keydown.down.prevent="highlightNext()"
                  @keydown.up.prevent="highlightPrev()"
                  @keydown.escape="results = []"
                  placeholder="Código de barras, SKU ou nome… (Enter adiciona)" autofocus />
+          <button type="button" class="icon-btn" style="width:auto;height:auto;padding:.6rem;border:2px solid var(--border-light);border-radius:var(--radius);background:var(--surface)"
+                  @click="openBrowse()" title="Consultar todos os produtos">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
 
           <div class="pdv-results" x-show="results.length" x-cloak>
             <template x-for="(p, idx) in results" :key="p.id">
@@ -289,13 +295,41 @@
       </div>
     </div>
 
+    <!-- ─── MODAL: Consultar produtos (sem adicionar ao carrinho) ─── -->
+    <dialog x-ref="browse" style="width:640px;max-width:95vw">
+      <h1>Consultar produtos</h1>
+      <input type="text" x-ref="browseInput" x-model="browseQ" @input.debounce.250ms="searchBrowse()"
+             placeholder="Buscar por nome, código de barras ou SKU…" />
+      <div style="max-height:50vh;overflow-y:auto;margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+        <template x-for="p in browseResults" :key="p.id">
+          <div class="pdv-result" @click="add(p); $refs.browse.close()">
+            <span class="name" x-text="p.name"></span>
+            <span class="price" x-text="brl(p.price_cents)"></span>
+            <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
+                  x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
+          </div>
+        </template>
+        <p class="pdv-empty" x-show="!browseResults.length">Nenhum produto encontrado.</p>
+      </div>
+      <p class="muted" style="margin-top:.5rem;font-size:.8rem">Clique num item para adicioná-lo ao carrinho, ou só consulte o preço/estoque aqui.</p>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.browse.close()">Fechar (Esc)</button>
+      </div>
+    </dialog>
+
     <!-- ─── MODAL: Desconto / Acréscimo ─── -->
     <dialog x-ref="value">
       <h1 x-text="valueDlg.kind === 'desconto' ? 'Desconto (F4)' : 'Acréscimo (F7)'"></h1>
-      <label>Valor em R$</label>
-      <input type="text" x-ref="valueInput" x-model="valueDlg.amount" placeholder="0,00"
-             @input="valueDlg.amount = maskMoney(valueDlg.amount)"
+      <div style="display:flex;gap:.4rem;margin-bottom:.6rem">
+        <button type="button" class="btn secondary" :class="{ active: valueDlg.mode === 'valor' }" @click="setValueMode('valor')" style="flex:1">R$</button>
+        <button type="button" class="btn secondary" :class="{ active: valueDlg.mode === 'percentual' }" @click="setValueMode('percentual')" style="flex:1">%</button>
+      </div>
+      <label x-text="valueDlg.mode === 'valor' ? 'Valor em R$' : 'Percentual (%)'"></label>
+      <input type="text" x-ref="valueInput" x-model="valueDlg.amount"
+             :placeholder="valueDlg.mode === 'valor' ? '0,00' : '0'"
+             @input="valueDlg.amount = valueDlg.mode === 'valor' ? maskMoney(valueDlg.amount) : valueDlg.amount.replace(/[^0-9,]/g, '')"
              @keydown.enter.prevent="saveValue()" @keydown.escape.prevent="$refs.value.close()" />
+      <p class="muted" style="font-size:.8rem" x-show="valueDlg.mode === 'percentual' && valueDlg.amount" x-text="'≈ ' + brl(percentToCents(valueDlg.amount))"></p>
       <div class="error" x-text="valueDlg.error"></div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.value.close()">Cancelar (Esc)</button>
@@ -323,32 +357,31 @@
     </dialog>
 
     <!-- ─── MODAL: Pagamento ─── -->
-    <dialog x-ref="pay" style="width:540px">
-      <h1>Pagamento — <span x-text="brl(total())"></span></h1>
+    <dialog x-ref="pay" style="width:720px;max-width:96vw">
+      <h1 style="margin-bottom:.2rem">Pagamento</h1>
+      <p style="font-size:2.2rem;font-weight:800;color:var(--primary);letter-spacing:-.02em;margin-bottom:1rem" x-text="brl(total())"></p>
+
+      <label>Forma de pagamento</label>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+        <template x-for="m in methods" :key="m.id">
+          <button type="button" class="btn secondary" :class="{ active: pay.methodId === m.id }" @click="pay.methodId = m.id"
+                  x-text="m.name + (m.fee_bps ? ` (${(m.fee_bps/100).toFixed(2).replace('.', ',')}%)` : '')"></button>
+        </template>
+      </div>
 
       <div style="display:flex;gap:.4rem;align-items:end;margin-bottom:.6rem">
-        <div style="flex:1">
-          <label>Forma</label>
-          <select x-model.number="pay.methodId">
-            <template x-for="m in methods" :key="m.id">
-              <option :value="m.id" x-text="m.name + (m.fee_bps ? ` (taxa ${(m.fee_bps/100).toFixed(2).replace('.', ',')}%)` : '')"></option>
-            </template>
-          </select>
-        </div>
-        <div style="width:110px">
+        <div style="width:140px">
           <label>Valor (R$)</label>
           <input type="text" x-model="pay.amount" placeholder="0,00"
                  @input="pay.amount = maskMoney(pay.amount)"
                  @keydown.enter.prevent="addPayment()" />
         </div>
-        <button class="btn secondary" @click="addPayment()">+</button>
-      </div>
-      <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.6rem">
-        <span class="muted" style="font-size:.85rem">Dividir por</span>
+        <button class="btn secondary" @click="addPayment()">Adicionar</button>
+        <span class="muted" style="font-size:.85rem;margin-left:.5rem">Dividir por</span>
         <input type="number" min="2" max="20" x-model.number="pay.split" style="width:60px;padding:.3rem .4rem" />
         <button class="btn secondary small" @click="splitEqual()">pessoas</button>
-        <span class="muted" style="font-size:.85rem" x-show="pay.split >= 2" x-text="'≈ ' + brl(Math.ceil(remaining() > 0 ? remaining() / (pay.split || 1) : total() / (pay.split || 1)))"></span>
       </div>
+      <span class="muted" style="font-size:.85rem" x-show="pay.split >= 2" x-text="'≈ ' + brl(Math.ceil(remaining() > 0 ? remaining() / (pay.split || 1) : total() / (pay.split || 1))) + ' por pessoa'"></span>
 
       <div style="max-height:160px;overflow-y:auto">
         <template x-for="(p, idx) in pay.list" :key="idx">
@@ -362,7 +395,7 @@
 
       <hr style="margin:.5rem 0;border:0;border-top:1px solid var(--border-light, #2c313c)" />
       <div class="pay-summary"><span>Pago</span><span x-text="brl(paidSum())"></span></div>
-      <div class="pay-summary" :style="remaining() > 0 ? 'color:#ff8589' : 'color:#4ade80'">
+      <div class="pay-summary" :style="'font-size:1.5rem;font-weight:800;' + (remaining() > 0 ? 'color:#ff8589' : 'color:#4ade80')">
         <span x-text="remaining() >= 0 ? 'Restante' : 'Excedente'"></span>
         <span x-text="brl(Math.abs(remaining()))"></span>
       </div>
@@ -387,11 +420,33 @@
       </template>
 
       <div class="error" x-text="payError"></div>
+      <% if (user.permissions.has('finance.cash.open')) { %>
+      <div style="text-align:center;margin-top:-.3rem" x-show="payError.includes('Abra o caixa')">
+        <button type="button" class="btn secondary small" @click="openRegisterFromSale()">Abrir caixa agora</button>
+      </div>
+      <% } %>
       <div class="actions">
         <button class="btn secondary" @click="$refs.pay.close()">Voltar</button>
         <button class="btn" :disabled="remaining() !== 0 || saving" @click="finish()" x-text="saving ? 'Registrando…' : 'Confirmar venda'"></button>
       </div>
     </dialog>
+
+    <% if (user.permissions.has('finance.cash.open')) { %>
+    <!-- ─── MODAL: Abrir caixa (sem sair da venda em andamento) ─── -->
+    <dialog x-ref="openRegisterDlg" style="width:360px">
+      <h1>Abrir caixa</h1>
+      <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">O carrinho e o pagamento em andamento não serão perdidos.</p>
+      <label>Valor inicial da gaveta (R$)</label>
+      <input type="text" x-ref="openRegisterInput" x-model="openRegisterForm.opening" placeholder="0,00"
+             @input="openRegisterForm.opening = maskMoney(openRegisterForm.opening)"
+             @keydown.enter.prevent="confirmOpenRegister()" />
+      <div class="error" x-text="openRegisterForm.error"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.openRegisterDlg.close()">Cancelar</button>
+        <button class="btn" @click="confirmOpenRegister()">Abrir caixa</button>
+      </div>
+    </dialog>
+    <% } %>
 
     <!-- ─── MODAL: Venda concluída — imprimir cupom? ─── -->
     <dialog x-ref="postSale" @close="focusSearch()">
@@ -419,9 +474,11 @@
         q: '', results: [], cart: [], customers: [], methods: [],
         discountCents: 0, surchargeCents: 0, lastSaleId: null,
         highlightIdx: -1, searching: false,
-        valueDlg: { kind: 'desconto', amount: '', error: '' },
+        valueDlg: { kind: 'desconto', amount: '', mode: 'valor', error: '' },
         pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, customerId: '', dueDate: '' },
         error: '', payError: '', saving: false, appSettings: [],
+        browseQ: '', browseResults: [],
+        openRegisterForm: { opening: '', error: '' },
 
         // ─── Utilitários ───
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
@@ -470,6 +527,18 @@
             this.searching = false;
           }
         },
+        // ─── Consultar produtos (modal separado, sem afetar o carrinho) ───
+        openBrowse() {
+          this.browseQ = ''; this.browseResults = [];
+          this.$refs.browse.showModal();
+          this.$nextTick(() => this.$refs.browseInput.focus());
+          this.searchBrowse();
+        },
+        async searchBrowse() {
+          const r = await fetch('/api/commercial/products' + (this.browseQ.trim() ? '?q=' + encodeURIComponent(this.browseQ.trim()) : ''));
+          if (r.ok) this.browseResults = await r.json();
+        },
+
         highlightNext() {
           if (!this.results.length) return;
           this.highlightIdx = (this.highlightIdx + 1) % this.results.length;
@@ -519,12 +588,22 @@
 
         // ─── Desconto / Acréscimo ───
         openValue(kind) {
-          this.valueDlg = { kind, amount: '', error: '' };
+          this.valueDlg = { kind, amount: '', mode: 'valor', error: '' };
           this.$refs.value.showModal();
           this.$nextTick(() => this.$refs.valueInput.focus());
         },
+        setValueMode(mode) {
+          if (this.valueDlg.mode === mode) return;
+          this.valueDlg.mode = mode; this.valueDlg.amount = ''; this.valueDlg.error = '';
+          this.$nextTick(() => this.$refs.valueInput.focus());
+        },
+        percentToCents(pct) {
+          const p = parseFloat(String(pct || '0').replace(',', '.'));
+          if (isNaN(p) || p <= 0) return 0;
+          return Math.round(this.subtotal() * (p / 100));
+        },
         saveValue() {
-          const v = this.cents(this.valueDlg.amount);
+          const v = this.valueDlg.mode === 'valor' ? this.cents(this.valueDlg.amount) : this.percentToCents(this.valueDlg.amount);
           if (v < 0) { this.valueDlg.error = 'Valor inválido.'; return; }
           if (this.valueDlg.kind === 'desconto') {
             if (v > this.subtotal() + this.surchargeCents) { this.valueDlg.error = 'Desconto maior que o total.'; return; }
@@ -629,6 +708,25 @@
             if (exibir !== '0') this.$refs.postSale.showModal(); else this.focusSearch();
           } else {
             this.payError = (await r.json()).error ?? 'Erro ao registrar a venda.';
+          }
+        },
+
+        // ─── Abrir caixa sem perder a venda em andamento ───
+        openRegisterFromSale() {
+          this.openRegisterForm = { opening: '', error: '' };
+          this.$refs.openRegisterDlg.showModal();
+          this.$nextTick(() => this.$refs.openRegisterInput.focus());
+        },
+        async confirmOpenRegister() {
+          const r = await fetch('/api/finance/cash/open', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ openingCents: this.cents(this.openRegisterForm.opening) }),
+          });
+          if (r.ok) {
+            this.$refs.openRegisterDlg.close();
+            this.payError = '';
+          } else {
+            this.openRegisterForm.error = (await r.json()).error ?? 'Erro ao abrir o caixa.';
           }
         },
       };

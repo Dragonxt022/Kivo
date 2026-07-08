@@ -83,7 +83,12 @@ router.get('/cash/current', requirePermission('finance.cash.view'), (_req, res) 
     res.json({ open: false });
     return;
   }
-  res.json({ open: true, register: reg, expectedCents: expectedCents(reg.id) });
+  const reminderSetting = db().prepare("SELECT value FROM settings WHERE key = 'caixa.lembrete_24h' AND deleted_at IS NULL").get() as
+    { value: string | null } | undefined;
+  const reminderEnabled = reminderSetting?.value !== '0';
+  const openedMs = new Date(reg.opened_at.replace(' ', 'T') + 'Z').getTime();
+  const openTooLong = reminderEnabled && Date.now() - openedMs > 24 * 3600e3;
+  res.json({ open: true, register: reg, expectedCents: expectedCents(reg.id), openTooLong });
 });
 
 router.get('/cash/movements', requirePermission('finance.cash.view'), (req, res) => {

@@ -22,7 +22,9 @@
 </head>
 <body>
   <div class="center">
-    <h1><%= company %></h1>
+    <h1><%= company.name %></h1>
+    <% if (company.document) { %><p class="muted"><%= company.document %></p><% } %>
+    <% if (company.address) { %><p class="muted"><%= company.address %></p><% } %>
     <p class="muted">Cupom não fiscal</p>
   </div>
   <hr />

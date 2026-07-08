@@ -397,6 +397,7 @@ tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
 .btn.secondary:hover { background: #eae8ea; }
 .btn.small { padding: .3rem .7rem; font-size: .8rem; }
 .btn.danger { background: var(--danger); }
+.btn.secondary.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .btn.danger:hover { background: #dc2626; }
 
 /* ─── Toolbar ─── */

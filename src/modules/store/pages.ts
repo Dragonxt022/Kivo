@@ -12,10 +12,24 @@ function page(view: string, permission: string) {
   };
 }
 
-function companyName(): string {
-  const row = db().prepare("SELECT value FROM settings WHERE key = 'empresa.nome' AND deleted_at IS NULL").get() as
-    { value: string | null } | undefined;
-  return row?.value || 'Katsu';
+interface CompanyInfo {
+  name: string;
+  document: string | null;
+  address: string | null;
+}
+
+function companyInfo(): CompanyInfo {
+  const rows = db()
+    .prepare(
+      "SELECT key, value FROM settings WHERE key IN ('empresa.nome', 'empresa.documento', 'empresa.endereco') AND deleted_at IS NULL",
+    )
+    .all() as { key: string; value: string | null }[];
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return {
+    name: map['empresa.nome'] || 'Katsu',
+    document: map['empresa.documento'] || null,
+    address: map['empresa.endereco'] || null,
+  };
 }
 
 router.get('/pdv', page('store-pdv', 'store.sales.create'));
@@ -34,7 +48,7 @@ router.get('/vendas/:id/cupom', (req, res) => {
   if (!sale) return res.status(404).send('Venda não encontrada.');
   const items = db().prepare('SELECT product_name, qty, unit_price_cents, total_cents FROM sale_items WHERE sale_id = ?').all(req.params.id);
   const payments = db().prepare('SELECT method_name, amount_cents, received_cents, change_cents FROM sale_payments WHERE sale_id = ?').all(req.params.id);
-  res.render('store-receipt', { sale, items, payments, company: companyName() });
+  res.render('store-receipt', { sale, items, payments, company: companyInfo() });
 });
 
 /** Orçamento imprimível. */
@@ -47,7 +61,7 @@ router.get('/orcamentos/:id/imprimir', (req, res) => {
   ).get(req.params.id);
   if (!quote) return res.status(404).send('Orçamento não encontrado.');
   const items = db().prepare('SELECT product_name, qty, unit_price_cents, total_cents FROM quote_items WHERE quote_id = ?').all(req.params.id);
-  res.render('store-quote-print', { quote, items, company: companyName() });
+  res.render('store-quote-print', { quote, items, company: companyInfo() });
 });
 
 export default router;
