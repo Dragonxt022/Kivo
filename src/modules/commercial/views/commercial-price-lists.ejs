@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Listas de preço</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/listas-de-preco' }) %>
+  <main x-data="priceListsPage()" x-init="load()">
+    <h1>Listas de preço</h1>
+    <p class="muted">Atacado, varejo, revenda… cada lista pode ter um preço fixo ou faixas por quantidade mínima. A lista marcada como "padrão" vale para qualquer venda sem cliente com lista própria.</p>
+    <div class="toolbar">
+      <% if (user.permissions.has('commercial.pricelists.manage')) { %>
+        <button class="btn" @click="openNew()">Nova lista</button>
+      <% } %>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Nome</th><th>Itens</th><th>Padrão</th><th>Situação</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="l in rows" :key="l.id">
+          <tr>
+            <td x-text="l.name"></td>
+            <td class="muted" x-text="l.item_count"></td>
+            <td><span class="badge" x-show="l.is_default">padrão</span></td>
+            <td><span class="badge" :class="l.active ? '' : 'off'" x-text="l.active ? 'ativa' : 'inativa'"></span></td>
+            <td style="text-align:right">
+              <% if (user.permissions.has('commercial.pricelists.manage')) { %>
+                <button class="btn secondary small" @click="openEdit(l)">Editar</button>
+                <button class="btn small" @click="remove(l)">Excluir</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? 'Editar lista' : 'Nova lista'"></h1>
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="form.name" />
+        <label style="display:flex;align-items:center;gap:.4rem;margin-top:.4rem">
+          <input type="checkbox" x-model="form.isDefault" /> Lista padrão (quando a venda não tem cliente com lista própria)
+        </label>
+        <template x-if="form.id">
+          <label style="display:flex;align-items:center;gap:.4rem">
+            <input type="checkbox" x-model="form.active" /> Ativa
+          </label>
+        </template>
+
+        <template x-if="form.id">
+          <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-light)">
+            <h2 style="font-size:.95rem;margin-bottom:.5rem">Itens</h2>
+            <div style="display:flex;gap:.4rem;margin-bottom:.6rem">
+              <input type="text" x-model="prodQ" placeholder="Buscar produto…" @input.debounce.300ms="searchProducts()" style="flex:1" />
+            </div>
+            <div x-show="prodResults.length" style="border:1px solid var(--border-light);border-radius:8px;margin-bottom:.6rem;max-height:160px;overflow:auto">
+              <template x-for="p in prodResults" :key="p.id">
+                <div style="padding:.4rem .6rem;cursor:pointer" @click="addItem(p)" x-text="p.name + ' — ' + brl(p.price_cents)"></div>
+              </template>
+            </div>
+            <table>
+              <thead><tr><th>Produto</th><th>Qtd. mínima</th><th>Preço (R$)</th><th></th></tr></thead>
+              <tbody>
+                <template x-for="(it, idx) in items" :key="idx">
+                  <tr>
+                    <td x-text="it.product_name"></td>
+                    <td><input type="number" min="1" step="1" x-model.number="it.min_qty" style="width:80px" /></td>
+                    <td><input type="text" x-model="it.priceStr" @input="it.priceStr = maskMoney(it.priceStr)" style="width:100px" /></td>
+                    <td><button class="icon-btn" @click="items.splice(idx, 1)" title="Remover">×</button></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <div class="error" x-text="itemsError"></div>
+            <div class="actions" style="position:static;border-top:0;margin-top:.5rem;padding-top:0">
+              <button class="btn secondary small" @click="saveItems()">Salvar itens</button>
+            </div>
+          </div>
+        </template>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Fechar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script src="/js/masks.js"></script>
+  <script>
+    function priceListsPage() {
+      return {
+        rows: [], form: {}, items: [], prodQ: '', prodResults: [], error: '', dlgError: '', itemsError: '',
+        brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
+        async load() {
+          const r = await fetch('/api/commercial/price-lists');
+          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+        },
+        openNew() { this.form = { isDefault: false }; this.items = []; this.dlgError = ''; this.itemsError = ''; this.$refs.dlg.showModal(); },
+        async openEdit(l) {
+          const r = await fetch(`/api/commercial/price-lists/${l.id}`);
+          if (!r.ok) { this.error = (await r.json()).error; return; }
+          const data = await r.json();
+          this.form = { id: data.id, name: data.name, isDefault: !!data.is_default, active: !!data.active };
+          this.items = data.items.map((i) => ({ ...i, priceStr: (i.unit_price_cents / 100).toFixed(2).replace('.', ',') }));
+          this.prodQ = ''; this.prodResults = []; this.dlgError = ''; this.itemsError = '';
+          this.$refs.dlg.showModal();
+        },
+        async save() {
+          const body = { name: this.form.name, isDefault: this.form.isDefault, active: this.form.id ? this.form.active : undefined };
+          const isEdit = !!this.form.id;
+          const r = await fetch(isEdit ? `/api/commercial/price-lists/${this.form.id}` : '/api/commercial/price-lists', {
+            method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (r.ok) {
+            if (!isEdit) { const created = await r.json(); await this.load(); this.openEdit(created); }
+            else { this.$refs.dlg.close(); this.load(); }
+          } else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(l) {
+          if (!await window.confirmDlg(`Excluir "${l.name}"?`)) return;
+          const r = await fetch(`/api/commercial/price-lists/${l.id}`, { method: 'DELETE' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        async searchProducts() {
+          if (!this.prodQ.trim()) { this.prodResults = []; return; }
+          const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(this.prodQ.trim()));
+          if (r.ok) this.prodResults = await r.json();
+        },
+        addItem(p) {
+          if (this.items.some((i) => i.product_id === p.id && i.min_qty === 1)) return;
+          this.items.push({ product_id: p.id, product_name: p.name, min_qty: 1, priceStr: (p.price_cents / 100).toFixed(2).replace('.', ',') });
+          this.prodQ = ''; this.prodResults = [];
+        },
+        async saveItems() {
+          this.itemsError = '';
+          const payload = this.items.map((i) => ({ productId: i.product_id, minQty: i.min_qty, unitPriceCents: this.toCents(i.priceStr) }));
+          const r = await fetch(`/api/commercial/price-lists/${this.form.id}/items`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: payload }),
+          });
+          if (r.ok) { await this.openEdit({ id: this.form.id }); await this.load(); }
+          else this.itemsError = (await r.json()).error ?? 'Erro ao salvar itens.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

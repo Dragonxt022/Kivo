@@ -23,6 +23,33 @@ export function currentRegister(): CashRegister | undefined {
     .get() as CashRegister | undefined;
 }
 
+export interface CashRegisterDetail {
+  id: number;
+  status: string;
+  opening_cents: number;
+  opened_at: string;
+  opened_by_name: string | null;
+  closed_at: string | null;
+  closed_by_name: string | null;
+  expected_cents: number | null;
+  counted_cents: number | null;
+  difference_cents: number | null;
+  notes: string | null;
+}
+
+/** Dados do caixa para o relatório de fechamento (inclui nomes de quem abriu/fechou). */
+export function getRegisterById(registerId: number): CashRegisterDetail | undefined {
+  return getSqlite().prepare(
+    `SELECT r.id, r.status, r.opening_cents, r.opened_at, ou.username AS opened_by_name,
+            r.closed_at, cu.username AS closed_by_name, r.expected_cents, r.counted_cents,
+            r.difference_cents, r.notes
+     FROM cash_registers r
+     LEFT JOIN users ou ON ou.id = r.opened_by
+     LEFT JOIN users cu ON cu.id = r.closed_by
+     WHERE r.id = ? AND r.deleted_at IS NULL`,
+  ).get(registerId) as CashRegisterDetail | undefined;
+}
+
 export function registerTotals(registerId: number): { entradas: number; saidas: number } {
   const row = getSqlite()
     .prepare(
@@ -80,7 +107,7 @@ export function closeRegister(
   req: Request,
   countedCents: number,
   notes?: string,
-): { ok: true; expected: number; counted: number; difference: number } | { ok: false; error: string } {
+): { ok: true; id: number; expected: number; counted: number; difference: number } | { ok: false; error: string } {
   const reg = currentRegister();
   if (!reg) return { ok: false, error: 'Nenhum caixa aberto.' };
   if (!Number.isInteger(countedCents) || countedCents < 0) return { ok: false, error: 'Valor contado inválido.' };
@@ -96,11 +123,11 @@ export function closeRegister(
     )
     .run(req.user!.id, expected, countedCents, difference, notes ?? null, reg.id);
   audit(req, 'caixa_fechar', 'cash_register', reg.id, { expected }, { counted: countedCents, difference });
-  return { ok: true, expected, counted: countedCents, difference };
+  return { ok: true, id: reg.id, expected, counted: countedCents, difference };
 }
 
 export function editClosedRegister(req: Request, registerId: number, updates: { countedCents?: number; notes?: string }):
-  { ok: true; expected: number; counted: number; difference: number } | { ok: false; error: string } {
+  { ok: true; id: number; expected: number; counted: number; difference: number } | { ok: false; error: string } {
   const db = getSqlite();
   const before = db.prepare('SELECT id, status, expected_cents, counted_cents, difference_cents FROM cash_registers WHERE id = ? AND deleted_at IS NULL')
     .get(registerId) as { id: number; status: string; expected_cents: number; counted_cents: number; difference_cents: number } | undefined;
@@ -118,5 +145,5 @@ export function editClosedRegister(req: Request, registerId: number, updates: { 
   audit(req, 'caixa_editar', 'cash_register', registerId,
     { counted: before.counted_cents, difference: before.difference_cents },
     { counted, difference });
-  return { ok: true, expected: before.expected_cents, counted, difference };
+  return { ok: true, id: registerId, expected: before.expected_cents, counted, difference };
 }

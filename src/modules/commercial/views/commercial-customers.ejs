@@ -11,7 +11,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
-  <main x-data="crudPage('/api/commercial/customers')" x-init="load()">
+  <main x-data="{ ...crudPage('/api/commercial/customers'), priceLists: [], async loadPriceLists() { const r = await fetch('/api/commercial/price-lists'); if (r.ok) this.priceLists = await r.json(); } }" x-init="load(); loadPriceLists()">
     <h1>Clientes</h1>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.customers.create')) { %>
@@ -52,6 +52,13 @@
         <label>E-mail</label><input type="text" x-model="form.email" />
         <label>Endereço</label><input type="text" x-model="form.address" />
         <label>Observações</label><input type="text" x-model="form.notes" />
+        <% if (user.permissions.has('commercial.pricelists.view')) { %>
+        <label>Lista de preço</label>
+        <select x-model.number="form.price_list_id">
+          <option value="">— preço normal do catálogo —</option>
+          <template x-for="l in priceLists" :key="l.id"><option :value="l.id" x-text="l.name"></option></template>
+        </select>
+        <% } %>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">

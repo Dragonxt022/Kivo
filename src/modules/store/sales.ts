@@ -4,7 +4,7 @@ import { getSqlite } from '../../core/database/connection';
 import { getService } from '../../core/services/registry';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
-import type { CommercialStockService } from '../commercial/setup';
+import type { CommercialStockService, CommercialPricingService } from '../commercial/setup';
 import type { FinanceCashService, FinanceReceivablesService, FinancePayMethodsService, PaymentMethod } from '../finance/setup';
 
 /**
@@ -57,6 +57,7 @@ export function createSale(
 ): SaleResult {
   const db = getSqlite();
   const stock = getService<CommercialStockService>('commercial.stock');
+  const pricing = getService<CommercialPricingService>('commercial.pricing');
   const cash = getService<FinanceCashService>('finance.cash');
   const methods = getService<FinancePayMethodsService>('finance.paymethods');
 
@@ -79,7 +80,7 @@ export function createSale(
     const unitCents =
       opts.allowPriceOverride && item.unitPriceCents != null
         ? Math.round(item.unitPriceCents)
-        : p.price_cents;
+        : pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
     items.push({
       productId: p.id, name: p.name, qty: item.qty, unitCents,
       totalCents: Math.round(unitCents * item.qty),

@@ -4,8 +4,10 @@ import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
+import { validateBarcode, generateInternalBarcode } from '../../shared/barcode';
 import { makeCrudRouter } from './crud';
 import { moveStock, moveStockRaw, listMovements, type MovementType } from './stock';
+import { resolveMany } from './pricing';
 
 const router = Router();
 const db = () => getSqlite();
@@ -13,7 +15,7 @@ const db = () => getSqlite();
 // ---------- Clientes e fornecedores (CRUD via fábrica) ----------
 router.use('/customers', makeCrudRouter({
   table: 'customers', entity: 'customer', permPrefix: 'commercial.customers',
-  fields: ['name', 'document', 'email', 'phone', 'address', 'notes'], required: ['name'],
+  fields: ['name', 'document', 'email', 'phone', 'address', 'notes', 'price_list_id'], required: ['name'],
 }));
 router.use('/suppliers', makeCrudRouter({
   table: 'suppliers', entity: 'supplier', permPrefix: 'commercial.suppliers',
@@ -97,6 +99,19 @@ function autoSkuEnabled(): boolean {
   return row?.value !== '0';
 }
 
+/**
+ * Traduz violação dos índices únicos de barcode/sku (0014) em erro amigável, em vez de
+ * vazar o SQLITE_CONSTRAINT cru. SQLite reporta o nome da COLUNA (products.barcode), não
+ * o nome do índice, mesmo quando a unicidade vem de um CREATE UNIQUE INDEX parcial.
+ */
+function friendlyUniqueError(e: unknown): string | null {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (!msg.includes('UNIQUE constraint failed')) return null;
+  if (msg.includes('products.barcode')) return 'Código de barras já cadastrado em outro produto.';
+  if (msg.includes('products.sku')) return 'SKU já cadastrado em outro produto.';
+  return null;
+}
+
 router.get('/products', requirePermission('commercial.products.view'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const where = q ? 'AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)' : '';
@@ -115,14 +130,26 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
     res.status(403).json({ error: 'Permissão negada: commercial.products.price (definir preço).' });
     return;
   }
-  const info = db().prepare(
-    `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, uuid)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    b.name, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
-    b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
-    b.trackStock === false ? 0 : 1, b.minStock ?? 0, randomUUID(),
-  );
+  if (b.barcode && !validateBarcode(String(b.barcode))) {
+    res.status(400).json({ error: 'Código de barras inválido (dígito verificador não confere).' });
+    return;
+  }
+  let info: { lastInsertRowid: number | bigint };
+  try {
+    info = db().prepare(
+      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      b.name, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
+      b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
+      b.trackStock === false ? 0 : 1, b.minStock ?? 0, randomUUID(),
+    );
+  } catch (e) {
+    const friendly = friendlyUniqueError(e);
+    if (!friendly) throw e;
+    res.status(409).json({ error: friendly });
+    return;
+  }
   const newId = Number(info.lastInsertRowid);
   if (!b.sku && autoSkuEnabled()) {
     db().prepare("UPDATE products SET sku = ? WHERE id = ?").run(`P${String(newId).padStart(6, '0')}`, newId);
@@ -162,21 +189,32 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
     res.status(400).json({ error: 'Saldo de estoque não é editável: use movimentações (/stock/move).' });
     return;
   }
-  db().prepare(
-    `UPDATE products SET
-       name = COALESCE(?, name), description = COALESCE(?, description), sku = COALESCE(?, sku),
-       barcode = COALESCE(?, barcode), category_id = COALESCE(?, category_id), unit = COALESCE(?, unit),
-       price_cents = COALESCE(?, price_cents), cost_cents = COALESCE(?, cost_cents),
-       track_stock = COALESCE(?, track_stock), min_stock = COALESCE(?, min_stock),
-       active = COALESCE(?, active), updated_at = datetime('now')
-     WHERE id = ?`,
-  ).run(
-    b.name ?? null, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
-    b.unit ?? null, b.priceCents != null ? Math.round(b.priceCents) : null,
-    b.costCents != null ? Math.round(b.costCents) : null,
-    b.trackStock != null ? (b.trackStock ? 1 : 0) : null, b.minStock ?? null,
-    b.active != null ? (b.active ? 1 : 0) : null, id,
-  );
+  if (b.barcode && !validateBarcode(String(b.barcode))) {
+    res.status(400).json({ error: 'Código de barras inválido (dígito verificador não confere).' });
+    return;
+  }
+  try {
+    db().prepare(
+      `UPDATE products SET
+         name = COALESCE(?, name), description = COALESCE(?, description), sku = COALESCE(?, sku),
+         barcode = COALESCE(?, barcode), category_id = COALESCE(?, category_id), unit = COALESCE(?, unit),
+         price_cents = COALESCE(?, price_cents), cost_cents = COALESCE(?, cost_cents),
+         track_stock = COALESCE(?, track_stock), min_stock = COALESCE(?, min_stock),
+         active = COALESCE(?, active), updated_at = datetime('now')
+       WHERE id = ?`,
+    ).run(
+      b.name ?? null, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
+      b.unit ?? null, b.priceCents != null ? Math.round(b.priceCents) : null,
+      b.costCents != null ? Math.round(b.costCents) : null,
+      b.trackStock != null ? (b.trackStock ? 1 : 0) : null, b.minStock ?? null,
+      b.active != null ? (b.active ? 1 : 0) : null, id,
+    );
+  } catch (e) {
+    const friendly = friendlyUniqueError(e);
+    if (!friendly) throw e;
+    res.status(409).json({ error: friendly });
+    return;
+  }
   const after = getProduct(id);
   audit(req, 'editar', 'product', id, before, after);
   res.json(after);
@@ -229,6 +267,168 @@ router.post('/products/:id/duplicate', requirePermission('commercial.products.cr
   const created = getProduct(Number(info.lastInsertRowid));
   audit(req, 'criar', 'product', Number(info.lastInsertRowid), null, created);
   res.status(201).json(created);
+});
+
+router.get('/products/by-barcode/:code', requirePermission('commercial.products.view'), (req, res) => {
+  const row = db().prepare(
+    `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+     WHERE p.barcode = ? AND p.deleted_at IS NULL`,
+  ).get(req.params.code);
+  if (!row) {
+    res.status(404).json({ error: 'Nenhum produto com este código.' });
+    return;
+  }
+  res.json(row);
+});
+
+router.post('/products/:id/barcode/generate', requirePermission('commercial.products.edit'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = getProduct(id);
+  if (!before) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  const barcode = generateInternalBarcode(id);
+  try {
+    db().prepare(`UPDATE products SET barcode = ?, updated_at = datetime('now') WHERE id = ?`).run(barcode, id);
+  } catch (e) {
+    const friendly = friendlyUniqueError(e);
+    res.status(409).json({ error: friendly ?? 'Conflito ao gerar código interno — tente novamente.' });
+    return;
+  }
+  const after = getProduct(id);
+  audit(req, 'editar', 'product', id, before, after);
+  res.json(after);
+});
+
+// ---------- Listas de preço ----------
+router.get('/price-lists', requirePermission('commercial.pricelists.view'), (_req, res) => {
+  res.json(db().prepare(
+    `SELECT pl.id, pl.name, pl.is_default, pl.active,
+            (SELECT COUNT(*) FROM price_list_items i WHERE i.price_list_id = pl.id) AS item_count
+     FROM price_lists pl WHERE pl.deleted_at IS NULL ORDER BY pl.name`,
+  ).all());
+});
+
+router.get('/price-lists/:id', requirePermission('commercial.pricelists.view'), (req, res) => {
+  const id = Number(req.params.id);
+  const list = db().prepare('SELECT id, name, is_default, active, updated_at FROM price_lists WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!list) {
+    res.status(404).json({ error: 'Lista de preço não encontrada.' });
+    return;
+  }
+  const items = db().prepare(
+    `SELECT i.id, i.product_id, p.name AS product_name, i.min_qty, i.unit_price_cents
+     FROM price_list_items i JOIN products p ON p.id = i.product_id
+     WHERE i.price_list_id = ? ORDER BY p.name, i.min_qty`,
+  ).all(id);
+  res.json({ ...list, items });
+});
+
+function unsetOtherDefaults(): void {
+  db().prepare("UPDATE price_lists SET is_default = 0, updated_at = datetime('now') WHERE is_default = 1").run();
+}
+
+router.post('/price-lists', requirePermission('commercial.pricelists.manage'), (req, res) => {
+  const { name, isDefault } = req.body ?? {};
+  if (!name || !String(name).trim()) {
+    res.status(400).json({ error: 'Campo obrigatório: name' });
+    return;
+  }
+  let newId = 0;
+  db().transaction(() => {
+    if (isDefault) unsetOtherDefaults();
+    const info = db().prepare('INSERT INTO price_lists (name, is_default, uuid) VALUES (?, ?, ?)')
+      .run(String(name).trim(), isDefault ? 1 : 0, randomUUID());
+    newId = Number(info.lastInsertRowid);
+  })();
+  const created = db().prepare('SELECT id, name, is_default, active FROM price_lists WHERE id = ?').get(newId);
+  audit(req, 'criar', 'price_list', newId, null, created);
+  res.status(201).json(created);
+});
+
+router.put('/price-lists/:id', requirePermission('commercial.pricelists.manage'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, name, is_default, active FROM price_lists WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Lista de preço não encontrada.' });
+    return;
+  }
+  const { name, active, isDefault } = req.body ?? {};
+  db().transaction(() => {
+    if (isDefault) unsetOtherDefaults();
+    db().prepare(
+      `UPDATE price_lists SET name = COALESCE(?, name), active = COALESCE(?, active),
+         is_default = COALESCE(?, is_default), updated_at = datetime('now') WHERE id = ?`,
+    ).run(name ?? null, active != null ? (active ? 1 : 0) : null, isDefault != null ? (isDefault ? 1 : 0) : null, id);
+  })();
+  const after = db().prepare('SELECT id, name, is_default, active FROM price_lists WHERE id = ?').get(id);
+  audit(req, 'editar', 'price_list', id, before, after);
+  res.json(after);
+});
+
+router.delete('/price-lists/:id', requirePermission('commercial.pricelists.manage'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, name FROM price_lists WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Lista de preço não encontrada.' });
+    return;
+  }
+  db().transaction(() => {
+    db().prepare("UPDATE customers SET price_list_id = NULL, updated_at = datetime('now') WHERE price_list_id = ?").run(id);
+    db().prepare("UPDATE price_lists SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  })();
+  audit(req, 'excluir', 'price_list', id, before, null);
+  res.json({ ok: true });
+});
+
+router.put('/price-lists/:id/items', requirePermission('commercial.pricelists.manage'), (req, res) => {
+  const id = Number(req.params.id);
+  const list = db().prepare('SELECT id FROM price_lists WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!list) {
+    res.status(404).json({ error: 'Lista de preço não encontrada.' });
+    return;
+  }
+  const { items } = req.body ?? {};
+  if (!Array.isArray(items)) {
+    res.status(400).json({ error: 'Campo obrigatório: items[{productId, minQty, unitPriceCents}].' });
+    return;
+  }
+  try {
+    db().transaction(() => {
+      db().prepare('DELETE FROM price_list_items WHERE price_list_id = ?').run(id);
+      for (const item of items) {
+        db().prepare(
+          'INSERT INTO price_list_items (price_list_id, product_id, min_qty, unit_price_cents) VALUES (?, ?, ?, ?)',
+        ).run(id, Number(item.productId), Number(item.minQty ?? 1), Math.round(item.unitPriceCents));
+      }
+      // Bump obrigatório: o motor de sync só reenvia o pai quando updated_at avança —
+      // sem isso, mudanças nos itens (filhos) não seriam propagadas para outras máquinas.
+      db().prepare("UPDATE price_lists SET updated_at = datetime('now') WHERE id = ?").run(id);
+    })();
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
+    return;
+  }
+  const after = db().prepare(
+    `SELECT i.id, i.product_id, p.name AS product_name, i.min_qty, i.unit_price_cents
+     FROM price_list_items i JOIN products p ON p.id = i.product_id WHERE i.price_list_id = ? ORDER BY p.name, i.min_qty`,
+  ).all(id);
+  audit(req, 'editar', 'price_list_items', id, null, after);
+  res.json({ items: after });
+});
+
+router.post('/pricing/resolve', requirePermission('store.sales.create'), (req, res) => {
+  const { customerId, items } = req.body ?? {};
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: 'Campo obrigatório: items[{productId, qty}].' });
+    return;
+  }
+  const prices = resolveMany(
+    items.map((i: { productId: number; qty: number }) => ({ productId: Number(i.productId), qty: Number(i.qty) })),
+    customerId ?? null,
+  ).map((p, idx) => ({ productId: Number(items[idx].productId), ...p }));
+  res.json({ prices });
 });
 
 // ---------- Estoque ----------

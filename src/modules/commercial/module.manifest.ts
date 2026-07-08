@@ -19,6 +19,8 @@ const manifest: ModuleManifest = {
     { key: 'commercial.products.edit', description: 'Editar produtos (exceto preço)' },
     { key: 'commercial.products.delete', description: 'Excluir produtos' },
     { key: 'commercial.products.price', description: 'Alterar preço de produtos' },
+    { key: 'commercial.pricelists.view', description: 'Visualizar listas de preço' },
+    { key: 'commercial.pricelists.manage', description: 'Criar, editar e excluir listas de preço e seus itens' },
     { key: 'commercial.stock.view', description: 'Visualizar estoque e movimentações' },
     { key: 'commercial.stock.move', description: 'Movimentar estoque (entrada/saída/ajuste)' },
     { key: 'commercial.purchases.view', description: 'Visualizar compras' },
@@ -35,6 +37,7 @@ const manifest: ModuleManifest = {
     { label: 'Clientes', href: '/app/commercial/clientes', permission: 'commercial.customers.view', description: 'Cadastro de clientes.', icon: 'users' },
     { label: 'Fornecedores', href: '/app/commercial/fornecedores', permission: 'commercial.suppliers.view', description: 'Cadastro de fornecedores.', icon: 'truck' },
     { label: 'Produtos', href: '/app/commercial/produtos', permission: 'commercial.products.view', description: 'Catálogo, preços e estoque.', icon: 'package' },
+    { label: 'Listas de preço', href: '/app/commercial/listas-de-preco', permission: 'commercial.pricelists.view', description: 'Atacado, varejo, faixas por quantidade e listas por cliente.', icon: 'dollar-sign' },
     { label: 'Compras', href: '/app/commercial/compras', permission: 'commercial.purchases.view', description: 'Recebimento de mercadoria e custos.', icon: 'bag' },
   ],
   // Fase 6a — motor de sincronização (KATSU_PLANO.md §6).
@@ -44,7 +47,7 @@ const manifest: ModuleManifest = {
   syncTables: [
     { table: 'categories', foreignKeys: { parent_id: 'categories' } },
     { table: 'products', foreignKeys: { category_id: 'categories' }, excludeColumns: ['stock_qty'] },
-    { table: 'customers' },
+    { table: 'customers', foreignKeys: { price_list_id: 'price_lists' } },
     { table: 'suppliers' },
     {
       table: 'purchases',
@@ -55,6 +58,10 @@ const manifest: ModuleManifest = {
       table: 'stock_movements',
       excludeColumns: ['balance_after', 'ref_id', 'user_id'],
       ledgerFor: { parentTable: 'products', parentColumn: 'product_id' },
+    },
+    {
+      table: 'price_lists',
+      children: [{ table: 'price_list_items', parentColumn: 'price_list_id', foreignKeys: { product_id: 'products' } }],
     },
   ],
 };

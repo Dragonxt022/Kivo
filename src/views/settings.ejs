@@ -19,6 +19,9 @@
       <button :class="{ active: tab === 'empresa' }" @click="tab = 'empresa'">Empresa</button>
       <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">Estoque</button>
       <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">Vendas</button>
+      <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
+      <button :class="{ active: tab === 'security' }" @click="tab = 'security'">Segurança</button>
+      <% } %>
       <% if (user.permissions.has('settings.edit')) { %>
       <button :class="{ active: tab === 'advanced' }" @click="tab = 'advanced'">Avançado</button>
       <% } %>
@@ -142,6 +145,50 @@
       </section>
     </div>
 
+    <!-- ═══════ ABA: SEGURANÇA ═══════ -->
+    <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
+    <div x-show="tab === 'security'" x-cloak>
+      <% if (user.permissions.has('settings.edit')) { %>
+      <section class="panel">
+        <h2>Confirmação por PIN</h2>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input type="checkbox" x-model="security.pinRemoverItem" />
+            Exigir PIN de administrador para remover item já lançado no carrinho do PDV
+          </label>
+          <p class="hint">Desativado por padrão. Quando ativado, o operador do caixa precisa digitar o PIN para confirmar a remoção.</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn" @click="saveSecurity()" x-text="savingSecurity ? 'Salvando…' : 'Salvar configurações'"></button>
+          <span class="muted" x-show="securitySaved" x-text="securitySaved"></span>
+        </div>
+      </section>
+      <% } %>
+      <% if (user.permissions.has('security.pin.manage')) { %>
+      <section class="panel">
+        <h2>PIN de administrador</h2>
+        <p class="hint" style="margin-top:0">
+          <span x-show="pinConfigured">PIN configurado nesta máquina.</span>
+          <span x-show="!pinConfigured">Nenhum PIN configurado ainda nesta máquina.</span>
+        </p>
+        <div class="field">
+          <label>Novo PIN (4 a 6 dígitos)</label>
+          <input class="input" type="password" inputmode="numeric" maxlength="6" x-model="pinForm.pin" style="max-width:160px">
+        </div>
+        <div class="field">
+          <label>Confirmar PIN</label>
+          <input class="input" type="password" inputmode="numeric" maxlength="6" x-model="pinForm.confirm" style="max-width:160px">
+        </div>
+        <div class="toolbar">
+          <button class="btn" @click="savePin()" x-text="savingPin ? 'Salvando…' : 'Salvar PIN'"></button>
+          <span class="error" x-text="pinError"></span>
+          <span class="muted" x-show="pinSaved" x-text="pinSaved"></span>
+        </div>
+      </section>
+      <% } %>
+    </div>
+    <% } %>
+
     <!-- ═══════ ABA: AVANÇADO ═══════ -->
     <% if (user.permissions.has('settings.edit')) { %>
     <div x-show="tab === 'advanced'" x-cloak>
@@ -244,6 +291,8 @@
         sales: { exibirCupom: true, lembreteCaixa24h: true }, savingSales: false, salesSaved: '',
         empresa: { nome: '', documento: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
+        security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
+        pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
 
         async load() {
           const r = await fetch('/api/settings');
@@ -255,6 +304,10 @@
           const l = await fetch('/api/license');
           if (l.ok) this.license = await l.json();
           <% } %>
+          <% if (user.permissions.has('security.pin.manage')) { %>
+          const p = await fetch('/api/security/pin/status');
+          if (p.ok) this.pinConfigured = (await p.json()).configured;
+          <% } %>
         },
         syncSettings() {
           const auto = this.settings.find(s => s.key === 'estoque.auto_sku');
@@ -265,6 +318,8 @@
           this.sales.exibirCupom = cupom?.value !== '0';
           const lembrete = this.settings.find(s => s.key === 'caixa.lembrete_24h');
           this.sales.lembreteCaixa24h = lembrete?.value !== '0';
+          const pinRemove = this.settings.find(s => s.key === 'seguranca.pin_remover_item');
+          this.security.pinRemoverItem = pinRemove?.value === '1';
           const cu = this.settings.find(s => s.key === 'sync.server_url');
           this.cloudUrlForm.value = cu?.value ?? '';
           this.empresa.nome = this.settings.find(s => s.key === 'empresa.nome')?.value ?? '';
@@ -365,6 +420,32 @@
           this.empresaSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
           const r = await fetch('/api/settings');
           if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
+        },
+        async saveSecurity() {
+          this.savingSecurity = true; this.securitySaved = '';
+          const r = await fetch('/api/settings/seguranca.pin_remover_item', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.security.pinRemoverItem ? '1' : '0' }),
+          });
+          this.savingSecurity = false;
+          this.securitySaved = r.ok ? 'Salvo.' : 'Falha ao salvar.';
+          const s = await fetch('/api/settings');
+          if (s.ok) { this.settings = await s.json(); this.syncSettings(); }
+        },
+        async savePin() {
+          this.pinError = ''; this.pinSaved = '';
+          if (!this.pinForm.pin || this.pinForm.pin !== this.pinForm.confirm) {
+            this.pinError = 'Os PINs não conferem.'; return;
+          }
+          this.savingPin = true;
+          const r = await fetch('/api/security/pin', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: this.pinForm.pin }),
+          });
+          this.savingPin = false;
+          if (r.ok) {
+            this.pinConfigured = true; this.pinSaved = 'PIN salvo.'; this.pinForm = { pin: '', confirm: '' };
+          } else this.pinError = (await r.json()).error ?? 'Falha ao salvar PIN.';
         },
         openNew() { this.form = { locked: false }; this.$refs.dlg.showModal(); },
         openEdit(s) { this.form = { key: s.key, value: s.value ?? '', locked: true }; this.$refs.dlg.showModal(); },

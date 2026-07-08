@@ -19,6 +19,7 @@ const manifest: ModuleManifest = {
   pages: './pages',
   views: './views',
   migrations: './migrations',
+  setup: './setup',
   menu: [
     { label: 'PDV', href: '/app/store/pdv', permission: 'store.sales.create', description: 'Frente de caixa: vender rápido.', icon: 'cart' },
     { label: 'Vendas', href: '/app/store/vendas', permission: 'store.sales.view', description: 'Histórico e relatório do dia.', icon: 'receipt' },

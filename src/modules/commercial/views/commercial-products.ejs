@@ -19,17 +19,22 @@
       <% } %>
       <input type="text" placeholder="Buscar nome, código de barras ou SKU…" x-model="q" @input.debounce.400ms="load()"
              style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text);min-width:280px" />
+      <% if (user.permissions.has('commercial.products.edit')) { %>
+      <input type="text" x-ref="scan" placeholder="Bipar código de barras (cadastro rápido)…"
+             @keydown.enter.prevent="scanLookup($event.target.value); $event.target.value = ''"
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text);min-width:280px" />
+      <% } %>
       <span class="error" x-text="error"></span>
     </div>
       <table>
         <thead><tr>
-          <th></th>
           <th @click="sort('name')" class="sortable">Produto<span class="sort-arrow" x-text="sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
           <th @click="sort('category')" class="sortable">Categoria<span class="sort-arrow" x-text="sortBy === 'category' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
           <th @click="sort('price')" class="sortable">Preço<span class="sort-arrow" x-text="sortBy === 'price' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
           <th @click="sort('cost')" class="sortable">Custo<span class="sort-arrow" x-text="sortBy === 'cost' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
           <th @click="sort('stock')" class="sortable">Estoque<span class="sort-arrow" x-text="sortBy === 'stock' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
           <th @click="sort('unit')" class="sortable">Un<span class="sort-arrow" x-text="sortBy === 'unit' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th></th>
           <th></th>
         </tr></thead>
       <tbody>
@@ -39,16 +44,7 @@
               @click="openEdit(p)" style="cursor:pointer"
             <% } %>
           >
-            <td @click.stop style="width:1%">
-              <% if (user.permissions.has('commercial.products.edit')) { %>
-              <button class="icon-btn" :class="{ active: p.favorite }" @click="toggleFavorite(p)"
-                      :title="p.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'">
-                <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                </svg>
-              </button>
-              <% } %>
-            </td>
+            
             <td>
               <span x-text="p.name"></span>
               <span class="badge off" x-show="p.track_stock && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
@@ -59,6 +55,16 @@
             <td class="muted" x-text="brl(p.cost_cents)"></td>
             <td :style="p.track_stock && p.stock_qty < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="p.track_stock ? p.stock_qty : '—'"></td>
             <td class="muted" x-text="p.unit"></td>
+            <td @click.stop style="width:1%">
+              <% if (user.permissions.has('commercial.products.edit')) { %>
+              <button class="icon-btn" :class="{ active: p.favorite }" @click="toggleFavorite(p)"
+                      :title="p.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'">
+                <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+              <% } %>
+            </td>
             <td style="text-align:right" @click.stop>
               <div class="dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === p.id ? null : p.id" title="Mais ações">
@@ -103,7 +109,14 @@
       <h1 x-text="form.id ? 'Editar produto' : 'Novo produto'"></h1>
       <div class="dialog-body">
         <label>Nome</label><input type="text" x-model="form.name" />
-        <label>Código de barras</label><input type="text" x-model="form.barcode" />
+        <label>Código de barras</label>
+        <div style="display:flex;gap:.4rem">
+          <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
+          <template x-if="form.id">
+            <button class="btn secondary small" type="button" @click="genBarcode()">Gerar código interno</button>
+          </template>
+        </div>
+        <span class="muted" style="font-size:.8rem" x-show="barcodeHint" x-text="barcodeHint"></span>
         <label>SKU</label><input type="text" x-model="form.sku" />
         <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
         <label>Categoria</label>
@@ -217,11 +230,12 @@
     </dialog>
   </main>
   <script src="/js/masks.js"></script>
+  <script src="/js/barcode.js"></script>
   <script>
     function productsPage() {
       return {
         rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '', openMenu: null, sortBy: 'name', sortDir: 'asc',
-        catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [],
+        catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
@@ -295,7 +309,24 @@
             categoryId: p.category_id ?? '',
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
             minStock: p.min_stock };
-          this.dlgError = ''; this.$refs.dlg.showModal();
+          this.dlgError = ''; this.barcodeHint = ''; this.$refs.dlg.showModal();
+        },
+        checkBarcode(code) {
+          if (!code) return '';
+          return validateBarcodeClient(code) ? '' : 'Dígito verificador não confere.';
+        },
+        async scanLookup(code) {
+          code = (code || '').trim();
+          if (!code) return;
+          const r = await fetch('/api/commercial/products/by-barcode/' + encodeURIComponent(code));
+          if (r.ok) { this.openEdit(await r.json()); }
+          else { this.openNew(); this.form.barcode = code; }
+        },
+        async genBarcode() {
+          if (!this.form.id) return;
+          const r = await fetch(`/api/commercial/products/${this.form.id}/barcode/generate`, { method: 'POST' });
+          if (r.ok) { const p = await r.json(); this.form.barcode = p.barcode; this.barcodeHint = ''; }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao gerar código.';
         },
         async save() {
           const body = { name: this.form.name, barcode: this.form.barcode || null, sku: this.form.sku || null,

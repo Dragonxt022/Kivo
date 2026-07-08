@@ -100,14 +100,21 @@ async function main() {
   const recRow = db.prepare('SELECT status, amount_cents, customer_id FROM receivables WHERE id = ?').get(v3.receivableId) as { status: string; amount_cents: number; customer_id: number };
   check('conta a receber correta (45,00, aberta, cliente)', recRow.status === 'aberta' && recRow.amount_cents === 4500 && recRow.customer_id === cli.id);
 
-  // Estoque insuficiente bloqueia e não deixa lixo (transação)
+  // Estoque insuficiente NÃO bloqueia a venda — decisão de negócio já em produção
+  // (venda nunca trava por falta de estoque; reposição pode atrasar): o saldo fica
+  // negativo, registrado normalmente. Cancela em seguida para não afetar o relatório do dia.
+  const stockBeforeOver = (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(tinta) as { stock_qty: number }).stock_qty;
   const vOver = await api('/api/store/sales', {
     method: 'POST',
     body: JSON.stringify({ items: [{ productId: tinta, qty: 99 }], paymentMethod: 'pix' }),
   }, admin!);
-  check('estoque insuficiente → 400', vOver.status === 400);
+  check('estoque insuficiente não bloqueia a venda (201)', vOver.status === 201, String(vOver.status));
+  const vOverBody = (await vOver.json()) as { id: number };
+  const stockAfterOver = (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(tinta) as { stock_qty: number }).stock_qty;
+  check('saldo fica negativo (sem travar a venda)', stockAfterOver === stockBeforeOver - 99, `estoque=${stockAfterOver}`);
+  check('cancela a venda de teste (sem deixar lixo no relatório)', (await api(`/api/store/sales/${vOverBody.id}/cancel`, { method: 'POST' }, admin!)).status === 200);
   const orphan = db.prepare("SELECT COUNT(*) c FROM sales WHERE status = 'concluida'").get() as { c: number };
-  check('rollback sem venda órfã (3 concluídas)', orphan.c === 3, `vendas=${orphan.c}`);
+  check('sem venda órfã após cancelar (3 concluídas)', orphan.c === 3, `vendas=${orphan.c}`);
 
   // Desconto exige permissão fina
   db.prepare(`INSERT INTO role_permissions (role_id, permission_key)

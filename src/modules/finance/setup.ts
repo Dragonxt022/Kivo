@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { registerService } from '../../core/services/registry';
 import { getSqlite } from '../../core/database/connection';
-import { currentRegister, addMovement, expectedCents } from './cash';
+import { currentRegister, addMovement, expectedCents, getRegisterById } from './cash';
 
 /** Serviços que o módulo finance oferece aos outros Apps (via Core). */
 export interface FinanceCashService {
   currentRegister: typeof currentRegister;
   addMovement: typeof addMovement;
   expectedCents: typeof expectedCents;
+  getRegisterById: typeof getRegisterById;
 }
 
 export interface FinanceReceivablesService {
@@ -66,7 +67,7 @@ const payMethods: FinancePayMethodsService = {
 };
 
 export default function setup(): void {
-  registerService('finance.cash', { currentRegister, addMovement, expectedCents } satisfies FinanceCashService);
+  registerService('finance.cash', { currentRegister, addMovement, expectedCents, getRegisterById } satisfies FinanceCashService);
   registerService('finance.receivables', { create: createReceivable } satisfies FinanceReceivablesService);
   registerService('finance.paymethods', payMethods);
 }

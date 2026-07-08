@@ -24,6 +24,8 @@
     "test:fase1b": "tsx src/tests/fase1b.ts",
     "test:shared": "tsx src/tests/shared.ts",
     "test:fase3": "tsx src/tests/fase3.ts",
+    "test:fase3b": "tsx src/tests/fase3b.ts",
+    "test:fase3c": "tsx src/tests/fase3c.ts",
     "test:fase4": "tsx src/tests/fase4.ts",
     "test:fase5": "tsx src/tests/fase5.ts",
     "test:fase5b": "tsx src/tests/fase5b.ts",

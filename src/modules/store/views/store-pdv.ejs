@@ -316,6 +316,10 @@
 
         <div class="cart-header">
           <h2>Carrinho <span class="count" x-text="'(' + cart.length + ')'"></span></h2>
+          <select x-model.number="customerId" @change="repriceCart()" style="max-width:220px;padding:.3rem .5rem">
+            <option value="">Cliente (preço normal)</option>
+            <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+          </select>
         </div>
 
         <div class="cart-items">
@@ -328,7 +332,7 @@
               <div class="qty-wrap">
                 <button @click="qtyMinus(idx)" :disabled="i.qty <= 0.001">−</button>
                 <input type="number" step="any" min="0.001" x-model.number="i.qty"
-                       @focus="$event.target.select()" />
+                       @focus="$event.target.select()" @change="repriceCart()" />
                 <button @click="qtyPlus(idx)">+</button>
               </div>
               <span class="prod-total" x-text="brl(Math.round(i.price_cents * i.qty))"></span>
@@ -458,6 +462,19 @@
           <button class="btn secondary" @click="$refs.clearDlg.close()">Não (Esc)</button>
           <button class="btn" @click="doClear()" x-ref="clearConfirm">Sim (Enter)</button>
         </div>
+      </div>
+    </dialog>
+
+    <!-- ─── MODAL: Confirmação por PIN (remover item do carrinho) ─── -->
+    <dialog x-ref="pinDlg">
+      <h1>PIN de administrador</h1>
+      <p class="muted" style="margin-top:-.3rem">Digite o PIN para confirmar a remoção do item.</p>
+      <input type="password" inputmode="numeric" maxlength="6" x-model="pinInput" x-ref="pinInput"
+             @keydown.enter.prevent="confirmPinRemove()" placeholder="PIN" />
+      <div class="error" x-text="pinError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.pinDlg.close()">Cancelar</button>
+        <button class="btn" @click="confirmPinRemove()">Confirmar</button>
       </div>
     </dialog>
 
@@ -639,7 +656,7 @@
         // Vendas simultâneas (até 4 "guichês" no mesmo PDV — atender outro cliente sem
         // perder o carrinho do anterior) + persistência em localStorage (sobrevive a
         // navegar pra outra tela e voltar, ou recarregar a página sem querer).
-        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null }],
+        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '' }],
         activeSlot: 0,
         q: '', results: [], customers: [], methods: [],
         highlightIdx: -1, searching: false,
@@ -651,10 +668,13 @@
         set surchargeCents(v) { this.slots[this.activeSlot].surchargeCents = v; },
         get lastSaleId() { return this.slots[this.activeSlot].lastSaleId; },
         set lastSaleId(v) { this.slots[this.activeSlot].lastSaleId = v; },
+        get customerId() { return this.slots[this.activeSlot].customerId ?? ''; },
+        set customerId(v) { this.slots[this.activeSlot].customerId = v; },
         valueDlg: { kind: 'desconto', amount: '', mode: 'valor', error: '' },
         pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, customerId: '', dueDate: '' },
         showSplit: false, showCashReceived: false,
         error: '', payError: '', saving: false, appSettings: [],
+        pinInput: '', pinError: '', pendingRemoveIdx: null,
         browseQ: '', browseResults: [],
         openRegisterForm: { opening: '', error: '' },
 
@@ -690,7 +710,7 @@
         },
         addSlot() {
           if (this.slots.length >= 4) return;
-          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null });
+          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '' });
           this.activeSlot = this.slots.length - 1;
           this.persistSlots();
           this.focusSearch();
@@ -714,12 +734,14 @@
         // ─── Inicialização ───
         async init() {
           this.restoreSlots();
-          const [m, s] = await Promise.all([
+          const [m, s, c] = await Promise.all([
             fetch('/api/store/payment-methods'),
             fetch('/api/settings'),
+            fetch('/api/commercial/customers'),
           ]);
           if (m.ok) { this.methods = await m.json(); if (this.methods.length) this.pay.methodId = this.methods[0].id; }
           if (s.ok) this.appSettings = await s.json();
+          if (c.ok) this.customers = await c.json();
           this.focusSearch();
           this.$watch('slots', () => this.persistSlots());
           document.addEventListener('keydown', (e) => {
@@ -811,6 +833,23 @@
           this.q = ''; this.results = []; this.highlightIdx = -1;
           this.focusSearch();
           this.persistSlots();
+          this.repriceCart();
+        },
+
+        // ─── Tabelas de preço (atacado/varejo/cliente) ───
+        async repriceCart() {
+          if (!this.cart.length) return;
+          const r = await fetch('/api/commercial/pricing/resolve', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerId: this.customerId || null, items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty })) }),
+          });
+          if (!r.ok) return;
+          const { prices } = await r.json();
+          for (const p of prices) {
+            const line = this.cart.find((i) => i.productId === p.productId);
+            if (line) line.price_cents = p.unitCents;
+          }
+          this.persistSlots();
         },
 
         // ─── Carrinho ───
@@ -818,6 +857,7 @@
           const i = this.cart[idx];
           if (i) i.qty = Math.round((i.qty + 0.5) * 2) / 2;
           this.persistSlots();
+          this.repriceCart();
         },
         qtyMinus(idx) {
           const i = this.cart[idx];
@@ -826,8 +866,34 @@
             i.qty = Math.max(0.001, Math.round((i.qty - dec) * 2) / 2);
           }
           this.persistSlots();
+          this.repriceCart();
         },
-        removeItem(idx) { this.cart.splice(idx, 1); this.persistSlots(); },
+        removeItem(idx) {
+          if (this.pinRequiredForRemove()) { this.openPinConfirm(idx); return; }
+          this.cart.splice(idx, 1); this.persistSlots();
+        },
+        pinRequiredForRemove() {
+          return this.appSettings?.find((s) => s.key === 'seguranca.pin_remover_item')?.value === '1';
+        },
+        openPinConfirm(idx) {
+          this.pendingRemoveIdx = idx; this.pinInput = ''; this.pinError = '';
+          this.$refs.pinDlg.showModal();
+          this.$nextTick(() => this.$refs.pinInput.focus());
+        },
+        async confirmPinRemove() {
+          if (!this.pinInput) return;
+          const r = await fetch('/api/security/pin/verify', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: this.pinInput }),
+          });
+          const body = r.ok ? await r.json() : { ok: false };
+          if (body.ok) {
+            this.cart.splice(this.pendingRemoveIdx, 1);
+            this.persistSlots();
+            this.$refs.pinDlg.close();
+          } else {
+            this.pinError = 'PIN incorreto.';
+          }
+        },
         subtotal() { return this.cart.reduce((a, i) => a + Math.round(i.price_cents * i.qty), 0); },
         total() { return Math.max(0, this.subtotal() - this.discountCents + this.surchargeCents); },
 
@@ -868,7 +934,7 @@
           this.$nextTick(() => this.$refs.clearConfirm.focus());
         },
         doClear() {
-          this.cart = []; this.discountCents = 0; this.surchargeCents = 0;
+          this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = '';
           this.$refs.clearDlg.close();
           this.focusSearch();
           this.persistSlots();
@@ -895,6 +961,7 @@
             const r = await fetch('/api/commercial/customers');
             if (r.ok) this.customers = await r.json();
           }
+          this.pay.customerId = this.customerId || '';
           this.$refs.pay.showModal();
         },
         addPayment() {
@@ -942,7 +1009,7 @@
             payments,
             discountCents: this.discountCents || undefined,
             surchargeCents: this.surchargeCents || undefined,
-            customerId: this.hasPrazo() ? this.pay.customerId || undefined : undefined,
+            customerId: this.hasPrazo() ? (this.pay.customerId || undefined) : (this.customerId || undefined),
             dueDate: this.hasPrazo() ? this.pay.dueDate || undefined : undefined,
           };
           const r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -951,7 +1018,7 @@
             const d = await r.json();
             this.lastSaleId = d.id;
             this.$refs.pay.close();
-            this.cart = []; this.discountCents = 0; this.surchargeCents = 0;
+            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = '';
             this.persistSlots();
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
             if (exibir !== '0') this.$refs.postSale.showModal(); else this.focusSearch();

@@ -70,7 +70,7 @@ async function main() {
   check('fornecedor criado', sup.status === 201);
   const supId = ((await sup.json()) as { id: number }).id;
 
-  const prod = await api(`${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Arroz 5kg', barcode: '789100000001', priceCents: 2590, costCents: 1800, minStock: 2 }) }, admin!);
+  const prod = await api(`${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Arroz 5kg', barcode: '789100000003', priceCents: 2590, costCents: 1800, minStock: 2 }) }, admin!);
   check('produto criado', prod.status === 201);
   const prodId = ((await prod.json()) as { id: number }).id;
 

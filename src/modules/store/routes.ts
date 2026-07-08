@@ -5,6 +5,7 @@ import { getService } from '../../core/services/registry';
 import type { FinancePayMethodsService } from '../finance/setup';
 import { createSale, cancelSale, type SaleInput } from './sales';
 import { createQuote, convertQuote, cancelQuote, updateQuote, type QuoteInput } from './quotes';
+import { cashRegisterReport } from './reports';
 
 const router = Router();
 const db = () => getSqlite();
@@ -150,6 +151,11 @@ router.get('/reports/daily', requirePermission('store.reports.view'), (req, res)
      GROUP BY i.product_name ORDER BY total_cents DESC LIMIT 10`,
   ).all(day);
   res.json({ day, totals, byPayment, topProducts });
+});
+
+/** Relatório completo de vendas de um caixa (usado pelo fechamento de caixa do finance). */
+router.get('/reports/cash-register/:id', requirePermission('store.reports.view'), (req, res) => {
+  res.json(cashRegisterReport(Number(req.params.id)));
 });
 
 export default router;

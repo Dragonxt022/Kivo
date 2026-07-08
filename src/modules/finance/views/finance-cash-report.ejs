@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Relatório de Caixa #<%= register.id %></title>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #000; background: #fff; max-width: 800px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 18px; margin-bottom: 2px; }
+    h2 { font-size: 14px; margin: 16px 0 6px; border-bottom: 1px solid #999; padding-bottom: 2px; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .muted { color: #555; font-size: 11px; }
+    hr { border: 0; border-top: 1px solid #999; margin: 10px 0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+    th, td { padding: 3px 4px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { font-size: 11px; text-transform: uppercase; color: #555; }
+    .total-row td { font-weight: bold; border-top: 2px solid #333; border-bottom: none; }
+    .badge-diff { font-weight: bold; }
+    @media print { .no-print { display: none; } }
+    .no-print { text-align: center; margin-top: 16px; }
+    .no-print button { padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <h1><%= company.name %></h1>
+    <% if (company.document) { %><p class="muted"><%= company.document %></p><% } %>
+    <% if (company.address) { %><p class="muted"><%= company.address %></p><% } %>
+  </div>
+  <hr />
+
+  <% function fmtDateTime(raw) {
+    if (!raw) return '—';
+    const d = new Date(String(raw).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z');
+    if (isNaN(d.getTime())) return String(raw);
+    return d.toLocaleString('pt-BR', { timeZone: 'America/Porto_Velho', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+  } %>
+  <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); } %>
+
+  <h1 style="margin-top:8px">Relatório de Fechamento de Caixa #<%= register.id %></h1>
+
+  <h2>Resumo do caixa</h2>
+  <table>
+    <tr><th>Abertura</th><td><%= fmtDateTime(register.opened_at) %></td><th>Aberto por</th><td><%= register.opened_by_name ?? '—' %></td></tr>
+    <tr><th>Fechamento</th><td><%= fmtDateTime(register.closed_at) %></td><th>Fechado por</th><td><%= register.closed_by_name ?? '—' %></td></tr>
+    <tr><th>Valor de abertura</th><td><%= brl(register.opening_cents) %></td><th>Situação</th><td><%= register.status === 'aberto' ? 'Aberto' : 'Fechado' %></td></tr>
+    <% if (register.status === 'fechado') { %>
+    <tr><th>Esperado</th><td><%= brl(register.expected_cents) %></td><th>Contado</th><td><%= brl(register.counted_cents) %></td></tr>
+    <tr><th>Diferença</th><td colspan="3" class="badge-diff"><%= brl(register.difference_cents) %></td></tr>
+    <% } %>
+    <% if (register.notes) { %><tr><th>Observações</th><td colspan="3"><%= register.notes %></td></tr><% } %>
+  </table>
+
+  <h2>Totais de vendas</h2>
+  <table>
+    <tr><th>Vendas</th><td><%= report.totals.vendas %></td><th>Subtotal</th><td><%= brl(report.totals.total_cents + report.totals.discount_cents - report.totals.surcharge_cents) %></td></tr>
+    <tr><th>Descontos</th><td><%= brl(report.totals.discount_cents) %></td><th>Acréscimos</th><td><%= brl(report.totals.surcharge_cents) %></td></tr>
+    <tr><th>Taxas (maquininha)</th><td><%= brl(report.totals.fee_cents) %></td><th>Total líquido</th><td><strong><%= brl(report.totals.total_cents) %></strong></td></tr>
+  </table>
+
+  <h2>Por forma de pagamento</h2>
+  <table>
+    <thead><tr><th>Forma</th><th>Qtd.</th><th class="right">Total</th><th class="right">Taxas</th></tr></thead>
+    <tbody>
+      <% report.byPayment.forEach(function (p) { %>
+        <tr><td><%= p.payment_method %></td><td><%= p.vendas %></td><td class="right"><%= brl(p.total_cents) %></td><td class="right"><%= brl(p.fee_cents) %></td></tr>
+      <% }) %>
+      <% if (!report.byPayment.length) { %><tr><td colspan="4" class="muted">Nenhuma venda neste caixa.</td></tr><% } %>
+    </tbody>
+  </table>
+
+  <h2>Produtos vendidos</h2>
+  <table>
+    <thead><tr><th>Produto</th><th class="right">Qtd.</th><th class="right">Total</th></tr></thead>
+    <tbody>
+      <% report.topProducts.forEach(function (p) { %>
+        <tr><td><%= p.product_name %></td><td class="right"><%= p.qty %></td><td class="right"><%= brl(p.total_cents) %></td></tr>
+      <% }) %>
+      <% if (!report.topProducts.length) { %><tr><td colspan="3" class="muted">Nenhum produto vendido neste caixa.</td></tr><% } %>
+    </tbody>
+  </table>
+
+  <h2>Vendas do caixa</h2>
+  <table>
+    <thead><tr><th>#</th><th>Cliente</th><th>Pagamento</th><th>Hora</th><th class="right">Total</th></tr></thead>
+    <tbody>
+      <% report.sales.forEach(function (s) { %>
+        <tr><td><%= s.id %></td><td><%= s.customer ?? '—' %></td><td><%= s.payment_method %></td><td><%= fmtDateTime(s.created_at) %></td><td class="right"><%= brl(s.total_cents) %></td></tr>
+      <% }) %>
+      <% if (!report.sales.length) { %><tr><td colspan="5" class="muted">Nenhuma venda neste caixa.</td></tr><% } %>
+    </tbody>
+  </table>
+
+  <div class="no-print">
+    <button onclick="window.print()">Imprimir</button>
+    <button onclick="window.close()">Fechar</button>
+  </div>
+  <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
+</body>
+</html>

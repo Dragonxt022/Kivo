@@ -20,6 +20,7 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'license.edit', description: 'Alterar licença' },
   { key: 'sync.run', description: 'Executar sincronização manual com a nuvem' },
   { key: 'billing.view', description: 'Visualizar cobranças da nuvem' },
+  { key: 'security.pin.manage', description: 'Definir/alterar o PIN de administrador' },
 ];
 
 const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }[] = [
