@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/store/vendas' }) %>
@@ -54,7 +55,7 @@
         <template x-for="s in rows" :key="s.id">
           <tr>
             <td x-text="s.id"></td>
-            <td class="muted" x-text="s.created_at"></td>
+            <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
             <td class="muted" x-text="s.customer ?? '—'"></td>
             <td x-text="label(s.payment_method)"></td>
             <td x-text="brl(s.total_cents)"></td>
@@ -74,7 +75,7 @@
   <script>
     function salesPage() {
       return {
-        rows: [], report: {}, day: new Date().toISOString().slice(0, 10), error: '',
+        rows: [], report: {}, day: todayLocal(), error: '',
         labels: { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo' },
         label(k) { return this.labels[k] ?? k; },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },

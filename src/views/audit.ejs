@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'audit' }) %>
@@ -25,7 +26,7 @@
       <tbody>
         <template x-for="l in filtered()" :key="l.id">
           <tr>
-            <td class="muted" x-text="l.created_at"></td>
+            <td class="muted" x-text="fmtDateTime(l.created_at)"></td>
             <td x-text="l.username ?? '—'"></td>
             <td x-text="l.action"></td>
             <td x-text="l.entity"></td>

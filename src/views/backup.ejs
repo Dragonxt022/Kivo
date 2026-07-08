@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'backup' }) %>
@@ -27,7 +28,7 @@
       <tbody>
         <template x-for="b in backups" :key="b.id">
           <tr>
-            <td class="muted" x-text="b.created_at"></td>
+            <td class="muted" x-text="fmtDateTime(b.created_at)"></td>
             <td x-text="b.trigger"></td>
             <td class="muted" x-text="b.file_path"></td>
             <td x-text="(b.size_bytes / 1024).toFixed(1) + ' KB'"></td>

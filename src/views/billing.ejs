@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'billing' }) %>
@@ -21,7 +22,7 @@
         <p style="margin-bottom:.4rem">
           <strong x-text="c.description"></strong> —
           <span x-text="(c.amount_cents/100).toLocaleString('pt-BR', {minimumFractionDigits:2})"></span>
-          — vence <span x-text="c.due_date.slice(0,10)"></span>
+          — vence <span x-text="fmtDate(c.due_date)"></span>
         </p>
       </template>
     </div>
@@ -35,9 +36,9 @@
           <tr>
             <td x-text="c.description"></td>
             <td x-text="(c.amount_cents/100).toLocaleString('pt-BR', {minimumFractionDigits:2})"></td>
-            <td x-text="c.due_date.slice(0,10)"></td>
+            <td x-text="fmtDate(c.due_date)"></td>
             <td><span class="badge" :class="c.status === 'paga' ? 'ok' : (c.status === 'cancelada' ? '' : 'off')" x-text="c.status"></span></td>
-            <td class="muted" x-text="c.paid_at ? c.paid_at.slice(0,16).replace('T',' ') : '—'"></td>
+            <td class="muted" x-text="c.paid_at ? fmtDateTime(c.paid_at) : '—'"></td>
             <td class="muted" x-text="c.instructions || '—'" style="max-width:280px;white-space:pre-wrap"></td>
           </tr>
         </template>

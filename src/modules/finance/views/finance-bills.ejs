@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: bills.api }) %>
@@ -34,7 +35,7 @@
             <td x-text="b.description"></td>
             <td class="muted" x-text="b.party ?? '—'"></td>
             <td x-text="brl(b.amount_cents)"></td>
-            <td class="muted" x-text="b.due_date"></td>
+            <td class="muted" x-text="fmtDate(b.due_date)"></td>
             <td><span class="badge" :class="b.status === 'aberta' ? 'off' : 'ok'" x-text="b.status"></span></td>
             <td style="text-align:right">
               <% if (user.permissions.has(bills.settlePerm)) { %>

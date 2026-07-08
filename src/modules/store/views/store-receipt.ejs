@@ -28,8 +28,14 @@
     <p class="muted">Cupom não fiscal</p>
   </div>
   <hr />
+  <% function fmtDateTime(raw) {
+    if (!raw) return '—';
+    const d = new Date(String(raw).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z');
+    if (isNaN(d.getTime())) return String(raw);
+    return d.toLocaleString('pt-BR', { timeZone: 'America/Porto_Velho', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+  } %>
   <p>Venda: #<%= sale.id %><% if (sale.status === 'cancelada') { %> — <strong>CANCELADA</strong><% } %></p>
-  <p>Data: <%= sale.created_at %></p>
+  <p>Data: <%= fmtDateTime(sale.created_at) %></p>
   <% if (sale.customer) { %><p>Cliente: <%= sale.customer %></p><% } %>
   <p>Vendedor: <%= sale.username ?? '—' %></p>
   <hr />

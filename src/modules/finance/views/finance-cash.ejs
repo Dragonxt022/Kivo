@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/finance/caixa' }) %>
@@ -47,7 +48,7 @@
           <tbody>
             <template x-for="m in movements" :key="m.id">
               <tr>
-                <td class="muted" x-text="m.created_at"></td>
+                <td class="muted" x-text="fmtDateTime(m.created_at)"></td>
                 <td x-text="m.type"></td>
                 <td><span class="badge" :class="m.direction === 'entrada' ? 'ok' : 'off'" x-text="m.direction"></span></td>
                 <td x-text="brl(m.amount_cents)"></td>
@@ -91,8 +92,8 @@
           <tbody>
             <template x-for="r in history" :key="r.id">
               <tr>
-                <td class="muted" x-text="r.opened_at"></td>
-                <td class="muted" x-text="r.closed_at ?? '—'"></td>
+                <td class="muted" x-text="fmtDateTime(r.opened_at)"></td>
+                <td class="muted" x-text="r.closed_at ? fmtDateTime(r.closed_at) : '—'"></td>
                 <td x-text="brl(r.expected_cents)"></td>
                 <td x-text="brl(r.counted_cents)"></td>
                 <td>
@@ -102,7 +103,7 @@
                 <td>
                   <span class="badge" :class="r.status === 'aberto' ? 'off' : 'ok'" x-text="r.status"></span>
                   <span class="badge" x-show="r.edited_at" style="background:var(--primary-bg);color:var(--primary);margin-left:.35rem"
-                        :title="'Editado por ' + (r.edited_by_name ?? '—') + ' em ' + r.edited_at">editado</span>
+                        :title="'Editado por ' + (r.edited_by_name ?? '—') + ' em ' + fmtDateTime(r.edited_at)">editado</span>
                 </td>
                 <td style="text-align:right">
                   <% if (user.permissions.has('finance.cash.edit')) { %>
@@ -115,6 +116,34 @@
         </table>
       </div>
     </template>
+
+    <dialog x-ref="closeResultDlg" style="width:360px">
+      <div style="text-align:center;padding:.5rem 0">
+        <div :style="'width:44px;height:44px;border-radius:50%;display:grid;place-items:center;margin:0 auto .75rem;background:' + (closeResult.difference === 0 ? 'var(--success-bg)' : (closeResult.difference < 0 ? 'var(--danger-bg)' : 'var(--warning-bg)'))">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"
+               :stroke="closeResult.difference === 0 ? 'var(--success-text)' : (closeResult.difference < 0 ? 'var(--danger)' : 'var(--warning-text)')">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+        </div>
+        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.75rem">Caixa fechado</h2>
+        <table style="width:100%;margin-bottom:.5rem">
+          <tbody>
+            <tr><td class="muted">Esperado</td><td style="text-align:right"><strong x-text="brl(closeResult.expected)"></strong></td></tr>
+            <tr><td class="muted">Contado</td><td style="text-align:right"><strong x-text="brl(closeResult.counted)"></strong></td></tr>
+            <tr>
+              <td class="muted">Diferença</td>
+              <td style="text-align:right">
+                <strong :style="{ color: closeResult.difference < 0 ? 'var(--danger)' : closeResult.difference > 0 ? 'var(--success-text)' : '' }"
+                        x-text="(closeResult.difference >= 0 ? '+' : '') + brl(closeResult.difference)"></strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="actions" style="justify-content:center">
+          <button class="btn" @click="$refs.closeResultDlg.close()">OK</button>
+        </div>
+      </div>
+    </dialog>
 
     <dialog x-ref="editReg" @click="$event.target === $el && $refs.editReg.close()">
       <h1>Editar fechamento</h1>
@@ -134,7 +163,7 @@
     function cashPage() {
       return {
         open: false, expected: 0, movements: [], opening: '', counted: '', closeNotes: '',
-        move: {}, history: [], editReg: {}, error: '', mvError: '', closeError: '', editRegError: '',
+        move: {}, history: [], editReg: {}, closeResult: {}, error: '', mvError: '', closeError: '', editRegError: '',
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         async load() {
@@ -162,7 +191,8 @@
           if (r.ok) {
             const d = await r.json();
             this.$refs.editReg.close();
-            alert(`Caixa editado.\nEsperado: ${this.brl(d.expected)}\nContado: ${this.brl(d.counted)}\nDiferença: ${this.brl(d.difference)}`);
+            this.closeResult = d;
+            this.$refs.closeResultDlg.showModal();
             this.load();
           } else this.editRegError = (await r.json()).error;
         },
@@ -183,7 +213,8 @@
           if (r.ok) {
             const d = await r.json();
             this.$refs.close.close();
-            alert(`Caixa fechado.\nEsperado: ${this.brl(d.expected)}\nContado: ${this.brl(d.counted)}\nDiferença: ${this.brl(d.difference)}`);
+            this.closeResult = d;
+            this.$refs.closeResultDlg.showModal();
             this.load();
           } else this.closeError = (await r.json()).error;
         },

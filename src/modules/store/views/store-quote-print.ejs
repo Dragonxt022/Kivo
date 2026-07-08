@@ -22,15 +22,26 @@
 </head>
 <body>
   <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); } %>
+  <% function fmtDateTime(raw) {
+    if (!raw) return '—';
+    const d = new Date(String(raw).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z');
+    if (isNaN(d.getTime())) return String(raw);
+    return d.toLocaleString('pt-BR', { timeZone: 'America/Porto_Velho', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+  } %>
+  <% function fmtDate(raw) {
+    if (!raw) return '—';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw));
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw);
+  } %>
   <h1><%= company.name %></h1>
   <% if (company.document) { %><p class="muted"><%= company.document %></p><% } %>
   <% if (company.address) { %><p class="muted"><%= company.address %></p><% } %>
   <p class="muted">Orçamento — documento sem valor fiscal</p>
 
   <h2>Orçamento nº <%= quote.id %><% if (quote.status !== 'aberto') { %> (<%= quote.status %>)<% } %></h2>
-  <p>Data: <%= quote.created_at %></p>
+  <p>Data: <%= fmtDateTime(quote.created_at) %></p>
   <% if (quote.customer || quote.customer_name) { %><p>Cliente: <%= quote.customer ?? quote.customer_name %></p><% } %>
-  <% if (quote.valid_until) { %><p><strong>Válido até: <%= quote.valid_until %></strong></p><% } %>
+  <% if (quote.valid_until) { %><p><strong>Válido até: <%= fmtDate(quote.valid_until) %></strong></p><% } %>
 
   <table>
     <thead><tr><th>Item</th><th class="right">Qtd</th><th class="right">Preço un.</th><th class="right">Total</th></tr></thead>
