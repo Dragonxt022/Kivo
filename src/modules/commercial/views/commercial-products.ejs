@@ -114,7 +114,9 @@
         <div style="display:flex;gap:.4rem;margin-top:.3rem">
           <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
           <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
+          <% if (user.permissions.has('commercial.products.edit') || user.permissions.has('commercial.products.delete')) { %>
           <button class="btn secondary small" type="button" @click="openCatMgr()">Gerenciar</button>
+          <% } %>
         </div>
         <% if (user.permissions.has('commercial.products.price')) { %>
           <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
@@ -165,6 +167,7 @@
             <template x-if="catEditId === c.id">
               <input type="text" x-model="catEditName" style="flex:1" @keydown.enter="renameCategory(c.id)" />
             </template>
+            <% if (user.permissions.has('commercial.products.edit')) { %>
             <template x-if="catEditId !== c.id">
               <button class="icon-btn" @click="catEditId = c.id; catEditName = c.name" title="Renomear">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -175,15 +178,18 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </button>
             </template>
+            <% } %>
+            <% if (user.permissions.has('commercial.products.delete')) { %>
             <button class="icon-btn" @click="catDelId = c.id; catDelAction = 'unset'; catDelMigrateTo = null" title="Excluir">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
             </button>
+            <% } %>
           </div>
         </template>
 
         <template x-if="catDelId">
           <div style="margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border-light)">
-            <p style="margin-bottom:.8rem" x-text="'Excluir "' + categories.find(c => c.id === catDelId)?.name + '"?""></p>
+            <p style="margin-bottom:.8rem" x-text="'Excluir &quot;' + categories.find(c => c.id === catDelId)?.name + '&quot;?'"></p>
             <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
               <input type="radio" value="unset" x-model="catDelAction" /> Deixar produtos sem categoria
             </label>
@@ -251,8 +257,7 @@
           });
           if (r.ok) {
             this.catEditId = null; this.catEditName = '';
-            const c = await fetch('/api/commercial/categories');
-            if (c.ok) this.categories = await c.json();
+            await this.load();
           } else this.dlgError = (await r.json()).error;
         },
         async deleteCategory() {
@@ -262,8 +267,7 @@
           });
           if (r.ok) {
             this.catDelId = null; this.catDelAction = 'unset'; this.catDelMigrateTo = null;
-            const c = await fetch('/api/commercial/categories');
-            if (c.ok) this.categories = await c.json();
+            await this.load();
           } else this.dlgError = (await r.json()).error;
         },
         async addCategory() {

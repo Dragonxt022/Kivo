@@ -61,16 +61,24 @@ router.delete('/categories/:id', requirePermission('commercial.products.delete')
   }
   const { migrateToId } = req.body ?? {};
   if (migrateToId != null) {
+    if (Number(migrateToId) === id) {
+      res.status(400).json({ error: 'Categoria de destino não pode ser a mesma que está sendo excluída.' });
+      return;
+    }
     const target = db().prepare('SELECT id FROM categories WHERE id = ? AND deleted_at IS NULL').get(migrateToId);
     if (!target) {
       res.status(400).json({ error: 'Categoria de destino não encontrada.' });
       return;
     }
-    db().prepare('UPDATE products SET category_id = ? WHERE category_id = ?').run(migrateToId, id);
-  } else {
-    db().prepare('UPDATE products SET category_id = NULL WHERE category_id = ?').run(id);
   }
-  db().prepare("UPDATE categories SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  db().transaction(() => {
+    if (migrateToId != null) {
+      db().prepare('UPDATE products SET category_id = ? WHERE category_id = ?').run(migrateToId, id);
+    } else {
+      db().prepare('UPDATE products SET category_id = NULL WHERE category_id = ?').run(id);
+    }
+    db().prepare("UPDATE categories SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  })();
   audit(req, 'excluir', 'category', id, before, { migratedTo: migrateToId ?? null });
   res.json({ ok: true });
 });

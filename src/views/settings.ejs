@@ -18,7 +18,9 @@
       <button :class="{ active: tab === 'license' }" @click="tab = 'license'">Licença</button>
       <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">Estoque</button>
       <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">Vendas</button>
+      <% if (user.permissions.has('settings.edit')) { %>
       <button :class="{ active: tab === 'advanced' }" @click="tab = 'advanced'">Avançado</button>
+      <% } %>
     </div>
 
     <!-- ═══════ ABA: LICENÇA ═══════ -->
@@ -72,10 +74,12 @@
           <input class="input" type="number" min="0" x-model="stock.minStockPadrao" placeholder="0" style="max-width:120px" />
           <p class="hint">Todo produto novo será cadastrado com este valor como estoque mínimo.</p>
         </div>
+        <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
           <button class="btn" @click="saveStock()" x-text="savingStock ? 'Salvando…' : 'Salvar configurações'"></button>
           <span class="muted" x-show="stockSaved" x-text="stockSaved"></span>
         </div>
+        <% } %>
       </section>
     </div>
 
@@ -89,16 +93,29 @@
             Exibir mensagem "Imprimir cupom fiscal" ao finalizar venda
           </label>
         </div>
+        <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
           <button class="btn" @click="saveSales()" x-text="savingSales ? 'Salvando…' : 'Salvar configurações'"></button>
           <span class="muted" x-show="salesSaved" x-text="salesSaved"></span>
         </div>
+        <% } %>
       </section>
     </div>
 
     <!-- ═══════ ABA: AVANÇADO ═══════ -->
+    <% if (user.permissions.has('settings.edit')) { %>
     <div x-show="tab === 'advanced'" x-cloak>
-      <% if (user.permissions.has('settings.edit')) { %>
+      <section class="panel">
+        <h2>Servidor de sincronização (cloud)</h2>
+        <div class="field">
+          <label>URL do servidor</label>
+          <input class="input" type="text" x-model="cloudUrlForm.value" placeholder="https://katsu.buscamais.org (padrão do instalador)">
+          <p class="hint">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn secondary" @click="saveCloudUrl()" x-text="savingCloudUrl ? 'Salvando…' : 'Salvar servidor'"></button>
+        </div>
+      </section>
       <div class="toolbar">
         <button class="btn secondary small" @click="openNew()">Nova configuração</button>
         <span class="error" x-text="error"></span>
@@ -118,10 +135,11 @@
           </template>
         </tbody>
       </table>
-      <% } %>
     </div>
+    <% } %>
 
     <!-- ─── MODAL: Ativar / trocar licença ─── -->
+    <% if (user.permissions.has('license.edit')) { %>
     <dialog x-ref="licenseDlg">
       <h1>Ativar / trocar licença</h1>
       <label>Empresa (UUID)</label>
@@ -134,6 +152,7 @@
         <button class="btn" @click="saveLicense()" x-text="savingLicense ? 'Salvando…' : 'Salvar licença'"></button>
       </div>
     </dialog>
+    <% } %>
 
     <!-- ─── MODAL: Configuração avulsa (aba Avançado) ─── -->
     <dialog x-ref="dlg">
@@ -154,6 +173,7 @@
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
         stock: { autoSku: false, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
         sales: { exibirCupom: true }, savingSales: false, salesSaved: '',
+        cloudUrlForm: { value: '' }, savingCloudUrl: false,
 
         async load() {
           const r = await fetch('/api/settings');
@@ -173,6 +193,8 @@
           this.stock.minStockPadrao = minStock?.value ? Number(minStock.value) : 0;
           const cupom = this.settings.find(s => s.key === 'vendas.exibir_cupom_fiscal');
           this.sales.exibirCupom = cupom?.value !== '0';
+          const cu = this.settings.find(s => s.key === 'sync.server_url');
+          this.cloudUrlForm.value = cu?.value ?? '';
         },
         openLicenseDlg() {
           this.licenseForm = { companyUuid: '', licenseKey: '' };
@@ -208,31 +230,43 @@
           } else this.licenseError = (await r.json()).error ?? 'Falha ao sincronizar.';
         },
         <% } %>
+        <% if (user.permissions.has('settings.edit')) { %>
+        async saveCloudUrl() {
+          this.savingCloudUrl = true;
+          const r = await fetch('/api/settings/sync.server_url', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.cloudUrlForm.value || null }),
+          });
+          this.savingCloudUrl = false;
+          if (r.ok) await this.load();
+        },
+        <% } %>
         async saveStock() {
           this.savingStock = true; this.stockSaved = '';
-          const upsert = async (key, value) => {
-            await fetch(`/api/settings/${encodeURIComponent(key)}`, {
-              method: 'PUT', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ value }),
-            });
-          };
-          await Promise.all([
+          const upsert = (key, value) => fetch(`/api/settings/${encodeURIComponent(key)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value }),
+          });
+          const results = await Promise.all([
             upsert('estoque.auto_sku', this.stock.autoSku ? '1' : '0'),
             upsert('estoque.min_stock_padrao', String(this.stock.minStockPadrao)),
           ]);
-          this.savingStock = false; this.stockSaved = 'Salvo.';
+          this.savingStock = false;
+          this.stockSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
           const r = await fetch('/api/settings');
-          if (r.ok) this.settings = await r.json();
+          if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
         },
         async saveSales() {
           this.savingSales = true; this.salesSaved = '';
-          await fetch('/api/settings/vendas.exibir_cupom_fiscal', {
+          const r0 = await fetch('/api/settings/vendas.exibir_cupom_fiscal', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ value: this.sales.exibirCupom ? '1' : '0' }),
           });
-          this.savingSales = false; this.salesSaved = 'Salvo.';
+          this.savingSales = false;
+          this.salesSaved = r0.ok ? 'Salvo.' : 'Falha ao salvar.';
           const r = await fetch('/api/settings');
-          if (r.ok) this.settings = await r.json();
+          if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
         },
         openNew() { this.form = { locked: false }; this.$refs.dlg.showModal(); },
         openEdit(s) { this.form = { key: s.key, value: s.value ?? '', locked: true }; this.$refs.dlg.showModal(); },
