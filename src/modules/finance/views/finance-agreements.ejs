@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/finance/convenios' }) %>
@@ -73,7 +74,7 @@
             <template x-for="inv in invoices" :key="inv.id">
               <tr>
                 <td x-text="inv.description"></td>
-                <td class="muted" x-text="inv.due_date"></td>
+                <td class="muted" x-text="fmtDate(inv.due_date)"></td>
                 <td><span class="badge" :class="inv.status === 'recebida' ? 'ok' : (inv.status === 'cancelada' ? 'off' : '')" x-text="inv.status"></span></td>
                 <td style="text-align:right" x-text="brl(inv.amount_cents)"></td>
               </tr>

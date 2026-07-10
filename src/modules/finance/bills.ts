@@ -115,14 +115,27 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       res.status(400).json({ error: 'Valor inválido.' });
       return;
     }
+    // Data do pagamento: por padrão agora (datetime('now')); se o usuário escolher uma
+    // data específica (ex.: pagamento adiantado registrado depois), grava ao meio-dia
+    // UTC daquele dia — evita que o fuso de Porto Velho (UTC-4) exiba o dia anterior
+    // quando a hora exibida é convertida a partir de meia-noite UTC.
+    let settledAtValue: string | null = null;
+    if (req.body?.settledAt) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(req.body.settledAt));
+      if (!m) {
+        res.status(400).json({ error: 'Data do pagamento inválida (use AAAA-MM-DD).' });
+        return;
+      }
+      settledAtValue = `${req.body.settledAt} 12:00:00`;
+    }
 
     const database = db();
     const reg = currentRegister();
     database.transaction(() => {
       database.prepare(
-        `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = datetime('now'),
+        `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = COALESCE(?, datetime('now')),
            ${cfg.settleCentsCol} = ?, updated_at = datetime('now') WHERE id = ?`,
-      ).run(cfg.settleStatus, settledCents, id);
+      ).run(cfg.settleStatus, settledAtValue, settledCents, id);
       if (reg) {
         addMovement(req, reg.id, cfg.movementDirection, cfg.movementType, settledCents, bill.description, cfg.entity, id);
       }

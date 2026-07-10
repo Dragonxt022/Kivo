@@ -345,7 +345,7 @@
               <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
             </svg>
-            <p>Carrinho vazio — busque ou bie um produto para começar.</p>
+            <p>Carrinho vazio — busque ou bipe um produto para começar.</p>
           </div>
         </div>
       </div>
@@ -609,7 +609,7 @@
           <thead><tr><th>Parcela</th><th>Vencimento</th><th style="text-align:right">Valor</th></tr></thead>
           <tbody>
             <template x-for="p in prazoPreview()" :key="p.n">
-              <tr><td x-text="p.n + '/' + p.count"></td><td x-text="p.dueDate"></td><td style="text-align:right" x-text="brl(p.amountCents)"></td></tr>
+              <tr><td x-text="p.n + '/' + p.count"></td><td x-text="fmtDate(p.dueDate)"></td><td style="text-align:right" x-text="brl(p.amountCents)"></td></tr>
             </template>
           </tbody>
         </table>
@@ -691,6 +691,7 @@
   </main>
 
   <script src="/js/masks.js"></script>
+  <script src="/js/datetime.js"></script>
   <script>
     function pdvPage() {
       return {

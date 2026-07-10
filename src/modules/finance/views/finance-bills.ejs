@@ -25,12 +25,14 @@
         <option value="<%= bills.settledStatus %>">Liquidadas</option>
         <option value="cancelada">Canceladas</option>
       </select>
+      <input type="text" placeholder="Buscar por descrição ou <%= bills.partyLabel.toLowerCase() %>…" x-model="q"
+             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text);min-width:220px" />
       <span class="error" x-text="error"></span>
     </div>
     <table>
       <thead><tr><th>Descrição</th><th><%= bills.partyLabel %></th><th>Valor</th><th>Vencimento</th><th>Status</th><th></th></tr></thead>
       <tbody>
-        <template x-for="b in rows" :key="b.id">
+        <template x-for="b in filteredRows()" :key="b.id">
           <tr>
             <td x-text="b.description"></td>
             <td class="muted" x-text="b.party ?? '—'"></td>
@@ -39,7 +41,7 @@
             <td><span class="badge" :class="b.status === 'aberta' ? 'off' : 'ok'" x-text="b.status"></span></td>
             <td style="text-align:right">
               <% if (user.permissions.has(bills.settlePerm)) { %>
-                <button class="btn small" x-show="b.status === 'aberta'" @click="settle(b)"><%= bills.settleLabel %></button>
+                <button class="btn small" x-show="b.status === 'aberta'" @click="openSettle(b)"><%= bills.settleLabel %></button>
               <% } %>
               <% if (user.permissions.has(bills.editPerm)) { %>
                 <button class="btn secondary small" x-show="b.status === 'aberta'" @click="openEdit(b)">Editar</button>
@@ -63,17 +65,36 @@
         <button class="btn" @click="save()">Salvar</button>
       </div>
     </dialog>
+
+    <dialog x-ref="settleDlg">
+      <h1><%= bills.settleLabel %></h1>
+      <p class="muted" x-text="settleForm.description + ' — ' + brl(settleForm.amountCents)"></p>
+      <label>Data do pagamento</label>
+      <input type="date" x-model="settleForm.settledAt" />
+      <p class="hint">Pagamento adiantado? Ajuste a data acima — o padrão é hoje.</p>
+      <div class="error" x-text="settleError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.settleDlg.close()">Cancelar</button>
+        <button class="btn" @click="confirmSettle()"><%= bills.settleLabel %></button>
+      </div>
+    </dialog>
   </main>
   <script src="/js/masks.js"></script>
   <script>
     function billsPage(api) {
       return {
-        rows: [], form: {}, status: 'aberta', error: '', dlgError: '',
+        rows: [], form: {}, status: 'aberta', q: '', error: '', dlgError: '',
+        settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         async load() {
           const r = await fetch(api + (this.status ? `?status=${this.status}` : ''));
           if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+        },
+        filteredRows() {
+          const q = this.q.trim().toLowerCase();
+          if (!q) return this.rows;
+          return this.rows.filter((b) => (b.description ?? '').toLowerCase().includes(q) || (b.party ?? '').toLowerCase().includes(q));
         },
         openNew() { this.form = {}; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(b) {
@@ -94,14 +115,22 @@
               dueDate: this.form.dueDate, notes: this.form.notes || undefined }) });
           if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
         },
-        async settle(b) {
-          if (!await window.confirmDlg(`Confirmar "${b.description}" — ${this.brl(b.amount_cents)}?`)) return;
-          const r = await fetch(`${api}/${b.id}/settle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        openSettle(b) {
+          this.settleForm = { id: b.id, description: b.description, amountCents: b.amount_cents, settledAt: todayLocal() };
+          this.settleError = '';
+          this.$refs.settleDlg.showModal();
+        },
+        async confirmSettle() {
+          const r = await fetch(`${api}/${this.settleForm.id}/settle`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settledAt: this.settleForm.settledAt }),
+          });
           if (r.ok) {
             const d = await r.json();
+            this.$refs.settleDlg.close();
             if (!d.registeredInCash) alert('Atenção: nenhum caixa aberto — o valor não entrou na gaveta.');
             this.load();
-          } else this.error = (await r.json()).error;
+          } else this.settleError = (await r.json()).error;
         },
         async cancel(b) {
           if (!await window.confirmDlg(`Cancelar "${b.description}"?`)) return;

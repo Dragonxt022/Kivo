@@ -9,10 +9,10 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
   <style>
-    .balance-cards { display: flex; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; }
+    .balance-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 1rem 0; max-width: 100%; }
     .balance-card {
-      flex: 1; min-width: 160px; background: var(--surface); border: 1.5px solid var(--border-light);
-      border-radius: var(--radius); padding: .9rem 1.1rem;
+      min-width: 0; background: var(--surface); border: 1.5px solid var(--border-light);
+      border-radius: var(--radius); padding: .9rem 1.1rem; box-sizing: border-box;
     }
     .balance-card .label { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: .3rem; }
     .balance-card .value { font-size: 1.3rem; font-weight: 700; }
@@ -54,8 +54,8 @@
     <section class="panel">
       <h2>Conceder crédito de troca</h2>
       <div class="toolbar">
-        <input type="text" placeholder="Valor (R$)" x-model="creditForm.amountCents" @input="creditForm.amountCents = maskMoney(creditForm.amountCents)" style="max-width:140px" />
-        <input type="text" placeholder="Motivo (opcional)" x-model="creditForm.reason" style="max-width:280px" />
+        <input type="text" placeholder="Valor (R$)" x-model="creditForm.amountCents" @input="creditForm.amountCents = maskMoney(creditForm.amountCents)" style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+        <input type="text" placeholder="Motivo (opcional)" x-model="creditForm.reason" style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
         <button class="btn" @click="grantCredit()" x-text="savingCredit ? 'Salvando…' : 'Conceder'"></button>
         <span class="error" x-text="creditError"></span>
       </div>
@@ -97,20 +97,38 @@
     <section class="panel">
       <h2>Histórico financeiro</h2>
       <table>
-        <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th style="text-align:right">Valor</th></tr></thead>
+        <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th style="text-align:right">Valor</th><th></th></tr></thead>
         <tbody>
           <template x-for="r in receivables" :key="r.id">
             <tr>
               <td x-text="r.description"></td>
-              <td class="muted" x-text="r.due_date"></td>
+              <td class="muted" x-text="fmtDate(r.due_date)"></td>
               <td><span class="badge" :class="r.status === 'recebida' ? 'ok' : (r.status === 'cancelada' ? 'off' : '')" x-text="r.status"></span></td>
               <td style="text-align:right" x-text="brl(r.amount_cents)"></td>
+              <td style="text-align:right">
+                <% if (user.permissions.has('finance.receivables.receive')) { %>
+                <button class="btn small" x-show="r.status === 'aberta'" @click="openSettle(r)">Receber</button>
+                <% } %>
+              </td>
             </tr>
           </template>
-          <tr x-show="!receivables.length"><td colspan="4" class="muted">Nenhum lançamento financeiro.</td></tr>
+          <tr x-show="!receivables.length"><td colspan="5" class="muted">Nenhum lançamento financeiro.</td></tr>
         </tbody>
       </table>
     </section>
+
+    <dialog x-ref="settleDlg">
+      <h1>Receber</h1>
+      <p class="muted" x-text="settleForm.description + ' — ' + brl(settleForm.amountCents)"></p>
+      <label>Data do pagamento</label>
+      <input type="date" x-model="settleForm.settledAt" />
+      <p class="hint">Pagamento adiantado? Ajuste a data acima — o padrão é hoje.</p>
+      <div class="error" x-text="settleError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.settleDlg.close()">Cancelar</button>
+        <button class="btn" @click="confirmSettle()">Receber</button>
+      </div>
+    </dialog>
   </main>
   <script src="/js/masks.js"></script>
   <script src="/js/datetime.js"></script>
@@ -119,6 +137,7 @@
       return {
         id, customer: {}, purchases: [], receivables: [], monthly: [], maxMonthly: 1, hoverBar: null, agreementName: '',
         creditForm: { amountCents: '', reason: '' }, creditError: '', savingCredit: false,
+        settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         async load() {
           const [c, p, r] = await Promise.all([
@@ -165,6 +184,19 @@
           this.savingCredit = false;
           if (r.ok) { this.creditForm = { amountCents: '', reason: '' }; this.load(); }
           else this.creditError = (await r.json()).error ?? 'Erro ao conceder crédito.';
+        },
+        openSettle(r) {
+          this.settleForm = { id: r.id, description: r.description, amountCents: r.amount_cents, settledAt: todayLocal() };
+          this.settleError = '';
+          this.$refs.settleDlg.showModal();
+        },
+        async confirmSettle() {
+          const r = await fetch(`/api/finance/receivables/${this.settleForm.id}/settle`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settledAt: this.settleForm.settledAt }),
+          });
+          if (r.ok) { this.$refs.settleDlg.close(); this.load(); }
+          else this.settleError = (await r.json()).error ?? 'Erro ao registrar recebimento.';
         },
       };
     }
