@@ -27,6 +27,11 @@ const manifest: ModuleManifest = {
     { key: 'commercial.purchases.create', description: 'Registrar compras' },
     { key: 'commercial.purchases.edit', description: 'Editar dados da compra (fornecedor, observações)' },
     { key: 'commercial.purchases.cancel', description: 'Cancelar compra (reverte estoque)' },
+    { key: 'commercial.customers.creditgrant', description: 'Conceder crédito de troca ao cliente' },
+    { key: 'commercial.agreements.view', description: 'Visualizar empresas conveniadas' },
+    { key: 'commercial.agreements.create', description: 'Criar empresas conveniadas' },
+    { key: 'commercial.agreements.edit', description: 'Editar empresas conveniadas' },
+    { key: 'commercial.agreements.delete', description: 'Excluir empresas conveniadas' },
   ],
   routes: './routes',
   pages: './pages',
@@ -47,8 +52,23 @@ const manifest: ModuleManifest = {
   syncTables: [
     { table: 'categories', foreignKeys: { parent_id: 'categories' } },
     { table: 'products', foreignKeys: { category_id: 'categories' }, excludeColumns: ['stock_qty'] },
-    { table: 'customers', foreignKeys: { price_list_id: 'price_lists' } },
+    {
+      table: 'customers',
+      foreignKeys: { price_list_id: 'price_lists', agreement_company_id: 'agreement_companies' },
+      excludeColumns: ['store_credit_cents', 'loyalty_points'],
+    },
     { table: 'suppliers' },
+    { table: 'agreement_companies' },
+    {
+      table: 'customer_credit_movements',
+      excludeColumns: ['balance_after', 'ref_id', 'user_id'],
+      ledgerFor: { parentTable: 'customers', parentColumn: 'customer_id' },
+    },
+    {
+      table: 'loyalty_point_movements',
+      excludeColumns: ['balance_after', 'ref_id', 'user_id'],
+      ledgerFor: { parentTable: 'customers', parentColumn: 'customer_id' },
+    },
     {
       table: 'purchases',
       foreignKeys: { supplier_id: 'suppliers' },

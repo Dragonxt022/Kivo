@@ -316,7 +316,7 @@
 
         <div class="cart-header">
           <h2>Carrinho <span class="count" x-text="'(' + cart.length + ')'"></span></h2>
-          <select x-model.number="customerId" @change="repriceCart()" style="max-width:220px;padding:.3rem .5rem">
+          <select x-model.number="customerId" @change="repriceCart(); loadCustomerBalances()" style="max-width:220px;padding:.3rem .5rem">
             <option value="">Cliente (preço normal)</option>
             <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
           </select>
@@ -508,8 +508,8 @@
         </div>
 
         <div class="pay-quick-methods">
-          <template x-for="(m, idx) in methods" :key="'q' + m.id">
-            <button type="button" class="pay-quick-method" :class="{ selected: pay.methodId === m.id }" @click="pay.methodId = m.id" x-html="methodIcon(m.type) + '<span>' + m.name + '</span>' + (idx < 9 ? '<span class=shortcut>F' + (idx+1) + '</span>' : '')"></button>
+          <template x-for="(m, idx) in visibleQuickMethods()" :key="'q' + m.id">
+            <button type="button" class="pay-quick-method" :class="{ selected: pay.methodId === m.id }" @click="selectQuickMethod(m)" x-html="methodIcon(m.type) + '<span>' + m.name + '</span>' + (idx < 9 ? '<span class=shortcut>F' + (idx+1) + '</span>' : '')"></button>
           </template>
         </div>
 
@@ -535,18 +535,6 @@
             </div>
           </div>
         </template>
-        <template x-if="hasPrazo()">
-          <div>
-            <span class="pay-label">Cliente (obrigatório para a prazo)</span>
-            <select x-model.number="pay.customerId" style="margin-bottom:.6rem">
-              <option value="">Selecione…</option>
-              <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
-            </select>
-            <span class="pay-label">Vencimento</span>
-            <input type="date" x-model="pay.dueDate" />
-          </div>
-        </template>
-
         <button class="btn secondary" style="width:100%;margin-top:.5rem" @click="$refs.pay.close()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:.3rem;vertical-align:-2px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Voltar
         </button>
@@ -591,6 +579,59 @@
           </button>
           <p class="pay-confirm-hint">Pressione <strong>ENTER</strong> para confirmar</p>
         </div>
+      </div>
+    </dialog>
+
+    <!-- ─── MODAL: Venda a prazo (parcelamento) ─── -->
+    <dialog x-ref="prazoDlg" class="dialog-fixed">
+      <h1>Venda a prazo</h1>
+      <div class="dialog-body">
+        <label>Cliente</label>
+        <select x-model.number="prazoForm.customerId">
+          <option value="">Selecione…</option>
+          <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+        </select>
+        <label style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem">
+          <input type="radio" value="avista" x-model="prazoForm.mode" /> À vista (1 vencimento)
+        </label>
+        <label style="display:flex;align-items:center;gap:.4rem">
+          <input type="radio" value="parcelado" x-model="prazoForm.mode" /> Parcelado
+        </label>
+        <template x-if="prazoForm.mode === 'parcelado'">
+          <div>
+            <label>Número de parcelas (2 a 12)</label>
+            <input type="number" min="2" max="12" x-model.number="prazoForm.installments" style="max-width:100px" />
+          </div>
+        </template>
+        <label>Primeiro vencimento</label>
+        <input type="date" x-model="prazoForm.firstDueDate" />
+        <table style="margin-top:.75rem">
+          <thead><tr><th>Parcela</th><th>Vencimento</th><th style="text-align:right">Valor</th></tr></thead>
+          <tbody>
+            <template x-for="p in prazoPreview()" :key="p.n">
+              <tr><td x-text="p.n + '/' + p.count"></td><td x-text="p.dueDate"></td><td style="text-align:right" x-text="brl(p.amountCents)"></td></tr>
+            </template>
+          </tbody>
+        </table>
+        <div class="error" x-text="prazoError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.prazoDlg.close()">Cancelar</button>
+        <button class="btn" @click="confirmPrazoDlg()">Confirmar</button>
+      </div>
+    </dialog>
+
+    <!-- ─── MODAL: Pagamento com pontos de fidelidade ─── -->
+    <dialog x-ref="fidelidadeDlg">
+      <h1>Pontos de fidelidade</h1>
+      <p class="muted" style="margin-top:-.3rem" x-text="'Saldo disponível: ' + (customerBalances.loyaltyPoints || 0) + ' pontos'"></p>
+      <label>Quantos pontos usar</label>
+      <input type="number" min="1" x-model.number="fidelidadeForm.pointsUsed" @input="fidelidadeError = ''" />
+      <p class="muted" style="font-size:.85rem" x-text="'Equivale a ' + brl(Math.round((fidelidadeForm.pointsUsed || 0) * centsPerPointClient()))"></p>
+      <div class="error" x-text="fidelidadeError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.fidelidadeDlg.close()">Cancelar</button>
+        <button class="btn" @click="confirmFidelidadeDlg()">Confirmar</button>
       </div>
     </dialog>
 
@@ -642,6 +683,7 @@
         <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.25rem">Deseja imprimir o cupom desta venda?</p>
         <div class="actions" style="justify-content:center">
           <button class="btn secondary" @click="$refs.postSale.close()">Não (Esc)</button>
+          <button class="btn secondary" x-show="lastSaleHasCarne" @click="printCarne()">Imprimir carnê</button>
           <button class="btn" autofocus @click="printLast(); $refs.postSale.close()">Imprimir (Enter)</button>
         </div>
       </div>
@@ -671,12 +713,15 @@
         get customerId() { return this.slots[this.activeSlot].customerId ?? ''; },
         set customerId(v) { this.slots[this.activeSlot].customerId = v; },
         valueDlg: { kind: 'desconto', amount: '', mode: 'valor', error: '' },
-        pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, customerId: '', dueDate: '' },
+        pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, clientRequestId: '' },
         showSplit: false, showCashReceived: false,
         error: '', payError: '', saving: false, appSettings: [],
         pinInput: '', pinError: '', pendingRemoveIdx: null,
         browseQ: '', browseResults: [],
         openRegisterForm: { opening: '', error: '' },
+        customerBalances: {}, lastSaleHasCarne: false,
+        prazoForm: { customerId: '', mode: 'avista', installments: 3, firstDueDate: '', amountCents: 0 }, prazoError: '',
+        fidelidadeForm: { pointsUsed: 0 }, fidelidadeError: '',
 
         // ─── Utilitários ───
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
@@ -742,6 +787,7 @@
           if (m.ok) { this.methods = await m.json(); if (this.methods.length) this.pay.methodId = this.methods[0].id; }
           if (s.ok) this.appSettings = await s.json();
           if (c.ok) this.customers = await c.json();
+          if (this.customerId) this.loadCustomerBalances();
           this.focusSearch();
           this.$watch('slots', () => this.persistSlots());
           document.addEventListener('keydown', (e) => {
@@ -934,7 +980,7 @@
           this.$nextTick(() => this.$refs.clearConfirm.focus());
         },
         doClear() {
-          this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = '';
+          this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerBalances = {};
           this.$refs.clearDlg.close();
           this.focusSearch();
           this.persistSlots();
@@ -944,6 +990,9 @@
         printLast() {
           if (this.lastSaleId) window.open(`/app/store/vendas/${this.lastSaleId}/cupom`, '_blank', 'width=380,height=600');
         },
+        printCarne() {
+          if (this.lastSaleId) window.open(`/app/store/vendas/${this.lastSaleId}/carne`, '_blank', 'width=380,height=700');
+        },
 
         // ─── Pagamento ───
         methodName(id) { const m = this.methods.find((x) => x.id === id); return m ? m.name : '?'; },
@@ -951,25 +1000,55 @@
         paidSum() { return this.pay.list.reduce((a, p) => a + p.amountCents, 0); },
         remaining() { return this.total() - this.paidSum(); },
         needsCashReceived() { return this.pay.list.some((p) => this.methodType(p.methodId) === 'dinheiro'); },
-        hasPrazo() { return this.pay.list.some((p) => this.methodType(p.methodId) === 'prazo'); },
+        visibleQuickMethods() {
+          return this.methods.filter((m) => {
+            if (m.type === 'credito_loja') return (this.customerBalances.storeCreditCents || 0) > 0;
+            if (m.type === 'fidelidade') return (this.customerBalances.loyaltyPoints || 0) > 0;
+            if (m.type === 'convenio') return !!this.customerBalances.hasAgreement;
+            return true;
+          });
+        },
+        selectQuickMethod(m) {
+          if (m.type === 'prazo') { this.openPrazoDlg(); return; }
+          if (m.type === 'fidelidade') { this.openFidelidadeDlg(); return; }
+          this.pay.methodId = m.id;
+        },
+        async loadCustomerBalances() {
+          if (!this.customerId) { this.customerBalances = {}; return; }
+          const r = await fetch(`/api/commercial/customers/${this.customerId}`);
+          if (r.ok) {
+            const c = await r.json();
+            this.customerBalances = { storeCreditCents: c.store_credit_cents || 0, loyaltyPoints: c.loyalty_points || 0, hasAgreement: !!c.agreement_company_id };
+          } else this.customerBalances = {};
+        },
+        centsPerPointClient() {
+          const pontos = Number(this.appSettings?.find((s) => s.key === 'fidelidade.pontos_resgate')?.value ?? 100);
+          const valor = Number(this.appSettings?.find((s) => s.key === 'fidelidade.valor_resgate_cents')?.value ?? 500);
+          return pontos > 0 ? valor / pontos : 0;
+        },
         async openPay() {
           this.payError = '';
           this.pay.list = []; this.pay.received = ''; this.pay.changeCents = 0;
           this.pay.amount = (this.total() / 100).toFixed(2).replace('.', ',');
+          this.pay.clientRequestId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : (Date.now() + '-' + Math.random());
           this.showSplit = false; this.showCashReceived = false;
           if (!this.customers.length) {
             const r = await fetch('/api/commercial/customers');
             if (r.ok) this.customers = await r.json();
           }
-          this.pay.customerId = this.customerId || '';
           this.$refs.pay.showModal();
         },
         addPayment() {
           const amount = this.cents(this.pay.amount);
           if (!this.pay.methodId || amount <= 0) { this.payError = 'Escolha a forma e o valor.'; return; }
           if (amount > this.remaining()) { this.payError = 'Valor maior que o restante.'; return; }
+          const type = this.methodType(this.pay.methodId);
+          if (type === 'credito_loja' && amount > (this.customerBalances.storeCreditCents || 0)) {
+            this.payError = 'Saldo de crédito de loja insuficiente.'; return;
+          }
           this.payError = '';
-          this.pay.list.push({ methodId: this.pay.methodId, amountCents: amount });
+          const extra = (type === 'credito_loja' || type === 'convenio') ? { customerId: this.customerId || undefined } : {};
+          this.pay.list.push({ methodId: this.pay.methodId, amountCents: amount, ...extra });
           const rest = this.remaining();
           this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
           this.calcChange();
@@ -991,10 +1070,79 @@
             .reduce((a, p) => a + p.amountCents, 0);
           this.pay.changeCents = Math.max(0, this.cents(this.pay.received) - cashDue);
         },
+
+        // ─── Venda a prazo (parcelamento) ───
+        openPrazoDlg() {
+          const existing = this.pay.list.find((p) => this.methodType(p.methodId) === 'prazo');
+          const amt = existing ? existing.amountCents : (this.remaining() > 0 ? this.remaining() : this.total());
+          this.prazoForm = {
+            customerId: (existing && existing.customerId) || this.customerId || '',
+            mode: existing && existing.installments ? 'parcelado' : 'avista',
+            installments: (existing && existing.installments && existing.installments.count) || 3,
+            firstDueDate: (existing && existing.dueDate) || new Date(Date.now() + 30 * 24 * 3600e3).toISOString().slice(0, 10),
+            amountCents: amt,
+          };
+          this.prazoError = '';
+          this.$refs.prazoDlg.showModal();
+        },
+        prazoPreview() {
+          const count = this.prazoForm.mode === 'parcelado' ? Math.max(2, Number(this.prazoForm.installments) || 2) : 1;
+          const amt = this.prazoForm.amountCents || 0;
+          const base = Math.floor(amt / count);
+          const rem = amt - base * count;
+          const out = [];
+          for (let i = 0; i < count; i++) {
+            const d = new Date((this.prazoForm.firstDueDate || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
+            d.setUTCDate(d.getUTCDate() + 30 * i);
+            out.push({ n: i + 1, count, dueDate: d.toISOString().slice(0, 10), amountCents: i === 0 ? base + rem : base });
+          }
+          return out;
+        },
+        confirmPrazoDlg() {
+          if (!this.prazoForm.customerId) { this.prazoError = 'Selecione o cliente.'; return; }
+          const count = this.prazoForm.mode === 'parcelado' ? Number(this.prazoForm.installments) : 1;
+          if (this.prazoForm.mode === 'parcelado' && (count < 2 || count > 12)) { this.prazoError = 'Parcelamento deve ser de 2 a 12 vezes.'; return; }
+          if (!this.prazoForm.firstDueDate) { this.prazoError = 'Informe o vencimento.'; return; }
+          const prazoMethod = this.methods.find((m) => m.type === 'prazo');
+          if (!prazoMethod) { this.prazoError = 'Nenhuma forma de pagamento "a prazo" ativa.'; return; }
+          this.pay.list = this.pay.list.filter((p) => this.methodType(p.methodId) !== 'prazo');
+          this.pay.list.push({
+            methodId: prazoMethod.id, amountCents: this.prazoForm.amountCents,
+            customerId: this.prazoForm.customerId, dueDate: this.prazoForm.firstDueDate,
+            installments: count > 1 ? { count, firstDueDate: this.prazoForm.firstDueDate } : undefined,
+          });
+          const rest = this.remaining();
+          this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
+          this.$refs.prazoDlg.close();
+        },
+
+        // ─── Pagamento com pontos de fidelidade ───
+        openFidelidadeDlg() {
+          const maxByRemaining = this.centsPerPointClient() > 0 ? Math.ceil(this.remaining() / this.centsPerPointClient()) : 0;
+          this.fidelidadeForm = { pointsUsed: Math.max(0, Math.min(this.customerBalances.loyaltyPoints || 0, maxByRemaining)) };
+          this.fidelidadeError = '';
+          this.$refs.fidelidadeDlg.showModal();
+        },
+        confirmFidelidadeDlg() {
+          const pts = Number(this.fidelidadeForm.pointsUsed);
+          if (!pts || pts <= 0) { this.fidelidadeError = 'Informe quantos pontos usar.'; return; }
+          if (pts > (this.customerBalances.loyaltyPoints || 0)) { this.fidelidadeError = 'Saldo de pontos insuficiente.'; return; }
+          const amountCents = Math.round(pts * this.centsPerPointClient());
+          if (amountCents > this.remaining()) { this.fidelidadeError = 'Valor maior que o restante.'; return; }
+          const method = this.methods.find((m) => m.type === 'fidelidade');
+          if (!method) { this.fidelidadeError = 'Forma de pagamento "Pontos de fidelidade" não está ativa.'; return; }
+          this.pay.list = this.pay.list.filter((p) => this.methodType(p.methodId) !== 'fidelidade');
+          this.pay.list.push({ methodId: method.id, amountCents, pointsUsed: pts, customerId: this.customerId || undefined });
+          const rest = this.remaining();
+          this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
+          this.$refs.fidelidadeDlg.close();
+        },
+
         async finish() {
           if (this.saving || this.remaining() !== 0) return;
           this.saving = true; this.payError = '';
           let cashReceived = this.cents(this.pay.received);
+          const hasCarne = this.pay.list.some((p) => p.installments && p.installments.count > 1);
           const payments = this.pay.list.map((p) => {
             const out = { methodId: p.methodId, amountCents: p.amountCents };
             if (this.methodType(p.methodId) === 'dinheiro') {
@@ -1002,6 +1150,10 @@
               out.receivedCents = rec;
               cashReceived = Math.max(0, cashReceived - rec);
             }
+            if (p.customerId) out.customerId = p.customerId;
+            if (p.dueDate) out.dueDate = p.dueDate;
+            if (p.installments) out.installments = p.installments;
+            if (p.pointsUsed) out.pointsUsed = p.pointsUsed;
             return out;
           });
           const body = {
@@ -1009,16 +1161,17 @@
             payments,
             discountCents: this.discountCents || undefined,
             surchargeCents: this.surchargeCents || undefined,
-            customerId: this.hasPrazo() ? (this.pay.customerId || undefined) : (this.customerId || undefined),
-            dueDate: this.hasPrazo() ? this.pay.dueDate || undefined : undefined,
+            customerId: this.customerId || undefined,
+            clientRequestId: this.pay.clientRequestId || undefined,
           };
           const r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           this.saving = false;
           if (r.ok) {
             const d = await r.json();
             this.lastSaleId = d.id;
+            this.lastSaleHasCarne = hasCarne;
             this.$refs.pay.close();
-            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = '';
+            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerBalances = {};
             this.persistSlots();
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
             if (exibir !== '0') this.$refs.postSale.showModal(); else this.focusSearch();

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Ficha do cliente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .balance-cards { display: flex; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; }
+    .balance-card {
+      flex: 1; min-width: 160px; background: var(--surface); border: 1.5px solid var(--border-light);
+      border-radius: var(--radius); padding: .9rem 1.1rem;
+    }
+    .balance-card .label { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: .3rem; }
+    .balance-card .value { font-size: 1.3rem; font-weight: 700; }
+    .bar-chart { display: flex; align-items: flex-end; gap: .5rem; height: 160px; padding: .5rem .5rem 0; border-bottom: 1px solid var(--border-light); margin-bottom: .3rem; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative; }
+    .bar-fill { width: 65%; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 2px; transition: height .2s; }
+    .bar-label { font-size: .68rem; color: var(--text-muted); margin-top: .3rem; white-space: nowrap; }
+    .bar-tooltip {
+      position: absolute; bottom: 100%; margin-bottom: 4px; background: var(--surface); border: 1px solid var(--border-light);
+      border-radius: 6px; padding: .25rem .5rem; font-size: .75rem; white-space: nowrap; box-shadow: var(--shadow-xs); z-index: 5;
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
+  <main x-data="customerFichaPage(<%= customerId %>)" x-init="load()">
+    <a href="/app/commercial/clientes" class="muted" style="font-size:.85rem">← Voltar para clientes</a>
+    <h1 x-text="customer.name ?? 'Cliente'"></h1>
+    <p class="muted">
+      <span x-text="customer.document ?? ''"></span>
+      <span x-show="customer.phone"> · <span x-text="customer.phone"></span></span>
+      <span x-show="customer.email"> · <span x-text="customer.email"></span></span>
+    </p>
+    <p class="muted" x-show="customer.address" x-text="customer.address"></p>
+    <p class="muted" x-show="agreementName"> Convênio: <strong x-text="agreementName"></strong></p>
+
+    <div class="balance-cards">
+      <div class="balance-card">
+        <div class="label">Crédito de troca</div>
+        <div class="value" x-text="brl(customer.store_credit_cents)"></div>
+      </div>
+      <div class="balance-card">
+        <div class="label">Pontos de fidelidade</div>
+        <div class="value" x-text="(customer.loyalty_points ?? 0) + ' pts'"></div>
+      </div>
+    </div>
+
+    <% if (user.permissions.has('commercial.customers.creditgrant')) { %>
+    <section class="panel">
+      <h2>Conceder crédito de troca</h2>
+      <div class="toolbar">
+        <input type="text" placeholder="Valor (R$)" x-model="creditForm.amountCents" @input="creditForm.amountCents = maskMoney(creditForm.amountCents)" style="max-width:140px" />
+        <input type="text" placeholder="Motivo (opcional)" x-model="creditForm.reason" style="max-width:280px" />
+        <button class="btn" @click="grantCredit()" x-text="savingCredit ? 'Salvando…' : 'Conceder'"></button>
+        <span class="error" x-text="creditError"></span>
+      </div>
+    </section>
+    <% } %>
+
+    <section class="panel">
+      <h2>Compras por mês</h2>
+      <div class="bar-chart">
+        <template x-for="(m, idx) in monthly" :key="m.key">
+          <div class="bar-col" @mouseenter="hoverBar = idx" @mouseleave="hoverBar = null">
+            <div class="bar-tooltip" x-show="hoverBar === idx" x-text="m.short + ': ' + brl(m.total)"></div>
+            <div class="bar-fill" :style="{ height: (maxMonthly ? (m.total / maxMonthly * 100) : 0) + '%' }"></div>
+            <span class="bar-label" x-text="m.short"></span>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Histórico de compras</h2>
+      <table>
+        <thead><tr><th>#</th><th>Data</th><th>Status</th><th>Forma</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>
+          <template x-for="s in purchases" :key="s.id">
+            <tr>
+              <td x-text="s.id"></td>
+              <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
+              <td><span class="badge" :class="s.status === 'concluida' ? 'ok' : 'off'" x-text="s.status"></span></td>
+              <td class="muted" x-text="s.payment_method"></td>
+              <td style="text-align:right" x-text="brl(s.total_cents)"></td>
+            </tr>
+          </template>
+          <tr x-show="!purchases.length"><td colspan="5" class="muted">Nenhuma compra registrada.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Histórico financeiro</h2>
+      <table>
+        <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th style="text-align:right">Valor</th></tr></thead>
+        <tbody>
+          <template x-for="r in receivables" :key="r.id">
+            <tr>
+              <td x-text="r.description"></td>
+              <td class="muted" x-text="r.due_date"></td>
+              <td><span class="badge" :class="r.status === 'recebida' ? 'ok' : (r.status === 'cancelada' ? 'off' : '')" x-text="r.status"></span></td>
+              <td style="text-align:right" x-text="brl(r.amount_cents)"></td>
+            </tr>
+          </template>
+          <tr x-show="!receivables.length"><td colspan="4" class="muted">Nenhum lançamento financeiro.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <script src="/js/masks.js"></script>
+  <script src="/js/datetime.js"></script>
+  <script>
+    function customerFichaPage(id) {
+      return {
+        id, customer: {}, purchases: [], receivables: [], monthly: [], maxMonthly: 1, hoverBar: null, agreementName: '',
+        creditForm: { amountCents: '', reason: '' }, creditError: '', savingCredit: false,
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        async load() {
+          const [c, p, r] = await Promise.all([
+            fetch(`/api/commercial/customers/${this.id}`),
+            fetch(`/api/store/sales?customerId=${this.id}`),
+            fetch(`/api/finance/receivables?partyId=${this.id}`),
+          ]);
+          if (c.ok) this.customer = await c.json();
+          if (p.ok) this.purchases = await p.json();
+          if (r.ok) this.receivables = await r.json();
+          if (this.customer.agreement_company_id) {
+            const ac = await fetch('/api/commercial/agreement-companies');
+            if (ac.ok) {
+              const list = await ac.json();
+              this.agreementName = list.find((a) => a.id === this.customer.agreement_company_id)?.name ?? '';
+            }
+          }
+          this.buildMonthly();
+        },
+        buildMonthly() {
+          const months = [];
+          const now = new Date();
+          for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            months.push({ key: d.toISOString().slice(0, 7), short: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''), total: 0 });
+          }
+          for (const s of this.purchases) {
+            if (s.status === 'cancelada') continue;
+            const key = String(s.created_at).slice(0, 7);
+            const m = months.find((mm) => mm.key === key);
+            if (m) m.total += s.total_cents;
+          }
+          this.monthly = months;
+          this.maxMonthly = Math.max(1, ...months.map((m) => m.total));
+        },
+        async grantCredit() {
+          const cents = Math.round(parseFloat(String(this.creditForm.amountCents || '0').replace(/\./g, '').replace(',', '.')) * 100);
+          if (!cents || cents <= 0) { this.creditError = 'Informe um valor válido.'; return; }
+          this.savingCredit = true; this.creditError = '';
+          const r = await fetch(`/api/commercial/customers/${this.id}/credit`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amountCents: cents, reason: this.creditForm.reason || undefined }),
+          });
+          this.savingCredit = false;
+          if (r.ok) { this.creditForm = { amountCents: '', reason: '' }; this.load(); }
+          else this.creditError = (await r.json()).error ?? 'Erro ao conceder crédito.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

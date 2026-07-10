@@ -11,6 +11,10 @@ function page(view: string, permission: string) {
 }
 
 router.get('/clientes', page('commercial-customers', 'commercial.customers.view'));
+router.get('/clientes/:id', (req, res) => {
+  if (!req.user!.permissions.has('commercial.customers.view')) return res.redirect('/');
+  res.render('commercial-customer-ficha', { user: req.user, customerId: Number(req.params.id) });
+});
 router.get('/fornecedores', page('commercial-suppliers', 'commercial.suppliers.view'));
 router.get('/produtos', page('commercial-products', 'commercial.products.view'));
 router.get('/listas-de-preco', page('commercial-price-lists', 'commercial.pricelists.view'));

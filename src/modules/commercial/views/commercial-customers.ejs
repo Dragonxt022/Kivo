@@ -11,7 +11,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
-  <main x-data="{ ...crudPage('/api/commercial/customers'), priceLists: [], async loadPriceLists() { const r = await fetch('/api/commercial/price-lists'); if (r.ok) this.priceLists = await r.json(); } }" x-init="load(); loadPriceLists()">
+  <main x-data="customersPage()" x-init="load()">
     <h1>Clientes</h1>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.customers.create')) { %>
@@ -22,21 +22,50 @@
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>Nome</th><th>Documento</th><th>Telefone</th><th>E-mail</th><th></th></tr></thead>
+      <thead><tr>
+        <th @click="sort('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+        <th @click="sort('document')" class="sortable">Documento<span class="sort-arrow" x-text="sortBy === 'document' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+        <th>Telefone</th>
+        <th>E-mail</th>
+        <th @click="sort('store_credit_cents')" class="sortable">Crédito<span class="sort-arrow" x-text="sortBy === 'store_credit_cents' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+        <th @click="sort('loyalty_points')" class="sortable">Pontos<span class="sort-arrow" x-text="sortBy === 'loyalty_points' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+        <th></th>
+      </tr></thead>
       <tbody>
         <template x-for="r in rows" :key="r.id">
-          <tr>
+          <tr <% if (user.permissions.has('commercial.customers.view')) { %>@click="location.href = '/app/commercial/clientes/' + r.id" style="cursor:pointer"<% } %>>
             <td x-text="r.name"></td>
             <td class="muted" x-text="r.document ?? '—'"></td>
             <td class="muted" x-text="r.phone ?? '—'"></td>
             <td class="muted" x-text="r.email ?? '—'"></td>
-            <td style="text-align:right">
-              <% if (user.permissions.has('commercial.customers.edit')) { %>
-                <button class="btn secondary small" @click="openEdit(r)">Editar</button>
-              <% } %>
-              <% if (user.permissions.has('commercial.customers.delete')) { %>
-                <button class="btn small" @click="remove(r)">Excluir</button>
-              <% } %>
+            <td x-text="brl(r.store_credit_cents)"></td>
+            <td x-text="r.loyalty_points ?? 0"></td>
+            <td style="text-align:right" @click.stop>
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                  </svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
+                  <button @click="openMenu = null; location.href = '/app/commercial/clientes/' + r.id">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Ver ficha
+                  </button>
+                  <% if (user.permissions.has('commercial.customers.edit')) { %>
+                  <button @click="openMenu = null; openEdit(r)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    Editar
+                  </button>
+                  <% } %>
+                  <% if (user.permissions.has('commercial.customers.delete')) { %>
+                  <button class="danger" @click="openMenu = null; remove(r)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Excluir
+                  </button>
+                  <% } %>
+                </div>
+              </div>
             </td>
           </tr>
         </template>
@@ -50,13 +79,21 @@
         <label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="000.000.000-00" />
         <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
         <label>E-mail</label><input type="text" x-model="form.email" />
-        <label>Endereço</label><input type="text" x-model="form.address" />
+        <label>CEP</label><input type="text" x-model="form.cep" @input="form.cep = maskCEP(form.cep); autoCep()" placeholder="00000-000" />
+        <label>Endereço</label><input type="text" x-model="form.address" placeholder="Preenchido automaticamente pelo CEP (ou digite à mão)" />
         <label>Observações</label><input type="text" x-model="form.notes" />
         <% if (user.permissions.has('commercial.pricelists.view')) { %>
         <label>Lista de preço</label>
         <select x-model.number="form.price_list_id">
           <option value="">— preço normal do catálogo —</option>
           <template x-for="l in priceLists" :key="l.id"><option :value="l.id" x-text="l.name"></option></template>
+        </select>
+        <% } %>
+        <% if (user.permissions.has('commercial.agreements.view')) { %>
+        <label>Convênio</label>
+        <select x-model.number="form.agreement_company_id">
+          <option value="">— sem convênio —</option>
+          <template x-for="a in agreements" :key="a.id"><option :value="a.id" x-text="a.name"></option></template>
         </select>
         <% } %>
         <div class="error" x-text="dlgError"></div>
@@ -68,7 +105,65 @@
     </dialog>
   </main>
   <script src="/js/masks.js"></script>
-  <script src="/js/crud-page.js"></script>
+  <script>
+    function customersPage() {
+      return {
+        rows: [], form: {}, q: '', error: '', dlgError: '', openMenu: null, sortBy: 'name', sortDir: 'asc',
+        priceLists: [], agreements: [],
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        async load() {
+          const r = await fetch('/api/commercial/customers' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
+          if (r.ok) { this.rows = await r.json(); this.sort(this.sortBy, true); }
+          else this.error = (await r.json()).error;
+          const p = await fetch('/api/commercial/price-lists');
+          if (p.ok) this.priceLists = await p.json();
+          const a = await fetch('/api/commercial/agreement-companies');
+          if (a.ok) this.agreements = await a.json();
+        },
+        sort(col, silent) {
+          if (!silent) this.sortDir = this.sortBy === col && this.sortDir === 'asc' ? 'desc' : 'asc';
+          this.sortBy = col;
+          this.rows.sort((a, b) => {
+            let va, vb;
+            if (col === 'name' || col === 'document') { va = (a[col] ?? '').toLowerCase(); vb = (b[col] ?? '').toLowerCase(); }
+            else { va = a[col] ?? 0; vb = b[col] ?? 0; }
+            if (typeof va === 'string') return this.sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+            return this.sortDir === 'asc' ? va - vb : vb - va;
+          });
+        },
+        openNew() { this.form = {}; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(r) { this.form = { ...r }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        async autoCep() {
+          const digits = String(this.form.cep || '').replace(/\D/g, '');
+          if (digits.length !== 8) return;
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 4000);
+            const r = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (!r.ok) return;
+            const data = await r.json();
+            if (data.erro) return;
+            this.form.address = [data.logradouro, data.bairro, `${data.localidade} - ${data.uf}`].filter(Boolean).join(', ');
+          } catch (e) { /* offline ou timeout: ignora silenciosamente */ }
+        },
+        async save() {
+          const isEdit = !!this.form.id;
+          const r = await fetch(isEdit ? `/api/commercial/customers/${this.form.id}` : '/api/commercial/customers', {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.form),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(row) {
+          if (!await window.confirmDlg(`Excluir "${row.name}"?`)) return;
+          const r = await fetch(`/api/commercial/customers/${row.id}`, { method: 'DELETE' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+        },
+      };
+    }
+  </script>
 </body>
 </html>
-

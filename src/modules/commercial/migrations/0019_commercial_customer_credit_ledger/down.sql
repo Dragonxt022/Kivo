@@ -1,0 +1,2 @@
+DROP INDEX idx_customer_credit_customer;
+DROP TABLE customer_credit_movements;

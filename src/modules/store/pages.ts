@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getSqlite } from '../../core/database/connection';
+import { getService } from '../../core/services/registry';
+import type { FinanceReceivablesService } from '../finance/setup';
 
 /** Páginas do módulo store (montadas em /app/store, já autenticadas). */
 const router = Router();
@@ -62,6 +64,20 @@ router.get('/orcamentos/:id/imprimir', (req, res) => {
   if (!quote) return res.status(404).send('Orçamento não encontrado.');
   const items = db().prepare('SELECT product_name, qty, unit_price_cents, total_cents FROM quote_items WHERE quote_id = ?').all(req.params.id);
   res.render('store-quote-print', { quote, items, company: companyInfo() });
+});
+
+/** Carnê de venda a prazo parcelada — uma via impressa por parcela. */
+router.get('/vendas/:id/carne', (req, res) => {
+  if (!req.user!.permissions.has('store.sales.view')) return res.redirect('/');
+  const sale = db().prepare(
+    `SELECT s.*, c.name AS customer FROM sales s
+     LEFT JOIN customers c ON c.id = s.customer_id
+     WHERE s.id = ? AND s.deleted_at IS NULL`,
+  ).get(req.params.id) as { id: number; customer: string | null } | undefined;
+  if (!sale) return res.status(404).send('Venda não encontrada.');
+  const installments = getService<FinanceReceivablesService>('finance.receivables').listBySale(Number(req.params.id));
+  if (!installments.length) return res.status(404).send('Esta venda não tem parcelas a prazo.');
+  res.render('store-carne-print', { sale, installments, company: companyInfo() });
 });
 
 export default router;

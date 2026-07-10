@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Convênios</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/finance/convenios' }) %>
+  <main x-data="agreementsPage()" x-init="load()">
+    <h1>Convênios</h1>
+    <p class="muted">Empresas conveniadas: compras dos clientes vinculados viram cobrança pendente, faturada mensalmente no dia de fechamento.</p>
+    <div class="toolbar">
+      <% if (user.permissions.has('commercial.agreements.create')) { %>
+        <button class="btn" @click="openNew()">Nova empresa conveniada</button>
+      <% } %>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Nome</th><th>Documento</th><th>Fechamento</th><th style="text-align:right">Pendente</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="c in rows" :key="c.id">
+          <tr>
+            <td x-text="c.name"></td>
+            <td class="muted" x-text="c.document ?? '—'"></td>
+            <td class="muted" x-text="'dia ' + c.billing_day"></td>
+            <td style="text-align:right" x-text="brl(pending[c.id] ?? 0)"></td>
+            <td style="text-align:right">
+              <button class="btn secondary small" @click="openInvoices(c)">Faturas</button>
+              <% if (user.permissions.has('finance.agreements.invoice')) { %>
+              <button class="btn secondary small" @click="generateInvoice(c)" :disabled="!(pending[c.id] > 0)">Gerar fatura agora</button>
+              <% } %>
+              <% if (user.permissions.has('commercial.agreements.edit')) { %>
+              <button class="btn secondary small" @click="openEdit(c)">Editar</button>
+              <% } %>
+              <% if (user.permissions.has('commercial.agreements.delete')) { %>
+              <button class="btn small" @click="remove(c)">Excluir</button>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!rows.length"><td colspan="5" class="muted">Nenhuma empresa conveniada cadastrada.</td></tr>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? 'Editar convênio' : 'Nova empresa conveniada'"></h1>
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="form.name" />
+        <label>CNPJ/CPF</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" />
+        <label>Dia de fechamento (1-31)</label><input type="number" min="1" max="31" x-model.number="form.billing_day" style="max-width:100px" />
+        <label>Contato</label><input type="text" x-model="form.contact_name" />
+        <label>Telefone do contato</label><input type="text" x-model="form.contact_phone" @input="form.contact_phone = maskPhone(form.contact_phone)" />
+        <label>E-mail do contato</label><input type="text" x-model="form.contact_email" />
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="invDlg" class="dialog-fixed">
+      <h1>Faturas — <span x-text="invCompany.name"></span></h1>
+      <div class="dialog-body">
+        <table>
+          <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th style="text-align:right">Valor</th></tr></thead>
+          <tbody>
+            <template x-for="inv in invoices" :key="inv.id">
+              <tr>
+                <td x-text="inv.description"></td>
+                <td class="muted" x-text="inv.due_date"></td>
+                <td><span class="badge" :class="inv.status === 'recebida' ? 'ok' : (inv.status === 'cancelada' ? 'off' : '')" x-text="inv.status"></span></td>
+                <td style="text-align:right" x-text="brl(inv.amount_cents)"></td>
+              </tr>
+            </template>
+            <tr x-show="!invoices.length"><td colspan="4" class="muted">Nenhuma fatura gerada ainda.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.invDlg.close()">Fechar</button>
+      </div>
+    </dialog>
+  </main>
+  <script src="/js/masks.js"></script>
+  <script>
+    function agreementsPage() {
+      return {
+        rows: [], pending: {}, form: {}, dlgError: '', error: '', invCompany: {}, invoices: [],
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        async load() {
+          const r = await fetch('/api/commercial/agreement-companies');
+          if (r.ok) { this.rows = await r.json(); await this.loadPending(); }
+          else this.error = (await r.json()).error;
+        },
+        async loadPending() {
+          for (const c of this.rows) {
+            const p = await fetch(`/api/finance/agreements/${c.id}/pending`);
+            if (p.ok) this.pending[c.id] = (await p.json()).pendingCents;
+          }
+        },
+        openNew() { this.form = { billing_day: 5 }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(c) { this.form = { ...c }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        async save() {
+          const isEdit = !!this.form.id;
+          const r = await fetch(isEdit ? `/api/commercial/agreement-companies/${this.form.id}` : '/api/commercial/agreement-companies', {
+            method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.form),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(c) {
+          if (!await window.confirmDlg(`Excluir "${c.name}"?`)) return;
+          const r = await fetch(`/api/commercial/agreement-companies/${c.id}`, { method: 'DELETE' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        async openInvoices(c) {
+          this.invCompany = c;
+          const r = await fetch(`/api/finance/receivables?agreementCompanyId=${c.id}`);
+          this.invoices = r.ok ? await r.json() : [];
+          this.$refs.invDlg.showModal();
+        },
+        async generateInvoice(c) {
+          const r = await fetch(`/api/finance/agreements/${c.id}/invoice`, { method: 'POST' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

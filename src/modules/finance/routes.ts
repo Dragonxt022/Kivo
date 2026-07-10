@@ -5,6 +5,7 @@ import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { openRegister, closeRegister, currentRegister, expectedCents, addMovement, editClosedRegister } from './cash';
 import { makeBillsRouter } from './bills';
+import { pendingTotal, generateInvoice } from './agreements';
 
 const router = Router();
 const db = () => getSqlite();
@@ -184,6 +185,30 @@ router.use('/receivables', makeBillsRouter({
   settleStatus: 'recebida', settleAction: 'receber', settleDateCol: 'received_at', settleCentsCol: 'received_cents',
   movementType: 'recebimento', movementDirection: 'entrada', settlePermission: 'finance.receivables.receive',
 }));
+
+// ---------- Convênio ----------
+router.get('/agreements/:companyId/pending', requirePermission('finance.agreements.view'), (req, res) => {
+  res.json({ pendingCents: pendingTotal(Number(req.params.companyId)) });
+});
+
+router.post('/agreements/:companyId/invoice', requirePermission('finance.agreements.invoice'), (req, res) => {
+  const result = generateInvoice(req, Number(req.params.companyId), req.body?.periodKey);
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.status(201).json(result);
+});
+
+// ---------- Reconciliação (saldos negativos após merge de sync) ----------
+router.get('/reconciliation/negative-balances', requirePermission('finance.reconciliation.view'), (_req, res) => {
+  const rows = db().prepare(
+    `SELECT id, name, store_credit_cents, loyalty_points FROM customers
+     WHERE deleted_at IS NULL AND (store_credit_cents < 0 OR loyalty_points < 0)
+     ORDER BY name`,
+  ).all();
+  res.json(rows);
+});
 
 // ---------- Fluxo de caixa (DoD: bate com lançamentos) ----------
 router.get('/reports/cashflow', requirePermission('finance.reports.view'), (req, res) => {

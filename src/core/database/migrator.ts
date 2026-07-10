@@ -64,10 +64,18 @@ export function migrateUp(): string[] {
   for (const [name, dir] of discoverMigrations()) {
     if (applied.has(name)) continue;
     const sql = fs.readFileSync(path.join(dir, 'up.sql'), 'utf8');
+    // FK enforcement fica fora da transação de cada migration: rebuilds de tabela
+    // (DROP + CREATE + RENAME, necessários pra alterar CHECK constraints no SQLite)
+    // são bloqueados pelo FK check implícito do DROP TABLE quando já existem linhas
+    // em outra tabela referenciando a que está sendo reconstruída. `foreign_keys` só
+    // pode ser alternado fora de uma transação — por isso os pragmas ficam do lado
+    // de fora do db.transaction(), não dentro do up.sql.
+    db.pragma('foreign_keys = OFF');
     db.transaction(() => {
       db.exec(sql);
       db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(name);
     })();
+    db.pragma('foreign_keys = ON');
     executed.push(name);
   }
   return executed;
@@ -84,10 +92,12 @@ export function migrateDown(): string | null {
   const dir = discoverMigrations().get(last.name);
   if (!dir) throw new Error(`Pasta da migration não encontrada: ${last.name}`);
   const sql = fs.readFileSync(path.join(dir, 'down.sql'), 'utf8');
+  db.pragma('foreign_keys = OFF');
   db.transaction(() => {
     db.exec(sql);
     db.prepare('DELETE FROM _migrations WHERE name = ?').run(last.name);
   })();
+  db.pragma('foreign_keys = ON');
   return last.name;
 }
 

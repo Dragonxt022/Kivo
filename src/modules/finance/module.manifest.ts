@@ -23,6 +23,9 @@ const manifest: ModuleManifest = {
     { key: 'finance.paymethods.edit', description: 'Cadastrar/editar formas de pagamento e taxas' },
     { key: 'finance.paymethods.delete', description: 'Excluir formas de pagamento' },
     { key: 'finance.cash.edit', description: 'Corrigir caixa já fechado (auditado)' },
+    { key: 'finance.agreements.view', description: 'Visualizar convênios e faturas' },
+    { key: 'finance.agreements.invoice', description: 'Gerar fatura de convênio manualmente' },
+    { key: 'finance.reconciliation.view', description: 'Visualizar relatório de saldos negativos pós-sincronização' },
   ],
   routes: './routes',
   pages: './pages',
@@ -35,6 +38,8 @@ const manifest: ModuleManifest = {
     { label: 'A receber', href: '/app/finance/receber', permission: 'finance.receivables.view', description: 'Contas a receber e vencimentos.', icon: 'dollar-sign' },
     { label: 'Fluxo', href: '/app/finance/fluxo', permission: 'finance.reports.view', description: 'Fluxo de caixa por dia.', icon: 'chart' },
     { label: 'Pagamentos', href: '/app/finance/formas-pagamento', permission: 'finance.paymethods.view', description: 'Formas de pagamento e taxas das maquininhas.', icon: 'credit-card' },
+    { label: 'Convênios', href: '/app/finance/convenios', permission: 'finance.agreements.view', description: 'Empresas conveniadas, cobranças pendentes e faturas mensais.', icon: 'receipt' },
+    { label: 'Reconciliação', href: '/app/finance/reconciliacao', permission: 'finance.reconciliation.view', description: 'Saldos de crédito/fidelidade que ficaram negativos após sincronizar.', icon: 'shield-check' },
   ],
   // Fase 6a — motor de sincronização (KATSU_PLANO.md §6).
   // opened_by/closed_by/edited_by referenciam `users`, que não sincroniza nesta sub-fase.
@@ -45,12 +50,13 @@ const manifest: ModuleManifest = {
   syncTables: [
     { table: 'cash_registers', excludeColumns: ['opened_by', 'closed_by', 'edited_by'] },
     { table: 'payables', foreignKeys: { supplier_id: 'suppliers' } },
-    { table: 'receivables', foreignKeys: { customer_id: 'customers' } },
+    { table: 'receivables', foreignKeys: { customer_id: 'customers', sale_id: 'sales', agreement_company_id: 'agreement_companies' } },
     {
       table: 'cash_movements',
       excludeColumns: ['ref_id', 'user_id'],
       ledgerFor: { parentTable: 'cash_registers', parentColumn: 'register_id' },
     },
+    { table: 'agreement_charges', foreignKeys: { sale_id: 'sales', agreement_company_id: 'agreement_companies', receivable_id: 'receivables' } },
   ],
 };
 

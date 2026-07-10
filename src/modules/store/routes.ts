@@ -26,14 +26,16 @@ router.post('/sales', requirePermission('store.sales.create'), (req, res) => {
 
 router.get('/sales', requirePermission('store.sales.view'), (req, res) => {
   const day = String(req.query.day ?? '');
-  const where = day ? 'AND date(s.created_at) = ?' : '';
+  const customerId = req.query.customerId ? Number(req.query.customerId) : undefined;
+  const conditions = [day ? 'AND date(s.created_at) = ?' : '', customerId ? 'AND s.customer_id = ?' : ''].filter(Boolean).join(' ');
+  const params = [day, customerId].filter((v) => v !== undefined && v !== '');
   const sql = `SELECT s.id, s.status, s.total_cents, s.discount_cents, s.payment_method, s.change_cents,
                       c.name AS customer, u.username, s.created_at
                FROM sales s
                LEFT JOIN customers c ON c.id = s.customer_id
                LEFT JOIN users u ON u.id = s.user_id
-               WHERE s.deleted_at IS NULL ${where} ORDER BY s.id DESC LIMIT 200`;
-  res.json(day ? db().prepare(sql).all(day) : db().prepare(sql).all());
+               WHERE s.deleted_at IS NULL ${conditions} ORDER BY s.id DESC LIMIT 200`;
+  res.json(db().prepare(sql).all(...params));
 });
 
 router.get('/sales/:id', requirePermission('store.sales.view'), (req, res) => {

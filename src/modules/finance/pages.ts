@@ -48,5 +48,7 @@ router.get('/receber', page('finance-bills', 'finance.receivables.view', {
 }));
 router.get('/fluxo', page('finance-cashflow', 'finance.reports.view'));
 router.get('/formas-pagamento', page('finance-paymethods', 'finance.paymethods.view'));
+router.get('/convenios', page('finance-agreements', 'finance.agreements.view'));
+router.get('/reconciliacao', page('finance-reconciliation', 'finance.reconciliation.view'));
 
 export default router;

@@ -42,8 +42,10 @@ async function main() {
   check('login admin', admin !== null);
 
   // ---------- Formas de pagamento ----------
-  const seeded = (await (await api('/api/finance/payment-methods?all=1', {}, admin!)).json()) as { name: string; type: string; id: number }[];
-  check('formas padrão seedadas (5)', seeded.length === 5);
+  const seeded = (await (await api('/api/finance/payment-methods?all=1', {}, admin!)).json()) as { name: string; type: string; id: number; active: number }[];
+  // 5 formas clássicas (ativas) + 3 novas (crédito de loja/fidelidade/convênio, nascem desativadas — opt-in)
+  check('formas padrão seedadas (8, sendo 3 novas desativadas)', seeded.length === 8, String(seeded.length));
+  check('as 3 novas nascem desativadas', seeded.filter((m) => ['credito_loja', 'fidelidade', 'convenio'].includes(m.type)).every((m) => m.active === 0));
   const stone = await api('/api/finance/payment-methods', {
     method: 'POST', body: JSON.stringify({ name: 'Débito — Stone', type: 'debito', feeBps: 160 }),
   }, admin!);

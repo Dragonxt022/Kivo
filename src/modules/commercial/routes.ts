@@ -8,6 +8,7 @@ import { validateBarcode, generateInternalBarcode } from '../../shared/barcode';
 import { makeCrudRouter } from './crud';
 import { moveStock, moveStockRaw, listMovements, type MovementType } from './stock';
 import { resolveMany } from './pricing';
+import { grant as grantStoreCredit } from './storeCredit';
 
 const router = Router();
 const db = () => getSqlite();
@@ -15,12 +16,36 @@ const db = () => getSqlite();
 // ---------- Clientes e fornecedores (CRUD via fábrica) ----------
 router.use('/customers', makeCrudRouter({
   table: 'customers', entity: 'customer', permPrefix: 'commercial.customers',
-  fields: ['name', 'document', 'email', 'phone', 'address', 'notes', 'price_list_id'], required: ['name'],
+  fields: ['name', 'document', 'email', 'phone', 'address', 'notes', 'price_list_id', 'cep', 'agreement_company_id'],
+  required: ['name'], readOnlyFields: ['store_credit_cents', 'loyalty_points'],
 }));
 router.use('/suppliers', makeCrudRouter({
   table: 'suppliers', entity: 'supplier', permPrefix: 'commercial.suppliers',
   fields: ['name', 'trade_name', 'document', 'email', 'phone', 'address', 'notes'], required: ['name'],
 }));
+router.use('/agreement-companies', makeCrudRouter({
+  table: 'agreement_companies', entity: 'agreement_company', permPrefix: 'commercial.agreements',
+  fields: ['name', 'document', 'billing_day', 'contact_name', 'contact_phone', 'contact_email'], required: ['name'],
+}));
+
+router.post('/customers/:id/credit', requirePermission('commercial.customers.creditgrant'), (req, res) => {
+  const customerId = Number(req.params.id);
+  const { amountCents, reason } = req.body ?? {};
+  const customer = db().prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(customerId);
+  if (!customer) {
+    res.status(404).json({ error: 'Cliente não encontrado.' });
+    return;
+  }
+  let result: ReturnType<typeof grantStoreCredit>;
+  db().transaction(() => {
+    result = grantStoreCredit(req, customerId, Math.round(Number(amountCents)), reason, 'manual');
+  })();
+  if (!result!.ok) {
+    res.status(400).json(result!);
+    return;
+  }
+  res.status(201).json(result!);
+});
 
 // ---------- Categorias ----------
 router.get('/categories', requirePermission('commercial.products.view'), (_req, res) => {

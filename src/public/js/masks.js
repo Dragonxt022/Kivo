@@ -26,6 +26,11 @@ window.maskPhone = function (v) {
   return d.replace(/^(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d{1,4})$/, '$1-$2');
 };
 
+window.maskCEP = function (v) {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 8);
+  return d.replace(/^(\d{5})(\d)/, '$1-$2');
+};
+
 /** Digitação estilo caixa: dígitos viram centavos (123 → 1,23). */
 window.maskMoney = function (v) {
   const d = String(v || '').replace(/\D/g, '');

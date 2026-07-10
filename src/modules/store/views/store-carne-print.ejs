@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Carnê — Venda #<%= sale.id %></title>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #000; background: #fff; }
+    .slip { width: 100%; max-width: 400px; margin: 0 auto; padding: 6mm; border-bottom: 1px dashed #000; page-break-after: always; }
+    .slip:last-child { page-break-after: auto; }
+    .center { text-align: center; }
+    h1 { font-size: 15px; text-transform: uppercase; }
+    .muted { font-size: 11px; color: #444; }
+    hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { padding: 2px 0; }
+    .total { font-size: 16px; font-weight: bold; }
+    @media print { .no-print { display: none; } }
+    .no-print { text-align: center; margin-top: 10px; }
+    .no-print button { padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <% function fmtDate(raw) {
+    if (!raw) return '—';
+    const [y, m, d] = String(raw).split('-');
+    return d && m && y ? `${d}/${m}/${y}` : String(raw);
+  } %>
+  <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); } %>
+  <% installments.forEach(function (p) { %>
+    <div class="slip">
+      <div class="center">
+        <h1><%= company.name %></h1>
+        <% if (company.document) { %><p class="muted"><%= company.document %></p><% } %>
+        <% if (company.address) { %><p class="muted"><%= company.address %></p><% } %>
+      </div>
+      <hr />
+      <p>Venda: #<%= sale.id %></p>
+      <% if (sale.customer) { %><p>Cliente: <%= sale.customer %></p><% } %>
+      <p>Parcela: <%= p.installment_no %>/<%= p.installment_count %></p>
+      <hr />
+      <table>
+        <tr><td>Vencimento</td><td style="text-align:right"><%= fmtDate(p.due_date) %></td></tr>
+        <tr class="total"><td>Valor</td><td style="text-align:right"><%= brl(p.amount_cents) %></td></tr>
+      </table>
+      <hr />
+      <p class="center muted">Guarde este comprovante.</p>
+    </div>
+  <% }) %>
+  <div class="no-print">
+    <button onclick="window.print()">Imprimir</button>
+    <button onclick="window.close()">Fechar</button>
+  </div>
+  <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
+</body>
+</html>

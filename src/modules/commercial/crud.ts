@@ -16,13 +16,15 @@ export interface CrudConfig {
   permPrefix: string;
   fields: string[];
   required: string[];
+  /** Colunas selecionáveis (aparecem no GET) mas nunca graváveis via POST/PUT — ex.: saldos derivados. */
+  readOnlyFields?: string[];
 }
 
 export function makeCrudRouter(cfg: CrudConfig): Router {
   const router = Router();
   const db = () => getSqlite();
-  const cols = ['id', ...cfg.fields, 'active', 'updated_at'].join(', ');
-  const get = (id: string) =>
+  const cols = ['id', ...cfg.fields, ...(cfg.readOnlyFields ?? []), 'active', 'updated_at'].join(', ');
+  const get = (id: string | number) =>
     db().prepare(`SELECT ${cols} FROM ${cfg.table} WHERE id = ? AND deleted_at IS NULL`).get(id);
 
   router.get('/', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
@@ -31,6 +33,15 @@ export function makeCrudRouter(cfg: CrudConfig): Router {
       ? db().prepare(`SELECT ${cols} FROM ${cfg.table} WHERE deleted_at IS NULL AND name LIKE ? ORDER BY name`).all(`%${q}%`)
       : db().prepare(`SELECT ${cols} FROM ${cfg.table} WHERE deleted_at IS NULL ORDER BY name`).all();
     res.json(rows);
+  });
+
+  router.get('/:id', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
+    const row = get(String(req.params.id));
+    if (!row) {
+      res.status(404).json({ error: 'Registro não encontrado.' });
+      return;
+    }
+    res.json(row);
   });
 
   router.post('/', requirePermission(`${cfg.permPrefix}.create`), (req, res) => {

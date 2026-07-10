@@ -19,6 +19,7 @@
       <button :class="{ active: tab === 'empresa' }" @click="tab = 'empresa'">Empresa</button>
       <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">Estoque</button>
       <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">Vendas</button>
+      <button :class="{ active: tab === 'fidelidade' }" @click="tab = 'fidelidade'">Fidelidade</button>
       <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
       <button :class="{ active: tab === 'security' }" @click="tab = 'security'">Segurança</button>
       <% } %>
@@ -140,6 +141,39 @@
         <div class="toolbar">
           <button class="btn" @click="saveSales()" x-text="savingSales ? 'Salvando…' : 'Salvar configurações'"></button>
           <span class="muted" x-show="salesSaved" x-text="salesSaved"></span>
+        </div>
+        <% } %>
+      </section>
+    </div>
+
+    <!-- ═══════ ABA: FIDELIDADE ═══════ -->
+    <div x-show="tab === 'fidelidade'" x-cloak>
+      <section class="panel">
+        <h2>Clube de fidelidade</h2>
+        <div class="field">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input type="checkbox" x-model="fidelidade.ativo" />
+            Ativar acúmulo de pontos por venda
+          </label>
+          <p class="hint">Desativado por padrão. Quando ativado, toda venda com cliente identificado acumula pontos automaticamente.</p>
+        </div>
+        <div class="field">
+          <label>Pontos por real gasto</label>
+          <input class="input" type="number" min="0" step="1" x-model.number="fidelidade.pontosPorReal" style="max-width:120px" />
+        </div>
+        <div class="field">
+          <label>Pontos necessários para resgate</label>
+          <input class="input" type="number" min="1" x-model.number="fidelidade.pontosResgate" style="max-width:120px" />
+        </div>
+        <div class="field">
+          <label>Valor do resgate (R$)</label>
+          <input class="input" type="text" x-model="fidelidade.valorResgate" placeholder="0,00" @input="fidelidade.valorResgate = maskMoney(fidelidade.valorResgate)" style="max-width:120px" />
+          <p class="hint">Ex.: 100 pontos = R$5,00 — o cliente resgata 100 pontos e ganha R$5,00 de desconto na compra.</p>
+        </div>
+        <% if (user.permissions.has('settings.edit')) { %>
+        <div class="toolbar">
+          <button class="btn" @click="saveFidelidade()" x-text="savingFidelidade ? 'Salvando…' : 'Salvar configurações'"></button>
+          <span class="muted" x-show="fidelidadeSaved" x-text="fidelidadeSaved"></span>
         </div>
         <% } %>
       </section>
@@ -280,6 +314,7 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/masks.js"></script>
   <script>
     function settingsPage() {
       return {
@@ -293,6 +328,7 @@
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
+        fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
 
         async load() {
           const r = await fetch('/api/settings');
@@ -320,6 +356,11 @@
           this.sales.lembreteCaixa24h = lembrete?.value !== '0';
           const pinRemove = this.settings.find(s => s.key === 'seguranca.pin_remover_item');
           this.security.pinRemoverItem = pinRemove?.value === '1';
+          this.fidelidade.ativo = this.settings.find(s => s.key === 'fidelidade.ativo')?.value === '1';
+          this.fidelidade.pontosPorReal = Number(this.settings.find(s => s.key === 'fidelidade.pontos_por_real')?.value ?? 1);
+          this.fidelidade.pontosResgate = Number(this.settings.find(s => s.key === 'fidelidade.pontos_resgate')?.value ?? 100);
+          const valorResgateCents = Number(this.settings.find(s => s.key === 'fidelidade.valor_resgate_cents')?.value ?? 500);
+          this.fidelidade.valorResgate = (valorResgateCents / 100).toFixed(2).replace('.', ',');
           const cu = this.settings.find(s => s.key === 'sync.server_url');
           this.cloudUrlForm.value = cu?.value ?? '';
           this.empresa.nome = this.settings.find(s => s.key === 'empresa.nome')?.value ?? '';
@@ -420,6 +461,23 @@
           this.empresaSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
           const r = await fetch('/api/settings');
           if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
+        },
+        async saveFidelidade() {
+          this.savingFidelidade = true; this.fidelidadeSaved = '';
+          const valorCents = Math.round(parseFloat(String(this.fidelidade.valorResgate || '0').replace(/\./g, '').replace(',', '.')) * 100);
+          const upsert = (key, value) => fetch(`/api/settings/${encodeURIComponent(key)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }),
+          });
+          const results = await Promise.all([
+            upsert('fidelidade.ativo', this.fidelidade.ativo ? '1' : '0'),
+            upsert('fidelidade.pontos_por_real', String(this.fidelidade.pontosPorReal)),
+            upsert('fidelidade.pontos_resgate', String(this.fidelidade.pontosResgate)),
+            upsert('fidelidade.valor_resgate_cents', String(valorCents)),
+          ]);
+          this.savingFidelidade = false;
+          this.fidelidadeSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
+          const s = await fetch('/api/settings');
+          if (s.ok) { this.settings = await s.json(); this.syncSettings(); }
         },
         async saveSecurity() {
           this.savingSecurity = true; this.securitySaved = '';
