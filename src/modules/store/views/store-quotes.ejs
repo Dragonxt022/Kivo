@@ -8,28 +8,30 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/store/orcamentos' }) %>
-  <main x-data="quotesPage()" x-init="load()">
-    <h1>Orçamentos</h1>
+  <%
+    var _qfStatusOpts = [
+      { value: 'aberto', label: 'Abertos' },
+      { value: 'convertido', label: 'Convertidos' },
+      { value: 'cancelado', label: 'Cancelados' }
+    ];
+  %>
+  <main x-data="quotesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
+    <h1>Orcamentos</h1>
     <div class="toolbar">
       <% if (user.permissions.has('store.quotes.create')) { %>
-        <button class="btn" @click="openNew()">Novo orçamento</button>
+        <button class="btn" @click="openNew()">Novo orcamento</button>
       <% } %>
-      <select x-model="status" @change="load()"
-              class="input-search">
-        <option value="">Todos</option>
-        <option value="aberto">Abertos</option>
-        <option value="convertido">Convertidos</option>
-        <option value="cancelado">Cancelados</option>
-      </select>
+      <%- include('partials/search-filter', { statusOptions: _qfStatusOpts, placeholder: 'Buscar por cliente' }) %>
       <span class="error" x-text="error"></span>
     </div>
     <table>
       <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Válido até</th><th>Status</th><th>Vendedor</th><th></th></tr></thead>
       <tbody>
-        <template x-for="q in rows" :key="q.id">
+        <template x-for="q in filterRows(rows, filter)" :key="q.id">
           <tr>
             <td x-text="q.id"></td>
             <td x-text="q.customer ?? q.customer_name ?? '—'"></td>
@@ -133,11 +135,11 @@
       return {
         rows: [], customers: [], products: [], form: { items: [] }, item: {}, converting: {},
         conv: { method: 'dinheiro', received: '', customerId: '', dueDate: '' },
-        status: 'aberto', error: '', dlgError: '', convError: '',
+        status: 'aberto', error: '', dlgError: '', convError: '', filter: {},
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
-          const r = await fetch('/api/store/quotes' + (this.status ? `?status=${this.status}` : ''));
+          const r = await fetch('/api/store/quotes');
           if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
         },
         async refs() {

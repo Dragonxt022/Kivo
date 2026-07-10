@@ -15,6 +15,7 @@ import billingRoutes from './billing/routes';
 import securityRoutes from './security/routes';
 import { startBackupScheduler } from './backup/service';
 import { validateLicense } from './license/service';
+import { productImagesDir, trySubmitPending } from './catalog/submissionQueue';
 
 export interface KatsuServer {
   app: Express;
@@ -39,9 +40,12 @@ export async function createServer(): Promise<KatsuServer> {
   app.set('view engine', 'ejs');
   app.set('views', coreViews);
 
-  app.use(express.json());
+  // Limite maior que o padrão (100kb): fotos de produto viajam como base64 no corpo JSON
+  // (ver modules/commercial/routes.ts) — servidor local/Electron, não exposto à internet.
+  app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.resolve(__dirname, '..', 'public')));
+  app.use('/uploads/products', express.static(productImagesDir()));
   app.use(attachUser);
   app.use(filterModuleMenu);
 
@@ -88,6 +92,8 @@ export async function createServer(): Promise<KatsuServer> {
   const lic = validateLicense();
   console.log(`[license] ${lic.status}: ${lic.message}`);
   startBackupScheduler();
+  // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
+  trySubmitPending().catch(() => {});
 
   return { app, modules };
 }

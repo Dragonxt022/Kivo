@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Compras do cliente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
+  <main x-data="purchasesPage(<%= customerId %>)" x-init="load()">
+    <a :href="'/app/commercial/clientes/' + id" class="muted text-sm">← Voltar para ficha</a>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <h1 style="margin:0">Compras — <span x-text="customerName"></span></h1>
+      <%- include('partials/month-nav') %>
+    </div>
+    <section class="panel">
+      <table>
+        <thead><tr><th>#</th><th>Data</th><th>Status</th><th>Forma</th><th class="text-right">Total</th></tr></thead>
+        <tbody>
+          <template x-for="s in purchases.filter(s => String(s.created_at).slice(0, 7) === key)" :key="s.id">
+            <tr>
+              <td x-text="s.id"></td>
+              <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
+              <td><span class="badge" :class="s.status === 'concluida' ? 'ok' : 'off'" x-text="s.status"></span></td>
+              <td class="muted" x-text="s.payment_method"></td>
+              <td class="text-right" x-text="brl(s.total_cents)"></td>
+            </tr>
+          </template>
+          <tr x-show="!purchases.length"><td colspan="5" class="muted">Nenhuma compra registrada.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <script src="/js/masks.js"></script>
+  <script src="/js/datetime.js"></script>
+  <script>
+    function purchasesPage(id) {
+      const _d = new Date();
+      return {
+        id, customerName: 'Cliente', purchases: [],
+        year: _d.getFullYear(), month: _d.getMonth(),
+        get label() { return new Date(this.year, this.month).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', ''); },
+        get key() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
+        prev() { if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
+        next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        async load() {
+          const [c, p] = await Promise.all([
+            fetch(`/api/commercial/customers/${this.id}`),
+            fetch(`/api/store/sales?customerId=${this.id}`),
+          ]);
+          if (c.ok) { const d = await c.json(); this.customerName = d.name ?? 'Cliente'; }
+          if (p.ok) this.purchases = await p.json();
+        },
+      };
+    }
+  </script>
+</body>
+</html>

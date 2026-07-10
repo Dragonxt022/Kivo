@@ -8,22 +8,30 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/compras' }) %>
-  <main x-data="purchasesPage()" x-init="load()">
+  <%
+    var _pfStatusOpts = [
+      { value: 'concluida', label: 'Concluida' },
+      { value: 'pendente', label: 'Pendente' },
+      { value: 'cancelada', label: 'Cancelada' }
+    ];
+  %>
+  <main x-data="purchasesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
     <h1>Compras</h1>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.purchases.create')) { %>
         <button class="btn" @click="openNew()">Nova compra</button>
       <% } %>
-      <span class="muted">Receber uma compra dá entrada no estoque e atualiza o custo dos produtos.</span>
+      <%- include('partials/search-filter', { statusOptions: _pfStatusOpts, placeholder: 'Buscar por fornecedor' }) %>
       <span class="error" x-text="error"></span>
     </div>
     <table>
       <thead><tr><th>#</th><th>Fornecedor</th><th>Status</th><th>Total</th><th>Recebida em</th><th></th></tr></thead>
       <tbody>
-        <template x-for="p in rows" :key="p.id">
+        <template x-for="p in filterRows(rows, filter)" :key="p.id">
           <tr>
             <td x-text="p.id"></td>
             <td x-text="p.supplier"></td>
@@ -93,7 +101,7 @@
     function purchasesPage() {
       return {
         rows: [], suppliers: [], products: [], form: { items: [] }, item: {},
-        error: '', dlgError: '',
+        error: '', dlgError: '', filter: {},
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {

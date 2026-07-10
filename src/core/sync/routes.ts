@@ -4,6 +4,7 @@ import { audit } from '../audit/service';
 import { runSync } from './engine';
 import { getCloudServerUrl } from '../config/cloud';
 import { getLicenseCredentials } from '../license/service';
+import { trySubmitPending } from '../catalog/submissionQueue';
 
 const router = Router();
 
@@ -31,6 +32,9 @@ router.get('/status', async (_req, res) => {
 router.post('/run', requirePermission('sync.run'), async (req, res) => {
   try {
     const result = await runSync(req);
+    // Independe do gate de plano do sync de tabelas: imagens de produto podem ser
+    // contribuídas ao banco do Cloud por qualquer plano (ver cloud/src/routes/catalog.ts).
+    trySubmitPending().catch(() => {});
     if (result.skipped) {
       res.status(403).json({ error: 'Sincronização em nuvem não incluída no plano atual.' });
       return;

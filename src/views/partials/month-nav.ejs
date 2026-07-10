@@ -1,0 +1,5 @@
+<div class="month-nav">
+  <button @click="prev(); $dispatch('month-change', { key: key })">&#8249;</button>
+  <span class="month-label" x-text="label"></span>
+  <button @click="next(); $dispatch('month-change', { key: key })">&#8250;</button>
+</div>

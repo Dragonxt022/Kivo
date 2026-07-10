@@ -1,0 +1,22 @@
+CREATE TABLE catalog_images (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  company_uuid CHAR(36) NULL,
+  product_name VARCHAR(255) NOT NULL,
+  keywords VARCHAR(500) NOT NULL,
+  image_path VARCHAR(500) NOT NULL,
+  sha256 CHAR(64) NOT NULL,
+  width INT NOT NULL,
+  height INT NOT NULL,
+  format VARCHAR(10) NOT NULL,
+  size_bytes INT NOT NULL,
+  status ENUM('pendente','aprovada','rejeitada') NOT NULL DEFAULT 'pendente',
+  source ENUM('submissao','manual') NOT NULL DEFAULT 'submissao',
+  rejection_reason VARCHAR(255) NULL,
+  reviewed_by VARCHAR(255) NULL,
+  reviewed_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uq_catalog_images_sha256 (sha256),
+  KEY idx_catalog_images_status (status),
+  FULLTEXT KEY ft_catalog_images_search (product_name, keywords),
+  CONSTRAINT fk_catalog_images_company FOREIGN KEY (company_uuid) REFERENCES companies(company_uuid)
+) ENGINE=InnoDB;

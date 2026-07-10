@@ -12,14 +12,19 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/store/vendas' }) %>
-  <main x-data="salesPage()" x-init="load()">
+  <%
+    var _sfStatusOpts = [
+      { value: 'concluida', label: 'Concluida' },
+      { value: 'cancelada', label: 'Cancelada' }
+    ];
+  %>
+  <main x-data="salesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
     <h1>Vendas</h1>
     <div class="toolbar">
-      <input type="date" x-model="day" @change="load()"
-             class="input-search" />
+      <%- include('partials/search-filter', { statusOptions: _sfStatusOpts, placeholder: 'Buscar por cliente' }) %>
       <% if (user.permissions.has('store.reports.view')) { %>
-        <span class="muted">Dia: <strong x-text="report.totals ? report.totals.vendas : 0"></strong> vendas ·
-          total <strong x-text="brl(report.totals ? report.totals.total_cents : 0)"></strong></span>
+        <span class="muted">Vendas: <strong x-text="filterRows(rows, filter).length"></strong> ·
+          total <strong x-text="brl(filterRows(rows, filter).reduce((s, r) => s + r.total_cents, 0))"></strong></span>
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
@@ -52,7 +57,7 @@
     <table>
       <thead><tr><th>#</th><th>Hora</th><th>Cliente</th><th>Pagamento</th><th>Total</th><th>Status</th><th>Vendedor</th><th></th></tr></thead>
       <tbody>
-        <template x-for="s in rows" :key="s.id">
+        <template x-for="s in filterRows(rows, filter)" :key="s.id">
           <tr>
             <td x-text="s.id"></td>
             <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
@@ -75,12 +80,12 @@
   <script>
     function salesPage() {
       return {
-        rows: [], report: {}, day: todayLocal(), error: '',
+        rows: [], report: {}, day: todayLocal(), error: '', filter: {},
         labels: { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo' },
         label(k) { return this.labels[k] ?? k; },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         async load() {
-          const r = await fetch('/api/store/sales?day=' + this.day);
+          const r = await fetch('/api/store/sales');
           if (r.ok) this.rows = await r.json();
           const rep = await fetch('/api/store/reports/daily?day=' + this.day);
           if (rep.ok) this.report = await rep.json();

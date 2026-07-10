@@ -15,6 +15,14 @@ router.get('/clientes/:id', (req, res) => {
   if (!req.user!.permissions.has('commercial.customers.view')) return res.redirect('/');
   res.render('commercial-customer-ficha', { user: req.user, customerId: Number(req.params.id) });
 });
+router.get('/clientes/:id/compras', (req, res) => {
+  if (!req.user!.permissions.has('commercial.customers.view')) return res.redirect('/');
+  res.render('commercial-customer-purchases', { user: req.user, customerId: Number(req.params.id) });
+});
+router.get('/clientes/:id/financeiro', (req, res) => {
+  if (!req.user!.permissions.has('commercial.customers.view')) return res.redirect('/');
+  res.render('commercial-customer-receivables', { user: req.user, customerId: Number(req.params.id) });
+});
 router.get('/fornecedores', page('commercial-suppliers', 'commercial.suppliers.view'));
 router.get('/produtos', page('commercial-products', 'commercial.products.view'));
 router.get('/listas-de-preco', page('commercial-price-lists', 'commercial.pricelists.view'));

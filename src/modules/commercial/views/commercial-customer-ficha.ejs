@@ -28,9 +28,12 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
-  <main x-data="customerFichaPage(<%= customerId %>)" x-init="load()">
+  <main x-data="customerFichaPage(<%= customerId %>)" x-init="load()" @month-change.window="buildMonthly()">
     <a href="/app/commercial/clientes" class="muted text-sm">← Voltar para clientes</a>
-    <h1 x-text="customer.name ?? 'Cliente'"></h1>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <h1 x-text="customer.name ?? 'Cliente'" style="margin:0"></h1>
+      <%- include('partials/month-nav') %>
+    </div>
     <p class="muted">
       <span x-text="customer.document ?? ''"></span>
       <span x-show="customer.phone"> · <span x-text="customer.phone"></span></span>
@@ -76,11 +79,14 @@
     </section>
 
     <section class="panel">
-      <h2>Histórico de compras</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h2 style="margin:0">Histórico de compras</h2>
+        <a :href="'/app/commercial/clientes/' + id + '/compras'" class="text-sm muted" style="text-decoration:none">ver tudo &rarr;</a>
+      </div>
       <table>
         <thead><tr><th>#</th><th>Data</th><th>Status</th><th>Forma</th><th class="text-right">Total</th></tr></thead>
         <tbody>
-          <template x-for="s in purchases" :key="s.id">
+          <template x-for="s in purchases.slice(0, 5)" :key="s.id">
             <tr>
               <td x-text="s.id"></td>
               <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
@@ -95,11 +101,14 @@
     </section>
 
     <section class="panel">
-      <h2>Histórico financeiro</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h2 style="margin:0">Histórico financeiro</h2>
+        <a :href="'/app/commercial/clientes/' + id + '/financeiro'" class="text-sm muted" style="text-decoration:none">ver tudo &rarr;</a>
+      </div>
       <table>
         <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th class="text-right">Valor</th><th></th></tr></thead>
         <tbody>
-          <template x-for="r in receivables" :key="r.id">
+          <template x-for="r in receivables.slice(0, 5)" :key="r.id">
             <tr>
               <td x-text="r.description"></td>
               <td class="muted" x-text="fmtDate(r.due_date)"></td>
@@ -134,8 +143,14 @@
   <script src="/js/datetime.js"></script>
   <script>
     function customerFichaPage(id) {
+      const _d = new Date();
       return {
         id, customer: {}, purchases: [], receivables: [], monthly: [], maxMonthly: 1, hoverBar: null, agreementName: '',
+        year: _d.getFullYear(), month: _d.getMonth(),
+        get label() { return new Date(this.year, this.month).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', ''); },
+        get key() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
+        prev() { if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
+        next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
         creditForm: { amountCents: '', reason: '' }, creditError: '', savingCredit: false,
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
@@ -159,9 +174,8 @@
         },
         buildMonthly() {
           const months = [];
-          const now = new Date();
-          for (let i = 11; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          for (let i = 0; i < 12; i++) {
+            const d = new Date(this.year, this.month + i, 1);
             months.push({ key: d.toISOString().slice(0, 7), short: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''), total: 0 });
           }
           for (const s of this.purchases) {

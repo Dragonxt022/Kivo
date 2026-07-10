@@ -28,6 +28,7 @@
     </div>
       <table>
         <thead><tr>
+          <th></th>
           <th @click="sort('name')" class="sortable">Produto<span class="sort-arrow" x-text="sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
           <th @click="sort('category')" class="sortable">Categoria<span class="sort-arrow" x-text="sortBy === 'category' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
           <th @click="sort('price')" class="sortable">Preço<span class="sort-arrow" x-text="sortBy === 'price' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
@@ -44,7 +45,14 @@
               @click="openEdit(p)" style="cursor:pointer"
             <% } %>
           >
-            
+            <td style="width:1%">
+              <div class="product-thumb">
+                <img x-show="p.image_url" :src="p.image_url" alt="" />
+                <template x-if="!p.image_url">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                </template>
+              </div>
+            </td>
             <td>
               <span x-text="p.name"></span>
               <span class="badge off" x-show="p.track_stock && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
@@ -109,6 +117,46 @@
       <h1 x-text="form.id ? 'Editar produto' : 'Novo produto'"></h1>
       <div class="dialog-body">
         <label>Nome</label><input type="text" x-model="form.name" />
+
+        <label>Foto do produto</label>
+        <div class="product-image-picker">
+          <div class="product-image-preview">
+            <template x-if="form.newImagePreview || form.imageUrl">
+              <img :src="form.newImagePreview || form.imageUrl" alt="" />
+            </template>
+            <template x-if="!form.newImagePreview && !form.imageUrl">
+              <div class="product-image-placeholder">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+              </div>
+            </template>
+          </div>
+          <div class="product-image-actions">
+            <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
+            <button type="button" class="btn secondary small" @click="$refs.imageFile.click()">Escolher imagem</button>
+            <button type="button" class="btn secondary small" @click="imgSearchOpen = !imgSearchOpen">Buscar no banco de imagens</button>
+            <button type="button" class="btn secondary small" x-show="form.newImagePreview || form.imageUrl" @click="removeProductImage()">Remover</button>
+          </div>
+        </div>
+        <template x-if="imgSearchOpen">
+          <div class="product-image-search">
+            <input type="text" x-model="imgSearchQ" @input.debounce.400ms="searchCatalogImages()" placeholder="Nome do produto (mín. 3 letras)…" />
+            <p class="muted text-xs" x-show="imgSearchOffline">Banco de imagens indisponível agora (sem internet ou plano sem esse recurso).</p>
+            <p class="muted text-xs" x-show="imgSearching">Buscando…</p>
+            <p class="muted text-xs" x-show="!imgSearching && imgSearchQ.trim().length >= 3 && !imgSearchResults.length && !imgSearchOffline">Nenhuma sugestão encontrada.</p>
+            <div class="product-image-suggestions" x-show="imgSearchResults.length">
+              <template x-for="r in imgSearchResults" :key="r.id">
+                <button type="button" class="product-image-suggestion" @click="pickCatalogImage(r)">
+                  <img :src="r.url" :alt="r.name" />
+                  <span x-text="r.name"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </template>
+        <label class="label-checkbox-sm" x-show="form.pendingImageBase64" style="margin-top:.2rem">
+          <input type="checkbox" x-model="form.submitToCatalog" /> Contribuir esta foto com o banco de imagens do Katsu Cloud (após aprovação, ajuda outras empresas a cadastrar o mesmo produto sem precisar subir foto própria)
+        </label>
+
         <label>Código de barras</label>
         <div class="flex-row">
           <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
@@ -236,6 +284,7 @@
       return {
         rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '', openMenu: null, sortBy: 'name', sortDir: 'asc',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
+        imgSearchOpen: false, imgSearchQ: '', imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
@@ -296,8 +345,52 @@
             this.newCat = '';
           } else this.dlgError = (await r.json()).error;
         },
+        resetImageState() {
+          this.form.imageUrl = null; this.form.newImagePreview = null;
+          this.form.pendingImageBase64 = null; this.form.pendingImageUrl = null;
+          this.form.removeImage = false; this.form.submitToCatalog = true;
+          this.imgSearchOpen = false; this.imgSearchQ = ''; this.imgSearchResults = []; this.imgSearchOffline = false;
+        },
+        onImageFile(e) {
+          const file = e.target.files[0];
+          e.target.value = '';
+          if (!file) return;
+          if (file.size > 6 * 1024 * 1024) { this.dlgError = 'Imagem muito grande (máximo 6MB).'; return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result);
+            this.form.newImagePreview = dataUrl;
+            this.form.pendingImageBase64 = dataUrl.split(',')[1] ?? '';
+            this.form.pendingImageUrl = null;
+            this.form.removeImage = false;
+          };
+          reader.readAsDataURL(file);
+        },
+        removeProductImage() {
+          this.form.newImagePreview = null; this.form.imageUrl = null;
+          this.form.pendingImageBase64 = null; this.form.pendingImageUrl = null;
+          this.form.removeImage = true;
+        },
+        async searchCatalogImages() {
+          const q = this.imgSearchQ.trim();
+          if (q.length < 3) { this.imgSearchResults = []; return; }
+          this.imgSearching = true;
+          try {
+            const r = await fetch('/api/commercial/products/image-search?q=' + encodeURIComponent(q));
+            const data = r.ok ? await r.json() : { results: [] };
+            this.imgSearchResults = data.results || [];
+            this.imgSearchOffline = !!data.offline;
+          } finally {
+            this.imgSearching = false;
+          }
+        },
+        pickCatalogImage(r) {
+          this.form.newImagePreview = r.url; this.form.pendingImageUrl = r.url;
+          this.form.pendingImageBase64 = null; this.form.removeImage = false;
+          this.imgSearchOpen = false; this.imgSearchQ = ''; this.imgSearchResults = [];
+        },
         openNew() {
-          this.form = { unit: 'un' }; this.dlgError = '';
+          this.form = { unit: 'un' }; this.dlgError = ''; this.resetImageState();
           const autoSku = this.appSettings?.find(s => s.key === 'estoque.auto_sku')?.value;
           if (autoSku === '1') this.form.sku = 'SKU-' + String(Date.now()).slice(-8);
           const defMinStock = this.appSettings?.find(s => s.key === 'estoque.min_stock_padrao')?.value;
@@ -309,7 +402,9 @@
             categoryId: p.category_id ?? '',
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
             minStock: p.min_stock };
-          this.dlgError = ''; this.barcodeHint = ''; this.$refs.dlg.showModal();
+          this.dlgError = ''; this.barcodeHint = ''; this.resetImageState();
+          this.form.imageUrl = p.image_url ?? null;
+          this.$refs.dlg.showModal();
         },
         checkBarcode(code) {
           if (!code) return '';
@@ -335,6 +430,9 @@
             initialStock: !this.form.id && this.form.initialStock ? Number(this.form.initialStock) : undefined };
           const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
           const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;
+          if (this.form.removeImage) body.removeImage = true;
+          else if (this.form.pendingImageBase64) { body.imageBase64 = this.form.pendingImageBase64; body.submitToCatalog = this.form.submitToCatalog !== false; }
+          else if (this.form.pendingImageUrl) body.imageUrl = this.form.pendingImageUrl;
           const isEdit = !!this.form.id;
           const r = await fetch(isEdit ? `/api/commercial/products/${this.form.id}` : '/api/commercial/products', {
             method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),

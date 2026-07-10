@@ -316,7 +316,7 @@
 
         <div class="cart-header">
           <h2>Carrinho <span class="count" x-text="'(' + cart.length + ')'"></span></h2>
-          <select x-model.number="customerId" @change="repriceCart(); loadCustomerBalances()" style="max-width:220px;padding:.3rem .5rem">
+          <select x-model.number="customerId" @change="repriceCart(); loadCustomerBalances()" class="select">
             <option value="">Cliente (preço normal)</option>
             <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
           </select>

@@ -1,0 +1,104 @@
+<%
+  const _statusOpts = typeof statusOptions !== 'undefined' ? statusOptions : [];
+  const _placeholder = typeof placeholder !== 'undefined' ? placeholder : 'Buscar';
+%>
+<div class="search-filter"
+     x-data="searchFilter(<%= JSON.stringify(_statusOpts) %>)"
+     @apply-filter.window="onApply($event.detail)">
+  <input type="text" :placeholder="<%= JSON.stringify(_placeholder) %>" x-model="q" @input.debounce.300ms="emit()" class="input-search" />
+  <button type="button" class="filter-btn" :class="{ active: hasActive }" @click="$refs.filterDlg.showModal()" title="Filtros avançados">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </svg>
+    <span class="filter-badge" x-show="hasActive"></span>
+  </button>
+
+  <dialog x-ref="filterDlg" style="width:380px">
+    <h2 class="dialog-heading-md">Filtros</h2>
+    <div class="dialog-body">
+      <template x-if="statusOpts.length">
+        <div>
+          <label>Status</label>
+          <select x-model="status" @change="emit()">
+            <option value="">Todos</option>
+            <template x-for="s in statusOpts" :key="s.value">
+              <option :value="s.value" x-text="s.label"></option>
+            </template>
+          </select>
+        </div>
+      </template>
+      <div>
+        <label>Período</label>
+        <div style="display:flex;gap:.4rem;align-items:center">
+          <input type="date" x-model="from" @change="quickActive = 0; emit()" style="flex:1" />
+          <span class="muted text-xs">até</span>
+          <input type="date" x-model="to" @change="quickActive = 0; emit()" style="flex:1" />
+        </div>
+        <div class="filter-quick">
+          <template x-for="d in [30, 60, 90]" :key="d">
+            <button type="button" :class="{ active: quickActive === d }" @click="setQuick(d)" x-text="d + 'd'"></button>
+          </template>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn secondary" @click="clear(); emit()">Limpar</button>
+      <button type="button" class="btn" @click="$refs.filterDlg.close()">Aplicar</button>
+    </div>
+  </dialog>
+</div>
+<script>
+  function searchFilter(statusOpts) {
+    const _d = new Date();
+    return {
+      q: '', status: '', from: '', to: '',
+      quickActive: 0, statusOpts,
+      get hasActive() { return !!(this.status || this.from || this.to); },
+      setQuick(days) {
+        this.quickActive = days;
+        const end = new Date(_d.getFullYear(), _d.getMonth(), _d.getDate());
+        const start = new Date(end);
+        start.setDate(start.getDate() - days);
+        this.from = fmtDateISO(start);
+        this.to = fmtDateISO(end);
+        this.emit();
+      },
+      clear() { this.q = ''; this.status = ''; this.from = ''; this.to = ''; this.quickActive = 0; },
+      emit() {
+        this.$dispatch('apply-filter', {
+          q: this.q, status: this.status, from: this.from, to: this.to,
+        });
+      },
+      onApply(d) {
+        this.q = d.q || ''; this.status = d.status || '';
+        this.from = d.from || ''; this.to = d.to || '';
+        this.quickActive = 0;
+      },
+    };
+  }
+  function fmtDateISO(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  /** Filtra `rows` com o objeto emitido pelo evento apply-filter ({ q, status, from, to }). */
+  function filterRows(rows, filter) {
+    filter = filter || {};
+    return rows.filter((r) => {
+      if (filter.q) {
+        const q = filter.q.toLowerCase();
+        const desc = (r.description ?? r.name ?? '').toLowerCase();
+        const party = (r.party ?? r.customer ?? r.customer_name ?? r.supplier ?? '').toLowerCase();
+        if (!desc.includes(q) && !party.includes(q)) return false;
+      }
+      if (filter.status && r.status !== filter.status) return false;
+      if (filter.from) {
+        const d = String(r.created_at ?? r.due_date ?? r.valid_until ?? '').slice(0, 10);
+        if (d < filter.from) return false;
+      }
+      if (filter.to) {
+        const d = String(r.created_at ?? r.due_date ?? r.valid_until ?? '').slice(0, 10);
+        if (d > filter.to) return false;
+      }
+      return true;
+    });
+  }
+</script>

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { Router } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
@@ -9,6 +11,11 @@ import { makeCrudRouter } from './crud';
 import { moveStock, moveStockRaw, listMovements, type MovementType } from './stock';
 import { resolveMany } from './pricing';
 import { grant as grantStoreCredit } from './storeCredit';
+import { validateImageBuffer } from '../../core/catalog/imageValidation';
+import {
+  productImagesDir, saveLocalProductImage, queueProductImageSubmission, trySubmitPending,
+  cloudBaseUrl, cloudAuthHeaders,
+} from '../../core/catalog/submissionQueue';
 
 const router = Router();
 const db = () => getSqlite();
@@ -112,7 +119,8 @@ router.delete('/categories/:id', requirePermission('commercial.products.delete')
 
 // ---------- Produtos (RBAC fino: preço separado de edição) ----------
 const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
-  p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active, p.updated_at`;
+  p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active,
+  p.image_url, p.updated_at`;
 const getProduct = (id: string | number) =>
   db().prepare(`SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.id = ? AND p.deleted_at IS NULL`).get(id);
@@ -137,12 +145,81 @@ function friendlyUniqueError(e: unknown): string | null {
   return null;
 }
 
+/**
+ * Foto do produto: body pode trazer `imageBase64` (upload novo, salvo localmente e
+ * enfileirado para o banco de imagens do Cloud), `imageUrl` (sugestão já escolhida do
+ * catálogo aprovado — nada a salvar aqui) ou `removeImage: true`. Nenhum dos três →
+ * `{}` (não mexe na imagem atual). Ver src/core/catalog/.
+ */
+function prepareProductImage(b: Record<string, unknown>): {
+  imageUrl?: string | null; buf?: Buffer; submit?: boolean; error?: string;
+} {
+  if (b.removeImage) return { imageUrl: null };
+  if (b.imageUrl) return { imageUrl: String(b.imageUrl) };
+  if (b.imageBase64) {
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(String(b.imageBase64), 'base64');
+    } catch {
+      return { error: 'Imagem inválida.' };
+    }
+    const check = validateImageBuffer(buf);
+    if (!check.ok) return { error: check.error };
+    const imageUrl = saveLocalProductImage(buf, check.format);
+    return { imageUrl, buf, submit: b.submitToCatalog !== false };
+  }
+  return {};
+}
+
+/** Apaga o arquivo local antigo (se houver) quando a imagem é trocada/removida — evita acúmulo no disco. */
+function deleteLocalImageIfOwned(imageUrl: string | null | undefined): void {
+  if (!imageUrl || !imageUrl.startsWith('/uploads/products/')) return;
+  try {
+    fs.unlinkSync(path.join(productImagesDir(), path.basename(imageUrl)));
+  } catch {
+    // arquivo já não existe / já foi limpo — sem problema
+  }
+}
+
 router.get('/products', requirePermission('commercial.products.view'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const where = q ? 'AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)' : '';
   const stmt = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.deleted_at IS NULL ${where} ORDER BY p.favorite DESC, p.name`;
   res.json(q ? db().prepare(stmt).all(`%${q}%`, q, q) : db().prepare(stmt).all());
+});
+
+/**
+ * Busca no banco de imagens aprovado do Katsu Cloud (até 3 sugestões) — usado pelo
+ * formulário de produto para evitar que o usuário precise ter/subir uma foto própria.
+ * Sem internet/licença configurada, devolve lista vazia com `offline: true` (a tela
+ * trata isso como "recurso indisponível agora", não como erro).
+ */
+router.get('/products/image-search', requirePermission('commercial.products.view'), async (req, res) => {
+  const q = String(req.query.q ?? '').trim();
+  if (q.length < 3) {
+    res.json({ results: [], error: 'Digite ao menos 3 letras para buscar.' });
+    return;
+  }
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  if (!base || !auth) {
+    res.json({ results: [], offline: true });
+    return;
+  }
+  try {
+    const r = await fetch(`${base}/api/catalog/search?q=${encodeURIComponent(q)}`, {
+      headers: auth, signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) {
+      res.json({ results: [], offline: true });
+      return;
+    }
+    const results = (await r.json()) as { id: number; name: string; url: string }[];
+    res.json({ results: results.map((it) => ({ id: it.id, name: it.name, url: base + it.url })) });
+  } catch {
+    res.json({ results: [], offline: true });
+  }
 });
 
 router.post('/products', requirePermission('commercial.products.create'), (req, res) => {
@@ -159,15 +236,20 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
     res.status(400).json({ error: 'Código de barras inválido (dígito verificador não confere).' });
     return;
   }
+  const img = prepareProductImage(b);
+  if (img.error) {
+    res.status(400).json({ error: img.error });
+    return;
+  }
   let info: { lastInsertRowid: number | bigint };
   try {
     info = db().prepare(
-      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, image_url, uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       b.name, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
-      b.trackStock === false ? 0 : 1, b.minStock ?? 0, randomUUID(),
+      b.trackStock === false ? 0 : 1, b.minStock ?? 0, img.imageUrl ?? null, randomUUID(),
     );
   } catch (e) {
     const friendly = friendlyUniqueError(e);
@@ -176,6 +258,10 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
     return;
   }
   const newId = Number(info.lastInsertRowid);
+  if (img.buf && img.submit) {
+    queueProductImageSubmission(newId, String(b.name), img.imageUrl!, img.buf);
+    trySubmitPending().catch(() => {});
+  }
   if (!b.sku && autoSkuEnabled()) {
     db().prepare("UPDATE products SET sku = ? WHERE id = ?").run(`P${String(newId).padStart(6, '0')}`, newId);
   }
@@ -198,7 +284,7 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
 
 router.put('/products/:id', requirePermission('commercial.products.edit'), (req, res) => {
   const id = String(req.params.id);
-  const before = getProduct(id) as { price_cents: number } | undefined;
+  const before = getProduct(id) as { price_cents: number; image_url: string | null } | undefined;
   if (!before) {
     res.status(404).json({ error: 'Produto não encontrado.' });
     return;
@@ -218,6 +304,12 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
     res.status(400).json({ error: 'Código de barras inválido (dígito verificador não confere).' });
     return;
   }
+  const img = prepareProductImage(b);
+  if (img.error) {
+    res.status(400).json({ error: img.error });
+    return;
+  }
+  const finalImageUrl = img.imageUrl !== undefined ? img.imageUrl : before.image_url;
   try {
     db().prepare(
       `UPDATE products SET
@@ -225,20 +317,27 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
          barcode = COALESCE(?, barcode), category_id = COALESCE(?, category_id), unit = COALESCE(?, unit),
          price_cents = COALESCE(?, price_cents), cost_cents = COALESCE(?, cost_cents),
          track_stock = COALESCE(?, track_stock), min_stock = COALESCE(?, min_stock),
-         active = COALESCE(?, active), updated_at = datetime('now')
+         active = COALESCE(?, active), image_url = ?, updated_at = datetime('now')
        WHERE id = ?`,
     ).run(
       b.name ?? null, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? null, b.priceCents != null ? Math.round(b.priceCents) : null,
       b.costCents != null ? Math.round(b.costCents) : null,
       b.trackStock != null ? (b.trackStock ? 1 : 0) : null, b.minStock ?? null,
-      b.active != null ? (b.active ? 1 : 0) : null, id,
+      b.active != null ? (b.active ? 1 : 0) : null, finalImageUrl, id,
     );
   } catch (e) {
     const friendly = friendlyUniqueError(e);
     if (!friendly) throw e;
     res.status(409).json({ error: friendly });
     return;
+  }
+  if (img.imageUrl !== undefined && img.imageUrl !== before.image_url) {
+    deleteLocalImageIfOwned(before.image_url);
+  }
+  if (img.buf && img.submit) {
+    queueProductImageSubmission(Number(id), String(b.name ?? (before as unknown as { name: string }).name), img.imageUrl!, img.buf);
+    trySubmitPending().catch(() => {});
   }
   const after = getProduct(id);
   audit(req, 'editar', 'product', id, before, after);

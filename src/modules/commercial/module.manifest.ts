@@ -51,7 +51,13 @@ const manifest: ModuleManifest = {
   // nesta sub-fase (KATSU_PLANO.md, Fase 6a "fora de escopo").
   syncTables: [
     { table: 'categories', foreignKeys: { parent_id: 'categories' } },
-    { table: 'products', foreignKeys: { category_id: 'categories' }, excludeColumns: ['stock_qty'] },
+    {
+      table: 'products', foreignKeys: { category_id: 'categories' },
+      // image_url: caminho local (/uploads/products/…) ou URL do banco de imagens do
+      // Katsu Cloud — não sincroniza entre máquinas nesta fase (arquivo local só existe
+      // na máquina onde a imagem foi definida). Ver src/core/catalog/.
+      excludeColumns: ['stock_qty', 'image_url'],
+    },
     {
       table: 'customers',
       foreignKeys: { price_list_id: 'price_lists', agreement_company_id: 'agreement_companies' },

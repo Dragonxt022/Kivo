@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Histórico financeiro do cliente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
+  <main x-data="receivablesPage(<%= customerId %>)" x-init="load()">
+    <a :href="'/app/commercial/clientes/' + id" class="muted text-sm">← Voltar para ficha</a>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <h1 style="margin:0">Histórico financeiro — <span x-text="customerName"></span></h1>
+      <%- include('partials/month-nav') %>
+    </div>
+    <section class="panel">
+      <table>
+        <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th class="text-right">Valor</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="r in receivables.filter(r => String(r.due_date).slice(0, 7) === key)" :key="r.id">
+            <tr>
+              <td x-text="r.description"></td>
+              <td class="muted" x-text="fmtDate(r.due_date)"></td>
+              <td><span class="badge" :class="r.status === 'recebida' ? 'ok' : (r.status === 'cancelada' ? 'off' : '')" x-text="r.status"></span></td>
+              <td class="text-right" x-text="brl(r.amount_cents)"></td>
+              <td class="text-right">
+                <% if (user.permissions.has('finance.receivables.receive')) { %>
+                <button class="btn small" x-show="r.status === 'aberta'" @click="openSettle(r)">Receber</button>
+                <% } %>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!receivables.length"><td colspan="5" class="muted">Nenhum lançamento financeiro.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <dialog x-ref="settleDlg">
+      <h1>Receber</h1>
+      <p class="muted" x-text="settleForm.description + ' — ' + brl(settleForm.amountCents)"></p>
+      <label>Data do pagamento</label>
+      <input type="date" x-model="settleForm.settledAt" />
+      <p class="hint">Pagamento adiantado? Ajuste a data acima — o padrão é hoje.</p>
+      <div class="error" x-text="settleError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.settleDlg.close()">Cancelar</button>
+        <button class="btn" @click="confirmSettle()">Receber</button>
+      </div>
+    </dialog>
+  </main>
+  <script src="/js/masks.js"></script>
+  <script src="/js/datetime.js"></script>
+  <script>
+    function receivablesPage(id) {
+      const _d = new Date();
+      return {
+        id, customerName: 'Cliente', receivables: [],
+        year: _d.getFullYear(), month: _d.getMonth(),
+        get label() { return new Date(this.year, this.month).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', ''); },
+        get key() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
+        prev() { if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
+        next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
+        settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        async load() {
+          const [c, r] = await Promise.all([
+            fetch(`/api/commercial/customers/${this.id}`),
+            fetch(`/api/finance/receivables?partyId=${this.id}`),
+          ]);
+          if (c.ok) { const d = await c.json(); this.customerName = d.name ?? 'Cliente'; }
+          if (r.ok) this.receivables = await r.json();
+        },
+        openSettle(r) {
+          this.settleForm = { id: r.id, description: r.description, amountCents: r.amount_cents, settledAt: todayLocal() };
+          this.settleError = '';
+          this.$refs.settleDlg.showModal();
+        },
+        async confirmSettle() {
+          const r = await fetch(`/api/finance/receivables/${this.settleForm.id}/settle`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settledAt: this.settleForm.settledAt }),
+          });
+          if (r.ok) { this.$refs.settleDlg.close(); this.load(); }
+          else this.settleError = (await r.json()).error ?? 'Erro ao registrar recebimento.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

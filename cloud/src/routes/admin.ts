@@ -1,8 +1,12 @@
-import { randomUUID, randomBytes } from 'node:crypto';
-import { Router } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import express, { Router } from 'express';
 import { getPool } from '../db';
 import { hashLicenseKey } from '../auth';
 import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
+import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
+import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } from './catalog';
 import {
   verifyAdminCredentials,
   createAdminSession,
@@ -15,6 +19,7 @@ import {
 } from '../adminAuth';
 
 const router = Router();
+const rawCatalogImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '6mb' });
 
 function generateLicenseKey(): string {
   return randomBytes(24).toString('hex');
@@ -289,6 +294,126 @@ router.post('/profile/password', requireAdminAuth, async (req: AdminRequest, res
     req.adminUsername,
   ]);
   res.render('profile', { admin, error: null, success: 'Senha alterada com sucesso.' });
+});
+
+// --- Banco de imagens (curadoria) ---
+
+interface CatalogImageRow {
+  id: number;
+  company_uuid: string | null;
+  product_name: string;
+  keywords: string;
+  image_path: string;
+  format: 'jpeg' | 'png' | 'webp';
+  width: number;
+  height: number;
+  size_bytes: number;
+  status: 'pendente' | 'aprovada' | 'rejeitada';
+  source: 'submissao' | 'manual';
+  created_at: string;
+}
+
+router.get('/catalog', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
+  const [pending] = await pool.query(
+    `SELECT id, company_uuid, product_name, keywords, image_path, format, width, height, size_bytes, status, source, created_at
+     FROM catalog_images WHERE status = 'pendente' ORDER BY created_at ASC`,
+  );
+  const [statsRows] = await pool.query(
+    `SELECT
+       SUM(status = 'pendente') AS pending,
+       SUM(status = 'aprovada') AS approved,
+       SUM(status = 'rejeitada') AS rejected
+     FROM catalog_images`,
+  );
+  const stats = (statsRows as { pending: number | null; approved: number | null; rejected: number | null }[])[0];
+  res.render('catalog-queue', {
+    pending: pending as CatalogImageRow[],
+    stats: { pending: stats?.pending ?? 0, approved: stats?.approved ?? 0, rejected: stats?.rejected ?? 0 },
+    error: null,
+  });
+});
+
+/** Miniatura no painel de curadoria — serve qualquer status (a pública em /api/catalog/image só serve aprovada). */
+router.get('/catalog/:id/image', requireAdminAuth, async (req, res) => {
+  const [rows] = await getPool().query('SELECT image_path, format FROM catalog_images WHERE id = ?', [req.params.id]);
+  const row = (rows as { image_path: string; format: 'jpeg' | 'png' | 'webp' }[])[0];
+  const filePath = row?.image_path ? path.join(CATALOG_STORAGE_DIR, row.image_path) : null;
+  if (!filePath || !fs.existsSync(filePath)) {
+    res.status(404).send('Imagem não encontrada.');
+    return;
+  }
+  res.setHeader('Content-Type', CATALOG_MIME_BY_FORMAT[row.format]);
+  res.send(fs.readFileSync(filePath));
+});
+
+router.post('/catalog/:id/approve', requireAdminAuth, async (req: AdminRequest, res) => {
+  await getPool().query(
+    "UPDATE catalog_images SET status = 'aprovada', reviewed_by = ?, reviewed_at = NOW(3) WHERE id = ? AND status = 'pendente'",
+    [req.adminUsername, req.params.id],
+  );
+  res.redirect('/admin/catalog');
+});
+
+/**
+ * Rejeitada: some do disco na hora (não fica ocupando espaço nem aparece mais na fila —
+ * a listagem de /admin/catalog só traz status='pendente'). A LINHA em si fica como
+ * "tombstone" (status='rejeitada', sem arquivo) — é o que permite bloquear no /submit uma
+ * nova tentativa de enviar exatamente a mesma imagem (mesmo sha256) já reprovada antes.
+ * Um DELETE completo aqui destruiria essa memória e reabriria a porta pro duplicado.
+ */
+router.post('/catalog/:id/reject', requireAdminAuth, async (req: AdminRequest, res) => {
+  const [rows] = await getPool().query('SELECT image_path FROM catalog_images WHERE id = ?', [req.params.id]);
+  const row = (rows as { image_path: string }[])[0];
+  if (row) {
+    try {
+      fs.unlinkSync(path.join(CATALOG_STORAGE_DIR, row.image_path));
+    } catch {
+      // arquivo já não existe — segue o rejeite mesmo assim
+    }
+    await getPool().query(
+      "UPDATE catalog_images SET status = 'rejeitada', image_path = '', reviewed_by = ?, reviewed_at = NOW(3) WHERE id = ?",
+      [req.adminUsername, req.params.id],
+    );
+  }
+  res.redirect('/admin/catalog');
+});
+
+/**
+ * Upload manual do admin: some direto pro catálogo aprovado (bootstrap do banco de
+ * imagens). Responde JSON, não HTML — o corpo é binário (mesma técnica de /api/catalog/submit),
+ * então o formulário no catalog-queue.ejs é 100% orientado a `fetch`, sem <form> nativo.
+ */
+router.post('/catalog/manual', rawCatalogImage, requireAdminAuth, async (req: AdminRequest, res) => {
+  const productName = req.header('X-Katsu-Product-Name');
+  const body = req.body as Buffer;
+
+  if (!productName || !Buffer.isBuffer(body) || !body.length) {
+    res.status(400).json({ error: 'Preencha o nome do produto e escolha uma imagem.' });
+    return;
+  }
+  const check = validateCatalogImage(body);
+  if (!check.ok) {
+    res.status(400).json({ error: check.error });
+    return;
+  }
+  const hash = createHash('sha256').update(body).digest('hex');
+  const [existingRows] = await getPool().query('SELECT id FROM catalog_images WHERE sha256 = ?', [hash]);
+  if ((existingRows as { id: number }[])[0]) {
+    res.status(409).json({ error: 'Essa imagem já existe no catálogo (mesmo conteúdo).' });
+    return;
+  }
+
+  fs.mkdirSync(CATALOG_STORAGE_DIR, { recursive: true });
+  const filename = `${hash}.${CATALOG_EXT_BY_FORMAT[check.format]}`;
+  fs.writeFileSync(path.join(CATALOG_STORAGE_DIR, filename), body);
+  const [info] = await getPool().query(
+    `INSERT INTO catalog_images
+       (company_uuid, product_name, keywords, image_path, sha256, width, height, format, size_bytes, status, source, reviewed_by, reviewed_at)
+     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'aprovada', 'manual', ?, NOW(3))`,
+    [productName, normalizeKeywords(productName), filename, hash, check.width, check.height, check.format, body.length, req.adminUsername],
+  );
+  res.status(201).json({ ok: true, catalogImageId: (info as { insertId: number }).insertId });
 });
 
 export default router;

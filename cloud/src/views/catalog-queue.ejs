@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <%- include('partials/theme-init') %>
+  <title>Katsu Cloud — Banco de imagens</title>
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <style>
+    .catalog-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-light); background: var(--surface-hover); }
+    .catalog-meta { font-size: 0.78rem; color: var(--muted); }
+    .catalog-actions-cell { display: flex; gap: 8px; justify-content: flex-end; }
+    #manual-upload-preview { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin-bottom: 12px; display: none; background: var(--surface-hover); }
+  </style>
+</head>
+<body>
+  <%- include('partials/navbar', { active: 'catalog' }) %>
+
+  <div class="page">
+    <div class="page-header">
+      <h1>Banco de imagens</h1>
+      <button class="btn" onclick="document.getElementById('modal-manual-upload').showModal()">+ Adicionar imagem manualmente</button>
+    </div>
+
+    <div class="card">
+      <div class="stat-row">
+        <div class="stat"><div class="value"><%= stats.pending %></div><div class="label">Pendentes</div></div>
+        <div class="stat"><div class="value"><%= stats.approved %></div><div class="label">Aprovadas</div></div>
+        <div class="stat"><div class="value"><%= stats.rejected %></div><div class="label">Rejeitadas (histórico desta sessão)</div></div>
+      </div>
+    </div>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="error-banner"><%= error %></div>
+    <% } %>
+
+    <div class="card" style="padding: 0;">
+      <table>
+        <thead><tr><th></th><th>Produto</th><th>Origem</th><th>Detalhes</th><th>Enviada em</th><th></th></tr></thead>
+        <tbody>
+          <% pending.forEach(function(img) { %>
+          <tr>
+            <td><img class="catalog-thumb" src="/admin/catalog/<%= img.id %>/image" alt="<%= img.product_name %>"></td>
+            <td><%= img.product_name %></td>
+            <td class="catalog-meta"><%= img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—' %></td>
+            <td class="catalog-meta"><%= img.width %>×<%= img.height %>px · <%= Math.round(img.size_bytes / 1024) %>KB · <%= img.format %></td>
+            <td class="catalog-meta"><%= img.created_at %></td>
+            <td class="catalog-actions-cell">
+              <form method="post" action="/admin/catalog/<%= img.id %>/approve" class="inline">
+                <button type="submit" class="btn small">Aprovar</button>
+              </form>
+              <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Rejeitar e excluir esta imagem?')">
+                <button type="submit" class="btn danger small">Rejeitar</button>
+              </form>
+            </td>
+          </tr>
+          <% }) %>
+          <% if (!pending.length) { %>
+          <tr><td colspan="6" class="empty-state">Nenhuma imagem pendente de curadoria.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <dialog id="modal-manual-upload">
+    <div class="modal-header">
+      <h2>Adicionar imagem manualmente</h2>
+      <button type="button" class="modal-close" onclick="document.getElementById('modal-manual-upload').close()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label>Nome do produto</label>
+      <input type="text" id="manual-product-name" required autofocus placeholder="Ex.: Refrigerante Coca-Cola 2L">
+      <label>Imagem (JPEG, PNG ou WEBP — mínimo 200×200px, máximo 6MB)</label>
+      <input type="file" id="manual-image-file" accept="image/jpeg,image/png,image/webp" required>
+      <img id="manual-upload-preview" alt="">
+      <p class="field-hint" id="manual-upload-error" style="color: var(--danger); display: none;"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="document.getElementById('modal-manual-upload').close()">Cancelar</button>
+        <button type="button" class="btn" id="manual-upload-submit" onclick="submitManualUpload()">Adicionar ao catálogo</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    var manualFile = null;
+    document.getElementById('manual-image-file').addEventListener('change', function (e) {
+      manualFile = e.target.files[0] || null;
+      var preview = document.getElementById('manual-upload-preview');
+      if (manualFile) {
+        preview.src = URL.createObjectURL(manualFile);
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    });
+
+    async function submitManualUpload() {
+      var errorEl = document.getElementById('manual-upload-error');
+      errorEl.style.display = 'none';
+      var name = document.getElementById('manual-product-name').value.trim();
+      if (!name || !manualFile) {
+        errorEl.textContent = 'Preencha o nome do produto e escolha uma imagem.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      var btn = document.getElementById('manual-upload-submit');
+      btn.disabled = true;
+      try {
+        var buf = await manualFile.arrayBuffer();
+        var res = await fetch('/admin/catalog/manual', {
+          method: 'POST',
+          headers: { 'Content-Type': manualFile.type, 'X-Katsu-Product-Name': name },
+          body: buf,
+        });
+        var data = await res.json();
+        if (res.ok) {
+          window.location.href = '/admin/catalog';
+          return;
+        }
+        errorEl.textContent = data.error || ('Falha ao enviar (HTTP ' + res.status + ').');
+        errorEl.style.display = 'block';
+      } catch (e) {
+        errorEl.textContent = 'Erro de rede ao enviar a imagem.';
+        errorEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

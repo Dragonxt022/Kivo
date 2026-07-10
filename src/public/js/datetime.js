@@ -27,3 +27,23 @@ function fmtDate(raw) {
 function todayLocal() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: KATSU_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
+
+/**
+ * Navegador de mês reutilizável — inclua com x-data="monthNav()" e ouça
+ * @month-change.window para reagir (ex.: @month-change.window="month = $event.detail.key; load()")
+ */
+function monthNav(initial) {
+  const d = initial ? new Date(initial + '-01') : new Date();
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth(),
+    get label() {
+      return new Date(this.year, this.month)
+        .toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+        .replace('.', '');
+    },
+    get key() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
+    prev() { if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
+    next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
+  };
+}

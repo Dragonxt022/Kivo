@@ -12,21 +12,21 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: bills.api }) %>
-  <main x-data="billsPage('<%= bills.api %>')" x-init="load()">
+  <%
+    var _billStatusOpts = [
+      { value: 'aberta', label: 'Abertas' },
+      { value: bills.settledStatus, label: 'Liquidadas' },
+      { value: 'cancelada', label: 'Canceladas' }
+    ];
+    var _billPlaceholder = 'Buscar por descricao ou ' + bills.partyLabel.toLowerCase();
+  %>
+  <main x-data="billsPage('<%= bills.api %>')" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
     <h1><%= bills.title %></h1>
     <div class="toolbar">
       <% if (user.permissions.has(bills.createPerm)) { %>
         <button class="btn" @click="openNew()">Nova conta</button>
       <% } %>
-      <select x-model="status" @change="load()"
-              class="input-search">
-        <option value="">Todas</option>
-        <option value="aberta">Abertas</option>
-        <option value="<%= bills.settledStatus %>">Liquidadas</option>
-        <option value="cancelada">Canceladas</option>
-      </select>
-      <input type="text" placeholder="Buscar por descrição ou <%= bills.partyLabel.toLowerCase() %>…" x-model="q"
-             class="input-search" style="min-width:220px" />
+      <%- include('partials/search-filter', { statusOptions: _billStatusOpts, placeholder: _billPlaceholder }) %>
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -83,12 +83,12 @@
   <script>
     function billsPage(api) {
       return {
-        rows: [], form: {}, status: 'aberta', q: '', error: '', dlgError: '',
+        rows: [], form: {}, status: 'aberta', q: '', error: '', dlgError: '', filter: {},
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         async load() {
-          const r = await fetch(api + (this.status ? `?status=${this.status}` : ''));
+          const r = await fetch(api);
           if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
         },
         filteredRows() {
