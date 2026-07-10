@@ -18,7 +18,7 @@
         <button class="btn" @click="openNew()">Novo fornecedor</button>
       <% } %>
       <input type="text" placeholder="Buscar…" x-model="q" @input.debounce.400ms="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+             class="input-search" />
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -30,7 +30,7 @@
             <td class="muted" x-text="r.trade_name ?? '—'"></td>
             <td class="muted" x-text="r.document ?? '—'"></td>
             <td class="muted" x-text="r.phone ?? '—'"></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <% if (user.permissions.has('commercial.suppliers.edit')) { %>
                 <button class="btn secondary small" @click="openEdit(r)">Editar</button>
               <% } %>

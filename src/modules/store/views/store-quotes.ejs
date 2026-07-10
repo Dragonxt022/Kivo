@@ -18,7 +18,7 @@
         <button class="btn" @click="openNew()">Novo orçamento</button>
       <% } %>
       <select x-model="status" @change="load()"
-              style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)">
+              class="input-search">
         <option value="">Todos</option>
         <option value="aberto">Abertos</option>
         <option value="convertido">Convertidos</option>
@@ -37,7 +37,7 @@
             <td class="muted" x-text="q.valid_until ?? '—'"></td>
             <td><span class="badge" :class="q.status === 'aberto' ? 'off' : 'ok'" x-text="q.status"></span></td>
             <td class="muted" x-text="q.username"></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <button class="btn secondary small" @click="window.open(`/app/store/orcamentos/${q.id}/imprimir`, '_blank', 'width=800,height=900')">Imprimir</button>
               <% if (user.permissions.has('store.sales.create')) { %>
                 <button class="btn small" x-show="q.status === 'aberto'" @click="openConvert(q)">Converter em venda</button>
@@ -65,7 +65,7 @@
 
       <template x-if="!form.id">
       <label>Adicionar item</label>
-      <div style="display:grid;grid-template-columns:1fr 90px 70px;gap:.4rem;align-items:end">
+      <div class="form-grid" style="grid-template-columns:1fr 90px 70px">
         <select x-model.number="item.productId">
           <option value="">Produto…</option>
           <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="`${p.name} — ${brl(p.price_cents)}`"></option></template>
@@ -73,16 +73,16 @@
         <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
         <button class="btn secondary" @click="addItem()">+</button>
       </div>
-      <div style="margin-top:.8rem;max-height:160px;overflow-y:auto">
+      <div class="scroll-box-sm" style="margin-top:.8rem">
         <template x-for="(i, idx) in form.items" :key="idx">
-          <div style="display:flex;justify-content:space-between;gap:.5rem;padding:.3rem 0;font-size:.9rem">
+          <div class="form-row">
             <span x-text="`${i.name} — ${i.qty} × ${brl(i.price_cents)}`"></span>
             <span><strong x-text="brl(Math.round(i.qty * i.price_cents))"></strong>
               <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button></span>
           </div>
         </template>
       </div>
-      <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
+      <p class="text-right" style="margin-top:.5rem">Total: <strong x-text="brl(total())"></strong></p>
       </template>
       <% if (user.permissions.has('store.sales.discount')) { %>
         <label>Desconto (R$)</label><input type="text" x-model="form.discount" placeholder="0,00" @input="form.discount = maskMoney(form.discount)" />

@@ -75,7 +75,7 @@
     <div x-show="tab === 'empresa'" x-cloak>
       <section class="panel">
         <h2>Dados da empresa</h2>
-        <p class="hint" style="margin-top:0">Usados no cabeçalho dos cupons de venda e orçamentos impressos.</p>
+        <p class="hint mt-0">Usados no cabeçalho dos cupons de venda e orçamentos impressos.</p>
         <div class="field">
           <label>Nome da empresa</label>
           <input class="input" type="text" x-model="empresa.nome" placeholder="Nome que aparece no cupom/orçamento">
@@ -102,14 +102,14 @@
       <section class="panel">
         <h2>Configurações de estoque</h2>
         <div class="field">
-          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+          <label class="label-checkbox">
             <input type="checkbox" x-model="stock.autoSku" />
             Gerar SKU automaticamente ao cadastrar produto
           </label>
         </div>
         <div class="field">
           <label>Valor padrão para estoque mínimo</label>
-          <input class="input" type="number" min="0" x-model="stock.minStockPadrao" placeholder="0" style="max-width:120px" />
+          <input class="input input-narrow" type="number" min="0" x-model="stock.minStockPadrao" placeholder="0" />
           <p class="hint">Todo produto novo será cadastrado com este valor como estoque mínimo.</p>
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
@@ -126,13 +126,13 @@
       <section class="panel">
         <h2>Configurações de vendas</h2>
         <div class="field">
-          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+          <label class="label-checkbox">
             <input type="checkbox" x-model="sales.exibirCupom" />
             Exibir mensagem "Imprimir cupom fiscal" ao finalizar venda
           </label>
         </div>
         <div class="field">
-          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+          <label class="label-checkbox">
             <input type="checkbox" x-model="sales.lembreteCaixa24h" />
             Lembrar de fechar o caixa quando ficar aberto por mais de 24h
           </label>
@@ -151,7 +151,7 @@
       <section class="panel">
         <h2>Clube de fidelidade</h2>
         <div class="field">
-          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+          <label class="label-checkbox">
             <input type="checkbox" x-model="fidelidade.ativo" />
             Ativar acúmulo de pontos por venda
           </label>
@@ -159,15 +159,15 @@
         </div>
         <div class="field">
           <label>Pontos por real gasto</label>
-          <input class="input" type="number" min="0" step="1" x-model.number="fidelidade.pontosPorReal" style="max-width:120px" />
+          <input class="input input-narrow" type="number" min="0" step="1" x-model.number="fidelidade.pontosPorReal" />
         </div>
         <div class="field">
           <label>Pontos necessários para resgate</label>
-          <input class="input" type="number" min="1" x-model.number="fidelidade.pontosResgate" style="max-width:120px" />
+          <input class="input input-narrow" type="number" min="1" x-model.number="fidelidade.pontosResgate" />
         </div>
         <div class="field">
           <label>Valor do resgate (R$)</label>
-          <input class="input" type="text" x-model="fidelidade.valorResgate" placeholder="0,00" @input="fidelidade.valorResgate = maskMoney(fidelidade.valorResgate)" style="max-width:120px" />
+          <input class="input input-narrow" type="text" x-model="fidelidade.valorResgate" placeholder="0,00" @input="fidelidade.valorResgate = maskMoney(fidelidade.valorResgate)" />
           <p class="hint">Ex.: 100 pontos = R$5,00 — o cliente resgata 100 pontos e ganha R$5,00 de desconto na compra.</p>
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
@@ -186,7 +186,7 @@
       <section class="panel">
         <h2>Confirmação por PIN</h2>
         <div class="field">
-          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+          <label class="label-checkbox">
             <input type="checkbox" x-model="security.pinRemoverItem" />
             Exigir PIN de administrador para remover item já lançado no carrinho do PDV
           </label>
@@ -201,17 +201,17 @@
       <% if (user.permissions.has('security.pin.manage')) { %>
       <section class="panel">
         <h2>PIN de administrador</h2>
-        <p class="hint" style="margin-top:0">
+        <p class="hint mt-0">
           <span x-show="pinConfigured">PIN configurado nesta máquina.</span>
           <span x-show="!pinConfigured">Nenhum PIN configurado ainda nesta máquina.</span>
         </p>
         <div class="field">
           <label>Novo PIN (4 a 6 dígitos)</label>
-          <input class="input" type="password" inputmode="numeric" maxlength="6" x-model="pinForm.pin" style="max-width:160px">
+          <input class="input input-narrow-lg" type="password" inputmode="numeric" maxlength="6" x-model="pinForm.pin">
         </div>
         <div class="field">
           <label>Confirmar PIN</label>
-          <input class="input" type="password" inputmode="numeric" maxlength="6" x-model="pinForm.confirm" style="max-width:160px">
+          <input class="input input-narrow-lg" type="password" inputmode="numeric" maxlength="6" x-model="pinForm.confirm">
         </div>
         <div class="toolbar">
           <button class="btn" @click="savePin()" x-text="savingPin ? 'Salvando…' : 'Salvar PIN'"></button>
@@ -249,7 +249,7 @@
               <td x-text="s.key"></td>
               <td x-text="s.value ?? '—'"></td>
               <td class="muted" x-text="s.updated_at"></td>
-              <td style="text-align:right">
+              <td class="text-right">
                 <button class="btn secondary small" @click="openEdit(s)">Editar</button>
               </td>
             </tr>
@@ -278,26 +278,26 @@
     <!-- ─── MODAL: Licença ativada com sucesso ─── -->
     <% if (user.permissions.has('license.edit')) { %>
     <dialog x-ref="licenseThanksDlg" style="max-width:400px">
-      <div style="text-align:center;padding:1.5rem 1.5rem .5rem">
-        <div style="width:48px;height:48px;border-radius:50%;background:var(--primary-bg, #eef0fe);display:grid;place-items:center;margin:0 auto 1rem">
+      <div class="dialog-body-center" style="padding:1.5rem 1.5rem .5rem">
+        <div class="dialog-icon dialog-icon-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
             <path d="M20 6 9 17l-5-5"/>
           </svg>
         </div>
-        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.5rem">Licença ativada!</h2>
-        <p style="color:var(--text-secondary);font-size:.9rem;margin-bottom:1rem">Obrigado — já sincronizamos com a nuvem.</p>
+        <h2 class="dialog-heading-md">Licença ativada!</h2>
+        <p class="dialog-text">Obrigado — já sincronizamos com a nuvem.</p>
         <table style="text-align:left;margin-bottom:.5rem" x-show="licenseThanks.sync && !licenseThanks.sync.skipped">
           <tbody>
             <tr><th>Enviado</th><td x-text="licenseThanks.sync ? licenseThanks.sync.pushed : 0"></td></tr>
             <tr><th>Recebido</th><td x-text="licenseThanks.sync ? licenseThanks.sync.pulled : 0"></td></tr>
           </tbody>
         </table>
-        <p class="muted" style="font-size:.85rem" x-show="licenseThanks.sync && licenseThanks.sync.skipped">
+        <p class="muted muted-sm" x-show="licenseThanks.sync && licenseThanks.sync.skipped">
           Sincronização em nuvem não incluída no plano atual — os dados continuam só nesta máquina.
         </p>
-        <p class="error" style="font-size:.85rem" x-show="licenseThanks.syncError" x-text="'Não deu pra sincronizar agora (' + licenseThanks.syncError + ') — tente de novo em Sincronizar agora.'"></p>
+        <p class="error muted-sm" x-show="licenseThanks.syncError" x-text="'Não deu pra sincronizar agora (' + licenseThanks.syncError + ') — tente de novo em Sincronizar agora.'"></p>
       </div>
-      <div class="actions" style="justify-content:center;padding-bottom:1.5rem">
+      <div class="actions actions-center" style="padding-bottom:1.5rem">
         <button class="btn" @click="$refs.licenseThanksDlg.close()">Ok</button>
       </div>
     </dialog>

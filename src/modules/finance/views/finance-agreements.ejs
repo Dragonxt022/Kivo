@@ -22,15 +22,15 @@
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>Nome</th><th>Documento</th><th>Fechamento</th><th style="text-align:right">Pendente</th><th></th></tr></thead>
+      <thead><tr><th>Nome</th><th>Documento</th><th>Fechamento</th><th class="text-right">Pendente</th><th></th></tr></thead>
       <tbody>
         <template x-for="c in rows" :key="c.id">
           <tr>
             <td x-text="c.name"></td>
             <td class="muted" x-text="c.document ?? '—'"></td>
             <td class="muted" x-text="'dia ' + c.billing_day"></td>
-            <td style="text-align:right" x-text="brl(pending[c.id] ?? 0)"></td>
-            <td style="text-align:right">
+            <td class="text-right" x-text="brl(pending[c.id] ?? 0)"></td>
+            <td class="text-right">
               <button class="btn secondary small" @click="openInvoices(c)">Faturas</button>
               <% if (user.permissions.has('finance.agreements.invoice')) { %>
               <button class="btn secondary small" @click="generateInvoice(c)" :disabled="!(pending[c.id] > 0)">Gerar fatura agora</button>
@@ -53,7 +53,7 @@
       <div class="dialog-body">
         <label>Nome</label><input type="text" x-model="form.name" />
         <label>CNPJ/CPF</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" />
-        <label>Dia de fechamento (1-31)</label><input type="number" min="1" max="31" x-model.number="form.billing_day" style="max-width:100px" />
+        <label>Dia de fechamento (1-31)</label><input type="number" min="1" max="31" x-model.number="form.billing_day" class="input-narrow-sm" />
         <label>Contato</label><input type="text" x-model="form.contact_name" />
         <label>Telefone do contato</label><input type="text" x-model="form.contact_phone" @input="form.contact_phone = maskPhone(form.contact_phone)" />
         <label>E-mail do contato</label><input type="text" x-model="form.contact_email" />
@@ -69,14 +69,14 @@
       <h1>Faturas — <span x-text="invCompany.name"></span></h1>
       <div class="dialog-body">
         <table>
-          <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th style="text-align:right">Valor</th></tr></thead>
+          <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th class="text-right">Valor</th></tr></thead>
           <tbody>
             <template x-for="inv in invoices" :key="inv.id">
               <tr>
                 <td x-text="inv.description"></td>
                 <td class="muted" x-text="fmtDate(inv.due_date)"></td>
                 <td><span class="badge" :class="inv.status === 'recebida' ? 'ok' : (inv.status === 'cancelada' ? 'off' : '')" x-text="inv.status"></span></td>
-                <td style="text-align:right" x-text="brl(inv.amount_cents)"></td>
+                <td class="text-right" x-text="brl(inv.amount_cents)"></td>
               </tr>
             </template>
             <tr x-show="!invoices.length"><td colspan="4" class="muted">Nenhuma fatura gerada ainda.</td></tr>

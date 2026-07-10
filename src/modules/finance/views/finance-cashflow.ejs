@@ -15,9 +15,9 @@
     <h1>Fluxo de caixa</h1>
     <div class="toolbar">
       <input type="date" x-model="from" @change="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+             class="input-search" />
       <input type="date" x-model="to" @change="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+             class="input-search" />
       <span class="muted">Total: entradas <strong x-text="brl(totals.entradas)"></strong> ·
         saídas <strong x-text="brl(totals.saidas)"></strong> ·
         saldo <strong x-text="brl(totals.saldo)"></strong></span>

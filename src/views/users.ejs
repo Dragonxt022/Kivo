@@ -18,7 +18,7 @@
         <button class="btn" @click="openNew()">Novo usuário</button>
       <% } %>
       <input type="text" placeholder="Filtrar por nome, usuário ou cargo…" x-model="q"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light, #2c313c);background:transparent;color:inherit;min-width:260px" />
+             class="input-search-ghost" style="min-width:260px" />
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -33,7 +33,7 @@
             <td x-text="u.role"></td>
             <td><span class="badge" :class="u.active ? 'ok' : 'off'" x-text="u.active ? 'ativo' : 'inativo'"></span></td>
             <td class="muted" x-text="u.last_login_at ?? '—'"></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <% if (user.permissions.has('users.edit')) { %>
                 <button class="btn secondary small" @click="openEdit(u)">Editar</button>
               <% } %>
@@ -59,7 +59,7 @@
         <label x-text="form.id ? 'Nova senha (deixe vazio para manter)' : 'Senha'"></label>
         <input type="password" x-model="form.password" />
         <template x-if="form.id">
-          <label class="remember" style="display:flex;align-items:center;gap:.5rem;margin-top:.7rem">
+          <label class="label-checkbox" style="margin-top:.7rem">
             <input type="checkbox" x-model="form.active" style="width:auto" /> Ativo
           </label>
         </template>

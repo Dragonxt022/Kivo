@@ -18,14 +18,14 @@
       ao mesmo tempo, antes de sincronizar entre si. A lista abaixo aponta esses casos para resolução manual com o cliente.
     </p>
     <table>
-      <thead><tr><th>Cliente</th><th style="text-align:right">Crédito de troca</th><th style="text-align:right">Pontos</th><th></th></tr></thead>
+      <thead><tr><th>Cliente</th><th class="text-right">Crédito de troca</th><th class="text-right">Pontos</th><th></th></tr></thead>
       <tbody>
         <template x-for="c in rows" :key="c.id">
           <tr>
             <td x-text="c.name"></td>
-            <td style="text-align:right" :style="c.store_credit_cents < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="brl(c.store_credit_cents)"></td>
-            <td style="text-align:right" :style="c.loyalty_points < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="c.loyalty_points"></td>
-            <td style="text-align:right"><a :href="'/app/commercial/clientes/' + c.id" class="btn secondary small">Ver ficha</a></td>
+            <td class="text-right" :style="c.store_credit_cents < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="brl(c.store_credit_cents)"></td>
+            <td class="text-right" :style="c.loyalty_points < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="c.loyalty_points"></td>
+            <td class="text-right"><a :href="'/app/commercial/clientes/' + c.id" class="btn secondary small">Ver ficha</a></td>
           </tr>
         </template>
         <tr x-show="!rows.length"><td colspan="4" class="muted">Nenhum saldo negativo encontrado — tudo certo.</td></tr>

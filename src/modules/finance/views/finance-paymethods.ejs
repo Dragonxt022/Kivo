@@ -13,7 +13,7 @@
   <%- include('partials/nav', { user, page: '/app/finance/formas-pagamento' }) %>
   <main x-data="payMethodsPage()" x-init="load()">
     <h1>Formas de pagamento</h1>
-    <p class="muted" style="margin-bottom:1rem">Cadastre cada maquininha/condição com a taxa real (ex.: "Débito — Stone" com 1,60%). A taxa é descontada nos relatórios de venda.</p>
+    <p class="muted muted-block">Cadastre cada maquininha/condição com a taxa real (ex.: "Débito — Stone" com 1,60%). A taxa é descontada nos relatórios de venda.</p>
     <div class="toolbar">
       <% if (user.permissions.has('finance.paymethods.edit')) { %>
         <button class="btn" @click="openNew()">Nova forma</button>
@@ -29,7 +29,7 @@
             <td class="muted" x-text="labels[m.type] ?? m.type"></td>
             <td x-text="(m.fee_bps / 100).toFixed(2).replace('.', ',') + '%'"></td>
             <td><span class="badge" :class="m.active ? 'ok' : 'off'" x-text="m.active ? 'ativa' : 'inativa'"></span></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <% if (user.permissions.has('finance.paymethods.edit')) { %>
                 <button class="btn secondary small" @click="openEdit(m)">Editar</button>
                 <button class="btn small" @click="toggle(m)" x-text="m.active ? 'Desativar' : 'Ativar'"></button>

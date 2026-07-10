@@ -28,7 +28,7 @@
               <span class="badge ok" x-show="r.is_system" style="margin-left:.4rem">sistema</span></td>
             <td x-text="r.users"></td>
             <td class="muted" x-text="r.slug === 'administrador' ? 'todas' : r.permissions.length"></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <% if (user.permissions.has('roles.edit')) { %>
                 <button class="btn secondary small" x-show="r.slug !== 'administrador'" @click="openEdit(r)">Permissões</button>
                 <button class="btn small" x-show="!r.is_system" @click="remove(r)">Excluir</button>
@@ -39,10 +39,10 @@
       </tbody>
     </table>
 
-    <dialog x-ref="dlg" style="width:560px;max-height:80vh;overflow-y:auto">
+    <dialog x-ref="dlg" style="width:560px;max-height:80vh" class="scroll-box">
       <h1 x-text="'Permissões — ' + (editing.name ?? '')"></h1>
-      <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 .8rem">
-        <span class="muted" style="font-size:.8rem;align-self:center">Modelos:</span>
+      <div class="flex-wrap" style="margin:.6rem 0 .8rem">
+        <span class="muted text-xs" style="align-self:center">Modelos:</span>
         <template x-for="(keys, name) in presets" :key="name">
           <button class="btn secondary small" type="button" @click="applyPreset(name)" x-text="name"></button>
         </template>
@@ -51,12 +51,12 @@
       </div>
       <template x-for="mod in modules" :key="mod">
         <div style="margin-bottom:.8rem">
-          <h2 style="font-size:.9rem;margin:.6rem 0 .3rem;text-transform:uppercase;letter-spacing:.03em" class="muted" x-text="mod"></h2>
+          <h2 class="muted" style="font-size:.9rem;margin:.6rem 0 .3rem;text-transform:uppercase;letter-spacing:.03em" x-text="mod"></h2>
           <template x-for="p in byModule[mod]" :key="p.key">
-            <label style="display:flex;align-items:center;gap:.5rem;padding:.25rem 0;font-size:.9rem;cursor:pointer">
+            <label class="label-checkbox" style="padding:.25rem 0;font-size:.9rem">
               <input type="checkbox" :value="p.key" x-model="selected" style="width:auto" />
               <span x-text="p.description"></span>
-              <span class="muted" style="font-size:.75rem" x-text="p.key"></span>
+              <span class="muted text-xs" style="font-size:.75rem" x-text="p.key"></span>
             </label>
           </template>
         </div>

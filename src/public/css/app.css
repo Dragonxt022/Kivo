@@ -547,6 +547,112 @@ dialog.dialog-fixed > .actions {
 .card h2 { font-size: 1rem; margin-bottom: .3rem; }
 .card p { font-size: .85rem; color: var(--text-muted); }
 
+/* ─── Utility: Text alignment ─── */
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+
+/* ─── Utility: Text sizes ─── */
+.text-sm { font-size: .85rem; }
+.text-xs { font-size: .8rem; }
+
+/* ─── Utility: Flex helpers ─── */
+.flex-row { display: flex; gap: .4rem; }
+.flex-row-sm { display: flex; gap: .5rem; }
+.flex-center { display: flex; align-items: center; gap: .5rem; }
+.flex-wrap { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+/* ─── Utility: Spacing ─── */
+.mt-0 { margin-top: 0; }
+.mb-half { margin-bottom: .5rem; }
+.mb-1 { margin-bottom: 1rem; }
+.mt-2 { margin-top: 2rem; }
+
+/* ─── Utility: Input variants ─── */
+.input-search {
+  padding: .5rem .8rem; border-radius: 8px;
+  border: 1px solid var(--border-light); background: var(--surface-hover); color: var(--text);
+}
+.input-search:focus { outline: none; border-color: var(--primary); }
+.input-search-ghost {
+  padding: .5rem .8rem; border-radius: 8px;
+  border: 1px solid var(--border-light, #2c313c); background: transparent; color: inherit;
+}
+.input-narrow { max-width: 120px; }
+.input-narrow-sm { max-width: 100px; }
+.input-narrow-lg { max-width: 160px; }
+.input-inline { width: auto; }
+
+/* ─── Utility: Scrollable box ─── */
+.scroll-box { overflow-y: auto; }
+.scroll-box-sm { max-height: 160px; overflow-y: auto; }
+.scroll-box-md { max-height: 180px; overflow-y: auto; }
+
+/* ─── Utility: Divider ─── */
+.hr-sep { margin: .25rem 0 .6rem; border: 0; border-top: 1px solid var(--border-light); }
+.section-divider { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--border-light); }
+.section-divider-lg { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light); }
+
+/* ─── Utility: Button full width ─── */
+.btn-full { width: 100%; }
+
+/* ─── Dialog components ─── */
+.dialog-body-center { text-align: center; padding: .5rem 0; }
+.dialog-heading { font-size: 1.05rem; font-weight: 600; }
+.dialog-heading-sm { font-size: 1.05rem; font-weight: 600; margin-bottom: .25rem; }
+.dialog-heading-md { font-size: 1.05rem; font-weight: 600; margin-bottom: .5rem; }
+.dialog-heading-lg { font-size: 1.05rem; font-weight: 600; margin-bottom: .75rem; }
+.dialog-muted { color: var(--text-muted); font-size: .9rem; margin-bottom: 1.25rem; }
+.dialog-muted-sm { color: var(--text-muted); font-size: .9rem; margin-bottom: 1rem; }
+.dialog-text { color: var(--text-secondary); font-size: .9rem; margin-bottom: 1rem; }
+.dialog-text-sm { font-size: .88rem; margin-bottom: .25rem; }
+.dialog-text-md { font-size: .88rem; margin-bottom: 1rem; }
+.actions-center { justify-content: center; }
+.actions-inline { position: static; border-top: 0; margin-top: .5rem; padding-top: 0; }
+
+/* ─── Dialog icon circles ─── */
+.dialog-icon {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center; margin: 0 auto 1rem;
+}
+.dialog-icon-sm {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; margin: 0 auto .75rem;
+}
+.dialog-icon-danger { background: var(--danger-bg); }
+.dialog-icon-warning { background: var(--warning-bg, var(--primary-bg)); }
+.dialog-icon-primary { background: var(--primary-bg, #eef0fe); }
+
+/* ─── Label components ─── */
+.label-checkbox { display: flex; align-items: center; gap: .5rem; cursor: pointer; }
+.label-checkbox-sm { display: flex; align-items: center; gap: .4rem; cursor: pointer; }
+
+/* ─── Menu / dropdown item ─── */
+.menu-item {
+  display: flex; align-items: center; gap: .6rem; width: 100%;
+  padding: .5rem .65rem; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text); cursor: pointer; font-size: .88rem;
+}
+
+/* ─── Badge variant ─── */
+.badge-info { background: var(--primary-bg); color: var(--primary); }
+.badge-ml { margin-left: .35rem; }
+
+/* ─── Muted block (description paragraphs) ─── */
+.muted-block { margin-bottom: 1rem; }
+.muted-sm { font-size: .82rem; }
+
+/* ─── Section title ─── */
+.section-title { font-size: 1.05rem; margin-bottom: .5rem; }
+
+/* ─── Val negative (conditional color) ─── */
+.val-negative { color: var(--danger); font-weight: 700; }
+
+/* ─── Form grid ─── */
+.form-grid { display: grid; gap: .4rem; align-items: end; }
+
+/* ─── Form row ─── */
+.form-row { display: flex; justify-content: space-between; gap: .5rem; padding: .3rem 0; font-size: .9rem; }
+
 /* ─── Responsive ─── */
 @media (max-width: 1080px) {
   .app-grid { grid-template-columns: repeat(3, 1fr); gap: .85rem; }

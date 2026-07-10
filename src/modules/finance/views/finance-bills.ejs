@@ -19,14 +19,14 @@
         <button class="btn" @click="openNew()">Nova conta</button>
       <% } %>
       <select x-model="status" @change="load()"
-              style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)">
+              class="input-search">
         <option value="">Todas</option>
         <option value="aberta">Abertas</option>
         <option value="<%= bills.settledStatus %>">Liquidadas</option>
         <option value="cancelada">Canceladas</option>
       </select>
       <input type="text" placeholder="Buscar por descrição ou <%= bills.partyLabel.toLowerCase() %>…" x-model="q"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text);min-width:220px" />
+             class="input-search" style="min-width:220px" />
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -39,7 +39,7 @@
             <td x-text="brl(b.amount_cents)"></td>
             <td class="muted" x-text="fmtDate(b.due_date)"></td>
             <td><span class="badge" :class="b.status === 'aberta' ? 'off' : 'ok'" x-text="b.status"></span></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <% if (user.permissions.has(bills.settlePerm)) { %>
                 <button class="btn small" x-show="b.status === 'aberta'" @click="openSettle(b)"><%= bills.settleLabel %></button>
               <% } %>

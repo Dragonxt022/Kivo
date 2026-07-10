@@ -16,7 +16,7 @@
     <h1>Vendas</h1>
     <div class="toolbar">
       <input type="date" x-model="day" @change="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+             class="input-search" />
       <% if (user.permissions.has('store.reports.view')) { %>
         <span class="muted">Dia: <strong x-text="report.totals ? report.totals.vendas : 0"></strong> vendas ·
           total <strong x-text="brl(report.totals ? report.totals.total_cents : 0)"></strong></span>
@@ -25,9 +25,9 @@
     </div>
 
     <% if (user.permissions.has('store.reports.view')) { %>
-    <div class="pdv" style="display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.2rem">
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1.2rem">
       <section>
-        <h2 style="font-size:.95rem;margin-bottom:.5rem" class="muted">Por forma de pagamento</h2>
+        <h2 class="muted" style="font-size:.95rem;margin-bottom:.5rem">Por forma de pagamento</h2>
         <table>
           <tbody>
             <template x-for="p in report.byPayment" :key="p.payment_method">
@@ -37,7 +37,7 @@
         </table>
       </section>
       <section>
-        <h2 style="font-size:.95rem;margin-bottom:.5rem" class="muted">Mais vendidos</h2>
+        <h2 class="muted" style="font-size:.95rem;margin-bottom:.5rem">Mais vendidos</h2>
         <table>
           <tbody>
             <template x-for="t in report.topProducts" :key="t.product_name">
@@ -61,7 +61,7 @@
             <td x-text="brl(s.total_cents)"></td>
             <td><span class="badge" :class="s.status === 'concluida' ? 'ok' : 'off'" x-text="s.status"></span></td>
             <td class="muted" x-text="s.username"></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <button class="btn secondary small" @click="window.open(`/app/store/vendas/${s.id}/cupom`, '_blank', 'width=380,height=600')">Cupom</button>
               <% if (user.permissions.has('store.sales.cancel')) { %>
                 <button class="btn small" x-show="s.status === 'concluida'" @click="cancel(s)">Cancelar</button>

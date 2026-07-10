@@ -18,11 +18,11 @@
         <button class="btn" @click="openNew()">Novo produto</button>
       <% } %>
       <input type="text" placeholder="Buscar nome, código de barras ou SKU…" x-model="q" @input.debounce.400ms="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text);min-width:280px" />
+             class="input-search" style="min-width:280px" />
       <% if (user.permissions.has('commercial.products.edit')) { %>
       <input type="text" x-ref="scan" placeholder="Bipar código de barras (cadastro rápido)…"
              @keydown.enter.prevent="scanLookup($event.target.value); $event.target.value = ''"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text);min-width:280px" />
+             class="input-search" style="min-width:280px" />
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
@@ -65,7 +65,7 @@
               </button>
               <% } %>
             </td>
-            <td style="text-align:right" @click.stop>
+            <td class="text-right" @click.stop>
               <div class="dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === p.id ? null : p.id" title="Mais ações">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -110,13 +110,13 @@
       <div class="dialog-body">
         <label>Nome</label><input type="text" x-model="form.name" />
         <label>Código de barras</label>
-        <div style="display:flex;gap:.4rem">
+        <div class="flex-row">
           <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
           <template x-if="form.id">
             <button class="btn secondary small" type="button" @click="genBarcode()">Gerar código interno</button>
           </template>
         </div>
-        <span class="muted" style="font-size:.8rem" x-show="barcodeHint" x-text="barcodeHint"></span>
+        <span class="muted text-xs" x-show="barcodeHint" x-text="barcodeHint"></span>
         <label>SKU</label><input type="text" x-model="form.sku" />
         <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
         <label>Categoria</label>
@@ -124,7 +124,7 @@
           <option value="">— sem categoria —</option>
           <template x-for="c in categories" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
         </select>
-        <div style="display:flex;gap:.4rem;margin-top:.3rem">
+        <div class="flex-row" style="margin-top:.3rem">
           <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
           <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
           <% if (user.permissions.has('commercial.products.edit') || user.permissions.has('commercial.products.delete')) { %>
@@ -173,7 +173,7 @@
       <h1>Gerenciar categorias</h1>
       <div class="dialog-body">
         <template x-for="c in categories" :key="c.id">
-          <div style="display:flex;align-items:center;gap:.4rem;padding:.35rem 0">
+          <div class="flex-center" style="padding:.35rem 0">
             <template x-if="catEditId !== c.id">
               <span style="flex:1" x-text="c.name"></span>
             </template>
@@ -203,10 +203,10 @@
         <template x-if="catDelId">
           <div style="margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border-light)">
             <p style="margin-bottom:.8rem" x-text="'Excluir &quot;' + categories.find(c => c.id === catDelId)?.name + '&quot;?'"></p>
-            <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
+            <label class="label-checkbox-sm" style="margin-bottom:.5rem">
               <input type="radio" value="unset" x-model="catDelAction" /> Deixar produtos sem categoria
             </label>
-            <label style="display:flex;align-items:center;gap:.4rem;margin-bottom:.5rem">
+            <label class="label-checkbox-sm" style="margin-bottom:.5rem">
               <input type="radio" value="migrate" x-model="catDelAction" /> Migrar produtos para:
             </label>
             <select x-show="catDelAction === 'migrate'" x-model.number="catDelMigrateTo" style="width:100%;margin-bottom:.8rem">
@@ -216,7 +216,7 @@
               </template>
             </select>
             <div class="error" x-text="dlgError"></div>
-            <div class="actions" style="position:static;border-top:0;margin-top:.5rem;padding-top:0">
+            <div class="actions actions-inline">
               <button class="btn secondary" @click="catDelId = null; catDelAction = 'unset'; catDelMigrateTo = null">Cancelar</button>
               <button class="btn danger" @click="deleteCategory()" :disabled="catDelAction === 'migrate' && !catDelMigrateTo">Confirmar exclusão</button>
             </div>

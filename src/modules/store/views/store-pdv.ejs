@@ -285,7 +285,7 @@
           </button>
         </div>
 
-        <div class="pdv-search" style="display:flex;gap:.5rem;position:relative;z-index:10">
+        <div class="pdv-search flex-row">
           <input type="text" x-ref="search" x-model="q" style="flex:1"
                  @input.debounce.250ms="search()"
                  @keydown.enter.prevent="quickAdd()"
@@ -409,7 +409,7 @@
       <h1>Consultar produtos</h1>
       <input type="text" x-ref="browseInput" x-model="browseQ" @input.debounce.250ms="searchBrowse()"
              placeholder="Buscar por nome, código de barras ou SKU…" />
-      <div style="max-height:50vh;overflow-y:auto;margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+      <div class="scroll-box-md" style="margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
         <template x-for="p in browseResults" :key="p.id">
           <div class="pdv-result" @click="add(p); $refs.browse.close()">
             <span class="name" x-text="p.name"></span>
@@ -420,7 +420,7 @@
         </template>
         <p class="pdv-empty" x-show="!browseResults.length">Nenhum produto encontrado.</p>
       </div>
-      <p class="muted" style="margin-top:.5rem;font-size:.8rem">Clique num item para adicioná-lo ao carrinho, ou só consulte o preço/estoque aqui.</p>
+      <p class="muted text-xs" style="margin-top:.5rem">Clique num item para adicioná-lo ao carrinho, ou só consulte o preço/estoque aqui.</p>
       <div class="actions">
         <button class="btn secondary" @click="$refs.browse.close()">Fechar (Esc)</button>
       </div>
@@ -429,7 +429,7 @@
     <!-- ─── MODAL: Desconto / Acréscimo ─── -->
     <dialog x-ref="value">
       <h1 x-text="valueDlg.kind === 'desconto' ? 'Desconto (F4)' : 'Acréscimo (F7)'"></h1>
-      <div style="display:flex;gap:.4rem;margin-bottom:.6rem">
+      <div class="flex-row" style="margin-bottom:.6rem">
         <button type="button" class="btn secondary" :class="{ active: valueDlg.mode === 'valor' }" @click="setValueMode('valor')" style="flex:1">R$</button>
         <button type="button" class="btn secondary" :class="{ active: valueDlg.mode === 'percentual' }" @click="setValueMode('percentual')" style="flex:1">%</button>
       </div>
@@ -438,7 +438,7 @@
              :placeholder="valueDlg.mode === 'valor' ? '0,00' : '0'"
              @input="valueDlg.amount = valueDlg.mode === 'valor' ? maskMoney(valueDlg.amount) : valueDlg.amount.replace(/[^0-9,]/g, '')"
              @keydown.enter.prevent="saveValue()" @keydown.escape.prevent="$refs.value.close()" />
-      <p class="muted" style="font-size:.8rem" x-show="valueDlg.mode === 'percentual' && valueDlg.amount" x-text="'≈ ' + brl(percentToCents(valueDlg.amount))"></p>
+      <p class="muted text-xs" x-show="valueDlg.mode === 'percentual' && valueDlg.amount" x-text="'≈ ' + brl(percentToCents(valueDlg.amount))"></p>
       <div class="error" x-text="valueDlg.error"></div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.value.close()">Cancelar (Esc)</button>
@@ -448,17 +448,17 @@
 
     <!-- ─── MODAL: Limpar carrinho (F9) ─── -->
     <dialog x-ref="clearDlg">
-      <div style="text-align:center;padding:.5rem 0">
-        <div style="width:48px;height:48px;border-radius:50%;background:var(--danger-bg);display:grid;place-items:center;margin:0 auto 1rem">
+      <div class="dialog-body-center">
+        <div class="dialog-icon dialog-icon-danger">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
             <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
           </svg>
         </div>
-        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.5rem">Limpar carrinho?</h2>
-        <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.25rem">
+        <h2 class="dialog-heading-md">Limpar carrinho?</h2>
+        <p class="dialog-muted">
           Todos os itens, descontos e acréscimos serão removidos.
         </p>
-        <div class="actions" style="justify-content:center">
+        <div class="actions actions-center">
           <button class="btn secondary" @click="$refs.clearDlg.close()">Não (Esc)</button>
           <button class="btn" @click="doClear()" x-ref="clearConfirm">Sim (Enter)</button>
         </div>
@@ -516,11 +516,11 @@
         <button type="button" class="btn secondary small" style="margin-bottom:.75rem" x-show="!showSplit" @click="showSplit = true">
           Dividir conta
         </button>
-        <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.75rem" x-show="showSplit" x-cloak>
-          <span class="muted" style="font-size:.8rem">Dividir por</span>
+        <div class="flex-row" style="align-items:center;margin-bottom:.75rem" x-show="showSplit" x-cloak>
+          <span class="muted text-xs">Dividir por</span>
           <input type="number" min="2" max="20" x-model.number="pay.split" style="width:55px;padding:.3rem .4rem" />
           <button class="btn secondary small" @click="splitEqual()">pessoas</button>
-          <span class="muted" style="font-size:.8rem" x-show="pay.split >= 2" x-text="'≈ ' + brl(Math.ceil(remaining() > 0 ? remaining() / (pay.split || 1) : total() / (pay.split || 1))) + '/pessoa'"></span>
+          <span class="muted text-xs" x-show="pay.split >= 2" x-text="'≈ ' + brl(Math.ceil(remaining() > 0 ? remaining() / (pay.split || 1) : total() / (pay.split || 1))) + '/pessoa'"></span>
         </div>
 
         <template x-if="needsCashReceived()">
@@ -531,7 +531,7 @@
             <div x-show="showCashReceived" x-cloak>
               <span class="pay-label">Recebido em dinheiro (R$)</span>
               <input type="text" x-model="pay.received" placeholder="0,00" style="margin-bottom:.6rem" @input="pay.received = maskMoney(pay.received); calcChange()" />
-              <p style="margin:-.3rem 0 .6rem;font-size:.85rem">Troco: <strong x-text="brl(pay.changeCents)"></strong></p>
+              <p class="muted text-sm" style="margin:-.3rem 0 .6rem">Troco: <strong x-text="brl(pay.changeCents)"></strong></p>
             </div>
           </div>
         </template>
@@ -561,7 +561,7 @@
             <p class="muted" style="font-size:.82rem;text-align:center" x-show="!pay.list.length">Nenhum pagamento adicionado ainda.</p>
           </div>
 
-          <hr style="margin:.25rem 0 .6rem;border:0;border-top:1px solid var(--border-light)" />
+          <hr class="hr-sep" />
           <div class="pay-recap-row"><span>Pago</span><span x-text="brl(paidSum())"></span></div>
           <div class="pay-recap-row remaining" :style="remaining() > 0 ? 'color:var(--danger)' : 'color:var(--primary)'">
             <span x-text="remaining() >= 0 ? 'Restante' : 'Excedente'"></span>
@@ -591,25 +591,25 @@
           <option value="">Selecione…</option>
           <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
         </select>
-        <label style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem">
+        <label class="label-checkbox-sm" style="margin-top:.5rem">
           <input type="radio" value="avista" x-model="prazoForm.mode" /> À vista (1 vencimento)
         </label>
-        <label style="display:flex;align-items:center;gap:.4rem">
+        <label class="label-checkbox-sm">
           <input type="radio" value="parcelado" x-model="prazoForm.mode" /> Parcelado
         </label>
         <template x-if="prazoForm.mode === 'parcelado'">
           <div>
             <label>Número de parcelas (2 a 12)</label>
-            <input type="number" min="2" max="12" x-model.number="prazoForm.installments" style="max-width:100px" />
+            <input type="number" min="2" max="12" x-model.number="prazoForm.installments" class="input-narrow-sm" />
           </div>
         </template>
         <label>Primeiro vencimento</label>
         <input type="date" x-model="prazoForm.firstDueDate" />
         <table style="margin-top:.75rem">
-          <thead><tr><th>Parcela</th><th>Vencimento</th><th style="text-align:right">Valor</th></tr></thead>
+          <thead><tr><th>Parcela</th><th>Vencimento</th>            <th class="text-right">Valor</th></tr></thead>
           <tbody>
             <template x-for="p in prazoPreview()" :key="p.n">
-              <tr><td x-text="p.n + '/' + p.count"></td><td x-text="fmtDate(p.dueDate)"></td><td style="text-align:right" x-text="brl(p.amountCents)"></td></tr>
+              <tr><td x-text="p.n + '/' + p.count"></td><td x-text="fmtDate(p.dueDate)"></td><td class="text-right" x-text="brl(p.amountCents)"></td></tr>
             </template>
           </tbody>
         </table>
@@ -638,17 +638,17 @@
     <% if (user.permissions.has('finance.cash.open')) { %>
     <!-- ─── MODAL: Aviso de caixa fechado ─── -->
     <dialog x-ref="cashClosedWarnDlg" style="width:360px">
-      <div style="text-align:center;padding:.5rem 0">
-        <div style="width:44px;height:44px;border-radius:50%;background:var(--warning-bg);display:grid;place-items:center;margin:0 auto .75rem">
+      <div class="dialog-body-center">
+        <div class="dialog-icon dialog-icon-warning">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--warning-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
         </div>
-        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.5rem">Caixa fechado</h2>
-        <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.25rem">
+        <h2 class="dialog-heading-md">Caixa fechado</h2>
+        <p class="dialog-muted">
           Para receber em dinheiro é preciso abrir o caixa. Deseja abrir agora?
         </p>
-        <div class="actions" style="justify-content:center">
+        <div class="actions actions-center">
           <button class="btn secondary" @click="$refs.cashClosedWarnDlg.close()">Não</button>
           <button class="btn" @click="$refs.cashClosedWarnDlg.close(); openRegisterFromSale()">Sim</button>
         </div>
@@ -658,7 +658,7 @@
     <!-- ─── MODAL: Abrir caixa (sem sair da venda em andamento) ─── -->
     <dialog x-ref="openRegisterDlg" style="width:360px">
       <h1>Abrir caixa</h1>
-      <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">O carrinho e o pagamento em andamento não serão perdidos.</p>
+      <p class="muted muted-sm">O carrinho e o pagamento em andamento não serão perdidos.</p>
       <label>Valor inicial da gaveta (R$)</label>
       <input type="text" x-ref="openRegisterInput" x-model="openRegisterForm.opening" placeholder="0,00"
              @input="openRegisterForm.opening = maskMoney(openRegisterForm.opening)"
@@ -673,15 +673,15 @@
 
     <!-- ─── MODAL: Venda concluída — imprimir cupom? ─── -->
     <dialog x-ref="postSale" @close="focusSearch()">
-      <div style="text-align:center;padding:.5rem 0">
-        <div style="width:48px;height:48px;border-radius:50%;background:var(--primary-bg);display:grid;place-items:center;margin:0 auto 1rem">
+      <div class="dialog-body-center">
+        <div class="dialog-icon dialog-icon-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
             <path d="M20 6 9 17l-5-5"/>
           </svg>
         </div>
-        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.25rem">Venda finalizada!</h2>
-        <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.25rem">Deseja imprimir o cupom desta venda?</p>
-        <div class="actions" style="justify-content:center">
+        <h2 class="dialog-heading-sm">Venda finalizada!</h2>
+        <p class="dialog-muted">Deseja imprimir o cupom desta venda?</p>
+        <div class="actions actions-center">
           <button class="btn secondary" @click="$refs.postSale.close()">Não (Esc)</button>
           <button class="btn secondary" x-show="lastSaleHasCarne" @click="printCarne()">Imprimir carnê</button>
           <button class="btn" autofocus @click="printLast(); $refs.postSale.close()">Imprimir (Enter)</button>

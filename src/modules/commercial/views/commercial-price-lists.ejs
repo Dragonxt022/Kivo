@@ -29,7 +29,7 @@
             <td class="muted" x-text="l.item_count"></td>
             <td><span class="badge" x-show="l.is_default">padrão</span></td>
             <td><span class="badge" :class="l.active ? '' : 'off'" x-text="l.active ? 'ativa' : 'inativa'"></span></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <% if (user.permissions.has('commercial.pricelists.manage')) { %>
                 <button class="btn secondary small" @click="openEdit(l)">Editar</button>
                 <button class="btn small" @click="remove(l)">Excluir</button>
@@ -44,22 +44,22 @@
       <h1 x-text="form.id ? 'Editar lista' : 'Nova lista'"></h1>
       <div class="dialog-body">
         <label>Nome</label><input type="text" x-model="form.name" />
-        <label style="display:flex;align-items:center;gap:.4rem;margin-top:.4rem">
+        <label class="label-checkbox-sm" style="margin-top:.4rem">
           <input type="checkbox" x-model="form.isDefault" /> Lista padrão (quando a venda não tem cliente com lista própria)
         </label>
         <template x-if="form.id">
-          <label style="display:flex;align-items:center;gap:.4rem">
+          <label class="label-checkbox-sm">
             <input type="checkbox" x-model="form.active" /> Ativa
           </label>
         </template>
 
         <template x-if="form.id">
-          <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-light)">
+            <div class="section-divider-lg">
             <h2 style="font-size:.95rem;margin-bottom:.5rem">Itens</h2>
-            <div style="display:flex;gap:.4rem;margin-bottom:.6rem">
+            <div class="flex-row" style="margin-bottom:.6rem">
               <input type="text" x-model="prodQ" placeholder="Buscar produto…" @input.debounce.300ms="searchProducts()" style="flex:1" />
             </div>
-            <div x-show="prodResults.length" style="border:1px solid var(--border-light);border-radius:8px;margin-bottom:.6rem;max-height:160px;overflow:auto">
+            <div x-show="prodResults.length" class="scroll-box-sm" style="border:1px solid var(--border-light);border-radius:8px;margin-bottom:.6rem">
               <template x-for="p in prodResults" :key="p.id">
                 <div style="padding:.4rem .6rem;cursor:pointer" @click="addItem(p)" x-text="p.name + ' — ' + brl(p.price_cents)"></div>
               </template>
@@ -78,7 +78,7 @@
               </tbody>
             </table>
             <div class="error" x-text="itemsError"></div>
-            <div class="actions" style="position:static;border-top:0;margin-top:.5rem;padding-top:0">
+            <div class="actions actions-inline">
               <button class="btn secondary small" @click="saveItems()">Salvar itens</button>
             </div>
           </div>

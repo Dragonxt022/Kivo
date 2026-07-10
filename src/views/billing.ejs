@@ -14,7 +14,7 @@
   <%- include('partials/nav', { user, page: 'billing' }) %>
   <main x-data="billingPage()" x-init="load()">
     <h1>Cobranças</h1>
-    <p class="muted" style="margin-bottom:1rem">Histórico de cobranças registradas pela nuvem — gestão manual, sem cobrança automática por boleto/PIX.</p>
+    <p class="muted muted-block">Histórico de cobranças registradas pela nuvem — gestão manual, sem cobrança automática por boleto/PIX.</p>
 
     <div class="panel" x-show="urgent.length" x-cloak>
       <h2 style="color:var(--danger)">⚠ Vencimento próximo</h2>
@@ -42,7 +42,7 @@
             <td class="muted" x-text="c.instructions || '—'" style="max-width:280px;white-space:pre-wrap"></td>
           </tr>
         </template>
-        <tr x-show="!charges.length"><td colspan="6" class="muted" style="text-align:center">Nenhuma cobrança encontrada.</td></tr>
+        <tr x-show="!charges.length"><td colspan="6" class="muted text-center">Nenhuma cobrança encontrada.</td></tr>
       </tbody>
     </table>
     <span class="error" x-text="error"></span>

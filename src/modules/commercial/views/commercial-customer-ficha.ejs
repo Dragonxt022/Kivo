@@ -29,7 +29,7 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
   <main x-data="customerFichaPage(<%= customerId %>)" x-init="load()">
-    <a href="/app/commercial/clientes" class="muted" style="font-size:.85rem">← Voltar para clientes</a>
+    <a href="/app/commercial/clientes" class="muted text-sm">← Voltar para clientes</a>
     <h1 x-text="customer.name ?? 'Cliente'"></h1>
     <p class="muted">
       <span x-text="customer.document ?? ''"></span>
@@ -54,8 +54,8 @@
     <section class="panel">
       <h2>Conceder crédito de troca</h2>
       <div class="toolbar">
-        <input type="text" placeholder="Valor (R$)" x-model="creditForm.amountCents" @input="creditForm.amountCents = maskMoney(creditForm.amountCents)" style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
-        <input type="text" placeholder="Motivo (opcional)" x-model="creditForm.reason" style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+        <input type="text" placeholder="Valor (R$)" x-model="creditForm.amountCents" @input="creditForm.amountCents = maskMoney(creditForm.amountCents)" class="input-search" />
+        <input type="text" placeholder="Motivo (opcional)" x-model="creditForm.reason" class="input-search" />
         <button class="btn" @click="grantCredit()" x-text="savingCredit ? 'Salvando…' : 'Conceder'"></button>
         <span class="error" x-text="creditError"></span>
       </div>
@@ -78,7 +78,7 @@
     <section class="panel">
       <h2>Histórico de compras</h2>
       <table>
-        <thead><tr><th>#</th><th>Data</th><th>Status</th><th>Forma</th><th style="text-align:right">Total</th></tr></thead>
+        <thead><tr><th>#</th><th>Data</th><th>Status</th><th>Forma</th><th class="text-right">Total</th></tr></thead>
         <tbody>
           <template x-for="s in purchases" :key="s.id">
             <tr>
@@ -86,7 +86,7 @@
               <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
               <td><span class="badge" :class="s.status === 'concluida' ? 'ok' : 'off'" x-text="s.status"></span></td>
               <td class="muted" x-text="s.payment_method"></td>
-              <td style="text-align:right" x-text="brl(s.total_cents)"></td>
+              <td class="text-right" x-text="brl(s.total_cents)"></td>
             </tr>
           </template>
           <tr x-show="!purchases.length"><td colspan="5" class="muted">Nenhuma compra registrada.</td></tr>
@@ -97,15 +97,15 @@
     <section class="panel">
       <h2>Histórico financeiro</h2>
       <table>
-        <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th style="text-align:right">Valor</th><th></th></tr></thead>
+        <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th class="text-right">Valor</th><th></th></tr></thead>
         <tbody>
           <template x-for="r in receivables" :key="r.id">
             <tr>
               <td x-text="r.description"></td>
               <td class="muted" x-text="fmtDate(r.due_date)"></td>
               <td><span class="badge" :class="r.status === 'recebida' ? 'ok' : (r.status === 'cancelada' ? 'off' : '')" x-text="r.status"></span></td>
-              <td style="text-align:right" x-text="brl(r.amount_cents)"></td>
-              <td style="text-align:right">
+              <td class="text-right" x-text="brl(r.amount_cents)"></td>
+              <td class="text-right">
                 <% if (user.permissions.has('finance.receivables.receive')) { %>
                 <button class="btn small" x-show="r.status === 'aberta'" @click="openSettle(r)">Receber</button>
                 <% } %>

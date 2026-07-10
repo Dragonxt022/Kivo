@@ -31,7 +31,7 @@
 }">
 <% if (user) { %>
 <div x-show="licenseStatus && licenseStatus.plan === 'trial' && licenseStatus.status !== 'expirada'" x-cloak
-     style="background:var(--warning-bg);color:var(--warning-text);text-align:center;padding:.45rem 1rem;font-size:.85rem;font-weight:600">
+     class="muted-block" style="background:var(--warning-bg);color:var(--warning-text);text-align:center;padding:.45rem 1rem;font-size:.85rem;font-weight:600">
   Período de teste —
   <span x-text="licenseStatus && licenseStatus.daysRemaining != null ? (licenseStatus.daysRemaining > 0 ? `faltam ${licenseStatus.daysRemaining} dia(s)` : 'expira hoje') : ''"></span>
 </div>
@@ -51,7 +51,7 @@
   <% if (user) { %>
   <div class="nav-end">
     <span :title="!cloudStatus.configured ? 'Licença não configurada' : (cloudStatus.online ? 'Conectado à nuvem' : 'Sem conexão com a nuvem')"
-          style="display:inline-flex;align-items:center;padding:.3rem;color:var(--text-muted)"
+          class="flex-center" style="padding:.3rem;color:var(--text-muted)"
           :style="{ color: !cloudStatus.configured ? 'var(--text-muted)' : (cloudStatus.online ? 'var(--primary)' : 'var(--danger)') }">
       <template x-if="cloudStatus.configured && cloudStatus.online">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
@@ -66,7 +66,7 @@
         </svg>
       </template>
     </span>
-    <button class="user" @mousedown.prevent @click="userOpen = true" style="cursor:pointer;border:0;background:none;padding:0;color:inherit;font-size:inherit;line-height:inherit;text-align:left">
+    <button class="user btn-reset" @mousedown.prevent @click="userOpen = true">
       <span class="name"><%= user.name %></span>
       <span class="role"><%= user.roleSlug %></span>
     </button>
@@ -94,7 +94,7 @@
             display:flex;align-items:center;gap:.75rem;font-size:.88rem;box-shadow:var(--shadow-sm);max-width:90vw">
   <span>⚠ <span x-text="billingAlert ? billingAlert.count : 0"></span> cobrança(s) vencendo em até 3 dias</span>
   <a href="/admin/cobrancas" style="color:inherit;font-weight:600;text-decoration:underline">ver</a>
-  <button @click="billingAlert = null" style="background:none;border:0;color:inherit;cursor:pointer;font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
+  <button @click="billingAlert = null" class="btn-reset" style="font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
 </div>
 <% } %>
 
@@ -103,17 +103,17 @@
         x-init="$watch('licenseStatus', v => (v && v.status === 'expirada') ? $refs.licenseBlockDlg.showModal() : $refs.licenseBlockDlg.close())"
         @close.prevent="null">
   <div style="padding:1.25rem">
-    <h2 style="margin:0 0 .5rem;font-size:1.05rem">Licença expirada</h2>
-    <p style="margin:0 0 1rem;font-size:.9rem;color:var(--text-secondary)">
+    <h2 class="dialog-heading-md">Licença expirada</h2>
+    <p class="dialog-text">
       Entre em contato com o suporte para renovar sua licença e continuar usando o Katsu.
     </p>
-    <p style="margin:0 0 .25rem;font-size:.88rem" x-show="licenseStatus && licenseStatus.supportPhone">
+    <p class="dialog-text-sm" x-show="licenseStatus && licenseStatus.supportPhone">
       Telefone: <strong x-text="licenseStatus && licenseStatus.supportPhone"></strong>
     </p>
-    <p style="margin:0 0 1rem;font-size:.88rem" x-show="licenseStatus && licenseStatus.supportEmail">
+    <p class="dialog-text-md" x-show="licenseStatus && licenseStatus.supportEmail">
       E-mail: <strong x-text="licenseStatus && licenseStatus.supportEmail"></strong>
     </p>
-    <button class="btn secondary" style="width:100%"
+    <button class="btn secondary btn-full"
             @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/')">Sair</button>
   </div>
 </dialog>
@@ -122,17 +122,17 @@
 <% if (user && user.permissions.has('finance.cash.view')) { %>
 <dialog x-ref="cashAlertDlg" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:360px;max-width:90vw"
         x-init="$watch('cashAlert', v => v ? $refs.cashAlertDlg.showModal() : null)">
-  <div style="padding:1.25rem;text-align:center">
-    <div style="width:44px;height:44px;border-radius:50%;background:var(--warning-bg, var(--primary-bg));display:grid;place-items:center;margin:0 auto .75rem">
+  <div class="dialog-body-center" style="padding:1.25rem">
+    <div class="dialog-icon-sm dialog-icon-warning">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
     </div>
-    <h2 style="margin:0 0 .5rem;font-size:1.05rem">Caixa aberto há mais de 24h</h2>
-    <p style="margin:0 0 1.25rem;font-size:.9rem;color:var(--text-secondary)">
+    <h2 class="dialog-heading-md">Caixa aberto há mais de 24h</h2>
+    <p class="dialog-muted-sm">
       Não esqueça de fechar o caixa. Deixá-lo aberto por muito tempo dificulta a conferência dos valores.
     </p>
-    <div class="actions" style="justify-content:center">
+    <div class="actions actions-center">
       <button class="btn secondary" @click="cashAlert = null; $refs.cashAlertDlg.close()">Depois</button>
       <button class="btn" @click="location.href = '/app/finance/caixa'">Ir para o Caixa</button>
     </div>
@@ -145,29 +145,29 @@
         x-init="$watch('userOpen', v => v ? $refs.userDlg.showModal() : $refs.userDlg.close())"
         @close.prevent="userOpen = false"
         @click="$event.target === $el && (userOpen = false)">
-  <div style="padding:1rem 1rem .5rem;border-bottom:1px solid var(--border-light);display:flex;align-items:center;gap:.75rem">
+  <div class="flex-center" style="padding:1rem 1rem .5rem;border-bottom:1px solid var(--border-light)">
     <div style="width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:600;font-size:1rem"><%= user.name.charAt(0).toUpperCase() %></div>
     <div>
       <div style="font-weight:600;font-size:.95rem"><%= user.name %></div>
-      <div style="font-size:.8rem;color:var(--text-muted)"><%= user.roleSlug %></div>
+      <div class="text-xs" style="color:var(--text-muted)"><%= user.roleSlug %></div>
     </div>
   </div>
   <div style="padding:.4rem">
-    <button @click="window.changePasswordDlg(); userOpen = false" style="display:flex;align-items:center;gap:.6rem;width:100%;padding:.5rem .65rem;border:0;border-radius:8px;background:transparent;color:var(--text);cursor:pointer;font-size:.88rem"
+    <button @click="window.changePasswordDlg(); userOpen = false" class="menu-item"
             @mouseenter="$el.style.background='var(--surface-hover)'" @mouseleave="$el.style.background='transparent'">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
       </svg>
       Trocar senha
     </button>
-    <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/?login=1')" style="display:flex;align-items:center;gap:.6rem;width:100%;padding:.5rem .65rem;border:0;border-radius:8px;background:transparent;color:var(--text);cursor:pointer;font-size:.88rem"
+    <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/?login=1')" class="menu-item"
             @mouseenter="$el.style.background='var(--surface-hover)'" @mouseleave="$el.style.background='transparent'">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
       </svg>
       Trocar usuário
     </button>
-    <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/')" style="display:flex;align-items:center;gap:.6rem;width:100%;padding:.5rem .65rem;border:0;border-radius:8px;background:transparent;color:var(--danger);cursor:pointer;font-size:.88rem"
+    <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/')" class="menu-item" style="color:var(--danger)"
             @mouseenter="$el.style.background='var(--surface-hover)'" @mouseleave="$el.style.background='transparent'">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
         <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>

@@ -1,15 +1,15 @@
 <dialog id="confirm-dlg">
-  <div style="text-align:center;padding:.5rem 0">
-    <div style="width:48px;height:48px;border-radius:50%;background:var(--danger-bg);display:grid;place-items:center;margin:0 auto 1rem">
+  <div class="dialog-body-center">
+    <div class="dialog-icon dialog-icon-danger">
       <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
         <circle cx="12" cy="12" r="10"/>
         <line x1="12" y1="8" x2="12" y2="12"/>
         <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
     </div>
-    <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.25rem">Confirmar</h2>
-    <p id="confirm-msg" style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.25rem"></p>
-    <div class="actions" style="justify-content:center">
+    <h2 class="dialog-heading-sm">Confirmar</h2>
+    <p id="confirm-msg" class="dialog-muted"></p>
+    <div class="actions actions-center">
       <button class="btn secondary" onclick="__confirm(false)">Cancelar</button>
       <button class="btn" onclick="__confirm(true)">Confirmar</button>
     </div>

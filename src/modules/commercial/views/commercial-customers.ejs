@@ -18,7 +18,7 @@
         <button class="btn" @click="openNew()">Novo cliente</button>
       <% } %>
       <input type="text" placeholder="Buscar…" x-model="q" @input.debounce.400ms="load()"
-             style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+             class="input-search" />
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -40,7 +40,7 @@
             <td class="muted" x-text="r.email ?? '—'"></td>
             <td x-text="brl(r.store_credit_cents)"></td>
             <td x-text="r.loyalty_points ?? 0"></td>
-            <td style="text-align:right" @click.stop>
+            <td class="text-right" @click.stop>
               <div class="dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -17,11 +17,11 @@
 
     <template x-if="!open">
       <div>
-        <p class="muted" style="margin-bottom:1rem">Nenhum caixa aberto.</p>
+        <p class="muted muted-block">Nenhum caixa aberto.</p>
         <% if (user.permissions.has('finance.cash.open')) { %>
         <div class="toolbar">
           <input type="text" placeholder="Fundo de troco (R$)" x-model="opening" @input="opening = maskMoney(opening)"
-                 style="padding:.5rem .8rem;border-radius:8px;border:1px solid var(--border-light);background:var(--surface-hover);color:var(--text)" />
+                 class="input-search" />
           <button class="btn" @click="openCash()">Abrir caixa</button>
           <span class="error" x-text="error"></span>
         </div>
@@ -85,7 +85,7 @@
     </dialog>
 
     <template x-if="history.length">
-      <div style="margin-top:2rem">
+      <div class="mt-2">
         <h2>Histórico de fechamentos</h2>
         <table>
           <thead><tr><th>Aberto em</th><th>Fechado em</th><th>Esperado</th><th>Contado</th><th>Diferença</th><th>Status</th><th></th></tr></thead>
@@ -102,10 +102,10 @@
                 </td>
                 <td>
                   <span class="badge" :class="r.status === 'aberto' ? 'off' : 'ok'" x-text="r.status"></span>
-                  <span class="badge" x-show="r.edited_at" style="background:var(--primary-bg);color:var(--primary);margin-left:.35rem"
+                  <span class="badge badge-info badge-ml" x-show="r.edited_at"
                         :title="'Editado por ' + (r.edited_by_name ?? '—') + ' em ' + fmtDateTime(r.edited_at)">editado</span>
                 </td>
-                <td style="text-align:right">
+                <td class="text-right">
                   <button class="btn secondary small" x-show="r.status === 'fechado'" @click="printReport(r.id)">Relatório</button>
                   <% if (user.permissions.has('finance.cash.edit')) { %>
                     <button class="btn secondary small" x-show="r.status === 'fechado'" @click="openEditReg(r)">Editar</button>
@@ -119,28 +119,28 @@
     </template>
 
     <dialog x-ref="closeResultDlg" style="width:360px">
-      <div style="text-align:center;padding:.5rem 0">
+      <div class="dialog-body-center">
         <div :style="'width:44px;height:44px;border-radius:50%;display:grid;place-items:center;margin:0 auto .75rem;background:' + (closeResult.difference === 0 ? 'var(--success-bg)' : (closeResult.difference < 0 ? 'var(--danger-bg)' : 'var(--warning-bg)'))">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"
                :stroke="closeResult.difference === 0 ? 'var(--success-text)' : (closeResult.difference < 0 ? 'var(--danger)' : 'var(--warning-text)')">
             <path d="M20 6 9 17l-5-5"/>
           </svg>
         </div>
-        <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:.75rem">Caixa fechado</h2>
+        <h2 class="dialog-heading">Caixa fechado</h2>
         <table style="width:100%;margin-bottom:.5rem">
           <tbody>
-            <tr><td class="muted">Esperado</td><td style="text-align:right"><strong x-text="brl(closeResult.expected)"></strong></td></tr>
-            <tr><td class="muted">Contado</td><td style="text-align:right"><strong x-text="brl(closeResult.counted)"></strong></td></tr>
+            <tr><td class="muted">Esperado</td><td class="text-right"><strong x-text="brl(closeResult.expected)"></strong></td></tr>
+            <tr><td class="muted">Contado</td><td class="text-right"><strong x-text="brl(closeResult.counted)"></strong></td></tr>
             <tr>
               <td class="muted">Diferença</td>
-              <td style="text-align:right">
+              <td class="text-right">
                 <strong :style="{ color: closeResult.difference < 0 ? 'var(--danger)' : closeResult.difference > 0 ? 'var(--success-text)' : '' }"
                         x-text="(closeResult.difference >= 0 ? '+' : '') + brl(closeResult.difference)"></strong>
               </td>
             </tr>
           </tbody>
         </table>
-        <div class="actions" style="justify-content:center">
+        <div class="actions actions-center">
           <button class="btn secondary" @click="printReport(closeResult.id)">Imprimir relatório completo</button>
           <button class="btn" @click="$refs.closeResultDlg.close()">OK</button>
         </div>

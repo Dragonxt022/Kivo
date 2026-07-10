@@ -30,7 +30,7 @@
             <td><span class="badge" :class="p.status === 'cancelada' ? 'off' : 'ok'" x-text="p.status"></span></td>
             <td x-text="brl(p.total_cents)"></td>
             <td class="muted" x-text="p.received_at ?? '—'"></td>
-            <td style="text-align:right">
+            <td class="text-right">
               <% if (user.permissions.has('commercial.purchases.edit')) { %>
                 <button class="btn secondary small" x-show="p.status !== 'cancelada'" @click="openEdit(p)">Editar</button>
               <% } %>
@@ -55,7 +55,7 @@
         <template x-if="!form.id">
           <div>
             <label>Adicionar item</label>
-            <div style="display:grid;grid-template-columns:1fr 80px 110px 70px;gap:.4rem;align-items:end">
+            <div class="form-grid" style="grid-template-columns:1fr 80px 110px 70px">
               <select x-model.number="item.productId">
                 <option value="">Produto…</option>
                 <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
@@ -65,9 +65,9 @@
               <button class="btn secondary" @click="addItem()">+</button>
             </div>
 
-            <div style="margin-top:.8rem;max-height:180px;overflow-y:auto">
+            <div class="scroll-box-md" style="margin-top:.8rem">
               <template x-for="(i, idx) in form.items" :key="idx">
-                <div style="display:flex;justify-content:space-between;gap:.5rem;padding:.3rem 0;font-size:.9rem">
+                <div class="form-row">
                   <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
                   <span>
                     <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
@@ -76,7 +76,7 @@
                 </div>
               </template>
             </div>
-            <p style="margin-top:.5rem;text-align:right">Total: <strong x-text="brl(total())"></strong></p>
+            <p class="text-right" style="margin-top:.5rem">Total: <strong x-text="brl(total())"></strong></p>
           </div>
         </template>
         <label>Observações</label><input type="text" x-model="form.notes" />
