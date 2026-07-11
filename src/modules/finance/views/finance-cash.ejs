@@ -20,9 +20,7 @@
         <p class="muted muted-block">Nenhum caixa aberto.</p>
         <% if (user.permissions.has('finance.cash.open')) { %>
         <div class="toolbar">
-          <input type="text" placeholder="Fundo de troco (R$)" x-model="opening" @input="opening = maskMoney(opening)"
-                 class="input-search" />
-          <button class="btn" @click="openCash()">Abrir caixa</button>
+          <button class="btn" @click="openOpenDlg()">Abrir caixa</button>
           <span class="error" x-text="error"></span>
         </div>
         <% } %>
@@ -61,6 +59,17 @@
       </div>
     </template>
 
+    <dialog x-ref="openDlg">
+      <h1>Abrir caixa</h1>
+      <label>Fundo de troco (R$)</label>
+      <input type="text" x-model="opening" placeholder="0,00" @input="opening = maskMoney(opening)" autofocus />
+      <div class="error" x-text="error"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.openDlg.close()">Cancelar</button>
+        <button class="btn" @click="openCash()">Abrir</button>
+      </div>
+    </dialog>
+
     <dialog x-ref="mv">
       <h1 x-text="move.type === 'suprimento' ? 'Suprimento (entrada)' : 'Sangria (saída)'"></h1>
       <label>Valor (R$)</label><input type="text" x-model="move.amount" placeholder="0,00" @input="move.amount = maskMoney(move.amount)" />
@@ -72,12 +81,43 @@
       </div>
     </dialog>
 
-    <dialog x-ref="close">
+    <dialog x-ref="close" class="dialog-fixed">
       <h1>Fechar caixa</h1>
-      <p class="muted">Esperado: <strong x-text="brl(expected)"></strong></p>
-      <label>Valor contado na gaveta (R$)</label><input type="text" x-model="counted" placeholder="0,00" @input="counted = maskMoney(counted)" />
-      <label>Observações</label><input type="text" x-model="closeNotes" />
-      <div class="error" x-text="closeError"></div>
+      <div class="dialog-body">
+        <p class="muted">Esperado: <strong x-text="brl(expected)"></strong></p>
+
+        <label class="label-checkbox-sm" style="margin:.6rem 0">
+          <input type="checkbox" x-model="countMode" @change="counts = {}" /> Contar notas e moedas
+        </label>
+
+        <template x-if="!countMode">
+          <div>
+            <label>Valor contado na gaveta (R$)</label>
+            <input type="text" x-model="counted" placeholder="0,00" @input="counted = maskMoney(counted)" />
+          </div>
+        </template>
+
+        <template x-if="countMode">
+          <div>
+            <table>
+              <thead><tr><th>Denominação</th><th style="width:80px">Qtd.</th><th class="text-right">Subtotal</th></tr></thead>
+              <tbody>
+                <template x-for="d in denominations" :key="d.cents">
+                  <tr>
+                    <td x-text="d.label"></td>
+                    <td><input type="number" min="0" step="1" x-model.number="counts[d.cents]" style="width:70px" /></td>
+                    <td class="muted text-right" x-text="brl((counts[d.cents] || 0) * d.cents)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <p class="text-right" style="margin-top:.5rem">Total contado: <strong x-text="brl(countTotal)"></strong></p>
+          </div>
+        </template>
+
+        <label>Observações</label><input type="text" x-model="closeNotes" />
+        <div class="error" x-text="closeError"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.close.close()">Cancelar</button>
         <button class="btn" @click="closeCash()">Fechar</button>
@@ -165,10 +205,21 @@
     function cashPage() {
       return {
         open: false, expected: 0, movements: [], opening: '', counted: '', closeNotes: '',
+        countMode: false, counts: {},
+        denominations: [
+          { cents: 20000, label: 'R$ 200' }, { cents: 10000, label: 'R$ 100' }, { cents: 5000, label: 'R$ 50' },
+          { cents: 2000, label: 'R$ 20' }, { cents: 1000, label: 'R$ 10' }, { cents: 500, label: 'R$ 5' },
+          { cents: 200, label: 'R$ 2' }, { cents: 100, label: 'R$ 1' }, { cents: 50, label: 'R$ 0,50' },
+          { cents: 25, label: 'R$ 0,25' }, { cents: 10, label: 'R$ 0,10' }, { cents: 5, label: 'R$ 0,05' },
+        ],
         move: {}, history: [], editReg: {}, closeResult: {}, error: '', mvError: '', closeError: '', editRegError: '',
+        get countTotal() {
+          return this.denominations.reduce((sum, d) => sum + (Number(this.counts[d.cents]) || 0) * d.cents, 0);
+        },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         printReport(id) { if (id) window.open(`/app/finance/caixa/${id}/relatorio`, '_blank', 'width=800,height=900'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
+        openOpenDlg() { this.opening = ''; this.error = ''; this.$refs.openDlg.showModal(); },
         async load() {
           const r = await fetch('/api/finance/cash/current');
           if (!r.ok) return;
@@ -180,6 +231,13 @@
           }
           const h = await fetch('/api/finance/cash/history');
           if (h.ok) this.history = await h.json();
+          // Vindo do aviso de "caixa aberto há mais de 24h" (nav.ejs) — abre direto o fechamento,
+          // sem exigir mais um clique na tela do Caixa.
+          const params = new URLSearchParams(location.search);
+          if (params.get('fechar') === '1' && this.open) {
+            history.replaceState(null, '', location.pathname);
+            this.$refs.close.showModal();
+          }
         },
         openEditReg(r) {
           this.editReg = { id: r.id, counted: (r.counted_cents / 100).toFixed(2).replace('.', ','), notes: r.notes ?? '' };
@@ -202,7 +260,7 @@
         async openCash() {
           const r = await fetch('/api/finance/cash/open', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ openingCents: this.cents(this.opening) }) });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.$refs.openDlg.close(); this.load(); } else this.error = (await r.json()).error;
         },
         openMove(type) { this.move = { type, amount: '', description: '' }; this.mvError = ''; this.$refs.mv.showModal(); },
         async saveMove() {
@@ -211,11 +269,19 @@
           if (r.ok) { this.$refs.mv.close(); this.load(); } else this.mvError = (await r.json()).error;
         },
         async closeCash() {
+          const countedCents = this.countMode ? this.countTotal : this.cents(this.counted);
+          const body = { countedCents, notes: this.closeNotes || undefined };
+          if (this.countMode) {
+            body.countBreakdown = Object.fromEntries(
+              Object.entries(this.counts).filter(([, qty]) => Number(qty) > 0),
+            );
+          }
           const r = await fetch('/api/finance/cash/close', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ countedCents: this.cents(this.counted), notes: this.closeNotes || undefined }) });
+            body: JSON.stringify(body) });
           if (r.ok) {
             const d = await r.json();
             this.$refs.close.close();
+            this.counted = ''; this.closeNotes = ''; this.countMode = false; this.counts = {};
             this.closeResult = d;
             this.$refs.closeResultDlg.showModal();
             this.load();

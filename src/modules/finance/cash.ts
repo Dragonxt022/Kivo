@@ -35,19 +35,30 @@ export interface CashRegisterDetail {
   counted_cents: number | null;
   difference_cents: number | null;
   notes: string | null;
+  count_breakdown: Record<string, number> | null;
 }
 
 /** Dados do caixa para o relatório de fechamento (inclui nomes de quem abriu/fechou). */
 export function getRegisterById(registerId: number): CashRegisterDetail | undefined {
-  return getSqlite().prepare(
+  const row = getSqlite().prepare(
     `SELECT r.id, r.status, r.opening_cents, r.opened_at, ou.username AS opened_by_name,
             r.closed_at, cu.username AS closed_by_name, r.expected_cents, r.counted_cents,
-            r.difference_cents, r.notes
+            r.difference_cents, r.notes, r.count_breakdown
      FROM cash_registers r
      LEFT JOIN users ou ON ou.id = r.opened_by
      LEFT JOIN users cu ON cu.id = r.closed_by
      WHERE r.id = ? AND r.deleted_at IS NULL`,
-  ).get(registerId) as CashRegisterDetail | undefined;
+  ).get(registerId) as (Omit<CashRegisterDetail, 'count_breakdown'> & { count_breakdown: string | null }) | undefined;
+  if (!row) return undefined;
+  let countBreakdown: Record<string, number> | null = null;
+  if (row.count_breakdown) {
+    try {
+      countBreakdown = JSON.parse(row.count_breakdown);
+    } catch {
+      countBreakdown = null;
+    }
+  }
+  return { ...row, count_breakdown: countBreakdown };
 }
 
 export function registerTotals(registerId: number): { entradas: number; saidas: number } {
@@ -107,6 +118,7 @@ export function closeRegister(
   req: Request,
   countedCents: number,
   notes?: string,
+  countBreakdown?: Record<string, number>,
 ): { ok: true; id: number; expected: number; counted: number; difference: number } | { ok: false; error: string } {
   const reg = currentRegister();
   if (!reg) return { ok: false, error: 'Nenhum caixa aberto.' };
@@ -114,14 +126,15 @@ export function closeRegister(
 
   const expected = expectedCents(reg.id);
   const difference = countedCents - expected;
+  const breakdownJson = countBreakdown && Object.keys(countBreakdown).length ? JSON.stringify(countBreakdown) : null;
   getSqlite()
     .prepare(
       `UPDATE cash_registers SET status = 'fechado', closed_by = ?, closed_at = datetime('now'),
          expected_cents = ?, counted_cents = ?, difference_cents = ?, notes = COALESCE(?, notes),
-         updated_at = datetime('now')
+         count_breakdown = ?, updated_at = datetime('now')
        WHERE id = ?`,
     )
-    .run(req.user!.id, expected, countedCents, difference, notes ?? null, reg.id);
+    .run(req.user!.id, expected, countedCents, difference, notes ?? null, breakdownJson, reg.id);
   audit(req, 'caixa_fechar', 'cash_register', reg.id, { expected }, { counted: countedCents, difference });
   return { ok: true, id: reg.id, expected, counted: countedCents, difference };
 }

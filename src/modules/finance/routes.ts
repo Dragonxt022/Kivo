@@ -133,7 +133,10 @@ router.post('/cash/close', requirePermission('finance.cash.close'), (req, res) =
     res.status(400).json({ error: 'Informe countedCents (valor contado na gaveta).' });
     return;
   }
-  const result = closeRegister(req, Math.round(req.body.countedCents), req.body?.notes);
+  // Contagem por denominação é opcional (só quando o operador escolhe contar notas/moedas no fechamento).
+  const countBreakdown =
+    req.body?.countBreakdown && typeof req.body.countBreakdown === 'object' ? req.body.countBreakdown : undefined;
+  const result = closeRegister(req, Math.round(req.body.countedCents), req.body?.notes, countBreakdown);
   if (!result.ok) {
     res.status(400).json(result);
     return;
