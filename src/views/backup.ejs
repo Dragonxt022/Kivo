@@ -38,6 +38,9 @@
               <% if (user.permissions.has('backup.restore')) { %>
                 <button class="btn small" @click="restore(b.id)">Restaurar</button>
               <% } %>
+              <% if (user.permissions.has('backup.delete')) { %>
+                <button class="btn danger small" @click="removeBackup(b.id)">Excluir</button>
+              <% } %>
             </td>
           </tr>
         </template>
@@ -69,6 +72,9 @@
                 <% if (user.permissions.has('backup.restore')) { %>
                   <button class="btn secondary small" @click="downloadAndRestore(cb)" :disabled="downloadingUuid === cb.uuid"
                           x-text="downloadingUuid === cb.uuid ? 'Baixando…' : 'Baixar e restaurar'"></button>
+                <% } %>
+                <% if (user.permissions.has('backup.delete')) { %>
+                  <button class="btn danger small" @click="removeCloudBackup(cb)">Excluir da nuvem</button>
                 <% } %>
               </td>
             </tr>
@@ -104,6 +110,20 @@
           this.notice = '';
           const r = await fetch(`/api/backup/${id}/restore`, { method: 'POST' });
           if (r.ok) this.notice = 'Backup restaurado com sucesso.'; else this.error = (await r.json()).error ?? 'Falha na restauração.';
+        },
+        async removeBackup(id) {
+          if (!await window.confirmDlg('Excluir este backup? Esta ação não pode ser desfeita. Se ele também estiver na nuvem, a cópia na nuvem também será excluída.')) return;
+          this.notice = ''; this.error = '';
+          const r = await fetch(`/api/backup/${id}`, { method: 'DELETE' });
+          if (r.ok) { this.notice = 'Backup excluído.'; this.load(); }
+          else this.error = (await r.json()).error ?? 'Falha ao excluir backup.';
+        },
+        async removeCloudBackup(cb) {
+          if (!await window.confirmDlg('Excluir este backup da nuvem? Esta ação não pode ser desfeita.')) return;
+          this.notice = ''; this.error = '';
+          const r = await fetch(`/api/backup/cloud/${cb.uuid}`, { method: 'DELETE' });
+          if (r.ok) { this.notice = 'Backup da nuvem excluído.'; this.load(); }
+          else this.error = (await r.json()).error ?? 'Falha ao excluir backup da nuvem.';
         },
         async downloadAndRestore(cb) {
           if (!await window.confirmDlg('Baixar este backup da nuvem e restaurar? Os dados atuais desta máquina serão substituídos.')) return;

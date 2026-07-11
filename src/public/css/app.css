@@ -500,6 +500,17 @@ dialog.dialog-fixed > .dialog-body {
 dialog.dialog-fixed > .actions {
   flex-shrink: 0; position: static; border-top: 1px solid var(--border-light); margin-top: 1rem; padding-top: 1rem;
 }
+/* Dialog em 2 colunas (ex.: cadastro de produto — campos à esquerda, foto/sugestões à direita) */
+dialog.product-modal {
+  width: min(760px, calc(100vw - 2rem));
+}
+dialog.product-modal > .dialog-body {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; align-content: start;
+}
+.product-col { display: flex; flex-direction: column; min-width: 0; }
+@media (max-width: 720px) {
+  dialog.product-modal > .dialog-body { grid-template-columns: 1fr; }
+}
 
 /* ─── Input states ─── */
 .input-error { border-color: var(--danger) !important; }
@@ -764,10 +775,6 @@ dialog.dialog-fixed > .actions {
 .product-image-preview img { width: 100%; height: 100%; object-fit: cover; }
 .product-image-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
 .hidden-file-input { display: none; }
-.product-image-search {
-  margin: .3rem 0 .6rem; padding: .7rem; border-radius: var(--radius);
-  background: var(--surface-hover); border: 1.5px solid var(--border-light);
-}
 .product-image-suggestions { display: flex; gap: .5rem; margin-top: .5rem; flex-wrap: wrap; }
 .product-image-suggestion {
   display: flex; flex-direction: column; align-items: center; gap: .3rem;

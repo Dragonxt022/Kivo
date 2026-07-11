@@ -96,6 +96,33 @@ export function listBackups() {
     .all();
 }
 
+/**
+ * Exclui um backup local (arquivo + linha). Se ele já tiver sido enviado à nuvem
+ * (`uploaded_at` preenchido), tenta apagar a cópia lá também — best-effort: falha de
+ * rede não impede a exclusão local, que já é o efeito principal pedido pelo usuário.
+ */
+export async function deleteBackup(backupId: number): Promise<{ ok: boolean; error?: string }> {
+  const row = getSqlite().prepare('SELECT file_path, uuid, uploaded_at FROM backups WHERE id = ?').get(backupId) as
+    | { file_path: string; uuid: string; uploaded_at: string | null }
+    | undefined;
+  if (!row) return { ok: false, error: 'Backup não encontrado.' };
+
+  if (row.uploaded_at) {
+    try {
+      await deleteCloudBackup(row.uuid);
+    } catch (e) {
+      console.error('[backup] falha ao excluir cópia na nuvem (mantém a exclusão local):', e);
+    }
+  }
+  try {
+    if (fs.existsSync(row.file_path)) fs.unlinkSync(row.file_path);
+  } catch {
+    // arquivo já não existe — segue a exclusão do registro mesmo assim
+  }
+  getSqlite().prepare('DELETE FROM backups WHERE id = ?').run(backupId);
+  return { ok: true };
+}
+
 function cloudBaseUrl(): string | null {
   const url = getCloudServerUrl();
   return url ? url.replace(/\/$/, '') : null;
@@ -150,6 +177,18 @@ export async function listCloudBackups(): Promise<CloudBackupInfo[]> {
   const res = await fetch(`${base}/api/backup`, { headers: auth });
   if (!res.ok) throw new Error(`Falha ao listar backups da nuvem: ${res.status} ${await res.text()}`);
   return (await res.json()) as CloudBackupInfo[];
+}
+
+/** Exclui um backup da nuvem (usado tanto pela exclusão em cascata de `deleteBackup` quanto pela lista "Backups na nuvem"). */
+export async function deleteCloudBackup(cloudUuid: string): Promise<void> {
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  if (!base || !auth) return; // sem nuvem configurada, nada a fazer
+
+  const res = await fetch(`${base}/api/backup/${cloudUuid}`, { method: 'DELETE', headers: auth });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Falha ao excluir backup da nuvem: ${res.status} ${await res.text()}`);
+  }
 }
 
 /**

@@ -16,6 +16,7 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'backup.view', description: 'Visualizar histórico de backups' },
   { key: 'backup.run', description: 'Executar backup manual' },
   { key: 'backup.restore', description: 'Restaurar backup' },
+  { key: 'backup.delete', description: 'Excluir backup (local e, se enviado, na nuvem)' },
   { key: 'license.view', description: 'Visualizar licença' },
   { key: 'license.edit', description: 'Alterar licença' },
   { key: 'sync.run', description: 'Executar sincronização manual com a nuvem' },

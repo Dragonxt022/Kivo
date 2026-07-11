@@ -216,9 +216,36 @@ router.get('/products/image-search', requirePermission('commercial.products.view
       return;
     }
     const results = (await r.json()) as { id: number; name: string; url: string }[];
-    res.json({ results: results.map((it) => ({ id: it.id, name: it.name, url: base + it.url })) });
+    // URL local, não a da nuvem direto: <img src> não consegue mandar os headers
+    // X-Katsu-Company/X-Katsu-License-Key exigidos por /api/catalog/image — só o
+    // servidor local tem essas credenciais, então ele faz o proxy dos bytes.
+    res.json({ results: results.map((it) => ({ id: it.id, name: it.name, url: `/api/commercial/products/catalog-image/${it.id}` })) });
   } catch {
     res.json({ results: [], offline: true });
+  }
+});
+
+/** Proxy dos bytes da imagem aprovada do Cloud — evita expor as credenciais da licença ao navegador. */
+router.get('/products/catalog-image/:id', requirePermission('commercial.products.view'), async (req, res) => {
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  if (!base || !auth) {
+    res.status(404).end();
+    return;
+  }
+  try {
+    const r = await fetch(`${base}/api/catalog/image/${encodeURIComponent(String(req.params.id))}`, {
+      headers: auth, signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) {
+      res.status(r.status).end();
+      return;
+    }
+    res.setHeader('Content-Type', r.headers.get('content-type') ?? 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch {
+    res.status(502).end();
   }
 });
 

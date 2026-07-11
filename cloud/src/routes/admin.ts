@@ -313,23 +313,32 @@ interface CatalogImageRow {
   created_at: string;
 }
 
-router.get('/catalog', requireAdminAuth, async (_req, res) => {
+router.get('/catalog', requireAdminAuth, async (req, res) => {
   const pool = getPool();
-  const [pending] = await pool.query(
+  const activeStatus = req.query.status === 'aprovada' ? 'aprovada' : 'pendente';
+  const orderBy = activeStatus === 'aprovada' ? 'reviewed_at DESC' : 'created_at ASC';
+  const [images] = await pool.query(
     `SELECT id, company_uuid, product_name, keywords, image_path, format, width, height, size_bytes, status, source, created_at
-     FROM catalog_images WHERE status = 'pendente' ORDER BY created_at ASC`,
+     FROM catalog_images WHERE status = ? ORDER BY ${orderBy}`,
+    [activeStatus],
   );
   const [statsRows] = await pool.query(
     `SELECT
        SUM(status = 'pendente') AS pending,
        SUM(status = 'aprovada') AS approved,
-       SUM(status = 'rejeitada') AS rejected
+       SUM(status = 'rejeitada') AS rejected,
+       -- rejeitada não soma: o arquivo já foi apagado do disco na rejeição, só sobra a linha (tombstone anti-duplicata)
+       SUM(CASE WHEN status IN ('pendente', 'aprovada') THEN size_bytes ELSE 0 END) AS storage_bytes
      FROM catalog_images`,
   );
-  const stats = (statsRows as { pending: number | null; approved: number | null; rejected: number | null }[])[0];
+  const stats = (statsRows as { pending: number | null; approved: number | null; rejected: number | null; storage_bytes: number | null }[])[0];
   res.render('catalog-queue', {
-    pending: pending as CatalogImageRow[],
-    stats: { pending: stats?.pending ?? 0, approved: stats?.approved ?? 0, rejected: stats?.rejected ?? 0 },
+    images: images as CatalogImageRow[],
+    activeStatus,
+    stats: {
+      pending: stats?.pending ?? 0, approved: stats?.approved ?? 0, rejected: stats?.rejected ?? 0,
+      storageBytes: stats?.storage_bytes ?? 0,
+    },
     error: null,
   });
 });
@@ -352,7 +361,7 @@ router.post('/catalog/:id/approve', requireAdminAuth, async (req: AdminRequest, 
     "UPDATE catalog_images SET status = 'aprovada', reviewed_by = ?, reviewed_at = NOW(3) WHERE id = ? AND status = 'pendente'",
     [req.adminUsername, req.params.id],
   );
-  res.redirect('/admin/catalog');
+  res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
 });
 
 /**
@@ -376,7 +385,7 @@ router.post('/catalog/:id/reject', requireAdminAuth, async (req: AdminRequest, r
       [req.adminUsername, req.params.id],
     );
   }
-  res.redirect('/admin/catalog');
+  res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
 });
 
 /**

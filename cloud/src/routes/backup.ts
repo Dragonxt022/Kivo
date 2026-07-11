@@ -82,4 +82,28 @@ router.get('/:uuid/download', requireCompanyAuth, async (req: AuthedRequest, res
   res.send(fs.readFileSync(row.storage_path));
 });
 
+/**
+ * Exclusão não passa pelo gate de plano (requireCloudSavePlan): é limpeza dos próprios
+ * dados da empresa, não um recurso "salvar na nuvem" — qualquer plano autenticado pode
+ * apagar o que é seu.
+ */
+router.delete('/:uuid', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const [rows] = await getPool().query(
+    'SELECT storage_path FROM cloud_backups WHERE company_uuid = ? AND uuid = ?',
+    [req.companyUuid, req.params.uuid],
+  );
+  const row = (rows as { storage_path: string }[])[0];
+  if (!row) {
+    res.status(404).json({ error: 'Backup não encontrado na nuvem.' });
+    return;
+  }
+  try {
+    fs.unlinkSync(row.storage_path);
+  } catch {
+    // arquivo já não existe — segue a exclusão do registro mesmo assim
+  }
+  await getPool().query('DELETE FROM cloud_backups WHERE company_uuid = ? AND uuid = ?', [req.companyUuid, req.params.uuid]);
+  res.json({ ok: true });
+});
+
 export default router;

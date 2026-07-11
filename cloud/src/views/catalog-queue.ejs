@@ -10,11 +10,22 @@
     .catalog-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-light); background: var(--surface-hover); }
     .catalog-meta { font-size: 0.78rem; color: var(--muted); }
     .catalog-actions-cell { display: flex; gap: 8px; justify-content: flex-end; }
+    .catalog-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .catalog-tabs a:hover { text-decoration: none; }
     #manual-upload-preview { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin-bottom: 12px; display: none; background: var(--surface-hover); }
   </style>
 </head>
 <body>
   <%- include('partials/navbar', { active: 'catalog' }) %>
+
+  <%
+    function formatBytes(n) {
+      if (!n) return '0 KB';
+      if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
+      if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+      return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+  %>
 
   <div class="page">
     <div class="page-header">
@@ -26,7 +37,8 @@
       <div class="stat-row">
         <div class="stat"><div class="value"><%= stats.pending %></div><div class="label">Pendentes</div></div>
         <div class="stat"><div class="value"><%= stats.approved %></div><div class="label">Aprovadas</div></div>
-        <div class="stat"><div class="value"><%= stats.rejected %></div><div class="label">Rejeitadas (histórico desta sessão)</div></div>
+        <div class="stat"><div class="value"><%= stats.rejected %></div><div class="label">Rejeitadas (histórico)</div></div>
+        <div class="stat"><div class="value"><%= formatBytes(stats.storageBytes) %></div><div class="label">Espaço em disco</div></div>
       </div>
     </div>
 
@@ -34,29 +46,46 @@
       <div class="error-banner"><%= error %></div>
     <% } %>
 
+    <div class="catalog-tabs">
+      <a href="/admin/catalog?status=pendente" class="btn secondary <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
+      <a href="/admin/catalog?status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
+    </div>
+
     <div class="card" style="padding: 0;">
       <table>
-        <thead><tr><th></th><th>Produto</th><th>Origem</th><th>Detalhes</th><th>Enviada em</th><th></th></tr></thead>
+        <thead><tr>
+          <th></th><th>Produto</th><th>Origem</th><th>Detalhes</th>
+          <th><%= activeStatus === 'aprovada' ? 'Aprovada em' : 'Enviada em' %></th><th></th>
+        </tr></thead>
         <tbody>
-          <% pending.forEach(function(img) { %>
+          <% images.forEach(function(img) { %>
           <tr>
             <td><img class="catalog-thumb" src="/admin/catalog/<%= img.id %>/image" alt="<%= img.product_name %>"></td>
             <td><%= img.product_name %></td>
-            <td class="catalog-meta"><%= img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—' %></td>
-            <td class="catalog-meta"><%= img.width %>×<%= img.height %>px · <%= Math.round(img.size_bytes / 1024) %>KB · <%= img.format %></td>
+            <td class="catalog-meta"><%= img.source === 'manual' ? 'Manual' : (img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—') %></td>
+            <td class="catalog-meta"><%= img.width %>×<%= img.height %>px · <%= formatBytes(img.size_bytes) %> · <%= img.format %></td>
             <td class="catalog-meta"><%= img.created_at %></td>
             <td class="catalog-actions-cell">
-              <form method="post" action="/admin/catalog/<%= img.id %>/approve" class="inline">
-                <button type="submit" class="btn small">Aprovar</button>
-              </form>
-              <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Rejeitar e excluir esta imagem?')">
-                <button type="submit" class="btn danger small">Rejeitar</button>
-              </form>
+              <% if (activeStatus === 'pendente') { %>
+                <form method="post" action="/admin/catalog/<%= img.id %>/approve" class="inline">
+                  <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
+                  <button type="submit" class="btn small">Aprovar</button>
+                </form>
+                <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Rejeitar e excluir esta imagem?')">
+                  <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
+                  <button type="submit" class="btn danger small">Rejeitar</button>
+                </form>
+              <% } else { %>
+                <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Remover esta imagem do catálogo aprovado?')">
+                  <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
+                  <button type="submit" class="btn danger small">Remover do catálogo</button>
+                </form>
+              <% } %>
             </td>
           </tr>
           <% }) %>
-          <% if (!pending.length) { %>
-          <tr><td colspan="6" class="empty-state">Nenhuma imagem pendente de curadoria.</td></tr>
+          <% if (!images.length) { %>
+          <tr><td colspan="6" class="empty-state"><%= activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.' %></td></tr>
           <% } %>
         </tbody>
       </table>
