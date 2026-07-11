@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
+import fs from 'node:fs';
 import path from 'node:path';
 import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
 import type { LoadedModule } from './modules/types';
@@ -39,6 +40,11 @@ export async function createServer(): Promise<KatsuServer> {
 
   app.set('view engine', 'ejs');
   app.set('views', coreViews);
+
+  // Disponível em toda view (app.locals é mesclado automaticamente pelo EJS) — evita
+  // número de versão hardcoded e divergente em cada tela que precisa exibi-lo.
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
+  app.locals.appVersion = pkg.version;
 
   // Limite maior que o padrão (100kb): fotos de produto viajam como base64 no corpo JSON
   // (ver modules/commercial/routes.ts) — servidor local/Electron, não exposto à internet.

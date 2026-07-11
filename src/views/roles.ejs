@@ -54,7 +54,7 @@
           <h2 class="muted" style="font-size:.9rem;margin:.6rem 0 .3rem;text-transform:uppercase;letter-spacing:.03em" x-text="mod"></h2>
           <template x-for="p in byModule[mod]" :key="p.key">
             <label class="label-checkbox" style="padding:.25rem 0;font-size:.9rem">
-              <input type="checkbox" :value="p.key" x-model="selected" style="width:auto" />
+              <input type="checkbox" :value="p.key" x-model="selected" />
               <span x-text="p.description"></span>
               <span class="muted text-xs" style="font-size:.75rem" x-text="p.key"></span>
             </label>

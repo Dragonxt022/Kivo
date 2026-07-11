@@ -1,0 +1,338 @@
+/* `main` segue a regra global (mesma largura do header.nav, 1100px) — sem exceção aqui,
+   pra bordas do PDV baterem com a barra do topo como nas outras telas. */
+.pdv { display: grid; grid-template-columns: 62fr 38fr; gap: 1.25rem; align-items: start; }
+/* Só ajusta align-items (não redefine display) — .pdv precisa continuar `grid`, senão
+   perde as colunas 62/38 e cada coluna encolhe pro tamanho do conteúdo. */
+.container-pai { align-items: stretch; }
+.card-resumo {
+  height: 100%; display: flex; flex-direction: column;
+  /* Se quiser que o botão "Finalizar venda" fique sempre colado no rodapé: */
+  justify-content: space-between;
+}
+
+/* ─── Coluna da Esquerda ─── */
+.pdv-left { display: flex; flex-direction: column; gap: .75rem; }
+
+/* ─── Barra de abas de venda simultânea ─── */
+.sale-tabs-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap;
+  background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius);
+  padding: .5rem; box-shadow: var(--shadow-xs);
+}
+.sale-tabs { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.sale-tab {
+  display: flex; align-items: center; gap: .55rem; background: var(--surface-hover);
+  border: 1.5px solid var(--border-light); border-bottom: 2.5px solid transparent; border-radius: 9px; padding: .4rem .7rem;
+  cursor: pointer; color: var(--text-secondary);
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+.sale-tab svg { flex-shrink: 0; }
+.sale-tab-info { display: flex; flex-direction: column; line-height: 1.25; }
+.sale-tab-name { font-size: .85rem; font-weight: 700; }
+.sale-tab-count { font-size: .7rem; color: var(--text-muted); }
+.sale-tab:hover { border-color: var(--primary); color: var(--primary); }
+.sale-tab.active { border-color: var(--primary); border-bottom-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+.sale-tab.active .sale-tab-count { color: var(--primary); opacity: .8; }
+.sale-tab .close-tab { border: 0; background: transparent; color: inherit; opacity: .6; cursor: pointer; display: grid; place-items: center; padding: 0; margin-left: .2rem; }
+.sale-tab .close-tab:hover { opacity: 1; }
+.sale-tab-add-btn {
+  display: flex; align-items: center; gap: .4rem;
+  border: 1.5px solid var(--border-light); background: var(--surface); border-radius: 9px; color: var(--text-secondary);
+  padding: .55rem .9rem; font-size: .85rem; font-weight: 600; cursor: pointer;
+  transition: border-color var(--transition), color var(--transition);
+}
+.sale-tab-add-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ─── Busca ─── */
+.pdv-search { position: relative; z-index: 10; }
+.pdv-search-box {
+  display: flex; align-items: center; gap: .6rem;
+  border-radius: var(--radius); border: 2px solid var(--border-light);
+  background: var(--surface); box-shadow: var(--shadow-xs); padding: 0 .4rem 0 1.1rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.pdv-search-box:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent), var(--shadow-sm);
+}
+.pdv-search-box .search-icon { color: var(--text-muted); flex-shrink: 0; }
+.pdv-search-box input {
+  flex: 1; min-width: 0; font-size: 1.1rem; padding: .8rem 0;
+  border: 0; background: transparent; color: var(--text);
+}
+.pdv-search-box input:focus { outline: none; box-shadow: none; }
+.pdv-search-box input::placeholder { color: var(--text-muted); }
+.pdv-search-scan-btn {
+  border: 0; background: var(--surface-hover); border-radius: 8px; color: var(--text-muted);
+  width: 40px; height: 40px; flex-shrink: 0; cursor: pointer; display: grid; place-items: center;
+  transition: background var(--transition), color var(--transition);
+}
+.pdv-search-scan-btn:hover { background: var(--primary-bg); color: var(--primary); }
+
+/* ─── Dropdown de resultados ─── */
+.pdv-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1.5px solid var(--border-light);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  max-height: 45vh; overflow-y: auto; z-index: 50;
+}
+.pdv-result {
+  display: grid; grid-template-columns: 38px 1fr auto auto; gap: .75rem; align-items: center;
+  padding: .7rem .9rem; cursor: pointer; border-bottom: 1px solid var(--border-light);
+  transition: background var(--transition);
+}
+.pdv-result:last-child { border-bottom: 0; }
+.pdv-result:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.pdv-result-thumb {
+  width: 36px; height: 36px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
+  background: var(--surface-hover); border: 1px solid var(--border-light);
+  display: grid; place-items: center; color: var(--text-muted);
+}
+.pdv-result-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.pdv-result .name { font-weight: 600; font-size: .95rem; color: var(--text); }
+.pdv-result .price { font-weight: 700; font-size: .95rem; color: var(--primary); white-space: nowrap; }
+.pdv-result .stock {
+  font-size: .78rem; color: var(--text-muted); white-space: nowrap; text-align: right;
+}
+.pdv-result .stock.low { color: var(--danger); }
+.pdv-result .stock.negative { color: var(--danger); }
+.pdv-result.highlight { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.pdv-empty { padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
+[x-cloak] { display: none !important; }
+
+/* ─── Modal: consultar produtos ─── */
+.pdv-browse-cats { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
+.pdv-cat-chip {
+  border: 1.5px solid var(--border-light); background: var(--surface-hover); color: var(--text-secondary);
+  border-radius: 999px; padding: .35rem .85rem; font-size: .82rem; font-weight: 600; cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+.pdv-cat-chip:hover { border-color: var(--primary); color: var(--primary); }
+.pdv-cat-chip.active { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+.pdv-browse-list { max-height: min(64vh, 680px); overflow-y: auto; }
+
+/* ─── Carrinho ─── */
+.cart-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .25rem 0;
+}
+.cart-header h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+.cart-header .count { color: var(--text-muted); font-size: .85rem; }
+.cart-items {
+  flex: 1; overflow-y: auto; min-height: 280px;
+  background: var(--surface); border-radius: var(--radius);
+  border: 1.5px solid var(--border-light); box-shadow: var(--shadow-xs);
+}
+.cart-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .5rem; padding: 2.5rem 1rem; color: var(--text-muted);
+}
+.cart-empty svg { width: 48px; height: 48px; stroke: var(--border); fill: none; stroke-width: 1.5; }
+.cart-empty p { font-size: .9rem; }
+
+.cart-line {
+  display: grid; grid-template-columns: 44px 1fr 80px 120px 36px;
+  gap: .65rem; align-items: center;
+  padding: .55rem .75rem; border-bottom: 1px solid var(--border-light);
+  font-size: .9rem; transition: background var(--transition);
+}
+.cart-line:last-child { border-bottom: 0; }
+.cart-line:hover { background: var(--surface-hover); }
+.cart-line-thumb {
+  width: 42px; height: 42px; border-radius: 9px; overflow: hidden; flex-shrink: 0;
+  background: var(--surface-hover); border: 1px solid var(--border-light);
+  display: grid; place-items: center; color: var(--text-muted);
+}
+.cart-line-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cart-line .prod-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cart-line .prod-unit { font-size: .8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cart-line .qty-wrap {
+  display: inline-flex; align-items: center; gap: 0;
+  border: 1.5px solid var(--border-light); border-radius: 8px; overflow: hidden;
+  background: var(--surface-hover);
+}
+.cart-line .qty-wrap button {
+  border: 0; background: transparent; color: var(--text-secondary);
+  width: 28px; height: 28px; cursor: pointer; font-size: 1rem; font-weight: 600;
+  display: grid; place-items: center; transition: background var(--transition), color var(--transition);
+  line-height: 1;
+}
+.cart-line .qty-wrap button:hover { background: var(--border-light); color: var(--text); }
+.cart-line .qty-wrap button:active { background: var(--border); }
+.cart-line .qty-wrap input {
+  width: 40px; height: 28px; border: 0; text-align: center; font-size: .85rem; font-weight: 600;
+  background: transparent; color: var(--text); padding: 0;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.cart-line .qty-wrap input::-webkit-inner-spin-button { display: none; }
+.cart-line .qty-wrap input:focus { outline: none; background: var(--surface); }
+.cart-line .prod-total { text-align: right; font-weight: 700; font-size: .95rem; white-space: nowrap; }
+.cart-line .remove-btn {
+  border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+  width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center;
+  font-size: 1.1rem; transition: background var(--transition), color var(--transition);
+}
+.cart-line .remove-btn:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* ─── Rodapé do carrinho ─── */
+.cart-footer-note {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem;
+  padding: .5rem .25rem 0; font-size: .85rem;
+}
+.cart-added-note { display: flex; align-items: center; gap: .35rem; color: var(--primary); font-weight: 600; }
+.cart-clear-link {
+  display: flex; align-items: center; gap: .35rem; border: 0; background: transparent;
+  color: var(--danger); font-weight: 600; cursor: pointer; padding: 0; font-size: .85rem;
+}
+.cart-clear-link:hover { text-decoration: underline; }
+
+/* ─── Coluna do meio (ações rápidas) e da direita (resumo) ─── */
+.pdv-right { position: sticky; top: 1rem; }
+.pdv-card {
+  background: var(--surface); border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  padding: 1.25rem; display: flex; flex-direction: column; gap: .85rem;
+}
+.pdv-card h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+
+/* ─── Botões de ação rápida (cartões verticais) ─── */
+.pdv-actions { display: flex; flex-direction: row; flex-wrap: wrap; gap: .65rem; }
+.pdv-action {
+  width: 64px; height: 64px; border-radius: 14px; border: 0; flex-shrink: 0;
+  background: var(--action-color, var(--primary)); color: #fff; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+}
+.pdv-action-icon svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.pdv-action .shortcut { font-size: .6rem; font-weight: 700; color: rgba(255,255,255,.85); letter-spacing: .02em; }
+.pdv-action:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.pdv-action:active { transform: scale(.96); }
+.pdv-action:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ─── Pílula de resumo (itens + subtotal) ─── */
+.pdv-summary-pill {
+  display: flex; align-items: center; justify-content: center; gap: .4rem; flex-wrap: wrap;
+  background: var(--success-bg); color: var(--success-text); font-size: .82rem; font-weight: 600;
+  border-radius: 10px; padding: .55rem .8rem; text-align: center;
+}
+.pdv-summary-pill .sep { opacity: .6; }
+
+/* ─── Bloco de valores ─── */
+.pdv-totals { border-top: 1.5px solid var(--border-light); padding-top: .65rem; }
+.pdv-total-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .2rem 0; font-size: .9rem;
+}
+.pdv-total-row .label { color: var(--text-muted); }
+.pdv-total-row .value { font-weight: 500; }
+.pdv-total-row.discount .value { color: #4ade80; }
+.pdv-total-row.surcharge .value { color: #ff8589; }
+.pdv-total-row.final { padding: .4rem 0; }
+.pdv-total-row.final .label { font-size: 1rem; font-weight: 600; color: var(--text); }
+.pdv-total-row.final .value { font-size: 1.6rem; font-weight: 800; color: var(--primary); letter-spacing: -.02em; }
+
+.btn-finalize {
+  width: 100%; padding: .95rem; font-size: 1.1rem; font-weight: 700;
+  background: var(--primary); color: #fff; border: 0; border-radius: 12px;
+  cursor: pointer; letter-spacing: -.01em;
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+}
+.btn-finalize:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent); }
+.btn-finalize:active { transform: scale(.98); }
+.btn-finalize:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-finalize .sub {
+  display: block; font-size: .7rem; font-weight: 400; opacity: .75; margin-top: .1rem;
+}
+.pdv-error { color: var(--danger); font-size: .82rem; min-height: 1.2em; text-align: center; }
+
+/* ─── Modal de pagamento (duas colunas) ─── */
+dialog.pay-modal[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 780px; max-width: 96vw; }
+.pay-modal h1 { font-size: 1.15rem; margin-bottom: .1rem; }
+.pay-modal .subtitle { font-size: .82rem; color: var(--text-muted); margin-bottom: 1.1rem; display: flex; align-items: center; gap: .35rem; }
+.pay-label { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); display: block; margin: 0 0 .4rem; }
+.pay-value-box {
+  background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: var(--radius);
+  padding: .6rem .9rem; margin-bottom: 1.1rem; display: flex; align-items: baseline; gap: .35rem;
+}
+.pay-value-box span.prefix { font-size: 1rem; font-weight: 700; color: var(--primary); }
+.pay-value-box input {
+  border: 0; background: transparent; font-size: 1.9rem; font-weight: 800; color: var(--primary);
+  letter-spacing: -.02em; width: 100%; padding: 0;
+}
+.pay-value-box input:focus { outline: none; }
+.pay-method-row { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+.pay-method-row select { flex: 1; }
+.pay-quick-methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+.pay-quick-method {
+  display: flex; flex-direction: column; align-items: center; gap: .3rem;
+  background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: 10px;
+  padding: .6rem .3rem; cursor: pointer; color: var(--text-secondary);
+  font-size: .72rem; font-weight: 600; line-height: 1.2; text-align: center;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+.pay-quick-method:hover { border-color: var(--primary); color: var(--primary); }
+.pay-quick-method.selected { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+.pay-quick-method svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pay-quick-method .shortcut { font-size: .62rem; color: var(--text-muted); font-weight: 400; }
+
+.pay-summary-card {
+  background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+}
+.pay-summary-card .title { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .75rem; }
+.pay-total-row { display: flex; justify-content: space-between; align-items: center; font-size: .95rem; margin-bottom: .75rem; }
+.pay-total-row strong { font-size: 1.15rem; }
+.pay-items-list { display: flex; flex-direction: column; gap: .5rem; max-height: 160px; overflow-y: auto; margin-bottom: .75rem; }
+.pay-item-card {
+  display: flex; align-items: center; gap: .6rem; background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: 9px; padding: .5rem .65rem;
+}
+.pay-item-card svg { width: 18px; height: 18px; stroke: var(--primary); fill: none; stroke-width: 2; flex-shrink: 0; }
+.pay-item-card .info { flex: 1; min-width: 0; }
+.pay-item-card .info .name { font-size: .8rem; font-weight: 600; color: var(--text-muted); }
+.pay-item-card .info .amount { font-size: .95rem; font-weight: 700; color: var(--primary); }
+.pay-item-card button { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; }
+.pay-item-card button:hover { background: var(--danger-bg); color: var(--danger); }
+.pay-recap-row { display: flex; justify-content: space-between; font-size: .9rem; padding: .2rem 0; }
+.pay-recap-row.remaining { font-size: 1.2rem; font-weight: 800; }
+.pay-ready-banner {
+  text-align: center; font-weight: 700; font-size: .82rem; letter-spacing: .03em; text-transform: uppercase;
+  background: var(--success-bg); color: var(--success-text); border-radius: 8px; padding: .5rem; margin: .75rem 0;
+}
+.pay-pending-banner {
+  text-align: center; font-weight: 600; font-size: .82rem;
+  background: var(--warning-bg, var(--surface)); color: var(--text-muted); border-radius: 8px; padding: .5rem; margin: .75rem 0;
+}
+.pay-confirm-btn {
+  width: 100%; padding: .9rem; font-size: 1rem; font-weight: 700; border: 0; border-radius: 12px;
+  background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: .5rem;
+}
+.pay-confirm-btn:hover { background: var(--primary-hover); }
+.pay-confirm-btn:disabled { opacity: .4; cursor: not-allowed; }
+.pay-confirm-hint { text-align: center; font-size: .75rem; color: var(--text-muted); margin-top: .5rem; }
+@media (max-width: 720px) {
+  .pay-modal { grid-template-columns: 1fr; width: 92vw; }
+}
+
+/* ─── Rodapé: atalhos + status de conexão ─── */
+.pdv-footer-bar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem;
+  margin-top: 1rem; padding: .6rem 1rem; background: var(--surface); border: 1.5px solid var(--border-light);
+  border-radius: var(--radius); font-size: .78rem; color: var(--text-muted);
+}
+.pdv-footer-shortcuts { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+.pdv-footer-shortcuts kbd {
+  background: var(--surface-hover); border: 1px solid var(--border-light); border-radius: 5px;
+  padding: .1rem .4rem; font-size: .72rem; font-family: inherit; font-weight: 700; color: var(--text-secondary); margin-right: .35rem;
+}
+.pdv-footer-status { display: flex; align-items: center; gap: .5rem; }
+.pdv-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); flex-shrink: 0; }
+.pdv-status-dot.online { background: #22c55e; }
+.pdv-footer-sep { color: var(--border); }
+
+/* ─── Responsivo ─── */
+@media (max-width: 1080px) {
+  .pdv { grid-template-columns: 1fr; gap: 1rem; }
+  .pdv-right { position: static; }
+}

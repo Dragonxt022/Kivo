@@ -254,10 +254,14 @@ header.nav .btn-link:hover { background: var(--surface-hover); color: var(--text
 }
 .theme-switch.dark .theme-switch-thumb { transform: translateX(24px); }
 
-/* ─── Main ─── */
+/* ─── Main ───
+   Mesma largura do header.nav (width: calc(100% - 32px), max-width: 1100px) — as bordas
+   do conteúdo ficam alinhadas com a barra flutuante em qualquer resolução. Telas densas
+   (ex.: PDV) podem sobrescrever com seu próprio `main { max-width: 100% }`. */
 main {
   padding: 2rem 1.5rem;
-  max-width: 74%;
+  width: calc(100% - 32px);
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -475,11 +479,15 @@ dialog::backdrop {
   -webkit-backdrop-filter: blur(8px);
 }
 dialog label { display: block; font-size: .85rem; margin: .7rem 0 .25rem; color: var(--text-muted); }
-dialog input, dialog select {
+/* :not(checkbox/radio) — sem isso, o width:100% estica a caixa desses inputs pro tamanho
+   do container flex (ver .label-checkbox-sm), empurrando o texto do rótulo pra longe do
+   círculo/caixa marcável em vez de ficar coladinho do lado. */
+dialog input:not([type="checkbox"]):not([type="radio"]), dialog select {
   width: 100%; padding: .55rem .7rem; border-radius: 10px;
   border: 1.5px solid var(--border-light); background: var(--surface-hover); color: var(--text); font-size: .95rem;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
+dialog input[type="checkbox"], dialog input[type="radio"] { flex-shrink: 0; }
 dialog input:focus, dialog select:focus {
   outline: none; border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);

@@ -7,303 +7,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
+  <link rel="stylesheet" href="/css/pdv.css" />
   <script defer src="/vendor/alpine.min.js"></script>
-  <style>
-    .pdv { display: grid; grid-template-columns: 68fr 32fr; gap: 1.25rem; align-items: start; min-height: calc(100vh - var(--header-height) - 48px); }
-
-    /* ─── Coluna da Esquerda ─── */
-    .pdv-left { display: flex; flex-direction: column; gap: .75rem; }
-
-    /* ─── Abas de venda simultânea ─── */
-    .sale-tabs { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
-    .sale-tab {
-      display: flex; align-items: center; gap: .4rem; background: var(--surface-hover);
-      border: 1.5px solid var(--border-light); border-radius: 9px; padding: .4rem .7rem;
-      cursor: pointer; font-size: .82rem; font-weight: 600; color: var(--text-secondary);
-      transition: border-color var(--transition), background var(--transition), color var(--transition);
-    }
-    .sale-tab:hover { border-color: var(--primary); color: var(--primary); }
-    .sale-tab.active { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
-    .sale-tab .count { font-size: .7rem; background: var(--border-light); color: var(--text-muted); border-radius: 999px; padding: .05rem .4rem; }
-    .sale-tab.active .count { background: var(--primary); color: #fff; }
-    .sale-tab .close-tab { border: 0; background: transparent; color: inherit; opacity: .6; cursor: pointer; display: grid; place-items: center; padding: 0; }
-    .sale-tab .close-tab:hover { opacity: 1; }
-    .sale-tab-add {
-      border: 1.5px dashed var(--border); background: transparent; border-radius: 9px; color: var(--text-muted);
-      width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer;
-      transition: border-color var(--transition), color var(--transition);
-    }
-    .sale-tab-add:hover { border-color: var(--primary); color: var(--primary); }
-
-    /* ─── Busca ─── */
-    .pdv-search { position: relative; z-index: 10; }
-    .pdv-search input {
-      width: 100%; font-size: 1.15rem; padding: .85rem 1.1rem;
-      border-radius: var(--radius); border: 2px solid var(--border-light);
-      background: var(--surface); color: var(--text);
-      box-shadow: var(--shadow-xs);
-      transition: border-color var(--transition), box-shadow var(--transition);
-    }
-    .pdv-search input:focus {
-      outline: none; border-color: var(--primary);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent), var(--shadow-sm);
-    }
-    .pdv-search input::placeholder { color: var(--text-muted); }
-
-    /* ─── Dropdown de resultados ─── */
-    .pdv-results {
-      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-      background: var(--surface); border: 1.5px solid var(--border-light);
-      border-radius: var(--radius); box-shadow: var(--shadow-lg);
-      max-height: 45vh; overflow-y: auto; z-index: 50;
-    }
-    .pdv-result {
-      display: grid; grid-template-columns: 1fr auto auto; gap: .75rem; align-items: center;
-      padding: .7rem .9rem; cursor: pointer; border-bottom: 1px solid var(--border-light);
-      transition: background var(--transition);
-    }
-    .pdv-result:last-child { border-bottom: 0; }
-    .pdv-result:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
-    .pdv-result .name { font-weight: 600; font-size: .95rem; color: var(--text); }
-    .pdv-result .price { font-weight: 700; font-size: .95rem; color: var(--primary); white-space: nowrap; }
-    .pdv-result .stock {
-      font-size: .78rem; color: var(--text-muted); white-space: nowrap; text-align: right;
-    }
-    .pdv-result .stock.low { color: var(--danger); }
-    .pdv-result .stock.negative { color: var(--danger); }
-    .pdv-result.highlight { background: color-mix(in srgb, var(--primary) 10%, transparent); }
-    .pdv-empty { padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
-    [x-cloak] { display: none !important; }
-
-    /* ─── Carrinho ─── */
-    .cart-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: .25rem 0;
-    }
-    .cart-header h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
-    .cart-header .count { color: var(--text-muted); font-size: .85rem; }
-    .cart-items {
-      flex: 1; overflow-y: auto; min-height: 120px;
-      background: var(--surface); border-radius: var(--radius);
-      border: 1.5px solid var(--border-light); box-shadow: var(--shadow-xs);
-    }
-    .cart-empty {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: .5rem; padding: 2.5rem 1rem; color: var(--text-muted);
-    }
-    .cart-empty svg { width: 48px; height: 48px; stroke: var(--border); fill: none; stroke-width: 1.5; }
-    .cart-empty p { font-size: .9rem; }
-
-    .cart-line {
-      display: grid; grid-template-columns: 1fr 80px 120px 36px;
-      gap: .5rem; align-items: center;
-      padding: .55rem .75rem; border-bottom: 1px solid var(--border-light);
-      font-size: .9rem; transition: background var(--transition);
-    }
-    .cart-line:last-child { border-bottom: 0; }
-    .cart-line:hover { background: var(--surface-hover); }
-    .cart-line .prod-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .cart-line .prod-unit { font-size: .8rem; color: var(--text-muted); white-space: nowrap; }
-    .cart-line .qty-wrap {
-      display: inline-flex; align-items: center; gap: 0;
-      border: 1.5px solid var(--border-light); border-radius: 8px; overflow: hidden;
-      background: var(--surface-hover);
-    }
-    .cart-line .qty-wrap button {
-      border: 0; background: transparent; color: var(--text-secondary);
-      width: 28px; height: 28px; cursor: pointer; font-size: 1rem; font-weight: 600;
-      display: grid; place-items: center; transition: background var(--transition), color var(--transition);
-      line-height: 1;
-    }
-    .cart-line .qty-wrap button:hover { background: var(--border-light); color: var(--text); }
-    .cart-line .qty-wrap button:active { background: var(--border); }
-    .cart-line .qty-wrap input {
-      width: 40px; height: 28px; border: 0; text-align: center; font-size: .85rem; font-weight: 600;
-      background: transparent; color: var(--text); padding: 0;
-      -moz-appearance: textfield; appearance: textfield;
-    }
-    .cart-line .qty-wrap input::-webkit-inner-spin-button { display: none; }
-    .cart-line .qty-wrap input:focus { outline: none; background: var(--surface); }
-    .cart-line .prod-total { text-align: right; font-weight: 700; font-size: .95rem; white-space: nowrap; }
-    .cart-line .remove-btn {
-      border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
-      width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center;
-      font-size: 1.1rem; transition: background var(--transition), color var(--transition);
-    }
-    .cart-line .remove-btn:hover { background: var(--danger-bg); color: var(--danger); }
-
-    /* ─── Coluna da Direita ─── */
-    .pdv-right { position: sticky; top: 1rem; }
-    .pdv-card {
-      background: var(--surface); border: 1.5px solid var(--border-light);
-      border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-      padding: 1.25rem; display: flex; flex-direction: column; gap: .85rem;
-    }
-
-    /* ─── Botões de ação rápida ─── */
-    .pdv-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-    .pdv-action {
-      display: flex; flex-direction: column; align-items: center; gap: .3rem;
-      background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: 10px;
-      padding: .65rem .4rem; cursor: pointer; color: var(--text-secondary);
-      font-size: .72rem; font-weight: 500; line-height: 1.2;
-      transition: border-color var(--transition), background var(--transition), color var(--transition), transform var(--transition);
-    }
-    .pdv-action:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); transform: translateY(-1px); }
-    .pdv-action:active { transform: scale(.97); }
-    .pdv-action svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
-    .pdv-action .shortcut {
-      font-size: .62rem; color: var(--text-muted); font-weight: 400;
-      background: var(--border-light); padding: .05rem .4rem; border-radius: 4px;
-    }
-    .pdv-action:disabled { opacity: .35; cursor: not-allowed; transform: none; }
-
-    /* ─── Bloco de valores ─── */
-    .pdv-totals { border-top: 1.5px solid var(--border-light); padding-top: .65rem; }
-    .pdv-total-row {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: .2rem 0; font-size: .9rem;
-    }
-    .pdv-total-row .label { color: var(--text-muted); }
-    .pdv-total-row .value { font-weight: 500; }
-    .pdv-total-row.discount .value { color: #4ade80; }
-    .pdv-total-row.surcharge .value { color: #ff8589; }
-    .pdv-total-row.final { padding: .4rem 0; }
-    .pdv-total-row.final .label { font-size: 1rem; font-weight: 600; color: var(--text); }
-    .pdv-total-row.final .value { font-size: 1.6rem; font-weight: 800; color: var(--primary); letter-spacing: -.02em; }
-
-    .btn-finalize {
-      width: 100%; padding: .95rem; font-size: 1.1rem; font-weight: 700;
-      background: var(--primary); color: #fff; border: 0; border-radius: 12px;
-      cursor: pointer; letter-spacing: -.01em;
-      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
-    }
-    .btn-finalize:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent); }
-    .btn-finalize:active { transform: scale(.98); }
-    .btn-finalize:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
-    .btn-finalize .sub {
-      display: block; font-size: .7rem; font-weight: 400; opacity: .75; margin-top: .1rem;
-    }
-    .pdv-error { color: var(--danger); font-size: .82rem; min-height: 1.2em; text-align: center; }
-
-    /* ─── Modal de pagamento (duas colunas) ─── */
-    dialog.pay-modal[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 780px; max-width: 96vw; }
-    .pay-modal h1 { font-size: 1.15rem; margin-bottom: .1rem; }
-    .pay-modal .subtitle { font-size: .82rem; color: var(--text-muted); margin-bottom: 1.1rem; display: flex; align-items: center; gap: .35rem; }
-    .pay-label { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); display: block; margin: 0 0 .4rem; }
-    .pay-value-box {
-      background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: var(--radius);
-      padding: .6rem .9rem; margin-bottom: 1.1rem; display: flex; align-items: baseline; gap: .35rem;
-    }
-    .pay-value-box span.prefix { font-size: 1rem; font-weight: 700; color: var(--primary); }
-    .pay-value-box input {
-      border: 0; background: transparent; font-size: 1.9rem; font-weight: 800; color: var(--primary);
-      letter-spacing: -.02em; width: 100%; padding: 0;
-    }
-    .pay-value-box input:focus { outline: none; }
-    .pay-method-row { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
-    .pay-method-row select { flex: 1; }
-    .pay-quick-methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
-    .pay-quick-method {
-      display: flex; flex-direction: column; align-items: center; gap: .3rem;
-      background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: 10px;
-      padding: .6rem .3rem; cursor: pointer; color: var(--text-secondary);
-      font-size: .72rem; font-weight: 600; line-height: 1.2; text-align: center;
-      transition: border-color var(--transition), background var(--transition), color var(--transition);
-    }
-    .pay-quick-method:hover { border-color: var(--primary); color: var(--primary); }
-    .pay-quick-method.selected { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
-    .pay-quick-method svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .pay-quick-method .shortcut { font-size: .62rem; color: var(--text-muted); font-weight: 400; }
-
-    .pay-summary-card {
-      background: var(--surface-hover); border: 1.5px solid var(--border-light); border-radius: var(--radius);
-      padding: 1rem 1.1rem;
-    }
-    .pay-summary-card .title { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .75rem; }
-    .pay-total-row { display: flex; justify-content: space-between; align-items: center; font-size: .95rem; margin-bottom: .75rem; }
-    .pay-total-row strong { font-size: 1.15rem; }
-    .pay-items-list { display: flex; flex-direction: column; gap: .5rem; max-height: 160px; overflow-y: auto; margin-bottom: .75rem; }
-    .pay-item-card {
-      display: flex; align-items: center; gap: .6rem; background: var(--surface); border: 1px solid var(--border-light);
-      border-radius: 9px; padding: .5rem .65rem;
-    }
-    .pay-item-card svg { width: 18px; height: 18px; stroke: var(--primary); fill: none; stroke-width: 2; flex-shrink: 0; }
-    .pay-item-card .info { flex: 1; min-width: 0; }
-    .pay-item-card .info .name { font-size: .8rem; font-weight: 600; color: var(--text-muted); }
-    .pay-item-card .info .amount { font-size: .95rem; font-weight: 700; color: var(--primary); }
-    .pay-item-card button { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; }
-    .pay-item-card button:hover { background: var(--danger-bg); color: var(--danger); }
-    .pay-recap-row { display: flex; justify-content: space-between; font-size: .9rem; padding: .2rem 0; }
-    .pay-recap-row.remaining { font-size: 1.2rem; font-weight: 800; }
-    .pay-ready-banner {
-      text-align: center; font-weight: 700; font-size: .82rem; letter-spacing: .03em; text-transform: uppercase;
-      background: var(--success-bg); color: var(--success-text); border-radius: 8px; padding: .5rem; margin: .75rem 0;
-    }
-    .pay-pending-banner {
-      text-align: center; font-weight: 600; font-size: .82rem;
-      background: var(--warning-bg, var(--surface)); color: var(--text-muted); border-radius: 8px; padding: .5rem; margin: .75rem 0;
-    }
-    .pay-confirm-btn {
-      width: 100%; padding: .9rem; font-size: 1rem; font-weight: 700; border: 0; border-radius: 12px;
-      background: var(--primary); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: .5rem;
-    }
-    .pay-confirm-btn:hover { background: var(--primary-hover); }
-    .pay-confirm-btn:disabled { opacity: .4; cursor: not-allowed; }
-    .pay-confirm-hint { text-align: center; font-size: .75rem; color: var(--text-muted); margin-top: .5rem; }
-    @media (max-width: 720px) {
-      .pay-modal { grid-template-columns: 1fr; width: 92vw; }
-    }
-
-    /* ─── Responsivo ─── */
-    @media (max-width: 1080px) {
-      .pdv { grid-template-columns: 1fr; gap: 1rem; }
-      .pdv-right { position: static; }
-      .pdv-actions { grid-template-columns: repeat(4, 1fr); }
-    }
-  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/store/pdv' }) %>
   <main x-data="pdvPage()" x-init="init()">
     <div class="pdv">
 
-      <!-- ─── COLUNA ESQUERDA (68%) ─── -->
+      <!-- ─── COLUNA ESQUERDA (carrinho) ─── -->
       <div class="pdv-left">
-        <div class="sale-tabs" x-show="slots.length > 1 || slots[0].cart.length" x-cloak>
-          <template x-for="(s, idx) in slots" :key="idx">
-            <div class="sale-tab" :class="{ active: idx === activeSlot }" @click="switchSlot(idx)">
-              <span x-text="'Venda ' + (idx + 1)"></span>
-              <span class="count" x-show="s.cart.length" x-text="s.cart.length"></span>
-              <button type="button" class="close-tab" x-show="slots.length > 1" @click.stop="closeSlot(idx)" title="Fechar esta venda">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          </template>
-          <button type="button" class="sale-tab-add" @click="addSlot()" title="Nova venda simultânea" x-show="slots.length < 4">
+        <div class="sale-tabs-bar">
+          <div class="sale-tabs">
+            <template x-for="(s, idx) in slots" :key="idx">
+              <div class="sale-tab" :class="{ active: idx === activeSlot }" @click="switchSlot(idx)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                <span class="sale-tab-info">
+                  <span class="sale-tab-name" x-text="'Venda ' + String(idx + 1).padStart(2, '0')"></span>
+                  <span class="sale-tab-count" x-text="s.cart.length + (s.cart.length === 1 ? ' item' : ' itens')"></span>
+                </span>
+                <button type="button" class="close-tab" x-show="slots.length > 1" @click.stop="closeSlot(idx)" title="Fechar esta venda">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </template>
+          </div>
+          <button type="button" class="sale-tab-add-btn" @click="addSlot()" title="Nova venda simultânea" x-show="slots.length < 4">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nova venda
           </button>
         </div>
 
-        <div class="pdv-search flex-row">
-          <input type="text" x-ref="search" x-model="q" style="flex:1"
-                 @input.debounce.250ms="search()"
-                 @keydown.enter.prevent="quickAdd()"
-                 @keydown.down.prevent="highlightNext()"
-                 @keydown.up.prevent="highlightPrev()"
-                 @keydown.escape="results = []"
-                 placeholder="Código de barras, SKU ou nome… (Enter adiciona)" autofocus />
-          <button type="button" class="icon-btn" style="width:auto;height:auto;padding:.6rem;border:2px solid var(--border-light);border-radius:var(--radius);background:var(--surface)"
-                  @click="openBrowse()" title="Consultar todos os produtos">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="pdv-search">
+          <div class="pdv-search-box">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-          </button>
+            <input type="text" x-ref="search" x-model="q"
+                   @input.debounce.250ms="search()"
+                   @keydown.enter.prevent="quickAdd()"
+                   @keydown.down.prevent="highlightNext()"
+                   @keydown.up.prevent="highlightPrev()"
+                   @keydown.escape="results = []"
+                   placeholder="Código de barras, SKU ou nome do produto…" autofocus />
+            <button type="button" class="pdv-search-scan-btn" @click="openBrowse()" title="Consultar todos os produtos">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="5" x2="7" y2="19"/><line x1="11" y1="5" x2="11" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/>
+              </svg>
+            </button>
+          </div>
 
           <div class="pdv-results" x-show="results.length" x-cloak>
             <template x-for="(p, idx) in results" :key="p.id">
               <div class="pdv-result" :class="{ 'highlight': idx === highlightIdx }"
                    @click="add(p)" @mouseenter="highlightIdx = idx">
+                <span class="pdv-result-thumb">
+                  <img x-show="p.image_url" :src="p.image_url" alt="" />
+                  <template x-if="!p.image_url"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></template>
+                </span>
                 <span class="name" x-text="p.name"></span>
                 <span class="price" x-text="brl(p.price_cents)"></span>
                 <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
@@ -325,9 +86,15 @@
         <div class="cart-items">
           <template x-for="(i, idx) in cart" :key="idx">
             <div class="cart-line">
+              <div class="cart-line-thumb">
+                <img x-show="i.image_url" :src="i.image_url" alt="" />
+                <template x-if="!i.image_url">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                </template>
+              </div>
               <div>
                 <div class="prod-name" x-text="i.name"></div>
-                <div class="prod-unit" x-text="'R$ ' + (i.price_cents / 100).toFixed(2).replace('.', ',')"></div>
+                <div class="prod-unit" x-text="(i.sku ? ('SKU: ' + i.sku + ' · ') : '') + brl(i.price_cents) + ' un.'"></div>
               </div>
               <div class="qty-wrap">
                 <button @click="qtyMinus(idx)" :disabled="i.qty <= 0.001">−</button>
@@ -348,32 +115,23 @@
             <p>Carrinho vazio — busque ou bipe um produto para começar.</p>
           </div>
         </div>
+
+        <div class="cart-footer-note" x-show="cart.length" x-cloak>
+          <span class="cart-added-note">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span x-text="cart.length + (cart.length === 1 ? ' item adicionado' : ' itens adicionados')"></span>
+          </span>
+          <button type="button" class="cart-clear-link" @click="clearCart()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Limpar carrinho
+          </button>
+        </div>
       </div>
 
-      <!-- ─── COLUNA DIREITA (32%) ─── -->
+      <!-- ─── COLUNA DA DIREITA (resumo) ─── -->
       <div class="pdv-right">
         <div class="pdv-card">
-          <div class="pdv-actions">
-            <% if (user.permissions.has('store.sales.discount')) { %>
-            <button class="pdv-action" @click="openValue('desconto')" title="Desconto">
-              <svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-              % Desconto <span class="shortcut">F4</span>
-            </button>
-            <button class="pdv-action" @click="openValue('acrescimo')" title="Acréscimo">
-              <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              + Acréscimo <span class="shortcut">F7</span>
-            </button>
-            <% } %>
-            <button class="pdv-action" @click="clearCart()" title="Limpar carrinho">
-              <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              Limpar <span class="shortcut">F9</span>
-            </button>
-            <button class="pdv-action" @click="printLast()"
-                    :disabled="!lastSaleId" title="Imprimir última venda">
-              <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-              Imprimir <span class="shortcut">F11</span>
-            </button>
-          </div>
+          <h2>Resumo da venda</h2>
 
           <div class="pdv-totals">
             <div class="pdv-total-row">
@@ -394,6 +152,35 @@
             </div>
           </div>
 
+          <div class="pdv-actions">
+            <button type="button" class="pdv-action" style="--action-color:#3DA5F4" @click="printLast()"
+                    :disabled="!lastSaleId" title="Imprimir última venda (F11)">
+              <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
+              <span class="shortcut">F11</span>
+            </button>
+            <button type="button" class="pdv-action" style="--action-color:#F2542D" @click="clearCart()" title="Limpar carrinho (F9)">
+              <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              <span class="shortcut">F9</span>
+            </button>
+            <% if (user.permissions.has('store.sales.discount')) { %>
+            <button type="button" class="pdv-action" style="--action-color:#F5C344" @click="openValue('acrescimo')" title="Acréscimo (F7)">
+              <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+              <span class="shortcut">F7</span>
+            </button>
+            <button type="button" class="pdv-action" style="--action-color:#34D399" @click="openValue('desconto')" title="Desconto (F4)">
+              <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
+              <span class="shortcut">F4</span>
+            </button>
+            <% } %>
+          </div>
+
+          <div class="pdv-summary-pill" x-show="cart.length" x-cloak>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span x-text="cart.length + (cart.length === 1 ? ' item' : ' itens')"></span>
+            <span class="sep">·</span>
+            <span>Subtotal itens: <strong x-text="brl(subtotal())"></strong></span>
+          </div>
+
           <div class="pdv-error" x-text="error"></div>
 
           <button class="btn-finalize" :disabled="!cart.length" @click="openPay()">
@@ -404,21 +191,51 @@
       </div>
     </div>
 
+    <div class="pdv-footer-bar">
+      <div class="pdv-footer-shortcuts">
+        <span><kbd>F2</kbd>Finalizar venda</span>
+        <% if (user.permissions.has('store.sales.discount')) { %>
+        <span><kbd>F4</kbd>Desconto</span>
+        <span><kbd>F7</kbd>Acréscimo</span>
+        <% } %>
+        <span><kbd>F9</kbd>Limpar</span>
+        <span><kbd>F11</kbd>Imprimir</span>
+      </div>
+      <div class="pdv-footer-status">
+        <span class="pdv-status-dot" :class="{ online: cloudOnline }"></span>
+        <span x-text="cloudOnline ? 'PDV Online' : 'PDV Offline'"></span>
+        <span class="pdv-footer-sep">|</span>
+        <span>Versão <%= appVersion %></span>
+      </div>
+    </div>
+
     <!-- ─── MODAL: Consultar produtos (sem adicionar ao carrinho) ─── -->
-    <dialog x-ref="browse" style="width:640px;max-width:95vw">
+    <dialog x-ref="browse" style="width:min(1100px, 94vw)">
       <h1>Consultar produtos</h1>
       <input type="text" x-ref="browseInput" x-model="browseQ" @input.debounce.250ms="searchBrowse()"
              placeholder="Buscar por nome, código de barras ou SKU…" />
-      <div class="scroll-box-md" style="margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
-        <template x-for="p in browseResults" :key="p.id">
+
+      <div class="pdv-browse-cats" x-show="browseCategories.length">
+        <button type="button" class="pdv-cat-chip" :class="{ active: !browseCategoryId }" @click="browseCategoryId = ''">Todas</button>
+        <template x-for="c in browseCategories" :key="c.id">
+          <button type="button" class="pdv-cat-chip" :class="{ active: browseCategoryId === c.id }" @click="browseCategoryId = browseCategoryId === c.id ? '' : c.id" x-text="c.name"></button>
+        </template>
+      </div>
+
+      <div class="pdv-browse-list" style="margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+        <template x-for="p in browseFiltered()" :key="p.id">
           <div class="pdv-result" @click="add(p); $refs.browse.close()">
+            <span class="pdv-result-thumb">
+              <img x-show="p.image_url" :src="p.image_url" alt="" />
+              <template x-if="!p.image_url"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></template>
+            </span>
             <span class="name" x-text="p.name"></span>
             <span class="price" x-text="brl(p.price_cents)"></span>
             <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
                   x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
           </div>
         </template>
-        <p class="pdv-empty" x-show="!browseResults.length">Nenhum produto encontrado.</p>
+        <p class="pdv-empty" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
       </div>
       <p class="muted text-xs" style="margin-top:.5rem">Clique num item para adicioná-lo ao carrinho, ou só consulte o preço/estoque aqui.</p>
       <div class="actions">
@@ -718,16 +535,17 @@
         showSplit: false, showCashReceived: false,
         error: '', payError: '', saving: false, appSettings: [],
         pinInput: '', pinError: '', pendingRemoveIdx: null,
-        browseQ: '', browseResults: [],
+        browseQ: '', browseResults: [], browseCategories: [], browseCategoryId: '',
         openRegisterForm: { opening: '', error: '' },
         customerBalances: {}, lastSaleHasCarne: false,
         prazoForm: { customerId: '', mode: 'avista', installments: 3, firstDueDate: '', amountCents: 0 }, prazoError: '',
         fidelidadeForm: { pointsUsed: 0 }, fidelidadeError: '',
+        cloudOnline: false,
 
         // ─── Utilitários ───
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
-        focusSearch() { this.$nextTick(() => { this.$refs.search.focus(); }); },
+        focusSearch() { this.$nextTick(() => { this.$refs.search?.focus(); }); },
         methodIcon(type) {
           const icons = {
             dinheiro: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>',
@@ -791,6 +609,8 @@
           if (this.customerId) this.loadCustomerBalances();
           this.focusSearch();
           this.$watch('slots', () => this.persistSlots());
+          this.checkOnline();
+          setInterval(() => this.checkOnline(), 25000);
           document.addEventListener('keydown', (e) => {
             const dialogsOpen = document.querySelectorAll('dialog[open]').length > 0;
             if (!dialogsOpen) {
@@ -825,6 +645,15 @@
             }
           });
         },
+        async checkOnline() {
+          try {
+            const r = await fetch('/api/sync/status');
+            const d = r.ok ? await r.json() : null;
+            this.cloudOnline = !!(d && d.online);
+          } catch {
+            this.cloudOnline = false;
+          }
+        },
 
         // ─── Busca ───
         async search() {
@@ -839,15 +668,23 @@
           }
         },
         // ─── Consultar produtos (modal separado, sem afetar o carrinho) ───
-        openBrowse() {
-          this.browseQ = ''; this.browseResults = [];
+        async openBrowse() {
+          this.browseQ = ''; this.browseResults = []; this.browseCategoryId = '';
           this.$refs.browse.showModal();
           this.$nextTick(() => this.$refs.browseInput.focus());
+          if (!this.browseCategories.length) {
+            const c = await fetch('/api/commercial/categories');
+            if (c.ok) this.browseCategories = await c.json();
+          }
           this.searchBrowse();
         },
         async searchBrowse() {
           const r = await fetch('/api/commercial/products' + (this.browseQ.trim() ? '?q=' + encodeURIComponent(this.browseQ.trim()) : ''));
           if (r.ok) this.browseResults = await r.json();
+        },
+        browseFiltered() {
+          if (!this.browseCategoryId) return this.browseResults;
+          return this.browseResults.filter((p) => p.category_id === this.browseCategoryId);
         },
 
         highlightNext() {
@@ -876,7 +713,7 @@
         add(p) {
           const existing = this.cart.find((i) => i.productId === p.id);
           if (existing) existing.qty += 1;
-          else this.cart.push({ productId: p.id, name: p.name, price_cents: p.price_cents, qty: 1 });
+          else this.cart.push({ productId: p.id, name: p.name, price_cents: p.price_cents, qty: 1, sku: p.sku ?? null, image_url: p.image_url ?? null });
           this.q = ''; this.results = []; this.highlightIdx = -1;
           this.focusSearch();
           this.persistSlots();

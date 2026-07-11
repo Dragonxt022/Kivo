@@ -48,6 +48,17 @@
     .login-card button[type="submit"]:hover { background: var(--primary-hover); transform: translateY(-1px); }
     .login-card button[type="submit"]:active { transform: scale(.98); }
     .login-card .error { color: var(--danger); font-size: .85rem; margin-top: .75rem; min-height: 1.2em; }
+    .login-card .version { color: var(--text-muted); font-size: .72rem; margin-top: 1.25rem; }
+
+    .help-chat-contacts { display: flex; flex-direction: column; gap: .5rem; margin: .25rem 0 1.25rem; }
+    .help-chat-contact {
+      display: flex; align-items: center; gap: .55rem; padding: .6rem .8rem;
+      border: 1.5px solid var(--border-light); border-radius: 10px; background: var(--surface-hover);
+      color: var(--text); font-size: .88rem; font-weight: 500; text-decoration: none;
+      transition: border-color var(--transition), color var(--transition);
+    }
+    .help-chat-contact:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+    .help-chat-contact svg { color: var(--primary); flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -73,6 +84,7 @@
                   :disabled="loginLoading"></button>
           <div class="error" x-text="loginError"></div>
         </form>
+        <p class="version">Versão <%= appVersion %></p>
       </div>
     </div>
 
@@ -131,9 +143,38 @@
     <% } %>
   </main>
 
-  <button class="fab" title="Chat">
-    <img src="/icons/chat.svg" width="22" height="22" alt="" />
-  </button>
+  <div x-data="helpChat()">
+    <button type="button" class="fab" title="Ajuda" @click="open()">
+      <img src="/icons/chat.svg" width="22" height="22" alt="" />
+    </button>
+
+    <dialog x-ref="dlg" style="width:360px">
+      <div class="dialog-body-center">
+        <div class="dialog-icon dialog-icon-primary">
+          <img src="/icons/chat.svg" width="22" height="22" alt="" />
+        </div>
+        <h2 class="dialog-heading-md">Oi! 👋</h2>
+        <p class="dialog-muted">
+          Nosso chat de suporte ainda está a caminho — em breve você vai poder falar com a
+          gente direto por aqui. Por enquanto, é só chamar pelos contatos abaixo:
+        </p>
+        <div class="help-chat-contacts">
+          <a :href="'mailto:' + email" class="help-chat-contact" x-show="email">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>
+            <span x-text="email"></span>
+          </a>
+          <a :href="'tel:' + phone" class="help-chat-contact" x-show="phone">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span x-text="phone"></span>
+          </a>
+          <p class="muted text-xs" x-show="loaded && !email && !phone">Contato de suporte ainda não configurado.</p>
+        </div>
+        <div class="actions actions-center">
+          <button type="button" class="btn" @click="$refs.dlg.close()">Entendi</button>
+        </div>
+      </div>
+    </dialog>
+  </div>
 
   <script>
     function homePage() {
@@ -222,6 +263,27 @@
             this.loginUser = '';
             this.loginPass = '';
           }
+        },
+      };
+    }
+
+    function helpChat() {
+      return {
+        email: '', phone: '', loaded: false,
+        async open() {
+          this.$refs.dlg.showModal();
+          if (this.loaded) return;
+          try {
+            const r = await fetch('/api/license/status');
+            if (r.ok) {
+              const d = await r.json();
+              this.email = d.supportEmail || '';
+              this.phone = d.supportPhone || '';
+            }
+          } catch (e) {
+            // sem sessão/rede — o modal segue com a mensagem amigável, só sem os contatos
+          }
+          this.loaded = true;
         },
       };
     }
