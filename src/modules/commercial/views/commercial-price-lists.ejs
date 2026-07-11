@@ -20,19 +20,58 @@
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
+    <% if (user.permissions.has('commercial.pricelists.manage')) { %>
+    <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
+      <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
+      <button class="btn danger small" @click="bulkDelete('/api/commercial/price-lists', { label: 'lista(s) de preço', onDone: () => load() })">Excluir selecionados</button>
+      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+    </div>
+    <% } %>
     <table>
-      <thead><tr><th>Nome</th><th>Itens</th><th>Padrão</th><th>Situação</th><th></th></tr></thead>
+      <thead><tr>
+        <% if (user.permissions.has('commercial.pricelists.manage')) { %>
+        <th class="col-checkbox">
+          <input type="checkbox" :checked="isAllSelected(displayRows)" @change="toggleSelectAll(displayRows)"
+                 x-effect="$el.indeterminate = selectedIds.length > 0 && !isAllSelected(displayRows)" />
+        </th>
+        <% } %>
+        <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th @click="sortCycle('item_count')" class="sortable">Itens<span class="sort-arrow" x-text="sortArrow('item_count')"></span></th>
+        <th>Padrão</th>
+        <th>Situação</th>
+        <th></th>
+      </tr></thead>
       <tbody>
-        <template x-for="l in rows" :key="l.id">
+        <template x-for="l in displayRows" :key="l.id">
           <tr>
+            <% if (user.permissions.has('commercial.pricelists.manage')) { %>
+            <td class="col-checkbox" @click.stop>
+              <input type="checkbox" :checked="isSelected(l.id)" @change="toggleSelect(l.id)" />
+            </td>
+            <% } %>
             <td x-text="l.name"></td>
             <td class="muted" x-text="l.item_count"></td>
             <td><span class="badge" x-show="l.is_default">padrão</span></td>
             <td><span class="badge" :class="l.active ? '' : 'off'" x-text="l.active ? 'ativa' : 'inativa'"></span></td>
-            <td class="text-right">
+            <td class="text-right" @click.stop>
               <% if (user.permissions.has('commercial.pricelists.manage')) { %>
-                <button class="btn secondary small" @click="openEdit(l)">Editar</button>
-                <button class="btn small" @click="remove(l)">Excluir</button>
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === l.id ? null : l.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                  </svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === l.id" x-cloak @click.outside="openMenu = null">
+                  <button @click="openMenu = null; openEdit(l)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    Editar
+                  </button>
+                  <button class="danger" @click="openMenu = null; remove(l)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Excluir
+                  </button>
+                </div>
+              </div>
               <% } %>
             </td>
           </tr>
@@ -92,15 +131,19 @@
     </dialog>
   </main>
   <script src="/js/masks.js"></script>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function priceListsPage() {
       return {
+        ...tableToolkit(),
         rows: [], form: {}, items: [], prodQ: '', prodResults: [], error: '', dlgError: '', itemsError: '',
+        sortGetters: { name: (l) => l.name, item_count: (l) => l.item_count ?? 0 },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
           const r = await fetch('/api/commercial/price-lists');
-          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+          if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); } else this.error = (await r.json()).error;
         },
         openNew() { this.form = { isDefault: false }; this.items = []; this.dlgError = ''; this.itemsError = ''; this.$refs.dlg.showModal(); },
         async openEdit(l) {

@@ -11,7 +11,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/fornecedores' }) %>
-  <main x-data="crudPage('/api/commercial/suppliers')" x-init="load()">
+  <main x-data="suppliersPage()" x-init="load()">
     <h1>Fornecedores</h1>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.suppliers.create')) { %>
@@ -21,22 +21,61 @@
              class="input-search" />
       <span class="error" x-text="error"></span>
     </div>
+    <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
+      <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
+      <% if (user.permissions.has('commercial.suppliers.delete')) { %>
+      <button class="btn danger small" @click="bulkDelete('/api/commercial/suppliers', { label: 'fornecedor(es)', onDone: () => load() })">Excluir selecionados</button>
+      <% } %>
+      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+    </div>
     <table>
-      <thead><tr><th>Razão social</th><th>Fantasia</th><th>CNPJ/CPF</th><th>Telefone</th><th></th></tr></thead>
+      <thead><tr>
+        <% if (user.permissions.has('commercial.suppliers.delete')) { %>
+        <th class="col-checkbox">
+          <input type="checkbox" :checked="isAllSelected(displayRows)" @change="toggleSelectAll(displayRows)"
+                 x-effect="$el.indeterminate = selectedIds.length > 0 && !isAllSelected(displayRows)" />
+        </th>
+        <% } %>
+        <th @click="sortCycle('name')" class="sortable">Razão social<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th @click="sortCycle('trade_name')" class="sortable">Fantasia<span class="sort-arrow" x-text="sortArrow('trade_name')"></span></th>
+        <th @click="sortCycle('document')" class="sortable">CNPJ/CPF<span class="sort-arrow" x-text="sortArrow('document')"></span></th>
+        <th>Telefone</th>
+        <th></th>
+      </tr></thead>
       <tbody>
-        <template x-for="r in rows" :key="r.id">
+        <template x-for="r in displayRows" :key="r.id">
           <tr>
+            <% if (user.permissions.has('commercial.suppliers.delete')) { %>
+            <td class="col-checkbox" @click.stop>
+              <input type="checkbox" :checked="isSelected(r.id)" @change="toggleSelect(r.id)" />
+            </td>
+            <% } %>
             <td x-text="r.name"></td>
             <td class="muted" x-text="r.trade_name ?? '—'"></td>
             <td class="muted" x-text="r.document ?? '—'"></td>
             <td class="muted" x-text="r.phone ?? '—'"></td>
-            <td class="text-right">
-              <% if (user.permissions.has('commercial.suppliers.edit')) { %>
-                <button class="btn secondary small" @click="openEdit(r)">Editar</button>
-              <% } %>
-              <% if (user.permissions.has('commercial.suppliers.delete')) { %>
-                <button class="btn small" @click="remove(r)">Excluir</button>
-              <% } %>
+            <td class="text-right" @click.stop>
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                  </svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
+                  <% if (user.permissions.has('commercial.suppliers.edit')) { %>
+                  <button @click="openMenu = null; openEdit(r)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    Editar
+                  </button>
+                  <% } %>
+                  <% if (user.permissions.has('commercial.suppliers.delete')) { %>
+                  <button class="danger" @click="openMenu = null; remove(r)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Excluir
+                  </button>
+                  <% } %>
+                </div>
+              </div>
             </td>
           </tr>
         </template>
@@ -62,6 +101,24 @@
   </main>
   <script src="/js/masks.js"></script>
   <script src="/js/crud-page.js"></script>
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function suppliersPage() {
+      return {
+        ...crudPage('/api/commercial/suppliers'),
+        ...tableToolkit(),
+        sortGetters: {
+          name: (r) => r.name, trade_name: (r) => r.trade_name ?? '', document: (r) => r.document ?? '',
+        },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        async load() {
+          const r = await fetch('/api/commercial/suppliers' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
+          if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
+          else this.error = (await r.json()).error ?? 'Erro ao carregar.';
+        },
+      };
+    }
+  </script>
 </body>
 </html>
 

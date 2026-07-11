@@ -125,4 +125,34 @@ router.delete('/:id', requirePermission('users.delete'), (req, res) => {
   res.json({ ok: true });
 });
 
+// POST (não DELETE) para não colidir com a rota '/:id' acima.
+router.post('/bulk-delete', requirePermission('users.delete'), (req, res) => {
+  const bodyIds: unknown[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const rawIds: string[] = [...new Set(bodyIds.map((id) => String(id)))];
+  const selfId = req.user ? String(req.user.id) : null;
+  const selfSkipped = selfId != null && rawIds.includes(selfId);
+  const ids = rawIds.filter((id) => id !== selfId);
+  if (!ids.length) {
+    res.status(400).json({ error: 'Informe ao menos um id (diferente do seu próprio usuário).' });
+    return;
+  }
+  const deletedIds: string[] = [];
+  const skipped: string[] = [];
+  getSqlite().transaction(() => {
+    for (const id of ids) {
+      const before = getUser(id);
+      if (!before) {
+        skipped.push(id);
+        continue;
+      }
+      getSqlite()
+        .prepare(`UPDATE users SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`)
+        .run(id);
+      audit(req, 'excluir', 'user', id, before, null);
+      deletedIds.push(id);
+    }
+  })();
+  res.json({ deleted: deletedIds.length, deletedIds, skipped, selfSkipped });
+});
+
 export default router;

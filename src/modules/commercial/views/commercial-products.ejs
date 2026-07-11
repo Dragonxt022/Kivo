@@ -26,25 +26,43 @@
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
+    <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
+      <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
+      <% if (user.permissions.has('commercial.products.delete')) { %>
+      <button class="btn danger small" @click="bulkDelete('/api/commercial/products', { label: 'produto(s)', onDone: () => load() })">Excluir selecionados</button>
+      <% } %>
+      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+    </div>
       <table>
         <thead><tr>
+          <% if (user.permissions.has('commercial.products.delete')) { %>
+          <th class="col-checkbox">
+            <input type="checkbox" :checked="isAllSelected(displayRows)" @change="toggleSelectAll(displayRows)"
+                   x-effect="$el.indeterminate = selectedIds.length > 0 && !isAllSelected(displayRows)" />
+          </th>
+          <% } %>
           <th></th>
-          <th @click="sort('name')" class="sortable">Produto<span class="sort-arrow" x-text="sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
-          <th @click="sort('category')" class="sortable">Categoria<span class="sort-arrow" x-text="sortBy === 'category' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
-          <th @click="sort('price')" class="sortable">Preço<span class="sort-arrow" x-text="sortBy === 'price' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
-          <th @click="sort('cost')" class="sortable">Custo<span class="sort-arrow" x-text="sortBy === 'cost' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
-          <th @click="sort('stock')" class="sortable">Estoque<span class="sort-arrow" x-text="sortBy === 'stock' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
-          <th @click="sort('unit')" class="sortable">Un<span class="sort-arrow" x-text="sortBy === 'unit' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+          <th @click="sortCycle('name')" class="sortable">Produto<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+          <th @click="sortCycle('category')" class="sortable">Categoria<span class="sort-arrow" x-text="sortArrow('category')"></span></th>
+          <th @click="sortCycle('price')" class="sortable">Preço<span class="sort-arrow" x-text="sortArrow('price')"></span></th>
+          <th @click="sortCycle('cost')" class="sortable">Custo<span class="sort-arrow" x-text="sortArrow('cost')"></span></th>
+          <th @click="sortCycle('stock')" class="sortable">Estoque<span class="sort-arrow" x-text="sortArrow('stock')"></span></th>
+          <th @click="sortCycle('unit')" class="sortable">Un<span class="sort-arrow" x-text="sortArrow('unit')"></span></th>
           <th></th>
           <th></th>
         </tr></thead>
       <tbody>
-        <template x-for="p in rows" :key="p.id">
+        <template x-for="p in displayRows" :key="p.id">
           <tr
             <% if (user.permissions.has('commercial.products.edit')) { %>
               @click="openEdit(p)" style="cursor:pointer"
             <% } %>
           >
+            <% if (user.permissions.has('commercial.products.delete')) { %>
+            <td class="col-checkbox" @click.stop>
+              <input type="checkbox" :checked="isSelected(p.id)" @change="toggleSelect(p.id)" />
+            </td>
+            <% } %>
             <td style="width:1%">
               <div class="product-thumb">
                 <img x-show="p.image_url" :src="p.image_url" alt="" />
@@ -282,17 +300,25 @@
   </main>
   <script src="/js/masks.js"></script>
   <script src="/js/barcode.js"></script>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function productsPage() {
       return {
-        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '', openMenu: null, sortBy: 'name', sortDir: 'asc',
+        ...tableToolkit(),
+        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
+        sortGetters: {
+          name: (p) => p.name, category: (p) => p.category ?? '',
+          price: (p) => p.price_cents, cost: (p) => p.cost_cents,
+          stock: (p) => (p.track_stock ? p.stock_qty : -Infinity), unit: (p) => p.unit,
+        },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
           const r = await fetch('/api/commercial/products' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
-          if (r.ok) { this.rows = await r.json(); this.sort(this.sortBy, true); }
+          if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
           else this.error = (await r.json()).error;
           const [c, s] = await Promise.all([
             fetch('/api/commercial/categories'),
@@ -300,20 +326,6 @@
           ]);
           if (c.ok) this.categories = await c.json();
           if (s.ok) this.appSettings = await s.json();
-        },
-        sort(col, silent) {
-          if (!silent) this.sortDir = this.sortBy === col && this.sortDir === 'asc' ? 'desc' : 'asc';
-          this.sortBy = col;
-          this.rows.sort((a, b) => {
-            let va, vb;
-            if (col === 'name' || col === 'unit') { va = (a[col] ?? '').toLowerCase(); vb = (b[col] ?? '').toLowerCase(); }
-            else if (col === 'category') { va = (a.category ?? '').toLowerCase(); vb = (b.category ?? '').toLowerCase(); }
-            else if (col === 'price') { va = a.price_cents; vb = b.price_cents; }
-            else if (col === 'cost') { va = a.cost_cents; vb = b.cost_cents; }
-            else if (col === 'stock') { va = a.track_stock ? a.stock_qty : -Infinity; vb = b.track_stock ? b.stock_qty : -Infinity; }
-            if (typeof va === 'string') return this.sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-            return this.sortDir === 'asc' ? va - vb : vb - va;
-          });
         },
         openCatMgr() { this.dlgError = ''; this.$refs.catDlg.showModal(); },
         async renameCategory(id) {

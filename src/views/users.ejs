@@ -21,25 +21,65 @@
              class="input-search-ghost" style="min-width:260px" />
       <span class="error" x-text="error"></span>
     </div>
+    <% if (user.permissions.has('users.delete')) { %>
+    <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
+      <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
+      <button class="btn danger small" @click="bulkDelete('/api/users', { label: 'usuário(s)', onDone: onBulkDeleted })">Excluir selecionados</button>
+      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+    </div>
+    <% } %>
     <table>
       <thead>
-        <tr><th>Nome</th><th>Usuário</th><th>Cargo</th><th>Status</th><th>Último login</th><th></th></tr>
+        <tr>
+          <% if (user.permissions.has('users.delete')) { %>
+          <th class="col-checkbox">
+            <input type="checkbox" :checked="isAllSelected(displayRows)" @change="toggleSelectAll(displayRows)"
+                   x-effect="$el.indeterminate = selectedIds.length > 0 && !isAllSelected(displayRows)" />
+          </th>
+          <% } %>
+          <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+          <th @click="sortCycle('username')" class="sortable">Usuário<span class="sort-arrow" x-text="sortArrow('username')"></span></th>
+          <th @click="sortCycle('role')" class="sortable">Cargo<span class="sort-arrow" x-text="sortArrow('role')"></span></th>
+          <th @click="sortCycle('active')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('active')"></span></th>
+          <th @click="sortCycle('last_login_at')" class="sortable">Último login<span class="sort-arrow" x-text="sortArrow('last_login_at')"></span></th>
+          <th></th>
+        </tr>
       </thead>
       <tbody>
-        <template x-for="u in filtered()" :key="u.id">
+        <template x-for="u in displayRows" :key="u.id">
           <tr>
+            <% if (user.permissions.has('users.delete')) { %>
+            <td class="col-checkbox" @click.stop>
+              <input type="checkbox" :checked="isSelected(u.id)" @change="toggleSelect(u.id)" />
+            </td>
+            <% } %>
             <td x-text="u.name"></td>
             <td x-text="u.username"></td>
             <td x-text="u.role"></td>
             <td><span class="badge" :class="u.active ? 'ok' : 'off'" x-text="u.active ? 'ativo' : 'inativo'"></span></td>
             <td class="muted" x-text="u.last_login_at ?? '—'"></td>
-            <td class="text-right">
-              <% if (user.permissions.has('users.edit')) { %>
-                <button class="btn secondary small" @click="openEdit(u)">Editar</button>
-              <% } %>
-              <% if (user.permissions.has('users.delete')) { %>
-                <button class="btn small" @click="remove(u)">Excluir</button>
-              <% } %>
+            <td class="text-right" @click.stop>
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === u.id ? null : u.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                  </svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === u.id" x-cloak @click.outside="openMenu = null">
+                  <% if (user.permissions.has('users.edit')) { %>
+                  <button @click="openMenu = null; openEdit(u)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    Editar
+                  </button>
+                  <% } %>
+                  <% if (user.permissions.has('users.delete')) { %>
+                  <button class="danger" @click="openMenu = null; remove(u)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Excluir
+                  </button>
+                  <% } %>
+                </div>
+              </div>
             </td>
           </tr>
         </template>
@@ -71,12 +111,18 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function usersPage() {
       return {
+        ...tableToolkit(),
         users: [], roles: ['administrador','gerente','operador','caixa','entregador','estoquista'],
         form: {}, q: '', error: '', dlgError: '',
-        filtered() {
+        sortGetters: {
+          name: (u) => u.name, username: (u) => u.username, role: (u) => u.role ?? '',
+          active: (u) => (u.active ? 1 : 0), last_login_at: (u) => u.last_login_at ?? '',
+        },
+        get filteredRows() {
           if (!this.q.trim()) return this.users;
           const t = this.q.toLowerCase();
           return this.users.filter((u) =>
@@ -84,11 +130,17 @@
             (u.username ?? '').toLowerCase().includes(t) ||
             (u.role ?? '').toLowerCase().includes(t));
         },
+        get displayRows() { return this.sortedRows(this.filteredRows, this.sortGetters); },
         async load() {
           const r = await fetch('/api/users');
-          if (r.ok) this.users = await r.json(); else this.error = (await r.json()).error;
+          if (r.ok) { this.users = await r.json(); this.pruneSelection(this.users); } else this.error = (await r.json()).error;
           const roles = await fetch('/api/users/roles');
           if (roles.ok) this.roles = (await roles.json()).map((x) => x.slug);
+        },
+        onBulkDeleted(data) {
+          this.load();
+          if (data && data.selfSkipped) this.error = 'Seu próprio usuário não pode ser excluído em massa — foi mantido na lista.';
+          else this.error = '';
         },
         openNew() { this.form = { roleSlug: 'operador' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(u) {

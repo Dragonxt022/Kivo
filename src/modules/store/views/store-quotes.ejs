@@ -29,9 +29,17 @@
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Válido até</th><th>Status</th><th>Vendedor</th><th></th></tr></thead>
+      <thead><tr>
+        <th @click="sortCycle('id')" class="sortable">#<span class="sort-arrow" x-text="sortArrow('id')"></span></th>
+        <th @click="sortCycle('customer')" class="sortable">Cliente<span class="sort-arrow" x-text="sortArrow('customer')"></span></th>
+        <th @click="sortCycle('total_cents')" class="sortable">Total<span class="sort-arrow" x-text="sortArrow('total_cents')"></span></th>
+        <th @click="sortCycle('valid_until')" class="sortable">Válido até<span class="sort-arrow" x-text="sortArrow('valid_until')"></span></th>
+        <th @click="sortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+        <th @click="sortCycle('username')" class="sortable">Vendedor<span class="sort-arrow" x-text="sortArrow('username')"></span></th>
+        <th></th>
+      </tr></thead>
       <tbody>
-        <template x-for="q in filterRows(rows, filter)" :key="q.id">
+        <template x-for="q in displayRows" :key="q.id">
           <tr>
             <td x-text="q.id"></td>
             <td x-text="q.customer ?? q.customer_name ?? '—'"></td>
@@ -39,17 +47,38 @@
             <td class="muted" x-text="q.valid_until ?? '—'"></td>
             <td><span class="badge" :class="q.status === 'aberto' ? 'off' : 'ok'" x-text="q.status"></span></td>
             <td class="muted" x-text="q.username"></td>
-            <td class="text-right">
-              <button class="btn secondary small" @click="window.open(`/app/store/orcamentos/${q.id}/imprimir`, '_blank', 'width=800,height=900')">Imprimir</button>
-              <% if (user.permissions.has('store.sales.create')) { %>
-                <button class="btn small" x-show="q.status === 'aberto'" @click="openConvert(q)">Converter em venda</button>
-              <% } %>
-              <% if (user.permissions.has('store.quotes.edit')) { %>
-                <button class="btn secondary small" x-show="q.status === 'aberto'" @click="openEdit(q)">Editar</button>
-              <% } %>
-              <% if (user.permissions.has('store.quotes.create')) { %>
-                <button class="btn secondary small" x-show="q.status === 'aberto'" @click="cancel(q)">Cancelar</button>
-              <% } %>
+            <td class="text-right" @click.stop>
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === q.id ? null : q.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                  </svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === q.id" x-cloak @click.outside="openMenu = null">
+                  <button @click="openMenu = null; window.open(`/app/store/orcamentos/${q.id}/imprimir`, '_blank', 'width=800,height=900')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Imprimir
+                  </button>
+                  <% if (user.permissions.has('store.sales.create')) { %>
+                  <button x-show="q.status === 'aberto'" @click="openMenu = null; openConvert(q)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.61"/><path d="M21 3v6h-6"/></svg>
+                    Converter em venda
+                  </button>
+                  <% } %>
+                  <% if (user.permissions.has('store.quotes.edit')) { %>
+                  <button x-show="q.status === 'aberto'" @click="openMenu = null; openEdit(q)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    Editar
+                  </button>
+                  <% } %>
+                  <% if (user.permissions.has('store.quotes.create')) { %>
+                  <button class="danger" x-show="q.status === 'aberto'" @click="openMenu = null; cancel(q)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                    Cancelar
+                  </button>
+                  <% } %>
+                </div>
+              </div>
             </td>
           </tr>
         </template>
@@ -130,12 +159,19 @@
     </dialog>
   </main>
   <script src="/js/masks.js"></script>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function quotesPage() {
       return {
+        ...tableToolkit(),
         rows: [], customers: [], products: [], form: { items: [] }, item: {}, converting: {},
         conv: { method: 'dinheiro', received: '', customerId: '', dueDate: '' },
         status: 'aberto', error: '', dlgError: '', convError: '', filter: {},
+        sortGetters: {
+          id: (q) => q.id, customer: (q) => q.customer ?? q.customer_name ?? '', total_cents: (q) => q.total_cents,
+          valid_until: (q) => q.valid_until ?? '', status: (q) => q.status ?? '', username: (q) => q.username ?? '',
+        },
+        get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {

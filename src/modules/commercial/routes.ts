@@ -383,6 +383,31 @@ router.delete('/products/:id', requirePermission('commercial.products.delete'), 
   res.json({ ok: true });
 });
 
+// POST (não DELETE) para não colidir com a rota '/products/:id' acima.
+router.post('/products/bulk-delete', requirePermission('commercial.products.delete'), (req, res) => {
+  const bodyIds: unknown[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const ids: string[] = [...new Set(bodyIds.map((id) => String(id)))];
+  if (!ids.length) {
+    res.status(400).json({ error: 'Informe ao menos um id.' });
+    return;
+  }
+  const deletedIds: string[] = [];
+  const skipped: string[] = [];
+  db().transaction(() => {
+    for (const id of ids) {
+      const before = getProduct(id);
+      if (!before) {
+        skipped.push(id);
+        continue;
+      }
+      db().prepare(`UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
+      audit(req, 'excluir', 'product', id, before, null);
+      deletedIds.push(id);
+    }
+  })();
+  res.json({ deleted: deletedIds.length, deletedIds, skipped });
+});
+
 router.put('/products/:id/favorite', requirePermission('commercial.products.edit'), (req, res) => {
   const id = String(req.params.id);
   const before = getProduct(id) as { favorite: number } | undefined;
@@ -531,6 +556,32 @@ router.delete('/price-lists/:id', requirePermission('commercial.pricelists.manag
   })();
   audit(req, 'excluir', 'price_list', id, before, null);
   res.json({ ok: true });
+});
+
+// POST (não DELETE) para não colidir com a rota '/price-lists/:id' acima.
+router.post('/price-lists/bulk-delete', requirePermission('commercial.pricelists.manage'), (req, res) => {
+  const bodyIds: unknown[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const ids: number[] = [...new Set(bodyIds.map((id) => Number(id)))];
+  if (!ids.length) {
+    res.status(400).json({ error: 'Informe ao menos um id.' });
+    return;
+  }
+  const deletedIds: number[] = [];
+  const skipped: number[] = [];
+  db().transaction(() => {
+    for (const id of ids) {
+      const before = db().prepare('SELECT id, name FROM price_lists WHERE id = ? AND deleted_at IS NULL').get(id);
+      if (!before) {
+        skipped.push(id);
+        continue;
+      }
+      db().prepare("UPDATE customers SET price_list_id = NULL, updated_at = datetime('now') WHERE price_list_id = ?").run(id);
+      db().prepare("UPDATE price_lists SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+      audit(req, 'excluir', 'price_list', id, before, null);
+      deletedIds.push(id);
+    }
+  })();
+  res.json({ deleted: deletedIds.length, deletedIds, skipped });
 });
 
 router.put('/price-lists/:id/items', requirePermission('commercial.pricelists.manage'), (req, res) => {

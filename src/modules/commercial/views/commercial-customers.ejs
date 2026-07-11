@@ -21,19 +21,37 @@
              class="input-search" />
       <span class="error" x-text="error"></span>
     </div>
+    <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
+      <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
+      <% if (user.permissions.has('commercial.customers.delete')) { %>
+      <button class="btn danger small" @click="bulkDelete('/api/commercial/customers', { label: 'cliente(s)', onDone: () => load() })">Excluir selecionados</button>
+      <% } %>
+      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+    </div>
     <table>
       <thead><tr>
-        <th @click="sort('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortBy === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
-        <th @click="sort('document')" class="sortable">Documento<span class="sort-arrow" x-text="sortBy === 'document' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+        <% if (user.permissions.has('commercial.customers.delete')) { %>
+        <th class="col-checkbox">
+          <input type="checkbox" :checked="isAllSelected(displayRows)" @change="toggleSelectAll(displayRows)"
+                 x-effect="$el.indeterminate = selectedIds.length > 0 && !isAllSelected(displayRows)" />
+        </th>
+        <% } %>
+        <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th @click="sortCycle('document')" class="sortable">Documento<span class="sort-arrow" x-text="sortArrow('document')"></span></th>
         <th>Telefone</th>
         <th>E-mail</th>
-        <th @click="sort('store_credit_cents')" class="sortable">Crédito<span class="sort-arrow" x-text="sortBy === 'store_credit_cents' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
-        <th @click="sort('loyalty_points')" class="sortable">Pontos<span class="sort-arrow" x-text="sortBy === 'loyalty_points' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></th>
+        <th @click="sortCycle('store_credit_cents')" class="sortable">Crédito<span class="sort-arrow" x-text="sortArrow('store_credit_cents')"></span></th>
+        <th @click="sortCycle('loyalty_points')" class="sortable">Pontos<span class="sort-arrow" x-text="sortArrow('loyalty_points')"></span></th>
         <th></th>
       </tr></thead>
       <tbody>
-        <template x-for="r in rows" :key="r.id">
+        <template x-for="r in displayRows" :key="r.id">
           <tr <% if (user.permissions.has('commercial.customers.view')) { %>@click="location.href = '/app/commercial/clientes/' + r.id" style="cursor:pointer"<% } %>>
+            <% if (user.permissions.has('commercial.customers.delete')) { %>
+            <td class="col-checkbox" @click.stop>
+              <input type="checkbox" :checked="isSelected(r.id)" @change="toggleSelect(r.id)" />
+            </td>
+            <% } %>
             <td x-text="r.name"></td>
             <td class="muted" x-text="r.document ?? '—'"></td>
             <td class="muted" x-text="r.phone ?? '—'"></td>
@@ -113,31 +131,27 @@
     </dialog>
   </main>
   <script src="/js/masks.js"></script>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function customersPage() {
       return {
-        rows: [], form: {}, q: '', error: '', dlgError: '', openMenu: null, sortBy: 'name', sortDir: 'asc',
+        ...tableToolkit(),
+        rows: [], form: {}, q: '', error: '', dlgError: '',
         priceLists: [], agreements: [],
+        sortGetters: {
+          name: (r) => r.name, document: (r) => r.document ?? '',
+          store_credit_cents: (r) => r.store_credit_cents ?? 0, loyalty_points: (r) => r.loyalty_points ?? 0,
+        },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         async load() {
           const r = await fetch('/api/commercial/customers' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
-          if (r.ok) { this.rows = await r.json(); this.sort(this.sortBy, true); }
+          if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
           else this.error = (await r.json()).error;
           const p = await fetch('/api/commercial/price-lists');
           if (p.ok) this.priceLists = await p.json();
           const a = await fetch('/api/commercial/agreement-companies');
           if (a.ok) this.agreements = await a.json();
-        },
-        sort(col, silent) {
-          if (!silent) this.sortDir = this.sortBy === col && this.sortDir === 'asc' ? 'desc' : 'asc';
-          this.sortBy = col;
-          this.rows.sort((a, b) => {
-            let va, vb;
-            if (col === 'name' || col === 'document') { va = (a[col] ?? '').toLowerCase(); vb = (b[col] ?? '').toLowerCase(); }
-            else { va = a[col] ?? 0; vb = b[col] ?? 0; }
-            if (typeof va === 'string') return this.sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-            return this.sortDir === 'asc' ? va - vb : vb - va;
-          });
         },
         openNew() { this.form = {}; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(r) { this.form = { ...r }; this.dlgError = ''; this.$refs.dlg.showModal(); },

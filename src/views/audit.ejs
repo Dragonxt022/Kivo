@@ -21,10 +21,16 @@
     </div>
     <table>
       <thead>
-        <tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Entidade</th><th>ID</th><th>IP</th><th>Máquina</th></tr>
+        <tr>
+          <th @click="sortCycle('created_at')" class="sortable">Quando<span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
+          <th @click="sortCycle('username')" class="sortable">Usuário<span class="sort-arrow" x-text="sortArrow('username')"></span></th>
+          <th @click="sortCycle('action')" class="sortable">Ação<span class="sort-arrow" x-text="sortArrow('action')"></span></th>
+          <th @click="sortCycle('entity')" class="sortable">Entidade<span class="sort-arrow" x-text="sortArrow('entity')"></span></th>
+          <th>ID</th><th>IP</th><th>Máquina</th>
+        </tr>
       </thead>
       <tbody>
-        <template x-for="l in filtered()" :key="l.id">
+        <template x-for="l in displayRows" :key="l.id">
           <tr>
             <td class="muted" x-text="fmtDateTime(l.created_at)"></td>
             <td x-text="l.username ?? '—'"></td>
@@ -38,10 +44,16 @@
       </tbody>
     </table>
   </main>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function auditPage() {
       return {
+        ...tableToolkit(),
         logs: [], q: '',
+        sortGetters: {
+          created_at: (l) => l.created_at ?? '', username: (l) => l.username ?? '',
+          action: (l) => l.action ?? '', entity: (l) => l.entity ?? '',
+        },
         filtered() {
           if (!this.q.trim()) return this.logs;
           const t = this.q.toLowerCase();
@@ -50,6 +62,7 @@
             (l.action ?? '').toLowerCase().includes(t) ||
             (l.entity ?? '').toLowerCase().includes(t));
         },
+        get displayRows() { return this.sortedRows(this.filtered(), this.sortGetters); },
         async load() {
           const r = await fetch('/api/audit?limit=500');
           if (r.ok) this.logs = await r.json();

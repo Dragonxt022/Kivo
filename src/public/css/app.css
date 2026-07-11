@@ -410,6 +410,15 @@ tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
 /* ─── Toolbar ─── */
 .toolbar { display: flex; gap: .75rem; margin-bottom: 1rem; align-items: center; }
 
+/* ─── Seleção em massa (checkbox de linha + barra de ações) ─── */
+.col-checkbox { width: 1%; text-align: center; }
+.bulk-bar {
+  display: flex; gap: .75rem; align-items: center; margin-bottom: 1rem;
+  padding: .55rem .9rem; border-radius: 10px;
+  background: var(--primary-bg); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.bulk-bar .bulk-count { font-weight: 600; font-size: .85rem; margin-right: auto; }
+
 /* ─── Badge ─── */
 .badge { display: inline-block; padding: .15rem .55rem; border-radius: 99px; font-size: .75rem; }
 .badge.ok { background: var(--success-bg); color: var(--success-text); }
