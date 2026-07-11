@@ -8,9 +8,12 @@
   <%- include('partials/styles') %>
 </head>
 <body>
-  <%- include('partials/navbar', {}) %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', {}) %>
+    <main class="content">
+      <%- include('partials/navbar', {}) %>
 
-  <div class="page">
+      <div class="page">
     <div class="breadcrumb"><a href="/admin">&larr; Empresas</a></div>
 
     <% if (typeof revealedLicenseKey !== 'undefined' && revealedLicenseKey) { %>
@@ -107,6 +110,17 @@
         </tbody>
       </table>
     </div>
+
+    <div class="card" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent);">
+      <h2 style="color: var(--danger);">Zona de perigo</h2>
+      <p class="field-hint" style="margin-top:0;">
+        Apaga a empresa e todo o histórico de sincronização, backups e cobranças associados. Imagens que ela enviou
+        ao banco de imagens permanecem lá (sem vínculo). Essa ação não pode ser desfeita.
+      </p>
+      <button type="button" class="btn danger" onclick="document.getElementById('modal-delete-company').showModal()">Excluir empresa definitivamente</button>
+    </div>
+      </div>
+    </main>
   </div>
 
   <dialog id="modal-new-charge">
@@ -148,5 +162,37 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="modal-delete-company">
+    <form method="post" action="/admin/companies/<%= company.company_uuid %>/delete">
+      <div class="modal-header">
+        <h2>Excluir empresa?</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-delete-company').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-top:0;">
+          Isso vai apagar <strong><%= company.name || company.company_uuid %></strong> e todo o histórico de
+          sincronização, backups e cobranças dela — sem volta. Digite
+          <strong><%= company.name || company.company_uuid %></strong> para confirmar.
+        </p>
+        <input type="text" id="delete-confirm-input" placeholder="Digite o nome da empresa" autocomplete="off">
+        <div class="modal-actions">
+          <button type="button" class="btn secondary" onclick="document.getElementById('modal-delete-company').close()">Cancelar</button>
+          <button type="submit" class="btn danger" id="delete-confirm-submit" disabled>Sim, excluir de vez</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    (function () {
+      var expected = <%- JSON.stringify(company.name || company.company_uuid) %>;
+      var input = document.getElementById('delete-confirm-input');
+      var submitBtn = document.getElementById('delete-confirm-submit');
+      input.addEventListener('input', function () {
+        submitBtn.disabled = input.value !== expected;
+      });
+    })();
+  </script>
 </body>
 </html>

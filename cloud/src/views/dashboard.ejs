@@ -8,37 +8,42 @@
   <%- include('partials/styles') %>
 </head>
 <body>
-  <%- include('partials/navbar', { active: 'dashboard' }) %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'dashboard' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'dashboard' }) %>
 
-  <div class="page">
-    <div class="page-header">
-      <h1>Empresas</h1>
-      <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
-    </div>
+      <div class="page">
+        <div class="page-header">
+          <h1>Empresas</h1>
+          <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
+        </div>
 
-    <div class="card" style="padding: 0;">
-      <table>
-        <thead>
-          <tr><th>Nome</th><th>Plano</th><th>Módulos</th><th>Validade</th><th>Sincronizações</th><th>Última atividade</th><th>Pendente (R$)</th></tr>
-        </thead>
-        <tbody>
-          <% companies.forEach(function(c) { %>
-          <tr>
-            <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || c.company_uuid %></a></td>
-            <td><% if (c.plan) { %><span class="badge plan"><%= planLabels[c.plan] || c.plan %></span><% } else { %>—<% } %></td>
-            <td><%= c.modules ? c.modules.join(', ') : 'sem restrição' %></td>
-            <td><%= c.valid_until || '—' %></td>
-            <td><%= c.sync_count %></td>
-            <td><%= c.last_activity || 'nunca' %></td>
-            <td><% if (c.pending_cents > 0) { %><span class="badge money-pending"><%= (c.pending_cents / 100).toFixed(2) %></span><% } else { %><%= (c.pending_cents / 100).toFixed(2) %><% } %></td>
-          </tr>
-          <% }) %>
-          <% if (!companies.length) { %>
-          <tr><td colspan="7" class="empty-state">Nenhuma empresa cadastrada ainda.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead>
+              <tr><th>Nome</th><th>Plano</th><th>Módulos</th><th>Validade</th><th>Sincronizações</th><th>Última atividade</th><th>Pendente (R$)</th></tr>
+            </thead>
+            <tbody>
+              <% companies.forEach(function(c) { %>
+              <tr>
+                <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || c.company_uuid %></a></td>
+                <td><% if (c.plan) { %><span class="badge plan"><%= planLabels[c.plan] || c.plan %></span><% } else { %>—<% } %></td>
+                <td><%= c.modules ? c.modules.join(', ') : 'sem restrição' %></td>
+                <td><%= c.valid_until || '—' %></td>
+                <td><%= c.sync_count %></td>
+                <td><%= c.last_activity || 'nunca' %></td>
+                <td><% if (c.pending_cents > 0) { %><span class="badge money-pending"><%= (c.pending_cents / 100).toFixed(2) %></span><% } else { %><%= (c.pending_cents / 100).toFixed(2) %><% } %></td>
+              </tr>
+              <% }) %>
+              <% if (!companies.length) { %>
+              <tr><td colspan="7" class="empty-state">Nenhuma empresa cadastrada ainda.</td></tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
 
   <dialog id="modal-new-company">

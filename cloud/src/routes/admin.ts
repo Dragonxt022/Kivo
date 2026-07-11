@@ -145,6 +145,47 @@ router.post('/companies/:uuid', requireAdminAuth, async (req, res) => {
   res.redirect(`/admin/companies/${uuid}`);
 });
 
+/**
+ * Exclusão definitiva: some com histórico de sincronização, backups (linha + arquivo no
+ * disco) e cobranças. Imagens do banco (catalog_images) só perdem o vínculo com a empresa
+ * (company_uuid = NULL) — são um acervo compartilhado, não pertencem só a quem enviou.
+ */
+router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
+  const uuid = String(req.params.uuid);
+  const pool = getPool();
+  const [companyRows] = await pool.query('SELECT company_uuid FROM companies WHERE company_uuid = ?', [uuid]);
+  if (!(companyRows as { company_uuid: string }[])[0]) {
+    res.status(404).send('Empresa não encontrada.');
+    return;
+  }
+  const [backupRows] = await pool.query('SELECT storage_path FROM cloud_backups WHERE company_uuid = ?', [uuid]);
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query('DELETE FROM sync_records WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM cloud_backups WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM charges WHERE company_uuid = ?', [uuid]);
+    await conn.query('UPDATE catalog_images SET company_uuid = NULL WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM companies WHERE company_uuid = ?', [uuid]);
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+
+  for (const b of backupRows as { storage_path: string }[]) {
+    try {
+      fs.unlinkSync(b.storage_path);
+    } catch {
+      // arquivo já não existe — a exclusão do registro já foi commitada, segue o jogo
+    }
+  }
+  res.redirect('/admin');
+});
+
 router.post('/companies/:uuid/rotate-key', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
   const licenseKey = generateLicenseKey();

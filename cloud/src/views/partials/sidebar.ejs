@@ -1,0 +1,58 @@
+<%
+  var activeKey = typeof active !== 'undefined' ? active : '';
+  var settingsGroupOpen = activeKey === 'settings' || activeKey === 'admins';
+%>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Geral</div>
+    <a href="/admin" class="sidebar-link <%= activeKey === 'dashboard' ? 'active' : '' %>" title="Empresas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      <span class="sidebar-label">Empresas</span>
+    </a>
+    <a href="/admin/catalog" class="sidebar-link <%= activeKey === 'catalog' ? 'active' : '' %>" title="Banco de imagens">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <span class="sidebar-label">Banco de imagens</span>
+    </a>
+  </div>
+
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Sistema</div>
+    <button type="button" class="sidebar-parent <%= settingsGroupOpen ? 'open active' : '' %>" id="sidebar-parent-settings" title="Configurações">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span class="sidebar-label">Configurações</span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <div class="sidebar-submenu <%= settingsGroupOpen ? 'open' : '' %>" id="sidebar-submenu-settings">
+      <a href="/admin/settings" class="sidebar-link <%= activeKey === 'settings' ? 'active' : '' %>" title="Geral">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span class="sidebar-label">Geral</span>
+      </a>
+      <a href="/admin/admins" class="sidebar-link <%= activeKey === 'admins' ? 'active' : '' %>" title="Administradores">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="sidebar-label">Administradores</span>
+      </a>
+    </div>
+  </div>
+</aside>
+<script>
+  (function () {
+    var parentBtn = document.getElementById('sidebar-parent-settings');
+    var submenu = document.getElementById('sidebar-submenu-settings');
+    parentBtn.addEventListener('click', function () {
+      parentBtn.classList.toggle('open');
+      submenu.classList.toggle('open');
+    });
+
+    var sidebar = document.getElementById('sidebar');
+    var toggle = document.getElementById('sidebar-toggle');
+    if (toggle) {
+      try {
+        if (localStorage.getItem('katsu-sidebar-collapsed') === '1') sidebar.classList.add('collapsed');
+      } catch (e) {}
+      toggle.addEventListener('click', function () {
+        sidebar.classList.toggle('collapsed');
+        try { localStorage.setItem('katsu-sidebar-collapsed', sidebar.classList.contains('collapsed') ? '1' : '0'); } catch (e) {}
+      });
+    }
+  })();
+</script>

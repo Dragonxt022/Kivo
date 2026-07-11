@@ -16,80 +16,85 @@
   </style>
 </head>
 <body>
-  <%- include('partials/navbar', { active: 'catalog' }) %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'catalog' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'catalog' }) %>
 
-  <%
-    function formatBytes(n) {
-      if (!n) return '0 KB';
-      if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
-      if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
-      return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-    }
-  %>
+      <%
+        function formatBytes(n) {
+          if (!n) return '0 KB';
+          if (n < 1024 * 1024) return Math.round(n / 1024) + ' KB';
+          if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+          return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+      %>
 
-  <div class="page">
-    <div class="page-header">
-      <h1>Banco de imagens</h1>
-      <button class="btn" onclick="document.getElementById('modal-manual-upload').showModal()">+ Adicionar imagem manualmente</button>
-    </div>
+      <div class="page">
+        <div class="page-header">
+          <h1>Banco de imagens</h1>
+          <button class="btn" onclick="document.getElementById('modal-manual-upload').showModal()">+ Adicionar imagem manualmente</button>
+        </div>
 
-    <div class="card">
-      <div class="stat-row">
-        <div class="stat"><div class="value"><%= stats.pending %></div><div class="label">Pendentes</div></div>
-        <div class="stat"><div class="value"><%= stats.approved %></div><div class="label">Aprovadas</div></div>
-        <div class="stat"><div class="value"><%= stats.rejected %></div><div class="label">Rejeitadas (histórico)</div></div>
-        <div class="stat"><div class="value"><%= formatBytes(stats.storageBytes) %></div><div class="label">Espaço em disco</div></div>
-      </div>
-    </div>
+        <div class="card">
+          <div class="stat-row">
+            <div class="stat"><div class="value"><%= stats.pending %></div><div class="label">Pendentes</div></div>
+            <div class="stat"><div class="value"><%= stats.approved %></div><div class="label">Aprovadas</div></div>
+            <div class="stat"><div class="value"><%= stats.rejected %></div><div class="label">Rejeitadas (histórico)</div></div>
+            <div class="stat"><div class="value"><%= formatBytes(stats.storageBytes) %></div><div class="label">Espaço em disco</div></div>
+          </div>
+        </div>
 
-    <% if (typeof error !== 'undefined' && error) { %>
-      <div class="error-banner"><%= error %></div>
-    <% } %>
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="error-banner"><%= error %></div>
+        <% } %>
 
-    <div class="catalog-tabs">
-      <a href="/admin/catalog?status=pendente" class="btn secondary <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
-      <a href="/admin/catalog?status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
-    </div>
+        <div class="catalog-tabs">
+          <a href="/admin/catalog?status=pendente" class="btn secondary <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
+          <a href="/admin/catalog?status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
+        </div>
 
-    <div class="card" style="padding: 0;">
-      <table>
-        <thead><tr>
-          <th></th><th>Produto</th><th>Origem</th><th>Detalhes</th>
-          <th><%= activeStatus === 'aprovada' ? 'Aprovada em' : 'Enviada em' %></th><th></th>
-        </tr></thead>
-        <tbody>
-          <% images.forEach(function(img) { %>
-          <tr>
-            <td><img class="catalog-thumb" src="/admin/catalog/<%= img.id %>/image" alt="<%= img.product_name %>"></td>
-            <td><%= img.product_name %></td>
-            <td class="catalog-meta"><%= img.source === 'manual' ? 'Manual' : (img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—') %></td>
-            <td class="catalog-meta"><%= img.width %>×<%= img.height %>px · <%= formatBytes(img.size_bytes) %> · <%= img.format %></td>
-            <td class="catalog-meta"><%= img.created_at %></td>
-            <td class="catalog-actions-cell">
-              <% if (activeStatus === 'pendente') { %>
-                <form method="post" action="/admin/catalog/<%= img.id %>/approve" class="inline">
-                  <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
-                  <button type="submit" class="btn small">Aprovar</button>
-                </form>
-                <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Rejeitar e excluir esta imagem?')">
-                  <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
-                  <button type="submit" class="btn danger small">Rejeitar</button>
-                </form>
-              <% } else { %>
-                <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Remover esta imagem do catálogo aprovado?')">
-                  <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
-                  <button type="submit" class="btn danger small">Remover do catálogo</button>
-                </form>
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead><tr>
+              <th></th><th>Produto</th><th>Origem</th><th>Detalhes</th>
+              <th><%= activeStatus === 'aprovada' ? 'Aprovada em' : 'Enviada em' %></th><th></th>
+            </tr></thead>
+            <tbody>
+              <% images.forEach(function(img) { %>
+              <tr>
+                <td><img class="catalog-thumb" src="/admin/catalog/<%= img.id %>/image" alt="<%= img.product_name %>"></td>
+                <td><%= img.product_name %></td>
+                <td class="catalog-meta"><%= img.source === 'manual' ? 'Manual' : (img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—') %></td>
+                <td class="catalog-meta"><%= img.width %>×<%= img.height %>px · <%= formatBytes(img.size_bytes) %> · <%= img.format %></td>
+                <td class="catalog-meta"><%= img.created_at %></td>
+                <td class="catalog-actions-cell">
+                  <% if (activeStatus === 'pendente') { %>
+                    <form method="post" action="/admin/catalog/<%= img.id %>/approve" class="inline">
+                      <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
+                      <button type="submit" class="btn small">Aprovar</button>
+                    </form>
+                    <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Rejeitar e excluir esta imagem?')">
+                      <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
+                      <button type="submit" class="btn danger small">Rejeitar</button>
+                    </form>
+                  <% } else { %>
+                    <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Remover esta imagem do catálogo aprovado?')">
+                      <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
+                      <button type="submit" class="btn danger small">Remover do catálogo</button>
+                    </form>
+                  <% } %>
+                </td>
+              </tr>
+              <% }) %>
+              <% if (!images.length) { %>
+              <tr><td colspan="6" class="empty-state"><%= activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.' %></td></tr>
               <% } %>
-            </td>
-          </tr>
-          <% }) %>
-          <% if (!images.length) { %>
-          <tr><td colspan="6" class="empty-state"><%= activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.' %></td></tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
 
   <dialog id="modal-manual-upload">

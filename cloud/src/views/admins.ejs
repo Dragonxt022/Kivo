@@ -7,39 +7,44 @@
   <%- include('partials/styles') %>
 </head>
 <body>
-  <%- include('partials/navbar', { active: 'admins' }) %>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'admins' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'admins' }) %>
 
-  <div class="page">
-    <div class="page-header">
-      <h1>Administradores</h1>
-      <button class="btn" onclick="document.getElementById('modal-new-admin').showModal()">+ Novo administrador</button>
-    </div>
+      <div class="page">
+        <div class="page-header">
+          <h1>Administradores</h1>
+          <button class="btn" onclick="document.getElementById('modal-new-admin').showModal()">+ Novo administrador</button>
+        </div>
 
-    <% if (typeof error !== 'undefined' && error) { %>
-      <div class="error-banner"><%= error %></div>
-    <% } %>
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="error-banner"><%= error %></div>
+        <% } %>
 
-    <div class="card" style="padding: 0;">
-      <table>
-        <thead><tr><th>Usuário</th><th>Criado em</th><th></th></tr></thead>
-        <tbody>
-          <% admins.forEach(function(a) { %>
-          <tr>
-            <td><%= a.username %></td>
-            <td><%= a.created_at %></td>
-            <td style="text-align: right;">
-              <form method="post" action="/admin/admins/<%= a.id %>/delete" onsubmit="return confirm('Excluir o administrador &quot;<%= a.username %>&quot;?')">
-                <button type="submit" class="btn danger small">Excluir</button>
-              </form>
-            </td>
-          </tr>
-          <% }) %>
-          <% if (!admins.length) { %>
-          <tr><td colspan="3" class="empty-state">Nenhum administrador cadastrado.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead><tr><th>Usuário</th><th>Criado em</th><th></th></tr></thead>
+            <tbody>
+              <% admins.forEach(function(a) { %>
+              <tr>
+                <td><%= a.username %></td>
+                <td><%= a.created_at %></td>
+                <td style="text-align: right;">
+                  <form method="post" action="/admin/admins/<%= a.id %>/delete" onsubmit="return confirm('Excluir o administrador &quot;<%= a.username %>&quot;?')">
+                    <button type="submit" class="btn danger small">Excluir</button>
+                  </form>
+                </td>
+              </tr>
+              <% }) %>
+              <% if (!admins.length) { %>
+              <tr><td colspan="3" class="empty-state">Nenhum administrador cadastrado.</td></tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
 
   <dialog id="modal-new-admin">
