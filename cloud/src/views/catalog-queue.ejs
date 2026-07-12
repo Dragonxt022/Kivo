@@ -26,7 +26,14 @@
       <div class="page">
         <div class="page-header">
           <h1>Banco de imagens</h1>
-          <button class="btn" onclick="openUploadModal()">+ Adicionar imagem(ns)</button>
+          <div style="display:flex; gap:8px;">
+            <% if (images.length > 0) { %>
+              <button class="btn danger" onclick="openDeleteAllModal()">Apagar todas</button>
+            <% } else { %>
+              <button class="btn danger" disabled title="Nenhuma imagem para apagar">Apagar todas</button>
+            <% } %>
+            <button class="btn" onclick="openUploadModal()">+ Adicionar imagem(ns)</button>
+          </div>
         </div>
 
         <div class="card">
@@ -40,6 +47,9 @@
 
         <% if (typeof error !== 'undefined' && error) { %>
           <div class="error-banner"><%= error %></div>
+        <% } %>
+        <% if (typeof deleted !== 'undefined' && deleted) { %>
+          <div class="success-banner"><%= deleted %> imagem(ns) removida(s) com sucesso.</div>
         <% } %>
 
         <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
@@ -147,6 +157,30 @@
       <div class="modal-actions" style="margin-top: 16px;">
         <button type="button" class="btn secondary" onclick="closeUploadModal()">Cancelar</button>
         <button type="button" class="btn" id="manual-upload-submit" onclick="submitAllUploads()">Adicionar ao catálogo</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="modal-delete-all">
+    <div class="modal-header">
+      <h2>Apagar imagens do catálogo</h2>
+      <button type="button" class="modal-close" onclick="closeDeleteAllModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p>Tem certeza que deseja apagar <strong id="delete-all-count">0</strong> imagem(ns) da aba <strong id="delete-all-status-label">Pendentes</strong>?</p>
+      <p style="color: var(--danger); font-size: 0.85rem; margin-top: 8px;">Esta ação não pode ser desfeita. Os arquivos serão removidos permanentemente do disco.</p>
+
+      <div style="margin-top: 16px;">
+        <label style="font-size: 0.85rem; font-weight: 600;">Digite <strong>APAGAR</strong> para confirmar:</label>
+        <input type="text" id="delete-all-confirm-input" class="input-search" placeholder="APAGAR" style="margin-top: 6px;" oninput="validateDeleteAllInput()">
+      </div>
+
+      <div class="modal-actions" style="margin-top: 16px;">
+        <button type="button" class="btn secondary" onclick="closeDeleteAllModal()">Cancelar</button>
+        <form method="post" action="/admin/catalog/delete-all" id="delete-all-form" style="display:inline;">
+          <input type="hidden" name="status" id="delete-all-status-field" value="">
+          <button type="submit" class="btn danger" id="delete-all-submit-btn" disabled>Apagar todas</button>
+        </form>
       </div>
     </div>
   </dialog>
@@ -338,6 +372,27 @@
       } else {
         window.location.href = '/admin/catalog';
       }
+    }
+
+    var deleteAllCount = <%= images.length %>;
+    var deleteAllStatus = '<%= activeStatus %>';
+
+    function openDeleteAllModal() {
+      document.getElementById('delete-all-count').textContent = deleteAllCount;
+      document.getElementById('delete-all-status-label').textContent = deleteAllStatus === 'aprovada' ? 'Aprovadas' : 'Pendentes';
+      document.getElementById('delete-all-status-field').value = deleteAllStatus;
+      document.getElementById('delete-all-confirm-input').value = '';
+      document.getElementById('delete-all-submit-btn').disabled = true;
+      document.getElementById('modal-delete-all').showModal();
+    }
+
+    function closeDeleteAllModal() {
+      document.getElementById('modal-delete-all').close();
+    }
+
+    function validateDeleteAllInput() {
+      var val = document.getElementById('delete-all-confirm-input').value.trim().toUpperCase();
+      document.getElementById('delete-all-submit-btn').disabled = val !== 'APAGAR';
     }
   </script>
 </body>

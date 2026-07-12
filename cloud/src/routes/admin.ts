@@ -479,6 +479,7 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
       storageBytes: stats?.storage_bytes ?? 0,
     },
     error: null,
+    deleted: req.query.deleted ? Number(req.query.deleted) : null,
   });
 });
 
@@ -525,6 +526,59 @@ router.post('/catalog/:id/reject', requireAdminAuth, async (req: AdminRequest, r
     );
   }
   res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
+});
+
+/**
+ * Exclusão em massa: apaga todas as imagens de um status específico (pendente ou aprovada).
+ * 1. Valida o parâmetro status
+ * 2. Busca todas as imagens do status
+ * 3. Deleta os arquivos de disco
+ * 4. Marca como rejeitada (tombstone) preservando sha256
+ * 5. Registra em log a ação do admin
+ */
+router.post('/catalog/delete-all', requireAdminAuth, async (req: AdminRequest, res) => {
+  const status = String(req.body?.status ?? '');
+  if (status !== 'pendente' && status !== 'aprovada') {
+    res.redirect('/admin/catalog');
+    return;
+  }
+
+  const pool = getPool();
+  const [rows] = await pool.query(
+    'SELECT id, image_path FROM catalog_images WHERE status = ?',
+    [status],
+  );
+  const images = rows as { id: number; image_path: string }[];
+
+  if (!images.length) {
+    res.redirect('/admin/catalog?status=' + status);
+    return;
+  }
+
+  const count = images.length;
+  let deletedFiles = 0;
+
+  for (const img of images) {
+    if (img.image_path) {
+      try {
+        fs.unlinkSync(path.join(CATALOG_STORAGE_DIR, img.image_path));
+        deletedFiles++;
+      } catch {
+        // arquivo já não existe — segue o jogo
+      }
+    }
+  }
+
+  await pool.query(
+    "UPDATE catalog_images SET status = 'rejeitada', image_path = '', reviewed_by = ?, reviewed_at = NOW(3) WHERE status = ?",
+    [req.adminUsername, status],
+  );
+
+  console.log(
+    `[CATALOG DELETE-ALL] admin=${req.adminUsername} status=${status} count=${count} files_deleted=${deletedFiles} at=${new Date().toISOString()}`,
+  );
+
+  res.redirect('/admin/catalog?status=' + status + '&deleted=' + count);
 });
 
 /**
