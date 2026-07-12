@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Wiki</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <link rel="stylesheet" href="/css/wiki.css">
+</head>
+<body>
+  <div class="wiki-layout">
+    <!-- Overlay mobile -->
+    <div class="wiki-sidebar-overlay" id="wiki-overlay" onclick="toggleWikiSidebar()"></div>
+
+    <!-- Sidebar TOC -->
+    <nav class="wiki-sidebar" id="wiki-sidebar">
+      <div class="wiki-sidebar-brand">
+        <img id="wiki-logo" src="/favicon.png" alt="Katsu" />
+        <span>Katsu Wiki</span>
+      </div>
+
+      <div class="wiki-toc-group">
+        <a href="#boas-vindas" class="wiki-toc-link active" data-section="boas-vindas">Bem-vindo ao Katsu</a>
+      </div>
+
+      <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Comercial</div>
+        <a href="#clientes" class="wiki-toc-link" data-section="clientes">Clientes</a>
+        <a href="#fornecedores" class="wiki-toc-link" data-section="fornecedores">Fornecedores</a>
+        <a href="#produtos" class="wiki-toc-link" data-section="produtos">Produtos</a>
+        <a href="#estoque" class="wiki-toc-link" data-section="estoque">Estoque</a>
+        <a href="#listas-preco" class="wiki-toc-link" data-section="listas-preco">Listas de Preço</a>
+        <a href="#compras" class="wiki-toc-link" data-section="compras">Compras</a>
+      </div>
+
+      <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Financeiro</div>
+        <a href="#caixa" class="wiki-toc-link" data-section="caixa">Caixa</a>
+        <a href="#contas-pagar" class="wiki-toc-link" data-section="contas-pagar">Contas a Pagar</a>
+        <a href="#contas-receber" class="wiki-toc-link" data-section="contas-receber">Contas a Receber</a>
+        <a href="#fluxo" class="wiki-toc-link" data-section="fluxo">Fluxo de Caixa</a>
+        <a href="#formas-pagamento" class="wiki-toc-link" data-section="formas-pagamento">Formas de Pagamento</a>
+        <a href="#convenios" class="wiki-toc-link" data-section="convenios">Convênios</a>
+      </div>
+
+      <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Loja / PDV</div>
+        <a href="#pdv" class="wiki-toc-link" data-section="pdv">PDV (Ponto de Venda)</a>
+        <a href="#vendas" class="wiki-toc-link" data-section="vendas">Vendas</a>
+        <a href="#orcamentos" class="wiki-toc-link" data-section="orcamentos">Orçamentos</a>
+      </div>
+
+      <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Administração</div>
+        <a href="#usuarios" class="wiki-toc-link" data-section="usuarios">Usuários e Cargos</a>
+        <a href="#configuracoes" class="wiki-toc-link" data-section="configuracoes">Configurações</a>
+        <a href="#backup" class="wiki-toc-link" data-section="backup">Backup</a>
+        <a href="#licenca" class="wiki-toc-link" data-section="licenca">Licença</a>
+      </div>
+    </nav>
+
+    <!-- Conteúdo principal -->
+    <div class="wiki-main">
+      <div class="wiki-navbar">
+        <div class="left">
+          <button class="wiki-sidebar-toggle" onclick="toggleWikiSidebar()" aria-label="Menu">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <a href="/wiki" class="brand">
+            <img id="wiki-nav-logo" src="/favicon.png" alt="Katsu" />
+            Wiki Katsu
+          </a>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" class="theme-toggle" id="wiki-theme-toggle" title="Alternar tema" aria-label="Alternar tema">
+            <svg id="wiki-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            <svg id="wiki-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="wiki-content">
+
+        <!-- ============================================================ -->
+        <!-- BOAS-VINDAS -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="boas-vindas">
+          <div class="wiki-hero">
+            <img id="wiki-hero-logo" src="/favicon.png" alt="Katsu" />
+            <h1>Bem-vindo ao Katsu</h1>
+            <p>Guia completo de como usar cada funcionalidade da plataforma. Navegue pelo sumário ao lado para encontrar o bloco que precisa.</p>
+          </div>
+
+          <div class="wiki-card">
+            <h4>O que é o Katsu?</h4>
+            <p>O Katsu é uma plataforma comercial modular feita para o dia a dia do seu negócio. Ele reúne cadastros, estoque, vendas, financeiro e administrativo em um só lugar, com sincronização na nuvem e backup automático.</p>
+          </div>
+
+          <div class="wiki-card">
+            <h4>Blocos principais</h4>
+            <ul>
+              <li><span class="wiki-badge">Comercial</span> Cadastros de clientes, fornecedores, produtos, estoque e compras.</li>
+              <li><span class="wiki-badge">Financeiro</span> Controle de caixa, contas a pagar e receber, fluxo de caixa.</li>
+              <li><span class="wiki-badge">Loja</span> PDV (ponto de venda), histórico de vendas e orçamentos.</li>
+              <li><span class="wiki-badge">Admin</span> Usuários, cargos, configurações, backup e licença.</li>
+            </ul>
+          </div>
+        </div>
+
+        <hr class="wiki-divider" />
+
+        <!-- ============================================================ -->
+        <!-- COMERCIAL -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="clientes">
+          <h2>Comercial</h2>
+          <h3>Clientes</h3>
+          <p>Cadastre seus clientes para associar a vendas, controlar fiado e gerar relatórios de compra por cliente.</p>
+          <p><strong>Como acessar:</strong> No menu principal, clique em <em>Clientes</em>.</p>
+          <ol>
+            <li>Clique em <strong>+ Novo Cliente</strong>.</li>
+            <li>Preencha o nome e, se tiver, o CPF ou CNPJ (o sistema valida automaticamente).</li>
+            <li>Adicione telefone e observações se desejar.</li>
+            <li>Salve. O cliente já aparece na lista e pode ser vinculado a vendas e orçamentos.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Cadastrar o cliente <strong>Maria Silva</strong> com CPF <em>529.982.247-25</em> e telefone <em>(11) 99999-0000</em>. Ao finalizar, ela aparece na lista de clientes e pode ser selecionada no PDV ou em orçamentos.</p>
+          </div>
+          <p>Você pode editar ou excluir (exclusão suave) a qualquer momento. Clientes excluídos saem da lista, mas o histórico de vendas é preservado.</p>
+        </div>
+
+        <div class="wiki-section" id="fornecedores">
+          <h3>Fornecedores</h3>
+          <p>Cadastre fornecedores para vincular às compras de reposição de estoque.</p>
+          <ol>
+            <li>Acesse <em>Fornecedores</em> no menu.</li>
+            <li>Clique em <strong>+ Novo Fornecedor</strong>.</li>
+            <li>Preencha o nome e o CNPJ (validação automática).</li>
+            <li>Salve. O fornecedor fica disponível para ser vinculado em compras.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Cadastrar <strong>Distribuidora ABC</strong> com CNPJ <em>11.222.333/0001-81</em>. Quando você registrar uma compra de reposição, poderá selecionar esse fornecedor para rastreabilidade.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="produtos">
+          <h3>Produtos</h3>
+          <p>O catálogo de produtos é o coração do sistema. Cada produto tem nome, código de barras, preço, custo e estoque.</p>
+          <ol>
+            <li>Acesse <em>Produtos</em> no menu.</li>
+            <li>Clique em <strong>+ Novo Produto</strong>.</li>
+            <li>Preencha nome, preço de venda (em centavos) e, opcionalmente, código de barras, custo e estoque inicial.</li>
+            <li>Associe a uma categoria se desejar organizar melhor.</li>
+            <li>Salve.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Cadastrar <strong>Argamassa 20kg</strong> com preço <em>R$ 30,00</em> e estoque inicial <em>40 unidades</em>. O produto já aparece no PDV e o estoque começa em 40, com uma movimentação de entrada registrada automaticamente.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="estoque">
+          <h3>Estoque</h3>
+          <p>Controle a entrada, saída e ajuste de estoque de cada produto. Todas as movimentações ficam registradas para auditoria.</p>
+          <ol>
+            <li>No PDV, as saídas são registradas automaticamente a cada venda.</li>
+            <li>Para entradas manuais (compras, devoluções), acesse o produto e use <strong>Movimentar Estoque</strong>.</li>
+            <li>Escolha o tipo: <em>entrada</em>, <em>saída</em> ou <em>ajuste</em>.</li>
+            <li>Informe a quantidade e o motivo.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Seu estoque de <strong>Argamassa 20kg</strong> está em 40. Você recebe uma entrega de 10 unidades. Registre uma <em>entrada</em> de 10 com o motivo "Reposição de fornecedor". O estoque agora é 50 e o histórico mostra o movimento.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="listas-preco">
+          <h3>Listas de Preço</h3>
+          <p>Crie tabelas de preço separadas para atacado, promoção ou clientes especiais. Ao vender, você escolhe qual lista aplicar.</p>
+          <ol>
+            <li>Acesse <em>Listas de Preço</em> no menu.</li>
+            <li>Crie uma nova lista e dê um nome (ex: "Atacado").</li>
+            <li>Adicione produtos e defina o preço específico para essa lista.</li>
+            <li>Na hora da venda, selecione a lista desejada.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Criar a lista <strong>"Atacado"</strong> com Argamassa 20kg a <em>R$ 25,00</em> (preço normal: R$ 30,00). Um cliente que compra 50 unidades pode selecionar essa lista no PDV automaticamente.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="compras">
+          <h3>Compras</h3>
+          <p>Registre compras de reposição de estoque. O sistema atualiza o estoque e o custo do produto automaticamente.</p>
+          <ol>
+            <li>Acesse <em>Compras</em> no menu.</li>
+            <li>Clique em <strong>+ Nova Compra</strong>.</li>
+            <li>Selecione o fornecedor, adicione os produtos com quantidade e custo unitário.</li>
+            <li>Confirme. O estoque é atualizado e o custo do produto é recalculado.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Comprar <strong>30 caixas de Argamassa</strong> da Distribuidora ABC a <em>R$ 17,50</em> cada. O estoque sobe de 50 para 80, o custo unitário é atualizado para R$ 17,50 e a compra fica registrada no histórico.</p>
+          </div>
+        </div>
+
+        <hr class="wiki-divider" />
+
+        <!-- ============================================================ -->
+        <!-- FINANCEIRO -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="caixa">
+          <h2>Financeiro</h2>
+          <h3>Caixa</h3>
+          <p>O caixa controla o fluxo de dinheiro do dia. Abra o caixa no início do expediente, registre entradas e saídas, e feche ao final.</p>
+          <ol>
+            <li>Acesse <em>Caixa</em> no menu.</li>
+            <li>Clique em <strong>Abrir Caixa</strong> e informe o valor de abertura (troco inicial).</li>
+            <li>Durante o dia, o PDV registra entradas automaticamente. Use <strong>Suprimento</strong> (entrada extra) ou <strong>Sangria</strong> (retirada) conforme necessário.</li>
+            <li>Ao fechar, informe o valor contado. O sistema calcula a diferença.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Abra o caixa com <em>R$ 200,00</em> de troco. Durante o dia, o PDV registra R$ 1.500,00 em vendas em dinheiro. Registre uma sangria de R$ 100,00 parapagar um fornecedor. Ao fechar, conte R$ 1.600,00 — o sistema mostra "esperado: R$ 1.600,00 | contado: R$ 1.600,00 | diferença: R$ 0,00".</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="contas-pagar">
+          <h3>Contas a Pagar</h3>
+          <p>Registre suas contas fixas e variáveis (aluguel, energia, fornecedor) e acompanhe o que precisa ser pago.</p>
+          <ol>
+            <li>Acesse <em>A Pagar</em> no menu.</li>
+            <li>Clique em <strong>+ Nova Conta</strong>.</li>
+            <li>Preencha a descrição, valor e data de vencimento.</li>
+            <li>Quando pagar, clique em <strong>Registrar Pagamento</strong>. O valor é descontado do caixa automaticamente.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Registrar a conta <strong>"Aluguel - Julho"</strong> no valor de <em>R$ 2.500,00</em> com vencimento em 10/07. No dia do pagamento, clique em "Registrar Pagamento" — o sistema cria uma saída no caixa e marca a conta como paga.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="contas-receber">
+          <h3>Contas a Receber</h3>
+          <p>Contas a receber são geradas automaticamente quando uma venda é feita a prazo (fiado). Você também pode criar manualmente.</p>
+          <ol>
+            <li>Acesse <em>A Receber</em> no menu.</li>
+            <li>Para vendas a prazo, a conta é criada automaticamente.</li>
+            <li>Para contas manuais, clique em <strong>+ Nova Conta</strong> e preencha descrição, valor e vencimento.</li>
+            <li>Quando o cliente pagar, clique em <strong>Registrar Recebimento</strong>.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>O cliente Maria comprou R$ 500,00 a prazo. O sistema cria uma conta a receber com vencimento em 30 dias. Quando ela pagar, o valor é adicionado ao caixa e a conta é marcada como recebida.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="fluxo">
+          <h3>Fluxo de Caixa</h3>
+          <p>Visualize todas as entradas e saídas do período. O relatório de fluxo confere com os lançamentos do caixa para garantir consistência.</p>
+          <ol>
+            <li>Acesse <em>Fluxo</em> no menu.</li>
+            <li>Veja o resumo: total de entradas, saídas e saldo do período.</li>
+            <li>Use os filtros por data para analisar períodos específicos.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>No mês de julho, o fluxo mostra <em>R$ 15.000,00</em> em entradas (vendas + recebimentos) e <em>R$ 8.000,00</em> em saídas (compras + pagamentos). O saldo positivo de <em>R$ 7.000,00</em> indica saúde financeira.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="formas-pagamento">
+          <h3>Formas de Pagamento</h3>
+          <p>Configure as formas de pagamento aceitas na sua loja, incluindo a taxa de cada operadora.</p>
+          <ol>
+            <li>Acesse <em>Pagamentos</em> no menu.</li>
+            <li>Veja as 8 formas padrão: Dinheiro, PIX, Débito, Crédito, A Prazo, Crédito de Loja, Fidelidade e Convênio.</li>
+            <li>Para criar uma nova forma (ex: "Débito — Stone"), clique em <strong>+ Nova Forma</strong>.</li>
+            <li>Defina o nome, tipo e a taxa em basis points (160 = 1,60%).</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Criar <strong>"Débito — Stone"</strong> com tipo <em>Débito</em> e taxa <em>160 bps (1,60%)</em>. Ao vender R$ 100,00 no débito pela Stone, o sistema calcula automaticamente a taxa de R$ 1,60 e registra no relatório de taxas.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="convenios">
+          <h3>Convênios</h3>
+          <p>Empresas conveniadas podem comprar a prazo e ter as cobranças geradas automaticamente no final do período.</p>
+          <ol>
+            <li>Cadastre a empresa conveniada em <em>Clientes</em> (com CNPJ).</li>
+            <li>Na tela de <em>Convênios</em>, vincule o cliente e defina as condições (dia de fechamento, prazo de pagamento).</li>
+            <li>As vendas para essa empresa são acumuladas e geram uma cobrança consolidada.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>A <strong>Construtora XYZ</strong> é conveniada e compra materiais durante o mês. No dia 25, o sistema gera uma cobrança consolidada de R$ 3.200,00 com vencimento em 15 dias. Você acompanha o pagamento na tela de Convênios.</p>
+          </div>
+        </div>
+
+        <hr class="wiki-divider" />
+
+        <!-- ============================================================ -->
+        <!-- LOJA / PDV -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="pdv">
+          <h2>Loja / PDV</h2>
+          <h3>PDV (Ponto de Venda)</h3>
+          <p>O PDV é onde você realiza as vendas no dia a dia. É rápido, intuitivo e suporta múltiplas formas de pagamento.</p>
+          <ol>
+            <li>Acesse <em>PDV</em> no menu.</li>
+            <li>Pesquise o produto por nome ou código de barras.</li>
+            <li>Clique no produto ou pressione Enter para adicionar ao carrinho.</li>
+            <li>Ajuste a quantidade se necessário.</li>
+            <li>Escolha a forma de pagamento (Dinheiro, PIX, Débito, Crédito, etc.).</li>
+            <li>Confirme a venda. O cupom é gerado automaticamente.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>O cliente quer comprar <strong>2 Argamassa 20kg</strong> e <strong>1 tubo de PVC</strong>. Pesquise "Argamassa", adicione 2 unidades (R$ 60,00). Pesquise "PVC", adicione 1 (R$ 15,90). Total: R$ 75,90. Ele paga no PIX. Confirme — o cupom é gerado e o estoque é atualizado automaticamente.</p>
+          </div>
+          <p>O PDV também suporta <strong>vendas divididas</strong> (ex: R$ 50 no PIX + R$ 25,90 no débito) e <strong>acréscimos/descontos</strong>.</p>
+        </div>
+
+        <div class="wiki-section" id="vendas">
+          <h3>Vendas</h3>
+          <p>O histórico de vendas mostra todas as transações realizadas, com opção de cancelamento e impressão de cupom.</p>
+          <ol>
+            <li>Acesse <em>Vendas</em> no menu.</li>
+            <li>Veja a lista de vendas com data, cliente, total e status.</li>
+            <li>Clique em uma venda para ver os detalhes.</li>
+            <li>Use <strong>Cancelar</strong> para estornar (estoque volta automaticamente).</li>
+            <li>Use <strong>Cupom</strong> para imprimir ou visualizar o comprovante.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Um cliente quer devolver um produto. Localize a venda no histórico, clique em <strong>Cancelar</strong>. O estoque é devolvido e, se o pagamento foi em dinheiro, o valor é estornado do caixa.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="orcamentos">
+          <h3>Orçamentos</h3>
+          <p>Crie orçamentos (cotações) para clientes. O orçamento não mexe no estoque — só vira venda quando o cliente aprovar.</p>
+          <ol>
+            <li>Acesse <em>Orçamentos</em> no menu.</li>
+            <li>Clique em <strong>+ Novo Orçamento</strong>.</li>
+            <li>Adicione os produtos com as quantidades e, opcionalmente, vincule o cliente.</li>
+            <li>Defina a validade (data até quando o preço é garantido).</li>
+            <li>Salve. O orçamento pode ser impresso ou enviado ao cliente.</li>
+            <li>Quando aprovado, clique em <strong>Converter em Venda</strong>.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>O cliente João quer um orçamento para obra. Crie um orçamento com <strong>50 Argamassa</strong> a R$ 30,00 = R$ 1.500,00, válido por 15 dias. João aprova — converta em venda. O estoque é baixado e o PDV registra a transação. Se o preço do produto mudou enquanto o orçamento estava aberto, o preço original é honrado.</p>
+          </div>
+        </div>
+
+        <hr class="wiki-divider" />
+
+        <!-- ============================================================ -->
+        <!-- ADMINISTRAÇÃO -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="usuarios">
+          <h2>Administração</h2>
+          <h3>Usuários e Cargos</h3>
+          <p>Gerencie quem acessa o sistema e o que cada pessoa pode fazer, usando o sistema de cargos e permissões (RBAC).</p>
+          <ol>
+            <li>Acesse <em>Usuários</em> no menu admin.</li>
+            <li>Clique em <strong>+ Novo Usuário</strong>, preencha nome, login e senha.</li>
+            <li>Escolha o cargo (Administrador, Gerente, Operador, Caixa, etc.).</li>
+            <li>Para criar um cargo customizado, acesse <em>Cargos</em> e defina as permissões específicas.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Criar o cargo <strong>"Vendedor Balcão"</strong> com permissões: visualizar e criar vendas, visualizar e criar orçamentos, visualizar produtos e clientes. Depois, criar o usuário <strong>"João"</strong> com esse cargo. João só enxerga o que o cargo dele permite — não vê caixa, usuários nem configurações.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="configuracoes">
+          <h3>Configurações</h3>
+          <p>Configure dados da empresa, PIN de segurança e preferências do sistema.</p>
+          <ol>
+            <li>Acesse <em>Configurações</em> no menu admin.</li>
+            <li>Altere o nome da empresa, endereço e dados de contato.</li>
+            <li>Defina um PIN de administrador para ações sensíveis.</li>
+            <li>Configure o suporte (e-mail e telefone exibidos ao usuário).</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Alterar o nome da empresa para <strong>"Materiais Katsu LTDA"</strong>. Esse nome aparece nos cupons, relatórios e na tela de licença. Configure o telefone de suporte para <em>(11) 3000-1234</em> — o número aparece na tela de ajuda do app.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="backup">
+          <h3>Backup</h3>
+          <p>O sistema faz backup automático diário às 23:00. Você também pode criar backups manualmente e restaurá-los.</p>
+          <ol>
+            <li>Acesse <em>Backup</em> no menu admin.</li>
+            <li>Clique em <strong>Backup Agora</strong> para criar um backup manual.</li>
+            <li>O backup é salvo localmente com checksum de integridade.</li>
+            <li>Para restaurar, selecione um backup da lista e confirme.</li>
+            <li>Se tiver licença ativa, os backups sobem automaticamente para a nuvem.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Antes de fazer uma grande atualização, clique em <strong>Backup Agora</strong>. O sistema gera um arquivo <code>.gz</code> com checksum SHA-256. Se algo der errado, você pode restaurar esse backup e o sistema volta exatamente ao estado anterior.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="licenca">
+          <h3>Licença</h3>
+          <p>A licença desbloqueia funcionalidades avançadas como sincronização na nuvem, backup automático na nuvem e atualizações.</p>
+          <ol>
+            <li>Acesse <em>Configurações → Empresa/Chave</em> no app.</li>
+            <li>Insira o UUID da empresa e a chave de licença fornecida pelo suporte.</li>
+            <li>O sistema valida online e ativa os recursos da nuvem.</li>
+            <li>Após ativação, sincronização e backup na nuvem funcionam automaticamente.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Sua empresa recebeu a chave <code>KATSU-PRO-2025</code>. Acesse Configurações, insira o UUID e a chave. O sistema valida, mostra "Licença válida" e ativa sincronização + backup na nuvem. Agora seus dados estão protegidos即使 o computador quebre.</p>
+          </div>
+        </div>
+
+      </div><!-- /wiki-content -->
+    </div><!-- /wiki-main -->
+  </div><!-- /wiki-layout -->
+
+  <script>
+    // Theme toggle
+    (function () {
+      var root = document.documentElement;
+      var sun = document.getElementById('wiki-sun');
+      var moon = document.getElementById('wiki-moon');
+      var logos = [document.getElementById('wiki-logo'), document.getElementById('wiki-nav-logo'), document.getElementById('wiki-hero-logo')];
+      function applyIcons() {
+        var dark = root.getAttribute('data-theme') === 'dark';
+        sun.style.display = dark ? 'none' : 'block';
+        moon.style.display = dark ? 'block' : 'none';
+        var src = dark ? '/favicon_branco.png' : '/favicon.png';
+        logos.forEach(function (img) { if (img) img.src = src; });
+      }
+      applyIcons();
+      document.getElementById('wiki-theme-toggle').addEventListener('click', function () {
+        var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('katsu-theme', next); } catch (e) {}
+        applyIcons();
+      });
+    })();
+
+    // Sidebar toggle (mobile)
+    function toggleWikiSidebar() {
+      document.getElementById('wiki-sidebar').classList.toggle('open');
+      document.getElementById('wiki-overlay').classList.toggle('open');
+    }
+
+    // Scroll-spy: highlight active section in TOC
+    (function () {
+      var links = document.querySelectorAll('.wiki-toc-link[data-section]');
+      var sections = [];
+      links.forEach(function (link) {
+        var id = link.getAttribute('data-section');
+        var el = document.getElementById(id);
+        if (el) sections.push({ id: id, el: el, link: link });
+      });
+      function onScroll() {
+        var scrollY = window.scrollY + 80;
+        var current = sections[0];
+        for (var i = 0; i < sections.length; i++) {
+          if (sections[i].el.offsetTop <= scrollY) current = sections[i];
+        }
+        links.forEach(function (l) { l.classList.remove('active'); });
+        if (current) current.link.classList.add('active');
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+
+    // Smooth scroll for TOC links
+    document.querySelectorAll('.wiki-toc-link').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        var href = this.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          e.preventDefault();
+          var target = document.getElementById(href.slice(1));
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            history.replaceState(null, '', href);
+          }
+          // Close mobile sidebar
+          document.getElementById('wiki-sidebar').classList.remove('open');
+          document.getElementById('wiki-overlay').classList.remove('open');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

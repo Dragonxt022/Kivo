@@ -1,0 +1,133 @@
+/* wiki.css — estilos específicos da página Wiki (Cloud) */
+/* As variáveis de tema (--bg, --surface, --primary, etc.) vêm de partials/styles.ejs */
+
+.wiki-layout { display: flex; min-height: 100vh; align-items: stretch; }
+
+/* ── Sidebar TOC ───────────────────────────────────── */
+.wiki-sidebar {
+  width: 260px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border-light); padding: 20px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  transition: width .2s, transform .2s;
+}
+.wiki-sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 10px 16px; border-bottom: 1px solid var(--border-light); margin-bottom: 8px;
+}
+.wiki-sidebar-brand img { width: 28px; height: 28px; border-radius: 7px; }
+.wiki-sidebar-brand span { font-weight: 700; font-size: 1rem; color: var(--text); }
+.wiki-toc-group { margin-bottom: 4px; }
+.wiki-toc-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); font-weight: 700; padding: 10px 10px 4px;
+}
+.wiki-toc-link {
+  display: block; padding: 7px 10px; border-radius: 7px;
+  color: var(--muted); font-size: 0.85rem; font-weight: 500;
+  text-decoration: none; transition: background .12s, color .12s;
+}
+.wiki-toc-link:hover { background: var(--primary-soft); color: var(--primary); text-decoration: none; }
+.wiki-toc-link.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.wiki-toc-link.sub { padding-left: 24px; font-size: 0.82rem; }
+
+/* ── Main ──────────────────────────────────────────── */
+.wiki-main { flex: 1; min-width: 0; }
+
+/* ── Navbar ────────────────────────────────────────── */
+.wiki-navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); border-bottom: 1px solid var(--border-light);
+  padding: 0 28px; height: 56px; position: sticky; top: 0; z-index: 30;
+}
+.wiki-navbar .left { display: flex; align-items: center; gap: 12px; }
+.wiki-navbar .brand {
+  font-weight: 700; font-size: 1rem; color: var(--text);
+  display: flex; align-items: center; gap: 8px; text-decoration: none;
+}
+.wiki-navbar .brand:hover { text-decoration: none; }
+.wiki-navbar .brand img { width: 24px; height: 24px; border-radius: 6px; }
+
+/* ── Content ───────────────────────────────────────── */
+.wiki-content { max-width: 860px; margin: 0 auto; padding: 32px 28px 80px; }
+.wiki-section { margin-bottom: 48px; }
+.wiki-section h2 {
+  font-size: 1.4rem; font-weight: 700; margin: 0 0 8px;
+  padding-top: 8px; scroll-margin-top: 72px;
+}
+.wiki-section h3 {
+  font-size: 1.05rem; font-weight: 600; margin: 24px 0 8px;
+  color: var(--primary); scroll-margin-top: 72px;
+}
+.wiki-section p { margin: 0 0 12px; line-height: 1.65; color: var(--text-secondary, var(--text)); }
+.wiki-section ul, .wiki-section ol { margin: 0 0 14px; padding-left: 22px; line-height: 1.7; }
+.wiki-section li { margin-bottom: 4px; }
+
+/* ── Card ──────────────────────────────────────────── */
+.wiki-card {
+  background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px;
+}
+.wiki-card h4 { margin: 0 0 10px; font-size: 0.95rem; }
+
+/* ── Exemplo prático ───────────────────────────────── */
+.wiki-example {
+  background: var(--primary-soft); border-left: 3px solid var(--primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 16px 20px; margin: 12px 0 16px;
+}
+.wiki-example-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--primary); font-weight: 700; margin-bottom: 6px;
+}
+
+/* ── Hero ──────────────────────────────────────────── */
+.wiki-hero {
+  text-align: center; padding: 48px 20px 40px; margin-bottom: 32px;
+  background: linear-gradient(135deg, var(--primary-soft), transparent 60%);
+  border-radius: var(--radius); border: 1px solid var(--border-light);
+}
+.wiki-hero img { width: 64px; height: 64px; border-radius: 16px; margin-bottom: 16px; }
+.wiki-hero h1 { font-size: 1.8rem; margin: 0 0 8px; }
+.wiki-hero p { font-size: 1.05rem; color: var(--muted); margin: 0; max-width: 520px; margin-inline: auto; }
+
+/* ── Badge ─────────────────────────────────────────── */
+.wiki-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  background: var(--primary-soft); color: var(--primary); margin-right: 6px; vertical-align: middle;
+}
+
+/* ── Steps ─────────────────────────────────────────── */
+.wiki-step { display: flex; gap: 12px; margin-bottom: 10px; align-items: flex-start; }
+.wiki-step-num {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--primary); color: #fff; font-size: 0.75rem; font-weight: 700;
+  display: grid; place-items: center; margin-top: 2px;
+}
+.wiki-step-text { flex: 1; line-height: 1.6; }
+.wiki-menu-icon { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; opacity: .6; }
+
+/* ── Divider ───────────────────────────────────────── */
+.wiki-divider { border: none; border-top: 1px solid var(--border-light); margin: 32px 0; }
+
+/* ── Sidebar toggle (mobile) ───────────────────────── */
+.wiki-sidebar-toggle {
+  display: none; border: 1px solid var(--border); background: var(--surface-hover);
+  color: var(--muted); width: 36px; height: 36px; border-radius: 9px; cursor: pointer;
+  place-items: center; flex-shrink: 0;
+}
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 900px) {
+  .wiki-sidebar {
+    position: fixed; top: 0; left: 0; z-index: 100;
+    transform: translateX(-100%); box-shadow: var(--shadow-lg);
+  }
+  .wiki-sidebar.open { transform: translateX(0); }
+  .wiki-sidebar-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 99;
+  }
+  .wiki-sidebar-overlay.open { display: block; }
+  .wiki-sidebar-toggle { display: grid; }
+}
