@@ -118,7 +118,9 @@
               <div class="form-grid" style="grid-template-columns:80px 110px 70px;margin-top:.4rem">
                 <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" x-ref="qtyInput" />
                 <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
-                <button type="button" class="btn secondary" @click="addItem()">+</button>
+                <button type="button" class="btn secondary" @click="addItem()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
               </div>
 
               <div class="scroll-box-md" style="margin-top:.8rem">
@@ -147,15 +149,27 @@
         <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
         <template x-if="!form.id || form.status === 'rascunho'">
           <span style="display:contents">
-            <button class="btn secondary" @click="save(false)">Salvar rascunho</button>
-            <button class="btn" @click="save(true)">Receber compra</button>
+            <button class="btn secondary" @click="save(false)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Salvar rascunho
+            </button>
+            <button class="btn" @click="save(true)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Receber compra
+            </button>
           </span>
         </template>
         <template x-if="form.id && form.status !== 'rascunho'">
-          <button class="btn" @click="save(false)">Salvar</button>
+          <button class="btn" @click="save(false)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Salvar
+          </button>
         </template>
       </div>
     </dialog>

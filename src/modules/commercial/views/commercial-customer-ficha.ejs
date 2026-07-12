@@ -59,7 +59,10 @@
       <div class="toolbar">
         <input type="text" placeholder="Valor (R$)" x-model="creditForm.amountCents" @input="creditForm.amountCents = maskMoney(creditForm.amountCents)" class="input-search" />
         <input type="text" placeholder="Motivo (opcional)" x-model="creditForm.reason" class="input-search" />
-        <button class="btn" @click="grantCredit()" x-text="savingCredit ? 'Salvando…' : 'Conceder'"></button>
+        <button class="btn" @click="grantCredit()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span x-text="savingCredit ? 'Salvando…' : 'Conceder'"></span>
+        </button>
         <span class="error" x-text="creditError"></span>
       </div>
     </section>
@@ -116,7 +119,10 @@
               <td class="text-right" x-text="brl(r.amount_cents)"></td>
               <td class="text-right">
                 <% if (user.permissions.has('finance.receivables.receive')) { %>
-                <button class="btn small" x-show="r.status === 'aberta'" @click="openSettle(r)">Receber</button>
+                <button class="btn small" x-show="r.status === 'aberta'" @click="openSettle(r)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  Receber
+                </button>
                 <% } %>
               </td>
             </tr>
@@ -134,8 +140,14 @@
       <p class="hint">Pagamento adiantado? Ajuste a data acima — o padrão é hoje.</p>
       <div class="error" x-text="settleError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.settleDlg.close()">Cancelar</button>
-        <button class="btn" @click="confirmSettle()">Receber</button>
+        <button class="btn secondary" @click="$refs.settleDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmSettle()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Receber
+        </button>
       </div>
     </dialog>
   </main>

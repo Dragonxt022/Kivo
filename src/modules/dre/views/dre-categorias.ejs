@@ -19,7 +19,10 @@
       excluídas nem trocar de linha, mas o rótulo e o ajuste continuam editáveis.
     </p>
     <div class="toolbar">
-      <button class="btn" @click="openNew()">Nova categoria</button>
+      <button class="btn" @click="openNew()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova categoria
+      </button>
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -32,8 +35,14 @@
             <td class="muted" x-text="lineLabels[c.dre_line] ?? c.dre_line"></td>
             <td class="right" x-text="pct(c.adjustment_bps)"></td>
             <td class="text-right">
-              <button class="btn secondary small" @click="openEdit(c)">Editar</button>
-              <button class="btn small" x-show="!c.system" @click="del(c)">Excluir</button>
+              <button class="btn secondary small" @click="openEdit(c)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                Editar
+              </button>
+              <button class="btn small" x-show="!c.system" @click="del(c)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                Excluir
+              </button>
             </td>
           </tr>
         </template>
@@ -58,8 +67,14 @@
       <input type="text" x-model="form.adjustment" placeholder="0" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
   </main>

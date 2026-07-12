@@ -2,12 +2,18 @@
      métodos de table-toolkit.js (pageCount/pagedRows/goToPage/pageWindow), mais um getter
      `pageTotal` = quantidade de linhas já filtradas/ordenadas (antes de paginar). -->
 <div class="pager" x-show="pageCount(pageTotal) > 1" x-cloak>
-  <button type="button" class="btn secondary small" :disabled="page === 1" @click="goToPage(1, pageTotal)">Primeiro</button>
+  <button type="button" class="btn secondary small" :disabled="page === 1" @click="goToPage(1, pageTotal)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+    Primeiro
+  </button>
   <button type="button" class="pager-arrow" :disabled="page === 1" @click="goToPage(page - 1, pageTotal)" aria-label="Página anterior">‹</button>
   <template x-for="(p, idx) in pageWindow(pageTotal)" :key="idx">
     <button type="button" class="pager-num" :class="{ active: p === page, ellipsis: p === '…' }"
             :disabled="p === '…'" @click="p !== '…' && goToPage(p, pageTotal)" x-text="p"></button>
   </template>
   <button type="button" class="pager-arrow" :disabled="page === pageCount(pageTotal)" @click="goToPage(page + 1, pageTotal)" aria-label="Próxima página">›</button>
-  <button type="button" class="btn secondary small" :disabled="page === pageCount(pageTotal)" @click="goToPage(pageCount(pageTotal), pageTotal)">Último</button>
+  <button type="button" class="btn secondary small" :disabled="page === pageCount(pageTotal)" @click="goToPage(pageCount(pageTotal), pageTotal)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>
+    Último
+  </button>
 </div>

@@ -15,17 +15,41 @@
     <h1>Configurações</h1>
 
     <div class="tabs">
-      <button :class="{ active: tab === 'license' }" @click="tab = 'license'">Licença</button>
-      <button :class="{ active: tab === 'empresa' }" @click="tab = 'empresa'">Empresa</button>
-      <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">Estoque</button>
-      <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">Vendas</button>
-      <button :class="{ active: tab === 'financeiro' }" @click="tab = 'financeiro'">Financeiro</button>
-      <button :class="{ active: tab === 'fidelidade' }" @click="tab = 'fidelidade'">Fidelidade</button>
+      <button :class="{ active: tab === 'license' }" @click="tab = 'license'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+        Licença
+      </button>
+      <button :class="{ active: tab === 'empresa' }" @click="tab = 'empresa'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg>
+        Empresa
+      </button>
+      <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+        Estoque
+      </button>
+      <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        Vendas
+      </button>
+      <button :class="{ active: tab === 'financeiro' }" @click="tab = 'financeiro'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Financeiro
+      </button>
+      <button :class="{ active: tab === 'fidelidade' }" @click="tab = 'fidelidade'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 8 8 12 8c4 0 5-4 7.5-4a2.5 2.5 0 0 1 0 5H18"/><path d="M12 9v10M18 9v10"/></svg>
+        Fidelidade
+      </button>
       <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
-      <button :class="{ active: tab === 'security' }" @click="tab = 'security'">Segurança</button>
+      <button :class="{ active: tab === 'security' }" @click="tab = 'security'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Segurança
+      </button>
       <% } %>
       <% if (user.permissions.has('settings.edit')) { %>
-      <button :class="{ active: tab === 'advanced' }" @click="tab = 'advanced'">Avançado</button>
+      <button :class="{ active: tab === 'advanced' }" @click="tab = 'advanced'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Avançado
+      </button>
       <% } %>
     </div>
 
@@ -61,9 +85,14 @@
         </table>
         <% if (user.permissions.has('license.edit')) { %>
         <div class="actions" style="margin-top:1rem">
-          <button class="btn" @click="openLicenseDlg()">Ativar / trocar licença</button>
+          <button class="btn" @click="openLicenseDlg()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+            Ativar / trocar licença
+          </button>
           <% if (user.permissions.has('sync.run')) { %>
-          <button class="btn secondary" @click="syncNow()" :disabled="!license.canSaveToCloud" :title="!license.canSaveToCloud ? 'Não incluído no plano atual' : ''" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'"></button>
+           <button class="btn secondary" @click="syncNow()" :disabled="!license.canSaveToCloud" :title="!license.canSaveToCloud ? 'Não incluído no plano atual' : ''" x-text="syncing ? 'Sincronizando…' : 'Sincronizar agora'">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+           </button>
           <% } %>
           <span class="error" x-text="licenseError"></span>
         </div>
@@ -91,7 +120,10 @@
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
-          <button class="btn" @click="saveEmpresa()" x-text="savingEmpresa ? 'Salvando…' : 'Salvar dados da empresa'"></button>
+          <button class="btn" @click="saveEmpresa()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingEmpresa ? 'Salvando…' : 'Salvar dados da empresa'"></span>
+          </button>
           <span class="muted" x-show="empresaSaved" x-text="empresaSaved"></span>
         </div>
         <% } %>
@@ -115,7 +147,10 @@
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
-          <button class="btn" @click="saveStock()" x-text="savingStock ? 'Salvando…' : 'Salvar configurações'"></button>
+          <button class="btn" @click="saveStock()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingStock ? 'Salvando…' : 'Salvar configurações'"></span>
+          </button>
           <span class="muted" x-show="stockSaved" x-text="stockSaved"></span>
         </div>
         <% } %>
@@ -140,7 +175,10 @@
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
-          <button class="btn" @click="saveSales()" x-text="savingSales ? 'Salvando…' : 'Salvar configurações'"></button>
+          <button class="btn" @click="saveSales()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingSales ? 'Salvando…' : 'Salvar configurações'"></span>
+          </button>
           <span class="muted" x-show="salesSaved" x-text="salesSaved"></span>
         </div>
         <% } %>
@@ -179,7 +217,10 @@
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
-          <button class="btn" @click="saveFinanceiro()" x-text="savingFinanceiro ? 'Salvando…' : 'Salvar configurações'"></button>
+          <button class="btn" @click="saveFinanceiro()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingFinanceiro ? 'Salvando…' : 'Salvar configurações'"></span>
+          </button>
           <span class="muted" x-show="financeiroSaved" x-text="financeiroSaved"></span>
         </div>
         <% } %>
@@ -212,7 +253,10 @@
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
-          <button class="btn" @click="saveFidelidade()" x-text="savingFidelidade ? 'Salvando…' : 'Salvar configurações'"></button>
+          <button class="btn" @click="saveFidelidade()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingFidelidade ? 'Salvando…' : 'Salvar configurações'"></span>
+          </button>
           <span class="muted" x-show="fidelidadeSaved" x-text="fidelidadeSaved"></span>
         </div>
         <% } %>
@@ -233,7 +277,10 @@
           <p class="hint">Desativado por padrão. Quando ativado, o operador do caixa precisa digitar o PIN para confirmar a remoção.</p>
         </div>
         <div class="toolbar">
-          <button class="btn" @click="saveSecurity()" x-text="savingSecurity ? 'Salvando…' : 'Salvar configurações'"></button>
+          <button class="btn" @click="saveSecurity()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span x-text="savingSecurity ? 'Salvando…' : 'Salvar configurações'"></span>
+          </button>
           <span class="muted" x-show="securitySaved" x-text="securitySaved"></span>
         </div>
       </section>
@@ -254,7 +301,10 @@
           <input class="input input-narrow-lg" type="password" inputmode="numeric" maxlength="6" x-model="pinForm.confirm">
         </div>
         <div class="toolbar">
-          <button class="btn" @click="savePin()" x-text="savingPin ? 'Salvando…' : 'Salvar PIN'"></button>
+          <button class="btn" @click="savePin()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+            <span x-text="savingPin ? 'Salvando…' : 'Salvar PIN'"></span>
+          </button>
           <span class="error" x-text="pinError"></span>
           <span class="muted" x-show="pinSaved" x-text="pinSaved"></span>
         </div>
@@ -274,11 +324,17 @@
           <p class="hint">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</p>
         </div>
         <div class="toolbar">
-          <button class="btn secondary" @click="saveCloudUrl()" x-text="savingCloudUrl ? 'Salvando…' : 'Salvar servidor'"></button>
+          <button class="btn secondary" @click="saveCloudUrl()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingCloudUrl ? 'Salvando…' : 'Salvar servidor'"></span>
+          </button>
         </div>
       </section>
       <div class="toolbar">
-        <button class="btn secondary small" @click="openNew()">Nova configuração</button>
+        <button class="btn secondary small" @click="openNew()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova configuração
+        </button>
         <span class="error" x-text="error"></span>
       </div>
       <table>
@@ -290,7 +346,10 @@
               <td x-text="s.value ?? '—'"></td>
               <td class="muted" x-text="s.updated_at"></td>
               <td class="text-right">
-                <button class="btn secondary small" @click="openEdit(s)">Editar</button>
+                <button class="btn secondary small" @click="openEdit(s)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  Editar
+                </button>
               </td>
             </tr>
           </template>
@@ -309,8 +368,14 @@
       <input type="text" x-model="licenseForm.licenseKey" placeholder="chave fornecida na ativação" />
       <div class="error" x-text="licenseError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.licenseDlg.close()">Cancelar</button>
-        <button class="btn" @click="saveLicense()" x-text="savingLicense ? 'Salvando…' : 'Salvar licença'"></button>
+        <button class="btn secondary" @click="$refs.licenseDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="saveLicense()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <span x-text="savingLicense ? 'Salvando…' : 'Salvar licença'"></span>
+        </button>
       </div>
     </dialog>
     <% } %>
@@ -338,7 +403,10 @@
         <p class="error muted-sm" x-show="licenseThanks.syncError" x-text="'Não deu pra sincronizar agora (' + licenseThanks.syncError + ') — tente de novo em Sincronizar agora.'"></p>
       </div>
       <div class="actions actions-center" style="padding-bottom:1.5rem">
-        <button class="btn" @click="$refs.licenseThanksDlg.close()">Ok</button>
+        <button class="btn" @click="$refs.licenseThanksDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Ok
+        </button>
       </div>
     </dialog>
     <% } %>
@@ -349,8 +417,14 @@
       <label>Chave</label><input type="text" x-model="form.key" :disabled="form.locked" />
       <label>Valor</label><input type="text" x-model="form.value" />
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
   </main>

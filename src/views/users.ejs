@@ -15,7 +15,7 @@
     <h1>Usuários</h1>
     <div class="toolbar">
       <% if (user.permissions.has('users.create')) { %>
-        <button class="btn" @click="openNew()">Novo usuário</button>
+        <button class="btn" @click="openNew()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> Novo usuário</button>
       <% } %>
       <input type="text" placeholder="Filtrar por nome, usuário ou cargo…" x-model="q"
              class="input-search-ghost" style="min-width:260px" />
@@ -24,8 +24,8 @@
     <% if (user.permissions.has('users.delete')) { %>
     <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
       <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
-      <button class="btn danger small" @click="bulkDelete('/api/users', { label: 'usuário(s)', onDone: onBulkDeleted })">Excluir selecionados</button>
-      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+      <button class="btn danger small" @click="bulkDelete('/api/users', { label: 'usuário(s)', onDone: onBulkDeleted })"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Excluir selecionados</button>
+      <button class="btn secondary small" @click="clearSelection()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Cancelar</button>
     </div>
     <% } %>
     <table>
@@ -107,8 +107,8 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Cancelar</button>
+        <button class="btn" @click="save()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Salvar</button>
       </div>
     </dialog>
   </main>

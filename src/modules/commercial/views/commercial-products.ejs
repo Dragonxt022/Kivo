@@ -33,9 +33,15 @@
     <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
       <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
       <% if (user.permissions.has('commercial.products.delete')) { %>
-      <button class="btn danger small" @click="bulkDelete('/api/commercial/products', { label: 'produto(s)', onDone: () => load() })">Excluir selecionados</button>
+      <button class="btn danger small" @click="bulkDelete('/api/commercial/products', { label: 'produto(s)', onDone: () => load() })">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        Excluir selecionados
+      </button>
       <% } %>
-      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+      <button class="btn secondary small" @click="clearSelection()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Cancelar
+      </button>
     </div>
       <table>
         <thead><tr>
@@ -148,7 +154,10 @@
           <div class="flex-row">
             <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
             <template x-if="form.id">
-              <button class="btn secondary small" type="button" @click="genBarcode()">Gerar código interno</button>
+              <button class="btn secondary small" type="button" @click="genBarcode()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M6 4v16"/><path d="M10 4v4"/><path d="M10 16v4"/><path d="M14 4v8"/><path d="M14 16v4"/><path d="M18 4v4"/><path d="M18 12v8"/><path d="M22 4v16"/></svg>
+                Gerar código interno
+              </button>
             </template>
           </div>
           <span class="muted text-xs" x-show="barcodeHint" x-text="barcodeHint"></span>
@@ -161,9 +170,15 @@
           </select>
           <div class="flex-row" style="margin-top:.3rem">
             <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
-            <button class="btn secondary small" type="button" @click="addCategory()">Criar</button>
+            <button class="btn secondary small" type="button" @click="addCategory()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Criar
+            </button>
             <% if (user.permissions.has('commercial.products.edit') || user.permissions.has('commercial.products.delete')) { %>
-            <button class="btn secondary small" type="button" @click="openCatMgr()">Gerenciar</button>
+            <button class="btn secondary small" type="button" @click="openCatMgr()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Gerenciar
+            </button>
             <% } %>
           </div>
           <% if (user.permissions.has('commercial.products.price')) { %>
@@ -218,8 +233,14 @@
         <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
 
@@ -237,8 +258,14 @@
       <label>Motivo</label><input type="text" x-model="move.reason" />
       <div class="error" x-text="mvError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.mv.close()">Cancelar</button>
-        <button class="btn" @click="saveMove()">Confirmar</button>
+        <button class="btn secondary" @click="$refs.mv.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="saveMove()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Confirmar
+        </button>
       </div>
     </dialog>
 
@@ -290,15 +317,24 @@
             </select>
             <div class="error" x-text="dlgError"></div>
             <div class="actions actions-inline">
-              <button class="btn secondary" @click="catDelId = null; catDelAction = 'unset'; catDelMigrateTo = null">Cancelar</button>
-              <button class="btn danger" @click="deleteCategory()" :disabled="catDelAction === 'migrate' && !catDelMigrateTo">Confirmar exclusão</button>
+              <button class="btn secondary" @click="catDelId = null; catDelAction = 'unset'; catDelMigrateTo = null">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                Cancelar
+              </button>
+              <button class="btn danger" @click="deleteCategory()" :disabled="catDelAction === 'migrate' && !catDelMigrateTo">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                Confirmar exclusão
+              </button>
             </div>
           </div>
         </template>
       </div>
 
       <div class="actions">
-        <button class="btn secondary" @click="$refs.catDlg.close()">Fechar</button>
+        <button class="btn secondary" @click="$refs.catDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar
+        </button>
       </div>
     </dialog>
   </main>

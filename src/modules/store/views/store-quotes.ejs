@@ -23,7 +23,10 @@
     <h1>Orcamentos</h1>
     <div class="toolbar">
       <% if (user.permissions.has('store.quotes.create')) { %>
-        <button class="btn" @click="openNew()">Novo orcamento</button>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo orcamento
+        </button>
       <% } %>
       <%- include('partials/search-filter', { statusOptions: _qfStatusOpts, placeholder: 'Buscar por cliente' }) %>
       <span class="error" x-text="error"></span>
@@ -123,8 +126,14 @@
       <label>Observações</label><input type="text" x-model="form.notes" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar orçamento</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar orçamento
+        </button>
       </div>
     </dialog>
 
@@ -154,8 +163,14 @@
       </template>
       <div class="error" x-text="convError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.conv.close()">Voltar</button>
-        <button class="btn" @click="convert()">Confirmar venda</button>
+        <button class="btn secondary" @click="$refs.conv.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Voltar
+        </button>
+        <button class="btn" @click="convert()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Confirmar venda
+        </button>
       </div>
     </dialog>
   </main>

@@ -15,7 +15,10 @@
     <h1>Clientes</h1>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.customers.create')) { %>
-        <button class="btn" @click="openNew()">Novo cliente</button>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Novo cliente
+        </button>
       <% } %>
       <input type="text" placeholder="Buscar…" x-model="q" @input.debounce.400ms="load()"
              class="input-search" />
@@ -24,9 +27,15 @@
     <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
       <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
       <% if (user.permissions.has('commercial.customers.delete')) { %>
-      <button class="btn danger small" @click="bulkDelete('/api/commercial/customers', { label: 'cliente(s)', onDone: () => load() })">Excluir selecionados</button>
+      <button class="btn danger small" @click="bulkDelete('/api/commercial/customers', { label: 'cliente(s)', onDone: () => load() })">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        Excluir selecionados
+      </button>
       <% } %>
-      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+      <button class="btn secondary small" @click="clearSelection()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Cancelar
+      </button>
     </div>
     <table>
       <thead><tr>
@@ -126,8 +135,14 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
   </main>

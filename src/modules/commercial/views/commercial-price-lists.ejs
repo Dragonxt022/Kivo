@@ -16,15 +16,24 @@
     <p class="muted">Atacado, varejo, revenda… cada lista pode ter um preço fixo ou faixas por quantidade mínima. A lista marcada como "padrão" vale para qualquer venda sem cliente com lista própria.</p>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.pricelists.manage')) { %>
-        <button class="btn" @click="openNew()">Nova lista</button>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova lista
+        </button>
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
     <% if (user.permissions.has('commercial.pricelists.manage')) { %>
     <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
       <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
-      <button class="btn danger small" @click="bulkDelete('/api/commercial/price-lists', { label: 'lista(s) de preço', onDone: () => load() })">Excluir selecionados</button>
-      <button class="btn secondary small" @click="clearSelection()">Cancelar</button>
+      <button class="btn danger small" @click="bulkDelete('/api/commercial/price-lists', { label: 'lista(s) de preço', onDone: () => load() })">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        Excluir selecionados
+      </button>
+      <button class="btn secondary small" @click="clearSelection()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Cancelar
+      </button>
     </div>
     <% } %>
     <table>
@@ -119,15 +128,24 @@
             </table>
             <div class="error" x-text="itemsError"></div>
             <div class="actions actions-inline">
-              <button class="btn secondary small" @click="saveItems()">Salvar itens</button>
+              <button class="btn secondary small" @click="saveItems()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                Salvar itens
+              </button>
             </div>
           </div>
         </template>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Fechar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
   </main>

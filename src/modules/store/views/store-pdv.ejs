@@ -240,7 +240,10 @@
       </div>
       <p class="muted text-xs" style="margin-top:.5rem">Clique num item para adicioná-lo ao carrinho, ou só consulte o preço/estoque aqui.</p>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.browse.close()">Fechar (Esc)</button>
+        <button class="btn secondary" @click="$refs.browse.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar (Esc)
+        </button>
       </div>
     </dialog>
 
@@ -259,8 +262,14 @@
       <p class="muted text-xs" x-show="valueDlg.mode === 'percentual' && valueDlg.amount" x-text="'≈ ' + brl(percentToCents(valueDlg.amount))"></p>
       <div class="error" x-text="valueDlg.error"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.value.close()">Cancelar (Esc)</button>
-        <button class="btn" @click="saveValue()">Aplicar (Enter)</button>
+        <button class="btn secondary" @click="$refs.value.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar (Esc)
+        </button>
+        <button class="btn" @click="saveValue()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Aplicar (Enter)
+        </button>
       </div>
     </dialog>
 
@@ -277,8 +286,14 @@
           Todos os itens, descontos e acréscimos serão removidos.
         </p>
         <div class="actions actions-center">
-          <button class="btn secondary" @click="$refs.clearDlg.close()">Não (Esc)</button>
-          <button class="btn" @click="doClear()" x-ref="clearConfirm">Sim (Enter)</button>
+          <button class="btn secondary" @click="$refs.clearDlg.close()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+            Não (Esc)
+          </button>
+          <button class="btn" @click="doClear()" x-ref="clearConfirm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Sim (Enter)
+          </button>
         </div>
       </div>
     </dialog>
@@ -291,8 +306,14 @@
              @keydown.enter.prevent="confirmPinRemove()" placeholder="PIN" />
       <div class="error" x-text="pinError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.pinDlg.close()">Cancelar</button>
-        <button class="btn" @click="confirmPinRemove()">Confirmar</button>
+        <button class="btn secondary" @click="$refs.pinDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmPinRemove()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Confirmar
+        </button>
       </div>
     </dialog>
 
@@ -434,8 +455,14 @@
         <div class="error" x-text="prazoError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.prazoDlg.close()">Cancelar</button>
-        <button class="btn" @click="confirmPrazoDlg()">Confirmar</button>
+        <button class="btn secondary" @click="$refs.prazoDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmPrazoDlg()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Confirmar
+        </button>
       </div>
     </dialog>
 
@@ -448,8 +475,14 @@
       <p class="muted" style="font-size:.85rem" x-text="'Equivale a ' + brl(Math.round((fidelidadeForm.pointsUsed || 0) * centsPerPointClient()))"></p>
       <div class="error" x-text="fidelidadeError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.fidelidadeDlg.close()">Cancelar</button>
-        <button class="btn" @click="confirmFidelidadeDlg()">Confirmar</button>
+        <button class="btn secondary" @click="$refs.fidelidadeDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmFidelidadeDlg()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Confirmar
+        </button>
       </div>
     </dialog>
 
@@ -467,8 +500,14 @@
           Para receber em dinheiro é preciso abrir o caixa. Deseja abrir agora?
         </p>
         <div class="actions actions-center">
-          <button class="btn secondary" @click="$refs.cashClosedWarnDlg.close()">Não</button>
-          <button class="btn" @click="$refs.cashClosedWarnDlg.close(); openRegisterFromSale()">Sim</button>
+          <button class="btn secondary" @click="$refs.cashClosedWarnDlg.close()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+            Não
+          </button>
+          <button class="btn" @click="$refs.cashClosedWarnDlg.close(); openRegisterFromSale()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Sim
+          </button>
         </div>
       </div>
     </dialog>
@@ -483,8 +522,14 @@
              @keydown.enter.prevent="confirmOpenRegister()" />
       <div class="error" x-text="openRegisterForm.error"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.openRegisterDlg.close()">Cancelar</button>
-        <button class="btn" @click="confirmOpenRegister()">Abrir caixa</button>
+        <button class="btn secondary" @click="$refs.openRegisterDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmOpenRegister()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Abrir caixa
+        </button>
       </div>
     </dialog>
     <% } %>
@@ -500,9 +545,18 @@
         <h2 class="dialog-heading-sm">Venda finalizada!</h2>
         <p class="dialog-muted">Deseja imprimir o cupom desta venda?</p>
         <div class="actions actions-center">
-          <button class="btn secondary" @click="$refs.postSale.close()">Não (Esc)</button>
-          <button class="btn secondary" x-show="lastSaleHasCarne" @click="printCarne()">Imprimir carnê</button>
-          <button class="btn" autofocus @click="printLast(); $refs.postSale.close()">Imprimir (Enter)</button>
+          <button class="btn secondary" @click="$refs.postSale.close()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+            Não (Esc)
+          </button>
+          <button class="btn secondary" x-show="lastSaleHasCarne" @click="printCarne()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir carnê
+          </button>
+          <button class="btn" autofocus @click="printLast(); $refs.postSale.close()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir (Enter)
+          </button>
         </div>
       </div>
     </dialog>

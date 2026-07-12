@@ -17,7 +17,10 @@
     <p class="muted">Empresas conveniadas: compras dos clientes vinculados viram cobrança pendente, faturada mensalmente no dia de fechamento.</p>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.agreements.create')) { %>
-        <button class="btn" @click="openNew()">Nova empresa conveniada</button>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova empresa conveniada
+        </button>
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
@@ -31,15 +34,27 @@
             <td class="muted" x-text="'dia ' + c.billing_day"></td>
             <td class="text-right" x-text="brl(pending[c.id] ?? 0)"></td>
             <td class="text-right">
-              <button class="btn secondary small" @click="openInvoices(c)">Faturas</button>
+              <button class="btn secondary small" @click="openInvoices(c)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+                Faturas
+              </button>
               <% if (user.permissions.has('finance.agreements.invoice')) { %>
-              <button class="btn secondary small" @click="generateInvoice(c)" :disabled="!(pending[c.id] > 0)">Gerar fatura agora</button>
+              <button class="btn secondary small" @click="generateInvoice(c)" :disabled="!(pending[c.id] > 0)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Gerar fatura agora
+              </button>
               <% } %>
               <% if (user.permissions.has('commercial.agreements.edit')) { %>
-              <button class="btn secondary small" @click="openEdit(c)">Editar</button>
+              <button class="btn secondary small" @click="openEdit(c)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                Editar
+              </button>
               <% } %>
               <% if (user.permissions.has('commercial.agreements.delete')) { %>
-              <button class="btn small" @click="remove(c)">Excluir</button>
+              <button class="btn small" @click="remove(c)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                Excluir
+              </button>
               <% } %>
             </td>
           </tr>
@@ -60,8 +75,14 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
 
@@ -84,7 +105,10 @@
         </table>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.invDlg.close()">Fechar</button>
+        <button class="btn secondary" @click="$refs.invDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar
+        </button>
       </div>
     </dialog>
   </main>

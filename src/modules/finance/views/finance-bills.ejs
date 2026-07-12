@@ -128,8 +128,14 @@
       <label>Observações</label><input type="text" x-model="form.notes" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
 
@@ -156,7 +162,10 @@
             <button type="button" class="btn secondary small" @click="removeSettlePaymentRow(idx)" x-show="settleForm.payments.length > 1">×</button>
           </div>
         </template>
-        <button type="button" class="btn secondary small" @click="addSettlePaymentRow()">+ Adicionar forma</button>
+        <button type="button" class="btn secondary small" @click="addSettlePaymentRow()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Adicionar forma
+        </button>
 
         <p class="hint" style="margin-top:.6rem">
           Total informado: <strong x-text="brl(settleTotalCents())"></strong>
@@ -172,8 +181,14 @@
         <div class="error" x-text="settleError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.settleDlg.close()">Cancelar</button>
-        <button class="btn" @click="confirmSettle()"><%= bills.settleLabel %></button>
+        <button class="btn secondary" @click="$refs.settleDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmSettle()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <%= bills.settleLabel %>
+        </button>
       </div>
     </dialog>
 
@@ -190,8 +205,14 @@
           gaveta. Abra o caixa e tente de novo.
         </p>
         <div class="actions actions-center">
-          <button class="btn secondary" @click="$refs.noRegisterDlg.close()">Cancelar</button>
-          <button class="btn" @click="location.href = '/app/finance/caixa'">Abrir caixa</button>
+          <button class="btn secondary" @click="$refs.noRegisterDlg.close()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+            Cancelar
+          </button>
+          <button class="btn" @click="location.href = '/app/finance/caixa'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Abrir caixa
+          </button>
         </div>
       </div>
     </dialog>

@@ -77,8 +77,14 @@
       <input type="text" x-model="opening" placeholder="0,00" @input="opening = maskMoney(opening)" autofocus />
       <div class="error" x-text="error"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.openDlg.close()">Cancelar</button>
-        <button class="btn" @click="openCash()">Abrir</button>
+        <button class="btn secondary" @click="$refs.openDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="openCash()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Abrir
+        </button>
       </div>
     </dialog>
 
@@ -88,8 +94,14 @@
       <label>Descrição</label><input type="text" x-model="move.description" />
       <div class="error" x-text="mvError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.mv.close()">Cancelar</button>
-        <button class="btn" @click="saveMove()">Confirmar</button>
+        <button class="btn secondary" @click="$refs.mv.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="saveMove()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Confirmar
+        </button>
       </div>
     </dialog>
 
@@ -131,8 +143,14 @@
         <div class="error" x-text="closeError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.close.close()">Cancelar</button>
-        <button class="btn" @click="closeCash()">Fechar</button>
+        <button class="btn secondary" @click="$refs.close.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="closeCash()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Fechar
+        </button>
       </div>
     </dialog>
 
@@ -173,9 +191,15 @@
                         :title="'Editado por ' + (r.edited_by_name ?? '—') + ' em ' + fmtDateTime(r.edited_at)">editado</span>
                 </td>
                 <td class="text-right">
-                  <button class="btn secondary small" x-show="r.status === 'fechado'" @click="printReport(r.id)">Relatório</button>
+                  <button class="btn secondary small" x-show="r.status === 'fechado'" @click="printReport(r.id)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 17v-3"/><path d="M14 17v-2"/><path d="M10 17v-5"/><path d="M6 17v-1"/></svg>
+                    Relatório
+                  </button>
                   <% if (user.permissions.has('finance.cash.edit')) { %>
-                    <button class="btn secondary small" x-show="r.status === 'fechado'" @click="openEditReg(r)">Editar</button>
+                    <button class="btn secondary small" x-show="r.status === 'fechado'" @click="openEditReg(r)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      Editar
+                    </button>
                   <% } %>
                 </td>
               </tr>
@@ -209,8 +233,14 @@
           </tbody>
         </table>
         <div class="actions actions-center">
-          <button class="btn secondary" @click="printReport(closeResult.id)">Imprimir relatório completo</button>
-          <button class="btn" @click="$refs.closeResultDlg.close()">OK</button>
+          <button class="btn secondary" @click="printReport(closeResult.id)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir relatório completo
+          </button>
+          <button class="btn" @click="$refs.closeResultDlg.close()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            OK
+          </button>
         </div>
       </div>
     </dialog>
@@ -223,8 +253,14 @@
       <input type="text" x-model="editReg.notes" />
       <div class="error" x-text="editRegError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.editReg.close()">Cancelar</button>
-        <button class="btn" @click="saveEditReg()">Salvar</button>
+        <button class="btn secondary" @click="$refs.editReg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="saveEditReg()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
   </main>

@@ -161,7 +161,10 @@
       E-mail: <strong x-text="licenseStatus && licenseStatus.supportEmail"></strong>
     </p>
     <button class="btn secondary btn-full"
-            @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/')">Sair</button>
+            @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sair
+    </button>
   </div>
 </dialog>
 <% } %>
@@ -180,8 +183,14 @@
       Não esqueça de fechar o caixa. Deixá-lo aberto por muito tempo dificulta a conferência dos valores.
     </p>
     <div class="actions actions-center">
-      <button class="btn secondary" @click="cashAlert = null; $refs.cashAlertDlg.close()">Depois</button>
-      <button class="btn" @click="location.href = '/app/finance/caixa?fechar=1'">Fechar caixa</button>
+      <button class="btn secondary" @click="cashAlert = null; $refs.cashAlertDlg.close()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Depois
+      </button>
+      <button class="btn" @click="location.href = '/app/finance/caixa?fechar=1'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="22" height="14" rx="2"/><path d="M1 10h22"/><circle cx="12" cy="14" r="2"/></svg>
+        Fechar caixa
+      </button>
     </div>
   </div>
 </dialog>

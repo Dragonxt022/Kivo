@@ -16,7 +16,10 @@
     <p class="muted muted-block">Cadastre cada maquininha/condição com a taxa real (ex.: "Débito — Stone" com 1,60%). A taxa é descontada nos relatórios de venda.</p>
     <div class="toolbar">
       <% if (user.permissions.has('finance.paymethods.edit')) { %>
-        <button class="btn" @click="openNew()">Nova forma</button>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova forma
+        </button>
       <% } %>
       <input type="text" placeholder="Buscar por nome…" x-model="q" class="input-search" style="min-width:220px" />
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
@@ -39,11 +42,20 @@
             <td><span class="badge" :class="m.active ? 'ok' : 'off'" x-text="m.active ? 'ativa' : 'inativa'"></span></td>
             <td class="text-right">
               <% if (user.permissions.has('finance.paymethods.edit')) { %>
-                <button class="btn secondary small" @click="openEdit(m)">Editar</button>
-                <button class="btn small" @click="toggle(m)" x-text="m.active ? 'Desativar' : 'Ativar'"></button>
+                <button class="btn secondary small" @click="openEdit(m)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  Editar
+                </button>
+                <button class="btn small" @click="toggle(m)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  <span x-text="m.active ? 'Desativar' : 'Ativar'"></span>
+                </button>
               <% } %>
               <% if (user.permissions.has('finance.paymethods.delete')) { %>
-                <button class="btn small" @click="del(m)">Excluir</button>
+                <button class="btn small" @click="del(m)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  Excluir
+                </button>
               <% } %>
             </td>
           </tr>
@@ -73,8 +85,14 @@
       <input type="text" x-model="form.fee" placeholder="1,60" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
       </div>
     </dialog>
   </main>

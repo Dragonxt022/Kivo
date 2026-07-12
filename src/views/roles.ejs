@@ -15,7 +15,7 @@
     <h1>Cargos e permissões</h1>
     <div class="toolbar">
       <% if (user.permissions.has('roles.edit')) { %>
-        <button class="btn" @click="openNew()">Novo cargo</button>
+        <button class="btn" @click="openNew()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo cargo</button>
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
@@ -67,8 +67,8 @@
         <template x-for="(keys, name) in presets" :key="name">
           <button class="btn secondary small" type="button" @click="applyPreset(name)" x-text="name"></button>
         </template>
-        <button class="btn secondary small" type="button" @click="selected = []">Limpar</button>
-        <button class="btn secondary small" type="button" @click="selected = perms.map(p => p.key)">Tudo</button>
+        <button class="btn secondary small" type="button" @click="selected = []"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Limpar</button>
+        <button class="btn secondary small" type="button" @click="selected = perms.map(p => p.key)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo</button>
       </div>
       <template x-for="mod in modules" :key="mod">
         <div style="margin-bottom:.8rem">
@@ -84,8 +84,8 @@
       </template>
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Cancelar</button>
+        <button class="btn" @click="save()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Salvar</button>
       </div>
     </dialog>
 
@@ -94,8 +94,8 @@
       <label>Nome</label><input type="text" x-model="newName" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.novo.close()">Cancelar</button>
-        <button class="btn" @click="create()">Criar</button>
+        <button class="btn secondary" @click="$refs.novo.close()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Cancelar</button>
+        <button class="btn" @click="create()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar</button>
       </div>
     </dialog>
   </main>

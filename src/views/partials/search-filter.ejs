@@ -42,8 +42,14 @@
       </div>
     </div>
     <div class="actions">
-      <button type="button" class="btn secondary" @click="clear(); emit()">Limpar</button>
-      <button type="button" class="btn" @click="$refs.filterDlg.close()">Aplicar</button>
+      <button type="button" class="btn secondary" @click="clear(); emit()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Limpar
+      </button>
+      <button type="button" class="btn" @click="$refs.filterDlg.close()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Aplicar
+      </button>
     </div>
   </dialog>
 </div>
