@@ -81,6 +81,19 @@ function registerInDb(m: ModuleManifest, enabled: boolean): void {
     );
 }
 
+/** Upsert das capabilities do manifesto: insere se nova (enabled=0), preserva enabled se já existe. */
+export function registerCapabilities(m: ModuleManifest): void {
+  if (!m.capabilities?.length) return;
+  const db = getSqlite();
+  const upsert = db.prepare(
+    `INSERT INTO capabilities (key, description, module, enabled, uuid) VALUES (?, ?, ?, 0, ?)
+     ON CONFLICT(key) DO UPDATE SET description = excluded.description, module = excluded.module`,
+  );
+  for (const cap of m.capabilities) {
+    upsert.run(cap.key, cap.description, m.id, randomUUID());
+  }
+}
+
 /** Registra as permissões do manifesto no catálogo e concede tudo ao Administrador. */
 function registerPermissions(m: ModuleManifest): void {
   if (!m.permissions?.length) return;
@@ -188,6 +201,7 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
 
     registerInDb(manifest, true);
     registerPermissions(manifest);
+    registerCapabilities(manifest);
     registerSyncTables(manifest.id, manifest.syncTables);
     loaded.push({ manifest, dir, router, pagesRouter, viewsDir });
     console.log(`[modules] carregado: ${manifest.id}@${manifest.version}`);

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Recursos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .capabilities-section { margin-bottom: 2rem; }
+    .capabilities-section h2 { margin-bottom: .75rem; display:flex; align-items:center; gap:.5rem; }
+    .capability-row { display:flex; align-items:center; justify-content:space-between; padding:.5rem .75rem; border-bottom:1px solid var(--border); }
+    .capability-row:last-child { border-bottom:none; }
+    .capability-info { display:flex; flex-direction:column; }
+    .capability-key { font-weight:500; }
+    .capability-desc { font-size:.85rem; color:var(--muted); }
+    .toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle .slider { position:absolute; cursor:pointer; inset:0; background:var(--border); border-radius:12px; transition:.2s; }
+    .toggle .slider::before { content:''; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+    .toggle input:checked + .slider { background:var(--primary); }
+    .toggle input:checked + .slider::before { transform:translateX(20px); }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'recursos' }) %>
+  <main x-data="recursosPage()" x-init="load()">
+    <h1>Recursos</h1>
+    <p class="hint">Ative ou desative capacidades específicas dentro de cada módulo contratado.</p>
+
+    <template x-for="(caps, moduleKey) in grouped" :key="moduleKey">
+      <section class="panel capabilities-section">
+        <h2>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span x-text="moduleKey"></span>
+        </h2>
+        <div>
+          <template x-for="c in caps" :key="c.key">
+            <div class="capability-row">
+              <div class="capability-info">
+                <span class="capability-key" x-text="c.key"></span>
+                <span class="capability-desc" x-text="c.description"></span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" :checked="c.enabled === 1" @change="toggle(c.key, $event.target.checked)" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </template>
+        </div>
+      </section>
+    </template>
+
+    <p class="muted" x-show="!hasCaps">Nenhum módulo declarou recursos ainda.</p>
+  </main>
+  <script>
+    function recursosPage() {
+      return {
+        capabilities: [],
+        get grouped() {
+          const g = {};
+          for (const c of this.capabilities) {
+            if (!g[c.module]) g[c.module] = [];
+            g[c.module].push(c);
+          }
+          return g;
+        },
+        get hasCaps() { return this.capabilities.length > 0; },
+        async load() {
+          const r = await fetch('/api/core/capabilities');
+          if (r.ok) this.capabilities = await r.json();
+        },
+        async toggle(key, enabled) {
+          const r = await fetch(`/api/core/capabilities/${encodeURIComponent(key)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled }),
+          });
+          if (!r.ok) {
+            this.load();
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

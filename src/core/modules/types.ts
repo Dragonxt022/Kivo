@@ -20,6 +20,10 @@ export interface ModuleManifest {
   requiresCore: string;
   /** Permissões do módulo: registradas no catálogo e concedidas ao Administrador. */
   permissions: { key: string; description: string }[] | string[];
+  /** Capacidades finas do módulo: recursos ligáveis/desligáveis por empresa, dentro de um
+   * módulo já contratado (ex.: 'variantes', 'kits', 'complementos'). Upsert no boot como
+   * permissões — nunca resetam o `enabled` atual. */
+  capabilities?: { key: string; description: string }[];
   /** Caminho relativo à pasta do módulo, ou Router direto. Montado em /api/<id>. */
   routes?: string | Router;
   /** Router de páginas (views), montado em /app/<id> com autenticação. */

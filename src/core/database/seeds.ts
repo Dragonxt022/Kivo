@@ -13,6 +13,7 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'audit.view', description: 'Visualizar log de auditoria' },
   { key: 'settings.view', description: 'Visualizar configurações' },
   { key: 'settings.edit', description: 'Editar configurações' },
+  { key: 'settings.capabilities.edit', description: 'Gerenciar recursos (capabilities) dos módulos' },
   { key: 'backup.view', description: 'Visualizar histórico de backups' },
   { key: 'backup.run', description: 'Executar backup manual' },
   { key: 'backup.restore', description: 'Restaurar backup' },

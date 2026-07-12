@@ -282,6 +282,7 @@
       if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'shield-check', page: 'audit' });
       if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', page: 'backup' });
       if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', page: 'settings' });
+      if (user.permissions.has('settings.capabilities.edit')) adminItems.push({ label: 'Recursos', href: '/admin/recursos', icon: 'sparkles', page: 'recursos' });
       if (user.permissions.has('billing.view')) adminItems.push({ label: 'Cobranças', href: '/admin/cobrancas', icon: 'receipt', page: 'billing' });
     %>
     <% if (adminItems.length) { %>

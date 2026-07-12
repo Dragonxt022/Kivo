@@ -18,6 +18,8 @@ import { startBackupScheduler } from './backup/service';
 import { validateLicense, isActivated, refreshLicenseFromCloud } from './license/service';
 import activationRoutes from './license/activationRoutes';
 import { productImagesDir, trySubmitPending } from './catalog/submissionQueue';
+import { registerSyncTables } from './sync/registry';
+import capabilitiesRoutes from './capabilities/routes';
 
 /** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina/relógio
  * só se autocura se o usuário reiniciar o app ou clicar em "Sincronizar agora". */
@@ -105,6 +107,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.use('/api/sync', requireAuth, syncRoutes);
   app.use('/api/billing', requireAuth, billingRoutes);
   app.use('/api/security', requireAuth, securityRoutes);
+  app.use('/api/core/capabilities', requireAuth, capabilitiesRoutes);
 
   // Páginas do Core
   app.get('/', page('home'));
@@ -114,6 +117,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.get('/admin/backup', requireAuth, page('backup', 'backup.view'));
   app.get('/admin/configuracoes', requireAuth, page('settings', 'settings.view'));
   app.get('/admin/cobrancas', requireAuth, page('billing', 'billing.view'));
+  app.get('/admin/recursos', requireAuth, page('recursos', 'settings.capabilities.edit'));
 
   // Módulos: API (/api/<id>) e páginas (/app/<id>) exigem autenticação por padrão
   app.use('/api', requireAuth);
@@ -124,6 +128,9 @@ export async function createServer(): Promise<KatsuServer> {
   const moduleViews = modules.map((m) => m.viewsDir).filter((v): v is string => !!v);
   app.set('views', [coreViews, ...moduleViews]);
   app.locals.moduleMenu = collectMenu(modules);
+
+  // Tabelas sincronizáveis do Core
+  registerSyncTables('core', [{ table: 'capabilities' }]);
 
   // Licença (não trava o boot) e backup diário às 23:00
   const lic = validateLicense();
