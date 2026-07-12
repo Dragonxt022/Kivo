@@ -14,7 +14,7 @@ const manifest: ModuleManifest = {
   views: './views',
   migrations: './migrations',
   menu: [
-    { label: 'DRE', href: '/app/dre/relatorio', permission: 'dre.view', description: 'Demonstrativo de Resultado do Exercício, por categoria.', icon: 'chart' },
+    { label: 'DRE', href: '/app/dre/relatorio', permission: 'dre.view', description: 'Demonstrativo de Resultado do Exercício, por categoria.', icon: 'chart-column-stacked' },
   ],
   // dre_categories é configuração de negócio (não por máquina, ao contrário de payment_methods)
   // — todas as filiais/computadores da empresa devem enxergar as mesmas categorias e ajustes.
