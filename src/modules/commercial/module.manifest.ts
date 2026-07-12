@@ -35,11 +35,13 @@ const manifest: ModuleManifest = {
     { key: 'commercial.products.variants.manage', description: 'Gerenciar variantes de produto' },
     { key: 'commercial.products.complements.manage', description: 'Gerenciar grupos de complementos/opcionais' },
     { key: 'commercial.products.kits.manage', description: 'Gerenciar componentes de kit/combo' },
+    { key: 'commercial.products.recipe.manage', description: 'Gerenciar ficha técnica de produtos produzidos' },
   ],
   capabilities: [
     { key: 'commercial.variantes', description: 'Produtos com variantes (tamanho, cor, etc.)' },
     { key: 'commercial.complementos', description: 'Grupos de complementos/opcionais por produto, com seleção no PDV' },
     { key: 'commercial.kits', description: 'Produtos do tipo kit/combo com componentes fixos vendidos como um só item' },
+    { key: 'commercial.producao', description: 'Produtos produzidos com ficha técnica — consumo automático de insumos do estoque na venda' },
   ],
   routes: './routes',
   pages: './pages',
@@ -117,6 +119,10 @@ const manifest: ModuleManifest = {
     {
       table: 'kit_items',
       foreignKeys: { kit_product_id: 'products', component_product_id: 'products' },
+    },
+    {
+      table: 'product_recipe_items',
+      foreignKeys: { produced_product_id: 'products', input_product_id: 'products' },
     },
   ],
 };

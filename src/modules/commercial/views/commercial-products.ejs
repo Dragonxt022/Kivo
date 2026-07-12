@@ -156,6 +156,7 @@
             <option value="variante">Produto com variantes</option>
             <option value="kit">Kit</option>
             <option value="combo">Combo</option>
+            <option value="produzido">Produzido (ficha técnica)</option>
           </select>
 
           <label>Código de barras</label>
@@ -338,6 +339,47 @@
               </div>
             </template>
             <p x-show="!complementGroups.length" class="muted text-xs" style="margin:.3rem 0">Nenhum grupo vinculado. Para combos com opções de escolha (ex.: "escolha o refrigerante"), vincule grupos de complemento aqui.</p>
+          </div>
+        </div>
+      </template>
+      <template x-if="form.id && form.productType === 'produzido'">
+        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
+          <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.75rem">
+            <h2 style="margin:0">Ficha técnica</h2>
+            <button class="btn small" type="button" @click="openAddRecipeInput()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar insumo
+            </button>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Insumo</th>
+              <th>SKU</th>
+              <th>Qtd por unidade</th>
+              <th>Custo unit.</th>
+              <th>Custo total</th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="r in recipeComponents" :key="r.id">
+                <tr>
+                  <td x-text="r.input_name"></td>
+                  <td class="muted" x-text="r.sku || '—'"></td>
+                  <td><input type="number" step="any" x-model="r.qty" class="inline-edit" @change="updateRecipeInput(r)" style="width:70px" /></td>
+                  <td class="muted" x-text="brl(r.cost_cents ?? 0)"></td>
+                  <td class="muted" x-text="brl(r.total_cost_cents ?? 0)"></td>
+                  <td @click.stop>
+                    <button class="icon-btn" @click="deleteRecipeInput(r)" title="Remover insumo">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!recipeComponents.length"><td colspan="6" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhum insumo cadastrado. Adicione produtos simples que serão consumidos do estoque ao vender este produto.</td></tr>
+            </tbody>
+          </table>
+          <div x-show="recipeComponents.length" class="muted text-xs" style="margin-top:.5rem;text-align:right">
+            Custo calculado por unidade: <strong x-text="brl(recipeComponents.reduce((s, r) => s + (r.total_cost_cents ?? 0), 0))"></strong>
           </div>
         </div>
       </template>
@@ -616,6 +658,35 @@
         </button>
       </div>
     </dialog>
+
+    <dialog x-ref="recipeDlg">
+      <h1>Adicionar insumo à ficha técnica</h1>
+      <p class="muted">Busque por nome, código de barras ou SKU (apenas produtos simples com controle de estoque).</p>
+      <input type="text" x-model="recipeSearchQ" placeholder="Buscar produto…" @input.debounce.300ms="searchRecipeInputs()" style="width:100%" />
+      <div class="dialog-body" style="max-height:300px;overflow-y:auto">
+        <template x-for="r in recipeSearchResults" :key="r.id">
+          <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--border-light)">
+            <div>
+              <span x-text="r.name"></span>
+              <span class="muted text-xs" x-show="r.sku" x-text="` (${r.sku})`"></span>
+            </div>
+            <button class="btn secondary small" type="button" @click="addRecipeInput(r.id)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar
+            </button>
+          </div>
+        </template>
+        <p x-show="!recipeSearchResults.length && recipeSearchQ.trim().length >= 2" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhum produto encontrado.</p>
+        <p x-show="recipeSearchQ.trim().length < 2" class="muted text-xs" style="text-align:center;padding:.75rem">Digite ao menos 2 caracteres.</p>
+        <div class="error" x-text="recipeDlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.recipeDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar
+        </button>
+      </div>
+    </dialog>
   </main>
   <script src="/js/masks.js"></script>
   <script src="/js/barcode.js"></script>
@@ -632,6 +703,8 @@
         attrDlgError: '', newAttrName: '', addAttrValId: null, genGroups: [], genSelectedValues: [],
         // Kits
         kitComponents: [], complementGroups: [], kitDlgError: '', addCompSearch: '', addCompResults: [],
+        // Ficha técnica
+        recipeComponents: [], recipeDlgError: '', recipeSearchResults: [], recipeSearchQ: '',
         sortGetters: {
           name: (p) => p.name, category: (p) => p.category ?? '',
           price: (p) => p.price_cents, cost: (p) => p.cost_cents,
@@ -769,6 +842,7 @@
           this.variants = [];
           this.kitComponents = [];
           this.complementGroups = [];
+          this.recipeComponents = [];
           this.$refs.dlg.showModal();
         },
         openEdit(p) {
@@ -788,6 +862,7 @@
             this.loadKitComponents(p.id);
             this.loadComplementGroups(p.id);
           }
+          if (p.product_type === 'produzido') this.loadRecipeComponents(p.id);
         },
         checkBarcode(code) {
           if (!code) return '';
@@ -965,6 +1040,52 @@
           const r = await fetch(`/api/commercial/products/${this.form.id}/complement-groups/${g.id}`, { method: 'DELETE' });
           if (r.ok) this.loadComplementGroups(this.form.id);
           else this.error = (await r.json()).error;
+        },
+        // ---------- Ficha técnica ----------
+        async loadRecipeComponents(productId) {
+          const r = await fetch(`/api/commercial/products/${productId}/recipe-items`);
+          if (r.ok) this.recipeComponents = await r.json();
+        },
+        async openAddRecipeInput() {
+          this.recipeDlgError = ''; this.recipeSearchQ = ''; this.recipeSearchResults = [];
+          this.$refs.recipeDlg.showModal();
+        },
+        async searchRecipeInputs() {
+          const q = this.recipeSearchQ.trim();
+          if (q.length < 2) { this.recipeSearchResults = []; return; }
+          const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(q));
+          if (r.ok) {
+            const all = await r.json();
+            const linkedIds = new Set(this.recipeComponents.map(c => c.input_product_id));
+            this.recipeSearchResults = all.filter(p =>
+              p.id !== this.form.id && p.product_type !== 'kit' && p.product_type !== 'combo' && p.product_type !== 'produzido'
+              && p.active && p.track_stock && !linkedIds.has(p.id)
+            );
+          }
+        },
+        async addRecipeInput(inputId) {
+          const r = await fetch(`/api/commercial/products/${this.form.id}/recipe-items`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inputProductId: inputId }),
+          });
+          if (r.ok) {
+            this.$refs.recipeDlg.close();
+            this.loadRecipeComponents(this.form.id);
+          } else this.recipeDlgError = (await r.json()).error;
+        },
+        async updateRecipeInput(r) {
+          await fetch(`/api/commercial/recipe-items/${r.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ qty: Number(r.qty) }),
+          });
+          // Recalcular custo total da linha
+          r.total_cost_cents = Math.round(Number(r.qty) * (r.cost_cents ?? 0));
+        },
+        async deleteRecipeInput(r) {
+          if (!await window.confirmDlg(`Remover "${r.input_name}" da ficha técnica?`)) return;
+          const resp = await fetch(`/api/commercial/recipe-items/${r.id}`, { method: 'DELETE' });
+          if (resp.ok) this.loadRecipeComponents(this.form.id);
+          else this.error = (await resp.json()).error;
         },
         async openAttrMgr() {
           this.attrDlgError = ''; this.newAttrName = ''; this.attrEditId = null; this.addAttrValId = null;

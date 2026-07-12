@@ -112,7 +112,7 @@ export function createSale(
   }
 
   // Congela produtos e preços do catálogo atual
-  const items: { productId: number; name: string; qty: number; unitCents: number; costCents: number; totalCents: number; notes: string | null; lineGroupUuid: string | null }[] = [];
+  const items: { productId: number; name: string; qty: number; unitCents: number; costCents: number; totalCents: number; notes: string | null; lineGroupUuid: string | null; recipeConsumption?: { productId: number; qty: number }[] }[] = [];
   for (const item of input.items) {
     const p = db
       .prepare('SELECT id, name, price_cents, cost_cents, product_type, active FROM products WHERE id = ? AND deleted_at IS NULL')
@@ -152,6 +152,36 @@ export function createSale(
           unitCents: 0, costCents: comp.cost_cents, totalCents: 0,
           notes, lineGroupUuid,
         });
+      }
+    }
+
+    // Produto produzido: calcula o custo real pela ficha técnica e agenda consumo de insumos
+    if (p.product_type === 'produzido') {
+      const recipeItems = db.prepare(
+        `SELECT ri.qty AS recipeQty, input.id, input.name, input.cost_cents, input.active, input.track_stock
+         FROM product_recipe_items ri
+         JOIN products input ON input.id = ri.input_product_id AND input.deleted_at IS NULL
+         WHERE ri.produced_product_id = ? AND ri.deleted_at IS NULL
+         ORDER BY ri.sort_order`,
+      ).all(p.id) as { recipeQty: number; id: number; name: string; cost_cents: number; active: number; track_stock: number }[];
+      if (recipeItems.length > 0) {
+        for (const ri of recipeItems) {
+          if (!ri.active) {
+            return { ok: false, error: `Insumo "${ri.name}" da ficha técnica de "${p.name}" está inativo.` };
+          }
+          if (!ri.track_stock) {
+            return { ok: false, error: `Insumo "${ri.name}" não controla estoque — obrigatório para produtos com ficha técnica.` };
+          }
+        }
+        let recipeCostCents = 0;
+        const consumption: { productId: number; qty: number }[] = [];
+        for (const ri of recipeItems) {
+          const consumedQty = Math.round(ri.recipeQty * item.qty * 1000000) / 1000000; // evita floating-point drift
+          recipeCostCents += Math.round(ri.recipeQty * ri.cost_cents);
+          consumption.push({ productId: ri.id, qty: consumedQty });
+        }
+        items[items.length - 1].costCents = Math.round(recipeCostCents);
+        items[items.length - 1].recipeConsumption = consumption;
       }
     }
   }
@@ -279,6 +309,13 @@ export function createSale(
         // allowNegative: a venda não pode travar por falta de estoque (reposição pode atrasar).
         const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);
+        // Consumo de insumos da ficha técnica (não gera linhas em sale_items)
+        if (i.recipeConsumption?.length) {
+          for (const c of i.recipeConsumption) {
+            const rmove = stock.moveRaw(req, c.productId, 'saida', c.qty, 'producao', 'sale', saleId, true);
+            if (!rmove.ok) throw new Error(rmove.error);
+          }
+        }
       }
 
       const insertPay = db.prepare(
@@ -393,15 +430,16 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
   const hasCashPayment = payments.some((p) => p.method_type === 'dinheiro') ||
     (payments.length === 0 && sale.payment_method === 'dinheiro');
 
-  const items = db
-    .prepare('SELECT product_id, product_name, qty FROM sale_items WHERE sale_id = ?')
-    .all(saleId) as { product_id: number; product_name: string; qty: number }[];
+  const movements = db
+    .prepare("SELECT product_id, qty FROM stock_movements WHERE ref_entity = 'sale' AND ref_id = ? AND type = 'saida'")
+    .all(String(saleId)) as { product_id: number; qty: number }[];
 
   let error: string | null = null;
   try {
     db.transaction(() => {
-      for (const i of items) {
-        const move = stock.moveRaw(req, i.product_id, 'entrada', i.qty, 'cancelamento de venda', 'sale', saleId);
+      for (const m of movements) {
+        // Permite saldo negativo: o produto pode ter saidas posteriores (reposição pode atrasar).
+        const move = stock.moveRaw(req, m.product_id, 'entrada', m.qty, 'cancelamento de venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);
       }
       if (hasCashPayment) {

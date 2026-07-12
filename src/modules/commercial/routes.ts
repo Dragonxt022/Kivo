@@ -768,6 +768,95 @@ router.delete('/kit-items/:id', requirePermission('commercial.products.kits.mana
   res.json({ ok: true });
 });
 
+// ---------- Ficha técnica (produto produzido) ----------
+router.get('/products/:id/recipe-items', requirePermission('commercial.products.view'), requireCapability('commercial.producao'), (req, res) => {
+  const productId = Number(req.params.id);
+  res.json(db().prepare(
+    `SELECT ri.id, ri.produced_product_id, ri.input_product_id, p.name AS input_name, p.sku, ri.qty, ri.sort_order, ri.uuid, ri.updated_at,
+            p.cost_cents, (ri.qty * p.cost_cents) AS total_cost_cents
+     FROM product_recipe_items ri JOIN products p ON p.id = ri.input_product_id
+     WHERE ri.produced_product_id = ? AND ri.deleted_at IS NULL ORDER BY ri.sort_order, p.name`,
+  ).all(productId));
+});
+
+router.post('/products/:id/recipe-items', requirePermission('commercial.products.recipe.manage'), requireCapability('commercial.producao'), (req, res) => {
+  const productId = Number(req.params.id);
+  const prod = db().prepare('SELECT id, product_type, name FROM products WHERE id = ? AND deleted_at IS NULL').get(productId) as
+    { id: number; product_type: string; name: string } | undefined;
+  if (!prod) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  if (prod.product_type !== 'produzido') {
+    res.status(400).json({ error: 'Produto não é do tipo produzido.' });
+    return;
+  }
+  const { inputProductId, qty, sortOrder } = req.body ?? {};
+  if (!inputProductId) {
+    res.status(400).json({ error: 'Campo obrigatório: inputProductId.' });
+    return;
+  }
+  if (Number(inputProductId) === productId) {
+    res.status(400).json({ error: 'Um produto não pode ser insumo dele mesmo.' });
+    return;
+  }
+  const input = db().prepare('SELECT id, product_type, active, track_stock FROM products WHERE id = ? AND deleted_at IS NULL').get(inputProductId) as
+    { id: number; product_type: string; active: number; track_stock: number } | undefined;
+  if (!input) {
+    res.status(404).json({ error: 'Insumo não encontrado.' });
+    return;
+  }
+  if (!input.active) {
+    res.status(400).json({ error: 'Insumo inativo não pode ser usado na ficha técnica.' });
+    return;
+  }
+  if (!input.track_stock) {
+    res.status(400).json({ error: 'Insumo não controla estoque — obrigatório para ficha técnica.' });
+    return;
+  }
+  if (input.product_type === 'kit' || input.product_type === 'combo' || input.product_type === 'produzido') {
+    res.status(400).json({ error: 'Insumo não pode ser kit, combo ou produzido (use produtos simples).' });
+    return;
+  }
+  const info = db().prepare(
+    'INSERT INTO product_recipe_items (produced_product_id, input_product_id, qty, sort_order, uuid) VALUES (?, ?, ?, ?, ?)',
+  ).run(productId, inputProductId, Number(qty ?? 1), Math.round(Number(sortOrder ?? 0)), randomUUID());
+  const created = db().prepare(
+    `SELECT ri.id, ri.produced_product_id, ri.input_product_id, p.name AS input_name, ri.qty, ri.sort_order
+     FROM product_recipe_items ri JOIN products p ON p.id = ri.input_product_id WHERE ri.id = ?`,
+  ).get(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'product_recipe_item', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.put('/recipe-items/:id', requirePermission('commercial.products.recipe.manage'), requireCapability('commercial.producao'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, qty, sort_order FROM product_recipe_items WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Item de ficha técnica não encontrado.' });
+    return;
+  }
+  const { qty, sortOrder } = req.body ?? {};
+  db().prepare(
+    `UPDATE product_recipe_items SET qty = COALESCE(?, qty), sort_order = COALESCE(?, sort_order), updated_at = datetime('now') WHERE id = ?`,
+  ).run(qty != null ? Number(qty) : null, sortOrder != null ? Math.round(Number(sortOrder)) : null, id);
+  const after = db().prepare('SELECT id, produced_product_id, input_product_id, qty, sort_order FROM product_recipe_items WHERE id = ?').get(id);
+  audit(req, 'editar', 'product_recipe_item', id, before, after);
+  res.json(after);
+});
+
+router.delete('/recipe-items/:id', requirePermission('commercial.products.recipe.manage'), requireCapability('commercial.producao'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, produced_product_id, input_product_id FROM product_recipe_items WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Item de ficha técnica não encontrado.' });
+    return;
+  }
+  db().prepare("UPDATE product_recipe_items SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  audit(req, 'excluir', 'product_recipe_item', id, before, null);
+  res.json({ ok: true });
+});
+
 // ---------- Variantes de produto ----------
 router.get('/products/:id/variants', requirePermission('commercial.products.view'), requireCapability('commercial.variantes'), (req, res) => {
   const parentId = Number(req.params.id);
