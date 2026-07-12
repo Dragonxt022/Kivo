@@ -688,6 +688,86 @@ router.delete('/products/:id/complement-groups/:linkId', requirePermission('comm
   res.json({ ok: true });
 });
 
+// ---------- Kits & Combos (componentes fixos) ----------
+router.get('/products/:id/kit-items', requirePermission('commercial.products.view'), requireCapability('commercial.kits'), (req, res) => {
+  const productId = Number(req.params.id);
+  res.json(db().prepare(
+    `SELECT ki.id, ki.kit_product_id, ki.component_product_id, p.name AS component_name, p.sku, ki.qty, ki.sort_order, ki.uuid, ki.updated_at
+     FROM kit_items ki JOIN products p ON p.id = ki.component_product_id
+     WHERE ki.kit_product_id = ? AND ki.deleted_at IS NULL ORDER BY ki.sort_order, p.name`,
+  ).all(productId));
+});
+
+router.post('/products/:id/kit-items', requirePermission('commercial.products.kits.manage'), requireCapability('commercial.kits'), (req, res) => {
+  const productId = Number(req.params.id);
+  const prod = db().prepare('SELECT id, product_type, name FROM products WHERE id = ? AND deleted_at IS NULL').get(productId) as
+    { id: number; product_type: string; name: string } | undefined;
+  if (!prod) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  if (prod.product_type !== 'kit' && prod.product_type !== 'combo') {
+    res.status(400).json({ error: 'Produto não é do tipo kit/combo.' });
+    return;
+  }
+  const { componentProductId, qty, sortOrder } = req.body ?? {};
+  if (!componentProductId) {
+    res.status(400).json({ error: 'Campo obrigatório: componentProductId.' });
+    return;
+  }
+  if (Number(componentProductId) === productId) {
+    res.status(400).json({ error: 'Um kit não pode ser componente dele mesmo.' });
+    return;
+  }
+  const comp = db().prepare('SELECT id, product_type FROM products WHERE id = ? AND deleted_at IS NULL').get(componentProductId) as
+    { id: number; product_type: string } | undefined;
+  if (!comp) {
+    res.status(404).json({ error: 'Componente não encontrado.' });
+    return;
+  }
+  if (comp.product_type === 'kit' || comp.product_type === 'combo') {
+    res.status(400).json({ error: 'Kit-dentro-de-kit não é suportado (use produtos simples como componentes).' });
+    return;
+  }
+  const info = db().prepare(
+    'INSERT INTO kit_items (kit_product_id, component_product_id, qty, sort_order, uuid) VALUES (?, ?, ?, ?, ?)',
+  ).run(productId, componentProductId, Number(qty ?? 1), Math.round(Number(sortOrder ?? 0)), randomUUID());
+  const created = db().prepare(
+    `SELECT ki.id, ki.kit_product_id, ki.component_product_id, p.name AS component_name, ki.qty, ki.sort_order
+     FROM kit_items ki JOIN products p ON p.id = ki.component_product_id WHERE ki.id = ?`,
+  ).get(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'kit_item', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.put('/kit-items/:id', requirePermission('commercial.products.kits.manage'), requireCapability('commercial.kits'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, qty, sort_order FROM kit_items WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Item de kit não encontrado.' });
+    return;
+  }
+  const { qty, sortOrder } = req.body ?? {};
+  db().prepare(
+    `UPDATE kit_items SET qty = COALESCE(?, qty), sort_order = COALESCE(?, sort_order), updated_at = datetime('now') WHERE id = ?`,
+  ).run(qty != null ? Number(qty) : null, sortOrder != null ? Math.round(Number(sortOrder)) : null, id);
+  const after = db().prepare('SELECT id, kit_product_id, component_product_id, qty, sort_order FROM kit_items WHERE id = ?').get(id);
+  audit(req, 'editar', 'kit_item', id, before, after);
+  res.json(after);
+});
+
+router.delete('/kit-items/:id', requirePermission('commercial.products.kits.manage'), requireCapability('commercial.kits'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, kit_product_id, component_product_id FROM kit_items WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Item de kit não encontrado.' });
+    return;
+  }
+  db().prepare("UPDATE kit_items SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  audit(req, 'excluir', 'kit_item', id, before, null);
+  res.json({ ok: true });
+});
+
 // ---------- Variantes de produto ----------
 router.get('/products/:id/variants', requirePermission('commercial.products.view'), requireCapability('commercial.variantes'), (req, res) => {
   const parentId = Number(req.params.id);

@@ -112,22 +112,48 @@ export function createSale(
   }
 
   // Congela produtos e preços do catálogo atual
-  const items: { productId: number; name: string; qty: number; unitCents: number; costCents: number; totalCents: number }[] = [];
+  const items: { productId: number; name: string; qty: number; unitCents: number; costCents: number; totalCents: number; notes: string | null; lineGroupUuid: string | null }[] = [];
   for (const item of input.items) {
-      const p = db
-        .prepare('SELECT id, name, price_cents, cost_cents, active FROM products WHERE id = ? AND deleted_at IS NULL')
-        .get(item.productId) as { id: number; name: string; price_cents: number; cost_cents: number; active: number } | undefined;
+    const p = db
+      .prepare('SELECT id, name, price_cents, cost_cents, product_type, active FROM products WHERE id = ? AND deleted_at IS NULL')
+      .get(item.productId) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; active: number } | undefined;
     if (!p || !p.active) return { ok: false, error: `Produto ${item.productId} não encontrado ou inativo.` };
     if (!(item.qty > 0)) return { ok: false, error: `Quantidade inválida para "${p.name}".` };
     const unitCents =
       opts.allowPriceOverride && item.unitPriceCents != null
         ? Math.round(item.unitPriceCents)
         : pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
+    const notes = item.notes ?? null;
+    const lineGroupUuid = item.lineGroupUuid ?? null;
     items.push({
       productId: p.id, name: p.name, qty: item.qty, unitCents,
       costCents: p.cost_cents,
       totalCents: Math.round(unitCents * item.qty),
+      notes, lineGroupUuid,
     });
+
+    // Expansão de kit/combo: para cada componente fixo, gera uma linha a preço zero
+    // mas com custo real (a receita já está toda na linha do kit).
+    if (p.product_type === 'kit' || p.product_type === 'combo') {
+      const kitComponents = db.prepare(
+        `SELECT ki.qty AS compQty, comp.id, comp.name, comp.cost_cents, comp.active
+         FROM kit_items ki
+         JOIN products comp ON comp.id = ki.component_product_id AND comp.deleted_at IS NULL
+         WHERE ki.kit_product_id = ? AND ki.deleted_at IS NULL
+         ORDER BY ki.sort_order`,
+      ).all(p.id) as { compQty: number; id: number; name: string; cost_cents: number; active: number }[];
+      for (const comp of kitComponents) {
+        if (!comp.active) {
+          return { ok: false, error: `Componente "${comp.name}" do kit "${p.name}" está inativo.` };
+        }
+        const compQty = comp.compQty * item.qty;
+        items.push({
+          productId: comp.id, name: comp.name, qty: compQty,
+          unitCents: 0, costCents: comp.cost_cents, totalCents: 0,
+          notes, lineGroupUuid,
+        });
+      }
+    }
   }
 
   const subtotal = sumCents(...items.map((i) => i.totalCents));
@@ -248,10 +274,8 @@ export function createSale(
         `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents, notes, line_group_uuid)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
-      for (let idx = 0; idx < items.length; idx++) {
-        const i = items[idx];
-        const inpItem = input.items[idx];
-        insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, inpItem.notes ?? null, inpItem.lineGroupUuid ?? null);
+      for (const i of items) {
+        insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, i.notes, i.lineGroupUuid);
         // allowNegative: a venda não pode travar por falta de estoque (reposição pode atrasar).
         const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);

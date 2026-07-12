@@ -34,10 +34,12 @@ const manifest: ModuleManifest = {
     { key: 'commercial.agreements.delete', description: 'Excluir empresas conveniadas' },
     { key: 'commercial.products.variants.manage', description: 'Gerenciar variantes de produto' },
     { key: 'commercial.products.complements.manage', description: 'Gerenciar grupos de complementos/opcionais' },
+    { key: 'commercial.products.kits.manage', description: 'Gerenciar componentes de kit/combo' },
   ],
   capabilities: [
     { key: 'commercial.variantes', description: 'Produtos com variantes (tamanho, cor, etc.)' },
     { key: 'commercial.complementos', description: 'Grupos de complementos/opcionais por produto, com seleção no PDV' },
+    { key: 'commercial.kits', description: 'Produtos do tipo kit/combo com componentes fixos vendidos como um só item' },
   ],
   routes: './routes',
   pages: './pages',
@@ -111,6 +113,10 @@ const manifest: ModuleManifest = {
     {
       table: 'product_complement_groups',
       foreignKeys: { product_id: 'products', group_id: 'complement_groups' },
+    },
+    {
+      table: 'kit_items',
+      foreignKeys: { kit_product_id: 'products', component_product_id: 'products' },
     },
   ],
 };
