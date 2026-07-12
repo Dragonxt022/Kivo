@@ -19,6 +19,7 @@
       <button :class="{ active: tab === 'empresa' }" @click="tab = 'empresa'">Empresa</button>
       <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">Estoque</button>
       <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">Vendas</button>
+      <button :class="{ active: tab === 'financeiro' }" @click="tab = 'financeiro'">Financeiro</button>
       <button :class="{ active: tab === 'fidelidade' }" @click="tab = 'fidelidade'">Fidelidade</button>
       <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
       <button :class="{ active: tab === 'security' }" @click="tab = 'security'">Segurança</button>
@@ -141,6 +142,45 @@
         <div class="toolbar">
           <button class="btn" @click="saveSales()" x-text="savingSales ? 'Salvando…' : 'Salvar configurações'"></button>
           <span class="muted" x-show="salesSaved" x-text="salesSaved"></span>
+        </div>
+        <% } %>
+      </section>
+    </div>
+
+    <!-- ═══════ ABA: FINANCEIRO ═══════ -->
+    <div x-show="tab === 'financeiro'" x-cloak>
+      <section class="panel">
+        <h2>Multa e juros por atraso</h2>
+        <p class="hint mt-0">
+          Aplicados sobre contas a pagar/receber vencidas. A multa é cobrada uma única vez
+          quando a conta atrasa; os juros correm por dia de atraso.
+        </p>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="financeiro.multaAtiva" />
+            Cobrar multa por atraso
+          </label>
+        </div>
+        <div class="field" x-show="financeiro.multaAtiva">
+          <label>Percentual da multa (%)</label>
+          <input class="input input-narrow" type="text" x-model="financeiro.multaPercentual" placeholder="2,00" />
+          <p class="hint">Aplicado uma vez sobre o valor da conta assim que ela vence.</p>
+        </div>
+        <div class="field" style="margin-top:1.25rem">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="financeiro.jurosAtivo" />
+            Cobrar juros por atraso (juros de mora)
+          </label>
+        </div>
+        <div class="field" x-show="financeiro.jurosAtivo">
+          <label>Percentual de juros ao dia (%)</label>
+          <input class="input input-narrow" type="text" x-model="financeiro.jurosPercentualDia" placeholder="0,033" />
+          <p class="hint">Juros corridos: incide a cada dia de atraso sobre o valor da conta (ex.: 0,033%/dia ≈ 1%/mês).</p>
+        </div>
+        <% if (user.permissions.has('settings.edit')) { %>
+        <div class="toolbar">
+          <button class="btn" @click="saveFinanceiro()" x-text="savingFinanceiro ? 'Salvando…' : 'Salvar configurações'"></button>
+          <span class="muted" x-show="financeiroSaved" x-text="financeiroSaved"></span>
         </div>
         <% } %>
       </section>
@@ -324,6 +364,8 @@
         licenseThanks: { sync: null, syncError: null },
         stock: { autoSku: true, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true }, savingSales: false, salesSaved: '',
+        financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
+        savingFinanceiro: false, financeiroSaved: '',
         empresa: { nome: '', documento: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
@@ -354,6 +396,12 @@
           this.sales.exibirCupom = cupom?.value !== '0';
           const lembrete = this.settings.find(s => s.key === 'caixa.lembrete_24h');
           this.sales.lembreteCaixa24h = lembrete?.value !== '0';
+          this.financeiro.multaAtiva = this.settings.find(s => s.key === 'financeiro.multa_atraso.ativa')?.value === '1';
+          const multaPct = this.settings.find(s => s.key === 'financeiro.multa_atraso.percentual')?.value;
+          this.financeiro.multaPercentual = (multaPct != null ? Number(multaPct) : 2).toFixed(2).replace('.', ',');
+          this.financeiro.jurosAtivo = this.settings.find(s => s.key === 'financeiro.juros_atraso.ativo')?.value === '1';
+          const jurosPct = this.settings.find(s => s.key === 'financeiro.juros_atraso.percentual_dia')?.value;
+          this.financeiro.jurosPercentualDia = (jurosPct != null ? Number(jurosPct) : 0.033).toString().replace('.', ',');
           const pinRemove = this.settings.find(s => s.key === 'seguranca.pin_remover_item');
           this.security.pinRemoverItem = pinRemove?.value === '1';
           this.fidelidade.ativo = this.settings.find(s => s.key === 'fidelidade.ativo')?.value === '1';
@@ -445,6 +493,23 @@
           this.salesSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
           const r = await fetch('/api/settings');
           if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
+        },
+        async saveFinanceiro() {
+          this.savingFinanceiro = true; this.financeiroSaved = '';
+          const pct = (s) => { const n = parseFloat(String(s || '0').replace(',', '.')); return isNaN(n) ? 0 : n; };
+          const upsert = (key, value) => fetch(`/api/settings/${encodeURIComponent(key)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }),
+          });
+          const results = await Promise.all([
+            upsert('financeiro.multa_atraso.ativa', this.financeiro.multaAtiva ? '1' : '0'),
+            upsert('financeiro.multa_atraso.percentual', String(pct(this.financeiro.multaPercentual))),
+            upsert('financeiro.juros_atraso.ativo', this.financeiro.jurosAtivo ? '1' : '0'),
+            upsert('financeiro.juros_atraso.percentual_dia', String(pct(this.financeiro.jurosPercentualDia))),
+          ]);
+          this.savingFinanceiro = false;
+          this.financeiroSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
+          const s = await fetch('/api/settings');
+          if (s.ok) { this.settings = await s.json(); this.syncSettings(); }
         },
         async saveEmpresa() {
           this.savingEmpresa = true; this.empresaSaved = '';

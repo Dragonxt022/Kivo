@@ -26,6 +26,13 @@
   --radius-full: 9999px;
   --transition: 200ms cubic-bezier(.4,0,.2,1);
   --header-height: 56px;
+  /* Categórico fixo (DRE): 1 cor por linha do demonstrativo, sempre na mesma ordem —
+     identidade visual, nunca usado como cor de valor/texto (ver dre-relatorio.ejs). */
+  --dre-receita: var(--primary);
+  --dre-deducoes: var(--warning-text);
+  --dre-cmv: #2a78d6;
+  --dre-opex: #4a3aa7;
+  --dre-fin: var(--danger);
 }
 
 :root[data-theme="dark"] {
@@ -51,6 +58,8 @@
   --shadow-sm: 0 2px 6px rgba(0,0,0,.3);
   --shadow: 0 4px 16px rgba(0,0,0,.35);
   --shadow-lg: 0 8px 32px rgba(0,0,0,.5);
+  --dre-cmv: #3987e5;
+  --dre-opex: #9085e9;
 }
 
 :root[data-theme="dark"] header.nav,
@@ -448,6 +457,7 @@ tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
 .badge.ok { background: var(--success-bg); color: var(--success-text); }
 .badge.off { background: var(--danger-bg); color: var(--danger-text); }
 .badge.neutral { background: var(--border-light); color: var(--muted); }
+.dre-line-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: .4rem; vertical-align: middle; }
 .badge.module { background: var(--primary-bg); color: var(--primary); margin: 0 .25rem .25rem 0; }
 
 /* ─── Panel (static card, sem hover de link) ─── */

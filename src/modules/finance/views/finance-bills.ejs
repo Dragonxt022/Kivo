@@ -47,7 +47,10 @@
       <tbody>
         <template x-for="b in pageRows" :key="b.id">
           <tr>
-            <td x-text="b.description"></td>
+            <td>
+              <span x-text="b.description"></span>
+              <span class="badge neutral" x-show="b.installment_count > 1" style="margin-left:.4rem" x-text="b.installment_no + '/' + b.installment_count"></span>
+            </td>
             <td class="muted" x-text="b.party ?? '—'"></td>
             <td x-text="brl(b.amount_cents)"></td>
             <td class="muted" x-text="b.issue_date ? fmtDate(b.issue_date) : '—'"></td>
@@ -92,8 +95,19 @@
       <h1 x-text="form.id ? 'Editar conta' : 'Nova conta'"></h1>
       <label>Descrição</label><input type="text" x-model="form.description" />
       <label>Valor (R$)</label><input type="text" x-model="form.amount" placeholder="0,00" @input="form.amount = maskMoney(form.amount)" />
-      <label>Vencimento</label><input type="date" x-model="form.dueDate" />
+      <label>Vencimento (1ª parcela)</label><input type="date" x-model="form.dueDate" />
       <label>Emissão</label><input type="date" x-model="form.issueDate" />
+      <template x-if="!form.id">
+        <div>
+          <label>Parcelas</label>
+          <input class="input-narrow" type="number" min="1" max="24" step="1" x-model.number="form.installments" />
+          <p class="hint" x-show="form.installments > 1">
+            <span x-text="form.installments"></span> parcelas de
+            <strong x-text="brl(Math.round(cents(form.amount) / form.installments))"></strong> cada, vencendo a
+            cada 30 dias a partir do vencimento acima.
+          </p>
+        </div>
+      </template>
       <% if (bills.categoryField) { %>
       <label>Categoria (DRE)</label>
       <div class="combo-wrap" @click.outside="catResults = []">
@@ -119,16 +133,66 @@
       </div>
     </dialog>
 
-    <dialog x-ref="settleDlg">
+    <dialog x-ref="settleDlg" class="dialog-fixed" style="width:min(480px,calc(100vw - 2rem))">
       <h1><%= bills.settleLabel %></h1>
-      <p class="muted" x-text="settleForm.description + ' — ' + brl(settleForm.amountCents)"></p>
-      <label>Data do pagamento</label>
-      <input type="date" x-model="settleForm.settledAt" />
-      <p class="hint">Pagamento adiantado? Ajuste a data acima — o padrão é hoje.</p>
-      <div class="error" x-text="settleError"></div>
+      <div class="dialog-body">
+        <p class="muted" x-text="settleForm.description"></p>
+        <p>Valor devido: <strong x-text="brl(settleForm.amountCents)"></strong></p>
+        <p x-show="settleForm.diasAtraso > 0" class="muted text-xs">
+          Vencida há <strong x-text="settleForm.diasAtraso"></strong> dia(s) —
+          com multa/juros: <strong x-text="brl(settleOwedCents())"></strong>
+        </p>
+
+        <label style="margin-top:.6rem">Formas de pagamento</label>
+        <template x-for="(p, idx) in settleForm.payments" :key="idx">
+          <div class="form-grid" style="grid-template-columns:1fr 110px 32px;margin-bottom:.4rem">
+            <select x-model.number="p.methodId">
+              <option value="">Selecione…</option>
+              <template x-for="m in settleMethods" :key="m.id">
+                <option :value="m.id" x-text="m.name"></option>
+              </template>
+            </select>
+            <input type="text" x-model="p.amount" placeholder="0,00" @input="p.amount = maskMoney(p.amount)" />
+            <button type="button" class="btn secondary small" @click="removeSettlePaymentRow(idx)" x-show="settleForm.payments.length > 1">×</button>
+          </div>
+        </template>
+        <button type="button" class="btn secondary small" @click="addSettlePaymentRow()">+ Adicionar forma</button>
+
+        <p class="hint" style="margin-top:.6rem">
+          Total informado: <strong x-text="brl(settleTotalCents())"></strong>
+        </p>
+        <p class="hint" style="color:var(--warning-text)" x-show="settleTotalCents() > 0 && settleTotalCents() < settleOwedCents()">
+          Faltam <strong x-text="brl(settleOwedCents() - settleTotalCents())"></strong> —
+          serão transferidos automaticamente pra próxima parcela em aberto, ou uma parcela nova será criada se não houver uma.
+        </p>
+
+        <label style="margin-top:.6rem">Data do pagamento</label>
+        <input type="date" x-model="settleForm.settledAt" />
+        <p class="hint">Pagamento adiantado? Ajuste a data acima — o padrão é hoje.</p>
+        <div class="error" x-text="settleError"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.settleDlg.close()">Cancelar</button>
         <button class="btn" @click="confirmSettle()"><%= bills.settleLabel %></button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="noRegisterDlg" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:340px;max-width:90vw">
+      <div class="dialog-body-center" style="padding:1.25rem">
+        <div class="dialog-icon-sm dialog-icon-warning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <h2 class="dialog-heading-md">Nenhum caixa aberto</h2>
+        <p class="dialog-muted-sm">
+          Liquidar em dinheiro exige um caixa aberto, pra esse valor entrar na conferência da
+          gaveta. Abra o caixa e tente de novo.
+        </p>
+        <div class="actions actions-center">
+          <button class="btn secondary" @click="$refs.noRegisterDlg.close()">Cancelar</button>
+          <button class="btn" @click="location.href = '/app/finance/caixa'">Abrir caixa</button>
+        </div>
       </div>
     </dialog>
   </main>
@@ -140,7 +204,8 @@
         ...tableToolkit(),
         rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
         catQ: '', catResults: [], catIdx: -1,
-        settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
+        settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
+        settleError: '', settleMethods: [],
         sortGetters: {
           description: (b) => b.description ?? '', party: (b) => b.party ?? '', amount_cents: (b) => b.amount_cents,
           issue_date: (b) => b.issue_date ?? '', due_date: (b) => b.due_date ?? '', status: (b) => b.status ?? '',
@@ -173,8 +238,8 @@
         openNew() {
           const def = hasCategory ? this.categories.find((c) => c.key === 'outras_despesas_operacionais') : null;
           this.form = hasCategory
-            ? { issueDate: todayLocal(), dreCategoryId: def?.id ?? null }
-            : { issueDate: todayLocal() };
+            ? { issueDate: todayLocal(), dreCategoryId: def?.id ?? null, installments: 1 }
+            : { issueDate: todayLocal(), installments: 1 };
           this.catQ = def?.label ?? ''; this.catResults = [];
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
@@ -196,25 +261,50 @@
           const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
               issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
-              dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined }) });
+              dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined, installments: this.form.installments || 1 }) });
           if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
         },
-        openSettle(b) {
-          this.settleForm = { id: b.id, description: b.description, amountCents: b.amount_cents, settledAt: todayLocal() };
+        settleOwedCents() { return this.settleForm.suggestedSettleCents || this.settleForm.amountCents; },
+        settleTotalCents() { return (this.settleForm.payments || []).reduce((s, p) => s + this.cents(p.amount), 0); },
+        addSettlePaymentRow() { this.settleForm.payments.push({ methodId: '', amount: '' }); },
+        removeSettlePaymentRow(idx) { this.settleForm.payments.splice(idx, 1); },
+        async openSettle(b) {
+          const owed = b.suggestedSettleCents ?? b.amount_cents;
+          this.settleForm = {
+            id: b.id, description: b.description, amountCents: b.amount_cents, settledAt: todayLocal(),
+            diasAtraso: b.diasAtraso || 0, suggestedSettleCents: owed,
+            payments: [{ methodId: '', amount: (owed / 100).toFixed(2).replace('.', ',') }],
+          };
           this.settleError = '';
+          if (!this.settleMethods.length) {
+            const r = await fetch('/api/finance/payment-methods/active');
+            if (r.ok) this.settleMethods = await r.json();
+          }
+          if (this.settleMethods.length === 1) this.settleForm.payments[0].methodId = this.settleMethods[0].id;
           this.$refs.settleDlg.showModal();
         },
         async confirmSettle() {
+          const payments = this.settleForm.payments.map((p) => ({ paymentMethodId: p.methodId, amountCents: this.cents(p.amount) }));
+          if (!payments.length || payments.some((p) => !p.paymentMethodId || !(p.amountCents > 0))) {
+            this.settleError = 'Preencha forma de pagamento e valor em cada linha.';
+            return;
+          }
           const r = await fetch(`${api}/${this.settleForm.id}/settle`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ settledAt: this.settleForm.settledAt }),
+            body: JSON.stringify({ settledAt: this.settleForm.settledAt, payments }),
           });
           if (r.ok) {
-            const d = await r.json();
             this.$refs.settleDlg.close();
-            if (!d.registeredInCash) alert('Atenção: nenhum caixa aberto — o valor não entrou na gaveta.');
             this.load();
-          } else this.settleError = (await r.json()).error;
+            return;
+          }
+          const data = await r.json();
+          if (data.code === 'no_register') {
+            this.$refs.settleDlg.close();
+            this.$refs.noRegisterDlg.showModal();
+            return;
+          }
+          this.settleError = data.error;
         },
         async cancel(b) {
           if (!await window.confirmDlg(`Cancelar "${b.description}"?`)) return;

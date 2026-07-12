@@ -20,6 +20,20 @@ router.get('/payment-methods', requirePermission('finance.paymethods.view'), (re
   ).all());
 });
 
+// Lista enxuta para quem só precisa ESCOLHER uma forma ao liquidar uma conta (não gerenciar
+// as formas em si) — sem exigir finance.paymethods.view, mesmo espírito de
+// GET /api/store/payment-methods (liberado a quem pode vender, não a quem administra taxas).
+// 'prazo' fica de fora: não representa um pagamento acontecendo agora.
+router.get('/payment-methods/active', (req, res) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Não autenticado.' });
+    return;
+  }
+  res.json(db().prepare(
+    "SELECT id, name, type FROM payment_methods WHERE active = 1 AND deleted_at IS NULL AND type != 'prazo' ORDER BY sort, name",
+  ).all());
+});
+
 router.post('/payment-methods', requirePermission('finance.paymethods.edit'), (req, res) => {
   const { name, type, feeBps } = req.body ?? {};
   const types = ['dinheiro', 'debito', 'credito', 'pix', 'prazo', 'outro'];

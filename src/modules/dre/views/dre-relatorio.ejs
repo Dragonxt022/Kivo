@@ -32,20 +32,20 @@
       <thead><tr><th>Categoria</th><th class="right">Real</th><th class="right">Ajuste</th><th class="right">Projetado</th></tr></thead>
       <tbody>
         <template x-for="row in rows" :key="row.key">
-          <tr :class="row.type === 'header' ? 'muted' : (row.type !== 'category' ? 'total-row' : '')"
-              :style="row.type === 'final' ? 'border-top:2px solid var(--border, #333);font-size:1.05em' : (row.type === 'subtotal-final' ? 'border-top:2px solid var(--border, #333)' : '')">
-            <td :colspan="row.type === 'header' ? 4 : 1">
+          <tr :class="row.type === 'header' ? 'muted' : (row.type !== 'category' ? 'total-row' : '')" :style="rowStyle(row)">
+            <td :colspan="row.type === 'header' ? 4 : 1" :style="row.type === 'header' ? ('border-left:4px solid ' + lineColors[row.line]) : ''">
+              <span class="dre-line-dot" :style="'background:' + lineColors[row.line]" x-show="row.type === 'header'"></span>
               <strong x-show="row.type === 'header'" x-text="row.label"></strong>
               <span x-show="row.type !== 'header'" x-text="row.label"></span>
             </td>
             <template x-if="row.type !== 'header'">
-              <td class="right" x-text="brl(row.realCents)"></td>
+              <td class="right" :style="row.type === 'final' ? resultColor(row.realCents) : ''" x-text="brl(row.realCents)"></td>
             </template>
             <template x-if="row.type !== 'header'">
-              <td class="right" x-text="row.type === 'category' ? pct(row.adjustmentBps) : ''"></td>
+              <td class="right" :style="row.type === 'category' ? adjustColor(row.adjustmentBps) : ''" x-text="row.type === 'category' ? pct(row.adjustmentBps) : ''"></td>
             </template>
             <template x-if="row.type !== 'header'">
-              <td class="right" x-text="brl(row.adjustedCents)"></td>
+              <td class="right" :style="row.type === 'final' ? resultColor(row.adjustedCents) : ''" x-text="brl(row.adjustedCents)"></td>
             </template>
           </tr>
         </template>
@@ -64,8 +64,23 @@
           receita_bruta: 'Receita Bruta', deducoes: 'Deduções da Receita', cmv: 'CMV',
           despesas_operacionais: 'Despesas Operacionais', despesas_financeiras: 'Despesas Financeiras',
         },
+        // Cor fixa por linha do DRE — mesma ordem sempre, só identidade visual (o valor
+        // continua em cor de texto normal; ver dre-line-dot no app.css).
+        lineColors: {
+          receita_bruta: 'var(--dre-receita)', deducoes: 'var(--dre-deducoes)', cmv: 'var(--dre-cmv)',
+          despesas_operacionais: 'var(--dre-opex)', despesas_financeiras: 'var(--dre-fin)',
+        },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         pct(bps) { return (bps === 0 ? '—' : (bps > 0 ? '+' : '') + (bps / 100).toFixed(2).replace('.', ',') + '%'); },
+        rowStyle(row) {
+          if (row.type === 'final') return 'border-top:2px solid var(--border);font-size:1.05em';
+          if (row.type === 'subtotal-final') return 'border-top:2px solid var(--border)';
+          return '';
+        },
+        // Resultado final: verde quando positivo, vermelho quando negativo — cor de status
+        // (estado real do resultado), não identidade de categoria.
+        resultColor(cents) { return 'color:' + (cents < 0 ? 'var(--danger)' : 'var(--success-text)') + ';font-weight:700'; },
+        adjustColor(bps) { return bps === 0 ? '' : 'color:' + (bps > 0 ? 'var(--success-text)' : 'var(--danger)'); },
         printUrl() {
           const params = new URLSearchParams();
           if (this.from) params.set('from', this.from);
@@ -89,12 +104,12 @@
           const rows = [];
           for (const line of ['receita_bruta', 'deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras']) {
             const group = d.lines[line];
-            rows.push({ key: line + '-h', type: 'header', label: this.lineLabels[line] });
+            rows.push({ key: line + '-h', type: 'header', label: this.lineLabels[line], line });
             for (const c of group.categories) {
-              rows.push({ key: 'c' + c.id, type: 'category', label: c.label, realCents: c.realCents, adjustmentBps: c.adjustmentBps, adjustedCents: c.adjustedCents });
+              rows.push({ key: 'c' + c.id, type: 'category', label: c.label, realCents: c.realCents, adjustmentBps: c.adjustmentBps, adjustedCents: c.adjustedCents, line });
             }
-            rows.push({ key: line + '-t', type: 'subtotal', label: 'Total ' + this.lineLabels[line], realCents: group.realCents, adjustedCents: group.adjustedCents });
-            if (afterLine[line]) rows.push({ key: line + '-f', ...afterLine[line] });
+            rows.push({ key: line + '-t', type: 'subtotal', label: 'Total ' + this.lineLabels[line], realCents: group.realCents, adjustedCents: group.adjustedCents, line });
+            if (afterLine[line]) rows.push({ key: line + '-f', ...afterLine[line], line });
           }
           this.rows = rows;
         },

@@ -4,58 +4,119 @@
   <meta charset="utf-8" />
   <title>DRE — <%= report.from %> a <%= report.to %></title>
   <style>
+    @page { size: A4; margin: 16mm 14mm; }
     * { margin: 0; box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #000; background: #fff; max-width: 800px; margin: 0 auto; padding: 16px; }
-    h1 { font-size: 18px; margin-bottom: 2px; }
-    h2 { font-size: 14px; margin: 16px 0 6px; border-bottom: 1px solid #999; padding-bottom: 2px; }
+    body {
+      font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 12.5px; line-height: 1.4;
+      color: #1e293b; background: #fff; max-width: 760px; margin: 0 auto; padding: 22px 6px 40px;
+    }
     .center { text-align: center; }
     .right { text-align: right; }
-    .muted { color: #555; font-size: 11px; }
-    hr { border: 0; border-top: 1px solid #999; margin: 10px 0; }
+    .muted { color: #64748b; }
+
+    /* ── Timbre ── */
+    .letterhead { text-align: center; padding-bottom: 14px; border-bottom: 3px solid #1e293b; margin-bottom: 22px; }
+    .letterhead .company-name { font-size: 21px; font-weight: 700; letter-spacing: .01em; }
+    .letterhead .company-meta { font-size: 11px; color: #64748b; margin-top: 3px; }
+
+    /* ── Título do documento ── */
+    .doc-title { text-align: center; margin-bottom: 22px; }
+    .doc-title h1 {
+      font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: #1e293b;
+    }
+    .doc-title .period { font-size: 12px; color: #475569; margin-top: 5px; }
+    .doc-title .period strong { color: #1e293b; }
+
+    /* ── Tabela ── */
     table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-    th, td { padding: 3px 4px; text-align: left; border-bottom: 1px solid #ddd; }
-    th { font-size: 11px; text-transform: uppercase; color: #555; }
-    .total-row td { font-weight: bold; border-top: 2px solid #333; border-bottom: none; }
-    .final-row td { font-weight: bold; border-top: 2px solid #000; border-bottom: none; font-size: 14px; }
+    thead th {
+      background: #1e293b; color: #fff; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em; padding: 8px 9px; text-align: left; border: none;
+    }
+    thead th.right { text-align: right; }
+    tbody td { padding: 5.5px 9px; border-bottom: 1px solid #e2e8f0; }
+    .group-row td {
+      background: #f1f5f9; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+      font-size: 11px; color: #1e293b; padding-top: 11px;
+    }
+    .line-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+    .total-row td { font-weight: 700; background: #f8fafc; border-top: 1.5px solid #94a3b8; border-bottom: none; }
+    .final-row td { font-weight: 700; font-size: 13.5px; background: #1e293b; color: #fff; padding: 10px 9px; }
+    .final-row td.right.positive { color: #4ade80; }
+    .final-row td.right.negative { color: #fca5a5; }
+
+    /* ── Rodapé ── */
+    .print-footer {
+      margin-top: 18px; padding-top: 10px; border-top: 1px solid #e2e8f0;
+      display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8;
+    }
+    .note { font-size: 10.5px; color: #64748b; margin-top: 10px; }
+
     @media print { .no-print { display: none; } }
-    .no-print { text-align: center; margin-top: 16px; }
-    .no-print button { padding: 8px 16px; font-size: 13px; cursor: pointer; }
+    .no-print { text-align: center; margin-top: 20px; }
+    .no-print button {
+      padding: 8px 18px; font-size: 13px; cursor: pointer; border-radius: 8px; border: 1.5px solid #cbd5e1;
+      background: #fff; margin: 0 4px;
+    }
+    .no-print button.primary { background: #1e293b; color: #fff; border-color: #1e293b; }
   </style>
 </head>
 <body>
-  <div class="center">
-    <h1><%= company.name %></h1>
-    <% if (company.document) { %><p class="muted"><%= company.document %></p><% } %>
-    <% if (company.address) { %><p class="muted"><%= company.address %></p><% } %>
-  </div>
-  <hr />
+  <%
+    function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+    function pct(bps) { return (bps === 0 ? '—' : (bps > 0 ? '+' : '') + (bps / 100).toFixed(2).replace('.', ',') + '%'); }
+    function fmtDate(iso) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+      return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || '');
+    }
+    var OPEN_START = report.from === '0000-01-01';
+    var OPEN_END = report.to === '9999-12-31';
+    var periodLabel = OPEN_START && OPEN_END ? 'Todo o período'
+      : OPEN_START ? `Até ${fmtDate(report.to)}`
+      : OPEN_END ? `A partir de ${fmtDate(report.from)}`
+      : `${fmtDate(report.from)} a ${fmtDate(report.to)}`;
 
-  <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
-     function pct(bps) { return (bps === 0 ? '—' : (bps > 0 ? '+' : '') + (bps / 100).toFixed(2).replace('.', ',') + '%'); }
-     var lineLabels = { receita_bruta: 'Receita Bruta', deducoes: 'Deduções da Receita', cmv: 'CMV',
-       despesas_operacionais: 'Despesas Operacionais', despesas_financeiras: 'Despesas Financeiras' };
-     var afterLine = {
-       deducoes: { label: '= Receita Líquida', realCents: report.totals.receitaLiquidaReal, adjustedCents: report.totals.receitaLiquidaAjustada, cls: 'total-row' },
-       cmv: { label: '= Lucro Bruto', realCents: report.totals.lucroBrutoReal, adjustedCents: report.totals.lucroBrutoAjustada, cls: 'total-row' },
-       despesas_operacionais: { label: '= Resultado Operacional', realCents: report.totals.resultadoOperacionalReal, adjustedCents: report.totals.resultadoOperacionalAjustada, cls: 'total-row' },
-       despesas_financeiras: { label: '= Resultado Líquido do Período', realCents: report.totals.resultadoLiquidoReal, adjustedCents: report.totals.resultadoLiquidoAjustada, cls: 'final-row' },
-     };
+    var lineLabels = { receita_bruta: 'Receita Bruta', deducoes: 'Deduções da Receita', cmv: 'CMV',
+      despesas_operacionais: 'Despesas Operacionais', despesas_financeiras: 'Despesas Financeiras' };
+    // Mesma cor fixa por linha usada na tela (dre-relatorio.ejs) — só identidade visual,
+    // os valores continuam em preto/cinza normal.
+    var lineColors = { receita_bruta: '#00c951', deducoes: '#eda100', cmv: '#2a78d6',
+      despesas_operacionais: '#4a3aa7', despesas_financeiras: '#ef4444' };
+    var afterLine = {
+      deducoes: { label: 'Receita Líquida', realCents: report.totals.receitaLiquidaReal, adjustedCents: report.totals.receitaLiquidaAjustada, cls: 'total-row' },
+      cmv: { label: 'Lucro Bruto', realCents: report.totals.lucroBrutoReal, adjustedCents: report.totals.lucroBrutoAjustada, cls: 'total-row' },
+      despesas_operacionais: { label: 'Resultado Operacional', realCents: report.totals.resultadoOperacionalReal, adjustedCents: report.totals.resultadoOperacionalAjustada, cls: 'total-row' },
+      despesas_financeiras: { label: 'Resultado Líquido do Período', realCents: report.totals.resultadoLiquidoReal, adjustedCents: report.totals.resultadoLiquidoAjustada, cls: 'final-row' },
+    };
   %>
 
-  <h1 style="margin-top:8px">DRE — Demonstrativo de Resultado</h1>
-  <p class="muted">Período: <%= report.from %> a <%= report.to %></p>
+  <div class="letterhead">
+    <div class="company-name"><%= company.name %></div>
+    <% if (company.document || company.address) { %>
+    <div class="company-meta">
+      <%= [company.document, company.address].filter(Boolean).join(' · ') %>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="doc-title">
+    <h1>Demonstrativo de Resultado do Exercício</h1>
+    <p class="period">Período: <strong><%= periodLabel %></strong></p>
+  </div>
 
   <table>
     <thead><tr><th>Categoria</th><th class="right">Real</th><th class="right">Ajuste</th><th class="right">Projetado</th></tr></thead>
     <tbody>
       <% ['receita_bruta', 'deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras'].forEach(function (line) {
            var group = report.lines[line]; %>
-        <tr><td colspan="4"><strong><%= lineLabels[line] %></strong></td></tr>
+        <tr class="group-row"><td colspan="4" style="border-left:4px solid <%= lineColors[line] %>">
+          <span class="line-dot" style="background:<%= lineColors[line] %>"></span><%= lineLabels[line] %>
+        </td></tr>
         <% group.categories.forEach(function (c) { %>
           <tr>
             <td><%= c.label %></td>
             <td class="right"><%= brl(c.realCents) %></td>
-            <td class="right"><%= pct(c.adjustmentBps) %></td>
+            <td class="right" style="<%= c.adjustmentBps === 0 ? '' : ('color:' + (c.adjustmentBps > 0 ? '#0ca30c' : '#d03b3b')) %>"><%= pct(c.adjustmentBps) %></td>
             <td class="right"><%= brl(c.adjustedCents) %></td>
           </tr>
         <% }) %>
@@ -65,21 +126,26 @@
           <td></td>
           <td class="right"><%= brl(group.adjustedCents) %></td>
         </tr>
-        <% if (afterLine[line]) { var f = afterLine[line]; %>
+        <% if (afterLine[line]) { var f = afterLine[line]; var sign = f.realCents < 0 ? 'negative' : 'positive'; %>
           <tr class="<%= f.cls %>">
-            <td><%= f.label %></td>
-            <td class="right"><%= brl(f.realCents) %></td>
+            <td>= <%= f.label %></td>
+            <td class="right <%= f.cls === 'final-row' ? sign : '' %>"><%= brl(f.realCents) %></td>
             <td></td>
-            <td class="right"><%= brl(f.adjustedCents) %></td>
+            <td class="right <%= f.cls === 'final-row' ? sign : '' %>"><%= brl(f.adjustedCents) %></td>
           </tr>
         <% } %>
       <% }) %>
     </tbody>
   </table>
-  <p class="muted">O CMV usa o custo atual do produto (sem histórico de custo por venda) — valor aproximado se o custo mudou após a venda.</p>
+  <p class="note">O CMV usa o custo atual do produto (sem histórico de custo por venda) — valor aproximado se o custo mudou após a venda.</p>
+
+  <div class="print-footer">
+    <span>Katsu — sistema de gestão</span>
+    <span>Gerado em <%= generatedAt %></span>
+  </div>
 
   <div class="no-print">
-    <button onclick="window.print()">Imprimir</button>
+    <button class="primary" onclick="window.print()">Imprimir</button>
     <button onclick="window.close()">Fechar</button>
   </div>
   <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
