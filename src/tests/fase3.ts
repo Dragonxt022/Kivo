@@ -7,6 +7,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
+import { resetTestDb, activateTestLicense } from './resetTestDb';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3399);
 const base = `http://localhost:${PORT}`;
@@ -32,8 +33,10 @@ async function loginAs(u: string, p: string): Promise<string | null> {
 }
 
 async function main() {
+  resetTestDb();
   migrateUp();
   runSeeds();
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
   const db = getSqlite();
