@@ -418,6 +418,7 @@ tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
 .btn.danger { background: var(--danger); }
 .btn.secondary.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .btn.danger:hover { background: #dc2626; }
+.btn svg { vertical-align: -3px; margin-right: .4rem; }
 
 /* ─── Toolbar ─── */
 .toolbar { display: flex; gap: .75rem; margin-bottom: 1rem; align-items: center; }
@@ -431,10 +432,22 @@ tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
 }
 .bulk-bar .bulk-count { font-weight: 600; font-size: .85rem; margin-right: auto; }
 
+/* ─── Paginador ─── */
+.pager { display: flex; gap: .3rem; align-items: center; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+.pager-arrow, .pager-num {
+  min-width: 34px; height: 34px; padding: 0 .5rem; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--surface); color: var(--text); cursor: pointer; font-size: .85rem;
+}
+.pager-arrow:hover:not(:disabled), .pager-num:hover:not(:disabled) { background: var(--surface-hover); }
+.pager-num.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+.pager-num.ellipsis { border: none; background: none; cursor: default; }
+.pager-arrow:disabled, .pager-num:disabled { opacity: .4; cursor: not-allowed; }
+
 /* ─── Badge ─── */
 .badge { display: inline-block; padding: .15rem .55rem; border-radius: 99px; font-size: .75rem; }
 .badge.ok { background: var(--success-bg); color: var(--success-text); }
 .badge.off { background: var(--danger-bg); color: var(--danger-text); }
+.badge.neutral { background: var(--border-light); color: var(--muted); }
 .badge.module { background: var(--primary-bg); color: var(--primary); margin: 0 .25rem .25rem 0; }
 
 /* ─── Panel (static card, sem hover de link) ─── */
@@ -540,6 +553,19 @@ dialog.product-modal > .dialog-body {
 @media (max-width: 720px) {
   dialog.product-modal > .dialog-body { grid-template-columns: 1fr; }
 }
+
+/* ─── Combobox de busca (produto por nome/SKU/código de barras) ─── */
+.combo-wrap { position: relative; }
+.combo-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow-sm); max-height: 220px; overflow-y: auto; padding: .3rem;
+}
+.combo-result {
+  display: flex; justify-content: space-between; align-items: center; gap: .5rem; width: 100%;
+  text-align: left; padding: .45rem .6rem; border-radius: 7px; background: none; border: none; cursor: pointer;
+}
+.combo-result:hover, .combo-result.active { background: var(--primary-bg); }
 
 /* ─── Input states ─── */
 .input-error { border-color: var(--danger) !important; }
@@ -686,7 +712,15 @@ dialog.product-modal > .dialog-body {
 .menu-item {
   display: flex; align-items: center; gap: .6rem; width: 100%;
   padding: .5rem .65rem; border: 0; border-radius: 8px;
-  background: transparent; color: var(--text); cursor: pointer; font-size: .88rem;
+  background: transparent; color: var(--text); cursor: pointer; font-size: .88rem; text-decoration: none;
+}
+.menu-item:hover { background: var(--surface-hover); text-decoration: none; }
+
+/* ─── Notificações (sino no nav) ─── */
+.notif-badge {
+  position: absolute; top: 2px; right: 2px; min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 999px; background: var(--danger); color: #fff; font-size: .62rem; font-weight: 700;
+  display: grid; place-items: center; line-height: 1;
 }
 
 /* ─── Badge variant ─── */
@@ -795,14 +829,26 @@ dialog.product-modal > .dialog-body {
   display: grid; place-items: center; color: var(--text-muted);
 }
 .product-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.product-image-picker { display: flex; align-items: center; gap: .8rem; margin-bottom: .5rem; }
-.product-image-preview {
-  width: 64px; height: 64px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
-  background: var(--surface-hover); border: 1.5px solid var(--border-light);
-  display: grid; place-items: center; color: var(--text-muted);
+/* Bloco quadrado clicável: vazio = clique abre o seletor de arquivo (ícone de upload
+   aparece no hover); preenchido = mostra a foto (ícone de lixeira aparece no hover,
+   ancorado embaixo, com clique próprio que não reabre o seletor). */
+.product-image-picker {
+  position: relative; width: 100%; max-width: 240px; aspect-ratio: 1 / 1;
+  border-radius: var(--radius-lg); overflow: hidden; margin-bottom: .5rem;
+  background: var(--surface-hover); border: 1.5px dashed var(--border-light);
+  display: grid; place-items: center; color: var(--text-muted); cursor: pointer;
 }
-.product-image-preview img { width: 100%; height: 100%; object-fit: cover; }
-.product-image-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.product-image-picker img { width: 100%; height: 100%; object-fit: cover; }
+.product-image-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: rgba(0, 0, 0, .45); color: #fff; opacity: 0;
+  transition: opacity var(--transition); pointer-events: none;
+}
+.product-image-picker:hover .product-image-overlay { opacity: 1; pointer-events: auto; }
+.product-image-overlay.remove-overlay {
+  align-items: flex-end; justify-content: center; padding-bottom: .85rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, .55), transparent 55%);
+}
 .hidden-file-input { display: none; }
 .product-image-suggestions { display: flex; gap: .5rem; margin-top: .5rem; flex-wrap: wrap; }
 .product-image-suggestion {

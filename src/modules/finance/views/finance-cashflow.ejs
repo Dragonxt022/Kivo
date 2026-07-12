@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/finance/fluxo' }) %>
@@ -21,25 +22,39 @@
       <span class="muted">Total: entradas <strong x-text="brl(totals.entradas)"></strong> ·
         saídas <strong x-text="brl(totals.saidas)"></strong> ·
         saldo <strong x-text="brl(totals.saldo)"></strong></span>
+      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
     </div>
     <table>
-      <thead><tr><th>Dia</th><th>Entradas</th><th>Saídas</th><th>Saldo do dia</th></tr></thead>
+      <thead><tr>
+        <th @click="sortCycle('day')" class="sortable">Dia<span class="sort-arrow" x-text="sortArrow('day')"></span></th>
+        <th @click="sortCycle('entradas')" class="sortable">Entradas<span class="sort-arrow" x-text="sortArrow('entradas')"></span></th>
+        <th @click="sortCycle('saidas')" class="sortable">Saídas<span class="sort-arrow" x-text="sortArrow('saidas')"></span></th>
+        <th @click="sortCycle('saldo')" class="sortable">Saldo do dia<span class="sort-arrow" x-text="sortArrow('saldo')"></span></th>
+      </tr></thead>
       <tbody>
-        <template x-for="d in days" :key="d.day">
+        <template x-for="d in pageRows" :key="d.day">
           <tr>
-            <td x-text="d.day"></td>
+            <td x-text="fmtDate(d.day)"></td>
             <td x-text="brl(d.entradas)"></td>
             <td x-text="brl(d.saidas)"></td>
             <td :style="d.saldo < 0 ? 'color:#ff8589' : 'color:#4ade80'" x-text="brl(d.saldo)"></td>
           </tr>
         </template>
+        <tr x-show="!days.length"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhuma movimentação de caixa no período.' }) %></td></tr>
       </tbody>
     </table>
+    <%- include('partials/pager') %>
   </main>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function flowPage() {
       return {
+        ...tableToolkit(),
         days: [], totals: { entradas: 0, saidas: 0, saldo: 0 }, from: '', to: '',
+        sortGetters: { day: (d) => d.day, entradas: (d) => d.entradas, saidas: (d) => d.saidas, saldo: (d) => d.saldo },
+        get displayRows() { return this.sortedRows(this.days, this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         async load() {
           const params = new URLSearchParams();

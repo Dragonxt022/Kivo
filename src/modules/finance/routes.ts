@@ -115,7 +115,7 @@ router.get('/cash/history', requirePermission('finance.cash.view'), (_req, res) 
      LEFT JOIN users uo ON uo.id = r.opened_by
      LEFT JOIN users uc ON uc.id = r.closed_by
      LEFT JOIN users ue ON ue.id = r.edited_by
-     WHERE r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 50`,
+     WHERE r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 500`,
   ).all());
 });
 
@@ -235,6 +235,34 @@ router.get('/reports/cashflow', requirePermission('finance.reports.view'), (req,
     days: days.map((d) => ({ ...d, saldo: d.entradas - d.saidas })),
     totals: { ...totals, saldo: totals.entradas - totals.saidas },
   });
+});
+
+// ---------- Contas a vencer (ícone de notificação do nav) ----------
+router.get('/reports/upcoming-bills', (req, res) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Não autenticado.' });
+    return;
+  }
+  const canPayables = req.user.permissions.has('finance.payables.view');
+  const canReceivables = req.user.permissions.has('finance.receivables.view');
+  if (!canPayables && !canReceivables) {
+    res.status(403).json({ error: 'Permissão negada.' });
+    return;
+  }
+  const WINDOW_DAYS = 3;
+  const limit = new Date();
+  limit.setDate(limit.getDate() + WINDOW_DAYS);
+  const limitStr = limit.toISOString().slice(0, 10);
+
+  const payables = canPayables ? db().prepare(
+    `SELECT id, description, amount_cents, due_date FROM payables
+     WHERE status = 'aberta' AND deleted_at IS NULL AND due_date <= ? ORDER BY due_date LIMIT 20`,
+  ).all(limitStr) : [];
+  const receivables = canReceivables ? db().prepare(
+    `SELECT id, description, amount_cents, due_date FROM receivables
+     WHERE status = 'aberta' AND deleted_at IS NULL AND due_date <= ? ORDER BY due_date LIMIT 20`,
+  ).all(limitStr) : [];
+  res.json({ payables, receivables, count: payables.length + receivables.length });
 });
 
 export default router;

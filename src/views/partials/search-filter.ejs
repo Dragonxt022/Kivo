@@ -22,7 +22,7 @@
           <select x-model="status" @change="emit()">
             <option value="">Todos</option>
             <template x-for="s in statusOpts" :key="s.value">
-              <option :value="s.value" x-text="s.label"></option>
+              <option :value="s.value" :style="s.color ? ('color:' + s.color + ';font-weight:600') : ''" x-text="s.label"></option>
             </template>
           </select>
         </div>
@@ -85,17 +85,17 @@
     return rows.filter((r) => {
       if (filter.q) {
         const q = filter.q.toLowerCase();
-        const desc = (r.description ?? r.name ?? '').toLowerCase();
+        const desc = (r.description ?? r.name ?? r.notes ?? '').toLowerCase();
         const party = (r.party ?? r.customer ?? r.customer_name ?? r.supplier ?? '').toLowerCase();
         if (!desc.includes(q) && !party.includes(q)) return false;
       }
       if (filter.status && r.status !== filter.status) return false;
       if (filter.from) {
-        const d = String(r.created_at ?? r.due_date ?? r.valid_until ?? '').slice(0, 10);
+        const d = String(r.created_at ?? r.due_date ?? r.valid_until ?? r.opened_at ?? '').slice(0, 10);
         if (d < filter.from) return false;
       }
       if (filter.to) {
-        const d = String(r.created_at ?? r.due_date ?? r.valid_until ?? '').slice(0, 10);
+        const d = String(r.created_at ?? r.due_date ?? r.valid_until ?? r.opened_at ?? '').slice(0, 10);
         if (d > filter.to) return false;
       }
       return true;

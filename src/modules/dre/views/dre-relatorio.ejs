@@ -22,7 +22,7 @@
     <div class="toolbar">
       <input type="date" x-model="from" @change="load()" class="input-search" />
       <input type="date" x-model="to" @change="load()" class="input-search" />
-      <a class="btn secondary small" :href="'/app/dre/relatorio/imprimir?from=' + from + '&to=' + to" target="_blank">Imprimir</a>
+      <a class="btn secondary small" :href="printUrl()" target="_blank">Imprimir</a>
       <% if (user.permissions.has('dre.categories.edit')) { %>
         <a class="btn secondary small" href="/app/dre/categorias">Configurar categorias e ajustes</a>
       <% } %>
@@ -66,6 +66,12 @@
         },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         pct(bps) { return (bps === 0 ? '—' : (bps > 0 ? '+' : '') + (bps / 100).toFixed(2).replace('.', ',') + '%'); },
+        printUrl() {
+          const params = new URLSearchParams();
+          if (this.from) params.set('from', this.from);
+          if (this.to) params.set('to', this.to);
+          return '/app/dre/relatorio/imprimir?' + params;
+        },
         async load() {
           const params = new URLSearchParams();
           if (this.from) params.set('from', this.from);

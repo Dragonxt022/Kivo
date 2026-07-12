@@ -19,6 +19,7 @@
     "db:migrate": "tsx src/core/database/cli.ts up",
     "db:rollback": "tsx src/core/database/cli.ts down",
     "db:reset": "tsx src/core/database/cli.ts reset",
+    "db:seed:demo": "tsx src/core/database/cli.ts seed-demo",
     "db:status": "tsx src/core/database/cli.ts status",
     "smoke": "tsx src/dev.ts --smoke",
     "test:fase1": "tsx src/tests/fase1.ts",

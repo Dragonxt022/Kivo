@@ -4,7 +4,29 @@
   billingAlert: null,
   licenseStatus: null,
   cashAlert: null,
+  upcomingBills: null,
+  notifOpen: false,
   cloudStatus: { configured: false, online: false },
+  fmtDueDate(raw) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ''));
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
+  },
+  get notifications() {
+    const list = [];
+    if (this.upcomingBills) {
+      for (const p of this.upcomingBills.payables || []) {
+        list.push({ id: 'p' + p.id, message: `A pagar: ${p.description} — vence ${this.fmtDueDate(p.due_date)}`, link: '/app/finance/pagar' });
+      }
+      for (const r of this.upcomingBills.receivables || []) {
+        list.push({ id: 'r' + r.id, message: `A receber: ${r.description} — vence ${this.fmtDueDate(r.due_date)}`, link: '/app/finance/receber' });
+      }
+    }
+    if (this.cashAlert) list.push({ id: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
+    if (this.billingAlert && this.billingAlert.count) {
+      list.push({ id: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
+    }
+    return list;
+  },
   checkCloudStatus() {
     fetch('/api/sync/status').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.cloudStatus = data; }).catch(() => { this.cloudStatus = { configured: true, online: false }; });
   },
@@ -20,6 +42,9 @@
     <% } %>
     <% if (user && user.permissions.has('finance.cash.view')) { %>
     fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; }).catch(() => {});
+    <% } %>
+    <% if (user && (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view'))) { %>
+    fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; }).catch(() => {});
     <% } %>
   },
   theme: document.documentElement.getAttribute('data-theme') || 'light',
@@ -66,6 +91,24 @@
         </svg>
       </template>
     </span>
+
+    <div class="dropdown" style="position:relative">
+      <button class="btn-icon" @click="notifOpen = !notifOpen" title="Notificações" aria-label="Notificações">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span x-show="notifications.length" x-cloak class="notif-badge" x-text="notifications.length"></span>
+      </button>
+      <div class="dropdown-menu" style="width:320px;max-height:340px;overflow-y:auto" x-show="notifOpen" x-cloak @click.outside="notifOpen = false">
+        <template x-if="!notifications.length">
+          <p class="muted text-xs" style="padding:.6rem">Nenhuma notificação no momento.</p>
+        </template>
+        <template x-for="n in notifications" :key="n.id">
+          <a :href="n.link" class="menu-item" style="display:block;white-space:normal" @click="notifOpen = false" x-text="n.message"></a>
+        </template>
+      </div>
+    </div>
+
     <button class="user btn-reset" @mousedown.prevent @click="userOpen = true">
       <span class="name"><%= user.name %></span>
       <span class="role"><%= user.roleSlug %></span>

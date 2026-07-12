@@ -12,7 +12,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/finance/caixa' }) %>
-  <main x-data="cashPage()" x-init="load()">
+  <main x-data="cashPage()" x-init="load()" @apply-filter.window="filter=$event.detail">
     <h1>Caixa</h1>
 
     <template x-if="!open">
@@ -20,7 +20,10 @@
         <p class="muted muted-block">Nenhum caixa aberto.</p>
         <% if (user.permissions.has('finance.cash.open')) { %>
         <div class="toolbar">
-          <button class="btn" @click="openOpenDlg()">Abrir caixa</button>
+          <button class="btn" @click="openOpenDlg()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="22" height="14" rx="2"/><path d="M1 10h22"/><path d="M6 4h12"/></svg>
+            Abrir caixa
+          </button>
           <span class="error" x-text="error"></span>
         </div>
         <% } %>
@@ -33,11 +36,20 @@
           <span class="badge ok">aberto</span>
           <span>Esperado na gaveta: <strong x-text="brl(expected)"></strong></span>
           <% if (user.permissions.has('finance.cash.move')) { %>
-            <button class="btn secondary" @click="openMove('suprimento')">Suprimento</button>
-            <button class="btn secondary" @click="openMove('sangria')">Sangria</button>
+            <button class="btn secondary" @click="openMove('suprimento')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Suprimento
+            </button>
+            <button class="btn secondary" @click="openMove('sangria')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Sangria
+            </button>
           <% } %>
           <% if (user.permissions.has('finance.cash.close')) { %>
-            <button class="btn" @click="$refs.close.showModal()">Fechar caixa</button>
+            <button class="btn" @click="$refs.close.showModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="22" height="14" rx="2"/><path d="M1 10h22"/><circle cx="12" cy="14" r="2"/></svg>
+              Fechar caixa
+            </button>
           <% } %>
           <span class="error" x-text="error"></span>
         </div>
@@ -127,10 +139,25 @@
     <template x-if="history.length">
       <div class="mt-2">
         <h2>Histórico de fechamentos</h2>
+        <div class="toolbar">
+          <%- include('partials/search-filter', { statusOptions: [
+            { value: 'aberto', label: 'Aberto', color: '#eab308' },
+            { value: 'fechado', label: 'Fechado', color: '#16a34a' },
+          ], placeholder: 'Buscar por observação' }) %>
+          <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
+        </div>
         <table>
-          <thead><tr><th>Aberto em</th><th>Fechado em</th><th>Esperado</th><th>Contado</th><th>Diferença</th><th>Status</th><th></th></tr></thead>
+          <thead><tr>
+            <th @click="sortCycle('opened_at')" class="sortable">Aberto em<span class="sort-arrow" x-text="sortArrow('opened_at')"></span></th>
+            <th @click="sortCycle('closed_at')" class="sortable">Fechado em<span class="sort-arrow" x-text="sortArrow('closed_at')"></span></th>
+            <th @click="sortCycle('expected_cents')" class="sortable">Esperado<span class="sort-arrow" x-text="sortArrow('expected_cents')"></span></th>
+            <th @click="sortCycle('counted_cents')" class="sortable">Contado<span class="sort-arrow" x-text="sortArrow('counted_cents')"></span></th>
+            <th @click="sortCycle('difference_cents')" class="sortable">Diferença<span class="sort-arrow" x-text="sortArrow('difference_cents')"></span></th>
+            <th @click="sortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+            <th></th>
+          </tr></thead>
           <tbody>
-            <template x-for="r in history" :key="r.id">
+            <template x-for="r in pageRows" :key="r.id">
               <tr>
                 <td class="muted" x-text="fmtDateTime(r.opened_at)"></td>
                 <td class="muted" x-text="r.closed_at ? fmtDateTime(r.closed_at) : '—'"></td>
@@ -155,6 +182,7 @@
             </template>
           </tbody>
         </table>
+        <%- include('partials/pager') %>
       </div>
     </template>
 
@@ -200,12 +228,14 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/table-toolkit.js"></script>
   <script src="/js/masks.js"></script>
   <script>
     function cashPage() {
       return {
+        ...tableToolkit(),
         open: false, expected: 0, movements: [], opening: '', counted: '', closeNotes: '',
-        countMode: false, counts: {},
+        countMode: false, counts: {}, filter: {},
         denominations: [
           { cents: 20000, label: 'R$ 200' }, { cents: 10000, label: 'R$ 100' }, { cents: 5000, label: 'R$ 50' },
           { cents: 2000, label: 'R$ 20' }, { cents: 1000, label: 'R$ 10' }, { cents: 500, label: 'R$ 5' },
@@ -213,6 +243,14 @@
           { cents: 25, label: 'R$ 0,25' }, { cents: 10, label: 'R$ 0,10' }, { cents: 5, label: 'R$ 0,05' },
         ],
         move: {}, history: [], editReg: {}, closeResult: {}, error: '', mvError: '', closeError: '', editRegError: '',
+        sortGetters: {
+          opened_at: (r) => r.opened_at ?? '', closed_at: (r) => r.closed_at ?? '',
+          expected_cents: (r) => r.expected_cents, counted_cents: (r) => r.counted_cents,
+          difference_cents: (r) => r.difference_cents, status: (r) => r.status ?? '',
+        },
+        get displayRows() { return this.sortedRows(filterRows(this.history, this.filter), this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
         get countTotal() {
           return this.denominations.reduce((sum, d) => sum + (Number(this.counts[d.cents]) || 0) * d.cents, 0);
         },

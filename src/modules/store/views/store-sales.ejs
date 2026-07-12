@@ -14,8 +14,8 @@
   <%- include('partials/nav', { user, page: '/app/store/vendas' }) %>
   <%
     var _sfStatusOpts = [
-      { value: 'concluida', label: 'Concluida' },
-      { value: 'cancelada', label: 'Cancelada' }
+      { value: 'concluida', label: 'Concluida', color: '#16a34a' },
+      { value: 'cancelada', label: 'Cancelada', color: '#6b7280' }
     ];
   %>
   <main x-data="salesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
@@ -32,22 +32,24 @@
     <% if (user.permissions.has('store.reports.view')) { %>
     <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1.2rem">
       <section>
-        <h2 class="muted" style="font-size:.95rem;margin-bottom:.5rem">Por forma de pagamento</h2>
+        <h2 class="muted" style="font-size:.95rem;margin-bottom:.5rem">Por forma de pagamento (hoje)</h2>
         <table>
           <tbody>
             <template x-for="p in report.byPayment" :key="p.payment_method">
               <tr><td x-text="label(p.payment_method)"></td><td x-text="p.vendas"></td><td x-text="brl(p.total_cents)"></td></tr>
             </template>
+            <tr x-show="!report.byPayment || !report.byPayment.length"><td class="muted" style="padding:.75rem 0">Nenhuma venda hoje ainda.</td></tr>
           </tbody>
         </table>
       </section>
       <section>
-        <h2 class="muted" style="font-size:.95rem;margin-bottom:.5rem">Mais vendidos</h2>
+        <h2 class="muted" style="font-size:.95rem;margin-bottom:.5rem">Mais vendidos (hoje)</h2>
         <table>
           <tbody>
             <template x-for="t in report.topProducts" :key="t.product_name">
               <tr><td x-text="t.product_name"></td><td x-text="t.qty"></td><td x-text="brl(t.total_cents)"></td></tr>
             </template>
+            <tr x-show="!report.topProducts || !report.topProducts.length"><td class="muted" style="padding:.75rem 0">Nenhuma venda hoje ainda.</td></tr>
           </tbody>
         </table>
       </section>
@@ -66,7 +68,7 @@
         <th></th>
       </tr></thead>
       <tbody>
-        <template x-for="s in displayRows" :key="s.id">
+        <template x-for="s in pageRows" :key="s.id">
           <tr>
             <td x-text="s.id"></td>
             <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
@@ -101,6 +103,7 @@
         <tr x-show="!displayRows.length"><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhuma venda registrada ainda.' }) %></td></tr>
       </tbody>
     </table>
+    <%- include('partials/pager') %>
   </main>
   <script src="/js/table-toolkit.js"></script>
   <script>
@@ -115,6 +118,8 @@
           username: (s) => s.username ?? '',
         },
         get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
         label(k) { return this.labels[k] ?? k; },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         async load() {

@@ -23,10 +23,11 @@
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>Categoria</th><th>Linha do DRE</th><th class="right">Ajuste</th><th></th></tr></thead>
+      <thead><tr><th>Nº</th><th>Categoria</th><th>Linha do DRE</th><th class="right">Ajuste</th><th></th></tr></thead>
       <tbody>
         <template x-for="c in rows" :key="c.id">
           <tr>
+            <td class="muted" x-text="c.code"></td>
             <td x-text="c.label + (c.system ? ' 🔒' : '')"></td>
             <td class="muted" x-text="lineLabels[c.dre_line] ?? c.dre_line"></td>
             <td class="right" x-text="pct(c.adjustment_bps)"></td>

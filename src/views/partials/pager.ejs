@@ -1,0 +1,13 @@
+<!-- Paginador reutilizável: espera que o x-data da página exponha `page`/`pageSize` e os
+     métodos de table-toolkit.js (pageCount/pagedRows/goToPage/pageWindow), mais um getter
+     `pageTotal` = quantidade de linhas já filtradas/ordenadas (antes de paginar). -->
+<div class="pager" x-show="pageCount(pageTotal) > 1" x-cloak>
+  <button type="button" class="btn secondary small" :disabled="page === 1" @click="goToPage(1, pageTotal)">Primeiro</button>
+  <button type="button" class="pager-arrow" :disabled="page === 1" @click="goToPage(page - 1, pageTotal)" aria-label="Página anterior">‹</button>
+  <template x-for="(p, idx) in pageWindow(pageTotal)" :key="idx">
+    <button type="button" class="pager-num" :class="{ active: p === page, ellipsis: p === '…' }"
+            :disabled="p === '…'" @click="p !== '…' && goToPage(p, pageTotal)" x-text="p"></button>
+  </template>
+  <button type="button" class="pager-arrow" :disabled="page === pageCount(pageTotal)" @click="goToPage(page + 1, pageTotal)" aria-label="Próxima página">›</button>
+  <button type="button" class="btn secondary small" :disabled="page === pageCount(pageTotal)" @click="goToPage(pageCount(pageTotal), pageTotal)">Último</button>
+</div>

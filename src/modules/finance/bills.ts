@@ -54,7 +54,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
   const get = (id: string | number) =>
     db().prepare(
       `SELECT b.id, b.description, b.${cfg.partyColumn} AS party_id, p.name AS party,
-              b.amount_cents, b.due_date, b.status, b.${cfg.settleDateCol} AS settled_at,
+              b.amount_cents, b.issue_date, b.due_date, b.status, b.${cfg.settleDateCol} AS settled_at,
               b.${cfg.settleCentsCol} AS settled_cents, b.notes, b.updated_at${categoryCols}
        FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}${categoryJoin}
        WHERE b.id = ? AND b.deleted_at IS NULL`,
@@ -70,7 +70,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       agreementCompanyId ? 'AND b.agreement_company_id = ?' : '',
     ].filter(Boolean).join(' ');
     const params = [status, partyId, agreementCompanyId].filter((v) => v !== undefined && v !== '');
-    const sql = `SELECT b.id, b.description, p.name AS party, b.amount_cents, b.due_date, b.status,
+    const sql = `SELECT b.id, b.description, p.name AS party, b.amount_cents, b.issue_date, b.due_date, b.status,
                         b.notes, b.${cfg.settleDateCol} AS settled_at, b.${cfg.settleCentsCol} AS settled_cents${categoryCols}
                  FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}${categoryJoin}
                  WHERE b.deleted_at IS NULL ${conditions} ORDER BY b.due_date, b.id`;
@@ -78,7 +78,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
   });
 
   router.post('/', requirePermission(`${cfg.permPrefix}.create`), (req, res) => {
-    const { description, amountCents, dueDate, partyId, notes, dreCategoryId } = req.body ?? {};
+    const { description, amountCents, issueDate, dueDate, partyId, notes, dreCategoryId } = req.body ?? {};
     if (!description || !amountCents || !dueDate) {
       res.status(400).json({ error: 'Campos obrigatórios: description, amountCents, dueDate.' });
       return;
@@ -87,6 +87,8 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       res.status(400).json({ error: 'Valor deve ser inteiro em centavos, maior que zero.' });
       return;
     }
+    // Emissão é opcional na API (compatibilidade), mas a UI sempre manda — se omitida, assume hoje.
+    const issueDateValue = issueDate || new Date().toISOString().slice(0, 10);
     let categoryId: number | null = null;
     if (cfg.categoryField) {
       const validated = validateDreCategory(db, dreCategoryId);
@@ -98,13 +100,13 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     }
     const info = db().prepare(
       cfg.categoryField
-        ? `INSERT INTO ${cfg.table} (description, ${cfg.partyColumn}, amount_cents, due_date, notes, dre_category_id, uuid)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        : `INSERT INTO ${cfg.table} (description, ${cfg.partyColumn}, amount_cents, due_date, notes, uuid)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+        ? `INSERT INTO ${cfg.table} (description, ${cfg.partyColumn}, amount_cents, issue_date, due_date, notes, dre_category_id, uuid)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        : `INSERT INTO ${cfg.table} (description, ${cfg.partyColumn}, amount_cents, issue_date, due_date, notes, uuid)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(...(cfg.categoryField
-      ? [description, partyId ?? null, amountCents, dueDate, notes ?? null, categoryId, randomUUID()]
-      : [description, partyId ?? null, amountCents, dueDate, notes ?? null, randomUUID()]));
+      ? [description, partyId ?? null, amountCents, issueDateValue, dueDate, notes ?? null, categoryId, randomUUID()]
+      : [description, partyId ?? null, amountCents, issueDateValue, dueDate, notes ?? null, randomUUID()]));
     const created = get(Number(info.lastInsertRowid));
     audit(req, 'criar', cfg.entity, Number(info.lastInsertRowid), null, created);
     res.status(201).json(created);
@@ -121,7 +123,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       res.status(400).json({ error: 'Só contas abertas podem ser editadas.' });
       return;
     }
-    const { description, amountCents, dueDate, partyId, notes, status, dreCategoryId } = req.body ?? {};
+    const { description, amountCents, issueDate, dueDate, partyId, notes, status, dreCategoryId } = req.body ?? {};
     if (status && status !== 'cancelada') {
       res.status(400).json({ error: 'Via edição, o único status permitido é "cancelada".' });
       return;
@@ -137,11 +139,11 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     }
     db().prepare(
       `UPDATE ${cfg.table} SET description = COALESCE(?, description), amount_cents = COALESCE(?, amount_cents),
-         due_date = COALESCE(?, due_date), ${cfg.partyColumn} = COALESCE(?, ${cfg.partyColumn}),
+         issue_date = COALESCE(?, issue_date), due_date = COALESCE(?, due_date), ${cfg.partyColumn} = COALESCE(?, ${cfg.partyColumn}),
          notes = COALESCE(?, notes), status = COALESCE(?, status),
          ${cfg.categoryField ? 'dre_category_id = COALESCE(?, dre_category_id),' : ''} updated_at = datetime('now')
        WHERE id = ?`,
-    ).run(...[description ?? null, amountCents ?? null, dueDate ?? null, partyId ?? null, notes ?? null, status ?? null,
+    ).run(...[description ?? null, amountCents ?? null, issueDate ?? null, dueDate ?? null, partyId ?? null, notes ?? null, status ?? null,
       ...(cfg.categoryField ? [categoryId ?? null] : []), id]);
     const after = get(id);
     audit(req, status === 'cancelada' ? 'cancelar' : 'editar', cfg.entity, id, before, after);

@@ -18,12 +18,20 @@
       <% if (user.permissions.has('finance.paymethods.edit')) { %>
         <button class="btn" @click="openNew()">Nova forma</button>
       <% } %>
+      <input type="text" placeholder="Buscar por nome…" x-model="q" class="input-search" style="min-width:220px" />
+      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
     <table>
-      <thead><tr><th>Nome</th><th>Tipo</th><th>Taxa</th><th>Status</th><th></th></tr></thead>
+      <thead><tr>
+        <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th @click="sortCycle('type')" class="sortable">Tipo<span class="sort-arrow" x-text="sortArrow('type')"></span></th>
+        <th @click="sortCycle('fee_bps')" class="sortable">Taxa<span class="sort-arrow" x-text="sortArrow('fee_bps')"></span></th>
+        <th @click="sortCycle('active')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('active')"></span></th>
+        <th></th>
+      </tr></thead>
       <tbody>
-        <template x-for="m in rows" :key="m.id">
+        <template x-for="m in pageRows" :key="m.id">
           <tr>
             <td x-text="m.name"></td>
             <td class="muted" x-text="labels[m.type] ?? m.type"></td>
@@ -40,8 +48,10 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!rows.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma forma de pagamento cadastrada.' }) %></td></tr>
       </tbody>
     </table>
+    <%- include('partials/pager') %>
 
     <dialog x-ref="dlg">
       <h1 x-text="form.id ? 'Editar forma' : 'Nova forma de pagamento'"></h1>
@@ -68,11 +78,24 @@
       </div>
     </dialog>
   </main>
+  <script src="/js/table-toolkit.js"></script>
   <script>
     function payMethodsPage() {
       return {
-        rows: [], form: {}, error: '', dlgError: '',
+        ...tableToolkit(),
+        rows: [], form: {}, error: '', dlgError: '', q: '',
         labels: { dinheiro: 'Dinheiro', debito: 'Débito', credito: 'Crédito', pix: 'PIX', prazo: 'A prazo', outro: 'Outro' },
+        sortGetters: {
+          name: (m) => m.name ?? '', type: (m) => m.type ?? '', fee_bps: (m) => m.fee_bps, active: (m) => (m.active ? 1 : 0),
+        },
+        get filteredRows() {
+          if (!this.q.trim()) return this.rows;
+          const t = this.q.toLowerCase();
+          return this.rows.filter((m) => (m.name ?? '').toLowerCase().includes(t));
+        },
+        get displayRows() { return this.sortedRows(this.filteredRows, this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
         bps(s) { const n = parseFloat(String(s || '0').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const r = await fetch('/api/finance/payment-methods?all=1');

@@ -10,16 +10,46 @@ const db = () => getSqlite();
 
 const MANUAL_LINES = ['deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras'];
 
+// Ordem contábil do DRE (não é a ordem alfabética de dre_line) — usada tanto para ordenar a
+// listagem quanto para gerar o código "1.0.0 em diante" (dígito principal = posição da linha).
+const DRE_LINE_ORDER = ['receita_bruta', 'deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras'];
+
+interface DreCategoryRow {
+  id: number; key: string; label: string; dre_line: string; source: string;
+  system: number; adjustment_bps: number; sort: number; active: number;
+}
+
+/** Numeração automática e só-leitura (ninguém edita): dígito principal = posição da linha do
+ * DRE, dígito secundário = ordem dentro da linha (sort/criação) — ex. "4.2.0". Calculada em
+ * leitura, não persistida, pra não precisar renumerar quando uma categoria é excluída do meio. */
+function withCodes(rows: DreCategoryRow[]): (DreCategoryRow & { code: string })[] {
+  const sorted = [...rows].sort((a, b) => {
+    const la = DRE_LINE_ORDER.indexOf(a.dre_line);
+    const lb = DRE_LINE_ORDER.indexOf(b.dre_line);
+    if (la !== lb) return la - lb;
+    if (a.sort !== b.sort) return a.sort - b.sort;
+    return a.label.localeCompare(b.label);
+  });
+  const counters = new Map<string, number>();
+  return sorted.map((row) => {
+    const major = DRE_LINE_ORDER.indexOf(row.dre_line) + 1;
+    const minor = (counters.get(row.dre_line) ?? 0) + 1;
+    counters.set(row.dre_line, minor);
+    return { ...row, code: `${major}.${minor}.0` };
+  });
+}
+
 router.get('/categories', requirePermission('dre.view'), (req, res) => {
   // manualOnly=1: só categorias atribuíveis a uma conta a pagar (exclui as 3 linhas
   // calculadas automaticamente de vendas — receita, CMV e taxas de cartão — cujo valor
   // real ignora dre_category_id de qualquer jeito, ver report.ts:realByCategory).
   const manualOnly = req.query.manualOnly === '1';
   const where = manualOnly ? "AND source = 'manual' AND active = 1" : '';
-  res.json(db().prepare(
+  const rows = db().prepare(
     `SELECT id, key, label, dre_line, source, system, adjustment_bps, sort, active
-     FROM dre_categories WHERE deleted_at IS NULL ${where} ORDER BY dre_line, sort, label`,
-  ).all());
+     FROM dre_categories WHERE deleted_at IS NULL ${where}`,
+  ).all() as DreCategoryRow[];
+  res.json(withCodes(rows));
 });
 
 router.post('/categories', requirePermission('dre.categories.edit'), (req, res) => {
@@ -101,8 +131,8 @@ router.delete('/categories/:id', requirePermission('dre.categories.edit'), (req,
 });
 
 router.get('/report', requirePermission('dre.view'), (req, res) => {
-  const from = String(req.query.from ?? '0000-01-01');
-  const to = String(req.query.to ?? '9999-12-31');
+  const from = String(req.query.from || '0000-01-01');
+  const to = String(req.query.to || '9999-12-31');
   res.json(demonstrativoResultado(from, to));
 });
 

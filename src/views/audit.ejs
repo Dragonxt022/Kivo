@@ -17,7 +17,7 @@
     <div class="toolbar">
       <input type="text" placeholder="Filtrar por usuário, ação ou entidade…" x-model="q"
              class="input-search-ghost" style="min-width:280px" />
-      <span class="muted" x-text="filtered().length + ' registro(s)'"></span>
+      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
     </div>
     <table>
       <thead>
@@ -30,7 +30,7 @@
         </tr>
       </thead>
       <tbody>
-        <template x-for="l in displayRows" :key="l.id">
+        <template x-for="l in pageRows" :key="l.id">
           <tr>
             <td class="muted" x-text="fmtDateTime(l.created_at)"></td>
             <td x-text="l.username ?? '—'"></td>
@@ -44,6 +44,7 @@
         <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum registro de auditoria encontrado.' }) %></td></tr>
       </tbody>
     </table>
+    <%- include('partials/pager') %>
   </main>
   <script src="/js/table-toolkit.js"></script>
   <script>
@@ -64,6 +65,8 @@
             (l.entity ?? '').toLowerCase().includes(t));
         },
         get displayRows() { return this.sortedRows(this.filtered(), this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
         async load() {
           const r = await fetch('/api/audit?limit=500');
           if (r.ok) this.logs = await r.json();

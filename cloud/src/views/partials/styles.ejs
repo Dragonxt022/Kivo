@@ -230,6 +230,16 @@
   .empty-state-box svg { stroke: var(--border-light); }
   .empty-state-box p { font-size: .9rem; margin: 0; }
 
+  .pager { display: flex; gap: .3rem; align-items: center; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+  .pager-arrow, .pager-num {
+    min-width: 34px; height: 34px; padding: 0 .5rem; border-radius: 8px; border: 1.5px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer; font-size: .85rem;
+  }
+  .pager-arrow:hover:not(:disabled), .pager-num:hover:not(:disabled) { background: var(--surface-hover); }
+  .pager-num.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+  .pager-num.ellipsis { border: none; background: none; cursor: default; }
+  .pager-arrow:disabled, .pager-num:disabled { opacity: .4; cursor: not-allowed; }
+
   .badge {
     display: inline-block;
     padding: 3px 10px;

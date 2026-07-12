@@ -29,8 +29,8 @@ router.get('/categorias', page('dre-categorias', 'dre.categories.edit'));
 
 router.get('/relatorio/imprimir', (req, res) => {
   if (!req.user!.permissions.has('dre.view')) return res.redirect('/');
-  const from = String(req.query.from ?? '0000-01-01');
-  const to = String(req.query.to ?? '9999-12-31');
+  const from = String(req.query.from || '0000-01-01');
+  const to = String(req.query.to || '9999-12-31');
   const report = demonstrativoResultado(from, to);
   res.render('dre-report-print', { report, company: companyInfo() });
 });

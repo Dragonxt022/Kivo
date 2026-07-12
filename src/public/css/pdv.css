@@ -1,14 +1,8 @@
 /* `main` segue a regra global (mesma largura do header.nav, 1100px) — sem exceção aqui,
    pra bordas do PDV baterem com a barra do topo como nas outras telas. */
-.pdv { display: grid; grid-template-columns: 62fr 38fr; gap: 1.25rem; align-items: start; }
-/* Só ajusta align-items (não redefine display) — .pdv precisa continuar `grid`, senão
-   perde as colunas 62/38 e cada coluna encolhe pro tamanho do conteúdo. */
-.container-pai { align-items: stretch; }
-.card-resumo {
-  height: 100%; display: flex; flex-direction: column;
-  /* Se quiser que o botão "Finalizar venda" fique sempre colado no rodapé: */
-  justify-content: space-between;
-}
+/* align-items: stretch — as duas colunas ficam com a mesma altura (a "Resumo da
+   venda" acompanha o carrinho, em vez de encolher pro tamanho do próprio conteúdo). */
+.pdv { display: grid; grid-template-columns: 62fr 38fr; gap: 1.25rem; align-items: stretch; }
 
 /* ─── Coluna da Esquerda ─── */
 .pdv-left { display: flex; flex-direction: column; gap: .75rem; }
@@ -187,11 +181,12 @@
 .cart-clear-link:hover { text-decoration: underline; }
 
 /* ─── Coluna do meio (ações rápidas) e da direita (resumo) ─── */
-.pdv-right { position: sticky; top: 1rem; }
+.pdv-right { position: sticky; top: 1rem; height: 100%; }
 .pdv-card {
   background: var(--surface); border: 1.5px solid var(--border-light);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
   padding: 1.25rem; display: flex; flex-direction: column; gap: .85rem;
+  height: 100%; justify-content: space-between;
 }
 .pdv-card h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
 
@@ -238,6 +233,7 @@
   cursor: pointer; letter-spacing: -.01em;
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
 }
+.btn-finalize svg { vertical-align: -3px; margin-right: .35rem; }
 .btn-finalize:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent); }
 .btn-finalize:active { transform: scale(.98); }
 .btn-finalize:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }

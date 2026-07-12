@@ -14,9 +14,9 @@
   <%- include('partials/nav', { user, page: bills.api }) %>
   <%
     var _billStatusOpts = [
-      { value: 'aberta', label: 'Abertas' },
-      { value: bills.settledStatus, label: 'Liquidadas' },
-      { value: 'cancelada', label: 'Canceladas' }
+      { value: 'aberta', label: 'Abertas', color: '#dc2626' },
+      { value: bills.settledStatus, label: 'Liquidadas', color: '#16a34a' },
+      { value: 'cancelada', label: 'Canceladas', color: '#6b7280' }
     ];
     var _billPlaceholder = 'Buscar por descricao ou ' + bills.partyLabel.toLowerCase();
   %>
@@ -24,9 +24,13 @@
     <h1><%= bills.title %></h1>
     <div class="toolbar">
       <% if (user.permissions.has(bills.createPerm)) { %>
-        <button class="btn" @click="openNew()">Nova conta</button>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova conta
+        </button>
       <% } %>
       <%- include('partials/search-filter', { statusOptions: _billStatusOpts, placeholder: _billPlaceholder }) %>
+      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -34,19 +38,21 @@
         <th @click="sortCycle('description')" class="sortable">Descrição<span class="sort-arrow" x-text="sortArrow('description')"></span></th>
         <th @click="sortCycle('party')" class="sortable"><%= bills.partyLabel %><span class="sort-arrow" x-text="sortArrow('party')"></span></th>
         <th @click="sortCycle('amount_cents')" class="sortable">Valor<span class="sort-arrow" x-text="sortArrow('amount_cents')"></span></th>
+        <th @click="sortCycle('issue_date')" class="sortable">Emissão<span class="sort-arrow" x-text="sortArrow('issue_date')"></span></th>
         <th @click="sortCycle('due_date')" class="sortable">Vencimento<span class="sort-arrow" x-text="sortArrow('due_date')"></span></th>
         <th @click="sortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
         <% if (bills.categoryField) { %><th>Categoria</th><% } %>
         <th></th>
       </tr></thead>
       <tbody>
-        <template x-for="b in displayRows" :key="b.id">
+        <template x-for="b in pageRows" :key="b.id">
           <tr>
             <td x-text="b.description"></td>
             <td class="muted" x-text="b.party ?? '—'"></td>
             <td x-text="brl(b.amount_cents)"></td>
+            <td class="muted" x-text="b.issue_date ? fmtDate(b.issue_date) : '—'"></td>
             <td class="muted" x-text="fmtDate(b.due_date)"></td>
-            <td><span class="badge" :class="b.status === 'aberta' ? 'off' : 'ok'" x-text="b.status"></span></td>
+            <td><span class="badge" :class="b.status === 'aberta' ? 'off' : (b.status === 'cancelada' ? 'neutral' : 'ok')" x-text="b.status"></span></td>
             <% if (bills.categoryField) { %><td class="muted" x-text="b.dre_category_label ?? '—'"></td><% } %>
             <td class="text-right" @click.stop>
               <div class="dropdown" x-show="b.status === 'aberta'">
@@ -77,22 +83,33 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!displayRows.length"><td colspan="<%= bills.categoryField ? 7 : 6 %>"><%- include('partials/empty-state', { message: 'Nenhuma conta registrada ainda.' }) %></td></tr>
+        <tr x-show="!displayRows.length"><td colspan="<%= bills.categoryField ? 8 : 7 %>"><%- include('partials/empty-state', { message: 'Nenhuma conta registrada ainda.' }) %></td></tr>
       </tbody>
     </table>
+    <%- include('partials/pager') %>
 
     <dialog x-ref="dlg">
       <h1 x-text="form.id ? 'Editar conta' : 'Nova conta'"></h1>
       <label>Descrição</label><input type="text" x-model="form.description" />
       <label>Valor (R$)</label><input type="text" x-model="form.amount" placeholder="0,00" @input="form.amount = maskMoney(form.amount)" />
       <label>Vencimento</label><input type="date" x-model="form.dueDate" />
+      <label>Emissão</label><input type="date" x-model="form.issueDate" />
       <% if (bills.categoryField) { %>
       <label>Categoria (DRE)</label>
-      <select x-model="form.dreCategoryId">
-        <template x-for="c in categories" :key="c.id">
-          <option :value="c.id" x-text="c.label"></option>
-        </template>
-      </select>
+      <div class="combo-wrap" @click.outside="catResults = []">
+        <input type="text" placeholder="Buscar categoria…" x-model="catQ"
+               @focus="searchCategories()" @input="searchCategories()"
+               @keydown.enter.prevent="quickPickCategory()"
+               @keydown.down.prevent="catIdx = Math.min(catIdx + 1, catResults.length - 1)"
+               @keydown.up.prevent="catIdx = Math.max(catIdx - 1, 0)" />
+        <div class="combo-results" x-show="catResults.length" x-cloak>
+          <template x-for="(c, idx) in catResults" :key="c.id">
+            <button type="button" class="combo-result" :class="{ active: idx === catIdx }" @click="pickCategory(c)">
+              <span x-text="c.label"></span>
+            </button>
+          </template>
+        </div>
+      </div>
       <% } %>
       <label>Observações</label><input type="text" x-model="form.notes" />
       <div class="error" x-text="dlgError"></div>
@@ -122,12 +139,15 @@
       return {
         ...tableToolkit(),
         rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
+        catQ: '', catResults: [], catIdx: -1,
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
         sortGetters: {
           description: (b) => b.description ?? '', party: (b) => b.party ?? '', amount_cents: (b) => b.amount_cents,
-          due_date: (b) => b.due_date ?? '', status: (b) => b.status ?? '',
+          issue_date: (b) => b.issue_date ?? '', due_date: (b) => b.due_date ?? '', status: (b) => b.status ?? '',
         },
         get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         async load() {
@@ -138,27 +158,44 @@
           const r = await fetch('/api/dre/categories?manualOnly=1');
           if (r.ok) this.categories = await r.json();
         },
+        searchCategories() {
+          const q = (this.catQ || '').trim().toLowerCase();
+          this.catResults = (q ? this.categories.filter((c) => c.label.toLowerCase().includes(q)) : this.categories).slice(0, 8);
+          this.catIdx = this.catResults.length ? 0 : -1;
+        },
+        pickCategory(c) {
+          this.form.dreCategoryId = c.id; this.catQ = c.label;
+          this.catResults = []; this.catIdx = -1;
+        },
+        quickPickCategory() {
+          if (this.catIdx >= 0 && this.catResults[this.catIdx]) this.pickCategory(this.catResults[this.catIdx]);
+        },
         openNew() {
-          this.form = hasCategory ? { dreCategoryId: this.categories.find((c) => c.key === 'outras_despesas_operacionais')?.id ?? null } : {};
+          const def = hasCategory ? this.categories.find((c) => c.key === 'outras_despesas_operacionais') : null;
+          this.form = hasCategory
+            ? { issueDate: todayLocal(), dreCategoryId: def?.id ?? null }
+            : { issueDate: todayLocal() };
+          this.catQ = def?.label ?? ''; this.catResults = [];
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
         openEdit(b) {
           this.form = { id: b.id, description: b.description, amount: (b.amount_cents / 100).toFixed(2).replace('.', ','),
-            dueDate: b.due_date, notes: b.notes ?? '', dreCategoryId: b.dre_category_id ?? null };
+            issueDate: b.issue_date ?? '', dueDate: b.due_date, notes: b.notes ?? '', dreCategoryId: b.dre_category_id ?? null };
+          this.catQ = b.dre_category_label ?? ''; this.catResults = [];
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
         async save() {
           if (this.form.id) {
             const r = await fetch(`${api}/${this.form.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
-                dueDate: this.form.dueDate, notes: this.form.notes || undefined,
+                issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
                 dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined }) });
             if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
             return;
           }
           const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
-              dueDate: this.form.dueDate, notes: this.form.notes || undefined,
+              issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
               dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined }) });
           if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
         },

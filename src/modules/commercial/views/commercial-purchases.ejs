@@ -14,18 +14,22 @@
   <%- include('partials/nav', { user, page: '/app/commercial/compras' }) %>
   <%
     var _pfStatusOpts = [
-      { value: 'concluida', label: 'Concluida' },
-      { value: 'pendente', label: 'Pendente' },
-      { value: 'cancelada', label: 'Cancelada' }
+      { value: 'rascunho', label: 'Rascunho', color: '#eab308' },
+      { value: 'recebida', label: 'Recebida', color: '#16a34a' },
+      { value: 'cancelada', label: 'Cancelada', color: '#6b7280' }
     ];
   %>
   <main x-data="purchasesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
     <h1>Compras</h1>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.purchases.create')) { %>
-        <button class="btn" @click="openNew()">Nova compra</button>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova compra
+        </button>
       <% } %>
       <%- include('partials/search-filter', { statusOptions: _pfStatusOpts, placeholder: 'Buscar por fornecedor' }) %>
+      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
     <table>
@@ -38,13 +42,13 @@
         <th></th>
       </tr></thead>
       <tbody>
-        <template x-for="p in displayRows" :key="p.id">
+        <template x-for="p in pageRows" :key="p.id">
           <tr>
             <td x-text="p.id"></td>
             <td x-text="p.supplier"></td>
-            <td><span class="badge" :class="p.status === 'cancelada' ? 'off' : 'ok'" x-text="p.status"></span></td>
+            <td><span class="badge" :class="p.status === 'recebida' ? 'ok' : (p.status === 'rascunho' ? 'off' : 'neutral')" x-text="p.status"></span></td>
             <td x-text="brl(p.total_cents)"></td>
-            <td class="muted" x-text="p.received_at ?? '—'"></td>
+            <td class="muted" x-text="p.received_at ? fmtDateTime(p.received_at) : '—'"></td>
             <td class="text-right" @click.stop>
               <div class="dropdown" x-show="p.status !== 'cancelada'">
                 <button class="icon-btn" @click="openMenu = openMenu === p.id ? null : p.id" title="Mais ações">
@@ -57,6 +61,16 @@
                   <button @click="openMenu = null; openEdit(p)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     Editar
+                  </button>
+                  <% } %>
+                  <% if (user.permissions.has('commercial.purchases.create')) { %>
+                  <button x-show="p.status === 'rascunho'" @click="openMenu = null; receive(p)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    Receber
+                  </button>
+                  <button @click="openMenu = null; duplicate(p)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                    Duplicar
                   </button>
                   <% } %>
                   <% if (user.permissions.has('commercial.purchases.cancel')) { %>
@@ -73,49 +87,76 @@
         <tr x-show="!displayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma compra registrada ainda.' }) %></td></tr>
       </tbody>
     </table>
+    <%- include('partials/pager') %>
 
-    <dialog x-ref="dlg" class="dialog-fixed" style="width:min(600px,calc(100vw - 2rem))">
+    <dialog x-ref="dlg" class="dialog-fixed product-modal" style="width:min(820px,calc(100vw - 2rem))">
       <h1 x-text="form.id ? 'Editar compra #' + form.id : 'Nova compra'"></h1>
       <div class="dialog-body">
-        <label>Fornecedor</label>
-        <select x-model.number="form.supplierId">
-          <option value="">Selecione…</option>
-          <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
-        </select>
+        <div class="product-col">
+          <label>Fornecedor</label>
+          <select x-model.number="form.supplierId">
+            <option value="">Selecione…</option>
+            <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
+          </select>
 
-        <template x-if="!form.id">
-          <div>
-            <label>Adicionar item</label>
-            <div class="form-grid" style="grid-template-columns:1fr 80px 110px 70px">
-              <select x-model.number="item.productId">
-                <option value="">Produto…</option>
-                <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
-              </select>
-              <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
-              <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
-              <button class="btn secondary" @click="addItem()">+</button>
-            </div>
-
-            <div class="scroll-box-md" style="margin-top:.8rem">
-              <template x-for="(i, idx) in form.items" :key="idx">
-                <div class="form-row">
-                  <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
-                  <span>
-                    <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
-                    <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button>
-                  </span>
+          <template x-if="!form.id || form.status === 'rascunho'">
+            <div>
+              <label style="margin-top:.9rem">Adicionar item</label>
+              <div class="combo-wrap" style="position:relative">
+                <input type="text" placeholder="Nome, SKU ou código de barras…" x-model="item.q"
+                       @input.debounce.200ms="searchProducts()" @keydown.enter.prevent="quickAddItem()"
+                       @keydown.down.prevent="comboIdx = Math.min(comboIdx + 1, comboResults.length - 1)"
+                       @keydown.up.prevent="comboIdx = Math.max(comboIdx - 1, 0)" />
+                <div class="combo-results" x-show="comboResults.length" x-cloak>
+                  <template x-for="(p, idx) in comboResults" :key="p.id">
+                    <button type="button" class="combo-result" :class="{ active: idx === comboIdx }" @click="pickProduct(p)">
+                      <span x-text="p.name"></span> <span class="muted text-xs" x-text="p.sku || p.barcode || ''"></span>
+                    </button>
+                  </template>
                 </div>
-              </template>
+              </div>
+              <div class="form-grid" style="grid-template-columns:80px 110px 70px;margin-top:.4rem">
+                <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" x-ref="qtyInput" />
+                <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
+                <button type="button" class="btn secondary" @click="addItem()">+</button>
+              </div>
+
+              <div class="scroll-box-md" style="margin-top:.8rem">
+                <template x-for="(i, idx) in form.items" :key="idx">
+                  <div class="form-row">
+                    <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
+                    <span>
+                      <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
+                      <button type="button" class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button>
+                    </span>
+                  </div>
+                </template>
+              </div>
+              <p class="text-right" style="margin-top:.5rem">Total: <strong x-text="brl(total())"></strong></p>
             </div>
-            <p class="text-right" style="margin-top:.5rem">Total: <strong x-text="brl(total())"></strong></p>
-          </div>
-        </template>
-        <label>Observações</label><input type="text" x-model="form.notes" />
-        <div class="error" x-text="dlgError"></div>
+          </template>
+        </div>
+
+        <div class="product-col">
+          <label>Observações</label><input type="text" x-model="form.notes" />
+          <p class="muted text-xs" x-show="form.id && form.status !== 'rascunho'" style="margin-top:.5rem">
+            Compra já recebida — itens não podem mais ser alterados (estoque e custo já foram atualizados).
+          </p>
+        </div>
+
+        <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
       </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()" x-text="form.id ? 'Salvar' : 'Receber compra'"></button>
+        <template x-if="!form.id || form.status === 'rascunho'">
+          <span style="display:contents">
+            <button class="btn secondary" @click="save(false)">Salvar rascunho</button>
+            <button class="btn" @click="save(true)">Receber compra</button>
+          </span>
+        </template>
+        <template x-if="form.id && form.status !== 'rascunho'">
+          <button class="btn" @click="save(false)">Salvar</button>
+        </template>
       </div>
     </dialog>
   </main>
@@ -126,62 +167,110 @@
       return {
         ...tableToolkit(),
         rows: [], suppliers: [], products: [], form: { items: [] }, item: {},
+        comboResults: [], comboIdx: -1,
         error: '', dlgError: '', filter: {},
         sortGetters: {
           id: (p) => p.id, supplier: (p) => p.supplier ?? '', status: (p) => p.status ?? '',
           total_cents: (p) => p.total_cents, received_at: (p) => p.received_at ?? '',
         },
         get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const r = await fetch('/api/commercial/purchases');
           if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
         },
-        async openNew() {
-          this.form = { items: [], supplierId: '', notes: '' }; this.item = {}; this.dlgError = '';
+        async ensureCatalog() {
           if (!this.suppliers.length) {
             const s = await fetch('/api/commercial/suppliers'); if (s.ok) this.suppliers = await s.json();
+          }
+          if (!this.products.length) {
             const p = await fetch('/api/commercial/products'); if (p.ok) this.products = await p.json();
           }
+        },
+        async openNew() {
+          this.form = { items: [], supplierId: '', notes: '', status: 'rascunho' };
+          this.item = {}; this.comboResults = []; this.dlgError = '';
+          await this.ensureCatalog();
           this.$refs.dlg.showModal();
         },
         async openEdit(p) {
-          this.form = { id: p.id, supplierId: p.supplier_id, notes: p.notes ?? '', items: [] };
-          this.dlgError = '';
-          if (!this.suppliers.length) {
-            const s = await fetch('/api/commercial/suppliers'); if (s.ok) this.suppliers = await s.json();
+          this.form = { id: p.id, supplierId: p.supplier_id, notes: p.notes ?? '', status: p.status, items: [] };
+          this.item = {}; this.comboResults = []; this.dlgError = '';
+          await this.ensureCatalog();
+          if (p.status === 'rascunho') {
+            const r = await fetch(`/api/commercial/purchases/${p.id}/items`);
+            if (r.ok) {
+              const items = await r.json();
+              this.form.items = items.map((i) => ({ productId: i.product_id, name: i.product_name, qty: i.qty, unitCostCents: i.unit_cost_cents }));
+            }
           }
           this.$refs.dlg.showModal();
         },
         async cancelPurchase(p) {
-          if (!(await window.confirmDlg(`Cancelar a compra #${p.id}? O estoque recebido será estornado.`))) return;
+          if (!(await window.confirmDlg(`Cancelar a compra #${p.id}?` + (p.status === 'recebida' ? ' O estoque recebido será estornado.' : '')))) return;
           const r = await fetch(`/api/commercial/purchases/${p.id}/cancel`, { method: 'POST' });
           if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        async receive(p) {
+          if (!(await window.confirmDlg(`Receber a compra #${p.id}? Isso vai dar entrada no estoque e atualizar o custo dos produtos.`))) return;
+          const r = await fetch(`/api/commercial/purchases/${p.id}/receive`, { method: 'POST' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        async duplicate(p) {
+          const r = await fetch(`/api/commercial/purchases/${p.id}/duplicate`, { method: 'POST' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+        searchProducts() {
+          const q = (this.item.q || '').trim().toLowerCase();
+          if (!q) { this.comboResults = []; this.comboIdx = -1; return; }
+          this.comboResults = this.products.filter((p) =>
+            p.name.toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase() === q,
+          ).slice(0, 8);
+          this.comboIdx = this.comboResults.length ? 0 : -1;
+        },
+        pickProduct(p) {
+          this.item.productId = p.id; this.item.q = p.name;
+          this.comboResults = []; this.comboIdx = -1;
+          this.$nextTick(() => this.$refs.qtyInput?.focus());
+        },
+        quickAddItem() {
+          if (this.comboIdx >= 0 && this.comboResults[this.comboIdx]) { this.pickProduct(this.comboResults[this.comboIdx]); return; }
+          const exact = this.products.find((p) => p.barcode && p.barcode === (this.item.q || '').trim());
+          if (exact) this.pickProduct(exact);
         },
         addItem() {
           const p = this.products.find((x) => x.id === this.item.productId);
           const cost = this.cents(this.item.cost);
-          if (!p || !(this.item.qty > 0) || cost <= 0) { this.dlgError = 'Escolha produto, quantidade e custo.'; return; }
+          if (!p || !(this.item.qty > 0) || cost <= 0) { this.dlgError = 'Busque o produto (selecione da lista) e informe quantidade e custo.'; return; }
           this.dlgError = '';
           this.form.items.push({ productId: p.id, name: p.name, qty: this.item.qty, unitCostCents: cost });
-          this.item = {};
+          this.item = {}; this.comboResults = [];
         },
         total() { return this.form.items.reduce((a, i) => a + Math.round(i.qty * i.unitCostCents), 0); },
-        async save() {
+        async save(receiveAfter) {
+          const itemsPayload = this.form.items.map((i) => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents }));
           if (this.form.id) {
+            const body = { supplierId: this.form.supplierId, notes: this.form.notes || undefined };
+            if (this.form.status === 'rascunho') body.items = itemsPayload;
             const r = await fetch(`/api/commercial/purchases/${this.form.id}`, {
-              method: 'PUT', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ supplierId: this.form.supplierId, notes: this.form.notes || undefined }),
+              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
             });
-            if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+            if (!r.ok) { this.dlgError = (await r.json()).error; return; }
+            if (receiveAfter && this.form.status === 'rascunho') {
+              const rr = await fetch(`/api/commercial/purchases/${this.form.id}/receive`, { method: 'POST' });
+              if (!rr.ok) { this.dlgError = (await rr.json()).error; return; }
+            }
+            this.$refs.dlg.close(); this.load();
             return;
           }
-          if (!this.form.supplierId || !this.form.items.length) { this.dlgError = 'Fornecedor e ao menos um item.'; return; }
+          if (!this.form.supplierId || !itemsPayload.length) { this.dlgError = 'Fornecedor e ao menos um item.'; return; }
           const r = await fetch('/api/commercial/purchases', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ supplierId: this.form.supplierId, notes: this.form.notes || undefined,
-              items: this.form.items.map((i) => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents })) }),
+              items: itemsPayload, status: receiveAfter ? 'recebida' : 'rascunho' }),
           });
           if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
         },
