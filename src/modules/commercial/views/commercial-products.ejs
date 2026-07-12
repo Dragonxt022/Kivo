@@ -150,6 +150,12 @@
           <label>Nome</label>
           <input type="text" x-model="form.name" @input.debounce.500ms="searchCatalogImages()" />
 
+          <label>Tipo de produto</label>
+          <select x-model="form.productType" :disabled="!!form.id">
+            <option value="fisico">Produto simples</option>
+            <option value="variante">Produto com variantes</option>
+          </select>
+
           <label>Código de barras</label>
           <div class="flex-row">
             <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
@@ -232,6 +238,52 @@
 
         <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
       </div>
+      <template x-if="form.id && form.productType === 'variante'">
+        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
+          <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.75rem">
+            <h2 style="margin:0">Variantes</h2>
+            <div class="flex-row" style="gap:.5rem">
+              <button class="btn secondary small" type="button" @click="openAttrMgr()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Atributos
+              </button>
+              <button class="btn small" type="button" @click="openGenVariants()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Gerar variantes
+              </button>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Variante</th>
+              <th>Atributos</th>
+              <th>SKU</th>
+              <th>Cód. barras</th>
+              <th>Preço</th>
+              <th>Estoque</th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="v in variants" :key="v.id">
+                <tr>
+                  <td x-text="v.name"></td>
+                  <td class="muted" x-text="variantAttrsLabel(v)"></td>
+                  <td><input type="text" x-model="v.sku" class="inline-edit" @change="updateVariantField(v, 'sku')" style="width:100px" /></td>
+                  <td><input type="text" x-model="v.barcode" class="inline-edit" @change="updateVariantField(v, 'barcode')" style="width:110px" /></td>
+                  <td><input type="text" x-model="v.priceDisplay" class="inline-edit" @change="updateVariantPrice(v)" style="width:80px" /></td>
+                  <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:70px" :disabled="!v.track_stock" /></td>
+                  <td @click.stop>
+                    <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!variants.length"><td colspan="7" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhuma variante gerada ainda. Use "Atributos" para definir tamanhos/cores e "Gerar variantes" para criar as combinações.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
@@ -337,6 +389,123 @@
         </button>
       </div>
     </dialog>
+
+    <dialog x-ref="attrDlg" class="dialog-fixed">
+      <h1>Gerenciar atributos</h1>
+      <div class="dialog-body">
+        <div class="flex-row" style="gap:.5rem;margin-bottom:.75rem">
+          <input type="text" x-model="newAttrName" placeholder="Novo atributo…" style="flex:1" @keydown.enter="addAttribute()" />
+          <button class="btn secondary small" type="button" @click="addAttribute()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar
+          </button>
+        </div>
+        <template x-for="attr in attributes" :key="attr.id">
+          <div style="margin-bottom:.75rem;padding:.5rem;border:1px solid var(--border);border-radius:6px">
+            <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.35rem">
+              <template x-if="attrEditId !== attr.id">
+                <strong x-text="attr.name"></strong>
+              </template>
+              <template x-if="attrEditId === attr.id">
+                <input type="text" x-model="attrEditName" style="flex:1" @keydown.enter="renameAttribute(attr.id)" />
+              </template>
+              <div class="flex-row" style="gap:.3rem">
+                <template x-if="attrEditId !== attr.id">
+                  <button class="icon-btn" @click="attrEditId = attr.id; attrEditName = attr.name" title="Renomear">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                </template>
+                <template x-if="attrEditId === attr.id">
+                  <button class="icon-btn" @click="renameAttribute(attr.id)" title="Salvar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                </template>
+                <button class="icon-btn" @click="deleteAttribute(attr)" title="Excluir">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </button>
+              </div>
+            </div>
+            <div class="flex-row" style="flex-wrap:wrap;gap:.35rem">
+              <template x-for="val in attrValues[attr.id] || []" :key="val.id">
+                <span style="display:inline-flex;align-items:center;gap:.3rem;padding:.15rem .5rem;background:var(--surface-hover);border-radius:4px;font-size:.85rem">
+                  <template x-if="attrValEditId !== val.id">
+                    <span x-text="val.value"></span>
+                  </template>
+                  <template x-if="attrValEditId === val.id">
+                    <input type="text" x-model="attrValEditName" style="width:60px" @keydown.enter="renameAttrValue(attr.id, val.id)" @keydown.escape="attrValEditId = null" />
+                  </template>
+                  <button class="icon-btn" style="width:16px;height:16px" @click="attrValEditId = val.id; attrValEditName = val.value" title="Renomear">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  <button class="icon-btn" style="width:16px;height:16px" @click="deleteAttrValue(attr.id, val)" title="Excluir">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  </button>
+                </span>
+              </template>
+              <button class="btn-reset text-xs" style="color:var(--primary);padding:.15rem .4rem" @click="addAttrValId = attr.id; $nextTick(() => $refs['newAttrVal-' + attr.id]?.focus())">
+                + valor
+              </button>
+              <input type="text" x-show="addAttrValId === attr.id" x-cloak :ref="'newAttrVal-' + attr.id"
+                     style="width:70px;font-size:.85rem" placeholder="Valor…"
+                     @keydown.enter="addAttrValue(attr.id, $event.target.value); $event.target.value = ''"
+                     @keydown.escape="addAttrValId = null" />
+            </div>
+          </div>
+        </template>
+        <div class="error" x-text="attrDlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.attrDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar
+        </button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="genVarDlg">
+      <h1>Gerar variantes</h1>
+      <p class="muted">Selecione os valores de atributo para gerar as combinações.</p>
+      <div class="dialog-body">
+        <template x-if="!genGroups.length">
+          <p class="muted text-xs">Nenhum atributo cadastrado. Crie atributos primeiro em "Atributos".</p>
+        </template>
+        <template x-for="(group, gi) in genGroups" :key="gi">
+          <div style="margin-bottom:.75rem">
+            <strong x-text="group.attribute_name"></strong>
+            <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.3rem">
+              <template x-for="val in group.values" :key="val.id">
+                <label class="label-checkbox-sm" style="padding:.2rem .5rem;background:var(--surface-hover);border-radius:4px;cursor:pointer">
+                  <input type="checkbox" :value="val.id" x-model="genSelectedValues" />
+                  <span x-text="val.value"></span>
+                </label>
+              </template>
+            </div>
+          </div>
+        </template>
+        <div class="error" x-text="attrDlgError"></div>
+        <template x-if="previewCombos.length">
+          <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:.75rem">
+            <p><strong>Pré-visualização: <span x-text="previewCombos.length"></span> combinação(ões)</strong></p>
+            <div style="display:flex;flex-wrap:wrap;gap:.35rem">
+              <template x-for="(combo, ci) in previewCombos" :key="ci">
+                <span class="muted text-xs" style="padding:.2rem .5rem;background:var(--surface-hover);border-radius:4px" x-text="combo"></span>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.genVarDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmGenerateVariants()" :disabled="!genSelectedValues.length">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Gerar <span x-text="previewCombos.length"></span>
+        </button>
+      </div>
+    </dialog>
   </main>
   <script src="/js/masks.js"></script>
   <script src="/js/barcode.js"></script>
@@ -348,6 +517,9 @@
         rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
+        // Variantes
+        variants: [], attributes: [], attrValues: {}, attrEditId: null, attrEditName: '', attrValEditId: null, attrValEditName: '',
+        attrDlgError: '', newAttrName: '', addAttrValId: null, genGroups: [], genSelectedValues: [],
         sortGetters: {
           name: (p) => p.name, category: (p) => p.category ?? '',
           price: (p) => p.price_cents, cost: (p) => p.cost_cents,
@@ -356,6 +528,17 @@
         get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
         get pageTotal() { return this.displayRows.length; },
         get pageRows() { return this.pagedRows(this.displayRows); },
+        get previewCombos() {
+          if (!this.genSelectedValues.length || !this.genGroups.length) return [];
+          const groups = [];
+          for (const g of this.genGroups) {
+            const selected = g.values.filter(v => this.genSelectedValues.includes(v.id));
+            if (selected.length) groups.push(selected.map(v => v.value));
+          }
+          if (!groups.length) return [];
+          const cartesian = (arr) => arr.reduce((acc, a) => acc.flatMap(d => a.map(e => [...d, e])), [[]]);
+          return cartesian(groups).map(c => c.join(', '));
+        },
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
@@ -466,22 +649,25 @@
           }
         },
         openNew() {
-          this.form = { unit: 'un' }; this.dlgError = ''; this.resetImageState();
+          this.form = { unit: 'un', productType: 'fisico' }; this.dlgError = ''; this.resetImageState();
           const autoSku = this.appSettings?.find(s => s.key === 'estoque.auto_sku')?.value;
           if (autoSku === '1') this.form.sku = 'SKU-' + String(Date.now()).slice(-8);
           const defMinStock = this.appSettings?.find(s => s.key === 'estoque.min_stock_padrao')?.value;
           if (defMinStock) this.form.minStock = Number(defMinStock);
+          this.variants = [];
           this.$refs.dlg.showModal();
         },
         openEdit(p) {
           this.form = { id: p.id, name: p.name, barcode: p.barcode ?? '', sku: p.sku ?? '', unit: p.unit,
             categoryId: p.category_id ?? '',
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
-            minStock: p.min_stock };
+            minStock: p.min_stock, productType: p.product_type ?? 'fisico' };
           this.dlgError = ''; this.barcodeHint = ''; this.resetImageState();
           this.form.imageUrl = p.image_url ?? null;
+          this.variants = [];
           this.$refs.dlg.showModal();
           if (!this.form.imageUrl) this.searchCatalogImages();
+          if (p.product_type === 'variante') this.loadVariants(p.id);
         },
         checkBarcode(code) {
           if (!code) return '';
@@ -504,6 +690,7 @@
           const body = { name: this.form.name, barcode: this.form.barcode || null, sku: this.form.sku || null,
             unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined,
             categoryId: this.form.categoryId || null,
+            productType: this.form.productType || 'fisico',
             initialStock: !this.form.id && this.form.initialStock ? Number(this.form.initialStock) : undefined };
           const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
           const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;
@@ -540,6 +727,141 @@
           });
           if (r.ok) { this.$refs.mv.close(); this.load(); }
           else this.mvError = (await r.json()).error ?? 'Erro na movimentação.';
+        },
+        // ---------- Variantes ----------
+        async loadVariants(parentId) {
+          const r = await fetch(`/api/commercial/products/${parentId}/variants`);
+          if (r.ok) {
+            const data = await r.json();
+            this.variants = data.map(v => ({
+              ...v,
+              priceDisplay: (v.price_cents / 100).toFixed(2).replace('.', ','),
+            }));
+          }
+        },
+        variantAttrsLabel(v) {
+          try {
+            const attrs = typeof v.variant_attrs === 'string' ? JSON.parse(v.variant_attrs) : (v.variant_attrs || []);
+            return attrs.map(a => `${a.attribute_name}: ${a.value}`).join(', ');
+          } catch {
+            return '';
+          }
+        },
+        async updateVariantField(v, field) {
+          const body = { [field]: v[field] || null };
+          await fetch(`/api/commercial/products/${v.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+        },
+        async updateVariantPrice(v) {
+          const cents = this.toCents(v.priceDisplay);
+          if (cents == null) return;
+          await fetch(`/api/commercial/products/${v.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ priceCents: cents }),
+          });
+        },
+        async updateVariantStock(v) {
+          if (v.stock_qty == null) return;
+          await fetch('/api/commercial/stock/move', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: v.id, type: 'ajuste', qty: Number(v.stock_qty), reason: 'Ajuste inline de variante' }),
+          });
+        },
+        async deleteVariant(v) {
+          if (!await window.confirmDlg(`Excluir variante "${v.name}"?`)) return;
+          const r = await fetch(`/api/commercial/products/${v.id}`, { method: 'DELETE' });
+          if (r.ok) this.loadVariants(this.form.id);
+          else this.error = (await r.json()).error;
+        },
+        async openAttrMgr() {
+          this.attrDlgError = ''; this.newAttrName = ''; this.attrEditId = null; this.addAttrValId = null;
+          await this.loadAttributes();
+          this.$refs.attrDlg.showModal();
+        },
+        async loadAttributes() {
+          const r = await fetch('/api/commercial/attributes');
+          if (r.ok) {
+            this.attributes = await r.json();
+            const vals = {};
+            for (const attr of this.attributes) {
+              const vr = await fetch(`/api/commercial/attributes/${attr.id}/values`);
+              if (vr.ok) vals[attr.id] = await vr.json();
+              else vals[attr.id] = [];
+            }
+            this.attrValues = vals;
+          }
+        },
+        async addAttribute() {
+          if (!this.newAttrName.trim()) return;
+          const r = await fetch('/api/commercial/attributes', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: this.newAttrName.trim() }),
+          });
+          if (r.ok) { this.newAttrName = ''; await this.loadAttributes(); }
+          else this.attrDlgError = (await r.json()).error;
+        },
+        async renameAttribute(id) {
+          if (!this.attrEditName.trim()) return;
+          const r = await fetch(`/api/commercial/attributes/${id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: this.attrEditName.trim() }),
+          });
+          if (r.ok) { this.attrEditId = null; await this.loadAttributes(); }
+          else this.attrDlgError = (await r.json()).error;
+        },
+        async deleteAttribute(attr) {
+          if (!await window.confirmDlg(`Excluir atributo "${attr.name}" e todos os seus valores?`)) return;
+          const r = await fetch(`/api/commercial/attributes/${attr.id}`, { method: 'DELETE' });
+          if (r.ok) await this.loadAttributes();
+          else this.attrDlgError = (await r.json()).error;
+        },
+        async addAttrValue(attrId, value) {
+          if (!value || !String(value).trim()) return;
+          const r = await fetch(`/api/commercial/attributes/${attrId}/values`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: String(value).trim() }),
+          });
+          if (r.ok) { this.addAttrValId = null; await this.loadAttributes(); }
+          else this.attrDlgError = (await r.json()).error;
+        },
+        async renameAttrValue(attrId, valId) {
+          if (!this.attrValEditName.trim()) return;
+          const r = await fetch(`/api/commercial/attributes/${attrId}/values/${valId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.attrValEditName.trim() }),
+          });
+          if (r.ok) { this.attrValEditId = null; await this.loadAttributes(); }
+          else this.attrDlgError = (await r.json()).error;
+        },
+        async deleteAttrValue(attrId, val) {
+          if (!await window.confirmDlg(`Excluir valor "${val.value}"?`)) return;
+          const r = await fetch(`/api/commercial/attributes/${attrId}/values/${val.id}`, { method: 'DELETE' });
+          if (r.ok) await this.loadAttributes();
+          else this.attrDlgError = (await r.json()).error;
+        },
+        async openGenVariants() {
+          this.attrDlgError = ''; this.genSelectedValues = []; this.previewCombos = [];
+          await this.loadAttributes();
+          // Montar grupos de valores por atributo
+          this.genGroups = this.attributes.map(a => ({
+            attribute_id: a.id,
+            attribute_name: a.name,
+            values: (this.attrValues[a.id] || []).filter(v => !v.deleted_at),
+          })).filter(g => g.values.length > 0);
+          this.$refs.genVarDlg.showModal();
+        },
+        async confirmGenerateVariants() {
+          if (!this.genSelectedValues.length) return;
+          this.attrDlgError = '';
+          const r = await fetch(`/api/commercial/products/${this.form.id}/attributes/generate-variants`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ attributeValueIds: this.genSelectedValues }),
+          });
+          if (r.ok) {
+            this.$refs.genVarDlg.close();
+            this.loadVariants(this.form.id);
+          } else this.attrDlgError = (await r.json()).error;
         },
       };
     }

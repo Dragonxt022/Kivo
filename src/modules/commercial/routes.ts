@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Router, type Request } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
+import { requireCapability } from '../../core/capabilities/middleware';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
 import { validateBarcode, generateInternalBarcode } from '../../shared/barcode';
@@ -120,7 +121,7 @@ router.delete('/categories/:id', requirePermission('commercial.products.delete')
 // ---------- Produtos (RBAC fino: preço separado de edição) ----------
 const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
   p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active,
-  p.image_url, p.updated_at`;
+  p.image_url, p.updated_at, p.product_type, p.parent_product_id`;
 const getProduct = (id: string | number) =>
   db().prepare(`SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.id = ? AND p.deleted_at IS NULL`).get(id);
@@ -183,10 +184,20 @@ function deleteLocalImageIfOwned(imageUrl: string | null | undefined): void {
 
 router.get('/products', requirePermission('commercial.products.view'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
-  const where = q ? 'AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)' : '';
-  const stmt = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
-                WHERE p.deleted_at IS NULL ${where} ORDER BY p.favorite DESC, p.name`;
-  res.json(q ? db().prepare(stmt).all(`%${q}%`, q, q) : db().prepare(stmt).all());
+  // Grade de cadastro: só produtos de topo (simples ou pais de variante), nunca variantes filhas.
+  // Busca (q presente): variantes filhas aparecem, mas produto-pai nao (nao e vendavel).
+  const excludeParent = `AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)`;
+  if (q) {
+    const stmt = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+                  WHERE p.deleted_at IS NULL ${excludeParent} AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)
+                  ORDER BY p.favorite DESC, p.name`;
+    res.json(db().prepare(stmt).all(`%${q}%`, q, q));
+  } else {
+    const stmt = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+                  WHERE p.deleted_at IS NULL AND p.parent_product_id IS NULL ${excludeParent}
+                  ORDER BY p.favorite DESC, p.name`;
+    res.json(db().prepare(stmt).all());
+  }
 });
 
 /**
@@ -268,15 +279,18 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
     res.status(400).json({ error: img.error });
     return;
   }
+  const productType = String(b.productType ?? 'fisico');
+  // Produto-pai de variante nao controla estoque (estoque vive nas variantes filhas)
+  const trackStock = productType === 'variante' ? 0 : (b.trackStock === false ? 0 : 1);
   let info: { lastInsertRowid: number | bigint };
   try {
     info = db().prepare(
-      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, image_url, uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, image_url, product_type, uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       b.name, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
-      b.trackStock === false ? 0 : 1, b.minStock ?? 0, img.imageUrl ?? null, randomUUID(),
+      trackStock, b.minStock ?? 0, img.imageUrl ?? null, productType, randomUUID(),
     );
   } catch (e) {
     const friendly = friendlyUniqueError(e);
@@ -337,6 +351,9 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
     return;
   }
   const finalImageUrl = img.imageUrl !== undefined ? img.imageUrl : before.image_url;
+  // Forcar track_stock = 0 em produto-pai de variante
+  const productType = b.productType ?? (before as unknown as Record<string, unknown>).product_type ?? 'fisico';
+  const trackStock = productType === 'variante' ? 0 : (b.trackStock != null ? (b.trackStock ? 1 : 0) : null);
   try {
     db().prepare(
       `UPDATE products SET
@@ -344,14 +361,14 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
          barcode = COALESCE(?, barcode), category_id = COALESCE(?, category_id), unit = COALESCE(?, unit),
          price_cents = COALESCE(?, price_cents), cost_cents = COALESCE(?, cost_cents),
          track_stock = COALESCE(?, track_stock), min_stock = COALESCE(?, min_stock),
-         active = COALESCE(?, active), image_url = ?, updated_at = datetime('now')
+         active = COALESCE(?, active), image_url = ?, product_type = ?, updated_at = datetime('now')
        WHERE id = ?`,
     ).run(
       b.name ?? null, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? null, b.priceCents != null ? Math.round(b.priceCents) : null,
       b.costCents != null ? Math.round(b.costCents) : null,
-      b.trackStock != null ? (b.trackStock ? 1 : 0) : null, b.minStock ?? null,
-      b.active != null ? (b.active ? 1 : 0) : null, finalImageUrl, id,
+      trackStock, b.minStock ?? null,
+      b.active != null ? (b.active ? 1 : 0) : null, finalImageUrl, productType, id,
     );
   } catch (e) {
     const friendly = friendlyUniqueError(e);
@@ -373,12 +390,23 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
 
 router.delete('/products/:id', requirePermission('commercial.products.delete'), (req, res) => {
   const id = String(req.params.id);
-  const before = getProduct(id);
+  const before = getProduct(id) as
+    | { product_type: string; parent_product_id: number | null }
+    | undefined;
   if (!before) {
     res.status(404).json({ error: 'Produto não encontrado.' });
     return;
   }
-  db().prepare(`UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
+  const dbLocal = db();
+  dbLocal.transaction(() => {
+    // Cascade: se for produto-pai, soft-delete todas as variantes filhas
+    if (before.product_type === 'variante' && before.parent_product_id == null) {
+      dbLocal.prepare(
+        `UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE parent_product_id = ?`,
+      ).run(id);
+    }
+    dbLocal.prepare(`UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
+  })();
   audit(req, 'excluir', 'product', id, before, null);
   res.json({ ok: true });
 });
@@ -395,10 +423,14 @@ router.post('/products/bulk-delete', requirePermission('commercial.products.dele
   const skipped: string[] = [];
   db().transaction(() => {
     for (const id of ids) {
-      const before = getProduct(id);
+      const before = getProduct(id) as { product_type: string; parent_product_id: number | null } | undefined;
       if (!before) {
         skipped.push(id);
         continue;
+      }
+      // Cascade: se for produto-pai, soft-delete variantes filhas
+      if (before.product_type === 'variante' && before.parent_product_id == null) {
+        db().prepare(`UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE parent_product_id = ?`).run(id);
       }
       db().prepare(`UPDATE products SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(id);
       audit(req, 'excluir', 'product', id, before, null);
@@ -425,7 +457,7 @@ router.put('/products/:id/favorite', requirePermission('commercial.products.edit
 router.post('/products/:id/duplicate', requirePermission('commercial.products.create'), (req, res) => {
   const id = String(req.params.id);
   const source = getProduct(id) as
-    | { name: string; description: string | null; category_id: number | null; unit: string; price_cents: number; cost_cents: number; track_stock: number; min_stock: number }
+    | { name: string; description: string | null; category_id: number | null; unit: string; price_cents: number; cost_cents: number; track_stock: number; min_stock: number; product_type: string; parent_product_id: number | null }
     | undefined;
   if (!source) {
     res.status(404).json({ error: 'Produto não encontrado.' });
@@ -434,11 +466,12 @@ router.post('/products/:id/duplicate', requirePermission('commercial.products.cr
   // sku/barcode não são copiados: duplicá-los junto criaria dois produtos com o
   // mesmo código de barras, ambíguo na hora de escanear no PDV.
   const info = db().prepare(
-    `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, uuid)
-     VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, product_type, parent_product_id, uuid)
+     VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     `${source.name} (cópia)`, source.description, source.category_id, source.unit,
-    source.price_cents, source.cost_cents, source.track_stock, source.min_stock, randomUUID(),
+    source.price_cents, source.cost_cents, source.track_stock, source.min_stock,
+    source.product_type ?? 'fisico', source.parent_product_id ?? null, randomUUID(),
   );
   const created = getProduct(Number(info.lastInsertRowid));
   audit(req, 'criar', 'product', Number(info.lastInsertRowid), null, created);
@@ -448,7 +481,7 @@ router.post('/products/:id/duplicate', requirePermission('commercial.products.cr
 router.get('/products/by-barcode/:code', requirePermission('commercial.products.view'), (req, res) => {
   const row = db().prepare(
     `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
-     WHERE p.barcode = ? AND p.deleted_at IS NULL`,
+     WHERE p.barcode = ? AND p.deleted_at IS NULL AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)`,
   ).get(req.params.code);
   if (!row) {
     res.status(404).json({ error: 'Nenhum produto com este código.' });
@@ -475,6 +508,217 @@ router.post('/products/:id/barcode/generate', requirePermission('commercial.prod
   const after = getProduct(id);
   audit(req, 'editar', 'product', id, before, after);
   res.json(after);
+});
+
+// ---------- Variantes de produto ----------
+router.get('/products/:id/variants', requirePermission('commercial.products.view'), requireCapability('commercial.variantes'), (req, res) => {
+  const parentId = Number(req.params.id);
+  const variants = db().prepare(
+    `SELECT ${PRODUCT_COLS},
+            (SELECT json_group_array(json_object('attribute_id', pvv.attribute_id, 'attribute_name', pa.name, 'value_id', pvv.attribute_value_id, 'value', pav.value))
+             FROM product_variant_values pvv
+             LEFT JOIN product_attributes pa ON pa.id = pvv.attribute_id
+             LEFT JOIN product_attribute_values pav ON pav.id = pvv.attribute_value_id
+             WHERE pvv.product_id = p.id AND pvv.deleted_at IS NULL) AS variant_attrs
+     FROM products p LEFT JOIN categories c ON c.id = p.category_id
+     WHERE p.parent_product_id = ? AND p.deleted_at IS NULL
+     ORDER BY p.name`,
+  ).all(parentId);
+  res.json(variants);
+});
+
+router.post('/products/:id/attributes/generate-variants', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
+  const parentId = Number(req.params.id);
+  const parent = getProduct(parentId) as
+    | { product_type: string; name: string; price_cents: number; cost_cents: number }
+    | undefined;
+  if (!parent) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  if (parent.product_type !== 'variante') {
+    res.status(400).json({ error: 'Produto não é do tipo "variante".' });
+    return;
+  }
+  const { attributeValueIds } = req.body ?? {};
+  if (!Array.isArray(attributeValueIds) || attributeValueIds.length === 0) {
+    res.status(400).json({ error: 'Informe attributeValueIds (array de IDs de valores de atributo).' });
+    return;
+  }
+  // Validar que todos os valores existem
+  const placeholders = attributeValueIds.map(() => '?').join(',');
+  const values = db().prepare(
+    `SELECT pav.id, pav.attribute_id, pa.name AS attribute_name, pav.value
+     FROM product_attribute_values pav
+     JOIN product_attributes pa ON pa.id = pav.attribute_id
+     WHERE pav.id IN (${placeholders}) AND pav.deleted_at IS NULL AND pa.deleted_at IS NULL`,
+  ).all(...attributeValueIds) as { id: number; attribute_id: number; attribute_name: string; value: string }[];
+  if (values.length !== attributeValueIds.length) {
+    res.status(400).json({ error: 'Um ou mais IDs de valor de atributo inválidos.' });
+    return;
+  }
+  // Agrupar por attribute_id para calcular produto cartesiano
+  const groups = new Map<number, { attribute_id: number; attribute_name: string; value_id: number; value: string }[]>();
+  for (const v of values) {
+    const arr = groups.get(v.attribute_id) ?? [];
+    arr.push({ attribute_id: v.attribute_id, attribute_name: v.attribute_name, value_id: v.id, value: v.value });
+    groups.set(v.attribute_id, arr);
+  }
+  // Produto cartesiano
+  const combos = cartesian([...groups.values()]);
+  // Nomes de atributo usados para gerar o sufixo da variante
+  const attrNames = [...groups.values()].map((g) => g[0].attribute_name);
+  const dbLocal = db();
+  const created: number[] = [];
+  const skipped: number[] = [];
+  dbLocal.transaction(() => {
+    for (const combo of combos) {
+      const valueIds = combo.map((c) => c.value_id).sort();
+      // Checar se combinacao ja existe
+      const existing = dbLocal.prepare(
+        `SELECT pv.product_id FROM product_variant_values pv
+         WHERE pv.product_id IN (SELECT id FROM products WHERE parent_product_id = ? AND deleted_at IS NULL)
+         AND pv.deleted_at IS NULL
+         GROUP BY pv.product_id HAVING COUNT(*) = ? AND SUM(CASE WHEN pv.attribute_value_id IN (${valueIds.map(() => '?').join(',')}) THEN 1 ELSE 0 END) = ?`,
+      ).get(parentId, combo.length, ...valueIds, combo.length) as { product_id: number } | undefined;
+      if (existing) {
+        skipped.push(existing.product_id);
+        continue;
+      }
+      // Gerar nome da variante: "Camiseta - P, Azul"
+      const suffix = combo.map((c) => c.value).join(', ');
+      const variantName = `${parent.name} - ${suffix}`;
+      const info = dbLocal.prepare(
+        `INSERT INTO products (name, parent_product_id, product_type, category_id, unit, price_cents, cost_cents, track_stock, min_stock, active, uuid)
+         VALUES (?, ?, 'variante', (SELECT category_id FROM products WHERE id = ?), (SELECT unit FROM products WHERE id = ?), ?, ?, 1, 0, 1, ?)`,
+      ).run(variantName, parentId, parentId, parentId, parent.price_cents, parent.cost_cents, randomUUID());
+      const newId = Number(info.lastInsertRowid);
+      // Inserir vinculos de atributo
+      for (const c of combo) {
+        dbLocal.prepare(
+          `INSERT INTO product_variant_values (product_id, attribute_id, attribute_value_id, uuid)
+           VALUES (?, ?, ?, ?)`,
+        ).run(newId, c.attribute_id, c.value_id, randomUUID());
+      }
+      created.push(newId);
+    }
+  })();
+  audit(req, 'gerar_variantes', 'product', parentId, null, { created: created.length, skipped: skipped.length });
+  res.status(201).json({ created, skipped, total: combos.length });
+});
+
+/** Produto cartesiano: [[a,b],[c,d]] -> [[a,c],[a,d],[b,c],[b,d]] */
+function cartesian<T>(arrays: T[][]): T[][] {
+  return arrays.reduce<T[][]>((acc, arr) => acc.flatMap((a) => arr.map((b) => [...a, b])), [[]]);
+}
+
+// ---------- Atributos de variante (CRUD) ----------
+router.get('/attributes', requirePermission('commercial.products.view'), requireCapability('commercial.variantes'), (_req, res) => {
+  res.json(db().prepare(
+    `SELECT id, name, uuid, updated_at FROM product_attributes WHERE deleted_at IS NULL ORDER BY name`,
+  ).all());
+});
+
+router.post('/attributes', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
+  const { name } = req.body ?? {};
+  if (!name || !String(name).trim()) {
+    res.status(400).json({ error: 'Campo obrigatório: name' });
+    return;
+  }
+  const info = db().prepare('INSERT INTO product_attributes (name, uuid) VALUES (?, ?)').run(String(name).trim(), randomUUID());
+  const created = db().prepare('SELECT id, name FROM product_attributes WHERE id = ?').get(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'product_attribute', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.put('/attributes/:id', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, name FROM product_attributes WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Atributo não encontrado.' });
+    return;
+  }
+  const { name } = req.body ?? {};
+  if (!name || !String(name).trim()) {
+    res.status(400).json({ error: 'Campo obrigatório: name' });
+    return;
+  }
+  db().prepare("UPDATE product_attributes SET name = ?, updated_at = datetime('now') WHERE id = ?").run(String(name).trim(), id);
+  const after = db().prepare('SELECT id, name FROM product_attributes WHERE id = ?').get(id);
+  audit(req, 'editar', 'product_attribute', id, before, after);
+  res.json(after);
+});
+
+router.delete('/attributes/:id', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, name FROM product_attributes WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Atributo não encontrado.' });
+    return;
+  }
+  db().transaction(() => {
+    db().prepare("UPDATE product_attribute_values SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE attribute_id = ?").run(id);
+    db().prepare("UPDATE product_attributes SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  })();
+  audit(req, 'excluir', 'product_attribute', id, before, null);
+  res.json({ ok: true });
+});
+
+// ---------- Valores de atributo (CRUD) ----------
+router.get('/attributes/:id/values', requirePermission('commercial.products.view'), requireCapability('commercial.variantes'), (req, res) => {
+  const id = Number(req.params.id);
+  res.json(db().prepare(
+    `SELECT id, attribute_id, value, sort_order, uuid, updated_at
+     FROM product_attribute_values WHERE attribute_id = ? AND deleted_at IS NULL ORDER BY sort_order, value`,
+  ).all(id));
+});
+
+router.post('/attributes/:id/values', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
+  const attributeId = Number(req.params.id);
+  const attr = db().prepare('SELECT id FROM product_attributes WHERE id = ? AND deleted_at IS NULL').get(attributeId);
+  if (!attr) {
+    res.status(404).json({ error: 'Atributo não encontrado.' });
+    return;
+  }
+  const { value, sortOrder } = req.body ?? {};
+  if (!value || !String(value).trim()) {
+    res.status(400).json({ error: 'Campo obrigatório: value' });
+    return;
+  }
+  const info = db().prepare(
+    'INSERT INTO product_attribute_values (attribute_id, value, sort_order, uuid) VALUES (?, ?, ?, ?)',
+  ).run(attributeId, String(value).trim(), sortOrder ?? 0, randomUUID());
+  const created = db().prepare('SELECT id, attribute_id, value, sort_order FROM product_attribute_values WHERE id = ?').get(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'product_attribute_value', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.put('/attributes/:attrId/values/:id', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, value, sort_order FROM product_attribute_values WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Valor de atributo não encontrado.' });
+    return;
+  }
+  const { value, sortOrder } = req.body ?? {};
+  db().prepare(
+    `UPDATE product_attribute_values SET value = COALESCE(?, value), sort_order = COALESCE(?, sort_order), updated_at = datetime('now') WHERE id = ?`,
+  ).run(value ? String(value).trim() : null, sortOrder != null ? Number(sortOrder) : null, id);
+  const after = db().prepare('SELECT id, attribute_id, value, sort_order FROM product_attribute_values WHERE id = ?').get(id);
+  audit(req, 'editar', 'product_attribute_value', id, before, after);
+  res.json(after);
+});
+
+router.delete('/attributes/:attrId/values/:id', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, value FROM product_attribute_values WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Valor de atributo não encontrado.' });
+    return;
+  }
+  db().prepare("UPDATE product_attribute_values SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  audit(req, 'excluir', 'product_attribute_value', id, before, null);
+  res.json({ ok: true });
 });
 
 // ---------- Listas de preço ----------

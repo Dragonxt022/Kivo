@@ -32,6 +32,10 @@ const manifest: ModuleManifest = {
     { key: 'commercial.agreements.create', description: 'Criar empresas conveniadas' },
     { key: 'commercial.agreements.edit', description: 'Editar empresas conveniadas' },
     { key: 'commercial.agreements.delete', description: 'Excluir empresas conveniadas' },
+    { key: 'commercial.products.variants.manage', description: 'Gerenciar variantes de produto' },
+  ],
+  capabilities: [
+    { key: 'commercial.variantes', description: 'Produtos com variantes (tamanho, cor, etc.)' },
   ],
   routes: './routes',
   pages: './pages',
@@ -52,11 +56,17 @@ const manifest: ModuleManifest = {
   syncTables: [
     { table: 'categories', foreignKeys: { parent_id: 'categories' } },
     {
-      table: 'products', foreignKeys: { category_id: 'categories' },
+      table: 'products', foreignKeys: { category_id: 'categories', parent_product_id: 'products' },
       // image_url: caminho local (/uploads/products/…) ou URL do banco de imagens do
       // Katsu Cloud — não sincroniza entre máquinas nesta fase (arquivo local só existe
       // na máquina onde a imagem foi definida). Ver src/core/catalog/.
       excludeColumns: ['stock_qty', 'image_url'],
+    },
+    { table: 'product_attributes' },
+    { table: 'product_attribute_values', foreignKeys: { attribute_id: 'product_attributes' } },
+    {
+      table: 'product_variant_values',
+      foreignKeys: { product_id: 'products', attribute_id: 'product_attributes', attribute_value_id: 'product_attribute_values' },
     },
     {
       table: 'customers',
