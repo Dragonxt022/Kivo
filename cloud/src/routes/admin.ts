@@ -533,7 +533,7 @@ router.post('/catalog/:id/reject', requireAdminAuth, async (req: AdminRequest, r
  * 1. Valida o parâmetro status
  * 2. Busca todas as imagens do status
  * 3. Deleta os arquivos de disco
- * 4. Marca como rejeitada (tombstone) preservando sha256
+ * 4. Remove os registros do banco (DELETE real — permite re-upload do mesmo conteúdo)
  * 5. Registra em log a ação do admin
  */
 router.post('/catalog/delete-all', requireAdminAuth, async (req: AdminRequest, res) => {
@@ -569,10 +569,7 @@ router.post('/catalog/delete-all', requireAdminAuth, async (req: AdminRequest, r
     }
   }
 
-  await pool.query(
-    "UPDATE catalog_images SET status = 'rejeitada', image_path = '', reviewed_by = ?, reviewed_at = NOW(3) WHERE status = ?",
-    [req.adminUsername, status],
-  );
+  await pool.query('DELETE FROM catalog_images WHERE status = ?', [status]);
 
   console.log(
     `[CATALOG DELETE-ALL] admin=${req.adminUsername} status=${status} count=${count} files_deleted=${deletedFiles} at=${new Date().toISOString()}`,
