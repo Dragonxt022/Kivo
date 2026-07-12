@@ -34,15 +34,14 @@ export function openComanda(req: Request, params: OpenComandaParams): { ok: true
 
 export function addItem(req: Request, comandaId: number, params: AddItemParams): { ok: true; id: number } | { ok: false; error: string } {
   const db = getSqlite();
-  const comanda = db.prepare("SELECT id, status, table_id FROM comandas WHERE id = ? AND deleted_at IS NULL").get(comandaId) as { id: number; status: string; table_id: number | null } | undefined;
+  const comanda = db.prepare("SELECT id, status, table_id, customer_id FROM comandas WHERE id = ? AND deleted_at IS NULL").get(comandaId) as { id: number; status: string; table_id: number | null; customer_id: number | null } | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
   const product = db.prepare("SELECT id, name, price_cents, deleted_at FROM products WHERE id = ? AND deleted_at IS NULL").get(params.productId) as { id: number; name: string; price_cents: number; deleted_at: string | null } | undefined;
   if (!product) return { ok: false, error: 'Produto nao encontrado.' };
   // Congelar preco via resolvePrice (mesmo servico que createSale usa)
   const pricing = getService<CommercialPricingService>('commercial.pricing');
-  const priceResult = pricing.resolvePrice({ productId: product.id, qty: params.qty, customerId: comanda.customer_id ?? undefined });
-  const unitPriceCents = priceResult?.unitCents ?? product.price_cents;
+  const unitPriceCents = pricing.resolvePrice(product.id, params.qty, comanda.customer_id).unitCents;
   const itemId = db.prepare(
     `INSERT INTO comanda_items (comanda_id, product_id, product_name, qty, unit_price_cents, notes, line_group_uuid, added_by, uuid, origin_machine)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

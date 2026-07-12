@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <%- include('../../../store/views/partials/theme-init') %>
+  <%- include('partials/theme-init') %>
   <title>Katsu — Comanda</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/favicon.png" />
@@ -10,7 +10,7 @@
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
-  <%- include('../../../store/views/partials/nav', { user, page: '/app/comandas/mesas' }) %>
+  <%- include('partials/nav', { user, page: '/app/comandas/mesas' }) %>
   <main x-data="comandaDetalhePage()" x-init="init()">
     <div class="container">
       <div class="flex-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">

@@ -1,24 +1,55 @@
+import { randomUUID } from 'node:crypto';
 import { Router, type Request } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
 import { audit } from '../../core/audit/service';
 import { openComanda, addItem, voidItem, transfer, split, merge, closeComanda, cancelComanda } from './comandas';
-import { makeCrudRouter } from '../commercial/crud';
 
 const router = Router();
 const db = () => getSqlite();
 
-// ─── Mesas (CRUD via fabrica, com suporte a sort_order) ───
-router.use('/tables', requireCapability('comandas.mesas'), makeCrudRouter({
-  table: 'store_tables', entity: 'table', permPrefix: 'comandas.tables',
-  fields: ['label', 'sort_order'], required: ['label'],
-}));
+// ─── Mesas (CRUD dedicado — store_tables usa label/status, nao name/active) ───
+router.get('/tables', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (_req, res) => {
+  res.json(db().prepare('SELECT * FROM store_tables WHERE deleted_at IS NULL ORDER BY sort_order, label').all());
+});
 
 // ─── Status da mesa (GET avulso para o grid) ───
 router.get('/tables/status', requireCapability('comandas.mesas'), requirePermission('comandas.view'), (_req, res) => {
   const tables = db().prepare('SELECT * FROM store_tables WHERE deleted_at IS NULL ORDER BY sort_order, label').all();
   res.json(tables);
+});
+
+router.post('/tables', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (req, res) => {
+  const { label, sortOrder } = req.body ?? {};
+  if (!label) { res.status(400).json({ error: 'label obrigatorio.' }); return; }
+  const id = db().prepare(
+    `INSERT INTO store_tables (label, sort_order, uuid, origin_machine) VALUES (?, ?, ?, ?)`,
+  ).run(String(label).trim(), sortOrder ?? 0, randomUUID(), req.headers['x-machine'] ?? null).lastInsertRowid;
+  audit(req, 'criar_mesa', 'table', Number(id));
+  res.status(201).json({ id });
+});
+
+router.put('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db().prepare('SELECT id FROM store_tables WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!existing) { res.status(404).json({ error: 'Mesa nao encontrada.' }); return; }
+  const { label, sortOrder } = req.body ?? {};
+  db().prepare(
+    "UPDATE store_tables SET label = COALESCE(?, label), sort_order = COALESCE(?, sort_order), updated_at = datetime('now') WHERE id = ?",
+  ).run(label ?? null, sortOrder ?? null, id);
+  audit(req, 'editar_mesa', 'table', id);
+  res.json({ ok: true });
+});
+
+router.delete('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db().prepare("SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL").get(id) as { id: number; status: string } | undefined;
+  if (!existing) { res.status(404).json({ error: 'Mesa nao encontrada.' }); return; }
+  if (existing.status !== 'livre') { res.status(400).json({ error: 'Mesa ocupada nao pode ser removida.' }); return; }
+  db().prepare("UPDATE store_tables SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  audit(req, 'remover_mesa', 'table', id);
+  res.json({ ok: true });
 });
 
 // ─── Comandas CRUD ───

@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <%- include('../../../store/views/partials/theme-init') %>
+  <%- include('partials/theme-init') %>
   <title>Katsu — Cozinha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="/favicon.png" />
@@ -10,7 +10,7 @@
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
-  <%- include('../../../store/views/partials/nav', { user, page: '/app/foodservice/cozinha' }) %>
+  <%- include('partials/nav', { user, page: '/app/foodservice/cozinha' }) %>
   <main x-data="cozinhaPage()" x-init="init()">
     <div class="container">
       <h1>Painel de Cozinha</h1>

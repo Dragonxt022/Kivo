@@ -38,7 +38,13 @@
           </button>
         </div>
 
-        <div class="pdv-search">
+        <div class="pdv-comanda-banner" x-show="slots[activeSlot].comandaId" x-cloak style="display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;margin-bottom:.75rem;border-radius:var(--radius);background:var(--primary-light,#eafaf0);border:1.5px solid var(--primary)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span x-text="'Fechando Comanda #' + slots[activeSlot].comandaId + (slots[activeSlot].tableLabel ? (' — Mesa ' + slots[activeSlot].tableLabel) : '')" style="flex:1;font-weight:600"></span>
+          <a href="/app/comandas/mesas" class="btn secondary small">Cancelar</a>
+        </div>
+
+        <div class="pdv-search" x-show="!slots[activeSlot].comandaId">
           <div class="pdv-search-box">
             <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -97,14 +103,15 @@
                 <div class="prod-unit" x-text="(i.sku ? ('SKU: ' + i.sku + ' · ') : '') + brl(i.price_cents) + ' un.'"></div>
                 <div class="prod-notes" x-show="i.notes" x-text="i.notes"></div>
               </div>
-              <div class="qty-wrap">
+              <div class="qty-wrap" x-show="!slots[activeSlot].comandaId">
                 <button @click="qtyMinus(idx)" :disabled="i.qty <= 0.001">−</button>
                 <input type="number" step="any" min="0.001" x-model.number="i.qty"
                        @focus="$event.target.select()" @change="repriceCart()" />
                 <button @click="qtyPlus(idx)">+</button>
               </div>
+              <span class="qty-wrap" x-show="slots[activeSlot].comandaId" x-text="i.qty"></span>
               <span class="prod-total" x-text="brl(Math.round(i.price_cents * i.qty))"></span>
-              <button class="remove-btn" @click="removeItem(idx)" title="Remover">×</button>
+              <button class="remove-btn" @click="removeItem(idx)" title="Remover" x-show="!slots[activeSlot].comandaId">×</button>
             </div>
           </template>
 
@@ -583,7 +590,7 @@
     <% } %>
 
     <!-- ─── MODAL: Venda concluída — imprimir cupom? ─── -->
-    <dialog x-ref="postSale" @close="focusSearch()">
+    <dialog x-ref="postSale" @close="onPostSaleClose()">
       <div class="dialog-body-center">
         <div class="dialog-icon dialog-icon-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
@@ -619,7 +626,8 @@
         // Vendas simultâneas (até 4 "guichês" no mesmo PDV — atender outro cliente sem
         // perder o carrinho do anterior) + persistência em localStorage (sobrevive a
         // navegar pra outra tela e voltar, ou recarregar a página sem querer).
-        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '' }],
+        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null }],
+        justClosedComandaId: null,
         activeSlot: 0,
         q: '', results: [], customers: [], methods: [],
         highlightIdx: -1, searching: false,
@@ -753,7 +761,7 @@
         },
         addSlot() {
           if (this.slots.length >= 4) return;
-          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '' });
+          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null });
           this.activeSlot = this.slots.length - 1;
           this.persistSlots();
           this.focusSearch();
@@ -794,6 +802,8 @@
             this.slots.forEach((slot) => { slot.cart = slot.cart.filter((i) => validIds.has(i.productId)); });
             this.persistSlots();
           }
+          const comandaIdParam = new URLSearchParams(location.search).get('comandaId');
+          if (comandaIdParam) await this.loadComanda(Number(comandaIdParam));
           if (this.customerId) this.loadCustomerBalances();
           this.focusSearch();
           this.$watch('slots', () => this.persistSlots());
@@ -832,6 +842,35 @@
               }
             }
           });
+        },
+        // ─── Comanda → PDV (fechar comanda pelo caixa, preço já congelado) ───
+        async loadComanda(id) {
+          const r = await fetch(`/api/comandas/comandas/${id}`);
+          if (!r.ok) { this.error = 'Comanda não encontrada ou já fechada.'; return; }
+          const c = await r.json();
+          if (c.status !== 'aberta') { this.error = 'Esta comanda não está mais aberta.'; return; }
+          const cart = (c.items || []).map((i) => ({
+            productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
+            sku: null, image_url: null, lineGroupUuid: i.line_group_uuid || null, notes: i.notes || null,
+          }));
+          const needsNewSlot = this.slots[this.activeSlot].cart.length > 0 || this.slots[this.activeSlot].comandaId;
+          if (needsNewSlot) {
+            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null });
+            this.activeSlot = this.slots.length - 1;
+          }
+          this.slots[this.activeSlot] = {
+            cart, discountCents: 0, surchargeCents: 0, lastSaleId: null,
+            customerId: c.customer_id || '', comandaId: id, tableLabel: c.table_label || null,
+          };
+          this.persistSlots();
+        },
+        onPostSaleClose() {
+          if (this.justClosedComandaId) {
+            this.justClosedComandaId = null;
+            window.location.href = '/app/comandas/mesas';
+            return;
+          }
+          this.focusSearch();
         },
         async checkOnline() {
           try {
@@ -925,6 +964,7 @@
         // ─── Tabelas de preço (atacado/varejo/cliente) ───
         async repriceCart() {
           if (!this.cart.length) return;
+          if (this.slots[this.activeSlot].comandaId) return; // preco congelado na comanda — nao re-resolver
           const r = await fetch('/api/commercial/pricing/resolve', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ customerId: this.customerId || null, items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty })) }),
@@ -1196,25 +1236,38 @@
             if (p.pointsUsed) out.pointsUsed = p.pointsUsed;
             return out;
           });
-          const body = {
-            items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
-            payments,
-            discountCents: this.discountCents || undefined,
-            surchargeCents: this.surchargeCents || undefined,
-            customerId: this.customerId || undefined,
-            clientRequestId: this.pay.clientRequestId || undefined,
-          };
-          const r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          const comandaId = this.slots[this.activeSlot].comandaId;
+          let r;
+          if (comandaId) {
+            const body = {
+              payments,
+              discountCents: this.discountCents || undefined,
+              surchargeCents: this.surchargeCents || undefined,
+              customerId: this.customerId || undefined,
+            };
+            r = await fetch(`/api/comandas/comandas/${comandaId}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          } else {
+            const body = {
+              items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
+              payments,
+              discountCents: this.discountCents || undefined,
+              surchargeCents: this.surchargeCents || undefined,
+              customerId: this.customerId || undefined,
+              clientRequestId: this.pay.clientRequestId || undefined,
+            };
+            r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          }
           this.saving = false;
           if (r.ok) {
             const d = await r.json();
-            this.lastSaleId = d.id;
+            this.lastSaleId = comandaId ? d.saleId : d.id;
             this.lastSaleHasCarne = hasCarne;
             this.$refs.pay.close();
             this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerBalances = {};
+            if (comandaId) { this.slots[this.activeSlot].comandaId = null; this.justClosedComandaId = comandaId; }
             this.persistSlots();
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
-            if (exibir !== '0') this.$refs.postSale.showModal(); else this.focusSearch();
+            if (exibir !== '0') this.$refs.postSale.showModal(); else this.onPostSaleClose();
           } else {
             const err = (await r.json()).error ?? 'Erro ao registrar a venda.';
             this.payError = err;
