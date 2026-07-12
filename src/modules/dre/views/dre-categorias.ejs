@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Categorias do DRE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/dre/categorias' }) %>
+  <main x-data="dreCategoriesPage()" x-init="load()">
+    <h1>Categorias do DRE</h1>
+    <p class="muted muted-block">
+      O <strong>ajuste %</strong> só afeta a coluna "Projetado" do relatório de DRE (simulação) —
+      nunca altera lançamentos reais. Categorias do sistema (marcadas com 🔒) não podem ser
+      excluídas nem trocar de linha, mas o rótulo e o ajuste continuam editáveis.
+    </p>
+    <div class="toolbar">
+      <button class="btn" @click="openNew()">Nova categoria</button>
+      <span class="error" x-text="error"></span>
+    </div>
+    <table>
+      <thead><tr><th>Categoria</th><th>Linha do DRE</th><th class="right">Ajuste</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="c in rows" :key="c.id">
+          <tr>
+            <td x-text="c.label + (c.system ? ' 🔒' : '')"></td>
+            <td class="muted" x-text="lineLabels[c.dre_line] ?? c.dre_line"></td>
+            <td class="right" x-text="pct(c.adjustment_bps)"></td>
+            <td class="text-right">
+              <button class="btn secondary small" @click="openEdit(c)">Editar</button>
+              <button class="btn small" x-show="!c.system" @click="del(c)">Excluir</button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg">
+      <h1 x-text="form.id ? 'Editar categoria' : 'Nova categoria'"></h1>
+      <label>Nome</label><input type="text" x-model="form.label" />
+      <template x-if="!form.id">
+        <div>
+          <label>Linha do DRE</label>
+          <select x-model="form.dreLine">
+            <option value="deducoes">Deduções da Receita</option>
+            <option value="cmv">CMV</option>
+            <option value="despesas_operacionais">Despesas Operacionais</option>
+            <option value="despesas_financeiras">Despesas Financeiras</option>
+          </select>
+        </div>
+      </template>
+      <label>Ajuste de simulação (%, pode ser negativo)</label>
+      <input type="text" x-model="form.adjustment" placeholder="0" />
+      <div class="error" x-text="dlgError"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script>
+    function dreCategoriesPage() {
+      return {
+        rows: [], form: {}, error: '', dlgError: '',
+        lineLabels: {
+          receita_bruta: 'Receita Bruta', deducoes: 'Deduções da Receita', cmv: 'CMV',
+          despesas_operacionais: 'Despesas Operacionais', despesas_financeiras: 'Despesas Financeiras',
+        },
+        pct(bps) { return (bps === 0 ? '0%' : (bps > 0 ? '+' : '') + (bps / 100).toFixed(2).replace('.', ',') + '%'); },
+        bps(s) { const n = parseFloat(String(s || '0').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
+        async load() {
+          const r = await fetch('/api/dre/categories');
+          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+        },
+        openNew() { this.form = { dreLine: 'despesas_operacionais', adjustment: '' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(c) {
+          this.form = { id: c.id, label: c.label, adjustment: (c.adjustment_bps / 100).toFixed(2).replace('.', ',') };
+          this.dlgError = ''; this.$refs.dlg.showModal();
+        },
+        async save() {
+          const isEdit = !!this.form.id;
+          const body = isEdit
+            ? { label: this.form.label, adjustmentBps: this.bps(this.form.adjustment) }
+            : { label: this.form.label, dreLine: this.form.dreLine, adjustmentBps: this.bps(this.form.adjustment) };
+          const r = await fetch(isEdit ? `/api/dre/categories/${this.form.id}` : '/api/dre/categories', {
+            method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+        },
+        async del(c) {
+          if (!await window.confirmDlg(`Excluir a categoria "${c.label}"?`)) return;
+          const r = await fetch(`/api/dre/categories/${c.id}`, { method: 'DELETE' });
+          if (r.ok) this.load(); else this.error = (await r.json()).error;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

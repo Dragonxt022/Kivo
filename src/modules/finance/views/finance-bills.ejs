@@ -20,7 +20,7 @@
     ];
     var _billPlaceholder = 'Buscar por descricao ou ' + bills.partyLabel.toLowerCase();
   %>
-  <main x-data="billsPage('<%= bills.api %>')" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
+  <main x-data="billsPage('<%= bills.api %>', <%= !!bills.categoryField %>)" x-init="load(); <% if (bills.categoryField) { %>loadCategories()<% } %>" @apply-filter.window="filter=$event.detail; load()">
     <h1><%= bills.title %></h1>
     <div class="toolbar">
       <% if (user.permissions.has(bills.createPerm)) { %>
@@ -36,6 +36,7 @@
         <th @click="sortCycle('amount_cents')" class="sortable">Valor<span class="sort-arrow" x-text="sortArrow('amount_cents')"></span></th>
         <th @click="sortCycle('due_date')" class="sortable">Vencimento<span class="sort-arrow" x-text="sortArrow('due_date')"></span></th>
         <th @click="sortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+        <% if (bills.categoryField) { %><th>Categoria</th><% } %>
         <th></th>
       </tr></thead>
       <tbody>
@@ -46,6 +47,7 @@
             <td x-text="brl(b.amount_cents)"></td>
             <td class="muted" x-text="fmtDate(b.due_date)"></td>
             <td><span class="badge" :class="b.status === 'aberta' ? 'off' : 'ok'" x-text="b.status"></span></td>
+            <% if (bills.categoryField) { %><td class="muted" x-text="b.dre_category_label ?? '—'"></td><% } %>
             <td class="text-right" @click.stop>
               <div class="dropdown" x-show="b.status === 'aberta'">
                 <button class="icon-btn" @click="openMenu = openMenu === b.id ? null : b.id" title="Mais ações">
@@ -75,7 +77,7 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!displayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma conta registrada ainda.' }) %></td></tr>
+        <tr x-show="!displayRows.length"><td colspan="<%= bills.categoryField ? 7 : 6 %>"><%- include('partials/empty-state', { message: 'Nenhuma conta registrada ainda.' }) %></td></tr>
       </tbody>
     </table>
 
@@ -84,6 +86,14 @@
       <label>Descrição</label><input type="text" x-model="form.description" />
       <label>Valor (R$)</label><input type="text" x-model="form.amount" placeholder="0,00" @input="form.amount = maskMoney(form.amount)" />
       <label>Vencimento</label><input type="date" x-model="form.dueDate" />
+      <% if (bills.categoryField) { %>
+      <label>Categoria (DRE)</label>
+      <select x-model="form.dreCategoryId">
+        <template x-for="c in categories" :key="c.id">
+          <option :value="c.id" x-text="c.label"></option>
+        </template>
+      </select>
+      <% } %>
       <label>Observações</label><input type="text" x-model="form.notes" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
@@ -108,10 +118,10 @@
   <script src="/js/masks.js"></script>
   <script src="/js/table-toolkit.js"></script>
   <script>
-    function billsPage(api) {
+    function billsPage(api, hasCategory) {
       return {
         ...tableToolkit(),
-        rows: [], form: {}, error: '', dlgError: '', filter: {},
+        rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '' }, settleError: '',
         sortGetters: {
           description: (b) => b.description ?? '', party: (b) => b.party ?? '', amount_cents: (b) => b.amount_cents,
@@ -124,23 +134,32 @@
           const r = await fetch(api);
           if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
         },
-        openNew() { this.form = {}; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        async loadCategories() {
+          const r = await fetch('/api/dre/categories?manualOnly=1');
+          if (r.ok) this.categories = await r.json();
+        },
+        openNew() {
+          this.form = hasCategory ? { dreCategoryId: this.categories.find((c) => c.key === 'outras_despesas_operacionais')?.id ?? null } : {};
+          this.dlgError = ''; this.$refs.dlg.showModal();
+        },
         openEdit(b) {
           this.form = { id: b.id, description: b.description, amount: (b.amount_cents / 100).toFixed(2).replace('.', ','),
-            dueDate: b.due_date, notes: b.notes ?? '' };
+            dueDate: b.due_date, notes: b.notes ?? '', dreCategoryId: b.dre_category_id ?? null };
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
         async save() {
           if (this.form.id) {
             const r = await fetch(`${api}/${this.form.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
-                dueDate: this.form.dueDate, notes: this.form.notes || undefined }) });
+                dueDate: this.form.dueDate, notes: this.form.notes || undefined,
+                dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined }) });
             if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
             return;
           }
           const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
-              dueDate: this.form.dueDate, notes: this.form.notes || undefined }) });
+              dueDate: this.form.dueDate, notes: this.form.notes || undefined,
+              dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined }) });
           if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
         },
         openSettle(b) {

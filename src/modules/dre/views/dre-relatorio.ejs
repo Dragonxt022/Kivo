@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — DRE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/dre/relatorio' }) %>
+  <main x-data="drePage()" x-init="load()">
+    <h1>DRE — Demonstrativo de Resultado</h1>
+    <p class="muted muted-block">
+      A coluna <strong>Real</strong> é o valor apurado dos lançamentos. A coluna <strong>Projetado</strong>
+      aplica o ajuste percentual configurado em cada categoria (padrão 0%) só como simulação —
+      não altera nenhum lançamento. Configure os ajustes em
+      <a href="/app/dre/categorias">Categorias do DRE</a>.
+    </p>
+    <div class="toolbar">
+      <input type="date" x-model="from" @change="load()" class="input-search" />
+      <input type="date" x-model="to" @change="load()" class="input-search" />
+      <a class="btn secondary small" :href="'/app/dre/relatorio/imprimir?from=' + from + '&to=' + to" target="_blank">Imprimir</a>
+      <% if (user.permissions.has('dre.categories.edit')) { %>
+        <a class="btn secondary small" href="/app/dre/categorias">Configurar categorias e ajustes</a>
+      <% } %>
+    </div>
+
+    <table>
+      <thead><tr><th>Categoria</th><th class="right">Real</th><th class="right">Ajuste</th><th class="right">Projetado</th></tr></thead>
+      <tbody>
+        <template x-for="row in rows" :key="row.key">
+          <tr :class="row.type === 'header' ? 'muted' : (row.type !== 'category' ? 'total-row' : '')"
+              :style="row.type === 'final' ? 'border-top:2px solid var(--border, #333);font-size:1.05em' : (row.type === 'subtotal-final' ? 'border-top:2px solid var(--border, #333)' : '')">
+            <td :colspan="row.type === 'header' ? 4 : 1">
+              <strong x-show="row.type === 'header'" x-text="row.label"></strong>
+              <span x-show="row.type !== 'header'" x-text="row.label"></span>
+            </td>
+            <template x-if="row.type !== 'header'">
+              <td class="right" x-text="brl(row.realCents)"></td>
+            </template>
+            <template x-if="row.type !== 'header'">
+              <td class="right" x-text="row.type === 'category' ? pct(row.adjustmentBps) : ''"></td>
+            </template>
+            <template x-if="row.type !== 'header'">
+              <td class="right" x-text="brl(row.adjustedCents)"></td>
+            </template>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    <p class="muted" style="font-size:.82rem">
+      O CMV é calculado com o custo atual de cada produto (não há histórico de custo por venda ainda) —
+      se o custo de um produto mudou depois da venda, o valor exibido é uma aproximação.
+    </p>
+  </main>
+  <script>
+    function drePage() {
+      return {
+        from: '', to: '', rows: [],
+        lineLabels: {
+          receita_bruta: 'Receita Bruta', deducoes: 'Deduções da Receita', cmv: 'CMV',
+          despesas_operacionais: 'Despesas Operacionais', despesas_financeiras: 'Despesas Financeiras',
+        },
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        pct(bps) { return (bps === 0 ? '—' : (bps > 0 ? '+' : '') + (bps / 100).toFixed(2).replace('.', ',') + '%'); },
+        async load() {
+          const params = new URLSearchParams();
+          if (this.from) params.set('from', this.from);
+          if (this.to) params.set('to', this.to);
+          const r = await fetch('/api/dre/report?' + params);
+          if (!r.ok) return;
+          const d = await r.json();
+          const t = d.totals;
+          const afterLine = {
+            deducoes: { label: '= Receita Líquida', realCents: t.receitaLiquidaReal, adjustedCents: t.receitaLiquidaAjustada, type: 'subtotal-final' },
+            cmv: { label: '= Lucro Bruto', realCents: t.lucroBrutoReal, adjustedCents: t.lucroBrutoAjustada, type: 'subtotal-final' },
+            despesas_operacionais: { label: '= Resultado Operacional', realCents: t.resultadoOperacionalReal, adjustedCents: t.resultadoOperacionalAjustada, type: 'subtotal-final' },
+            despesas_financeiras: { label: '= Resultado Líquido do Período', realCents: t.resultadoLiquidoReal, adjustedCents: t.resultadoLiquidoAjustada, type: 'final' },
+          };
+          const rows = [];
+          for (const line of ['receita_bruta', 'deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras']) {
+            const group = d.lines[line];
+            rows.push({ key: line + '-h', type: 'header', label: this.lineLabels[line] });
+            for (const c of group.categories) {
+              rows.push({ key: 'c' + c.id, type: 'category', label: c.label, realCents: c.realCents, adjustmentBps: c.adjustmentBps, adjustedCents: c.adjustedCents });
+            }
+            rows.push({ key: line + '-t', type: 'subtotal', label: 'Total ' + this.lineLabels[line], realCents: group.realCents, adjustedCents: group.adjustedCents });
+            if (afterLine[line]) rows.push({ key: line + '-f', ...afterLine[line] });
+          }
+          this.rows = rows;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

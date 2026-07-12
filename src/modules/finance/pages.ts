@@ -39,7 +39,7 @@ router.get('/caixa/:id/relatorio', (req, res) => {
 router.get('/pagar', page('finance-bills', 'finance.payables.view', {
   bills: { title: 'Contas a pagar', api: '/api/finance/payables', settleLabel: 'Pagar',
     createPerm: 'finance.payables.create', settlePerm: 'finance.payables.pay', editPerm: 'finance.payables.edit',
-    partyLabel: 'Fornecedor', settledStatus: 'paga' },
+    partyLabel: 'Fornecedor', settledStatus: 'paga', categoryField: true },
 }));
 router.get('/receber', page('finance-bills', 'finance.receivables.view', {
   bills: { title: 'Contas a receber', api: '/api/finance/receivables', settleLabel: 'Receber',

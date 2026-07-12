@@ -49,7 +49,7 @@ const manifest: ModuleManifest = {
   // já são congelados na própria linha, que é o que realmente importa para o histórico).
   syncTables: [
     { table: 'cash_registers', excludeColumns: ['opened_by', 'closed_by', 'edited_by'] },
-    { table: 'payables', foreignKeys: { supplier_id: 'suppliers' } },
+    { table: 'payables', foreignKeys: { supplier_id: 'suppliers', dre_category_id: 'dre_categories' } },
     { table: 'receivables', foreignKeys: { customer_id: 'customers', sale_id: 'sales', agreement_company_id: 'agreement_companies' } },
     {
       table: 'cash_movements',

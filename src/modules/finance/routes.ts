@@ -181,6 +181,7 @@ router.use('/payables', makeBillsRouter({
   partyColumn: 'supplier_id', partyTable: 'suppliers',
   settleStatus: 'paga', settleAction: 'pagar', settleDateCol: 'paid_at', settleCentsCol: 'paid_cents',
   movementType: 'pagamento', movementDirection: 'saida', settlePermission: 'finance.payables.pay',
+  categoryField: true,
 }));
 router.use('/receivables', makeBillsRouter({
   table: 'receivables', entity: 'receivable', permPrefix: 'finance.receivables',
