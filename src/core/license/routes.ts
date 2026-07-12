@@ -34,6 +34,7 @@ router.get('/status', (_req, res) => {
     message: info.message,
     supportPhone: info.supportPhone,
     supportEmail: info.supportEmail,
+    canSaveToCloud: canSaveToCloud(info.plan),
   });
 });
 

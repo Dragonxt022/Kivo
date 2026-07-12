@@ -76,6 +76,7 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma lista de preço cadastrada ainda.' }) %></td></tr>
       </tbody>
     </table>
 

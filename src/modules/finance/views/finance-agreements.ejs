@@ -44,7 +44,7 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!rows.length"><td colspan="5" class="muted">Nenhuma empresa conveniada cadastrada.</td></tr>
+        <tr x-show="!rows.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma empresa conveniada cadastrada.' }) %></td></tr>
       </tbody>
     </table>
 
@@ -79,7 +79,7 @@
                 <td class="text-right" x-text="brl(inv.amount_cents)"></td>
               </tr>
             </template>
-            <tr x-show="!invoices.length"><td colspan="4" class="muted">Nenhuma fatura gerada ainda.</td></tr>
+            <tr x-show="!invoices.length"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhuma fatura gerada ainda.' }) %></td></tr>
           </tbody>
         </table>
       </div>

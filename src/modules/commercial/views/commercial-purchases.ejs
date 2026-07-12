@@ -70,6 +70,7 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma compra registrada ainda.' }) %></td></tr>
       </tbody>
     </table>
 

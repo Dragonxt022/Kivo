@@ -95,7 +95,7 @@
               <td class="text-right" x-text="brl(s.total_cents)"></td>
             </tr>
           </template>
-          <tr x-show="!purchases.length"><td colspan="5" class="muted">Nenhuma compra registrada.</td></tr>
+          <tr x-show="!purchases.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma compra registrada.' }) %></td></tr>
         </tbody>
       </table>
     </section>
@@ -121,7 +121,7 @@
               </td>
             </tr>
           </template>
-          <tr x-show="!receivables.length"><td colspan="5" class="muted">Nenhum lançamento financeiro.</td></tr>
+          <tr x-show="!receivables.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum lançamento financeiro.' }) %></td></tr>
         </tbody>
       </table>
     </section>

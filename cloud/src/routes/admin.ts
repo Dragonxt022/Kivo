@@ -44,6 +44,7 @@ interface CompanyRow {
   plan: string | null;
   modules: string[] | null;
   valid_until: string | null;
+  max_devices: number;
 }
 
 async function loadCompanyDetail(companyUuid: string) {
@@ -65,7 +66,12 @@ async function loadCompanyDetail(companyUuid: string) {
 
   const [charges] = await pool.query('SELECT * FROM charges WHERE company_uuid = ? ORDER BY due_date DESC', [companyUuid]);
 
-  return { company, syncStats, backups, charges };
+  const [devices] = await pool.query(
+    'SELECT id, machine_id, first_seen_at, last_seen_at FROM company_devices WHERE company_uuid = ? AND removed_at IS NULL ORDER BY last_seen_at DESC',
+    [companyUuid],
+  );
+
+  return { company, syncStats, backups, charges, devices };
 }
 
 // --- Autenticação ---
@@ -106,12 +112,12 @@ router.get('/', requireAdminAuth, async (_req, res) => {
 });
 
 router.post('/companies', requireAdminAuth, async (req: AdminRequest, res) => {
-  const { name, plan, modules, validUntil } = req.body ?? {};
+  const { name, plan, modules, validUntil, maxDevices } = req.body ?? {};
   const companyUuid = randomUUID();
   const licenseKey = generateLicenseKey();
   const modulesList = parseModules(modules);
   await getPool().query(
-    'INSERT INTO companies (company_uuid, license_key_hash, name, plan, modules, valid_until) VALUES (?, ?, ?, ?, CAST(? AS JSON), ?)',
+    'INSERT INTO companies (company_uuid, license_key_hash, name, plan, modules, valid_until, max_devices) VALUES (?, ?, ?, ?, CAST(? AS JSON), ?, ?)',
     [
       companyUuid,
       hashLicenseKey(licenseKey),
@@ -119,6 +125,7 @@ router.post('/companies', requireAdminAuth, async (req: AdminRequest, res) => {
       plan || null,
       modulesList.length ? JSON.stringify(modulesList) : null,
       resolveValidUntil(plan || null, validUntil),
+      maxDevices ? Math.max(1, Number(maxDevices)) : 1,
     ],
   );
   const detail = await loadCompanyDetail(companyUuid);
@@ -136,11 +143,30 @@ router.get('/companies/:uuid', requireAdminAuth, async (req, res) => {
 
 router.post('/companies/:uuid', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  const { name, plan, modules, validUntil } = req.body ?? {};
+  const { name, plan, modules, validUntil, maxDevices } = req.body ?? {};
   const modulesList = parseModules(modules);
   await getPool().query(
-    'UPDATE companies SET name = ?, plan = ?, modules = CAST(? AS JSON), valid_until = ? WHERE company_uuid = ?',
-    [name || null, plan || null, modulesList.length ? JSON.stringify(modulesList) : null, resolveValidUntil(plan || null, validUntil), uuid],
+    'UPDATE companies SET name = ?, plan = ?, modules = CAST(? AS JSON), valid_until = ?, max_devices = ? WHERE company_uuid = ?',
+    [
+      name || null,
+      plan || null,
+      modulesList.length ? JSON.stringify(modulesList) : null,
+      resolveValidUntil(plan || null, validUntil),
+      maxDevices ? Math.max(1, Number(maxDevices)) : 1,
+      uuid,
+    ],
+  );
+  res.redirect(`/admin/companies/${uuid}`);
+});
+
+/** Libera a vaga do dispositivo (troca de máquina, decisão de produto: só via suporte) —
+ * soft delete: a máquina removida leva um bloqueio imediato e específico na próxima
+ * tentativa dela (`device_revoked`), não some silenciosamente do histórico. */
+router.post('/companies/:uuid/devices/:id/delete', requireAdminAuth, async (req, res) => {
+  const uuid = String(req.params.uuid);
+  await getPool().query(
+    "UPDATE company_devices SET removed_at = NOW(3) WHERE id = ? AND company_uuid = ? AND removed_at IS NULL",
+    [req.params.id, uuid],
   );
   res.redirect(`/admin/companies/${uuid}`);
 });
@@ -166,6 +192,7 @@ router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
     await conn.query('DELETE FROM sync_records WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM cloud_backups WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM charges WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM company_devices WHERE company_uuid = ?', [uuid]);
     await conn.query('UPDATE catalog_images SET company_uuid = NULL WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM companies WHERE company_uuid = ?', [uuid]);
     await conn.commit();

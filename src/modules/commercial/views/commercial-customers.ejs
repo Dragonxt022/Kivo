@@ -95,6 +95,7 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhum cliente cadastrado ainda.' }) %></td></tr>
       </tbody>
     </table>
 

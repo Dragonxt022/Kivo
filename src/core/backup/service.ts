@@ -35,6 +35,30 @@ export interface BackupResult {
   checksum: string;
 }
 
+export interface BackupSettings {
+  frequencia: 'diario' | 'semanal' | 'mensal';
+  hora: string; // 'HH:MM'
+  diaSemana: number; // 0 (domingo) .. 6 (sábado), usado só se frequencia = 'semanal'
+  diaMes: number; // 1..28, usado só se frequencia = 'mensal'
+  retencao: number | null; // null/0 = sem limite (não apaga nada automaticamente)
+}
+
+/** Configurações de agendamento/retenção de backup, guardadas na tabela `settings` (chaves `backup.*`). */
+export function getBackupSettings(): BackupSettings {
+  const rows = getSqlite()
+    .prepare("SELECT key, value FROM settings WHERE key LIKE 'backup.%' AND deleted_at IS NULL")
+    .all() as { key: string; value: string | null }[];
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const frequencia = map['backup.frequencia'] === 'semanal' || map['backup.frequencia'] === 'mensal' ? map['backup.frequencia'] : 'diario';
+  return {
+    frequencia,
+    hora: map['backup.hora'] || '23:00',
+    diaSemana: map['backup.dia_semana'] != null ? Number(map['backup.dia_semana']) : 0,
+    diaMes: map['backup.dia_mes'] != null ? Number(map['backup.dia_mes']) : 1,
+    retencao: map['backup.retencao'] != null ? Number(map['backup.retencao']) : 4,
+  };
+}
+
 export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Promise<BackupResult> {
   const db = getSqlite();
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -63,7 +87,43 @@ export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Prom
     }
   }
 
+  try {
+    await enforceRetention();
+  } catch (e) {
+    console.error('[backup] falha ao aplicar retenção (mantém os backups como estão):', e);
+  }
+
   return { id, filePath: finalPath, sizeBytes: compressed.length, checksum };
+}
+
+/**
+ * Apaga os backups mais antigos além do limite configurado em `backup.retencao`
+ * (local e, se o plano permitir nuvem, a cópia lá também). Sem limite configurado
+ * (0/vazio), não faz nada — é opt-in.
+ */
+export async function enforceRetention(): Promise<void> {
+  const { retencao } = getBackupSettings();
+  if (!retencao || retencao <= 0) return;
+  const db = getSqlite();
+  const excess = db
+    .prepare('SELECT id, file_path, uuid, uploaded_at FROM backups ORDER BY id DESC LIMIT -1 OFFSET ?')
+    .all(retencao) as { id: number; file_path: string; uuid: string; uploaded_at: string | null }[];
+  const canCloud = getLicenseCredentials().companyUuid && canSaveToCloud(validateLicense().plan);
+  for (const row of excess) {
+    if (row.uploaded_at && canCloud) {
+      try {
+        await deleteCloudBackup(row.uuid);
+      } catch (e) {
+        console.error('[backup] falha ao excluir cópia antiga na nuvem (mantém a exclusão local):', e);
+      }
+    }
+    try {
+      if (fs.existsSync(row.file_path)) fs.unlinkSync(row.file_path);
+    } catch {
+      // arquivo já não existe — segue a exclusão do registro mesmo assim
+    }
+    db.prepare('DELETE FROM backups WHERE id = ?').run(row.id);
+  }
 }
 
 /** Restaura um backup do histórico. Valida checksum antes de tocar no banco. */
@@ -222,24 +282,39 @@ export async function downloadCloudBackup(cloudUuid: string): Promise<BackupResu
   return { id, filePath: finalPath, sizeBytes: compressed.length, checksum };
 }
 
-/** Agendador: backup diário às 23:00 (verifica a cada minuto, sem duplicar no dia). */
+/**
+ * Já passou do horário configurado hoje, é um dia elegível pra frequência escolhida,
+ * e ainda não rodou um backup agendado hoje? Não checa o minuto exato — assim, se o
+ * app estiver fechado no horário configurado, o backup roda assim que for aberto de
+ * novo (catch-up), em vez de simplesmente perder o dia.
+ */
+function isScheduledBackupDue(now: Date): boolean {
+  const s = getBackupSettings();
+  const [hh, mm] = s.hora.split(':').map((n) => Number(n));
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return false;
+  if (now.getHours() * 60 + now.getMinutes() < hh * 60 + mm) return false;
+  if (s.frequencia === 'semanal' && now.getDay() !== s.diaSemana) return false;
+  if (s.frequencia === 'mensal' && now.getDate() !== s.diaMes) return false;
+  const today = now.toISOString().slice(0, 10);
+  const already = getSqlite()
+    .prepare("SELECT 1 FROM backups WHERE trigger = 'agendado' AND date(created_at) = ?")
+    .get(today);
+  return !already;
+}
+
+/** Agendador de backup: horário/frequência configuráveis em `backup.*` (settings). */
 export function startBackupScheduler(): NodeJS.Timeout {
-  const timer = setInterval(async () => {
-    const now = new Date();
-    if (now.getHours() !== 23 || now.getMinutes() !== 0) return;
-    const today = now.toISOString().slice(0, 10);
-    const last = getSqlite()
-      .prepare("SELECT 1 FROM backups WHERE trigger = 'agendado' AND date(created_at) = ?")
-      .get(today);
-    if (!last) {
-      try {
-        await runBackup('agendado');
-        console.log('[backup] backup diário concluído.');
-      } catch (e) {
-        console.error('[backup] falha no backup agendado:', e);
-      }
+  const check = async () => {
+    if (!isScheduledBackupDue(new Date())) return;
+    try {
+      await runBackup('agendado');
+      console.log('[backup] backup agendado concluído.');
+    } catch (e) {
+      console.error('[backup] falha no backup agendado:', e);
     }
-  }, 60_000);
+  };
+  check(); // catch-up: cobre o caso do app ter ficado fechado no horário configurado
+  const timer = setInterval(check, 60_000);
   timer.unref(); // não impede o processo de encerrar
   return timer;
 }

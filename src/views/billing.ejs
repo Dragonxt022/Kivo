@@ -42,7 +42,7 @@
             <td class="muted" x-text="c.instructions || '—'" style="max-width:280px;white-space:pre-wrap"></td>
           </tr>
         </template>
-        <tr x-show="!charges.length"><td colspan="6" class="muted text-center">Nenhuma cobrança encontrada.</td></tr>
+        <tr x-show="!charges.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma cobrança encontrada.' }) %></td></tr>
       </tbody>
     </table>
     <span class="error" x-text="error"></span>

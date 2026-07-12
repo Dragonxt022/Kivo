@@ -48,11 +48,41 @@
         <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
         <label>Validade</label>
         <input type="date" name="validUntil" value="<%= company.valid_until ? String(company.valid_until).slice(0,10) : '' %>">
+        <label>Limite de dispositivos</label>
+        <input type="number" name="maxDevices" min="1" value="<%= company.max_devices || 1 %>">
+        <p class="field-hint">Quantos computadores podem usar esta chave ao mesmo tempo. Para trocar de máquina além do limite, remova um dispositivo abaixo.</p>
         <div class="modal-actions" style="justify-content: flex-start;">
           <button type="submit" class="btn">Salvar</button>
           <button type="button" class="btn danger" onclick="document.getElementById('modal-rotate-key').showModal()">Gerar nova chave de licença</button>
         </div>
       </form>
+    </div>
+
+    <div class="card">
+      <h2>Dispositivos ativados</h2>
+      <p class="field-hint" style="margin-top:0">
+        Máquinas que já validaram esta licença. Remover libera a vaga e bloqueia imediatamente aquela máquina —
+        use para autorizar a troca de computador de um cliente.
+      </p>
+      <table>
+        <thead><tr><th>Machine ID</th><th>Primeira vez visto</th><th>Visto por último</th><th></th></tr></thead>
+        <tbody>
+          <% devices.forEach(function(d) { %>
+          <tr>
+            <td class="muted"><%= d.machine_id.slice(0, 16) %>…</td>
+            <td><%= d.first_seen_at %></td>
+            <td><%= d.last_seen_at %></td>
+            <td class="text-right">
+              <form method="post" action="/admin/companies/<%= company.company_uuid %>/devices/<%= d.id %>/delete"
+                    onsubmit="return confirm('Remover este dispositivo? Ele será bloqueado imediatamente na próxima tentativa de uso.')">
+                <button type="submit" class="btn danger small">Remover</button>
+              </form>
+            </td>
+          </tr>
+          <% }) %>
+          <% if (!devices.length) { %><tr><td colspan="4" class="empty-state">Nenhum dispositivo ativado ainda.</td></tr><% } %>
+        </tbody>
+      </table>
     </div>
 
     <div class="card">

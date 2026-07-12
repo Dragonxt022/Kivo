@@ -98,6 +98,7 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhuma venda registrada ainda.' }) %></td></tr>
       </tbody>
     </table>
   </main>

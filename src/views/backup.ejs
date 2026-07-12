@@ -14,7 +14,9 @@
   <%- include('partials/nav', { user, page: 'backup' }) %>
   <main x-data="backupPage()" x-init="load()">
     <h1>Backup</h1>
-    <p class="muted muted-block">Backup automático diário às 23:00. Destino configurável em Configurações (chave <code>backup.dir</code>).</p>
+    <p class="muted muted-block">
+      Backup automático <strong x-text="scheduleSummary"></strong>. Destino configurável em Configurações (chave <code>backup.dir</code>).
+    </p>
     <div class="toolbar">
       <% if (user.permissions.has('backup.run')) { %>
         <button class="btn" @click="run()" x-text="running ? 'Executando…' : 'Fazer backup agora'"></button>
@@ -31,10 +33,10 @@
           <tr>
             <td class="muted" x-text="fmtDateTime(b.created_at)"></td>
             <td x-text="b.trigger"></td>
-            <td class="muted" x-text="b.file_path"></td>
+            <td class="muted truncate" :title="b.file_path" x-text="b.file_path"></td>
             <td x-text="(b.size_bytes / 1024).toFixed(1) + ' KB'"></td>
             <td class="muted" x-text="b.checksum.slice(0, 12) + '…'"></td>
-            <td class="text-right">
+            <td class="text-right actions-cell">
               <% if (user.permissions.has('backup.restore')) { %>
                 <button class="btn small" @click="restore(b.id)">Restaurar</button>
               <% } %>
@@ -44,9 +46,67 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!backups.length"><td colspan="6" class="muted text-center">Nenhum backup local ainda.</td></tr>
+        <tr x-show="!backups.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum backup local ainda.' }) %></td></tr>
       </tbody>
     </table>
+
+    <% if (user.permissions.has('settings.edit')) { %>
+    <div class="mt-2">
+      <h2 class="section-title flex-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Configurações de backup
+      </h2>
+      <section class="panel">
+        <div class="field" style="margin-bottom:1.4rem">
+          <label>Frequência</label>
+          <select class="input input-narrow" x-model="cfg.frequencia">
+            <option value="diario">Diária</option>
+            <option value="semanal">Semanal</option>
+            <option value="mensal">Mensal</option>
+          </select>
+        </div>
+
+        <template x-if="cfg.frequencia === 'semanal'">
+          <div class="field" style="margin-bottom:1.4rem">
+            <label>Dia da semana</label>
+            <select class="input input-narrow" x-model.number="cfg.diaSemana">
+              <option value="0">Domingo</option><option value="1">Segunda</option><option value="2">Terça</option>
+              <option value="3">Quarta</option><option value="4">Quinta</option><option value="5">Sexta</option>
+              <option value="6">Sábado</option>
+            </select>
+          </div>
+        </template>
+        <template x-if="cfg.frequencia === 'mensal'">
+          <div class="field" style="margin-bottom:1.4rem">
+            <label>Dia do mês</label>
+            <input class="input input-narrow" type="number" min="1" max="28" x-model.number="cfg.diaMes" />
+          </div>
+        </template>
+
+        <div class="field" style="margin-bottom:1.4rem">
+          <label>Horário</label>
+          <input class="input input-narrow" type="time" x-model="cfg.hora" />
+        </div>
+
+        <div class="field" style="margin-bottom:1.4rem">
+          <label>Quantos backups manter</label>
+          <input class="input input-narrow" type="number" min="0" x-model.number="cfg.retencao" placeholder="0 = sem limite" />
+          <p class="hint">
+            Ao ultrapassar esse número, os backups mais antigos são apagados automaticamente — local
+            <span x-show="license.canSaveToCloud">e na nuvem</span><span x-show="!license.canSaveToCloud">
+            (envio/retenção na nuvem não incluídos no seu plano atual)</span>.
+          </p>
+        </div>
+
+        <div class="toolbar" style="margin-top:.6rem">
+          <button class="btn" @click="saveConfig()" x-text="savingConfig ? 'Salvando…' : 'Salvar configurações'"></button>
+          <span class="muted" x-show="configSaved" x-text="configSaved"></span>
+        </div>
+      </section>
+    </div>
+    <% } %>
 
     <% if (user.permissions.has('backup.view')) { %>
     <div class="mt-2">
@@ -56,49 +116,99 @@
         </svg>
         Backups na nuvem
       </h2>
-      <p class="muted muted-block">
-        Se esta é uma máquina nova para uma empresa que já tem dados na nuvem, restaure o backup mais recente <strong>antes</strong>
-        de começar a cadastrar produtos — evita duplicar cadastros quando a sincronização rodar.
-      </p>
-      <table>
-        <thead><tr><th>Quando</th><th>Máquina</th><th>Tamanho</th><th></th></tr></thead>
-        <tbody>
-          <template x-for="cb in cloudBackups" :key="cb.uuid">
-            <tr>
-              <td class="muted" x-text="fmtDateTime(cb.createdAt)"></td>
-              <td class="muted" x-text="cb.machineId"></td>
-              <td x-text="(cb.sizeBytes / 1024).toFixed(1) + ' KB'"></td>
-              <td class="text-right">
-                <% if (user.permissions.has('backup.restore')) { %>
-                  <button class="btn secondary small" @click="downloadAndRestore(cb)" :disabled="downloadingUuid === cb.uuid"
-                          x-text="downloadingUuid === cb.uuid ? 'Baixando…' : 'Baixar e restaurar'"></button>
-                <% } %>
-                <% if (user.permissions.has('backup.delete')) { %>
-                  <button class="btn danger small" @click="removeCloudBackup(cb)">Excluir da nuvem</button>
-                <% } %>
-              </td>
-            </tr>
-          </template>
-          <tr x-show="!cloudBackups.length && !cloudError"><td colspan="4" class="muted text-center">Nenhum backup na nuvem ainda.</td></tr>
-          <tr x-show="cloudError"><td colspan="4" class="muted text-center" x-text="cloudError"></td></tr>
-        </tbody>
-      </table>
+      <template x-if="license.canSaveToCloud === false">
+        <p class="muted muted-block">Envio e restauração de backup pela nuvem não estão incluídos no seu plano atual.</p>
+      </template>
+
+      <template x-if="license.canSaveToCloud !== false">
+        <div>
+          <p class="muted muted-block">
+            Se esta é uma máquina nova para uma empresa que já tem dados na nuvem, restaure o backup mais recente <strong>antes</strong>
+            de começar a cadastrar produtos — evita duplicar cadastros quando a sincronização rodar.
+          </p>
+          <table>
+            <thead><tr><th>Quando</th><th>Máquina</th><th>Tamanho</th><th></th></tr></thead>
+            <tbody>
+              <template x-for="cb in cloudBackups" :key="cb.uuid">
+                <tr>
+                  <td class="muted" x-text="fmtDateTime(cb.createdAt)"></td>
+                  <td class="muted" x-text="cb.machineId"></td>
+                  <td x-text="(cb.sizeBytes / 1024).toFixed(1) + ' KB'"></td>
+                  <td class="text-right actions-cell">
+                    <% if (user.permissions.has('backup.restore')) { %>
+                      <button class="btn secondary small" @click="downloadAndRestore(cb)" :disabled="downloadingUuid === cb.uuid"
+                              x-text="downloadingUuid === cb.uuid ? 'Baixando…' : 'Baixar e restaurar'"></button>
+                    <% } %>
+                    <% if (user.permissions.has('backup.delete')) { %>
+                      <button class="btn danger small" @click="removeCloudBackup(cb)">Excluir da nuvem</button>
+                    <% } %>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!cloudBackups.length && !cloudError"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum backup na nuvem ainda.' }) %></td></tr>
+              <tr x-show="cloudError"><td colspan="4" class="muted text-center" x-text="cloudError"></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
     </div>
     <% } %>
   </main>
   <script>
     function backupPage() {
+      const weekdayNames = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
       return {
         backups: [], cloudBackups: [], error: '', cloudError: '', notice: '', running: false, downloadingUuid: null,
+        license: {},
+        cfg: { frequencia: 'diario', hora: '23:00', diaSemana: 0, diaMes: 1, retencao: 4 },
+        savingConfig: false, configSaved: '',
+        get scheduleSummary() {
+          const freq = this.cfg.frequencia === 'semanal' ? `semanalmente (${weekdayNames[this.cfg.diaSemana]})`
+            : this.cfg.frequencia === 'mensal' ? `mensalmente (dia ${this.cfg.diaMes})` : 'diariamente';
+          return `${freq} às ${this.cfg.hora}`;
+        },
         async load() {
           const r = await fetch('/api/backup');
           if (r.ok) this.backups = await r.json();
+          const l = await fetch('/api/license/status');
+          if (l.ok) this.license = await l.json();
           <% if (user.permissions.has('backup.view')) { %>
           const c = await fetch('/api/backup/cloud');
           if (c.ok) { this.cloudBackups = await c.json(); this.cloudError = ''; }
           else this.cloudError = (await c.json()).error ?? 'Não foi possível listar os backups da nuvem.';
           <% } %>
+          <% if (user.permissions.has('settings.edit')) { %>
+          const s = await fetch('/api/settings');
+          if (s.ok) {
+            const settings = await s.json();
+            const get = (key, def) => settings.find((x) => x.key === key)?.value ?? def;
+            this.cfg = {
+              frequencia: get('backup.frequencia', 'diario'),
+              hora: get('backup.hora', '23:00'),
+              diaSemana: Number(get('backup.dia_semana', 0)),
+              diaMes: Number(get('backup.dia_mes', 1)),
+              retencao: Number(get('backup.retencao', 4)),
+            };
+          }
+          <% } %>
         },
+        <% if (user.permissions.has('settings.edit')) { %>
+        async saveConfig() {
+          this.savingConfig = true; this.configSaved = '';
+          const upsert = (key, value) => fetch(`/api/settings/${encodeURIComponent(key)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: String(value) }),
+          });
+          const results = await Promise.all([
+            upsert('backup.frequencia', this.cfg.frequencia),
+            upsert('backup.hora', this.cfg.hora),
+            upsert('backup.dia_semana', this.cfg.diaSemana),
+            upsert('backup.dia_mes', this.cfg.diaMes),
+            upsert('backup.retencao', this.cfg.retencao || 0),
+          ]);
+          this.savingConfig = false;
+          this.configSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
+        },
+        <% } %>
         async run() {
           this.running = true; this.error = '';
           const r = await fetch('/api/backup', { method: 'POST' });

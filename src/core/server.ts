@@ -15,8 +15,33 @@ import syncRoutes from './sync/routes';
 import billingRoutes from './billing/routes';
 import securityRoutes from './security/routes';
 import { startBackupScheduler } from './backup/service';
-import { validateLicense } from './license/service';
+import { validateLicense, isActivated, refreshLicenseFromCloud } from './license/service';
+import activationRoutes from './license/activationRoutes';
 import { productImagesDir, trySubmitPending } from './catalog/submissionQueue';
+
+/** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina/relógio
+ * só se autocura se o usuário reiniciar o app ou clicar em "Sincronizar agora". */
+function startLicenseRevalidationScheduler(): NodeJS.Timeout {
+  const check = () => {
+    refreshLicenseFromCloud().catch(() => {});
+  };
+  const timer = setInterval(check, 4 * 3600e3); // a cada 4h
+  timer.unref();
+  return timer;
+}
+
+/** Ativação obrigatória: sem isso, nenhuma rota (exceto a própria tela de ativação) responde. */
+function requireActivation(req: Request, res: Response, next: NextFunction): void {
+  if (isActivated()) {
+    next();
+    return;
+  }
+  if (req.path.startsWith('/api/')) {
+    res.status(403).json({ error: 'not_activated' });
+    return;
+  }
+  res.redirect('/ativacao');
+}
 
 export interface KatsuServer {
   app: Express;
@@ -52,13 +77,19 @@ export async function createServer(): Promise<KatsuServer> {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.resolve(__dirname, '..', 'public')));
   app.use('/uploads/products', express.static(productImagesDir()));
+
+  // Health check e tela de ativação: alcançáveis mesmo numa instalação ainda não
+  // ativada (é o próprio propósito da tela). O gate abaixo bloqueia todo o resto.
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, name: 'katsu', ts: new Date().toISOString() });
+  });
+  app.use(activationRoutes);
+  app.use(requireActivation);
+
   app.use(attachUser);
   app.use(filterModuleMenu);
 
   // Rotas públicas
-  app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, name: 'katsu', ts: new Date().toISOString() });
-  });
   app.use('/api/auth', authRoutes);
   app.get('/login', (_req, res) => {
     res.redirect('/?login=1');
@@ -98,6 +129,7 @@ export async function createServer(): Promise<KatsuServer> {
   const lic = validateLicense();
   console.log(`[license] ${lic.status}: ${lic.message}`);
   startBackupScheduler();
+  startLicenseRevalidationScheduler();
   // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
   trySubmitPending().catch(() => {});
 

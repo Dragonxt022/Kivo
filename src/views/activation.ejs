@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Ativação</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <style>
+    body { display: grid; place-items: center; min-height: 100vh; }
+    .activation-card {
+      background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+      padding: 2.5rem 2rem; width: 380px; text-align: center;
+    }
+    .activation-card img.logo { width: 72px; margin-bottom: .75rem; }
+    .activation-card h1 { font-size: 1.15rem; font-weight: 600; margin-bottom: .4rem; }
+    .activation-card .subtitle { font-size: .85rem; color: var(--text-muted); margin-bottom: 1.4rem; }
+    .activation-card label { display: block; text-align: left; font-size: .82rem; color: var(--text-muted); margin-bottom: .25rem; }
+    .activation-card input[type="text"] {
+      width: 100%; padding: .6rem .75rem; border-radius: 10px; border: 1.5px solid var(--border-light);
+      background: var(--surface-hover); color: var(--text); font-size: .95rem; margin-bottom: .85rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .activation-card input:focus {
+      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+    }
+    .activation-card button[type="submit"] {
+      width: 100%; padding: .7rem; border: 0; border-radius: 10px; background: var(--primary); color: #fff;
+      font-size: .95rem; font-weight: 600; cursor: pointer; transition: background var(--transition), transform var(--transition);
+    }
+    .activation-card button[type="submit"]:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .activation-card button[type="submit"]:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+    .activation-card .error { color: var(--danger); font-size: .85rem; margin-top: .75rem; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="activation-card" x-data="activationPage()">
+    <img class="logo" :src="theme === 'dark' ? '/logo_marca_branco.png' : '/katsu_logo.png'" alt="Katsu" />
+    <h1>Ativar o Katsu</h1>
+    <p class="subtitle">Informe os dados fornecidos na compra. É preciso estar conectado à internet nesta primeira ativação.</p>
+    <form @submit.prevent="activate">
+      <label for="act-company">Empresa (UUID)</label>
+      <input id="act-company" type="text" x-model="companyUuid" placeholder="uuid fornecido na ativação" autocomplete="off" />
+      <label for="act-key">Chave de licença</label>
+      <input id="act-key" type="text" x-model="licenseKey" placeholder="chave fornecida na ativação" autocomplete="off" />
+      <button type="submit" x-text="loading ? 'Ativando…' : 'Ativar'" :disabled="loading"></button>
+      <div class="error" x-text="error"></div>
+    </form>
+  </div>
+  <script defer src="/vendor/alpine.min.js"></script>
+  <script>
+    function activationPage() {
+      return {
+        theme: document.documentElement.getAttribute('data-theme') || 'light',
+        companyUuid: '', licenseKey: '', loading: false, error: '',
+        async activate() {
+          if (!this.companyUuid.trim() || !this.licenseKey.trim()) {
+            this.error = 'Preencha empresa e chave de licença.';
+            return;
+          }
+          this.loading = true; this.error = '';
+          try {
+            const r = await fetch('/api/activation/activate', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ companyUuid: this.companyUuid.trim(), licenseKey: this.licenseKey.trim() }),
+            });
+            if (r.ok) { window.location.href = '/'; return; }
+            const data = await r.json();
+            this.error = data.error || 'Falha ao ativar.';
+          } catch (e) {
+            this.error = 'Erro de conexão. Verifique sua internet e tente novamente.';
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

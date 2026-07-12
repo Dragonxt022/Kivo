@@ -82,6 +82,7 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum orçamento registrado ainda.' }) %></td></tr>
       </tbody>
     </table>
 

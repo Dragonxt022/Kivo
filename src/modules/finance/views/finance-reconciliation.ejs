@@ -28,7 +28,7 @@
             <td class="text-right"><a :href="'/app/commercial/clientes/' + c.id" class="btn secondary small">Ver ficha</a></td>
           </tr>
         </template>
-        <tr x-show="!rows.length"><td colspan="4" class="muted">Nenhum saldo negativo encontrado — tudo certo.</td></tr>
+        <tr x-show="!rows.length"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum saldo negativo encontrado — tudo certo.' }) %></td></tr>
       </tbody>
     </table>
   </main>

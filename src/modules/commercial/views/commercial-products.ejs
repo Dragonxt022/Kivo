@@ -128,6 +128,7 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="10"><%- include('partials/empty-state', { message: 'Nenhum produto cadastrado ainda.' }) %></td></tr>
       </tbody>
     </table>
 

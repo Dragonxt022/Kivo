@@ -41,6 +41,7 @@
             <td class="muted" x-text="l.machine ?? '—'"></td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum registro de auditoria encontrado.' }) %></td></tr>
       </tbody>
     </table>
   </main>

@@ -329,6 +329,7 @@ main {
   overflow: hidden;
   transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
 }
+button.app-card { font: inherit; cursor: pointer; }
 .app-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 18%, transparent);
@@ -386,6 +387,17 @@ tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
 .sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 .sortable:hover { color: var(--text); }
 .sort-arrow { font-size: .6rem; margin-left: .15rem; }
+
+.truncate { max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.actions-cell { white-space: nowrap; display: flex; gap: .5rem; justify-content: flex-end; }
+
+/* ─── Estado vazio (tabelas e listas sem registros) ─── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .5rem; padding: 2.25rem 1rem; color: var(--text-muted); text-align: center;
+}
+.empty-state svg { stroke: var(--border); }
+.empty-state p { font-size: .9rem; margin: 0; }
 
 /* ─── Buttons ─── */
 .btn {

@@ -120,16 +120,26 @@
         if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'shield-check', description: 'Quem fez o quê, quando e de onde.' });
         if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', description: 'Cópias de segurança do banco.' });
         if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', description: 'Parâmetros do sistema e licença.' });
-        adminItems.forEach(function (item) {
-          visibleItems.push(item);
+        visibleItems = visibleItems.concat(adminItems);
       %>
-          <a class="app-card" href="<%= item.href %>" x-show="matches('<%= item.label %>')">
+
+      <% if (adminItems.length) { %>
+      <button type="button" class="app-card" @click="showMore = !showMore" x-show="!q">
+        <img class="card-icon" src="/icons/more.svg" alt="" width="40" height="40" />
+        <span class="card-title" x-text="showMore ? 'Mostrar menos' : 'Mais'"></span>
+        <span class="card-desc">Usuários, cargos, auditoria, backup e configurações.</span>
+      </button>
+      <% } %>
+
+      <% adminItems.forEach(function (item) { %>
+          <a class="app-card" href="<%= item.href %>" x-show="(showMore || q) && matches('<%= item.label %>')">
             <img class="card-icon" src="/icons/<%= item.icon %>.svg" alt="" width="40" height="40" />
             <span class="card-title"><%= item.label %></span>
             <span class="card-desc"><%= item.description %></span>
           </a>
+      <% }) %>
+
       <%
-        });
         var rem = visibleItems.length % 4;
         if (rem > 0) {
           for (var i = 0; i < 4 - rem; i++) {
@@ -183,6 +193,7 @@
         greetingIcon: '',
         theme: document.documentElement.getAttribute('data-theme') || 'light',
         q: '',
+        showMore: false,
         showLogin: false,
         loginUser: '',
         loginPass: '',

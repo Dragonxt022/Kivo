@@ -100,11 +100,15 @@
 
 <% if (user) { %>
 <dialog x-ref="licenseBlockDlg" closedby="none" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:340px;max-width:90vw"
-        x-init="$watch('licenseStatus', v => (v && v.status === 'expirada') ? $refs.licenseBlockDlg.showModal() : $refs.licenseBlockDlg.close())"
+        x-init="$watch('licenseStatus', v => (v && (v.status === 'expirada' || v.status === 'bloqueada')) ? $refs.licenseBlockDlg.showModal() : $refs.licenseBlockDlg.close())"
         @close.prevent="null">
   <div style="padding:1.25rem">
-    <h2 class="dialog-heading-md">Licença expirada</h2>
-    <p class="dialog-text">
+    <h2 class="dialog-heading-md" x-text="licenseStatus && licenseStatus.status === 'bloqueada' ? 'Licença bloqueada' : 'Licença expirada'"></h2>
+    <p class="dialog-text" x-show="licenseStatus && licenseStatus.status === 'bloqueada'">
+      Detectamos uma inconsistência nesta instalação (relógio do sistema, integridade dos dados de licença ou
+      dispositivo). Conecte esta máquina à internet para revalidar. Se o problema continuar, contate o suporte.
+    </p>
+    <p class="dialog-text" x-show="!licenseStatus || licenseStatus.status !== 'bloqueada'">
       Entre em contato com o suporte para renovar sua licença e continuar usando o Katsu.
     </p>
     <p class="dialog-text-sm" x-show="licenseStatus && licenseStatus.supportPhone">

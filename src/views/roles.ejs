@@ -56,6 +56,7 @@
             </td>
           </tr>
         </template>
+        <tr x-show="!displayRows.length"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum cargo cadastrado ainda.' }) %></td></tr>
       </tbody>
     </table>
 

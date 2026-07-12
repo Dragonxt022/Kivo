@@ -34,7 +34,7 @@
               </td>
             </tr>
           </template>
-          <tr x-show="!receivables.length"><td colspan="5" class="muted">Nenhum lançamento financeiro.</td></tr>
+          <tr x-show="!receivables.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum lançamento financeiro.' }) %></td></tr>
         </tbody>
       </table>
     </section>
