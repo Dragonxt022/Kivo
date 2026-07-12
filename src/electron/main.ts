@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeTheme } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -11,6 +11,15 @@ import { refreshLicenseFromCloud, validateLicense } from '../core/license/servic
 import { canAutoUpdate } from '../core/license/plans';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
+
+// Mesmo par light/dark já usado na logo da tela de login (home.ejs) — reaproveitado
+// aqui pro ícone da janela/taskbar acompanhar o tema do Windows em tempo real.
+const ICON_LIGHT = path.resolve(__dirname, '..', 'public', 'katsu_logo.png');
+const ICON_DARK = path.resolve(__dirname, '..', 'public', 'logo_marca_branco.png');
+
+function currentIconPath(): string {
+  return nativeTheme.shouldUseDarkColors ? ICON_DARK : ICON_LIGHT;
+}
 
 /**
  * Backup local (Fase 1) e nuvem (Fase 6c) precisam de um diretório gravável fora da
@@ -110,7 +119,7 @@ async function boot() {
     show: false,
     // Relativo a __dirname (não process.cwd()): dev resolve para src/public; app
     // empacotado resolve para dist/public (ver scripts/copy-build-assets.js).
-    icon: path.resolve(__dirname, '..', 'public', 'katsu_logo.png'),
+    icon: currentIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -120,6 +129,10 @@ async function boot() {
   win.maximize();
   win.show();
   await win.loadURL(`http://localhost:${PORT}/`);
+
+  // Acompanha o tema claro/escuro do Windows em tempo real (o ícone gravado no .exe
+  // no build é fixo; isto troca o ícone da janela/taskbar enquanto o app está aberto).
+  nativeTheme.on('updated', () => win.setIcon(currentIconPath()));
 
   setupAutoUpdater();
 }

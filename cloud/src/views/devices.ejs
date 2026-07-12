@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <%- include('partials/theme-init') %>
+  <title>Katsu Cloud — Dispositivos</title>
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'devices' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'devices' }) %>
+
+      <div class="page" x-data="devicesPage()">
+        <div class="page-header">
+          <h1>Dispositivos</h1>
+        </div>
+        <p class="field-hint" style="margin-top:0">
+          Toda máquina que já validou uma licença, de todas as empresas. Remover libera a vaga daquela empresa e
+          bloqueia imediatamente a máquina removida — use para autorizar troca de computador de um cliente sem
+          precisar abrir a ficha da empresa.
+        </p>
+
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <input type="text" class="input-search" placeholder="Buscar por empresa ou machine ID…" x-model="q">
+        </div>
+
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead><tr>
+              <th class="sortable" @click="sortCycle('company_name')">Empresa<span class="sort-arrow" x-text="sortArrow('company_name')"></span></th>
+              <th class="sortable" @click="sortCycle('company_plan')">Plano<span class="sort-arrow" x-text="sortArrow('company_plan')"></span></th>
+              <th>Machine ID</th>
+              <th class="sortable" @click="sortCycle('first_seen_at')">Primeira vez visto<span class="sort-arrow" x-text="sortArrow('first_seen_at')"></span></th>
+              <th class="sortable" @click="sortCycle('last_seen_at')">Visto por último<span class="sort-arrow" x-text="sortArrow('last_seen_at')"></span></th>
+              <th class="sortable" @click="sortCycle('status')">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="d in displayRows" :key="d.id">
+                <tr>
+                  <td><a :href="'/admin/companies/' + d.company_uuid" x-text="d.company_name || d.company_uuid"></a></td>
+                  <td><span class="badge plan" x-show="d.company_plan" x-text="planLabels[d.company_plan] || d.company_plan"></span><span x-show="!d.company_plan">—</span></td>
+                  <td class="muted" x-text="d.machine_id.slice(0, 16) + '…'"></td>
+                  <td x-text="d.first_seen_at"></td>
+                  <td x-text="d.last_seen_at"></td>
+                  <td><span class="badge" :class="d.removed_at ? 'cancelada' : 'paga'" x-text="d.removed_at ? 'removido' : 'ativo'"></span></td>
+                  <td class="text-right">
+                    <form method="post" :action="'/admin/companies/' + d.company_uuid + '/devices/' + d.id + '/delete'"
+                          x-show="!d.removed_at"
+                          @submit.prevent="if (confirm('Remover este dispositivo de ' + (d.company_name || d.company_uuid) + '? Ele será bloqueado imediatamente na próxima tentativa de uso.')) $el.submit()">
+                      <input type="hidden" name="redirectTo" value="/admin/devices">
+                      <button type="submit" class="btn danger small">Remover</button>
+                    </form>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum dispositivo registrado ainda.' }) %></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function devicesPage() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(devices) %>,
+        planLabels: <%- JSON.stringify(planLabels) %>,
+        q: '',
+        sortGetters: {
+          company_name: (d) => d.company_name || d.company_uuid, company_plan: (d) => d.company_plan || '',
+          first_seen_at: (d) => d.first_seen_at ?? '', last_seen_at: (d) => d.last_seen_at ?? '',
+          status: (d) => (d.removed_at ? 1 : 0),
+        },
+        get displayRows() {
+          const q = this.q.trim().toLowerCase();
+          const filtered = q
+            ? this.rows.filter((d) => (d.company_name || '').toLowerCase().includes(q) || d.machine_id.toLowerCase().includes(q))
+            : this.rows;
+          return this.sortedRows(filtered, this.sortGetters);
+        },
+      };
+    }
+  </script>
+</body>
+</html>

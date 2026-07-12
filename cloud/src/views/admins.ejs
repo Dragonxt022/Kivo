@@ -5,6 +5,7 @@
   <%- include('partials/theme-init') %>
   <title>Katsu Cloud — Administradores</title>
   <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -12,7 +13,7 @@
     <main class="content">
       <%- include('partials/navbar', { active: 'admins' }) %>
 
-      <div class="page">
+      <div class="page" x-data="adminsPage()">
         <div class="page-header">
           <h1>Administradores</h1>
           <button class="btn" onclick="document.getElementById('modal-new-admin').showModal()">+ Novo administrador</button>
@@ -22,24 +23,31 @@
           <div class="error-banner"><%= error %></div>
         <% } %>
 
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <input type="text" class="input-search" placeholder="Buscar por usuário…" x-model="q">
+        </div>
+
         <div class="card" style="padding: 0;">
           <table>
-            <thead><tr><th>Usuário</th><th>Criado em</th><th></th></tr></thead>
+            <thead><tr>
+              <th class="sortable" @click="sortCycle('username')">Usuário<span class="sort-arrow" x-text="sortArrow('username')"></span></th>
+              <th class="sortable" @click="sortCycle('created_at')">Criado em<span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
+              <th></th>
+            </tr></thead>
             <tbody>
-              <% admins.forEach(function(a) { %>
-              <tr>
-                <td><%= a.username %></td>
-                <td><%= a.created_at %></td>
-                <td style="text-align: right;">
-                  <form method="post" action="/admin/admins/<%= a.id %>/delete" onsubmit="return confirm('Excluir o administrador &quot;<%= a.username %>&quot;?')">
-                    <button type="submit" class="btn danger small">Excluir</button>
-                  </form>
-                </td>
-              </tr>
-              <% }) %>
-              <% if (!admins.length) { %>
-              <tr><td colspan="3" class="empty-state">Nenhum administrador cadastrado.</td></tr>
-              <% } %>
+              <template x-for="a in displayRows" :key="a.id">
+                <tr>
+                  <td x-text="a.username"></td>
+                  <td x-text="a.created_at"></td>
+                  <td style="text-align: right;">
+                    <form method="post" :action="'/admin/admins/' + a.id + '/delete'"
+                          @submit.prevent="if (confirm('Excluir o administrador \'' + a.username + '\'?')) $el.submit()">
+                      <button type="submit" class="btn danger small">Excluir</button>
+                    </form>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!displayRows.length"><td colspan="3"><%- include('partials/empty-state', { message: 'Nenhum administrador cadastrado.' }) %></td></tr>
             </tbody>
           </table>
         </div>
@@ -66,5 +74,22 @@
       </div>
     </form>
   </dialog>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function adminsPage() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(admins) %>,
+        q: '',
+        sortGetters: { username: (a) => a.username, created_at: (a) => a.created_at ?? '' },
+        get displayRows() {
+          const q = this.q.trim().toLowerCase();
+          const filtered = q ? this.rows.filter((a) => a.username.toLowerCase().includes(q)) : this.rows;
+          return this.sortedRows(filtered, this.sortGetters);
+        },
+      };
+    }
+  </script>
 </body>
 </html>

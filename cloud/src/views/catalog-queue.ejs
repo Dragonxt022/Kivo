@@ -6,14 +6,7 @@
   <title>Katsu Cloud — Banco de imagens</title>
   <link rel="icon" href="/favicon.png">
   <%- include('partials/styles') %>
-  <style>
-    .catalog-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border-light); background: var(--surface-hover); }
-    .catalog-meta { font-size: 0.78rem; color: var(--muted); }
-    .catalog-actions-cell { display: flex; gap: 8px; justify-content: flex-end; }
-    .catalog-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
-    .catalog-tabs a:hover { text-decoration: none; }
-    #manual-upload-preview { width: 100%; max-height: 160px; object-fit: contain; border-radius: 8px; margin-bottom: 12px; display: none; background: var(--surface-hover); }
-  </style>
+  <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -33,7 +26,7 @@
       <div class="page">
         <div class="page-header">
           <h1>Banco de imagens</h1>
-          <button class="btn" onclick="document.getElementById('modal-manual-upload').showModal()">+ Adicionar imagem manualmente</button>
+          <button class="btn" onclick="openUploadModal()">+ Adicionar imagem(ns)</button>
         </div>
 
         <div class="card">
@@ -49,47 +42,67 @@
           <div class="error-banner"><%= error %></div>
         <% } %>
 
-        <div class="catalog-tabs">
+        <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
           <a href="/admin/catalog?status=pendente" class="btn secondary <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
           <a href="/admin/catalog?status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
         </div>
 
-        <div class="card" style="padding: 0;">
+        <div class="card" style="padding: 0;" x-data="catalogTable()">
+          <div style="padding: 16px 20px 0; display: flex; justify-content: flex-end;">
+            <input type="text" class="input-search" placeholder="Buscar por produto…" x-model="q">
+          </div>
           <table>
             <thead><tr>
-              <th></th><th>Produto</th><th>Origem</th><th>Detalhes</th>
-              <th><%= activeStatus === 'aprovada' ? 'Aprovada em' : 'Enviada em' %></th><th></th>
+              <th></th>
+              <th class="sortable" @click="sortCycle('product_name')">Produto<span class="sort-arrow" x-text="sortArrow('product_name')"></span></th>
+              <th class="sortable" @click="sortCycle('origin')">Origem<span class="sort-arrow" x-text="sortArrow('origin')"></span></th>
+              <th class="sortable" @click="sortCycle('size_bytes')">Detalhes<span class="sort-arrow" x-text="sortArrow('size_bytes')"></span></th>
+              <th class="sortable" @click="sortCycle('created_at')"><%= activeStatus === 'aprovada' ? 'Aprovada em' : 'Enviada em' %><span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
+              <th></th>
             </tr></thead>
             <tbody>
-              <% images.forEach(function(img) { %>
-              <tr>
-                <td><img class="catalog-thumb" src="/admin/catalog/<%= img.id %>/image" alt="<%= img.product_name %>"></td>
-                <td><%= img.product_name %></td>
-                <td class="catalog-meta"><%= img.source === 'manual' ? 'Manual' : (img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—') %></td>
-                <td class="catalog-meta"><%= img.width %>×<%= img.height %>px · <%= formatBytes(img.size_bytes) %> · <%= img.format %></td>
-                <td class="catalog-meta"><%= img.created_at %></td>
-                <td class="catalog-actions-cell">
-                  <% if (activeStatus === 'pendente') { %>
-                    <form method="post" action="/admin/catalog/<%= img.id %>/approve" class="inline">
-                      <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
-                      <button type="submit" class="btn small">Aprovar</button>
-                    </form>
-                    <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Rejeitar e excluir esta imagem?')">
-                      <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
-                      <button type="submit" class="btn danger small">Rejeitar</button>
-                    </form>
-                  <% } else { %>
-                    <form method="post" action="/admin/catalog/<%= img.id %>/reject" class="inline" onsubmit="return confirm('Remover esta imagem do catálogo aprovado?')">
-                      <input type="hidden" name="redirectStatus" value="<%= activeStatus %>">
-                      <button type="submit" class="btn danger small">Remover do catálogo</button>
-                    </form>
-                  <% } %>
+              <template x-for="img in displayRows" :key="img.id">
+                <tr>
+                  <td><img style="width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--border-light);background:var(--surface-hover)" :src="'/admin/catalog/' + img.id + '/image'" :alt="img.product_name"></td>
+                  <td x-text="img.product_name"></td>
+                  <td style="font-size:0.78rem;color:var(--muted)" x-text="img.origin"></td>
+                  <td style="font-size:0.78rem;color:var(--muted)" x-text="img.width + '×' + img.height + 'px · ' + img.sizeLabel + ' · ' + img.format"></td>
+                  <td style="font-size:0.78rem;color:var(--muted)" x-text="img.created_at"></td>
+                  <td class="text-right" @click.outside="openMenu = null">
+                    <div class="dropdown">
+                      <button type="button" class="icon-btn" @click="openMenu = openMenu === img.id ? null : img.id" title="Mais ações">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                      </button>
+                      <div class="dropdown-menu" x-show="openMenu === img.id" x-cloak>
+                        <a :href="'/admin/catalog/' + img.id + '/image'" download>Baixar</a>
+                        <template x-if="activeStatus === 'pendente'">
+                          <form method="post" :action="'/admin/catalog/' + img.id + '/approve'">
+                            <input type="hidden" name="redirectStatus" :value="activeStatus">
+                            <button type="submit">Aprovar</button>
+                          </form>
+                        </template>
+                        <template x-if="activeStatus === 'pendente'">
+                          <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" @submit.prevent="if (confirm('Rejeitar e excluir esta imagem?')) $el.submit()">
+                            <input type="hidden" name="redirectStatus" :value="activeStatus">
+                            <button type="submit" class="danger">Rejeitar</button>
+                          </form>
+                        </template>
+                        <template x-if="activeStatus !== 'pendente'">
+                          <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" @submit.prevent="if (confirm('Remover esta imagem do catálogo aprovado?')) $el.submit()">
+                            <input type="hidden" name="redirectStatus" :value="activeStatus">
+                            <button type="submit" class="danger">Remover do catálogo</button>
+                          </form>
+                        </template>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!displayRows.length">
+                <td colspan="6">
+                  <%- include('partials/empty-state', { message: activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.' }) %>
                 </td>
               </tr>
-              <% }) %>
-              <% if (!images.length) { %>
-              <tr><td colspan="6" class="empty-state"><%= activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.' %></td></tr>
-              <% } %>
             </tbody>
           </table>
         </div>
@@ -99,66 +112,231 @@
 
   <dialog id="modal-manual-upload">
     <div class="modal-header">
-      <h2>Adicionar imagem manualmente</h2>
-      <button type="button" class="modal-close" onclick="document.getElementById('modal-manual-upload').close()">&times;</button>
+      <h2>Adicionar imagens ao catálogo</h2>
+      <button type="button" class="modal-close" onclick="closeUploadModal()">&times;</button>
     </div>
     <div class="modal-body">
-      <label>Nome do produto</label>
-      <input type="text" id="manual-product-name" required autofocus placeholder="Ex.: Refrigerante Coca-Cola 2L">
-      <label>Imagem (JPEG, PNG ou WEBP — mínimo 200×200px, máximo 6MB)</label>
-      <input type="file" id="manual-image-file" accept="image/jpeg,image/png,image/webp" required>
-      <img id="manual-upload-preview" alt="">
-      <p class="field-hint" id="manual-upload-error" style="color: var(--danger); display: none;"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn secondary" onclick="document.getElementById('modal-manual-upload').close()">Cancelar</button>
-        <button type="button" class="btn" id="manual-upload-submit" onclick="submitManualUpload()">Adicionar ao catálogo</button>
+      <label>Imagens (JPEG, PNG ou WEBP — mínimo 200×200px, máximo 6MB cada)</label>
+      <p class="field-hint" style="margin-top:-4px">O nome de cada produto é gerado a partir do nome do arquivo — renomeie os arquivos antes de selecionar se quiser outro nome.</p>
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        </div>
+        <div>Arraste imagens aqui ou clique para selecionar</div>
+        <div style="font-size: 0.78rem; margin-top: 4px; color: var(--muted);">Pode selecionar várias imagens de uma vez</div>
+      </div>
+      <input type="file" id="manual-image-file" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
+
+      <div class="upload-preview-grid" id="upload-preview-grid"></div>
+      <div class="upload-counter" id="upload-counter" style="display:none">
+        <strong id="upload-count-num">0</strong> imagem(ns) selecionada(s)
+      </div>
+
+      <p style="color: var(--danger); font-size: 0.85rem; margin-top: 10px; display: none;" id="manual-upload-error"></p>
+
+      <div id="upload-progress" style="display:none; margin-top: 12px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <span style="font-size:0.85rem; font-weight:600;" id="upload-progress-text">Enviando...</span>
+          <span style="font-size:0.82rem; color:var(--muted);" id="upload-progress-count"></span>
+        </div>
+        <div style="height:6px; background:var(--surface-hover); border-radius:999px; overflow:hidden;">
+          <div id="upload-progress-bar" style="height:100%; background:var(--primary); border-radius:999px; transition: width .3s; width: 0;"></div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 16px;">
+        <button type="button" class="btn secondary" onclick="closeUploadModal()">Cancelar</button>
+        <button type="button" class="btn" id="manual-upload-submit" onclick="submitAllUploads()">Adicionar ao catálogo</button>
       </div>
     </div>
   </dialog>
 
+  <script src="/js/table-toolkit.js"></script>
   <script>
-    var manualFile = null;
-    document.getElementById('manual-image-file').addEventListener('change', function (e) {
-      manualFile = e.target.files[0] || null;
-      var preview = document.getElementById('manual-upload-preview');
-      if (manualFile) {
-        preview.src = URL.createObjectURL(manualFile);
-        preview.style.display = 'block';
-      } else {
-        preview.style.display = 'none';
+    function catalogTable() {
+      return {
+        ...tableToolkit(),
+        activeStatus: <%- JSON.stringify(activeStatus) %>,
+        rows: <%- JSON.stringify(images.map(function (img) {
+          return {
+            id: img.id, product_name: img.product_name, format: img.format,
+            width: img.width, height: img.height, created_at: img.created_at,
+            sizeLabel: formatBytes(img.size_bytes),
+            origin: img.source === 'manual' ? 'Manual' : (img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—'),
+          };
+        })) %>,
+        q: '',
+        sortGetters: {
+          product_name: (i) => i.product_name, origin: (i) => i.origin,
+          size_bytes: (i) => i.width * i.height, created_at: (i) => i.created_at ?? '',
+        },
+        get displayRows() {
+          const q = this.q.trim().toLowerCase();
+          const filtered = q ? this.rows.filter((i) => i.product_name.toLowerCase().includes(q)) : this.rows;
+          return this.sortedRows(filtered, this.sortGetters);
+        },
+      };
+    }
+
+    var pendingFiles = [];
+
+    /** Nome do arquivo vira nome do produto: sem extensão, traços/underscores viram espaço. */
+    function nameFromFilename(filename) {
+      return filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+    }
+
+    function openUploadModal() {
+      pendingFiles = [];
+      document.getElementById('upload-preview-grid').innerHTML = '';
+      document.getElementById('upload-counter').style.display = 'none';
+      document.getElementById('manual-upload-error').style.display = 'none';
+      document.getElementById('upload-progress').style.display = 'none';
+      document.getElementById('manual-upload-submit').disabled = false;
+      document.getElementById('manual-upload-submit').textContent = 'Adicionar ao catálogo';
+      document.getElementById('modal-manual-upload').showModal();
+    }
+
+    function closeUploadModal() {
+      document.getElementById('modal-manual-upload').close();
+      pendingFiles = [];
+    }
+
+    function renderPreviews() {
+      var grid = document.getElementById('upload-preview-grid');
+      var counter = document.getElementById('upload-counter');
+      grid.innerHTML = '';
+      if (!pendingFiles.length) {
+        counter.style.display = 'none';
+        return;
+      }
+      counter.style.display = 'block';
+      document.getElementById('upload-count-num').textContent = pendingFiles.length;
+      pendingFiles.forEach(function (f, i) {
+        var div = document.createElement('div');
+        div.className = 'upload-preview-item';
+        var img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        var caption = document.createElement('div');
+        caption.className = 'upload-preview-name';
+        caption.textContent = nameFromFilename(f.name);
+        caption.title = f.name;
+        var btn = document.createElement('button');
+        btn.className = 'remove-btn';
+        btn.type = 'button';
+        btn.textContent = '×';
+        btn.onclick = function () {
+          pendingFiles.splice(i, 1);
+          renderPreviews();
+        };
+        div.appendChild(img);
+        div.appendChild(caption);
+        div.appendChild(btn);
+        grid.appendChild(div);
+      });
+    }
+
+    var dropZone = document.getElementById('drop-zone');
+    var fileInput = document.getElementById('manual-image-file');
+
+    dropZone.addEventListener('click', function () { fileInput.click(); });
+
+    dropZone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', function () {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      var files = Array.from(e.dataTransfer.files).filter(function (f) {
+        return ['image/jpeg', 'image/png', 'image/webp'].indexOf(f.type) !== -1;
+      });
+      if (files.length) {
+        pendingFiles = pendingFiles.concat(files);
+        renderPreviews();
       }
     });
 
-    async function submitManualUpload() {
+    fileInput.addEventListener('change', function (e) {
+      var files = Array.from(e.target.files);
+      if (files.length) {
+        pendingFiles = pendingFiles.concat(files);
+        renderPreviews();
+      }
+      fileInput.value = '';
+    });
+
+    var uploading = false;
+
+    async function submitAllUploads() {
+      if (uploading) return;
       var errorEl = document.getElementById('manual-upload-error');
       errorEl.style.display = 'none';
-      var name = document.getElementById('manual-product-name').value.trim();
-      if (!name || !manualFile) {
-        errorEl.textContent = 'Preencha o nome do produto e escolha uma imagem.';
+      if (!pendingFiles.length) {
+        errorEl.textContent = 'Selecione ao menos uma imagem.';
         errorEl.style.display = 'block';
         return;
       }
+
+      uploading = true;
       var btn = document.getElementById('manual-upload-submit');
       btn.disabled = true;
-      try {
-        var buf = await manualFile.arrayBuffer();
-        var res = await fetch('/admin/catalog/manual', {
-          method: 'POST',
-          headers: { 'Content-Type': manualFile.type, 'X-Katsu-Product-Name': name },
-          body: buf,
-        });
-        var data = await res.json();
-        if (res.ok) {
-          window.location.href = '/admin/catalog';
-          return;
+      btn.textContent = 'Enviando...';
+
+      var progressEl = document.getElementById('upload-progress');
+      var barEl = document.getElementById('upload-progress-bar');
+      var textEl = document.getElementById('upload-progress-text');
+      var countEl = document.getElementById('upload-progress-count');
+      progressEl.style.display = 'block';
+
+      var total = pendingFiles.length;
+      var ok = 0;
+      var fail = 0;
+      var errors = [];
+
+      for (var i = 0; i < total; i++) {
+        countEl.textContent = (i + 1) + '/' + total;
+        textEl.textContent = 'Enviando ' + (i + 1) + ' de ' + total + '...';
+        barEl.style.width = Math.round(((i) / total) * 100) + '%';
+
+        try {
+          var buf = await pendingFiles[i].arrayBuffer();
+          var res = await fetch('/admin/catalog/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': pendingFiles[i].type, 'X-Katsu-Product-Name': nameFromFilename(pendingFiles[i].name) },
+            body: buf,
+          });
+          if (res.ok) {
+            ok++;
+          } else {
+            var data = await res.json().catch(function () { return { error: 'HTTP ' + res.status }; });
+            fail++;
+            errors.push(pendingFiles[i].name + ': ' + (data.error || 'Erro ' + res.status));
+          }
+        } catch (e) {
+          fail++;
+          errors.push(pendingFiles[i].name + ': Erro de rede');
         }
-        errorEl.textContent = data.error || ('Falha ao enviar (HTTP ' + res.status + ').');
+      }
+
+      barEl.style.width = '100%';
+      textEl.textContent = 'Concluído!';
+
+      if (fail > 0 && ok === 0) {
+        errorEl.textContent = 'Falha em todas: ' + errors.join('; ');
         errorEl.style.display = 'block';
-      } catch (e) {
-        errorEl.textContent = 'Erro de rede ao enviar a imagem.';
-        errorEl.style.display = 'block';
-      } finally {
         btn.disabled = false;
+        btn.textContent = 'Adicionar ao catálogo';
+        uploading = false;
+        return;
+      }
+
+      if (fail > 0) {
+        window.location.href = '/admin/catalog?upload_ok=' + ok + '&upload_fail=' + fail;
+      } else {
+        window.location.href = '/admin/catalog';
       }
     }
   </script>

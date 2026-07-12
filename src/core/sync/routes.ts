@@ -17,14 +17,14 @@ router.get('/status', async (_req, res) => {
   const url = getCloudServerUrl();
   const { companyUuid, licenseKey } = getLicenseCredentials();
   if (!url || !companyUuid || !licenseKey) {
-    res.json({ configured: false, online: false });
+    res.json({ configured: false, online: false, url: null });
     return;
   }
   try {
     const r = await fetch(`${url.replace(/\/$/, '')}/api/health`, { signal: AbortSignal.timeout(4000) });
-    res.json({ configured: true, online: r.ok });
+    res.json({ configured: true, online: r.ok, url });
   } catch {
-    res.json({ configured: true, online: false });
+    res.json({ configured: true, online: false, url });
   }
 });
 

@@ -1,6 +1,6 @@
 <%
   var activeKey = typeof active !== 'undefined' ? active : '';
-  var settingsGroupOpen = activeKey === 'settings' || activeKey === 'admins';
+  var settingsGroupOpen = activeKey === 'settings' || activeKey === 'admins' || activeKey === 'devices';
 %>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-group">
@@ -31,11 +31,15 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span class="sidebar-label">Administradores</span>
       </a>
+      <a href="/admin/devices" class="sidebar-link <%= activeKey === 'devices' ? 'active' : '' %>" title="Dispositivos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        <span class="sidebar-label">Dispositivos</span>
+      </a>
     </div>
   </div>
 </aside>
 <script>
-  (function () {
+  document.addEventListener('DOMContentLoaded', function () {
     var parentBtn = document.getElementById('sidebar-parent-settings');
     var submenu = document.getElementById('sidebar-submenu-settings');
     parentBtn.addEventListener('click', function () {
@@ -54,5 +58,5 @@
         try { localStorage.setItem('katsu-sidebar-collapsed', sidebar.classList.contains('collapsed') ? '1' : '0'); } catch (e) {}
       });
     }
-  })();
+  });
 </script>

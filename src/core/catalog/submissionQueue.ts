@@ -19,8 +19,17 @@ const MIME_BY_FORMAT: Record<ImageFormat, string> = {
   jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
 };
 
+/**
+ * Relativo à mesma raiz de dados do banco (`KATSU_DB_PATH`), não a `process.cwd()`:
+ * em produção o cwd de um app Electron empacotado não é confiável (varia conforme
+ * de onde o processo foi lançado) — sem isso, as fotos ficavam fora de
+ * `userData`/, então "remover todos os dados" na desinstalação não as alcançava.
+ * Mesmo padrão já usado por `fallbackMachineIdPath()` em `core/license/service.ts`.
+ */
 export function productImagesDir(): string {
-  const dir = path.resolve(process.cwd(), 'storage', 'product-images');
+  const dbPath = process.env.KATSU_DB_PATH ?? path.resolve(process.cwd(), 'database', 'katsu.db');
+  const dataRoot = path.dirname(path.dirname(dbPath));
+  const dir = path.join(dataRoot, 'storage', 'product-images');
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

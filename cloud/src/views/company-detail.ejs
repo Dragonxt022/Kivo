@@ -6,6 +6,7 @@
   <title>Katsu Cloud — <%= company.name || company.company_uuid %></title>
   <link rel="icon" href="/favicon.png">
   <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -80,7 +81,7 @@
             </td>
           </tr>
           <% }) %>
-          <% if (!devices.length) { %><tr><td colspan="4" class="empty-state">Nenhum dispositivo ativado ainda.</td></tr><% } %>
+          <% if (!devices.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum dispositivo ativado ainda.' }) %></td></tr><% } %>
         </tbody>
       </table>
     </div>
@@ -107,36 +108,47 @@
           <% backups.forEach(function(b) { %>
           <tr><td><%= b.uuid %></td><td><%= b.machine_id %></td><td><%= (b.size_bytes/1024).toFixed(1) %> KB</td><td><%= b.created_at %></td></tr>
           <% }) %>
-          <% if (!backups.length) { %><tr><td colspan="4" class="empty-state">Nenhum backup ainda.</td></tr><% } %>
+          <% if (!backups.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum backup ainda.' }) %></td></tr><% } %>
         </tbody>
       </table>
     </div>
 
-    <div class="card">
+    <div class="card" x-data="chargesTable()">
       <div class="card-header">
         <h2>Cobranças</h2>
         <button class="btn" onclick="document.getElementById('modal-new-charge').showModal()">+ Nova cobrança</button>
       </div>
       <table>
-        <thead><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th><th></th></tr></thead>
+        <thead><tr>
+          <th class="sortable" @click="sortCycle('description')">Descrição<span class="sort-arrow" x-text="sortArrow('description')"></span></th>
+          <th class="sortable" @click="sortCycle('amount_cents')">Valor<span class="sort-arrow" x-text="sortArrow('amount_cents')"></span></th>
+          <th class="sortable" @click="sortCycle('due_date')">Vencimento<span class="sort-arrow" x-text="sortArrow('due_date')"></span></th>
+          <th class="sortable" @click="sortCycle('status')">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+          <th>Pago em</th><th>Instruções</th><th></th>
+        </tr></thead>
         <tbody>
-          <% charges.forEach(function(ch) { %>
-          <tr>
-            <td><%= ch.description %></td>
-            <td><%= (ch.amount_cents/100).toFixed(2) %></td>
-            <td><%= String(ch.due_date).slice(0,10) %></td>
-            <td class="<%= ch.status %>"><span class="badge <%= ch.status %>"><%= ch.status %></span></td>
-            <td><%= ch.paid_at || '—' %></td>
-            <td class="instructions-cell" title="<%= ch.instructions || '' %>"><%= ch.instructions || '—' %></td>
-            <td>
-              <% if (ch.status === 'pendente') { %>
-                <form class="inline" method="post" action="/admin/companies/<%= company.company_uuid %>/charges/<%= ch.id %>/pay"><button type="submit" class="btn small">Marcar paga</button></form>
-                <form class="inline" method="post" action="/admin/companies/<%= company.company_uuid %>/charges/<%= ch.id %>/cancel"><button type="submit" class="btn danger small">Cancelar</button></form>
-              <% } %>
-            </td>
-          </tr>
-          <% }) %>
-          <% if (!charges.length) { %><tr><td colspan="7" class="empty-state">Nenhuma cobrança ainda.</td></tr><% } %>
+          <template x-for="ch in displayRows" :key="ch.id">
+            <tr>
+              <td x-text="ch.description"></td>
+              <td x-text="(ch.amount_cents/100).toFixed(2)"></td>
+              <td x-text="ch.due_date"></td>
+              <td><span class="badge" :class="ch.status" x-text="ch.status"></span></td>
+              <td x-text="ch.paid_at || '—'"></td>
+              <td class="instructions-cell" :title="ch.instructions || ''" x-text="ch.instructions || '—'"></td>
+              <td class="text-right" @click.outside="openMenu = null">
+                <div class="dropdown" x-show="ch.status === 'pendente'">
+                  <button type="button" class="icon-btn" @click="openMenu = openMenu === ch.id ? null : ch.id" title="Mais ações">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                  </button>
+                  <div class="dropdown-menu" x-show="openMenu === ch.id" x-cloak>
+                    <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/pay'"><button type="submit">Marcar paga</button></form>
+                    <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/cancel'"><button type="submit" class="danger">Cancelar</button></form>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma cobrança ainda.' }) %></td></tr>
         </tbody>
       </table>
     </div>
@@ -214,7 +226,22 @@
     </form>
   </dialog>
 
+  <script src="/js/table-toolkit.js"></script>
   <script>
+    function chargesTable() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(charges.map(function (ch) {
+          return { ...ch, due_date: String(ch.due_date).slice(0, 10) };
+        })) %>,
+        sortGetters: {
+          description: (c) => c.description, amount_cents: (c) => c.amount_cents,
+          due_date: (c) => c.due_date, status: (c) => c.status,
+        },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+      };
+    }
+
     (function () {
       var expected = <%- JSON.stringify(company.name || company.company_uuid) %>;
       var input = document.getElementById('delete-confirm-input');

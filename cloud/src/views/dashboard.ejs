@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <%- include('partials/theme-init') %>
-  <title>Katsu Cloud — Empresas</title>
+  <title>Katsu Cloud — Dashboard</title>
   <link rel="icon" href="/favicon.png">
   <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
@@ -15,30 +16,151 @@
 
       <div class="page">
         <div class="page-header">
-          <h1>Empresas</h1>
+          <h1>Dashboard</h1>
           <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
         </div>
 
-        <div class="card" style="padding: 0;">
+        <%
+          var totalCompanies = kpis.total_companies || 0;
+          var activeCompanies = kpis.active_companies || 0;
+          var syncs7d = kpis.syncs_7d || 0;
+          var pendingAmount = (kpis.pending_amount_cents || 0) / 100;
+          var maxPlanCount = planDistribution.length ? Math.max.apply(null, planDistribution.map(function(p) { return p.cnt; })) : 1;
+          var planColors = { trial: '#8a8a98', prata: '#94a3b8', ouro: '#f59e0b', diamante: '#3b82f6', 'sem plano': '#d4d4d8' };
+        %>
+
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= totalCompanies %></div>
+            <div class="dash-kpi-label">Empresas cadastradas</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= activeCompanies %></div>
+            <div class="dash-kpi-label">Com plano ativo</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= syncs7d %></div>
+            <div class="dash-kpi-label">Syncs nos últimos 7 dias</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="dash-kpi-value">R$ <%= pendingAmount.toFixed(2) %></div>
+            <div class="dash-kpi-label">Cobranças pendentes</div>
+          </div>
+        </div>
+
+        <% if (alerts.length) { %>
+        <div class="card" style="margin-bottom: 24px;">
+          <h2 style="margin-bottom: 14px;">Avisos</h2>
+          <% alerts.forEach(function(a) { %>
+          <div class="dash-alert-card <%= a.type %>">
+            <div class="dash-alert-icon">
+              <% if (a.icon === 'clock') { %>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <% } else if (a.icon === 'alert') { %>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <% } else { %>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <% } %>
+            </div>
+            <div>
+              <div class="dash-alert-text"><strong><%= a.title %></strong> — <%= a.detail %></div>
+              <% if (a.link) { %><div class="dash-alert-action"><a href="<%= a.link %>">Ver detalhes →</a></div><% } %>
+            </div>
+          </div>
+          <% }) %>
+        </div>
+        <% } %>
+
+        <div class="dash-two-col">
+          <div class="card dash-chart">
+            <h2>Planos</h2>
+            <% if (planDistribution.length) { %>
+            <div class="dash-bar-list">
+              <% planDistribution.forEach(function(p) { %>
+              <div class="dash-bar-row">
+                <div class="dash-bar-label"><%= planLabels[p.plan_label] || p.plan_label %></div>
+                <div class="dash-bar-track">
+                  <div class="dash-bar-fill" style="width: <%= Math.round((p.cnt / maxPlanCount) * 100) %>; background: <%= planColors[p.plan_label] || 'var(--primary)' %>;">
+                    <% if (p.cnt > 0) { %><span><%= p.cnt %></span><% } %>
+                  </div>
+                </div>
+                <div class="dash-bar-count"><%= p.cnt %></div>
+              </div>
+              <% }) %>
+            </div>
+            <% } else { %>
+            <div class="dash-empty">Nenhum plano atribuído ainda.</div>
+            <% } %>
+          </div>
+
+          <div class="card">
+            <h2>Atividade recente</h2>
+            <% if (recentActivity.length) { %>
+            <div class="dash-activity-list">
+              <% recentActivity.forEach(function(a) { %>
+              <div class="dash-activity-item">
+                <div class="dash-activity-dot green"></div>
+                <div>
+                  <div class="dash-activity-text">
+                    <strong><%= a.name || a.company_uuid.slice(0, 8) %></strong>
+                    sincronizou <strong><%= a.entity_type %></strong>
+                  </div>
+                  <div class="dash-activity-time"><%= a.server_received_at %></div>
+                </div>
+              </div>
+              <% }) %>
+            </div>
+            <% } else { %>
+            <div class="dash-empty">Nenhuma sincronização registrada ainda.</div>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 0;" x-data="companiesTable()">
+          <div style="padding: 20px 24px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <h2 style="margin: 0;">Todas as empresas</h2>
+            <input type="text" class="input-search" placeholder="Buscar por nome…" x-model="q">
+          </div>
           <table>
             <thead>
-              <tr><th>Nome</th><th>Plano</th><th>Módulos</th><th>Validade</th><th>Sincronizações</th><th>Última atividade</th><th>Pendente (R$)</th></tr>
+              <tr>
+                <th class="sortable" @click="sortCycle('name')">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+                <th class="sortable" @click="sortCycle('plan')">Plano<span class="sort-arrow" x-text="sortArrow('plan')"></span></th>
+                <th>Módulos</th>
+                <th class="sortable" @click="sortCycle('valid_until')">Validade<span class="sort-arrow" x-text="sortArrow('valid_until')"></span></th>
+                <th class="sortable" @click="sortCycle('sync_count')">Sincronizações<span class="sort-arrow" x-text="sortArrow('sync_count')"></span></th>
+                <th class="sortable" @click="sortCycle('last_activity')">Última atividade<span class="sort-arrow" x-text="sortArrow('last_activity')"></span></th>
+                <th class="sortable" @click="sortCycle('pending_cents')">Pendente (R$)<span class="sort-arrow" x-text="sortArrow('pending_cents')"></span></th>
+              </tr>
             </thead>
             <tbody>
-              <% companies.forEach(function(c) { %>
-              <tr>
-                <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || c.company_uuid %></a></td>
-                <td><% if (c.plan) { %><span class="badge plan"><%= planLabels[c.plan] || c.plan %></span><% } else { %>—<% } %></td>
-                <td><%= c.modules ? c.modules.join(', ') : 'sem restrição' %></td>
-                <td><%= c.valid_until || '—' %></td>
-                <td><%= c.sync_count %></td>
-                <td><%= c.last_activity || 'nunca' %></td>
-                <td><% if (c.pending_cents > 0) { %><span class="badge money-pending"><%= (c.pending_cents / 100).toFixed(2) %></span><% } else { %><%= (c.pending_cents / 100).toFixed(2) %><% } %></td>
-              </tr>
-              <% }) %>
-              <% if (!companies.length) { %>
-              <tr><td colspan="7" class="empty-state">Nenhuma empresa cadastrada ainda.</td></tr>
-              <% } %>
+              <template x-for="c in displayRows" :key="c.company_uuid">
+                <tr>
+                  <td><a :href="'/admin/companies/' + c.company_uuid" x-text="c.name || c.company_uuid"></a></td>
+                  <td><span class="badge plan" x-show="c.plan" x-text="planLabels[c.plan] || c.plan"></span><span x-show="!c.plan">—</span></td>
+                  <td x-text="c.modules ? c.modules.join(', ') : 'sem restrição'"></td>
+                  <td x-text="c.valid_until ? String(c.valid_until).slice(0, 10) : '—'"></td>
+                  <td x-text="c.sync_count"></td>
+                  <td x-text="c.last_activity || 'nunca'"></td>
+                  <td>
+                    <span class="badge money-pending" x-show="c.pending_cents > 0" x-text="(c.pending_cents / 100).toFixed(2)"></span>
+                    <span x-show="!(c.pending_cents > 0)" x-text="(c.pending_cents / 100).toFixed(2)"></span>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma empresa cadastrada ainda.' }) %></td></tr>
             </tbody>
           </table>
         </div>
@@ -73,5 +195,27 @@
       </div>
     </form>
   </dialog>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function companiesTable() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(companies) %>,
+        planLabels: <%- JSON.stringify(planLabels) %>,
+        q: '',
+        sortGetters: {
+          name: (c) => c.name || c.company_uuid, plan: (c) => c.plan || '',
+          valid_until: (c) => c.valid_until || '', sync_count: (c) => c.sync_count,
+          last_activity: (c) => c.last_activity || '', pending_cents: (c) => c.pending_cents,
+        },
+        get displayRows() {
+          const q = this.q.trim().toLowerCase();
+          const filtered = q ? this.rows.filter((c) => (c.name || c.company_uuid).toLowerCase().includes(q)) : this.rows;
+          return this.sortedRows(filtered, this.sortGetters);
+        },
+      };
+    }
+  </script>
 </body>
 </html>

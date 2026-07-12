@@ -81,6 +81,35 @@
   color: var(--primary); font-weight: 700; margin-bottom: 6px;
 }
 
+/* ── Objetivo (para que serve, não só como usar) ──── */
+.wiki-objective {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--surface-hover); border: 1px solid var(--border-light);
+  border-radius: var(--radius); padding: 16px 20px; margin: 10px 0 18px;
+}
+.wiki-objective-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
+  background: var(--warning-bg, var(--primary-soft)); color: var(--warning-text, var(--primary));
+  display: grid; place-items: center;
+}
+.wiki-objective-icon svg { width: 18px; height: 18px; }
+.wiki-objective-body { flex: 1; min-width: 0; }
+.wiki-objective-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); font-weight: 700; margin-bottom: 4px;
+}
+.wiki-objective-body p { margin: 0; line-height: 1.6; }
+
+/* ── Ícone de seção (identidade visual de cada bloco) ─ */
+.wiki-section-head { display: flex; align-items: center; gap: 12px; margin: 24px 0 8px; }
+.wiki-section-head h3 { margin: 0; }
+.wiki-section-icon {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 11px;
+  background: var(--primary-soft); color: var(--primary);
+  display: grid; place-items: center;
+}
+.wiki-section-icon svg { width: 21px; height: 21px; }
+
 /* ── Hero ──────────────────────────────────────────── */
 .wiki-hero {
   text-align: center; padding: 48px 20px 40px; margin-bottom: 32px;

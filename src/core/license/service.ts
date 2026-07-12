@@ -118,6 +118,7 @@ interface LicenseRow {
   time_watermark: number | null;
   integrity_hmac: string | null;
   activated_at: string | null;
+  device_revoked_at: string | null;
 }
 
 function getRow(): LicenseRow | undefined {
@@ -303,13 +304,27 @@ export async function refreshLicenseFromCloud(): Promise<void> {
       headers: { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey, 'X-Katsu-Machine-Id': machineId() },
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      // 403 device_revoked é um sinal AUTORITATIVO do cloud (o suporte removeu este
+      // dispositivo), diferente de rede fora do ar/timeout/5xx — esses últimos mantêm
+      // o cache local como estava (tolerância offline); a revogação precisa travar de
+      // fato, senão a máquina antiga nunca percebe que perdeu a vaga.
+      if (res.status === 403) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        if (body.error === 'device_revoked') {
+          ensureLicenseRow();
+          getSqlite().prepare("UPDATE license SET device_revoked_at = datetime('now'), updated_at = datetime('now')").run();
+        }
+      }
+      return;
+    }
     const body = (await res.json()) as CloudValidateResponse;
     ensureLicenseRow();
     getSqlite()
       .prepare(
         `UPDATE license SET plan = ?, modules_json = ?, valid_until = ?, support_phone = ?, support_email = ?,
-         machine_id = ?, machine_id_version = ?, last_validated_at = datetime('now'), updated_at = datetime('now')`,
+         machine_id = ?, machine_id_version = ?, device_revoked_at = NULL,
+         last_validated_at = datetime('now'), updated_at = datetime('now')`,
       )
       // `modules: null` do cloud = sem restrição configurada ainda (fail-open) — grava
       // NULL local, não '[]' (que bloquearia tudo em isModuleEntitled).
@@ -350,6 +365,14 @@ export function validateLicense(): LicenseInfo {
 
   if (!row.license_key || !row.company_uuid) {
     return { ...base, status: 'sem_licenca', message: 'Instalação sem licença configurada (modo desenvolvimento).' };
+  }
+
+  if (row.device_revoked_at) {
+    return {
+      ...base,
+      status: 'bloqueada',
+      message: 'Este dispositivo foi desativado para esta licença pelo suporte. Contate o suporte para liberar novamente.',
+    };
   }
 
   const now = Date.now();

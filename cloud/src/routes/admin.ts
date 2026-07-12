@@ -101,14 +101,67 @@ router.post('/logout', (req, res) => {
 // --- Empresas ---
 
 router.get('/', requireAdminAuth, async (_req, res) => {
-  const [companies] = await getPool().query(
+  const pool = getPool();
+  const [companies] = await pool.query(
     `SELECT c.company_uuid, c.name, c.plan, c.modules, c.valid_until,
             (SELECT COUNT(*) FROM sync_records sr WHERE sr.company_uuid = c.company_uuid) AS sync_count,
             (SELECT MAX(server_received_at) FROM sync_records sr WHERE sr.company_uuid = c.company_uuid) AS last_activity,
             (SELECT COALESCE(SUM(amount_cents),0) FROM charges ch WHERE ch.company_uuid = c.company_uuid AND ch.status = 'pendente') AS pending_cents
      FROM companies c ORDER BY c.created_at DESC`,
   );
-  res.render('dashboard', { companies, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
+
+  const [kpiRows] = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM companies) AS total_companies,
+       (SELECT COUNT(*) FROM companies WHERE plan IS NOT NULL AND plan != '') AS active_companies,
+       (SELECT COUNT(*) FROM sync_records WHERE server_received_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) AS syncs_7d,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM charges WHERE status = 'pendente') AS pending_amount_cents`,
+  );
+  const kpis = (kpiRows as any)[0];
+
+  const [planRows] = await pool.query(
+    `SELECT COALESCE(plan, 'sem plano') AS plan_label, COUNT(*) AS cnt FROM companies GROUP BY plan_label ORDER BY cnt DESC`,
+  );
+  const planDistribution = planRows as { plan_label: string; cnt: number }[];
+
+  const [recentSyncRows] = await pool.query(
+    `SELECT sr.entity_type, sr.company_uuid, c.name, sr.server_received_at
+     FROM sync_records sr LEFT JOIN companies c ON c.company_uuid = sr.company_uuid
+     ORDER BY sr.server_received_at DESC LIMIT 8`,
+  );
+  const recentActivity = recentSyncRows as { entity_type: string; company_uuid: string; name: string | null; server_received_at: string }[];
+
+  const alerts: { type: string; icon: string; title: string; detail: string; link?: string }[] = [];
+
+  const [expiringRows] = await pool.query(
+    `SELECT name, company_uuid, valid_until FROM companies
+     WHERE valid_until IS NOT NULL
+       AND valid_until <= DATE_ADD(NOW(), INTERVAL 7 DAY)
+       AND valid_until >= NOW()
+     ORDER BY valid_until ASC LIMIT 5`,
+  );
+  for (const e of expiringRows as { name: string; company_uuid: string; valid_until: string }[]) {
+    alerts.push({ type: 'warning', icon: 'clock', title: `${e.name || e.company_uuid.slice(0, 8)}`, detail: `validade vence em ${String(e.valid_until).slice(0, 10)}`, link: `/admin/companies/${e.company_uuid}` });
+  }
+
+  const [overdueRows] = await pool.query(
+    `SELECT c.name, c.company_uuid, ch.description, ch.amount_cents, ch.due_date
+     FROM charges ch JOIN companies c ON c.company_uuid = ch.company_uuid
+     WHERE ch.status = 'pendente' AND ch.due_date < CURDATE()
+     ORDER BY ch.due_date ASC LIMIT 5`,
+  );
+  for (const o of overdueRows as { name: string; company_uuid: string; description: string; amount_cents: number; due_date: string }[]) {
+    alerts.push({ type: 'danger', icon: 'alert', title: `Cobrança vencida: ${o.description}`, detail: `${o.name || o.company_uuid.slice(0, 8)} — R$ ${(o.amount_cents / 100).toFixed(2)}`, link: `/admin/companies/${o.company_uuid}` });
+  }
+
+  if (kpis.total_companies === 0) {
+    alerts.push({ type: 'info', icon: 'plus', title: 'Bem-vindo ao Katsu Cloud!', detail: 'Comece cadastrando sua primeira empresa.' });
+  }
+
+  res.render('dashboard', {
+    companies, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS,
+    kpis, planDistribution, recentActivity, alerts,
+  });
 });
 
 router.post('/companies', requireAdminAuth, async (req: AdminRequest, res) => {
@@ -168,7 +221,25 @@ router.post('/companies/:uuid/devices/:id/delete', requireAdminAuth, async (req,
     "UPDATE company_devices SET removed_at = NOW(3) WHERE id = ? AND company_uuid = ? AND removed_at IS NULL",
     [req.params.id, uuid],
   );
-  res.redirect(`/admin/companies/${uuid}`);
+  // Chamado tanto da ficha da empresa quanto da tela global /admin/devices — volta pra
+  // onde o admin estava, em vez de sempre jogar pra ficha da empresa.
+  const redirectTo = typeof req.body?.redirectTo === 'string' && req.body.redirectTo.startsWith('/admin/')
+    ? req.body.redirectTo
+    : `/admin/companies/${uuid}`;
+  res.redirect(redirectTo);
+});
+
+/** Tela global: dispositivos de TODAS as empresas (ativos e removidos), pra suporte não
+ * precisar abrir empresa por empresa procurando uma máquina específica. */
+router.get('/devices', requireAdminAuth, async (_req, res) => {
+  const [devices] = await getPool().query(
+    `SELECT cd.id, cd.company_uuid, cd.machine_id, cd.first_seen_at, cd.last_seen_at, cd.removed_at,
+            c.name AS company_name, c.plan AS company_plan
+     FROM company_devices cd
+     JOIN companies c ON c.company_uuid = cd.company_uuid
+     ORDER BY cd.last_seen_at DESC`,
+  );
+  res.render('devices', { devices, planLabels: PLAN_LABELS });
 });
 
 /**
