@@ -22,21 +22,29 @@ npm run dev:electron
 ## 2. Rodar os testes antes de qualquer deploy
 
 ```bash
+# Testes obrigatórios (sempre rodar antes de qualquer release)
 npm run test:fase1
 npm run test:fase1b
 npm run test:shared
 npm run test:fase3
+npm run test:fase3c
 npm run test:fase4
+npm run test:fase5
 npm run test:fase5b
 npm run test:fase5c
 npm run test:fase5d
-npm run test:fase6a
-npm run test:fase6b
-npm run test:fase6c
-npm run test:fase6d
+npm run test:fase7a
+npm run test:fase7b
+npm run test:fase7c
+npm run test:fase7d
+npm run test:fase7e
+npm run test:fase7f
+npm run test:fase8
+npm run test:fase8b
 ```
 
-- `test:fase5` é instável (conhecido, não relacionado a mudanças recentes) — pode ignorar se falhar isoladamente.
+- `test:fase8` cobre o DRE (cálculo do demonstrativo de resultado + CRUD de categorias).
+- `test:fase8b` cobre unitários de `computeLateCharges`, `recomputeStockForProducts` e `recomputeForCustomers` (ledger de crédito/pontos).
 - Os testes `fase6a`/`fase6b`/`fase6c`/`fase6d` sobem um `cloud/` local (MySQL via Docker, porta 3307). Se ainda não tiver rodado:
   ```bash
   npm run cloud:install
@@ -128,6 +136,28 @@ Quem já tem o app instalado recebe o aviso de atualização sozinho no próximo
 ## 5. Checklist rápido de uma release completa
 
 - [ ] Rodei os testes (`npm run test:fase*`)
+
+  | Comando | O que testa |
+  |---------|-------------|
+  | `test:shared` | Utilitários de dinheiro (`toCents`, `formatBRL`) + documentos |
+  | `test:fase1` | Login/RBAC/soft-delete/auditoria |
+  | `test:fase1b` | Settings, backup, license lifecycle |
+  | `test:fase3` | CRUD clientes/fornecedores/produtos, estoque |
+  | `test:fase3c` | PIN, fechamento de caixa + relatório |
+  | `test:fase4` | Caixa, contas a pagar/receber, fluxo de caixa |
+  | `test:fase5` | PDV completo (vendas dinheiro/PIX/prazo, estoque, cancelamento) |
+  | `test:fase5b` | Quotes (orçamentos), purchases, permissões |
+  | `test:fase5c` | Troca de senha, categorias, renderização de impressão |
+  | `test:fase5d` | Formas de pagamento com taxa, split payment, cancelamento |
+  | `test:fase7a` | Venda parcelada (recebíveis), carnê |
+  | `test:fase7b` | Filtros de cliente, CEP |
+  | `test:fase7c` | Crédito de loja, convergência offline |
+  | `test:fase7d` | Pontos de fidelidade, convergência offline |
+  | `test:fase7e` | Convênio (agreement), faturamento |
+  | `test:fase7f` | Idempotência de venda (clientRequestId) |
+  | **`test:fase8`** | **DRE (demonstrativo + categorias)** |
+  | **`test:fase8b`** | **Unitários: lateFees, recomputeStock, recomputeLedger** |
+
 - [ ] Mudei algo em `cloud/`? → commit + push + `npm run cloud:deploy`
 - [ ] Mudei algo no app desktop? → subir versão em `package.json`
 - [ ] `git add -A && git commit && git push`

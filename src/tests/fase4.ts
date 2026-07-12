@@ -71,10 +71,21 @@ async function main() {
   check('conta a receber criada', rec.status === 201);
   const recId = ((await rec.json()) as { id: number }).id;
 
-  const paid = await api(`${F}/payables/${payId}/settle`, { method: 'POST', body: '{}' }, admin!);
+  // O settle exige payments[] — busca formas de pagamento ativas do banco
+  const methods = db.prepare("SELECT id, type, name FROM payment_methods WHERE active = 1 AND type != 'prazo'").all() as { id: number; type: string; name: string }[];
+  const dinheiro = methods.find((m) => m.type === 'dinheiro')!;
+  const pix = methods.find((m) => m.type === 'pix')!;
+
+  const paid = await api(`${F}/payables/${payId}/settle`, { method: 'POST', body: JSON.stringify({
+    payments: [{ paymentMethodId: dinheiro.id, amountCents: 3000 }],
+  }) }, admin!);
   check('pagar conta gera saída no caixa', paid.status === 200 && ((await paid.json()) as { registeredInCash: boolean }).registeredInCash);
-  check('pagar de novo → 400', (await api(`${F}/payables/${payId}/settle`, { method: 'POST', body: '{}' }, admin!)).status === 400);
-  const received = await api(`${F}/receivables/${recId}/settle`, { method: 'POST', body: '{}' }, admin!);
+  check('pagar de novo → 400', (await api(`${F}/payables/${payId}/settle`, { method: 'POST', body: JSON.stringify({
+    payments: [{ paymentMethodId: pix.id, amountCents: 3000 }],
+  }) }, admin!)).status === 400);
+  const received = await api(`${F}/receivables/${recId}/settle`, { method: 'POST', body: JSON.stringify({
+    payments: [{ paymentMethodId: dinheiro.id, amountCents: 8000 }],
+  }) }, admin!);
   check('receber conta gera entrada no caixa', received.status === 200);
 
   // ---- Fechamento confere (DoD) ----

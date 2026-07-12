@@ -108,11 +108,11 @@ export function createSale(
   }
 
   // Congela produtos e preços do catálogo atual
-  const items: { productId: number; name: string; qty: number; unitCents: number; totalCents: number }[] = [];
+  const items: { productId: number; name: string; qty: number; unitCents: number; costCents: number; totalCents: number }[] = [];
   for (const item of input.items) {
-    const p = db
-      .prepare('SELECT id, name, price_cents, active FROM products WHERE id = ? AND deleted_at IS NULL')
-      .get(item.productId) as { id: number; name: string; price_cents: number; active: number } | undefined;
+      const p = db
+        .prepare('SELECT id, name, price_cents, cost_cents, active FROM products WHERE id = ? AND deleted_at IS NULL')
+        .get(item.productId) as { id: number; name: string; price_cents: number; cost_cents: number; active: number } | undefined;
     if (!p || !p.active) return { ok: false, error: `Produto ${item.productId} não encontrado ou inativo.` };
     if (!(item.qty > 0)) return { ok: false, error: `Quantidade inválida para "${p.name}".` };
     const unitCents =
@@ -121,6 +121,7 @@ export function createSale(
         : pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
     items.push({
       productId: p.id, name: p.name, qty: item.qty, unitCents,
+      costCents: p.cost_cents,
       totalCents: Math.round(unitCents * item.qty),
     });
   }
@@ -240,11 +241,11 @@ export function createSale(
       saleId = Number(info.lastInsertRowid);
 
       const insertItem = db.prepare(
-        `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, total_cents)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const i of items) {
-        insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.totalCents);
+        insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents);
         // allowNegative: a venda não pode travar por falta de estoque (reposição pode atrasar).
         const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);

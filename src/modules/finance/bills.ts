@@ -161,7 +161,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     const base = Math.floor(amountCents / count);
     const remainder = amountCents - base * count;
     const cols = ['description', cfg.partyColumn, 'amount_cents', 'issue_date', 'due_date', 'notes',
-      'installment_group_id', 'installment_no', 'installment_count', 'uuid'];
+      'installment_group_id', 'installment_no', 'installment_count', 'original_amount_cents', 'uuid'];
     if (cfg.categoryField) cols.push('dre_category_id');
     const insertStmt = database.prepare(`INSERT INTO ${cfg.table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`);
 
@@ -171,7 +171,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
         const amt = n === 0 ? base + remainder : base;
         const due = addDays(dueDate, 30 * n);
         const values: unknown[] = [description, partyId ?? null, amt, issueDateValue, due, notes ?? null,
-          groupId, count > 1 ? n + 1 : null, count > 1 ? count : null, randomUUID()];
+          groupId, count > 1 ? n + 1 : null, count > 1 ? count : null, amt, randomUUID()];
         if (cfg.categoryField) values.push(categoryId);
         const info = insertStmt.run(...values);
         if (n === 0) firstId = Number(info.lastInsertRowid);
@@ -337,10 +337,10 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
           const newDue = addDays(bill.due_date, 30);
           const newNo = currentNo + 1;
           const cols = ['description', cfg.partyColumn, 'amount_cents', 'issue_date', 'due_date', 'notes',
-            'installment_group_id', 'installment_no', 'installment_count', 'uuid'];
+            'installment_group_id', 'installment_no', 'installment_count', 'original_amount_cents', 'uuid'];
           if (cfg.categoryField) cols.push('dre_category_id');
           const values: unknown[] = [bill.description, bill.party_id, shortfall, new Date().toISOString().slice(0, 10),
-            newDue, bill.notes, groupId, newNo, null, randomUUID()];
+            newDue, bill.notes, groupId, newNo, null, shortfall, randomUUID()];
           if (cfg.categoryField) values.push((bill as unknown as { dre_category_id: number | null }).dre_category_id ?? defaultCategoryId(db));
           database.prepare(`INSERT INTO ${cfg.table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(...values);
           rolloverTarget = 'new';

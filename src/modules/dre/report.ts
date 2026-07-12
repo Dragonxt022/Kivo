@@ -62,8 +62,8 @@ export function demonstrativoResultado(from: string, to: string): DreReport {
   ).get(from, to) as { v: number }).v;
 
   const cogsReal = (db.prepare(
-    `SELECT COALESCE(SUM(i.qty * p.cost_cents), 0) AS v
-     FROM sale_items i JOIN sales s ON s.id = i.sale_id JOIN products p ON p.id = i.product_id
+    `SELECT COALESCE(SUM(i.qty * i.cost_cents), 0) AS v
+     FROM sale_items i JOIN sales s ON s.id = i.sale_id
      WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at) BETWEEN ? AND ?`,
   ).get(from, to) as { v: number }).v;
 
@@ -83,12 +83,40 @@ export function demonstrativoResultado(from: string, to: string): DreReport {
     manualByCategory.set(row.id, row.v);
   }
 
-  const realByCategory = (cat: CategoryRow): number => {
+  // Contas sem categoria caem como despesas operacionais (guarda-chuva) — evita que
+  // valores "escapem" do relatório se a categoria fallback for excluída.
+  const uncategorizedCents = (db.prepare(
+    `SELECT COALESCE(SUM(amount_cents), 0) AS v
+     FROM payables WHERE status != 'cancelada' AND deleted_at IS NULL AND dre_category_id IS NULL
+       AND due_date BETWEEN ? AND ?`,
+  ).get(from, to) as { v: number }).v;
+
+  let realByCategory = (cat: CategoryRow): number => {
     if (cat.source === 'sales_revenue') return salesRevenueReal;
     if (cat.source === 'cogs') return cogsReal;
     if (cat.source === 'card_fees') return cardFeesReal;
     return manualByCategory.get(cat.id) ?? 0;
   };
+
+  // Injeta o valor sem categoria na primeira categoria manual de despesas_operacionais
+  // (ou cria uma fictícia se nenhuma existir).
+  if (uncategorizedCents > 0) {
+    const operacionalId = categories.find((c) => c.key === 'outras_despesas_operacionais')?.id;
+    const operacionalCat = categories.find((c) => c.dre_line === 'despesas_operacionais' && c.source === 'manual');
+    if (operacionalCat) {
+      const _realByCategory = realByCategory;
+      realByCategory = (cat: CategoryRow) =>
+        cat.id === operacionalCat.id ? _realByCategory(cat) + uncategorizedCents : _realByCategory(cat);
+    } else {
+      // Se não houver categoria manual em despesas_operacionais, cria uma virtual
+      // para que o valor não desapareça do relatório.
+      categories.push({
+        id: -1, key: 'sem_categoria', label: 'Sem categoria', dre_line: 'despesas_operacionais',
+        source: 'manual', system: 0, adjustment_bps: 0, sort: 999,
+      });
+      manualByCategory.set(-1, uncategorizedCents);
+    }
+  }
 
   const lineOrder: DreLine[] = ['receita_bruta', 'deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras'];
   const lines = {} as Record<DreLine, DreLineResult>;

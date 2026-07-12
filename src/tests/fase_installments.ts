@@ -7,6 +7,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
+import { resetTestDb, activateTestLicense } from './resetTestDb';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3761);
 const base = `http://localhost:${PORT}`;
@@ -32,8 +33,10 @@ async function loginAs(u: string, p: string): Promise<string | null> {
 }
 
 async function main() {
+  resetTestDb();
   migrateUp();
   runSeeds();
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
   const db = getSqlite();
@@ -74,7 +77,7 @@ async function main() {
       method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pix.id, amountCents: 100000 }] }),
     }, admin!);
     check('acerto parcial da parcela 1 (200k) aceito', settle1.status === 200, String(settle1.status));
-    const settle1Body = await settle1.json();
+    const settle1Body = await settle1.json() as any;
     check('rolledOverCents = 100000', settle1Body.rolledOverCents === 100000, JSON.stringify(settle1Body));
     check('rolloverTarget = existing (parcela 2 já existia)', settle1Body.rolloverTarget === 'existing');
 
@@ -88,7 +91,7 @@ async function main() {
       method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pix.id, amountCents: 50000 }] }),
     }, admin!);
     check('acerto parcial da última parcela aceito', settle5.status === 200, String(settle5.status));
-    const settle5Body = await settle5.json();
+    const settle5Body = await settle5.json() as any;
     check('rolloverTarget = new (não havia parcela 6)', settle5Body.rolloverTarget === 'new', JSON.stringify(settle5Body));
 
     const newInstallment = db.prepare(
@@ -115,7 +118,7 @@ async function main() {
         { paymentMethodId: pix.id, amountCents: 150000 },
       ] }),
     }, admin!);
-    const blockedBody = await blocked.json();
+    const blockedBody = await blocked.json() as any;
     check('bloqueia split com parte em dinheiro sem caixa aberto', blocked.status === 400 && blockedBody.code === 'no_register', JSON.stringify(blockedBody));
 
     // Abrir caixa e repetir
@@ -128,7 +131,7 @@ async function main() {
         { paymentMethodId: pix.id, amountCents: 150000 },
       ] }),
     }, admin!);
-    const splitOkBody = await splitOk.json();
+    const splitOkBody = await splitOk.json() as any;
     check('split aceito com caixa aberto', splitOk.status === 200 && splitOkBody.registeredInCash === true, JSON.stringify(splitOkBody));
 
     const settlePays = db.prepare('SELECT payment_method_id, amount_cents FROM bill_settlement_payments WHERE entity = ? AND bill_id = ?').all('payable', other.id) as { payment_method_id: number; amount_cents: number }[];

@@ -7,6 +7,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
+import { resetTestDb, activateTestLicense } from './resetTestDb';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3750);
 const base = `http://localhost:${PORT}`;
@@ -32,8 +33,10 @@ async function loginAs(u: string, p: string): Promise<string | null> {
 }
 
 async function main() {
+  resetTestDb();
   migrateUp();
   runSeeds();
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
   const db = getSqlite();
@@ -97,7 +100,10 @@ async function main() {
       }, admin!)
     ).json()) as { id: number };
     const rec2 = db.prepare('SELECT id FROM receivables WHERE sale_id = ?').get(sale2.id) as { id: number };
-    await api(`/api/finance/receivables/${rec2.id}/settle`, { method: 'POST' }, admin!);
+    const pixMethod = db.prepare("SELECT id FROM payment_methods WHERE type = 'pix' AND active = 1 LIMIT 1").get() as { id: number };
+    await api(`/api/finance/receivables/${rec2.id}/settle`, {
+      method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pixMethod.id, amountCents: 10000 }] }),
+    }, admin!);
     const blocked = await api(`/api/store/sales/${sale2.id}/cancel`, { method: 'POST' }, admin!);
     check('cancelamento bloqueado se parcela já recebida', blocked.status === 400, String(blocked.status));
   } finally {
