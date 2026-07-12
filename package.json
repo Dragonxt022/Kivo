@@ -47,6 +47,7 @@
     "test:fase8b": "tsx src/tests/fase8b.ts",
     "test:capabilities": "tsx src/tests/fase_capabilities.ts",
     "test:variants": "tsx src/tests/fase_variants.ts",
+    "test:complementos": "tsx src/tests/fase_complementos.ts",
     "cloud:install": "npm --prefix cloud install",
     "cloud:migrate": "npm --prefix cloud run migrate",
     "cloud:dev": "npm --prefix cloud run dev",

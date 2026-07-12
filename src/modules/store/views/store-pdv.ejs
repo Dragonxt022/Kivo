@@ -85,7 +85,7 @@
 
         <div class="cart-items">
           <template x-for="(i, idx) in cart" :key="idx">
-            <div class="cart-line">
+            <div class="cart-line" :class="{ 'cart-line-complement': i.lineGroupUuid && idx > 0 && cart[idx - 1]?.lineGroupUuid === i.lineGroupUuid }">
               <div class="cart-line-thumb">
                 <img x-show="i.image_url" :src="i.image_url" alt="" />
                 <template x-if="!i.image_url">
@@ -95,6 +95,7 @@
               <div>
                 <div class="prod-name" x-text="i.name"></div>
                 <div class="prod-unit" x-text="(i.sku ? ('SKU: ' + i.sku + ' · ') : '') + brl(i.price_cents) + ' un.'"></div>
+                <div class="prod-notes" x-show="i.notes" x-text="i.notes"></div>
               </div>
               <div class="qty-wrap">
                 <button @click="qtyMinus(idx)" :disabled="i.qty <= 0.001">−</button>
@@ -223,9 +224,9 @@
         </template>
       </div>
 
-      <div class="pdv-browse-list" style="margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
-        <template x-for="p in browseFiltered()" :key="p.id">
-          <div class="pdv-result" @click="add(p); $refs.browse.close()">
+          <div class="pdv-browse-list" style="margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+            <template x-for="p in browseFiltered()" :key="p.id">
+              <div class="pdv-result" @click="add(p).then(() => $refs.browse.close())">
             <span class="pdv-result-thumb">
               <img x-show="p.image_url" :src="p.image_url" alt="" />
               <template x-if="!p.image_url"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></template>
@@ -487,6 +488,53 @@
     </dialog>
 
     <% if (user.permissions.has('finance.cash.open')) { %>
+    <!-- ─── MODAL: Complementos / opcionais ─── -->
+    <dialog x-ref="complementDlg" style="width:min(600px,94vw)">
+      <h1 x-text="'Complementos — ' + (complementDlg.product?.name || '')"></h1>
+      <p class="muted">Selecione os opcionais desejados e confirme para adicionar ao carrinho.</p>
+      <template x-for="g in complementDlg.groups" :key="g.group_id">
+        <div class="complement-group" style="margin:1rem 0;padding:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong x-text="g.group_name"></strong>
+            <span class="muted text-xs" x-text="(g.min_select > 0 ? ('Min: ' + g.min_select) : 'Opcional') + (g.max_select ? (' · Max: ' + g.max_select) : '')"></span>
+          </div>
+          <div style="margin-top:.5rem">
+            <template x-for="item in (typeof g.items === 'string' ? [] : g.items)" :key="item.id">
+              <div class="complement-item" style="display:flex;align-items:center;gap:.5rem;padding:.3rem 0">
+                <input type="checkbox" :checked="complementDlg.selections[g.group_id]?.some(s => s.product_id === item.product_id)"
+                       @change="toggleComplement(g.group_id, item)" />
+                <span x-text="item.product_name" style="flex:1"></span>
+                <span class="text-sm" x-text="brl(item.price_override_cents != null ? item.price_override_cents : complementDlg.product?.price_cents)"></span>
+                <template x-if="complementDlg.selections[g.group_id]?.some(s => s.product_id === item.product_id)">
+                  <div style="display:flex;align-items:center;gap:.25rem">
+                    <button class="btn secondary small" @click="complementQty(g.group_id, item.product_id, -1)" style="padding:.1rem .4rem">−</button>
+                    <span x-text="complementDlg.selections[g.group_id]?.find(s => s.product_id === item.product_id)?.qty || 1" style="min-width:1.5rem;text-align:center"></span>
+                    <button class="btn secondary small" @click="complementQty(g.group_id, item.product_id, 1)" style="padding:.1rem .4rem">+</button>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+          <div class="error text-xs" x-show="complementDlg.errors[g.group_id]" x-text="complementDlg.errors[g.group_id]"></div>
+        </div>
+      </template>
+      <div style="margin-bottom:.75rem">
+        <label class="text-sm" style="display:block;margin-bottom:.25rem">Observação (opcional)</label>
+        <input type="text" x-model="complementDlg.mainNotes" placeholder="Ex.: sem cebola, bem passado..." style="width:100%" />
+      </div>
+      <div class="error" x-text="complementDlg.errors._general"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.complementDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="confirmComplementSelection()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Adicionar ao carrinho
+        </button>
+      </div>
+    </dialog>
+
     <!-- ─── MODAL: Aviso de caixa fechado ─── -->
     <dialog x-ref="cashClosedWarnDlg" style="width:360px">
       <div class="dialog-body-center">
@@ -596,6 +644,82 @@
         prazoForm: { customerId: '', mode: 'avista', installments: 3, firstDueDate: '', amountCents: 0 }, prazoError: '',
         fidelidadeForm: { pointsUsed: 0 }, fidelidadeError: '',
         cloudOnline: false,
+        complementDlg: { product: null, groups: [], selections: {}, mainNotes: '', errors: {} },
+
+        // ─── Complementos ───
+        openComplementDlg(product, groups) {
+          this.complementDlg.product = product;
+          this.complementDlg.groups = groups;
+          this.complementDlg.selections = {};
+          this.complementDlg.mainNotes = '';
+          this.complementDlg.errors = {};
+          for (const g of groups) {
+            this.complementDlg.selections[g.group_id] = [];
+            // Parse items JSON (vem como string do json_group_array)
+            if (typeof g.items === 'string') {
+              try { g.items = JSON.parse(g.items); } catch { g.items = []; }
+            }
+          }
+          this.$refs.complementDlg.showModal();
+        },
+        toggleComplement(groupId, item) {
+          const sel = this.complementDlg.selections[groupId];
+          const g = this.complementDlg.groups.find((gr) => gr.group_id === groupId);
+          const idx = sel.findIndex((s) => s.product_id === item.product_id);
+          if (idx >= 0) {
+            sel.splice(idx, 1);
+          } else {
+            if (g && g.max_select === 1) {
+              sel.length = 0;
+            }
+            sel.push({ ...item });
+          }
+          this.complementDlg.errors = {};
+        },
+        complementQty(groupId, productId, delta) {
+          const sel = this.complementDlg.selections[groupId];
+          const item = sel.find((s) => s.product_id === productId);
+          if (item) {
+            item.qty = Math.max(1, (item.qty || 1) + delta);
+          }
+        },
+        validateComplementSelection() {
+          const errors = {};
+          for (const g of this.complementDlg.groups) {
+            const sel = this.complementDlg.selections[g.group_id];
+            const totalQty = sel.reduce((s, i) => s + (i.qty || 1), 0);
+            if (g.min_select > 0 && totalQty < g.min_select) {
+              errors[g.group_id] = `Selecione ao menos ${g.min_select} opcao(oes).`;
+            }
+            if (g.max_select != null && totalQty > g.max_select) {
+              errors[g.group_id] = `Maximo de ${g.max_select} opcao(oes) excedido.`;
+            }
+          }
+          this.complementDlg.errors = errors;
+          return Object.keys(errors).length === 0;
+        },
+        confirmComplementSelection() {
+          if (!this.validateComplementSelection()) return;
+          const p = this.complementDlg.product;
+          const lineGroupUuid = window.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random());
+          // Adiciona o produto principal
+          this.addToCart(p, 1, lineGroupUuid, this.complementDlg.mainNotes || null);
+          // Adiciona cada complemento selecionado
+          for (const g of this.complementDlg.groups) {
+            for (const sel of this.complementDlg.selections[g.group_id]) {
+              const qty = sel.qty || 1;
+              const complementProduct = {
+                id: sel.product_id,
+                name: sel.product_name,
+                price_cents: sel.price_override_cents != null ? sel.price_override_cents : p.price_cents,
+                sku: null,
+                image_url: null,
+              };
+              this.addToCart(complementProduct, qty, lineGroupUuid, this.complementDlg.mainNotes || null);
+            }
+          }
+          this.$refs.complementDlg.close();
+        },
 
         // ─── Utilitários ───
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
@@ -763,21 +887,35 @@
           const el = document.querySelector('.pdv-result.highlight');
           if (el) el.scrollIntoView({ block: 'nearest' });
         },
-        quickAdd() {
-          if (this.results.length === 1) { this.add(this.results[0]); }
+        async quickAdd() {
+          if (this.results.length === 1) { await this.add(this.results[0]); }
           else if (this.results.length > 1) {
             if (this.highlightIdx >= 0) {
-              this.add(this.results[this.highlightIdx]);
+              await this.add(this.results[this.highlightIdx]);
               return;
             }
             const exact = this.results.find((p) => p.barcode === this.q.trim() || p.sku === this.q.trim());
-            if (exact) this.add(exact);
+            if (exact) await this.add(exact);
           }
         },
-        add(p) {
-          const existing = this.cart.find((i) => i.productId === p.id);
-          if (existing) existing.qty += 1;
-          else this.cart.push({ productId: p.id, name: p.name, price_cents: p.price_cents, qty: 1, sku: p.sku ?? null, image_url: p.image_url ?? null });
+        async add(p) {
+          const existing = this.cart.find((i) => i.productId === p.id && !i.lineGroupUuid);
+          if (existing) { existing.qty += 1; this.persistSlots(); this.repriceCart(); return; }
+          // Checar se produto tem complementos
+          const r = await fetch(`/api/commercial/products/${p.id}/complement-groups`);
+          const groups = r.ok ? await r.json() : [];
+          if (groups.length > 0) {
+            this.openComplementDlg(p, groups);
+            return;
+          }
+          this.addToCart(p, 1, null, null);
+        },
+        addToCart(p, qty, lineGroupUuid, notes) {
+          this.cart.push({
+            productId: p.id, name: p.name, price_cents: p.price_cents, qty,
+            sku: p.sku ?? null, image_url: p.image_url ?? null,
+            lineGroupUuid, notes,
+          });
           this.q = ''; this.results = []; this.highlightIdx = -1;
           this.focusSearch();
           this.persistSlots();
@@ -1059,7 +1197,7 @@
             return out;
           });
           const body = {
-            items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty })),
+            items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
             payments,
             discountCents: this.discountCents || undefined,
             surchargeCents: this.surchargeCents || undefined,

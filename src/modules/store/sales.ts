@@ -22,6 +22,10 @@ export interface SaleItemInput {
   qty: number;
   /** Usado apenas internamente (conversão de orçamento honra o preço cotado). */
   unitPriceCents?: number;
+  /** Observação por linha (ex.: "sem cebola"). */
+  notes?: string;
+  /** UUID que agrupa item principal + complementos escolhidos juntos. */
+  lineGroupUuid?: string;
 }
 
 export interface SalePaymentInput {
@@ -241,11 +245,13 @@ export function createSale(
       saleId = Number(info.lastInsertRowid);
 
       const insertItem = db.prepare(
-        `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents, notes, line_group_uuid)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
-      for (const i of items) {
-        insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents);
+      for (let idx = 0; idx < items.length; idx++) {
+        const i = items[idx];
+        const inpItem = input.items[idx];
+        insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, inpItem.notes ?? null, inpItem.lineGroupUuid ?? null);
         // allowNegative: a venda não pode travar por falta de estoque (reposição pode atrasar).
         const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);

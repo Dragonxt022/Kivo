@@ -510,6 +510,184 @@ router.post('/products/:id/barcode/generate', requirePermission('commercial.prod
   res.json(after);
 });
 
+// ---------- Complementos / Opcionais ----------
+router.get('/complement-groups', requirePermission('commercial.products.view'), requireCapability('commercial.complementos'), (_req, res) => {
+  res.json(db().prepare(
+    `SELECT id, name, min_select, max_select, uuid, updated_at FROM complement_groups WHERE deleted_at IS NULL ORDER BY name`,
+  ).all());
+});
+
+router.post('/complement-groups', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const { name, minSelect, maxSelect } = req.body ?? {};
+  if (!name || !String(name).trim()) {
+    res.status(400).json({ error: 'Campo obrigatório: name' });
+    return;
+  }
+  const info = db().prepare(
+    'INSERT INTO complement_groups (name, min_select, max_select, uuid) VALUES (?, ?, ?, ?)',
+  ).run(String(name).trim(), Math.round(Number(minSelect ?? 0)), maxSelect != null ? Math.round(Number(maxSelect)) : null, randomUUID());
+  const created = db().prepare('SELECT id, name, min_select, max_select FROM complement_groups WHERE id = ?').get(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'complement_group', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.put('/complement-groups/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, name, min_select, max_select FROM complement_groups WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
+    return;
+  }
+  const { name, minSelect, maxSelect } = req.body ?? {};
+  db().prepare(
+    `UPDATE complement_groups SET name = COALESCE(?, name), min_select = COALESCE(?, min_select), max_select = COALESCE(?, max_select), updated_at = datetime('now') WHERE id = ?`,
+  ).run(name ? String(name).trim() : null, minSelect != null ? Math.round(Number(minSelect)) : null, maxSelect !== undefined ? (maxSelect != null ? Math.round(Number(maxSelect)) : null) : null, id);
+  const after = db().prepare('SELECT id, name, min_select, max_select FROM complement_groups WHERE id = ?').get(id);
+  audit(req, 'editar', 'complement_group', id, before, after);
+  res.json(after);
+});
+
+router.delete('/complement-groups/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, name FROM complement_groups WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
+    return;
+  }
+  db().transaction(() => {
+    db().prepare("UPDATE complement_group_items SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE group_id = ?").run(id);
+    db().prepare("UPDATE product_complement_groups SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE group_id = ?").run(id);
+    db().prepare("UPDATE complement_groups SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  })();
+  audit(req, 'excluir', 'complement_group', id, before, null);
+  res.json({ ok: true });
+});
+
+router.get('/complement-groups/:id/items', requirePermission('commercial.products.view'), requireCapability('commercial.complementos'), (req, res) => {
+  const id = Number(req.params.id);
+  res.json(db().prepare(
+    `SELECT i.id, i.group_id, i.product_id, p.name AS product_name, p.sku, i.price_override_cents, i.sort_order, i.uuid, i.updated_at
+     FROM complement_group_items i JOIN products p ON p.id = i.product_id
+     WHERE i.group_id = ? AND i.deleted_at IS NULL ORDER BY i.sort_order, p.name`,
+  ).all(id));
+});
+
+router.post('/complement-groups/:id/items', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const groupId = Number(req.params.id);
+  const group = db().prepare('SELECT id FROM complement_groups WHERE id = ? AND deleted_at IS NULL').get(groupId);
+  if (!group) {
+    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
+    return;
+  }
+  const { productId, priceOverrideCents, sortOrder } = req.body ?? {};
+  if (!productId) {
+    res.status(400).json({ error: 'Campo obrigatório: productId.' });
+    return;
+  }
+  const prod = db().prepare('SELECT id FROM products WHERE id = ? AND deleted_at IS NULL').get(productId);
+  if (!prod) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  const info = db().prepare(
+    'INSERT INTO complement_group_items (group_id, product_id, price_override_cents, sort_order, uuid) VALUES (?, ?, ?, ?, ?)',
+  ).run(groupId, productId, priceOverrideCents != null ? Math.round(Number(priceOverrideCents)) : null, Math.round(Number(sortOrder ?? 0)), randomUUID());
+  const created = db().prepare(
+    `SELECT i.id, i.group_id, i.product_id, p.name AS product_name, i.price_override_cents, i.sort_order
+     FROM complement_group_items i JOIN products p ON p.id = i.product_id WHERE i.id = ?`,
+  ).get(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'complement_group_item', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.put('/complement-groups/:groupId/items/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, product_id, price_override_cents, sort_order FROM complement_group_items WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Item de complemento não encontrado.' });
+    return;
+  }
+  const { productId, priceOverrideCents, sortOrder } = req.body ?? {};
+  db().prepare(
+    `UPDATE complement_group_items SET product_id = COALESCE(?, product_id), price_override_cents = COALESCE(?, price_override_cents), sort_order = COALESCE(?, sort_order), updated_at = datetime('now') WHERE id = ?`,
+  ).run(productId ?? null, priceOverrideCents !== undefined ? (priceOverrideCents != null ? Math.round(Number(priceOverrideCents)) : null) : null, sortOrder != null ? Math.round(Number(sortOrder)) : null, id);
+  const after = db().prepare('SELECT id, group_id, product_id, price_override_cents, sort_order FROM complement_group_items WHERE id = ?').get(id);
+  audit(req, 'editar', 'complement_group_item', id, before, after);
+  res.json(after);
+});
+
+router.delete('/complement-groups/:groupId/items/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const id = Number(req.params.id);
+  const before = db().prepare('SELECT id, product_id FROM complement_group_items WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!before) {
+    res.status(404).json({ error: 'Item de complemento não encontrado.' });
+    return;
+  }
+  db().prepare("UPDATE complement_group_items SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  audit(req, 'excluir', 'complement_group_item', id, before, null);
+  res.json({ ok: true });
+});
+
+// Vincula/desvincula grupos de complemento a um produto
+router.get('/products/:id/complement-groups', requirePermission('commercial.products.view'), (req, res) => {
+  const productId = Number(req.params.id);
+  const links = db().prepare(
+    `SELECT pcg.id, pcg.group_id, cg.name AS group_name, cg.min_select, cg.max_select, pcg.sort_order,
+            json_group_array(json_object('id', i.id, 'product_id', i.product_id, 'product_name', p.name, 'price_override_cents', i.price_override_cents, 'sort_order', i.sort_order)) AS items
+     FROM product_complement_groups pcg
+     JOIN complement_groups cg ON cg.id = pcg.group_id AND cg.deleted_at IS NULL
+     LEFT JOIN complement_group_items i ON i.group_id = pcg.group_id AND i.deleted_at IS NULL
+     LEFT JOIN products p ON p.id = i.product_id
+     WHERE pcg.product_id = ? AND pcg.deleted_at IS NULL
+     GROUP BY pcg.id ORDER BY pcg.sort_order, cg.name`,
+  ).all(productId);
+  res.json(links);
+});
+
+router.post('/products/:id/complement-groups', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const productId = Number(req.params.id);
+  const { groupId, sortOrder } = req.body ?? {};
+  if (!groupId) {
+    res.status(400).json({ error: 'Campo obrigatório: groupId.' });
+    return;
+  }
+  const prod = db().prepare('SELECT id FROM products WHERE id = ? AND deleted_at IS NULL').get(productId);
+  if (!prod) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  const group = db().prepare('SELECT id FROM complement_groups WHERE id = ? AND deleted_at IS NULL').get(groupId);
+  if (!group) {
+    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
+    return;
+  }
+  const existing = db().prepare('SELECT id FROM product_complement_groups WHERE product_id = ? AND group_id = ? AND deleted_at IS NULL').get(productId, groupId);
+  if (existing) {
+    res.status(409).json({ error: 'Este grupo já está vinculado ao produto.' });
+    return;
+  }
+  const info = db().prepare(
+    'INSERT INTO product_complement_groups (product_id, group_id, sort_order, uuid) VALUES (?, ?, ?, ?)',
+  ).run(productId, groupId, Math.round(Number(sortOrder ?? 0)), randomUUID());
+  const created = db().prepare(
+    'SELECT id, product_id, group_id, sort_order FROM product_complement_groups WHERE id = ?',
+  ).get(Number(info.lastInsertRowid));
+  audit(req, 'criar', 'product_complement_group', Number(info.lastInsertRowid), null, created);
+  res.status(201).json(created);
+});
+
+router.delete('/products/:id/complement-groups/:linkId', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
+  const linkId = Number(req.params.linkId);
+  const before = db().prepare('SELECT id, product_id, group_id FROM product_complement_groups WHERE id = ? AND deleted_at IS NULL').get(linkId);
+  if (!before) {
+    res.status(404).json({ error: 'Vínculo não encontrado.' });
+    return;
+  }
+  db().prepare("UPDATE product_complement_groups SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(linkId);
+  audit(req, 'excluir', 'product_complement_group', linkId, before, null);
+  res.json({ ok: true });
+});
+
 // ---------- Variantes de produto ----------
 router.get('/products/:id/variants', requirePermission('commercial.products.view'), requireCapability('commercial.variantes'), (req, res) => {
   const parentId = Number(req.params.id);

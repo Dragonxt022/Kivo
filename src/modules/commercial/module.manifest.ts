@@ -33,9 +33,11 @@ const manifest: ModuleManifest = {
     { key: 'commercial.agreements.edit', description: 'Editar empresas conveniadas' },
     { key: 'commercial.agreements.delete', description: 'Excluir empresas conveniadas' },
     { key: 'commercial.products.variants.manage', description: 'Gerenciar variantes de produto' },
+    { key: 'commercial.products.complements.manage', description: 'Gerenciar grupos de complementos/opcionais' },
   ],
   capabilities: [
     { key: 'commercial.variantes', description: 'Produtos com variantes (tamanho, cor, etc.)' },
+    { key: 'commercial.complementos', description: 'Grupos de complementos/opcionais por produto, com seleção no PDV' },
   ],
   routes: './routes',
   pages: './pages',
@@ -98,6 +100,17 @@ const manifest: ModuleManifest = {
     {
       table: 'price_lists',
       children: [{ table: 'price_list_items', parentColumn: 'price_list_id', foreignKeys: { product_id: 'products' } }],
+    },
+    {
+      table: 'complement_groups',
+      children: [{
+        table: 'complement_group_items', parentColumn: 'group_id',
+        foreignKeys: { product_id: 'products' },
+      }],
+    },
+    {
+      table: 'product_complement_groups',
+      foreignKeys: { product_id: 'products', group_id: 'complement_groups' },
     },
   ],
 };
