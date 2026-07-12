@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('../../../store/views/partials/theme-init') %>
+  <title>Katsu — Mesas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('../../../store/views/partials/nav', { user, page: '/app/comandas/mesas' }) %>
+  <main x-data="mesasPage()" x-init="init()">
+    <div class="container">
+      <div class="flex-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h1>Mesas</h1>
+        <div>
+          <button type="button" class="btn" @click="showAddTable = true; newTableLabel = ''; $nextTick(() => $refs.tableInput?.focus())">Nova Mesa</button>
+        </div>
+      </div>
+      <div class="tables-grid">
+        <template x-for="t in tables" :key="t.id">
+          <div class="table-card" :class="'table-' + t.status" @click="openTable(t)" :title="'Mesa ' + t.label + ' — ' + (t.status === 'livre' ? 'Livre' : 'Ocupada')">
+            <div class="table-label" x-text="t.label"></div>
+            <div class="table-status" x-text="t.status === 'livre' ? 'Livre' : 'Ocupada'"></div>
+          </div>
+        </template>
+      </div>
+      <div x-show="!tables.length" class="text-muted" style="text-align:center;padding:2rem">Nenhuma mesa cadastrada.</div>
+    </div>
+
+    <!-- Dialog para criar mesa -->
+    <dialog x-ref="addTableDlg" x-show="showAddTable">
+      <form @submit.prevent="createTable" method="dialog">
+        <h2>Nova Mesa</h2>
+        <label>Nome / Numero</label>
+        <input type="text" x-ref="tableInput" x-model="newTableLabel" class="form-input" required />
+        <div class="form-actions">
+          <button type="button" class="btn secondary" @click="showAddTable = false">Cancelar</button>
+          <button type="submit" class="btn">Criar</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+  <style>
+    .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+    .table-card { border: 2px solid var(--border); border-radius: 12px; padding: 1.5rem 1rem; text-align: center; cursor: pointer; transition: transform 0.15s; background: var(--bg); }
+    .table-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .table-card.table-livre { border-color: #22c55e; }
+    .table-card.table-ocupada { border-color: #ef4444; background: rgba(239,68,68,0.05); }
+    .table-label { font-size: 1.3rem; font-weight: 700; }
+    .table-status { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+  </style>
+  <script>
+    function mesasPage() {
+      return {
+        tables: [],
+        showAddTable: false,
+        newTableLabel: '',
+        pollTimer: null,
+        async init() {
+          await this.load();
+          this.pollTimer = setInterval(() => this.load(), 10000);
+        },
+        async load() {
+          const r = await fetch('/api/comandas/tables/status');
+          if (r.ok) this.tables = await r.json();
+        },
+        openTable(t) {
+          if (t.status === 'ocupada') {
+            const comanda = this.tables.find((x) => x.id === t.id && x.status === 'ocupada');
+            // Buscar comanda aberta para esta mesa
+            fetch('/api/comandas/comandas?status=aberta').then(r => r.ok && r.json()).then(list => {
+              const c = list.find((c) => c.table_id === t.id);
+              if (c) window.location.href = '/app/comandas/mesas/' + c.id;
+            });
+          }
+        },
+        async createTable() {
+          if (!this.newTableLabel.trim()) return;
+          const r = await fetch('/api/comandas/tables', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: this.newTableLabel.trim() }),
+          });
+          if (r.ok) { this.showAddTable = false; this.newTableLabel = ''; await this.load(); }
+          else { const e = await r.json(); alert(e.error); }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

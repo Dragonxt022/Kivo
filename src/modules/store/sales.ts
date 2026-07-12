@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { getSqlite } from '../../core/database/connection';
-import { getService } from '../../core/services/registry';
+import { getService, hasService } from '../../core/services/registry';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
 import type { CommercialStockService, CommercialPricingService, CommercialStoreCreditService, CommercialLoyaltyService } from '../commercial/setup';
 import type { FinanceCashService, FinanceReceivablesService, FinancePayMethodsService, FinanceAgreementsService, PaymentMethod } from '../finance/setup';
+import type { FoodserviceKitchenService } from '../foodservice/setup';
 
 /**
  * Venda do PDV — transacional de ponta a ponta, com PAGAMENTO MÚLTIPLO:
@@ -393,6 +394,15 @@ export function createSale(
   audit(req, 'venda', 'sale', saleId, null, {
     total, feeCents: totalFee, payments: resolved.map((p) => ({ method: p.method.name, amount: p.amountCents })),
   });
+  // Notificar cozinha best-effort (fora da transacao — falha nunca derruba a venda)
+  try {
+    if (hasService('foodservice.kitchen')) {
+      getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
+        sourceType: 'sale', sourceId: saleId,
+        items: items.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, notes: i.notes ?? undefined })),
+      });
+    }
+  } catch { /* best-effort */ }
   return { ok: true, id: saleId, totalCents: total, changeCents: totalChange, feeCents: totalFee, receivableId };
 }
 

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Ticket de Cozinha</title>
+  <style>
+    body { font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; margin: 0 auto; padding: 8px; }
+    h1 { font-size: 16px; text-align: center; margin: 8px 0; }
+    h2 { font-size: 14px; margin: 8px 0 4px; }
+    .meta { text-align: center; margin-bottom: 8px; font-size: 11px; }
+    .item { padding: 4px 0; border-top: 1px dashed #ccc; }
+    .item:first-child { border-top: none; }
+    .item-qty { font-weight: bold; }
+    .item-notes { font-size: 11px; color: #555; }
+    .footer { text-align: center; margin-top: 16px; font-size: 10px; color: #888; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="text-align:center;margin-bottom:12px">
+    <button onclick="window.print()">Imprimir</button>
+  </div>
+  <% const ticket = locals.ticket; if (!ticket) { %><p>Ticket não encontrado.</p><% return; } %>
+  <h1>Ticket de Cozinha</h1>
+  <div class="meta">
+    <div><%= ticket.source_type === 'comanda' ? 'Mesa ' + (ticket.table_label || ticket.source_id) : 'PDV #' + ticket.source_id %></div>
+    <div><%= ticket.updated_at?.slice(11, 19) || '' %></div>
+  </div>
+  <% if (ticket.items?.length) { %>
+    <% for (const item of ticket.items) { %>
+      <div class="item">
+        <div class="item-qty"><%= item.qty %>x <%= item.product_name %></div>
+        <% if (item.notes) { %><div class="item-notes">Obs: <%= item.notes %></div><% } %>
+        <% if (item.station) { %><div class="item-notes">Estação: <%= item.station %></div><% } %>
+      </div>
+    <% } %>
+  <% } else { %>
+    <p>Nenhum item neste ticket.</p>
+  <% } %>
+  <div class="footer">--- Katsu Food Service ---</div>
+</body>
+</html>

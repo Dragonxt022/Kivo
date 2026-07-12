@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('../../../store/views/partials/theme-init') %>
+  <title>Katsu — Cozinha</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('../../../store/views/partials/nav', { user, page: '/app/foodservice/cozinha' }) %>
+  <main x-data="cozinhaPage()" x-init="init()">
+    <div class="container">
+      <h1>Painel de Cozinha</h1>
+      <div class="kds-tabs">
+        <button type="button" :class="{ active: tab === 'pendente' }" @click="tab='pendente'; load()">Pendentes</button>
+        <button type="button" :class="{ active: tab === 'preparo' }" @click="tab='preparo'; load()">Em Preparo</button>
+        <button type="button" :class="{ active: tab === 'pronto' }" @click="tab='pronto'; load()">Prontos</button>
+        <button type="button" :class="{ active: tab === 'entregue' }" @click="tab='entregue'; load()">Entregues</button>
+      </div>
+      <div class="kds-grid">
+        <template x-for="ticket in tickets" :key="ticket.id">
+          <div class="kds-card" :class="'kds-' + ticket.status">
+            <div class="kds-card-header">
+              <span class="kds-source" x-text="ticket.source_type === 'comanda' ? 'Mesa ' + (ticket.table_label || ticket.source_id) : 'PDV #' + ticket.source_id"></span>
+              <span class="kds-time" x-text="ticket.updated_at?.slice(11, 16) || ''"></span>
+            </div>
+            <div class="kds-items">
+              <template x-for="item in (ticket.items || [])" :key="item.id">
+                <div class="kds-item" :class="'kds-item-' + item.status">
+                  <div class="kds-item-qty" x-text="item.qty + 'x'"></div>
+                  <div class="kds-item-info">
+                    <div class="kds-item-name" x-text="item.product_name"></div>
+                    <div class="kds-item-meta" x-show="item.notes" x-text="'Obs: ' + item.notes"></div>
+                    <div class="kds-item-meta" x-show="item.station" x-text="item.station"></div>
+                  </div>
+                  <button type="button" class="btn btn-sm" :disabled="item.status === 'entregue'" @click="advanceItem(ticket.id, item.id, item.status)">
+                    <span x-text="nextStatus(item.status)"></span>
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+        <div x-show="!tickets.length" class="kds-empty">Nenhum ticket.</div>
+      </div>
+    </div>
+  </main>
+  <style>
+    .kds-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .kds-tabs button { padding: 0.5rem 1rem; border: 1px solid var(--border); background: var(--bg); cursor: pointer; border-radius: 6px; }
+    .kds-tabs button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+    .kds-card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; background: var(--bg); }
+    .kds-card.kds-pendente { border-left: 4px solid #eab308; }
+    .kds-card.kds-preparo { border-left: 4px solid #3b82f6; }
+    .kds-card.kds-pronto { border-left: 4px solid #22c55e; }
+    .kds-card.kds-entregue { border-left: 4px solid #6b7280; opacity: 0.7; }
+    .kds-card-header { display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-weight: 600; }
+    .kds-time { color: var(--muted); font-size: 0.85rem; }
+    .kds-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--border); }
+    .kds-item:first-child { border-top: none; }
+    .kds-item-qty { font-weight: 700; font-size: 1.1rem; min-width: 2rem; text-align: center; }
+    .kds-item-info { flex: 1; }
+    .kds-item-name { font-weight: 500; }
+    .kds-item-meta { font-size: 0.85rem; color: var(--muted); }
+    .kds-item-preparo { background: rgba(59,130,246,0.05); }
+    .kds-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 2rem; }
+  </style>
+  <script>
+    function cozinhaPage() {
+      return {
+        tab: 'pendente',
+        tickets: [],
+        pollTimer: null,
+        async init() {
+          await this.load();
+          this.pollTimer = setInterval(() => this.load(), 5000);
+        },
+        async load() {
+          const r = await fetch('/api/foodservice/kitchen/tickets?status=' + this.tab);
+          if (r.ok) this.tickets = await r.json();
+        },
+        nextStatus(s) {
+          if (s === 'pendente') return 'Iniciar';
+          if (s === 'preparo') return 'Pronto';
+          if (s === 'pronto') return 'Entregue';
+          return '';
+        },
+        async advanceItem(ticketId, itemId, currentStatus) {
+          const next = this.nextStatus(currentStatus);
+          if (!next) return;
+          const r = await fetch(`/api/foodservice/kitchen/tickets/${ticketId}/items/${itemId}/status`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: currentStatus === 'pendente' ? 'preparo' : currentStatus === 'preparo' ? 'pronto' : 'entregue' }),
+          });
+          if (r.ok) await this.load();
+        },
+      };
+    }
+  </script>
+</body>
+</html>

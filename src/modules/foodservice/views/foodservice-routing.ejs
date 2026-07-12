@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('../../../store/views/partials/theme-init') %>
+  <title>Katsu — Roteamento para Cozinha</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('../../../store/views/partials/nav', { user, page: '/app/foodservice/roteamento' }) %>
+  <main x-data="routingPage()" x-init="init()">
+    <div class="container">
+      <h1>Roteamento para Cozinha</h1>
+      <p class="text-muted">Defina quais produtos geram ticket na cozinha ao serem vendidos.</p>
+      <table class="table">
+        <thead>
+          <tr><th>Produto</th><th>SKU</th><th>Estação</th><th>Tempo Estimado (min)</th><th></th></tr>
+        </thead>
+        <tbody>
+          <template x-for="r in list" :key="r.id">
+            <tr>
+              <td x-text="r.product_name"></td>
+              <td x-text="r.sku || '-'"></td>
+              <td><input type="text" x-model="r.station" class="form-input" placeholder="ex.: Chapa" /></td>
+              <td><input type="number" x-model="r.estimated_minutes" class="form-input" style="width:80px" min="1" /></td>
+              <td>
+                <button type="button" class="btn btn-sm" @click="update(r)">Salvar</button>
+                <button type="button" class="btn btn-sm btn-danger" @click="remove(r)">Remover</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <hr />
+      <h2>Adicionar Produto</h2>
+      <div class="form-row">
+        <input type="text" x-model="searchQ" @input.debounce.300ms="searchProducts" placeholder="Buscar produto..." class="form-input" />
+      </div>
+      <template x-if="searchResults.length">
+        <table class="table">
+          <thead><tr><th>Produto</th><th>SKU</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="p in searchResults" :key="p.id">
+              <tr>
+                <td x-text="p.name"></td>
+                <td x-text="p.sku || '-'"></td>
+                <td><button type="button" class="btn btn-sm" @click="addProduct(p)">Adicionar</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </template>
+    </div>
+  </main>
+  <script>
+    function routingPage() {
+      return {
+        list: [],
+        searchQ: '',
+        searchResults: [],
+        async init() { await this.load(); },
+        async load() {
+          const r = await fetch('/api/foodservice/kitchen-routing');
+          if (r.ok) this.list = await r.json();
+        },
+        async searchProducts() {
+          if (!this.searchQ.trim()) { this.searchResults = []; return; }
+          const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(this.searchQ.trim()));
+          if (r.ok) {
+            const all = await r.json();
+            const routedIds = new Set(this.list.map((x) => x.product_id));
+            this.searchResults = all.filter((p) => !routedIds.has(p.id) && !p.deleted_at);
+          }
+        },
+        async addProduct(p) {
+          const r = await fetch('/api/foodservice/kitchen-routing', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: p.id }),
+          });
+          if (r.ok) { this.searchQ = ''; this.searchResults = []; await this.load(); }
+          else { const e = await r.json(); alert(e.error); }
+        },
+        async update(r) {
+          await fetch(`/api/foodservice/kitchen-routing/${r.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ station: r.station, estimatedMinutes: Number(r.estimated_minutes) || null }),
+          });
+        },
+        async remove(r) {
+          if (!await window.confirmDlg('Remover ' + r.product_name + ' do roteamento?')) return;
+          await fetch(`/api/foodservice/kitchen-routing/${r.id}`, { method: 'DELETE' });
+          await this.load();
+        },
+      };
+    }
+  </script>
+</body>
+</html>
