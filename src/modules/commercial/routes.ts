@@ -3,11 +3,11 @@ import { Router } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
+import { createCategorySchema, updateCategorySchema, deleteCategorySchema, grantStoreCreditSchema } from '../../shared/schemas';
 import { validateBody } from '../../shared/validateBody';
-import { stockMoveSchema, createCategorySchema, updateCategorySchema, deleteCategorySchema, grantStoreCreditSchema } from '../../shared/schemas';
 import productsRouter from './productsRoutes';
+import stockRouter from './stockRoutes';
 import { makeCrudRouter } from './crud';
-import { moveStock, listMovements, type MovementType } from './stock';
 import { grant as grantStoreCredit } from './storeCredit';
 import purchasesRouter from './purchasesRoutes';
 
@@ -113,21 +113,7 @@ router.delete('/categories/:id', requirePermission('commercial.products.delete')
 
 router.use(productsRouter);
 
-// ---------- Estoque ----------
-router.get('/stock/movements', requirePermission('commercial.stock.view'), (req, res) => {
-  const productId = req.query.productId ? Number(req.query.productId) : undefined;
-  res.json(listMovements(productId, Math.min(Number(req.query.limit ?? 100), 500)));
-});
-
-router.use('/stock/move', requirePermission('commercial.stock.move'), validateBody(stockMoveSchema), (req, res) => {
-  const { productId, type, qty, reason } = req.body;
-  const result = moveStock(req, productId, type as MovementType, qty, reason);
-  if (!result.ok) {
-    res.status(400).json(result);
-    return;
-  }
-  res.json(result);
-});
+router.use('/stock', stockRouter);
 
 router.use('/purchases', purchasesRouter);
 
