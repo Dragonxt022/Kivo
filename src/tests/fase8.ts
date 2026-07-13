@@ -12,6 +12,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3899);
 const base = `http://localhost:${PORT}`;
@@ -56,15 +57,15 @@ async function main() {
   // PARTE 1 — DRE CATEGORIES CRUD
   // ====================================================================
   {
-    const cats = await (await api(`${DRE}/categories`, {}, admin!)).json() as any[];
+    const cats = await unwrap<any[]>(await api(`${DRE}/categories`, {}, admin!));
     check('categorias iniciais: 6 system', cats.length === 6, String(cats.length));
     check('contém receita_bruta_vendas', cats.some((c: any) => c.key === 'receita_bruta_vendas'));
     check('contém taxas_cartao', cats.some((c: any) => c.key === 'taxas_cartao'));
 
     // Criar categoria manual
-    const created = await (await api(`${DRE}/categories`, {
+    const created = await unwrap<any>(await api(`${DRE}/categories`, {
       method: 'POST', body: JSON.stringify({ label: 'Teste DRE', dreLine: 'despesas_operacionais', adjustmentBps: 500 }),
-    }, admin!)).json() as any;
+    }, admin!));
     check('criou categoria manual', created.id > 0 && created.source === 'manual' && !created.system, created.label);
     const catId = created.id;
 
@@ -81,9 +82,9 @@ async function main() {
     check('adjustmentBps > 10000 → 400', badAdj.status === 400);
 
     // Editar label
-    const edited = await (await api(`${DRE}/categories/${catId}`, {
+    const edited = await unwrap<any>(await api(`${DRE}/categories/${catId}`, {
       method: 'PUT', body: JSON.stringify({ label: 'Teste Alterado' }),
-    }, admin!)).json() as any;
+    }, admin!));
     check('editou label', edited.label === 'Teste Alterado');
 
     // Editar dreLine em categoria system → 400
@@ -101,8 +102,8 @@ async function main() {
     const delOk = await api(`${DRE}/categories/${catId}`, { method: 'DELETE' }, admin!);
     check('categoria não usada foi excluída', delOk.status === 200);
 
-    const afterDel = await api(`${DRE}/categories`, {}, admin!);
-    check('total voltou a 6', ((await afterDel.json()) as any[]).length === 6);
+    const afterDel = await unwrap<any[]>(await api(`${DRE}/categories`, {}, admin!));
+    check('total voltou a 6', afterDel.length === 6);
   }
 
   // ====================================================================
@@ -133,59 +134,59 @@ async function main() {
     const financeiraCat = cats.find((c) => c.key === 'outras_despesas_financeiras')!.id;
 
     // ---- Criar payables com categorias ----
-    const p1 = await (await api(`${F}/payables`, {
+    const p1 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
         description: 'Imposto', amountCents: 1500, dueDate: '2026-07-10', dreCategoryId: deducoesCat,
       }),
-    }, admin!)).json() as any;
+    }, admin!));
     check('payable deducoes criada', p1.id > 0);
 
-    const p2 = await (await api(`${F}/payables`, {
+    const p2 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
         description: 'Aluguel', amountCents: 4000, dueDate: '2026-07-15', dreCategoryId: operacionalCat,
       }),
-    }, admin!)).json() as any;
+    }, admin!));
     check('payable operacional criada', p2.id > 0);
 
-    const p3 = await (await api(`${F}/payables`, {
+    const p3 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
         description: 'Juros bancários', amountCents: 2500, dueDate: '2026-07-20', dreCategoryId: financeiraCat,
       }),
-    }, admin!)).json() as any;
+    }, admin!));
     check('payable financeira criada', p3.id > 0);
 
     // Payable SEM categoria (deve cair em despesas_operacionais como fallback)
-    const p4 = await (await api(`${F}/payables`, {
+    const p4 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
         description: 'Material escritório', amountCents: 1800, dueDate: '2026-07-12',
       }),
-    }, admin!)).json() as any;
+    }, admin!));
     check('payable sem categoria criada', p4.id > 0);
 
     // ---- Criar vendas ----
-    const reg = await (await api(`${F}/cash/open`, { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!)).json() as any;
-    check('caixa aberto', reg.ok);
+    const reg = await unwrap<any>(await api(`${F}/cash/open`, { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!));
+    check('caixa aberto', reg > 0);
 
     // Venda 1: PIX (sem taxa), 2 unidades = 10000
-    const s1 = await (await api('/api/store/sales', {
+    const s1 = await unwrap<any>(await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({
         items: [{ productId: prodId, qty: 2 }],
         payments: [{ methodId: pixMethod.id, amountCents: 10000 }],
       }),
-    }, admin!)).json() as any;
-    check('venda 1 (PIX) concluída', s1.ok);
+    }, admin!));
+    check('venda 1 (PIX) concluída', s1.id > 0);
 
     // Venda 2: Débito Stone (1,6% = 80 centavos), 1 unidade = 5000
-    const s2 = await (await api('/api/store/sales', {
+    const s2 = await unwrap<any>(await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({
         items: [{ productId: prodId, qty: 1 }],
         payments: [{ methodId: Number(debMethod.lastInsertRowid), amountCents: 5000 }],
       }),
-    }, admin!)).json() as any;
-    check('venda 2 (Débito Stone) concluída', s2.ok);
+    }, admin!));
+    check('venda 2 (Débito Stone) concluída', s2.id > 0);
 
     // ---- Consultar DRE ----
-    const report = await (await api(`${DRE}/report?from=2026-07-01&to=2026-07-31`, {}, admin!)).json() as any;
+    const report = await unwrap<any>(await api(`${DRE}/report?from=2026-07-01&to=2026-07-31`, {}, admin!));
 
     // Linhas
     const receita = report.lines.receita_bruta;
@@ -210,7 +211,7 @@ async function main() {
     check('resultado_liquido = -880 (1700-2580)', t.resultadoLiquidoReal === -880, `${t.resultadoLiquidoReal}`);
 
     // ---- DRE com período vazio ----
-    const empty = await (await api(`${DRE}/report?from=2025-01-01&to=2025-01-31`, {}, admin!)).json() as any;
+    const empty = await unwrap<any>(await api(`${DRE}/report?from=2025-01-01&to=2025-01-31`, {}, admin!));
     check('DRE vazio: receita=0', empty.lines.receita_bruta.realCents === 0);
     check('DRE vazio: todas as 5 linhas existem', Object.keys(empty.lines).length === 5);
 
@@ -228,7 +229,7 @@ async function main() {
   // PARTE 3 — IN-USE CATEGORY DELETE BLOCKED
   // ====================================================================
   {
-    const cats = await (await api(`${DRE}/categories`, {}, admin!)).json() as any[];
+    const cats = await unwrap<any[]>(await api(`${DRE}/categories`, {}, admin!));
     const operacionalCat = cats.find((c: any) => c.key === 'outras_despesas_operacionais');
     if (operacionalCat) {
       // outras_despesas_operacionais é system=1, não pode ser excluída
@@ -237,9 +238,9 @@ async function main() {
     }
 
     // Criar categoria manual e uma payable vinculada, depois tentar excluir
-    const created = await (await api(`${DRE}/categories`, {
+    const created = await unwrap<any>(await api(`${DRE}/categories`, {
       method: 'POST', body: JSON.stringify({ label: 'Frete', dreLine: 'despesas_operacionais' }),
-    }, admin!)).json() as any;
+    }, admin!));
     await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
         description: 'Frete teste', amountCents: 999, dueDate: '2026-08-01', dreCategoryId: created.id,

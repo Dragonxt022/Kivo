@@ -10,6 +10,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3790);
 const base = `http://localhost:${PORT}`;
@@ -55,14 +56,14 @@ async function main() {
     (await api('/api/core/capabilities/foodservice.cozinha', { method: 'PUT', body: JSON.stringify({ enabled: true }) }, admin!)).status === 200);
 
   // Produtos: 1 vai pra cozinha, o outro fica de fora
-  const hamburguer = (await (await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Hamburguer', priceCents: 1800 }) }, admin!)).json()) as { id: number };
-  const refrigerante = (await (await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Refrigerante lata', priceCents: 600 }) }, admin!)).json()) as { id: number };
+  const hamburguer = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Hamburguer', priceCents: 1800 }) }, admin!));
+  const refrigerante = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Refrigerante lata', priceCents: 600 }) }, admin!));
 
   const routeR = await api('/api/foodservice/kitchen-routing', {
     method: 'POST', body: JSON.stringify({ productId: hamburguer.id, station: 'Chapa', estimatedMinutes: 12 }),
   }, admin!);
   check('roteia Hamburguer pra cozinha', routeR.status === 201);
-  const routing = (await (await api('/api/foodservice/kitchen-routing', {}, admin!)).json()) as { product_id: number }[];
+  const routing = await unwrap<{ product_id: number }[]>(await api('/api/foodservice/kitchen-routing', {}, admin!));
   check('kitchen-routing lista só o Hamburguer', routing.length === 1 && routing[0].product_id === hamburguer.id);
   check('roteamento duplicado -> 409',
     (await api('/api/foodservice/kitchen-routing', { method: 'POST', body: JSON.stringify({ productId: hamburguer.id }) }, admin!)).status === 409);
@@ -72,10 +73,10 @@ async function main() {
     method: 'POST',
     body: JSON.stringify({ items: [{ productId: hamburguer.id, qty: 2 }, { productId: refrigerante.id, qty: 1 }], paymentMethod: 'pix' }),
   }, admin!);
-  const sale = (await saleR.json()) as { id: number };
+  const sale = await unwrap<{ id: number }>(saleR);
   check('venda concluída', saleR.status === 201);
 
-  const tickets1 = (await (await api('/api/foodservice/kitchen/tickets', {}, admin!)).json()) as { id: number; source_type: string; source_id: number; status: string; items: { id: number; product_id: number; qty: number; status: string }[] }[];
+  const tickets1 = await unwrap<{ id: number; source_type: string; source_id: number; status: string; items: { id: number; product_id: number; qty: number; status: string }[] }[]>(await api('/api/foodservice/kitchen/tickets', {}, admin!));
   check('1 ticket criado pela venda', tickets1.length === 1, `got ${tickets1.length}`);
   const ticket = tickets1[0];
   check('ticket referencia a venda (source_type=sale)', ticket.source_type === 'sale' && ticket.source_id === sale.id);
@@ -88,7 +89,7 @@ async function main() {
     method: 'PUT', body: JSON.stringify({ status: 'pronto' }),
   }, admin!);
   check('avança item pra pronto', advR.status === 200);
-  const tickets2 = (await (await api('/api/foodservice/kitchen/tickets?status=pronto', {}, admin!)).json()) as { id: number; status: string }[];
+  const tickets2 = await unwrap<{ id: number; status: string }[]>(await api('/api/foodservice/kitchen/tickets?status=pronto', {}, admin!));
   check('ticket reavaliado pra pronto (item único)', tickets2.some((t) => t.id === ticket.id && t.status === 'pronto'));
 
   const advTicketR = await api(`/api/foodservice/kitchen/tickets/${ticket.id}/status`, {

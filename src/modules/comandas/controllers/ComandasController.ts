@@ -82,7 +82,7 @@ export const comandasController = {
     const { tableId, customerId, notes } = req.body ?? {};
     const result = openComanda(req, { tableId, customerId, notes });
     if (!result.ok) { res.status(400).json(result); return; }
-    res.status(201).json(result);
+    res.status(201).json({ id: result.id });
   },
 
   addItemAction(req: Request, res: Response) {
@@ -91,7 +91,7 @@ export const comandasController = {
     if (!productId || !qty) { res.status(400).json({ error: 'productId e qty obrigatorios.' }); return; }
     const result = addItem(req, comandaId, { productId, qty, notes, lineGroupUuid });
     if (!result.ok) { res.status(400).json(result); return; }
-    res.status(201).json(result);
+    res.status(201).json({ id: result.id });
   },
 
   voidItemAction(req: Request, res: Response) {
@@ -117,7 +117,7 @@ export const comandasController = {
     if (!itemIds?.length) { res.status(400).json({ error: 'itemIds obrigatorio.' }); return; }
     const result = split(req, comandaId, itemIds);
     if (!result.ok) { res.status(400).json(result); return; }
-    res.json(result);
+    res.json({ newComandaId: result.newComandaId });
   },
 
   mergeAction(req: Request, res: Response) {
@@ -135,7 +135,7 @@ export const comandasController = {
     if (!payments?.length) { res.status(400).json({ error: 'payments obrigatorio.' }); return; }
     const result = closeComanda(req, comandaId, { payments, discountCents, surchargeCents, customerId });
     if (!result.ok) { res.status(400).json(result); return; }
-    res.json(result);
+    res.json({ saleId: result.saleId });
   },
 
   cancelComandaAction(req: Request, res: Response) {
