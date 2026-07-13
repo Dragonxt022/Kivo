@@ -1,6 +1,5 @@
-import { getSqlite } from '../../core/database/connection';
+import { settingsRepository } from '../../core/repositories/SettingsRepository';
 
-/** Configuração de multa/juros por atraso — Configurações → aba Financeiro. */
 export interface LateFeeConfig {
   multaAtiva: boolean;
   multaPercentual: number;
@@ -16,9 +15,10 @@ const KEYS = [
 ] as const;
 
 export function readLateFeeConfig(): LateFeeConfig {
-  const rows = getSqlite().prepare(
+  const rows = settingsRepository.raw(
     `SELECT key, value FROM settings WHERE key IN (${KEYS.map(() => '?').join(',')}) AND deleted_at IS NULL`,
-  ).all(...KEYS) as { key: string; value: string | null }[];
+    ...KEYS,
+  ) as { key: string; value: string | null }[];
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
     multaAtiva: map['financeiro.multa_atraso.ativa'] === '1',
@@ -34,8 +34,6 @@ export interface LateCharges {
   diasAtraso: number;
 }
 
-/** Multa (uma vez) + juros corridos (por dia de atraso) sobre uma conta vencida. Recalculado
- * sempre no servidor — nunca confia num valor "atualizado" vindo do cliente. */
 export function computeLateCharges(baseCents: number, dueDate: string): LateCharges {
   const today = new Date().toISOString().slice(0, 10);
   const dias = Math.floor(

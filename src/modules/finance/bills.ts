@@ -1,17 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type Request } from 'express';
-import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { currentRegister, addMovement } from './cash';
 import { addDays } from '../../shared/date';
 import { computeLateCharges } from './lateFees';
+import { payableRepository, receivableRepository, billSettlementPaymentRepository } from './repositories/BillRepository';
+import { paymentMethodRepository } from './repositories/PaymentMethodRepository';
+import { cashRegisterRepository } from './repositories/CashRegisterRepository';
 
-/**
- * Fábrica de contas (a pagar / a receber) — mesma mecânica, direções opostas.
- * Liquidar com caixa aberto gera movimento na gaveta (pagamento=saída, recebimento=entrada) —
- * só quando a forma de pagamento usada é literalmente "dinheiro" (ver POST /:id/settle).
- */
 export interface BillsConfig {
   table: 'payables' | 'receivables';
   entity: string;
@@ -25,7 +22,6 @@ export interface BillsConfig {
   movementType: 'pagamento' | 'recebimento';
   movementDirection: 'entrada' | 'saida';
   settlePermission: string;
-  /** Só payables: permite associar uma categoria do DRE (despesa), para o relatório de resultado. */
   categoryField?: boolean;
 }
 
@@ -45,60 +41,62 @@ interface BillRow {
   sale_id?: number | null;
 }
 
-/** Categoria precisa existir, estar ativa e ser 'manual' — as 3 categorias-sistema
- * (receita, CMV, taxas de cartão) são calculadas de `sales`/`sale_payments` direto no
- * relatório e ignoram dre_category_id (ver src/modules/dre/report.ts:realByCategory). */
-function validateDreCategory(db: () => ReturnType<typeof getSqlite>, dreCategoryId: unknown): number | null | 'invalid' {
+const repoForTable = (table: string) =>
+  table === 'payables' ? payableRepository : receivableRepository;
+
+function getBill(cfg: BillsConfig, id: string | number): (BillRow & Record<string, unknown>) | undefined {
+  const repo = repoForTable(cfg.table);
+  const joins = `LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
+                  LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id`;
+  const categoryJoin = cfg.categoryField ? ' LEFT JOIN dre_categories dc ON dc.id = b.dre_category_id' : '';
+  const categoryCols = cfg.categoryField ? ', b.dre_category_id, dc.label AS dre_category_label' : '';
+  const saleIdCol = cfg.table === 'receivables' ? ', b.sale_id' : '';
+  return repo.rawOne(
+    `SELECT b.id, b.description, b.${cfg.partyColumn} AS party_id, p.name AS party,
+            b.amount_cents, b.issue_date, b.due_date, b.status, b.${cfg.settleDateCol} AS settled_at,
+            b.${cfg.settleCentsCol} AS settled_cents, b.notes, b.updated_at,
+            b.settle_payment_method_id, spm.name AS settle_method_name,
+            b.installment_group_id, b.installment_no, b.installment_count${saleIdCol}${categoryCols}
+     FROM ${cfg.table} b ${joins}${categoryJoin}
+     WHERE b.id = ? AND b.deleted_at IS NULL`,
+    id,
+  ) as (BillRow & Record<string, unknown>) | undefined;
+}
+
+function validateDreCategory(dreCategoryId: unknown): number | null | 'invalid' {
   if (dreCategoryId == null) return null;
-  const row = db().prepare(
+  const row = payableRepository.rawOne(
     "SELECT id FROM dre_categories WHERE id = ? AND active = 1 AND deleted_at IS NULL AND source = 'manual'",
-  ).get(dreCategoryId as number);
+    dreCategoryId as number,
+  ) as { id: number } | undefined;
   return row ? Number(dreCategoryId) : 'invalid';
 }
 
-/** Toda conta a pagar precisa contribuir em algum lugar do DRE — sem categoria escolhida,
- * cai no "guarda-chuva" de despesas operacionais em vez de sumir do relatório. */
-function defaultCategoryId(db: () => ReturnType<typeof getSqlite>): number | null {
-  const row = db().prepare(
+function defaultCategoryId(): number | null {
+  const row = payableRepository.rawOne(
     "SELECT id FROM dre_categories WHERE key = 'outras_despesas_operacionais' AND deleted_at IS NULL",
-  ).get() as { id: number } | undefined;
+  ) as { id: number } | undefined;
   return row?.id ?? null;
+}
+
+function withLateInfo<T extends { status: string; amount_cents: number; due_date: string }>(row: T): T & {
+  lateMultaCents?: number; lateJurosCents?: number; diasAtraso?: number; suggestedSettleCents?: number;
+} {
+  if (!row || row.status !== 'aberta') return row;
+  const { multaCents, jurosCents, diasAtraso } = computeLateCharges(row.amount_cents, row.due_date);
+  return {
+    ...row,
+    lateMultaCents: multaCents, lateJurosCents: jurosCents, diasAtraso,
+    suggestedSettleCents: row.amount_cents + multaCents + jurosCents,
+  };
 }
 
 export function makeBillsRouter(cfg: BillsConfig): Router {
   const router = Router();
-  const db = () => getSqlite();
+  const repo = repoForTable(cfg.table);
   const categoryCols = cfg.categoryField ? ', b.dre_category_id, dc.label AS dre_category_label' : '';
   const categoryJoin = cfg.categoryField ? ' LEFT JOIN dre_categories dc ON dc.id = b.dre_category_id' : '';
-  // receivables vindas de venda a prazo se agrupam por sale_id (parcelamento já existente em
-  // store/sales.ts) — payables não tem essa coluna, nunca existiu venda lá.
   const saleIdCol = cfg.table === 'receivables' ? ', b.sale_id' : '';
-
-  const get = (id: string | number) =>
-    db().prepare(
-      `SELECT b.id, b.description, b.${cfg.partyColumn} AS party_id, p.name AS party,
-              b.amount_cents, b.issue_date, b.due_date, b.status, b.${cfg.settleDateCol} AS settled_at,
-              b.${cfg.settleCentsCol} AS settled_cents, b.notes, b.updated_at,
-              b.settle_payment_method_id, spm.name AS settle_method_name,
-              b.installment_group_id, b.installment_no, b.installment_count${saleIdCol}${categoryCols}
-       FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
-            LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id${categoryJoin}
-       WHERE b.id = ? AND b.deleted_at IS NULL`,
-    ).get(id) as (BillRow & Record<string, unknown>) | undefined;
-
-  /** Contas em aberto ganham a sugestão de valor com multa/juros (Configurações → Financeiro),
-   * calculada sempre no servidor — nunca a partir de um valor "atualizado" vindo do cliente. */
-  function withLateInfo<T extends { status: string; amount_cents: number; due_date: string }>(row: T): T & {
-    lateMultaCents?: number; lateJurosCents?: number; diasAtraso?: number; suggestedSettleCents?: number;
-  } {
-    if (!row || row.status !== 'aberta') return row;
-    const { multaCents, jurosCents, diasAtraso } = computeLateCharges(row.amount_cents, row.due_date);
-    return {
-      ...row,
-      lateMultaCents: multaCents, lateJurosCents: jurosCents, diasAtraso,
-      suggestedSettleCents: row.amount_cents + multaCents + jurosCents,
-    };
-  }
 
   router.get('/', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
     const status = String(req.query.status ?? '');
@@ -117,7 +115,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
                  FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
                       LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id${categoryJoin}
                  WHERE b.deleted_at IS NULL ${conditions} ORDER BY b.due_date, b.id`;
-    const rows = db().prepare(sql).all(...params) as { status: string; amount_cents: number; due_date: string }[];
+    const rows = repo.raw(sql, ...params) as { status: string; amount_cents: number; due_date: string }[];
     res.json(rows.map(withLateInfo));
   });
 
@@ -136,48 +134,55 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       res.status(400).json({ error: 'Parcelas deve ser um número entre 1 e 24.' });
       return;
     }
-    // Emissão é opcional na API (compatibilidade), mas a UI sempre manda — se omitida, assume hoje.
     const issueDateValue = issueDate || new Date().toISOString().slice(0, 10);
     let categoryId: number | null = null;
     if (cfg.categoryField) {
-      const validated = validateDreCategory(db, dreCategoryId);
+      const validated = validateDreCategory(dreCategoryId);
       if (validated === 'invalid') {
         res.status(400).json({ error: 'Categoria do DRE inválida.' });
         return;
       }
-      categoryId = validated ?? defaultCategoryId(db);
+      categoryId = validated ?? defaultCategoryId();
     }
 
-    const database = db();
     const groupId = count > 1 ? randomUUID() : null;
-    // Mesmo split de store/sales.ts: resto da divisão inteira vai pra primeira parcela.
     const base = Math.floor(amountCents / count);
     const remainder = amountCents - base * count;
     const cols = ['description', cfg.partyColumn, 'amount_cents', 'issue_date', 'due_date', 'notes',
       'installment_group_id', 'installment_no', 'installment_count', 'original_amount_cents', 'uuid'];
     if (cfg.categoryField) cols.push('dre_category_id');
-    const insertStmt = database.prepare(`INSERT INTO ${cfg.table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`);
 
     let firstId = 0;
-    database.transaction(() => {
+    repo.transaction(() => {
       for (let n = 0; n < count; n++) {
         const amt = n === 0 ? base + remainder : base;
         const due = addDays(dueDate, 30 * n);
-        const values: unknown[] = [description, partyId ?? null, amt, issueDateValue, due, notes ?? null,
-          groupId, count > 1 ? n + 1 : null, count > 1 ? count : null, amt, randomUUID()];
-        if (cfg.categoryField) values.push(categoryId);
-        const info = insertStmt.run(...values);
-        if (n === 0) firstId = Number(info.lastInsertRowid);
+        const values: Record<string, unknown> = {
+          description,
+          [cfg.partyColumn]: partyId ?? null,
+          amount_cents: amt,
+          issue_date: issueDateValue,
+          due_date: due,
+          notes: notes ?? null,
+          installment_group_id: groupId,
+          installment_no: count > 1 ? n + 1 : null,
+          installment_count: count > 1 ? count : null,
+          original_amount_cents: amt,
+          uuid: randomUUID(),
+        };
+        if (cfg.categoryField) values.dre_category_id = categoryId;
+        const infoId = repo.create(values);
+        if (n === 0) firstId = infoId;
       }
-    })();
-    const created = withLateInfo(get(firstId) as BillRow & { status: string; amount_cents: number; due_date: string });
+    });
+    const created = withLateInfo(getBill(cfg, firstId) as BillRow & { status: string; amount_cents: number; due_date: string });
     audit(req, 'criar', cfg.entity, firstId, null, { ...created, installments: count });
     res.status(201).json(created);
   });
 
   router.put('/:id', requirePermission(`${cfg.permPrefix}.edit`), (req, res) => {
     const id = String(req.params.id);
-    const before = get(id) as { status: string } | undefined;
+    const before = getBill(cfg, id) as { status: string } | undefined;
     if (!before) {
       res.status(404).json({ error: 'Conta não encontrada.' });
       return;
@@ -193,29 +198,34 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     }
     let categoryId: number | null | undefined = undefined;
     if (cfg.categoryField && dreCategoryId !== undefined) {
-      const validated = validateDreCategory(db, dreCategoryId);
+      const validated = validateDreCategory(dreCategoryId);
       if (validated === 'invalid') {
         res.status(400).json({ error: 'Categoria do DRE inválida.' });
         return;
       }
       categoryId = validated;
     }
-    db().prepare(
-      `UPDATE ${cfg.table} SET description = COALESCE(?, description), amount_cents = COALESCE(?, amount_cents),
-         issue_date = COALESCE(?, issue_date), due_date = COALESCE(?, due_date), ${cfg.partyColumn} = COALESCE(?, ${cfg.partyColumn}),
-         notes = COALESCE(?, notes), status = COALESCE(?, status),
-         ${cfg.categoryField ? 'dre_category_id = COALESCE(?, dre_category_id),' : ''} updated_at = datetime('now')
-       WHERE id = ?`,
-    ).run(...[description ?? null, amountCents ?? null, issueDate ?? null, dueDate ?? null, partyId ?? null, notes ?? null, status ?? null,
-      ...(cfg.categoryField ? [categoryId ?? null] : []), id]);
-    const after = get(id);
+
+    const updates: Record<string, unknown> = {};
+    if (description !== undefined) updates.description = description;
+    if (amountCents !== undefined) updates.amount_cents = amountCents;
+    if (issueDate !== undefined) updates.issue_date = issueDate;
+    if (dueDate !== undefined) updates.due_date = dueDate;
+    if (partyId !== undefined) updates[cfg.partyColumn] = partyId;
+    if (notes !== undefined) updates.notes = notes;
+    if (status !== undefined) updates.status = status;
+    if (cfg.categoryField && categoryId !== undefined) updates.dre_category_id = categoryId;
+
+    repo.update(id, updates);
+
+    const after = getBill(cfg, id);
     audit(req, status === 'cancelada' ? 'cancelar' : 'editar', cfg.entity, id, before, after);
     res.json(after);
   });
 
   router.post('/:id/settle', requirePermission(cfg.settlePermission), (req: Request, res) => {
     const id = String(req.params.id);
-    const bill = get(id) as BillRow | undefined;
+    const bill = getBill(cfg, id) as BillRow | undefined;
     if (!bill) {
       res.status(404).json({ error: 'Conta não encontrada.' });
       return;
@@ -237,9 +247,10 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
         res.status(400).json({ error: 'Valor inválido em uma das formas de pagamento.' });
         return;
       }
-      const method = db().prepare(
+      const method = paymentMethodRepository.rawOne(
         "SELECT id, type FROM payment_methods WHERE id = ? AND active = 1 AND deleted_at IS NULL AND type != 'prazo'",
-      ).get(p?.paymentMethodId) as { id: number; type: string } | undefined;
+        p?.paymentMethodId,
+      ) as { id: number; type: string } | undefined;
       if (!method) {
         res.status(400).json({ error: 'Forma de pagamento inválida.' });
         return;
@@ -248,10 +259,6 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     }
     const totalPaidCents = resolved.reduce((s, p) => s + p.amountCents, 0);
 
-    // Data do pagamento: por padrão agora (datetime('now')); se o usuário escolher uma
-    // data específica (ex.: pagamento adiantado registrado depois), grava ao meio-dia
-    // UTC daquele dia — evita que o fuso de Porto Velho (UTC-4) exiba o dia anterior
-    // quando a hora exibida é convertida a partir de meia-noite UTC.
     let settledAtValue: string | null = null;
     if (req.body?.settledAt) {
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(req.body.settledAt));
@@ -262,15 +269,9 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       settledAtValue = `${req.body.settledAt} 12:00:00`;
     }
 
-    // Multa/juros recalculados no servidor (nunca a partir do que o cliente mandar) — definem
-    // o valor "de verdade" devido hoje, usado só pra decidir se sobrou diferença a ratear.
     const { multaCents, jurosCents } = computeLateCharges(bill.amount_cents, bill.due_date);
     const owedCents = bill.amount_cents + multaCents + jurosCents;
 
-    // Só forma de pagamento "dinheiro" mexe na gaveta — e só nesse caso exigimos caixa
-    // aberto, mesma regra já usada no PDV (store/sales.ts) pra venda em dinheiro. Checado
-    // ANTES de qualquer escrita: nada é marcado como liquidado se o caixa precisa estar
-    // aberto e não está.
     const hasCash = resolved.some((p) => p.method.type === 'dinheiro');
     const cashCents = resolved.filter((p) => p.method.type === 'dinheiro').reduce((s, p) => s + p.amountCents, 0);
     const reg = currentRegister();
@@ -279,73 +280,95 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       return;
     }
 
-    const database = db();
     let rolledOverCents = 0;
     let rolloverTarget: 'existing' | 'new' | null = null;
 
-    database.transaction(() => {
+    repo.transaction(() => {
       const soleMethodId = resolved.length === 1 ? resolved[0].method.id : null;
-      database.prepare(
-        `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = COALESCE(?, datetime('now')),
-           ${cfg.settleCentsCol} = ?, amount_cents = ?, settle_payment_method_id = ?, updated_at = datetime('now') WHERE id = ?`,
-      ).run(cfg.settleStatus, settledAtValue, totalPaidCents, totalPaidCents, soleMethodId, id);
 
-      const insertSettlePay = database.prepare(
-        `INSERT INTO bill_settlement_payments (entity, bill_id, payment_method_id, amount_cents) VALUES (?, ?, ?, ?)`,
-      );
-      for (const p of resolved) insertSettlePay.run(cfg.entity, id, p.method.id, p.amountCents);
+      const settleSql = settledAtValue
+        ? `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = ?, ${cfg.settleCentsCol} = ?, amount_cents = ?, settle_payment_method_id = ?, updated_at = datetime('now') WHERE id = ?`
+        : `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = datetime('now'), ${cfg.settleCentsCol} = ?, amount_cents = ?, settle_payment_method_id = ?, updated_at = datetime('now') WHERE id = ?`;
+      const settleParams = settledAtValue
+        ? [cfg.settleStatus, settledAtValue, totalPaidCents, totalPaidCents, soleMethodId, id]
+        : [cfg.settleStatus, totalPaidCents, totalPaidCents, soleMethodId, id];
+      repo.rawRun(settleSql, ...settleParams);
+
+      for (const p of resolved) {
+        billSettlementPaymentRepository.create({
+          entity: cfg.entity,
+          bill_id: id,
+          payment_method_id: p.method.id,
+          amount_cents: p.amountCents,
+        });
+      }
 
       if (hasCash && reg && cashCents > 0) {
         addMovement(req, reg.id, cfg.movementDirection, cfg.movementType, cashCents, bill.description, cfg.entity, id);
       }
 
-      // Rateio automático: se pagou menos que o devido (com multa/juros), a diferença vai
-      // pra próxima parcela em aberto do mesmo grupo — ou vira uma parcela nova (empurra o
-      // grupo pra frente) se não houver uma.
       const shortfall = owedCents - totalPaidCents;
       if (shortfall > 0) {
         rolledOverCents = shortfall;
         const currentNo = bill.installment_no ?? 1;
         let next: { id: number } | undefined;
         if (bill.installment_group_id) {
-          next = database.prepare(
+          next = repo.rawOne(
             `SELECT id FROM ${cfg.table} WHERE installment_group_id = ? AND installment_no = ? AND status = 'aberta'`,
-          ).get(bill.installment_group_id, currentNo + 1) as { id: number } | undefined;
+            bill.installment_group_id, currentNo + 1,
+          ) as { id: number } | undefined;
         } else if (cfg.table === 'receivables' && bill.sale_id) {
-          next = database.prepare(
+          next = receivableRepository.rawOne(
             `SELECT id FROM receivables WHERE sale_id = ? AND installment_no = ? AND status = 'aberta'`,
-          ).get(bill.sale_id, currentNo + 1) as { id: number } | undefined;
+            bill.sale_id, currentNo + 1,
+          ) as { id: number } | undefined;
         }
 
         if (next) {
-          database.prepare(`UPDATE ${cfg.table} SET amount_cents = amount_cents + ?, updated_at = datetime('now') WHERE id = ?`)
-            .run(shortfall, next.id);
+          repo.rawRun(
+            `UPDATE ${cfg.table} SET amount_cents = amount_cents + ?, updated_at = datetime('now') WHERE id = ?`,
+            shortfall, next.id,
+          );
           rolloverTarget = 'existing';
         } else {
           const groupId = bill.installment_group_id ?? randomUUID();
           if (!bill.installment_group_id) {
-            // Conta que não era parcelada — vira o início de um grupo de 2 a partir de agora.
-            database.prepare(`UPDATE ${cfg.table} SET installment_group_id = ?, installment_no = 1 WHERE id = ?`).run(groupId, id);
+            repo.rawRun(
+              `UPDATE ${cfg.table} SET installment_group_id = ?, installment_no = 1 WHERE id = ?`,
+              groupId, id,
+            );
           }
           const newDue = addDays(bill.due_date, 30);
           const newNo = currentNo + 1;
           const cols = ['description', cfg.partyColumn, 'amount_cents', 'issue_date', 'due_date', 'notes',
             'installment_group_id', 'installment_no', 'installment_count', 'original_amount_cents', 'uuid'];
           if (cfg.categoryField) cols.push('dre_category_id');
-          const values: unknown[] = [bill.description, bill.party_id, shortfall, new Date().toISOString().slice(0, 10),
-            newDue, bill.notes, groupId, newNo, null, shortfall, randomUUID()];
-          if (cfg.categoryField) values.push((bill as unknown as { dre_category_id: number | null }).dre_category_id ?? defaultCategoryId(db));
-          database.prepare(`INSERT INTO ${cfg.table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(...values);
+          const values: Record<string, unknown> = {
+            description: bill.description,
+            [cfg.partyColumn]: bill.party_id,
+            amount_cents: shortfall,
+            issue_date: new Date().toISOString().slice(0, 10),
+            due_date: newDue,
+            notes: bill.notes,
+            installment_group_id: groupId,
+            installment_no: newNo,
+            installment_count: null,
+            original_amount_cents: shortfall,
+            uuid: randomUUID(),
+          };
+          if (cfg.categoryField) {
+            values.dre_category_id = (bill as unknown as { dre_category_id: number | null }).dre_category_id ?? defaultCategoryId();
+          }
+          repo.create(values);
           rolloverTarget = 'new';
-          // Resincroniza o "X/Y" em todas as parcelas do grupo de uma vez — mais simples e
-          // robusto que ir incrementando installment_count manualmente linha por linha.
-          database.prepare(
+          repo.rawRun(
             `UPDATE ${cfg.table} SET installment_count = (SELECT COUNT(*) FROM ${cfg.table} WHERE installment_group_id = ? AND deleted_at IS NULL)
              WHERE installment_group_id = ?`,
-          ).run(groupId, groupId);
+            groupId, groupId,
+          );
         }
       }
-    })();
+    });
 
     audit(req, cfg.settleAction, cfg.entity, id, bill, {
       totalPaidCents, methods: resolved.map((p) => ({ id: p.method.id, amountCents: p.amountCents })),

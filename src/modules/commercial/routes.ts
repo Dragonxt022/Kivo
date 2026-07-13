@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
-import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { createCategorySchema, updateCategorySchema, deleteCategorySchema, grantStoreCreditSchema } from '../../shared/schemas';
@@ -10,9 +9,10 @@ import stockRouter from './stockRoutes';
 import { makeCrudRouter } from './crud';
 import { grant as grantStoreCredit } from './storeCredit';
 import purchasesRouter from './purchasesRoutes';
+import { categoryRepository } from './repositories/CategoryRepository';
+import { customerRepository } from './repositories/CustomerRepository';
 
 const router = Router();
-const db = () => getSqlite();
 
 // ---------- Clientes e fornecedores (CRUD via fábrica) ----------
 router.use('/customers', makeCrudRouter({
@@ -32,13 +32,13 @@ router.use('/agreement-companies', makeCrudRouter({
 router.post('/customers/:id/credit', requirePermission('commercial.customers.creditgrant'), validateBody(grantStoreCreditSchema), (req, res) => {
   const customerId = Number(req.params.id);
   const { amountCents, reason } = req.body;
-  const customer = db().prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(customerId);
+  const customer = customerRepository.findById(customerId);
   if (!customer) {
     res.status(404).json({ error: 'Cliente não encontrado.' });
     return;
   }
   let result: ReturnType<typeof grantStoreCredit>;
-  db().transaction(() => {
+  customerRepository.transaction(() => {
     result = grantStoreCredit(req, customerId, Math.round(Number(amountCents)), reason, 'manual');
   })();
   if (!result!.ok) {
@@ -50,7 +50,7 @@ router.post('/customers/:id/credit', requirePermission('commercial.customers.cre
 
 // ---------- Categorias ----------
 router.get('/categories', requirePermission('commercial.products.view'), (_req, res) => {
-  res.json(db().prepare('SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL ORDER BY name').all());
+  res.json(categoryRepository.listAll());
 });
 router.post('/categories', requirePermission('commercial.products.create'), validateBody(createCategorySchema), (req, res) => {
   const { name, parentId } = req.body;
@@ -58,9 +58,9 @@ router.post('/categories', requirePermission('commercial.products.create'), vali
     res.status(400).json({ error: 'Campo obrigatório: name' });
     return;
   }
-  const info = db().prepare('INSERT INTO categories (name, parent_id, uuid) VALUES (?, ?, ?)').run(name, parentId ?? null, randomUUID());
-  audit(req, 'criar', 'category', Number(info.lastInsertRowid), null, { name });
-  res.status(201).json({ id: Number(info.lastInsertRowid), name });
+  const id = categoryRepository.create({ name, parent_id: parentId ?? null, uuid: randomUUID() });
+  audit(req, 'criar', 'category', id, null, { name });
+  res.status(201).json({ id, name });
 });
 router.put('/categories/:id', requirePermission('commercial.products.edit'), validateBody(updateCategorySchema), (req, res) => {
   const id = Number(req.params.id);
@@ -69,20 +69,18 @@ router.put('/categories/:id', requirePermission('commercial.products.edit'), val
     res.status(400).json({ error: 'Campo obrigatório: name' });
     return;
   }
-  const before = db().prepare('SELECT id, name FROM categories WHERE id = ? AND deleted_at IS NULL').get(id) as
-    { id: number; name: string } | undefined;
+  const before = categoryRepository.findByIdWithColumns(id, 'id, name');
   if (!before) {
     res.status(404).json({ error: 'Categoria não encontrada.' });
     return;
   }
-  db().prepare("UPDATE categories SET name = ?, updated_at = datetime('now') WHERE id = ?").run(String(name).trim(), id);
+  categoryRepository.update(id, { name: String(name).trim() } as Record<string, unknown>);
   audit(req, 'editar', 'category', id, before, { name: String(name).trim() });
   res.json({ id, name: String(name).trim() });
 });
 router.delete('/categories/:id', requirePermission('commercial.products.delete'), validateBody(deleteCategorySchema), (req, res) => {
   const id = Number(req.params.id);
-  const before = db().prepare('SELECT id, name FROM categories WHERE id = ? AND deleted_at IS NULL').get(id) as
-    { id: number; name: string } | undefined;
+  const before = categoryRepository.findByIdWithColumns(id, 'id, name');
   if (!before) {
     res.status(404).json({ error: 'Categoria não encontrada.' });
     return;
@@ -93,20 +91,16 @@ router.delete('/categories/:id', requirePermission('commercial.products.delete')
       res.status(400).json({ error: 'Categoria de destino não pode ser a mesma que está sendo excluída.' });
       return;
     }
-    const target = db().prepare('SELECT id FROM categories WHERE id = ? AND deleted_at IS NULL').get(migrateToId);
+    const target = categoryRepository.findById(migrateToId);
     if (!target) {
       res.status(400).json({ error: 'Categoria de destino não encontrada.' });
       return;
     }
   }
-  db().transaction(() => {
-    if (migrateToId != null) {
-      db().prepare('UPDATE products SET category_id = ? WHERE category_id = ?').run(migrateToId, id);
-    } else {
-      db().prepare('UPDATE products SET category_id = NULL WHERE category_id = ?').run(id);
-    }
-    db().prepare("UPDATE categories SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
-  })();
+  categoryRepository.transaction(() => {
+    categoryRepository.migrateProducts(id, migrateToId ?? null);
+    categoryRepository.softDelete(id);
+  });
   audit(req, 'excluir', 'category', id, before, { migratedTo: migrateToId ?? null });
   res.json({ ok: true });
 });

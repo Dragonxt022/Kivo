@@ -1,58 +1,56 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type Request } from 'express';
-import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
 import { audit } from '../../core/audit/service';
 import { openComanda, addItem, voidItem, transfer, split, merge, closeComanda, cancelComanda } from './comandas';
+import { storeTableRepository } from './repositories/StoreTableRepository';
+import { comandaRepository, comandaItemRepository } from './repositories/ComandaRepository';
 
 const router = Router();
-const db = () => getSqlite();
 
-// ─── Mesas (CRUD dedicado — store_tables usa label/status, nao name/active) ───
 router.get('/tables', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (_req, res) => {
-  res.json(db().prepare('SELECT * FROM store_tables WHERE deleted_at IS NULL ORDER BY sort_order, label').all());
+  res.json(storeTableRepository.findAll({ orderBy: 'sort_order' }));
 });
 
-// ─── Status da mesa (GET avulso para o grid) ───
 router.get('/tables/status', requireCapability('comandas.mesas'), requirePermission('comandas.view'), (_req, res) => {
-  const tables = db().prepare('SELECT * FROM store_tables WHERE deleted_at IS NULL ORDER BY sort_order, label').all();
+  const tables = storeTableRepository.findAll({ orderBy: 'sort_order' });
   res.json(tables);
 });
 
 router.post('/tables', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (req, res) => {
   const { label, sortOrder } = req.body ?? {};
   if (!label) { res.status(400).json({ error: 'label obrigatorio.' }); return; }
-  const id = db().prepare(
-    `INSERT INTO store_tables (label, sort_order, uuid, origin_machine) VALUES (?, ?, ?, ?)`,
-  ).run(String(label).trim(), sortOrder ?? 0, randomUUID(), req.headers['x-machine'] ?? null).lastInsertRowid;
-  audit(req, 'criar_mesa', 'table', Number(id));
-  res.status(201).json({ id });
+  const id = storeTableRepository.create({
+    label: String(label).trim(),
+    sort_order: sortOrder ?? 0,
+    uuid: randomUUID(),
+    origin_machine: req.headers['x-machine'] ?? null,
+  });
+  audit(req, 'criar_mesa', 'table', id);
+  res.status(201).json({ id: id });
 });
 
 router.put('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (req, res) => {
   const id = Number(req.params.id);
-  const existing = db().prepare('SELECT id FROM store_tables WHERE id = ? AND deleted_at IS NULL').get(id);
+  const existing = storeTableRepository.rawOne('SELECT id FROM store_tables WHERE id = ? AND deleted_at IS NULL', id);
   if (!existing) { res.status(404).json({ error: 'Mesa nao encontrada.' }); return; }
   const { label, sortOrder } = req.body ?? {};
-  db().prepare(
-    "UPDATE store_tables SET label = COALESCE(?, label), sort_order = COALESCE(?, sort_order), updated_at = datetime('now') WHERE id = ?",
-  ).run(label ?? null, sortOrder ?? null, id);
+  storeTableRepository.update(id, { label: label ?? null, sort_order: sortOrder ?? null });
   audit(req, 'editar_mesa', 'table', id);
   res.json({ ok: true });
 });
 
 router.delete('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), (req, res) => {
   const id = Number(req.params.id);
-  const existing = db().prepare("SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL").get(id) as { id: number; status: string } | undefined;
+  const existing = storeTableRepository.rawOne("SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL", id) as { id: number; status: string } | undefined;
   if (!existing) { res.status(404).json({ error: 'Mesa nao encontrada.' }); return; }
   if (existing.status !== 'livre') { res.status(400).json({ error: 'Mesa ocupada nao pode ser removida.' }); return; }
-  db().prepare("UPDATE store_tables SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  storeTableRepository.softDelete(id);
   audit(req, 'remover_mesa', 'table', id);
   res.json({ ok: true });
 });
 
-// ─── Comandas CRUD ───
 router.get('/comandas', requireCapability('comandas.mesas'), requirePermission('comandas.view'), (req, res) => {
   const status = req.query.status ? String(req.query.status) : undefined;
   let sql = `SELECT c.*, t.label AS table_label
@@ -62,21 +60,23 @@ router.get('/comandas', requireCapability('comandas.mesas'), requirePermission('
   const params: any[] = [];
   if (status) { sql += ' AND c.status = ?'; params.push(status); }
   sql += ' ORDER BY c.id DESC';
-  res.json(db().prepare(sql).all(...params));
+  res.json(comandaRepository.raw(sql, ...params));
 });
 
 router.get('/comandas/:id', requireCapability('comandas.mesas'), requirePermission('comandas.view'), (req, res) => {
   const id = Number(req.params.id);
-  const comanda = db().prepare(
+  const comanda = comandaRepository.rawOne(
     `SELECT c.*, t.label AS table_label
      FROM comandas c
      LEFT JOIN store_tables t ON t.id = c.table_id
      WHERE c.id = ? AND c.deleted_at IS NULL`,
-  ).get(id);
+    id,
+  );
   if (!comanda) { res.status(404).json({ error: 'Comanda nao encontrada.' }); return; }
-  const items = db().prepare(
+  const items = comandaItemRepository.raw(
     "SELECT * FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL ORDER BY id",
-  ).all(id);
+    id,
+  );
   res.json({ ...comanda, items });
 });
 

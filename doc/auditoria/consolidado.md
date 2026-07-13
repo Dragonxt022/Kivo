@@ -71,13 +71,12 @@ Ordem recomendada de execução (menor esforço, maior impacto):
 | 22 | F3 — Backup — stream em vez de `readFileSync` | F3 | `HEAD` |
 | 23 | F2 — Zod — validação de entrada schema-driven (auth, cash, sales, products) | F2 | `HEAD` |
 | 24 | F1/F8 — Divisão de `commercial/routes.ts` (1496→134 linhas) + CRUD factory | F1/F8 | `HEAD` |
-| 26 | F3 — Sync — recompute stock/crédito/pontos assíncrono | F3 | `HEAD` |
+| 27 | F6 — Envelope de resposta padronizado (`{ success, data/error }`) | F6 | `HEAD` |
 
 ### 🔄 Pendente
 
 | Item | Fase | Esforço Estimado | Observação |
 |------|------|------------------|------------|
-| Envelope de resposta padronizado (`{ success, data/error }`) | F6 | ~3h | |
 | Repository layer (abstrair SQL raw) | F1 | ~12h | |
 | Controller layer (separar das routes) | F1 | ~6h | |
 | CancelSale — extração similar à createSale | F8 | ~2h | |

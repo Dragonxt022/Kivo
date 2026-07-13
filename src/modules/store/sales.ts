@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
-import { getSqlite } from '../../core/database/connection';
 import { getService, hasService } from '../../core/services/registry';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
@@ -9,54 +8,43 @@ import { assertAuth } from '../../shared/auth';
 import type { CommercialStockService, CommercialPricingService, CommercialStoreCreditService, CommercialLoyaltyService } from '../commercial/setup';
 import type { FinanceCashService, FinanceReceivablesService, FinancePayMethodsService, FinanceAgreementsService, PaymentMethod } from '../finance/setup';
 import type { FoodserviceKitchenService } from '../foodservice/setup';
-
-/**
- * Venda do PDV — transacional de ponta a ponta, com PAGAMENTO MÚLTIPLO:
- * a soma dos pagamentos deve fechar o total (subtotal - desconto + acréscimo).
- * Nome/tipo/taxa da forma de pagamento são congelados por parcela.
- * dinheiro → gaveta (exige caixa aberto) com troco; prazo → conta(s) a receber
- * (parcelada ou não); credito_loja/fidelidade → descontam do saldo do cliente;
- * convenio → cobrança pendente da empresa conveniada, faturada mensalmente.
- * Comunicação entre Apps SEMPRE via serviços do Core (KATSU_PLANO.md §2).
- */
+import { productRepository } from '../commercial/repositories/ProductRepository';
+import { kitItemRepository } from '../commercial/repositories/KitRepository';
+import { recipeItemRepository } from '../commercial/repositories/RecipeRepository';
+import { customerRepository } from '../commercial/repositories/CustomerRepository';
+import { saleRepository, salePaymentRepository } from './repositories/SaleRepository';
+import { receivableRepository } from '../finance/repositories/BillRepository';
+import { agreementChargeRepository } from '../finance/repositories/AgreementRepository';
+import { stockMovementRepository } from '../commercial/repositories/StockMovementRepository';
+import { loyaltyPointMovementRepository } from '../commercial/repositories/StockMovementRepository';
 
 export interface SaleItemInput {
   productId: number;
   qty: number;
-  /** Usado apenas internamente (conversão de orçamento honra o preço cotado). */
   unitPriceCents?: number;
-  /** Observação por linha (ex.: "sem cebola"). */
   notes?: string;
-  /** UUID que agrupa item principal + complementos escolhidos juntos. */
   lineGroupUuid?: string;
 }
 
 export interface SalePaymentInput {
   methodId: number;
   amountCents: number;
-  /** Para dinheiro: valor entregue pelo cliente (>= amountCents); troco = diferença. */
   receivedCents?: number;
-  /** Só relevante quando o método resolvido é 'prazo': sobrepõe input.customerId/dueDate para esta parcela. */
   customerId?: number;
   dueDate?: string;
-  /** Só relevante quando o método é 'prazo': parcelamento (2-12x, a cada 30 dias a partir de firstDueDate). */
   installments?: { count: number; firstDueDate: string };
-  /** Só relevante quando o método é 'fidelidade': quantos pontos o cliente está gastando. */
   pointsUsed?: number;
 }
 
 export interface SaleInput {
   items: SaleItemInput[];
-  /** Novo formato: uma ou mais formas de pagamento. */
   payments?: SalePaymentInput[];
-  /** Formato legado (uma forma, por tipo). Mantido por compatibilidade. */
   paymentMethod?: 'dinheiro' | 'cartao_debito' | 'cartao_credito' | 'pix' | 'prazo';
   paidCents?: number;
   discountCents?: number;
   surchargeCents?: number;
   customerId?: number;
   dueDate?: string;
-  /** Gerado uma vez pelo PDV por tentativa de checkout — evita duplicar a venda em duplo-clique/retry. */
   clientRequestId?: string;
 }
 
@@ -69,12 +57,11 @@ const LEGACY_TYPE: Record<string, string> = {
 };
 
 function existingSaleByRequestId(clientRequestId: string): SaleResult | undefined {
-  const db = getSqlite();
-  const sale = db.prepare('SELECT id, total_cents, change_cents, receivable_id FROM sales WHERE client_request_id = ?').get(clientRequestId) as
-    { id: number; total_cents: number; change_cents: number; receivable_id: number | null } | undefined;
+  const sale = saleRepository.findByClientRequestId(clientRequestId) as
+    | { id: number; total_cents: number; change_cents: number; receivable_id: number | null } | undefined;
   if (!sale) return undefined;
-  const feeRow = db.prepare('SELECT COALESCE(SUM(fee_cents), 0) AS fee FROM sale_payments WHERE sale_id = ?').get(sale.id) as { fee: number };
-  return { ok: true, id: sale.id, totalCents: sale.total_cents, changeCents: sale.change_cents, feeCents: feeRow.fee, receivableId: sale.receivable_id ?? undefined };
+  const feeRow = salePaymentRepository.findFeeTotal(sale.id);
+  return { ok: true, id: sale.id, totalCents: sale.total_cents, changeCents: sale.change_cents, feeCents: feeRow, receivableId: sale.receivable_id ?? undefined };
 }
 
 interface ResolvedItem {
@@ -101,12 +88,12 @@ function resolveSaleItems(
   pricing: CommercialPricingService,
   opts: { allowPriceOverride?: boolean },
 ): ResolvedItem[] | { error: string } {
-  const db = getSqlite();
   const items: ResolvedItem[] = [];
   for (const item of input.items) {
-    const p = db
-      .prepare('SELECT id, name, price_cents, cost_cents, product_type, active FROM products WHERE id = ? AND deleted_at IS NULL')
-      .get(item.productId) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; active: number } | undefined;
+    const p = productRepository.rawOne(
+      'SELECT id, name, price_cents, cost_cents, product_type, active FROM products WHERE id = ? AND deleted_at IS NULL',
+      item.productId,
+    ) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; active: number } | undefined;
     if (!p || !p.active) return { error: `Produto ${item.productId} não encontrado ou inativo.` };
     if (!(item.qty > 0)) return { error: `Quantidade inválida para "${p.name}".` };
     const unitCents =
@@ -123,13 +110,8 @@ function resolveSaleItems(
     });
 
     if (p.product_type === 'kit' || p.product_type === 'combo') {
-      const kitComponents = db.prepare(
-        `SELECT ki.qty AS compQty, comp.id, comp.name, comp.cost_cents, comp.active
-         FROM kit_items ki
-         JOIN products comp ON comp.id = ki.component_product_id AND comp.deleted_at IS NULL
-         WHERE ki.kit_product_id = ? AND ki.deleted_at IS NULL
-         ORDER BY ki.sort_order`,
-      ).all(p.id) as { compQty: number; id: number; name: string; cost_cents: number; active: number }[];
+      const kitComponents = kitItemRepository.findComponentsByProduct(p.id) as
+        { compQty: number; id: number; name: string; cost_cents: number; active: number }[];
       for (const comp of kitComponents) {
         if (!comp.active) {
           return { error: `Componente "${comp.name}" do kit "${p.name}" está inativo.` };
@@ -144,13 +126,8 @@ function resolveSaleItems(
     }
 
     if (p.product_type === 'produzido') {
-      const recipeItems = db.prepare(
-        `SELECT ri.qty AS recipeQty, input.id, input.name, input.cost_cents, input.active, input.track_stock
-         FROM product_recipe_items ri
-         JOIN products input ON input.id = ri.input_product_id AND input.deleted_at IS NULL
-         WHERE ri.produced_product_id = ? AND ri.deleted_at IS NULL
-         ORDER BY ri.sort_order`,
-      ).all(p.id) as { recipeQty: number; id: number; name: string; cost_cents: number; active: number; track_stock: number }[];
+      const recipeItems = recipeItemRepository.findRecipeByProduct(p.id) as
+        { recipeQty: number; id: number; name: string; cost_cents: number; active: number; track_stock: number }[];
       if (recipeItems.length > 0) {
         for (const ri of recipeItems) {
           if (!ri.active) {
@@ -181,7 +158,6 @@ function resolveSalePayments(
   total: number,
   loyalty: CommercialLoyaltyService,
 ): ResolvedPayment[] | { error: string } {
-  const db = getSqlite();
   const resolved: ResolvedPayment[] = [];
 
   if (input.payments?.length) {
@@ -245,7 +221,7 @@ function resolveSalePayments(
     }
     if (pay.method.type === 'convenio') {
       if (!custId) return { error: 'Pagamento por convênio exige cliente.' };
-      const customer = db.prepare('SELECT agreement_company_id FROM customers WHERE id = ? AND deleted_at IS NULL').get(custId) as
+      const customer = customerRepository.rawOne('SELECT agreement_company_id FROM customers WHERE id = ? AND deleted_at IS NULL', custId) as
         { agreement_company_id: number | null } | undefined;
       if (!customer?.agreement_company_id) return { error: 'Cliente não possui convênio vinculado.' };
     }
@@ -260,7 +236,6 @@ export function createSale(
   opts: { allowPriceOverride?: boolean } = {},
 ): SaleResult {
   assertAuth(req);
-  const db = getSqlite();
 
   if (input.clientRequestId) {
     const existing = existingSaleByRequestId(input.clientRequestId);
@@ -312,22 +287,28 @@ export function createSale(
   let error: string | null = null;
 
   try {
-    db.transaction(() => {
-      const info = db.prepare(
-        `INSERT INTO sales (customer_id, subtotal_cents, discount_cents, surcharge_cents, total_cents, payment_method,
-           paid_cents, change_cents, cash_register_id, user_id, client_request_id, uuid)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(input.customerId ?? null, subtotal, discount, surcharge, total,
-        legacyLabel[primaryMethod] ?? 'pix',
-        resolved[0].receivedCents, totalChange, reg?.id ?? null, req.user.id, input.clientRequestId ?? null, randomUUID());
-      saleId = Number(info.lastInsertRowid);
+    saleRepository.transaction(() => {
+      saleId = saleRepository.create({
+        customer_id: input.customerId ?? null,
+        subtotal_cents: subtotal,
+        discount_cents: discount,
+        surcharge_cents: surcharge,
+        total_cents: total,
+        payment_method: legacyLabel[primaryMethod] ?? 'pix',
+        paid_cents: resolved[0].receivedCents,
+        change_cents: totalChange,
+        cash_register_id: reg?.id ?? null,
+        user_id: req.user.id,
+        client_request_id: input.clientRequestId ?? null,
+        uuid: randomUUID(),
+      });
 
-      const insertItem = db.prepare(
-        `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents, notes, line_group_uuid)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
       for (const i of items) {
-        insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, i.notes, i.lineGroupUuid);
+        saleRepository.rawRun(
+          `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents, notes, line_group_uuid)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, i.notes, i.lineGroupUuid,
+        );
         const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);
         if (i.recipeConsumption?.length) {
@@ -338,11 +319,6 @@ export function createSale(
         }
       }
 
-      const insertPay = db.prepare(
-        `INSERT INTO sale_payments (sale_id, payment_method_id, method_name, method_type, amount_cents,
-           fee_bps, fee_cents, received_cents, change_cents, receivable_id, points_used)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
       let loyaltyEarnBaseCents = 0;
       for (const pay of resolved) {
         const custId = pay.customerId ?? input.customerId;
@@ -386,7 +362,7 @@ export function createSale(
         }
 
         if (pay.method.type === 'convenio') {
-          const customer = db.prepare('SELECT agreement_company_id FROM customers WHERE id = ?').get(custId) as { agreement_company_id: number };
+          const customer = customerRepository.rawOne('SELECT agreement_company_id FROM customers WHERE id = ?', custId) as { agreement_company_id: number };
           agreements.chargeAgreementRaw(saleId, customer.agreement_company_id, pay.amountCents);
         }
 
@@ -394,16 +370,21 @@ export function createSale(
           loyaltyEarnBaseCents += pay.amountCents;
         }
 
-        insertPay.run(saleId, pay.method.id, pay.method.name, pay.method.type, pay.amountCents,
-          pay.method.fee_bps, pay.feeCents, pay.receivedCents, pay.changeCents, payReceivableId, pointsUsed);
+        saleRepository.rawRun(
+          `INSERT INTO sale_payments (sale_id, payment_method_id, method_name, method_type, amount_cents,
+             fee_bps, fee_cents, received_cents, change_cents, receivable_id, points_used)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          saleId, pay.method.id, pay.method.name, pay.method.type, pay.amountCents,
+          pay.method.fee_bps, pay.feeCents, pay.receivedCents, pay.changeCents, payReceivableId, pointsUsed,
+        );
       }
-      if (receivableId) db.prepare('UPDATE sales SET receivable_id = ? WHERE id = ?').run(receivableId, saleId);
+      if (receivableId) saleRepository.updateReceivable(saleId, receivableId);
 
       if (input.customerId && loyalty.enabled() && loyaltyEarnBaseCents > 0) {
         const points = loyalty.pointsForSaleCents(loyaltyEarnBaseCents);
         if (points > 0) loyalty.accrueRaw(req, input.customerId, points, `Venda #${saleId}`, 'sale', saleId);
       }
-    })();
+    });
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -425,32 +406,25 @@ export function createSale(
 
 export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: false; error: string } {
   assertAuth(req);
-  const db = getSqlite();
   const stock = getService<CommercialStockService>('commercial.stock');
   const storeCredit = getService<CommercialStoreCreditService>('commercial.storeCredit');
   const loyalty = getService<CommercialLoyaltyService>('commercial.loyalty');
   const cash = getService<FinanceCashService>('finance.cash');
 
-  const sale = db
-    .prepare('SELECT * FROM sales WHERE id = ? AND deleted_at IS NULL')
-    .get(saleId) as { id: number; customer_id: number | null; status: string; payment_method: string; total_cents: number; receivable_id: number | null } | undefined;
+  const sale = saleRepository.findFull(saleId) as
+    | { id: number; customer_id: number | null; status: string; payment_method: string; total_cents: number; receivable_id: number | null } | undefined;
   if (!sale) return { ok: false, error: 'Venda não encontrada.' };
   if (sale.status === 'cancelada') return { ok: false, error: 'Venda já cancelada.' };
 
-  const payments = db
-    .prepare('SELECT method_name, method_type, amount_cents, receivable_id, points_used FROM sale_payments WHERE sale_id = ?')
-    .all(saleId) as { method_name: string; method_type: string; amount_cents: number; receivable_id: number | null; points_used: number | null }[];
+  const payments = salePaymentRepository.findBySale(saleId);
 
-  // Recebíveis já liquidados bloqueiam o cancelamento (busca por sale_id: cobre 1 ou N parcelas)
-  const saleReceivables = db.prepare('SELECT id, status FROM receivables WHERE sale_id = ? AND deleted_at IS NULL').all(saleId) as
-    { id: number; status: string }[];
+  const saleReceivables = receivableRepository.findSaleReceivables(saleId) as { id: number; status: string }[];
   if (saleReceivables.some((r) => r.status === 'recebida')) {
     return { ok: false, error: 'Conta a receber desta venda já foi recebida — estorne no financeiro antes de cancelar.' };
   }
 
-  // Cobrança de convênio já faturada bloqueia o cancelamento
-  const agreementCharge = db.prepare('SELECT id, invoiced_at FROM agreement_charges WHERE sale_id = ? AND deleted_at IS NULL').get(saleId) as
-    { id: number; invoiced_at: string | null } | undefined;
+  const agreementCharge = agreementChargeRepository.findBySale(saleId) as
+    | { id: number; invoiced_at: string | null } | undefined;
   if (agreementCharge?.invoiced_at) {
     return { ok: false, error: 'Cobrança de convênio desta venda já foi faturada — ajuste a fatura manualmente antes de cancelar.' };
   }
@@ -458,15 +432,12 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
   const hasCashPayment = payments.some((p) => p.method_type === 'dinheiro') ||
     (payments.length === 0 && sale.payment_method === 'dinheiro');
 
-  const movements = db
-    .prepare("SELECT product_id, qty FROM stock_movements WHERE ref_entity = 'sale' AND ref_id = ? AND type = 'saida'")
-    .all(String(saleId)) as { product_id: number; qty: number }[];
+  const movements = stockMovementRepository.findMovementQtysByRef('sale', saleId);
 
   let error: string | null = null;
   try {
-    db.transaction(() => {
+    saleRepository.transaction(() => {
       for (const m of movements) {
-        // Permite saldo negativo: o produto pode ter saidas posteriores (reposição pode atrasar).
         const move = stock.moveRaw(req, m.product_id, 'entrada', m.qty, 'cancelamento de venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);
       }
@@ -479,10 +450,10 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
         cash.addMovement(req, reg.id, 'saida', 'pagamento', cashAmount, `Cancelamento venda #${saleId}`, 'sale', saleId);
       }
       if (saleReceivables.length) {
-        db.prepare(`UPDATE receivables SET status = 'cancelada', updated_at = datetime('now') WHERE sale_id = ? AND status = 'aberta'`).run(saleId);
+        receivableRepository.cancelBySale(saleId);
       }
       if (agreementCharge) {
-        db.prepare(`UPDATE agreement_charges SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(agreementCharge.id);
+        agreementChargeRepository.softDelete(agreementCharge.id);
       }
       for (const pay of payments) {
         if (pay.method_type === 'credito_loja' && sale.customer_id) {
@@ -494,20 +465,15 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
           if (!r.ok) throw new Error(r.error);
         }
       }
-      // Reverte os pontos GANHOS por esta venda (se algum acúmulo automático ocorreu).
       if (sale.customer_id) {
-        const earned = db.prepare(
-          `SELECT COALESCE(SUM(points), 0) AS pts FROM loyalty_point_movements WHERE ref_entity = 'sale' AND ref_id = ? AND type = 'ganho'`,
-        ).get(String(saleId)) as { pts: number };
-        if (earned.pts > 0) {
-          const r = loyalty.reverseGrantRaw(req, sale.customer_id, earned.pts, `Estorno de pontos ganhos — venda cancelada #${saleId}`, 'sale', saleId);
+        const earned = loyaltyPointMovementRepository.findEarnedByRef('sale', saleId);
+        if (earned > 0) {
+          const r = loyalty.reverseGrantRaw(req, sale.customer_id, earned, `Estorno de pontos ganhos — venda cancelada #${saleId}`, 'sale', saleId);
           if (!r.ok) throw new Error(r.error);
         }
       }
-      db.prepare(
-        `UPDATE sales SET status = 'cancelada', canceled_at = datetime('now'), canceled_by = ?, updated_at = datetime('now') WHERE id = ?`,
-      ).run(req.user.id, saleId);
-    })();
+      saleRepository.cancel(saleId, req.user.id);
+    });
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }

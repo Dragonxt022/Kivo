@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { getSqlite } from './connection';
 import { getService } from '../services/registry';
 import type { StoreSalesService } from '../../modules/store/setup';
 import type { CommercialStockService } from '../../modules/commercial/setup';
 import type { FinanceCashService } from '../../modules/finance/setup';
+import { userRepository } from '../repositories/UserRepository';
 
 const SALES_SVC = 'store.sales';
 const STOCK_SVC = 'commercial.stock';
@@ -50,15 +50,14 @@ function isoDaysAgo(n: number): string {
 }
 
 function fakeAdminRequest() {
-  const db = getSqlite();
-  const admin = db.prepare(
+  const admin = userRepository.rawOne(
     `SELECT u.id, u.username, u.name, u.role_id, r.slug AS role_slug
      FROM users u JOIN roles r ON r.id = u.role_id
      WHERE r.slug = 'administrador' AND u.active = 1 AND u.deleted_at IS NULL
      ORDER BY u.id LIMIT 1`,
-  ).get() as { id: number; username: string; name: string; role_id: number; role_slug: string } | undefined;
+  ) as { id: number; username: string; name: string; role_id: number; role_slug: string } | undefined;
   if (!admin) throw new Error('Nenhum usuário administrador encontrado — rode as migrations/seeds do core primeiro.');
-  const perms = db.prepare('SELECT permission_key FROM role_permissions WHERE role_id = ?').all(admin.role_id) as { permission_key: string }[];
+  const perms = userRepository.raw('SELECT permission_key FROM role_permissions WHERE role_id = ?', admin.role_id) as { permission_key: string }[];
   const user = {
     id: admin.id, username: admin.username, name: admin.name,
     roleId: admin.role_id, roleSlug: admin.role_slug,
@@ -69,7 +68,7 @@ function fakeAdminRequest() {
 
 const CATEGORY_NAMES = ['Materiais de Construção', 'Elétrica', 'Hidráulica', 'Tintas e Acabamento', 'Ferramentas', 'Limpeza'] as const;
 
-const PRODUCTS: { name: string; category: (typeof CATEGORY_NAMES)[number]; priceCents: number; costCents: number; stock: number }[] = [
+const PRODUCTS_DATA: { name: string; category: (typeof CATEGORY_NAMES)[number]; priceCents: number; costCents: number; stock: number }[] = [
   { name: 'Argamassa 20kg', category: 'Materiais de Construção', priceCents: 3000, costCents: 1800, stock: 200 },
   { name: 'Cimento CP-II 50kg', category: 'Materiais de Construção', priceCents: 3800, costCents: 2600, stock: 150 },
   { name: 'Areia Média (m³)', category: 'Materiais de Construção', priceCents: 12000, costCents: 8000, stock: 40 },
@@ -108,14 +107,14 @@ const SUPPLIERS = ['Distribuidora ABC', 'Casa do Construtor Atacado', 'Elétrica
 
 const DRE_MANUAL_CATEGORIES = ['Aluguel', 'Energia Elétrica', 'Água', 'Internet/Telefone', 'Salários', 'Marketing'];
 
-function seedMasterData(db: ReturnType<typeof getSqlite>) {
+function seedMasterData(db: ReturnType<typeof userRepository.rawRun>) {
   const categoryIds: Record<string, number> = {};
   for (const name of CATEGORY_NAMES) {
     const info = db.prepare('INSERT INTO categories (name, uuid) VALUES (?, ?)').run(name, randomUUID());
     categoryIds[name] = Number(info.lastInsertRowid);
   }
 
-  const products = PRODUCTS.map((p) => {
+  const products = PRODUCTS_DATA.map((p) => {
     const info = db.prepare(
       `INSERT INTO products (name, category_id, price_cents, cost_cents, stock_qty, uuid) VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(p.name, categoryIds[p.category], p.priceCents, p.costCents, p.stock, randomUUID());
@@ -163,7 +162,7 @@ function weightedPaymentType(): string {
   return 'prazo';
 }
 
-function backdateSale(db: ReturnType<typeof getSqlite>, saleId: number, ts: string): void {
+function backdateSale(db: ReturnType<typeof userRepository.rawRun>, saleId: number, ts: string): void {
   db.prepare(`UPDATE sales SET created_at = ?, updated_at = ? WHERE id = ?`).run(ts, ts, saleId);
   db.prepare(`UPDATE cash_movements SET created_at = ? WHERE ref_entity = 'sale' AND ref_id = ?`).run(ts, String(saleId));
   db.prepare(`UPDATE stock_movements SET created_at = ? WHERE ref_entity = 'sale' AND ref_id = ?`).run(ts, String(saleId));
@@ -171,16 +170,17 @@ function backdateSale(db: ReturnType<typeof getSqlite>, saleId: number, ts: stri
 }
 
 function simulateRestockIfNeeded(
-  req: import('express').Request, db: ReturnType<typeof getSqlite>, dateStr: string,
-  supplierIds: number[], products: { id: number; costCents: number }[],
+  req: import('express').Request, db: ReturnType<typeof userRepository.rawRun>, dateStr: string,
+  supplierIds: number[],
+  productsData: { id: number; costCents: number }[],
 ): boolean {
   const LOW_THRESHOLD = 40;
   const stockRows = db.prepare(
-    `SELECT id, stock_qty FROM products WHERE id IN (${products.map(() => '?').join(',')})`,
-  ).all(...products.map((p) => p.id)) as { id: number; stock_qty: number }[];
+    `SELECT id, stock_qty FROM products WHERE id IN (${productsData.map(() => '?').join(',')})`,
+  ).all(...productsData.map((p) => p.id)) as { id: number; stock_qty: number }[];
   const stockById = new Map(stockRows.map((r) => [r.id, r.stock_qty]));
 
-  const low = products.filter((p) => (stockById.get(p.id) ?? 0) < LOW_THRESHOLD);
+  const low = productsData.filter((p) => (stockById.get(p.id) ?? 0) < LOW_THRESHOLD);
   if (!low.length) return false;
 
   const stock = getService<CommercialStockService>(STOCK_SVC);
@@ -209,7 +209,7 @@ function simulateRestockIfNeeded(
   return true;
 }
 
-function seedPayables(db: ReturnType<typeof getSqlite>, windowStart: string, dreCategoryIds: Record<string, number>): number {
+function seedPayables(db: ReturnType<typeof userRepository.rawRun>, windowStart: string, dreCategoryIds: Record<string, number>): number {
   const rows: { desc: string; category: string; day: number; amountCents: number; paid: boolean }[] = [
     { desc: 'Aluguel do galpão', category: 'Aluguel', day: 4, amountCents: 250000, paid: true },
     { desc: 'Internet e telefone', category: 'Internet/Telefone', day: 7, amountCents: 15000, paid: true },
@@ -238,7 +238,7 @@ function seedPayables(db: ReturnType<typeof getSqlite>, windowStart: string, dre
 }
 
 export function seedDemoData(): SeedDemoSummary {
-  const db = getSqlite();
+  const db = userRepository.db;
   const req = fakeAdminRequest();
   const { products, customerIds, supplierIds, dreCategoryIds, methodIdByType } = seedMasterData(db);
 

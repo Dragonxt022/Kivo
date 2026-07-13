@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { registerService } from '../../core/services/registry';
-import { getSqlite } from '../../core/database/connection';
 import { currentRegister, addMovement, expectedCents, getRegisterById, openRegister, closeRegister } from './cash';
 import { chargeAgreementRaw, pendingTotal, generateInvoice, companiesDueForInvoice } from './agreements';
 import { startAgreementScheduler } from './agreementScheduler';
+import { paymentMethodRepository } from './repositories/PaymentMethodRepository';
+import { receivableRepository } from './repositories/BillRepository';
 
-/** Serviços que o módulo finance oferece aos outros Apps (via Core). */
 export interface FinanceCashService {
   currentRegister: typeof currentRegister;
   addMovement: typeof addMovement;
@@ -36,7 +36,6 @@ export interface FinanceReceivablesService {
     installmentNo?: number;
     installmentCount?: number;
   }): number;
-  /** Parcelas de uma venda a prazo, em ordem — usado pelo carnê e pelo cancelamento. */
   listBySale(saleId: number): ReceivableRow[];
 }
 
@@ -50,21 +49,21 @@ function createReceivable(input: {
   installmentNo?: number;
   installmentCount?: number;
 }): number {
-  const info = getSqlite()
-    .prepare(
-      `INSERT INTO receivables (description, customer_id, amount_cents, due_date, notes, sale_id, installment_no, installment_count, uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(input.description, input.customerId ?? null, Math.round(input.amountCents), input.dueDate,
-      input.notes ?? null, input.saleId ?? null, input.installmentNo ?? null, input.installmentCount ?? null, randomUUID());
-  return Number(info.lastInsertRowid);
+  return receivableRepository.create({
+    description: input.description,
+    customer_id: input.customerId ?? null,
+    amount_cents: Math.round(input.amountCents),
+    due_date: input.dueDate,
+    notes: input.notes ?? null,
+    sale_id: input.saleId ?? null,
+    installment_no: input.installmentNo ?? null,
+    installment_count: input.installmentCount ?? null,
+    uuid: randomUUID(),
+  });
 }
 
 function listReceivablesBySale(saleId: number): ReceivableRow[] {
-  return getSqlite().prepare(
-    `SELECT id, description, amount_cents, due_date, status, installment_no, installment_count
-     FROM receivables WHERE sale_id = ? AND deleted_at IS NULL ORDER BY installment_no, id`,
-  ).all(saleId) as ReceivableRow[];
+  return receivableRepository.listBySale(saleId) as unknown as ReceivableRow[];
 }
 
 export interface PaymentMethod {
@@ -89,17 +88,11 @@ export interface FinancePayMethodsService {
 
 const payMethods: FinancePayMethodsService = {
   listActive: () =>
-    getSqlite().prepare(
-      'SELECT id, name, type, fee_bps FROM payment_methods WHERE active = 1 AND deleted_at IS NULL ORDER BY sort, name',
-    ).all() as PaymentMethod[],
+    paymentMethodRepository.listActive() as unknown as PaymentMethod[],
   get: (id) =>
-    getSqlite().prepare(
-      'SELECT id, name, type, fee_bps FROM payment_methods WHERE id = ? AND active = 1 AND deleted_at IS NULL',
-    ).get(id) as PaymentMethod | undefined,
+    paymentMethodRepository.findActive(id) as unknown as PaymentMethod | undefined,
   getByType: (type) =>
-    getSqlite().prepare(
-      'SELECT id, name, type, fee_bps FROM payment_methods WHERE type = ? AND active = 1 AND deleted_at IS NULL ORDER BY sort, name LIMIT 1',
-    ).get(type) as PaymentMethod | undefined,
+    paymentMethodRepository.findByType(type) as unknown as PaymentMethod | undefined,
 };
 
 export default function setup(): void {

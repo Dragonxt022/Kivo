@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
-import { getSqlite } from '../../core/database/connection';
 import { getService, hasService } from '../../core/services/registry';
 import { audit } from '../../core/audit/service';
 import type { CommercialPricingService } from '../commercial/setup';
@@ -8,6 +7,8 @@ import type { FoodserviceKitchenService } from '../foodservice/setup';
 import type { StoreSalesService } from '../store/setup';
 import type { SaleInput } from '../store/sales';
 import { assertAuth } from '../../shared/auth';
+import { comandaRepository, comandaItemRepository } from './repositories/ComandaRepository';
+import { storeTableRepository } from './repositories/StoreTableRepository';
 
 interface OpenComandaParams { tableId?: number; customerId?: number; notes?: string }
 interface AddItemParams { productId: number; qty: number; notes?: string; lineGroupUuid?: string }
@@ -20,59 +21,60 @@ interface ComandaRow {
 
 interface ComandaItemRow { id: number; productId: number; qty: number; notes: string | null; lineGroupUuid: string | null; unit_price_cents: number }
 
-interface StoreTableRow { id: number; status: string; label?: string }
-
-function getComanda(db: ReturnType<typeof getSqlite>, id: number): ComandaRow | undefined {
-  return db.prepare("SELECT id, table_id, customer_id, status, notes FROM comandas WHERE id = ? AND deleted_at IS NULL").get(id) as ComandaRow | undefined;
-}
-
 export function openComanda(req: Request, params: OpenComandaParams): { ok: true; id: number } | { ok: false; error: string } {
   assertAuth(req);
-  const db = getSqlite();
   if (params.tableId) {
-    const table = db.prepare("SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL").get(params.tableId) as { id: number; status: string } | undefined;
+    const table = storeTableRepository.rawOne(
+      "SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL",
+      params.tableId,
+    ) as { id: number; status: string } | undefined;
     if (!table) return { ok: false, error: 'Mesa nao encontrada.' };
     if (table.status !== 'livre') return { ok: false, error: 'Mesa ja esta ocupada.' };
   }
-  const id = db.prepare(
-    `INSERT INTO comandas (table_id, customer_id, opened_by, notes, uuid, origin_machine)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(
-    params.tableId ?? null, params.customerId ?? null, req.user.id, params.notes ?? null,
-    randomUUID(), req.headers['x-machine'] ?? null,
-  ).lastInsertRowid;
+  const id = comandaRepository.create({
+    table_id: params.tableId ?? null,
+    customer_id: params.customerId ?? null,
+    opened_by: req.user.id,
+    notes: params.notes ?? null,
+    uuid: randomUUID(),
+    origin_machine: req.headers['x-machine'] ?? null,
+  });
   if (params.tableId) {
-    db.prepare("UPDATE store_tables SET status = 'ocupada', updated_at = datetime('now') WHERE id = ?").run(params.tableId);
+    storeTableRepository.occupy(params.tableId);
   }
-  audit(req, 'abrir_comanda', 'comanda', Number(id), null, { tableId: params.tableId, customerId: params.customerId });
-  return { ok: true, id: Number(id) };
+  audit(req, 'abrir_comanda', 'comanda', id, null, { tableId: params.tableId, customerId: params.customerId });
+  return { ok: true, id };
 }
 
 export function addItem(req: Request, comandaId: number, params: AddItemParams): { ok: true; id: number } | { ok: false; error: string } {
   assertAuth(req);
-  const db = getSqlite();
-  const comanda = getComanda(db, comandaId);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  const product = db.prepare("SELECT id, name, price_cents, deleted_at FROM products WHERE id = ? AND deleted_at IS NULL").get(params.productId) as { id: number; name: string; price_cents: number; deleted_at: string | null } | undefined;
+  const product = comandaRepository.rawOne(
+    "SELECT id, name, price_cents, deleted_at FROM products WHERE id = ? AND deleted_at IS NULL",
+    params.productId,
+  ) as { id: number; name: string; price_cents: number; deleted_at: string | null } | undefined;
   if (!product) return { ok: false, error: 'Produto nao encontrado.' };
-  // Congelar preco via resolvePrice (mesmo servico que createSale usa)
   const pricing = getService<CommercialPricingService>('commercial.pricing');
   const unitPriceCents = pricing.resolvePrice(product.id, params.qty, comanda.customer_id).unitCents;
-  const itemId = db.prepare(
-    `INSERT INTO comanda_items (comanda_id, product_id, product_name, qty, unit_price_cents, notes, line_group_uuid, added_by, uuid, origin_machine)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    comandaId, product.id, product.name, params.qty, unitPriceCents,
-    params.notes ?? null, params.lineGroupUuid ?? null, req.user.id,
-    randomUUID(), req.headers['x-machine'] ?? null,
-  ).lastInsertRowid;
-  audit(req, 'adicionar_item_comanda', 'comanda_item', Number(itemId), null, { comandaId, productId: product.id, qty: params.qty, unitPriceCents });
-  // Notificar cozinha best-effort
+  const itemId = comandaItemRepository.create({
+    comanda_id: comandaId,
+    product_id: product.id,
+    product_name: product.name,
+    qty: params.qty,
+    unit_price_cents: unitPriceCents,
+    notes: params.notes ?? null,
+    line_group_uuid: params.lineGroupUuid ?? null,
+    added_by: req.user.id,
+    uuid: randomUUID(),
+    origin_machine: req.headers['x-machine'] ?? null,
+  });
+  audit(req, 'adicionar_item_comanda', 'comanda_item', itemId, null, { comandaId, productId: product.id, qty: params.qty, unitPriceCents });
   if (hasService('foodservice.kitchen')) {
     try {
       const tableLabel = comanda.table_id
-        ? (db.prepare("SELECT label FROM store_tables WHERE id = ?").get(comanda.table_id) as { label: string } | undefined)?.label
+        ? (storeTableRepository.findByComandaTableId(comanda.table_id) as { label: string } | undefined)?.label
         : undefined;
       getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
         sourceType: 'comanda', sourceId: comandaId,
@@ -81,75 +83,75 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
       });
     } catch { /* best-effort */ }
   }
-  return { ok: true, id: Number(itemId) };
+  return { ok: true, id: itemId };
 }
 
 export function voidItem(req: Request, comandaId: number, itemId: number): { ok: true } | { ok: false; error: string } {
-  const db = getSqlite();
-  const item = db.prepare("SELECT id, voided_at FROM comanda_items WHERE id = ? AND comanda_id = ? AND deleted_at IS NULL").get(itemId, comandaId) as { id: number; voided_at: string | null } | undefined;
+  const item = comandaItemRepository.findInComanda(itemId, comandaId) as { id: number; voided_at: string | null } | undefined;
   if (!item) return { ok: false, error: 'Item nao encontrado.' };
   if (item.voided_at) return { ok: false, error: 'Item ja foi anulado.' };
-  db.prepare("UPDATE comanda_items SET voided_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(itemId);
+  comandaItemRepository.void(itemId);
   audit(req, 'anular_item_comanda', 'comanda_item', itemId);
   return { ok: true };
 }
 
 export function transfer(req: Request, comandaId: number, targetTableId: number): { ok: true } | { ok: false; error: string } {
-  const db = getSqlite();
-  const comanda = db.prepare("SELECT id, table_id, status FROM comandas WHERE id = ? AND deleted_at IS NULL").get(comandaId) as { id: number; table_id: number | null; status: string } | undefined;
+  const comanda = comandaRepository.rawOne(
+    "SELECT id, table_id, status FROM comandas WHERE id = ? AND deleted_at IS NULL",
+    comandaId,
+  ) as { id: number; table_id: number | null; status: string } | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  const target = db.prepare("SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL").get(targetTableId) as { id: number; status: string } | undefined;
+  const target = storeTableRepository.rawOne(
+    "SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL",
+    targetTableId,
+  ) as { id: number; status: string } | undefined;
   if (!target) return { ok: false, error: 'Mesa destino nao encontrada.' };
   if (target.status !== 'livre') return { ok: false, error: 'Mesa destino esta ocupada.' };
-  db.transaction(() => {
-    if (comanda.table_id) db.prepare("UPDATE store_tables SET status = 'livre', updated_at = datetime('now') WHERE id = ?").run(comanda.table_id);
-    db.prepare("UPDATE store_tables SET status = 'ocupada', updated_at = datetime('now') WHERE id = ?").run(targetTableId);
-    db.prepare("UPDATE comandas SET table_id = ?, updated_at = datetime('now') WHERE id = ?").run(targetTableId, comandaId);
-  })();
+  comandaRepository.transaction(() => {
+    if (comanda.table_id) storeTableRepository.free(comanda.table_id);
+    storeTableRepository.occupy(targetTableId);
+    comandaRepository.transferTable(comandaId, targetTableId);
+  });
   audit(req, 'transferir_comanda', 'comanda', comandaId, { tableIdAntes: comanda.table_id }, { tableIdDepois: targetTableId });
   return { ok: true };
 }
 
 export function split(req: Request, comandaId: number, itemIds: number[]): { ok: true; newComandaId: number } | { ok: false; error: string } {
   assertAuth(req);
-  const db = getSqlite();
   if (!itemIds?.length) return { ok: false, error: 'Nenhum item informado para dividir.' };
-  const comanda = getComanda(db, comandaId);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda || comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao encontrada ou nao esta aberta.' };
-  // Validar que todos os itens pertencem a esta comanda e nao estao anulados
-  const items = db.prepare(
-    "SELECT id FROM comanda_items WHERE id IN (" + itemIds.map(() => '?').join(',') + ") AND comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL",
-  ).all(...itemIds, comandaId) as { id: number }[];
-  if (items.length !== itemIds.length) return { ok: false, error: 'Um ou mais itens nao encontrados ou ja anulados.' };
+  const validCount = comandaItemRepository.validateBelongToComanda(itemIds, comandaId);
+  if (validCount !== itemIds.length) return { ok: false, error: 'Um ou mais itens nao encontrados ou ja anulados.' };
   let newComandaId: number;
-  db.transaction(() => {
-    const r = db.prepare(
-      "INSERT INTO comandas (table_id, customer_id, opened_by, notes, uuid, origin_machine) VALUES (?, ?, ?, ?, ?, ?)",
-    ).run(null, comanda.customer_id, req.user.id, comanda.notes, randomUUID(), req.headers['x-machine'] ?? null);
-    newComandaId = Number(r.lastInsertRowid);
-    // Mover itens para a nova comanda
-    const ph = itemIds.map(() => '?').join(',');
-    db.prepare(`UPDATE comanda_items SET comanda_id = ?, updated_at = datetime('now') WHERE id IN (${ph})`).run(newComandaId, ...itemIds);
+  comandaRepository.transaction(() => {
+    newComandaId = comandaRepository.create({
+      table_id: null,
+      customer_id: comanda.customer_id,
+      opened_by: req.user.id,
+      notes: comanda.notes,
+      uuid: randomUUID(),
+      origin_machine: req.headers['x-machine'] ?? null,
+    });
+    comandaItemRepository.moveToComanda(itemIds, newComandaId);
     audit(req, 'dividir_comanda', 'comanda', comandaId, null, { origem: comandaId, destino: newComandaId, itens: itemIds });
-  })();
+  });
   return { ok: true, newComandaId: newComandaId! };
 }
 
 export function merge(req: Request, targetComandaId: number, sourceComandaId: number): { ok: true } | { ok: false; error: string } {
-  const db = getSqlite();
   if (targetComandaId === sourceComandaId) return { ok: false, error: 'Nao e possivel unir uma comanda com ela mesma.' };
-  const target = getComanda(db, targetComandaId);
+  const target = comandaRepository.findOpen(targetComandaId) as ComandaRow | undefined;
   if (!target || target.status !== 'aberta') return { ok: false, error: 'Comanda destino nao encontrada ou nao esta aberta.' };
-  const source = getComanda(db, sourceComandaId);
+  const source = comandaRepository.findOpen(sourceComandaId) as ComandaRow | undefined;
   if (!source || source.status !== 'aberta') return { ok: false, error: 'Comanda origem nao encontrada ou nao esta aberta.' };
-  db.transaction(() => {
-    db.prepare("UPDATE comanda_items SET comanda_id = ?, updated_at = datetime('now') WHERE comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL").run(targetComandaId, sourceComandaId);
-    // Cancelar comanda origem
-    db.prepare("UPDATE comandas SET status = 'cancelada', updated_at = datetime('now') WHERE id = ?").run(sourceComandaId);
-    if (source.table_id) db.prepare("UPDATE store_tables SET status = 'livre', updated_at = datetime('now') WHERE id = ?").run(source.table_id);
+  comandaRepository.transaction(() => {
+    comandaItemRepository.mergeIntoComanda(sourceComandaId, targetComandaId);
+    comandaRepository.cancel(sourceComandaId);
+    if (source.table_id) storeTableRepository.free(source.table_id);
     audit(req, 'unir_comandas', 'comanda', sourceComandaId, null, { origem: sourceComandaId, destino: targetComandaId });
-  })();
+  });
   return { ok: true };
 }
 
@@ -157,14 +159,10 @@ export function closeComanda(
   req: Request, comandaId: number,
   input: { payments: any[]; discountCents?: number; surchargeCents?: number; customerId?: number },
 ): { ok: true; saleId: number } | { ok: false; error: string } {
-  const db = getSqlite();
-  const comanda = getComanda(db, comandaId);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  // Montar SaleInput a partir dos comanda_items
-  const items = db.prepare(
-    "SELECT product_id AS productId, qty, notes, line_group_uuid AS lineGroupUuid, unit_price_cents FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL ORDER BY id",
-  ).all(comandaId) as ComandaItemRow[];
+  const items = comandaItemRepository.listActiveByComanda(comandaId) as unknown as ComandaItemRow[];
   if (!items.length) return { ok: false, error: 'Comanda sem itens para fechar.' };
   const saleInput: SaleInput = {
     items: items.map((i) => ({
@@ -182,24 +180,20 @@ export function closeComanda(
   const storeSales = getService<StoreSalesService>('store.sales');
   const saleResult = storeSales.createSale(req, saleInput, { allowPriceOverride: true });
   if (!saleResult.ok) return { ok: false, error: saleResult.error };
-  // Marcar comanda como fechada
-  db.transaction(() => {
-    db.prepare("UPDATE comandas SET status = 'fechada', sale_id = ?, closed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(saleResult.id, comandaId);
-    if (comanda.table_id) db.prepare("UPDATE store_tables SET status = 'livre', updated_at = datetime('now') WHERE id = ?").run(comanda.table_id);
-  })();
+  comandaRepository.close(comandaId, saleResult.id);
+  if (comanda.table_id) storeTableRepository.free(comanda.table_id);
   audit(req, 'fechar_comanda', 'comanda', comandaId, null, { saleId: saleResult.id });
   return { ok: true, saleId: saleResult.id };
 }
 
 export function cancelComanda(req: Request, comandaId: number): { ok: true } | { ok: false; error: string } {
-  const db = getSqlite();
-  const comanda = getComanda(db, comandaId);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  db.transaction(() => {
-    db.prepare("UPDATE comandas SET status = 'cancelada', updated_at = datetime('now') WHERE id = ?").run(comandaId);
-    if (comanda.table_id) db.prepare("UPDATE store_tables SET status = 'livre', updated_at = datetime('now') WHERE id = ?").run(comanda.table_id);
-  })();
+  comandaRepository.transaction(() => {
+    comandaRepository.cancel(comandaId);
+    if (comanda.table_id) storeTableRepository.free(comanda.table_id);
+  });
   audit(req, 'cancelar_comanda', 'comanda', comandaId);
   return { ok: true };
 }

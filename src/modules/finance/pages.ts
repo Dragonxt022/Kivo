@@ -1,23 +1,19 @@
 import { Router, type Request, type Response } from 'express';
-import { getSqlite } from '../../core/database/connection';
 import { getService } from '../../core/services/registry';
 import { assertAuth } from '../../shared/auth';
 import { getRegisterById } from './cash';
 import type { StoreReportsService } from '../store/setup';
+import { settingsRepository } from '../../core/repositories/SettingsRepository';
 
-/** Páginas do módulo finance (montadas em /app/finance, já autenticadas). */
 const router = Router();
-const db = () => getSqlite();
 
 interface CompanyInfo { name: string; document: string | null; address: string | null }
 
-/** Cópia local do helper de store/pages.ts — mesmo padrão de duplicar helpers pequenos entre páginas de impressão. */
 function companyInfo(): CompanyInfo {
-  const rows = db()
-    .prepare("SELECT key, value FROM settings WHERE key IN ('empresa.nome', 'empresa.documento', 'empresa.endereco') AND deleted_at IS NULL")
-    .all() as { key: string; value: string | null }[];
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return { name: map['empresa.nome'] || 'Katsu', document: map['empresa.documento'] || null, address: map['empresa.endereco'] || null };
+  const name = settingsRepository.get('empresa.nome') || 'Katsu';
+  const document = settingsRepository.get('empresa.documento');
+  const address = settingsRepository.get('empresa.endereco');
+  return { name, document, address };
 }
 
 function page(view: string, permission: string, extra: Record<string, unknown> = {}) {
@@ -30,7 +26,6 @@ function page(view: string, permission: string, extra: Record<string, unknown> =
 
 router.get('/caixa', page('finance-cash', 'finance.cash.view'));
 
-/** Relatório completo de fechamento de caixa (imprimível). */
 router.get('/caixa/:id/relatorio', (req, res) => {
   assertAuth(req);
   if (!req.user.permissions.has('finance.cash.view')) return res.redirect('/');
