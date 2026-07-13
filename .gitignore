@@ -8,3 +8,6 @@ temp/
 uploads/
 *.log
 .env
+
+# Coverage
+coverage/
