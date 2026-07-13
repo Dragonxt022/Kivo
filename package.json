@@ -47,6 +47,7 @@
     "electron-builder": "^25.1.8",
     "eslint": "^9.27.0",
     "eslint-config-prettier": "^10.1.0",
+    "playwright": "^1.61.1",
     "prettier": "^3.5.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",

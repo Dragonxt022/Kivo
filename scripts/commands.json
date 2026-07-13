@@ -63,6 +63,10 @@
     "description": "Smoke test (health check + hello)",
     "run": "tsx src/dev.ts --smoke"
   },
+  "qa": {
+    "description": "QA visual (Playwright) — chame direto: node scripts/qa-browser.js /rota1 /rota2 (requer 'npm run dev' já rodando)",
+    "run": "node scripts/qa-browser.js"
+  },
   "test": {
     "description": "Rodar todos os testes de integração",
     "run": "katsu test:all"

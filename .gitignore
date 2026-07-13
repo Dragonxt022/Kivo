@@ -11,3 +11,6 @@ uploads/
 
 # Coverage
 coverage/
+
+# QA visual (scripts/qa-browser.js)
+.qa-screenshots/
