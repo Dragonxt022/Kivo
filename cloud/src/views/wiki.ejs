@@ -53,9 +53,17 @@
       </div>
 
       <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Restaurante</div>
+        <a href="#mesas-comandas" class="wiki-toc-link" data-section="mesas-comandas">Mesas &amp; Comandas</a>
+        <a href="#cozinha-kds" class="wiki-toc-link" data-section="cozinha-kds">Cozinha (Painel de Produção)</a>
+        <a href="#roteamento-cozinha" class="wiki-toc-link" data-section="roteamento-cozinha">Roteamento para a Cozinha</a>
+      </div>
+
+      <div class="wiki-toc-group">
         <div class="wiki-toc-label">Administração</div>
         <a href="#usuarios" class="wiki-toc-link" data-section="usuarios">Usuários e Cargos</a>
         <a href="#configuracoes" class="wiki-toc-link" data-section="configuracoes">Configurações</a>
+        <a href="#rede-local" class="wiki-toc-link" data-section="rede-local">Acesso pela Rede Local</a>
         <a href="#backup" class="wiki-toc-link" data-section="backup">Backup</a>
         <a href="#licenca" class="wiki-toc-link" data-section="licenca">Licença</a>
       </div>
@@ -572,6 +580,100 @@
         <hr class="wiki-divider" />
 
         <!-- ============================================================ -->
+        <!-- RESTAURANTE -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="mesas-comandas">
+          <h2>Restaurante</h2>
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+            </div>
+            <h3>Mesas &amp; Comandas</h3>
+          </div>
+          <p>Os módulos <strong>Mesas</strong> e <strong>Comandas</strong> são para quem atende mesa — o garçom abre uma comanda na mesa, vai lançando os pedidos do cliente ao longo do atendimento, e só quando a mesa pede a conta é que aquilo tudo vira uma venda de verdade, com pagamento.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Atender várias mesas ao mesmo tempo sem perder o controle de quem pediu o quê — e, na hora de fechar a conta, não ter que digitar tudo de novo no caixa: a comanda vira venda automaticamente, com os mesmos preços que foram travados no momento de cada pedido.</p>
+            </div>
+          </div>
+          <ol>
+            <li>Acesse <em>Mesas</em> no menu.</li>
+            <li>Mesas em <strong>verde</strong> estão livres; em <strong>vermelho</strong>, ocupadas. Clique numa mesa livre para abrir uma comanda nova nela, ou numa ocupada para continuar a comanda já aberta.</li>
+            <li>Dentro da comanda, busque o produto e clique para adicionar — cada item entra com o preço do momento do pedido, e esse preço fica travado mesmo que o cardápio mude depois.</li>
+            <li>Use <strong>Transferir</strong> se o cliente mudar de mesa, <strong>Dividir</strong> para separar parte da conta numa comanda nova (ex: "essas cervejas são de outra pessoa") e <strong>Unir</strong> para juntar duas comandas.</li>
+            <li>Quando o cliente pedir a conta, clique em <strong>Fechar Comanda</strong> — você é levado direto ao PDV, com o carrinho já preenchido e os preços travados, só falta escolher a forma de pagamento e confirmar.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>A <strong>Mesa 4</strong> pede 2 Refrigerantes e 1 Porção de Batata. O garçom abre a comanda pelo celular e lança os 3 itens. Depois, a mesa pede mais 1 Refrigerante — o garçom adiciona na mesma comanda. Na hora de pagar, ele clica em "Fechar Comanda": o PDV abre com os 4 itens e o total certo, prontos para receber o pagamento em PIX ou cartão.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="cozinha-kds">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589 5 5 0 0 0-9.186 0 4 4 0 0 0-2.134 7.588c.411.198.727.585.727 1.041V20a1 1 0 0 0 1 1Z"/><path d="M6 17h12"/></svg>
+            </div>
+            <h3>Cozinha (Painel de Produção)</h3>
+          </div>
+          <p>O painel de cozinha (também chamado de KDS — <em>Kitchen Display System</em>) mostra, em tempo real, só os itens que precisam ser preparados — tanto de vendas diretas no PDV quanto de pedidos feitos numa comanda de mesa.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Substituir a comandinha de papel: a cozinha vê exatamente o que precisa fazer, na ordem certa, sem ninguém precisar gritar o pedido ou levar papel até lá — e sem poluir o painel com itens que não passam por preparo, tipo uma lata de refrigerante.</p>
+            </div>
+          </div>
+          <ol>
+            <li>Acesse <em>Cozinha</em> no menu (ideal deixar aberto num tablet fixo na cozinha — veja <a href="#rede-local">Acesso pela Rede Local</a> abaixo).</li>
+            <li>Cada venda ou pedido de comanda que tenha ao menos 1 produto roteado para a cozinha (veja a seção seguinte) gera um <strong>ticket</strong> automaticamente — sem nenhuma ação manual.</li>
+            <li>Use as abas <strong>Pendente / Em Preparo / Pronto / Entregue</strong> para navegar pelos tickets por status.</li>
+            <li>Clique no botão de cada item para avançar seu status; quando todos os itens de um ticket estiverem no mesmo status, o ticket inteiro reflete isso.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>A Mesa 4 pede 1 Hambúrguer (vai pra cozinha) e 1 Refrigerante (não vai). Assim que o garçom lança o pedido, um ticket aparece no painel da cozinha com só o Hambúrguer. O cozinheiro clica para avançar de "Pendente" para "Em Preparo" e depois "Pronto" — o garçom acompanha esse status para saber quando pode levar o prato à mesa.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="roteamento-cozinha">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+            </div>
+            <h3>Roteamento para a Cozinha</h3>
+          </div>
+          <p>Defina, produto a produto, quais itens do seu catálogo geram ticket na cozinha ao serem vendidos ou pedidos — uma lata de refrigerante não precisa aparecer lá, mas um hambúrguer precisa.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Manter o painel da cozinha limpo e útil — só aparece lá o que realmente precisa de preparo — e opcionalmente registrar a estação (chapa, fritadeira, bar) e o tempo estimado de cada item, para organizar o fluxo de produção.</p>
+            </div>
+          </div>
+          <ol>
+            <li>Acesse <em>Roteamento</em> no menu (tela de administração).</li>
+            <li>Busque o produto e clique em <strong>Adicionar</strong> para roteá-lo à cozinha.</li>
+            <li>Opcionalmente, informe a <em>estação</em> (ex: "Chapa", "Fritadeira") e o <em>tempo estimado</em> em minutos.</li>
+            <li>Para parar de gerar ticket para um produto, remova-o da lista.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Rotear <strong>Hambúrguer</strong> com estação <em>"Chapa"</em> e tempo estimado de <em>12 minutos</em>. A partir daí, toda vez que um Hambúrguer for vendido ou pedido numa comanda, ele aparece automaticamente no painel da cozinha com essas informações.</p>
+          </div>
+        </div>
+
+        <hr class="wiki-divider" />
+
+        <!-- ============================================================ -->
         <!-- ADMINISTRAÇÃO -->
         <!-- ============================================================ -->
         <div class="wiki-section" id="usuarios">
@@ -595,13 +697,14 @@
           <ol>
             <li>Acesse <em>Usuários</em> no menu admin.</li>
             <li>Clique em <strong>+ Novo Usuário</strong>, preencha nome, login e senha.</li>
-            <li>Escolha o cargo (Administrador, Gerente, Operador, Caixa, etc.).</li>
+            <li>Escolha o cargo (Administrador, Gerente, Operador, Caixa, <strong>Garçom</strong>, <strong>Cozinha (KDS)</strong>, etc.).</li>
             <li>Para criar um cargo customizado, acesse <em>Cargos</em> e defina as permissões específicas.</li>
           </ol>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
             <p>Criar o cargo <strong>"Vendedor Balcão"</strong> com permissões: visualizar e criar vendas, visualizar e criar orçamentos, visualizar produtos e clientes. Depois, criar o usuário <strong>"João"</strong> com esse cargo. João só enxerga o que o cargo dele permite — não vê caixa, usuários nem configurações.</p>
           </div>
+          <p>Já vêm prontos os cargos <strong>Garçom</strong> (só Mesas e Comandas) e <strong>Cozinha (KDS)</strong> (só o painel de produção) — pensados para os aparelhos usados via <a href="#rede-local">Acesso pela Rede Local</a>, sem precisar montar um cargo customizado do zero.</p>
         </div>
 
         <div class="wiki-section" id="configuracoes">
@@ -630,6 +733,35 @@
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
             <p>Alterar o nome da empresa para <strong>"Materiais Katsu LTDA"</strong>. Esse nome aparece nos cupons, relatórios e na tela de licença. Configure o telefone de suporte para <em>(11) 3000-1234</em> — o número aparece na tela de ajuda do app.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="rede-local">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="18" x2="10.01" y2="18"/><path d="M6 14V7a6 6 0 0 1 12 0v7"/></svg>
+            </div>
+            <h3>Acesso pela Rede Local</h3>
+          </div>
+          <p>Abra o Katsu no navegador de outro aparelho — o celular do garçom para lançar pedidos nas comandas, um tablet fixo na cozinha para o painel de produção — desde que esteja na mesma rede Wi-Fi ou cabo desta máquina. Não é acesso pela internet: nenhum dado sai da rede local.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Tirar a equipe de operação (garçom, cozinha) de perto do computador principal — cada um usa o próprio celular ou um tablet dedicado — sem abrir mão de segurança: cada aparelho loga com um usuário próprio e restrito, nunca com a senha de administrador.</p>
+            </div>
+          </div>
+          <ol>
+            <li>Acesse <em>Configurações → Rede local</em> (é preciso ter a permissão de editar configurações).</li>
+            <li>Ative <strong>Permitir acesso pela rede local</strong> e reinicie o Katsu para valer.</li>
+            <li>A mesma tela mostra o endereço desta máquina na rede — algo como <code>http://192.168.0.10:3123</code> — digite-o uma vez no navegador do celular/tablet.</li>
+            <li>Crie um usuário para cada aparelho em <em>Usuários</em>, usando o cargo <strong>Garçom</strong> (só enxerga Mesas e Comandas) ou <strong>Cozinha (KDS)</strong> (só enxerga o painel de produção) — nunca o cargo Administrador nesses aparelhos.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Ative o acesso pela rede local e reinicie o Katsu. Crie o usuário <strong>"garcom-joao"</strong> com o cargo <em>Garçom</em>. No celular do João, abra o navegador, digite o endereço mostrado em Configurações e faça login com esse usuário — ele só vê a tela de Mesas, e de lá consegue abrir e lançar pedidos em qualquer comanda, sem acesso a caixa, financeiro ou outras configurações.</p>
           </div>
         </div>
 
