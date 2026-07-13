@@ -70,25 +70,18 @@ Ordem recomendada de execução (menor esforço, maior impacto):
 | 21 | F3 — Sync — paginação dirty rows (LIMIT) | F3 | `HEAD` |
 | 22 | F3 — Backup — stream em vez de `readFileSync` | F3 | `HEAD` |
 | 23 | F2 — Zod — validação de entrada schema-driven (auth, cash, sales, products) | F2 | `HEAD` |
+| 24 | F1/F8 — Divisão de `commercial/routes.ts` (1496→306 linhas) + CRUD factory | F1/F8 | `HEAD` |
 
 ### 🔄 Pendente
 
 | Item | Fase | Esforço Estimado | Observação |
 |------|------|------------------|------------|
-| CRUD factory — refatorar `commercial/routes.ts` com `makeCrudRouter()` | F1/F8 | ~6h | Arquivo de 1496 linhas, requer análise cuidadosa |
-| Zod — validação de entrada schema-driven | F2 | ~6h | Pode ser incremental |
-| Sync — paginação dirty rows (LIMIT/OFFSET) | F3 | ~2h | Previne OOM em DB grande |
+| Zod — rotas restantes (categories, stock, purchases) | F2 | ~1h | |
 | Sync — stock recompute assíncrono | F3 | ~3h | Não bloqueia event loop |
-| Backup — stream em vez de `readFileSync` | F3 | ~3h | Previne OOM |
-| Morgan — logging de requisições HTTP | F6 | ~1h | |
 | Envelope de resposta padronizado (`{ success, data/error }`) | F6 | ~3h | |
-| Type guard `assertAuth()` para eliminar 34x `req.user!` | F7 | ~2h | |
-| Eliminar `as any` em `comandas.ts` (7 ocorrências) | F7 | ~1h | |
 | Repository layer (abstrair SQL raw) | F1 | ~12h | Projeto grande, planejar separadamente |
 | Controller layer (separar das routes) | F1 | ~6h | |
-| Divisão de `commercial/routes.ts` em arquivos por domínio | F8 | ~8h | |
 | CancelSale — extração similar à createSale | F8 | ~2h | |
-| `addDays()` duplicado → `shared/date/` | F8 | ~0.5h | |
 
 ---
 
