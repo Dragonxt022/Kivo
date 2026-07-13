@@ -144,6 +144,10 @@ export function balance(cfg: LedgerCfg, customerId: number): number {
   return getCustomerBalance(cfg, customerId);
 }
 
+function yieldTick(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 /**
  * Recomputa o saldo derivado de um conjunto de clientes a partir do replay cronológico
  * do livro-razão. Chamado pelo motor de sync após mesclar linhas de outra máquina —
@@ -151,11 +155,12 @@ export function balance(cfg: LedgerCfg, customerId: number): number {
  * concorrentes offline (o saldo pode ficar negativo se o mesmo saldo foi gasto duas
  * vezes em máquinas diferentes antes de sincronizar — ver relatório de reconciliação).
  */
-export function recomputeForCustomers(cfg: LedgerCfg, customerIds: number[]): void {
+export async function recomputeForCustomers(cfg: LedgerCfg, customerIds: number[]): Promise<void> {
   const db = getSqlite();
   const updateMovement = db.prepare(`UPDATE ${cfg.table} SET balance_after = ? WHERE id = ?`);
   const updateCustomer = db.prepare(`UPDATE customers SET ${cfg.balanceColumn} = ? WHERE id = ?`);
   for (const customerId of new Set(customerIds)) {
+    await yieldTick();
     const movements = db.prepare(
       `SELECT id, type, ${cfg.amountColumn} AS amount FROM ${cfg.table} WHERE customer_id = ? ORDER BY created_at, uuid`,
     ).all(customerId) as { id: number; type: string; amount: number }[];

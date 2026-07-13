@@ -84,6 +84,10 @@ export function moveStock(
   return result;
 }
 
+function yieldTick(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 /**
  * Recomputa stock_qty de um produto a partir do replay cronológico do ledger
  * (stock_movements). Usado pelo motor de sync (Fase 6a): stock_qty nunca viaja na
@@ -91,11 +95,12 @@ export function moveStock(
  * mesclado, independente de quem sincronizou primeiro (evita perda de baixas
  * concorrentes por sobrescrita de linha inteira).
  */
-export function recomputeStockForProducts(productIds: number[]): void {
+export async function recomputeStockForProducts(productIds: number[]): Promise<void> {
   const db = getSqlite();
   const updateBalance = db.prepare('UPDATE stock_movements SET balance_after = ? WHERE id = ?');
   const updateProduct = db.prepare('UPDATE products SET stock_qty = ? WHERE id = ?');
   for (const productId of new Set(productIds)) {
+    await yieldTick();
     const movements = db
       .prepare('SELECT id, type, qty FROM stock_movements WHERE product_id = ? ORDER BY created_at, uuid')
       .all(productId) as { id: number; type: MovementType; qty: number }[];

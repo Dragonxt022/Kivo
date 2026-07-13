@@ -124,7 +124,7 @@ async function main() {
     // estado antes do recompute: product.stock_qty pode estar errado
     db.prepare('UPDATE products SET stock_qty = 999 WHERE id = ?').run(prodId);
 
-    recomputeStockForProducts([prodId]);
+    await recomputeStockForProducts([prodId]);
     const after = db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(prodId) as { stock_qty: number };
     const expected = 10 + 5 - 3 + 8 - 2; // = 18
     check('recomputeStock: saldo correto (18)', after.stock_qty === expected, `${after.stock_qty}`);
@@ -146,7 +146,7 @@ async function main() {
        VALUES (?, 'ajuste', 100, 0, 'unit_test', lower(hex(randomblob(16))), ?)`,
     );
     insAjuste.run(prodId, '2026-07-06T00:00:00.000Z');
-    recomputeStockForProducts([prodId]);
+    await recomputeStockForProducts([prodId]);
     const afterAjuste = db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(prodId) as { stock_qty: number };
     check('ajuste redefine saldo para 100', afterAjuste.stock_qty === 100, `${afterAjuste.stock_qty}`);
   }
@@ -175,7 +175,7 @@ async function main() {
     insCredit.run(custId, 'concessao', 5000, '2026-07-03T00:00:00.000Z');
     insCredit.run(custId, 'estorno_resgate', 3000, '2026-07-04T00:00:00.000Z');
 
-    recomputeForCustomers(STORE_CREDIT_CFG, [custId]);
+    await recomputeForCustomers(STORE_CREDIT_CFG, [custId]);
     const bal = db.prepare('SELECT store_credit_cents FROM customers WHERE id = ?').get(custId) as { store_credit_cents: number };
     const expectedCredit = 10000 - 3000 + 5000 + 3000; // = 15000
     check('store credit recompute: saldo 15000', bal.store_credit_cents === expectedCredit, `${bal.store_credit_cents}`);
@@ -196,7 +196,7 @@ async function main() {
        VALUES (?, 'estorno_ganho', 20000, 0, 'unit_test', lower(hex(randomblob(16))), ?)`,
     );
     insReverse.run(custId, '2026-07-05T00:00:00.000Z');
-    recomputeForCustomers(STORE_CREDIT_CFG, [custId]);
+    await recomputeForCustomers(STORE_CREDIT_CFG, [custId]);
     const balNeg = db.prepare('SELECT store_credit_cents FROM customers WHERE id = ?').get(custId) as { store_credit_cents: number };
     check('reverseGrant permite saldo negativo: -5000', balNeg.store_credit_cents === -5000, `${balNeg.store_credit_cents}`);
 
@@ -210,7 +210,7 @@ async function main() {
     insPoints.run(custId, 'resgate', 30, '2026-07-02T00:00:00.000Z');
     insPoints.run(custId, 'ganho', 50, '2026-07-03T00:00:00.000Z');
 
-    recomputeForCustomers(LOYALTY_CFG, [custId]);
+    await recomputeForCustomers(LOYALTY_CFG, [custId]);
     const pts = db.prepare('SELECT loyalty_points FROM customers WHERE id = ?').get(custId) as { loyalty_points: number };
     check('loyalty recompute: saldo 120', pts.loyalty_points === 120, `${pts.loyalty_points}`);
   }

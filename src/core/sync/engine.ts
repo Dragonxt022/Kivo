@@ -250,7 +250,9 @@ function updateRow(req: Request, spec: RegisteredSyncTable, local: Record<string
   applyChildren(spec, localId, rec.payload);
 }
 
-function applyIncomingRecord(req: Request, spec: RegisteredSyncTable, rec: IncomingRecord): number | null {
+type PendingRecompute = Map<string, Set<number>>;
+
+function applyIncomingRecord(req: Request, spec: RegisteredSyncTable, rec: IncomingRecord, pending: PendingRecompute): number | null {
   if (isLedger(spec)) {
     const existing = getRowByUuid(spec.table, rec.uuid);
     if (existing) return null; // append-only: já aplicado
@@ -259,7 +261,8 @@ function applyIncomingRecord(req: Request, spec: RegisteredSyncTable, rec: Incom
     if (hook) {
       const inserted = getRowById(spec.table, localId)!;
       const parentLocalId = Number(inserted[spec.ledgerFor!.parentColumn]);
-      hook([parentLocalId]);
+      if (!pending.has(spec.table)) pending.set(spec.table, new Set());
+      pending.get(spec.table)!.add(parentLocalId);
     }
     return localId;
   }
@@ -269,17 +272,18 @@ function applyIncomingRecord(req: Request, spec: RegisteredSyncTable, rec: Incom
   return Number(local.id);
 }
 
-function applyIncomingBatch(req: Request, records: IncomingRecord[]): void {
+async function applyIncomingBatch(req: Request, records: IncomingRecord[]): Promise<void> {
   const byEntityType = new Map(getSyncTables().map((s) => [s.entityType, s]));
+  const pending: PendingRecompute = new Map();
   let queue = records;
   const lastError = new Map<string, string>();
   for (let attempt = 0; attempt < 3 && queue.length; attempt++) {
     const next: IncomingRecord[] = [];
     for (const rec of queue) {
       const spec = byEntityType.get(rec.entityType);
-      if (!spec) continue; // entidade desconhecida deste Core (módulo não instalado) — ignora
+      if (!spec) continue;
       try {
-        applyIncomingRecord(req, spec, rec);
+        applyIncomingRecord(req, spec, rec, pending);
       } catch (e) {
         if (e instanceof UnresolvedForeignKeyError) {
           next.push(rec);
@@ -296,6 +300,10 @@ function applyIncomingBatch(req: Request, records: IncomingRecord[]): void {
       uuid: rec.uuid,
       reason: lastError.get(rec.uuid),
     });
+  }
+  for (const [table, ids] of pending) {
+    const hook = getRecomputeHook(table);
+    if (hook) await hook([...ids]);
   }
 }
 
@@ -320,7 +328,7 @@ async function pullAll(req: Request): Promise<number> {
   let count = 0;
   do {
     const page = await pullBatch(cursor);
-    applyIncomingBatch(req, page.records);
+    await applyIncomingBatch(req, page.records);
     count += page.records.length;
     cursor = page.nextCursor;
   } while (cursor);

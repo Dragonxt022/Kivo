@@ -8,7 +8,7 @@ import type { RegisteredSyncTable, SyncTableSpec } from './types';
 const tables = new Map<string, RegisteredSyncTable>();
 
 /** Hook de recomputo local (ex.: refazer stock_qty a partir do ledger mesclado). */
-type RecomputeHook = (affectedLocalIds: number[]) => void;
+type RecomputeHook = (affectedLocalIds: number[]) => void | Promise<void>;
 const recomputeHooks = new Map<string, RecomputeHook>();
 
 export function registerSyncTables(moduleId: string, specs?: SyncTableSpec[]): void {
