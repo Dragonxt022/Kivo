@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { getService } from '../../core/services/registry';
+import { assertAuth } from '../../shared/auth';
 import { getRegisterById } from './cash';
 import type { StoreReportsService } from '../store/setup';
 
@@ -21,7 +22,8 @@ function companyInfo(): CompanyInfo {
 
 function page(view: string, permission: string, extra: Record<string, unknown> = {}) {
   return (req: Request, res: Response) => {
-    if (!req.user!.permissions.has(permission)) return res.redirect('/');
+    assertAuth(req);
+    if (!req.user.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user, ...extra });
   };
 }
@@ -30,7 +32,8 @@ router.get('/caixa', page('finance-cash', 'finance.cash.view'));
 
 /** Relatório completo de fechamento de caixa (imprimível). */
 router.get('/caixa/:id/relatorio', (req, res) => {
-  if (!req.user!.permissions.has('finance.cash.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('finance.cash.view')) return res.redirect('/');
   const register = getRegisterById(Number(req.params.id));
   if (!register) return res.status(404).send('Caixa não encontrado.');
   const report = getService<StoreReportsService>('store.reports').cashRegisterReport(Number(req.params.id));

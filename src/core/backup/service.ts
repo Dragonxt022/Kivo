@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { gzipSync, gunzipSync } from 'node:zlib';
+import { createGzip, createGunzip, gunzipSync } from 'node:zlib';
+import { pipeline } from 'node:stream/promises';
 import { getSqlite, closeDb } from '../database/connection';
 import { getLicenseCredentials, machineId, validateLicense } from '../license/service';
 import { canSaveToCloud } from '../license/plans';
@@ -66,17 +67,18 @@ export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Prom
   const finalPath = `${tmpDb}.gz`;
 
   await db.backup(tmpDb); // cópia consistente mesmo com o banco em uso
-  const compressed = gzipSync(fs.readFileSync(tmpDb));
-  fs.writeFileSync(finalPath, compressed);
+  await pipeline(fs.createReadStream(tmpDb), createGzip(), fs.createWriteStream(finalPath));
   fs.unlinkSync(tmpDb);
+  const stat = fs.statSync(finalPath);
 
-  const checksum = sha256(compressed);
+  const compressedBuf = fs.readFileSync(finalPath);
+  const checksum = sha256(compressedBuf);
   const backupUuid = randomUUID();
   const info = db
     .prepare(
       `INSERT INTO backups (file_path, size_bytes, checksum, trigger, uuid) VALUES (?, ?, ?, ?, ?)`,
     )
-    .run(finalPath, compressed.length, checksum, trigger, backupUuid);
+    .run(finalPath, compressedBuf.length, checksum, trigger, backupUuid);
   const id = Number(info.lastInsertRowid);
 
   if (getLicenseCredentials().companyUuid && canSaveToCloud(validateLicense().plan)) {
@@ -93,7 +95,7 @@ export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Prom
     console.error('[backup] falha ao aplicar retenção (mantém os backups como estão):', e);
   }
 
-  return { id, filePath: finalPath, sizeBytes: compressed.length, checksum };
+  return { id, filePath: finalPath, sizeBytes: compressedBuf.length, checksum };
 }
 
 /**

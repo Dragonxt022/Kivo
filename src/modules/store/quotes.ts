@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
+import { assertAuth } from '../../shared/auth';
 import { createSale, type SaleInput } from './sales';
 
 /**
@@ -22,10 +23,11 @@ export interface QuoteInput {
 export function createQuote(req: Request, input: QuoteInput):
   | { ok: true; id: number; totalCents: number }
   | { ok: false; error: string } {
+  assertAuth(req);
   const db = getSqlite();
   if (!input.items?.length) return { ok: false, error: 'Orçamento sem itens.' };
   const discount = Math.round(input.discountCents ?? 0);
-  if (discount > 0 && !req.user!.permissions.has('store.sales.discount')) {
+  if (discount > 0 && !req.user.permissions.has('store.sales.discount')) {
     return { ok: false, error: 'Permissão negada: store.sales.discount (aplicar desconto).' };
   }
 
@@ -48,7 +50,7 @@ export function createQuote(req: Request, input: QuoteInput):
       `INSERT INTO quotes (customer_id, customer_name, subtotal_cents, discount_cents, total_cents, valid_until, notes, user_id, uuid)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(input.customerId ?? null, input.customerName ?? null, subtotal, discount, total,
-      input.validUntil ?? null, input.notes ?? null, req.user!.id, randomUUID());
+      input.validUntil ?? null, input.notes ?? null, req.user.id, randomUUID());
     id = Number(info.lastInsertRowid);
     const ins = db.prepare(
       `INSERT INTO quote_items (quote_id, product_id, product_name, qty, unit_price_cents, total_cents)
@@ -100,6 +102,7 @@ export function convertQuote(
 export function updateQuote(req: Request, quoteId: number, updates: {
   customerId?: number; customerName?: string; validUntil?: string; notes?: string; discountCents?: number;
 }): { ok: true } | { ok: false; error: string } {
+  assertAuth(req);
   const db = getSqlite();
   const before = db.prepare('SELECT id, status, subtotal_cents, discount_cents, total_cents FROM quotes WHERE id = ? AND deleted_at IS NULL')
     .get(quoteId) as { id: number; status: string; subtotal_cents: number; discount_cents: number; total_cents: number } | undefined;
@@ -108,7 +111,7 @@ export function updateQuote(req: Request, quoteId: number, updates: {
 
   const discount = updates.discountCents != null ? Math.round(updates.discountCents) : before.discount_cents;
   if (discount !== before.discount_cents) {
-    if (!req.user!.permissions.has('store.sales.discount')) {
+    if (!req.user.permissions.has('store.sales.discount')) {
       return { ok: false, error: 'Permissão negada: store.sales.discount (alterar desconto).' };
     }
     if (discount > before.subtotal_cents) return { ok: false, error: 'Desconto maior que o subtotal.' };

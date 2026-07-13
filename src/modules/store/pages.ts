@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { getService } from '../../core/services/registry';
+import { assertAuth } from '../../shared/auth';
 import type { FinanceReceivablesService } from '../finance/setup';
 
 /** Páginas do módulo store (montadas em /app/store, já autenticadas). */
@@ -9,7 +10,8 @@ const db = () => getSqlite();
 
 function page(view: string, permission: string) {
   return (req: Request, res: Response) => {
-    if (!req.user!.permissions.has(permission)) return res.redirect('/');
+    assertAuth(req);
+    if (!req.user.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user });
   };
 }
@@ -40,7 +42,8 @@ router.get('/orcamentos', page('store-quotes', 'store.quotes.view'));
 
 /** Cupom de venda imprimível (layout 80mm). */
 router.get('/vendas/:id/cupom', (req, res) => {
-  if (!req.user!.permissions.has('store.sales.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('store.sales.view')) return res.redirect('/');
   const sale = db().prepare(
     `SELECT s.*, c.name AS customer, u.username FROM sales s
      LEFT JOIN customers c ON c.id = s.customer_id
@@ -55,7 +58,8 @@ router.get('/vendas/:id/cupom', (req, res) => {
 
 /** Orçamento imprimível. */
 router.get('/orcamentos/:id/imprimir', (req, res) => {
-  if (!req.user!.permissions.has('store.quotes.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('store.quotes.view')) return res.redirect('/');
   const quote = db().prepare(
     `SELECT q.*, c.name AS customer FROM quotes q
      LEFT JOIN customers c ON c.id = q.customer_id
@@ -68,7 +72,8 @@ router.get('/orcamentos/:id/imprimir', (req, res) => {
 
 /** Carnê de venda a prazo parcelada — uma via impressa por parcela. */
 router.get('/vendas/:id/carne', (req, res) => {
-  if (!req.user!.permissions.has('store.sales.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('store.sales.view')) return res.redirect('/');
   const sale = db().prepare(
     `SELECT s.*, c.name AS customer FROM sales s
      LEFT JOIN customers c ON c.id = s.customer_id

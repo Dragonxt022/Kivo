@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { audit } from '../../core/audit/service';
+import { assertAuth } from '../../shared/auth';
 
 /**
  * Caixa (Fase 4): sessão única aberta por vez.
@@ -99,6 +100,7 @@ export function addMovement(
 }
 
 export function openRegister(req: Request, openingCents: number): { ok: true; id: number } | { ok: false; error: string } {
+  assertAuth(req);
   if (currentRegister()) return { ok: false, error: 'Já existe um caixa aberto. Feche-o antes de abrir outro.' };
   if (!Number.isInteger(openingCents) || openingCents < 0) return { ok: false, error: 'Valor de abertura inválido.' };
   const db = getSqlite();
@@ -106,7 +108,7 @@ export function openRegister(req: Request, openingCents: number): { ok: true; id
   db.transaction(() => {
     const info = db
       .prepare('INSERT INTO cash_registers (opened_by, opening_cents, uuid) VALUES (?, ?, ?)')
-      .run(req.user!.id, openingCents, randomUUID());
+      .run(req.user.id, openingCents, randomUUID());
     id = Number(info.lastInsertRowid);
     if (openingCents > 0) addMovement(req, id, 'entrada', 'abertura', openingCents, 'Fundo de troco');
   })();
@@ -120,6 +122,7 @@ export function closeRegister(
   notes?: string,
   countBreakdown?: Record<string, number>,
 ): { ok: true; id: number; expected: number; counted: number; difference: number } | { ok: false; error: string } {
+  assertAuth(req);
   const reg = currentRegister();
   if (!reg) return { ok: false, error: 'Nenhum caixa aberto.' };
   if (!Number.isInteger(countedCents) || countedCents < 0) return { ok: false, error: 'Valor contado inválido.' };
@@ -134,13 +137,14 @@ export function closeRegister(
          count_breakdown = ?, updated_at = datetime('now')
        WHERE id = ?`,
     )
-    .run(req.user!.id, expected, countedCents, difference, notes ?? null, breakdownJson, reg.id);
+    .run(req.user.id, expected, countedCents, difference, notes ?? null, breakdownJson, reg.id);
   audit(req, 'caixa_fechar', 'cash_register', reg.id, { expected }, { counted: countedCents, difference });
   return { ok: true, id: reg.id, expected, counted: countedCents, difference };
 }
 
 export function editClosedRegister(req: Request, registerId: number, updates: { countedCents?: number; notes?: string }):
   { ok: true; id: number; expected: number; counted: number; difference: number } | { ok: false; error: string } {
+  assertAuth(req);
   const db = getSqlite();
   const before = db.prepare('SELECT id, status, expected_cents, counted_cents, difference_cents FROM cash_registers WHERE id = ? AND deleted_at IS NULL')
     .get(registerId) as { id: number; status: string; expected_cents: number; counted_cents: number; difference_cents: number } | undefined;
@@ -153,7 +157,7 @@ export function editClosedRegister(req: Request, registerId: number, updates: { 
   db.prepare(
     `UPDATE cash_registers SET counted_cents = ?, difference_cents = ?, notes = COALESCE(?, notes),
        edited_at = datetime('now'), edited_by = ?, updated_at = datetime('now') WHERE id = ?`,
-  ).run(counted, difference, updates.notes ?? null, req.user!.id, registerId);
+  ).run(counted, difference, updates.notes ?? null, req.user.id, registerId);
 
   audit(req, 'caixa_editar', 'cash_register', registerId,
     { counted: before.counted_cents, difference: before.difference_cents },

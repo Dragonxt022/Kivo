@@ -1,10 +1,12 @@
 import { Router, type Request, type Response } from 'express';
+import { assertAuth } from '../../shared/auth';
 
 const router = Router();
 
 function page(view: string, permission: string) {
   return (req: Request, res: Response) => {
-    if (!req.user!.permissions.has(permission)) return res.redirect('/');
+    assertAuth(req);
+    if (!req.user.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user });
   };
 }

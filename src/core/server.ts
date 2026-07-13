@@ -1,7 +1,9 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import helmet from 'helmet';
+import morgan from 'morgan';
 import fs from 'node:fs';
 import path from 'node:path';
+import { assertAuth } from '../shared/auth';
 import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
@@ -54,7 +56,8 @@ export interface KatsuServer {
 /** Página protegida por permissão: sem permissão → volta para a home. */
 function page(view: string, permission?: string) {
   return (req: Request, res: Response, _next: NextFunction) => {
-    if (permission && !req.user!.permissions.has(permission)) return res.redirect('/');
+    assertAuth(req);
+    if (permission && !req.user.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user });
   };
 }
@@ -73,6 +76,9 @@ export async function createServer(): Promise<KatsuServer> {
   // número de versão hardcoded e divergente em cada tela que precisa exibi-lo.
   const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
   app.locals.appVersion = pkg.version;
+
+  // Logging de requisições HTTP
+  app.use(morgan('dev'));
 
   // Security headers (Helmet) — CSP desligado para compatibilidade com Alpine.js CDN
   app.use(helmet({

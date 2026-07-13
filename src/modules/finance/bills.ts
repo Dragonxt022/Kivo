@@ -4,6 +4,7 @@ import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { currentRegister, addMovement } from './cash';
+import { addDays } from '../../shared/date';
 import { computeLateCharges } from './lateFees';
 
 /**
@@ -42,14 +43,6 @@ interface BillRow {
   installment_no: number | null;
   installment_count: number | null;
   sale_id?: number | null;
-}
-
-/** YYYY-MM-DD + N dias — mesma aritmética (sem depender de fuso) já usada em store/sales.ts
- * pro parcelamento de venda a prazo. */
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 /** Categoria precisa existir, estar ativa e ser 'manual' — as 3 categorias-sistema

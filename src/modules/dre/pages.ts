@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { getSqlite } from '../../core/database/connection';
+import { assertAuth } from '../../shared/auth';
 import { demonstrativoResultado } from './report';
 
 /** Páginas do módulo dre (montadas em /app/dre, já autenticadas). */
@@ -19,7 +20,8 @@ function companyInfo(): CompanyInfo {
 
 function page(view: string, permission: string, extra: Record<string, unknown> = {}) {
   return (req: Request, res: Response) => {
-    if (!req.user!.permissions.has(permission)) return res.redirect('/');
+    assertAuth(req);
+    if (!req.user.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user, ...extra });
   };
 }
@@ -28,7 +30,8 @@ router.get('/relatorio', page('dre-relatorio', 'dre.view'));
 router.get('/categorias', page('dre-categorias', 'dre.categories.edit'));
 
 router.get('/relatorio/imprimir', (req, res) => {
-  if (!req.user!.permissions.has('dre.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('dre.view')) return res.redirect('/');
   const from = String(req.query.from || '0000-01-01');
   const to = String(req.query.to || '9999-12-31');
   const report = demonstrativoResultado(from, to);

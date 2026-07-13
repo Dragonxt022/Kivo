@@ -8,6 +8,7 @@ import { requireCapability } from '../../core/capabilities/middleware';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
 import { validateBarcode, generateInternalBarcode } from '../../shared/barcode';
+import { assertAuth } from '../../shared/auth';
 import { makeCrudRouter } from './crud';
 import { moveStock, moveStockRaw, listMovements, type MovementType } from './stock';
 import { resolveMany } from './pricing';
@@ -261,12 +262,13 @@ router.get('/products/catalog-image/:id', requirePermission('commercial.products
 });
 
 router.post('/products', requirePermission('commercial.products.create'), (req, res) => {
+  assertAuth(req);
   const b = req.body ?? {};
   if (!b.name) {
     res.status(400).json({ error: 'Campo obrigatório: name' });
     return;
   }
-  if (b.priceCents != null && !req.user!.permissions.has('commercial.products.price')) {
+  if (b.priceCents != null && !req.user.permissions.has('commercial.products.price')) {
     res.status(403).json({ error: 'Permissão negada: commercial.products.price (definir preço).' });
     return;
   }
@@ -308,7 +310,7 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
   }
   // Estoque inicial opcional já no cadastro (vira movimentação de entrada auditada)
   if (b.initialStock != null && Number(b.initialStock) > 0) {
-    if (!req.user!.permissions.has('commercial.stock.move')) {
+    if (!req.user.permissions.has('commercial.stock.move')) {
       res.status(403).json({ error: 'Permissão negada: commercial.stock.move (estoque inicial).' });
       return;
     }
@@ -324,6 +326,7 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
 });
 
 router.put('/products/:id', requirePermission('commercial.products.edit'), (req, res) => {
+  assertAuth(req);
   const id = String(req.params.id);
   const before = getProduct(id) as { price_cents: number; image_url: string | null } | undefined;
   if (!before) {
@@ -333,7 +336,7 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
   const b = req.body ?? {};
   // RBAC fino (plano Fase 1): alterar preço é permissão separada de editar produto
   if (b.priceCents != null && Math.round(b.priceCents) !== before.price_cents
-      && !req.user!.permissions.has('commercial.products.price')) {
+      && !req.user.permissions.has('commercial.products.price')) {
     res.status(403).json({ error: 'Permissão negada: commercial.products.price (alterar preço).' });
     return;
   }

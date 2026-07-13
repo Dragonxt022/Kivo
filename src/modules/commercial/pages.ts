@@ -1,26 +1,31 @@
 import { Router, type Request, type Response } from 'express';
+import { assertAuth } from '../../shared/auth';
 
 /** Páginas do módulo commercial (montadas em /app/commercial, já autenticadas). */
 const router = Router();
 
 function page(view: string, permission: string) {
   return (req: Request, res: Response) => {
-    if (!req.user!.permissions.has(permission)) return res.redirect('/');
+    assertAuth(req);
+    if (!req.user.permissions.has(permission)) return res.redirect('/');
     res.render(view, { user: req.user });
   };
 }
 
 router.get('/clientes', page('commercial-customers', 'commercial.customers.view'));
 router.get('/clientes/:id', (req, res) => {
-  if (!req.user!.permissions.has('commercial.customers.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('commercial.customers.view')) return res.redirect('/');
   res.render('commercial-customer-ficha', { user: req.user, customerId: Number(req.params.id) });
 });
 router.get('/clientes/:id/compras', (req, res) => {
-  if (!req.user!.permissions.has('commercial.customers.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('commercial.customers.view')) return res.redirect('/');
   res.render('commercial-customer-purchases', { user: req.user, customerId: Number(req.params.id) });
 });
 router.get('/clientes/:id/financeiro', (req, res) => {
-  if (!req.user!.permissions.has('commercial.customers.view')) return res.redirect('/');
+  assertAuth(req);
+  if (!req.user.permissions.has('commercial.customers.view')) return res.redirect('/');
   res.render('commercial-customer-receivables', { user: req.user, customerId: Number(req.params.id) });
 });
 router.get('/fornecedores', page('commercial-suppliers', 'commercial.suppliers.view'));

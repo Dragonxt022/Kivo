@@ -52,16 +52,18 @@ function effectiveForeignKeys(spec: RegisteredSyncTable): Record<string, string>
 // Coletar linhas alteradas (push)
 // ---------------------------------------------------------------------------
 
+const DIRTY_BATCH_SIZE = 500;
+
 function collectDirtyRows(spec: RegisteredSyncTable): Record<string, unknown>[] {
   if (isLedger(spec)) {
-    return db().prepare(`SELECT * FROM ${spec.table} WHERE synced_at IS NULL`).all() as Record<
+    return db().prepare(`SELECT * FROM ${spec.table} WHERE synced_at IS NULL LIMIT ?`).all(DIRTY_BATCH_SIZE) as Record<
       string,
       unknown
     >[];
   }
   return db()
-    .prepare(`SELECT * FROM ${spec.table} WHERE synced_at IS NULL OR synced_at < updated_at`)
-    .all() as Record<string, unknown>[];
+    .prepare(`SELECT * FROM ${spec.table} WHERE synced_at IS NULL OR synced_at < updated_at LIMIT ?`)
+    .all(DIRTY_BATCH_SIZE) as Record<string, unknown>[];
 }
 
 function buildChildPayload(child: SyncChildSpec, row: Record<string, unknown>): Record<string, unknown> {

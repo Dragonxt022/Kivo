@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { audit } from '../audit/service';
+import { assertAuth } from '../../shared/auth';
 
 /**
  * RBAC: exige uma permissão específica (ex.: requirePermission('users.delete')).
@@ -31,7 +32,8 @@ export function requireAnyPermission(...keys: string[]) {
       res.status(401).json({ error: 'Não autenticado.' });
       return;
     }
-    if (!keys.some((key) => req.user!.permissions.has(key))) {
+    const user = req.user;
+    if (!keys.some((key) => user.permissions.has(key))) {
       audit(req, 'acesso_negado', 'permission', keys.join('|'));
       res.status(403).json({ error: `Permissão negada: ${keys.join(' ou ')}` });
       return;

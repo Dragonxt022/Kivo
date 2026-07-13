@@ -4,6 +4,7 @@ import { login, logout, verifyPassword, hashPassword } from './service';
 import { SESSION_COOKIE } from './middleware';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
+import { assertAuth } from '../../shared/auth';
 import { validatePasswordStrength } from '../../shared/validation';
 
 const router = Router();
@@ -80,13 +81,14 @@ router.post('/change-password', (req, res) => {
     res.status(400).json({ error: 'Senha atual incorreta.' });
     return;
   }
+  assertAuth(req);
   const cookies = req.headers.cookie ?? '';
   const match = cookies.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
   db.transaction(() => {
     db.prepare(`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(hashPassword(String(newPassword)), req.user!.id);
+      .run(hashPassword(String(newPassword)), req.user.id);
     // derruba as outras sessões, mantém a atual
-    if (match) db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(req.user!.id, match[1]);
+    if (match) db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(req.user.id, match[1]);
   })();
   audit(req, 'senha_trocada', 'user', req.user.id);
   res.json({ ok: true });

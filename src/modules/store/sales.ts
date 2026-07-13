@@ -4,6 +4,8 @@ import { getSqlite } from '../../core/database/connection';
 import { getService, hasService } from '../../core/services/registry';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
+import { addDays } from '../../shared/date';
+import { assertAuth } from '../../shared/auth';
 import type { CommercialStockService, CommercialPricingService, CommercialStoreCreditService, CommercialLoyaltyService } from '../commercial/setup';
 import type { FinanceCashService, FinanceReceivablesService, FinancePayMethodsService, FinanceAgreementsService, PaymentMethod } from '../finance/setup';
 import type { FoodserviceKitchenService } from '../foodservice/setup';
@@ -65,13 +67,6 @@ type SaleResult =
 const LEGACY_TYPE: Record<string, string> = {
   dinheiro: 'dinheiro', cartao_debito: 'debito', cartao_credito: 'credito', pix: 'pix', prazo: 'prazo',
 };
-
-/** YYYY-MM-DD + N dias, sem depender de fuso (aritmética pura em dias). */
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 function existingSaleByRequestId(clientRequestId: string): SaleResult | undefined {
   const db = getSqlite();
@@ -264,6 +259,7 @@ export function createSale(
   input: SaleInput,
   opts: { allowPriceOverride?: boolean } = {},
 ): SaleResult {
+  assertAuth(req);
   const db = getSqlite();
 
   if (input.clientRequestId) {
@@ -283,7 +279,7 @@ export function createSale(
   const discount = Math.round(input.discountCents ?? 0);
   const surcharge = Math.round(input.surchargeCents ?? 0);
   if (discount < 0 || surcharge < 0) return { ok: false, error: 'Desconto/acréscimo inválido.' };
-  if ((discount > 0 || surcharge > 0) && !req.user!.permissions.has('store.sales.discount')) {
+  if ((discount > 0 || surcharge > 0) && !req.user.permissions.has('store.sales.discount')) {
     return { ok: false, error: 'Permissão negada: store.sales.discount (desconto/acréscimo).' };
   }
 
@@ -323,7 +319,7 @@ export function createSale(
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(input.customerId ?? null, subtotal, discount, surcharge, total,
         legacyLabel[primaryMethod] ?? 'pix',
-        resolved[0].receivedCents, totalChange, reg?.id ?? null, req.user!.id, input.clientRequestId ?? null, randomUUID());
+        resolved[0].receivedCents, totalChange, reg?.id ?? null, req.user.id, input.clientRequestId ?? null, randomUUID());
       saleId = Number(info.lastInsertRowid);
 
       const insertItem = db.prepare(
@@ -428,6 +424,7 @@ export function createSale(
 }
 
 export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: false; error: string } {
+  assertAuth(req);
   const db = getSqlite();
   const stock = getService<CommercialStockService>('commercial.stock');
   const storeCredit = getService<CommercialStoreCreditService>('commercial.storeCredit');
@@ -509,7 +506,7 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
       }
       db.prepare(
         `UPDATE sales SET status = 'cancelada', canceled_at = datetime('now'), canceled_by = ?, updated_at = datetime('now') WHERE id = ?`,
-      ).run(req.user!.id, saleId);
+      ).run(req.user.id, saleId);
     })();
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
