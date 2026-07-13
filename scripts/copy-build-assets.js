@@ -14,6 +14,10 @@ const DIST = path.join(ROOT, 'dist');
 
 function copyIfExists(from, to) {
   if (!fs.existsSync(from)) return;
+  // Espelha de verdade: sem limpar `to` antes, pastas renomeadas/removidas em `from`
+  // (ex.: migration renumerada) ficam para trás como "fantasmas" em dist/ — o migrator
+  // as redescobre a cada boot como se fossem migrations novas e pendentes.
+  fs.rmSync(to, { recursive: true, force: true });
   fs.cpSync(from, to, { recursive: true });
   console.log(`[copy-assets] ${path.relative(ROOT, from)} -> ${path.relative(ROOT, to)}`);
 }
