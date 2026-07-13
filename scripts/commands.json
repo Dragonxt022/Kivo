@@ -67,6 +67,10 @@
     "description": "Rodar todos os testes de integração",
     "run": "katsu test:all"
   },
+  "coverage": {
+    "description": "Cobertura de código (c8 + tsx) — executa teste informado via ARGS",
+    "run": "c8 --reporter=text --reporter=lcov --src src -- tsx"
+  },
   "test:shared": {
     "description": "Testes de utilitários compartilhados",
     "run": "tsx src/tests/shared.ts"
