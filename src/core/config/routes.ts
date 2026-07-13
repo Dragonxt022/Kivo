@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import os from 'node:os';
 import { Router } from 'express';
 import { getSqlite } from '../database/connection';
 import { requirePermission } from '../permissions/middleware';
@@ -11,6 +12,19 @@ router.get('/', requirePermission('settings.view'), (_req, res) => {
     .prepare('SELECT key, value, updated_at FROM settings WHERE deleted_at IS NULL ORDER BY key')
     .all();
   res.json(rows);
+});
+
+/** Endereços IPv4 desta máquina na rede local — para a tela de Configurações
+ * mostrar ao admin como o celular do garçom/tablet da cozinha alcançam o Katsu. */
+router.get('/network-info', requirePermission('settings.view'), (_req, res) => {
+  const port = Number(process.env.KATSU_PORT ?? 3123);
+  const urls: string[] = [];
+  for (const addrs of Object.values(os.networkInterfaces())) {
+    for (const addr of addrs ?? []) {
+      if (addr.family === 'IPv4' && !addr.internal) urls.push(`http://${addr.address}:${port}`);
+    }
+  }
+  res.json({ urls, port });
 });
 
 router.put('/:key', requirePermission('settings.edit'), (req, res) => {

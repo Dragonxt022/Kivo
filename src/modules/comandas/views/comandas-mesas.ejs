@@ -15,9 +15,11 @@
     <div class="container">
       <div class="flex-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
         <h1>Mesas</h1>
+        <% if (user.permissions.has('comandas.tables.manage')) { %>
         <div>
           <button type="button" class="btn" @click="newTableLabel = ''; $refs.addTableDlg.showModal(); $nextTick(() => $refs.tableInput?.focus())">Nova Mesa</button>
         </div>
+        <% } %>
       </div>
       <div class="tables-grid">
         <template x-for="t in tables" :key="t.id">

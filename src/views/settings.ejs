@@ -39,6 +39,12 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 8 8 12 8c4 0 5-4 7.5-4a2.5 2.5 0 0 1 0 5H18"/><path d="M12 9v10M18 9v10"/></svg>
         Fidelidade
       </button>
+      <% if (user.permissions.has('settings.edit')) { %>
+      <button :class="{ active: tab === 'rede' }" @click="tab = 'rede'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="18" x2="10.01" y2="18"/><path d="M6 14V7a6 6 0 0 1 12 0v7"/></svg>
+        Rede local
+      </button>
+      <% } %>
       <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
       <button :class="{ active: tab === 'security' }" @click="tab = 'security'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -263,6 +269,55 @@
       </section>
     </div>
 
+    <!-- ═══════ ABA: REDE LOCAL ═══════ -->
+    <% if (user.permissions.has('settings.edit')) { %>
+    <div x-show="tab === 'rede'" x-cloak>
+      <section class="panel">
+        <h2>Acesso pela rede local (Wi-Fi/cabo)</h2>
+        <p class="hint mt-0">
+          Permite abrir o Katsu no navegador de outro aparelho — celular do garçom pra
+          lançar pedidos nas comandas, tablet fixo na cozinha pro painel de produção —
+          desde que esteja na mesma rede local (Wi-Fi ou cabo) desta máquina. Nenhum dado
+          sai da rede local; não é acesso pela internet.
+        </p>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="rede.acessoLocal" />
+            Permitir acesso pela rede local
+          </label>
+          <p class="hint">Desligado por padrão. <strong>Requer reiniciar o Katsu</strong> depois de salvar para valer.</p>
+        </div>
+        <% if (user.permissions.has('settings.edit')) { %>
+        <div class="toolbar">
+          <button class="btn" @click="saveRede()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingRede ? 'Salvando…' : 'Salvar'"></span>
+          </button>
+          <span class="muted" x-show="redeSaved" x-text="redeSaved"></span>
+        </div>
+        <% } %>
+        <div x-show="networkInfo.urls && networkInfo.urls.length" style="margin-top:1.25rem">
+          <p class="hint mt-0">Endereço(s) desta máquina na rede local — acesse pelo navegador do celular/tablet:</p>
+          <template x-for="u in networkInfo.urls" :key="u">
+            <div class="flex-row" style="align-items:center;gap:.5rem;margin-bottom:.4rem">
+              <code x-text="u" style="font-size:1rem;padding:.3rem .6rem;background:var(--surface-hover);border-radius:6px"></code>
+              <button type="button" class="btn secondary small" @click="copyUrl(u)" x-text="copiedUrl === u ? 'Copiado!' : 'Copiar'"></button>
+            </div>
+          </template>
+        </div>
+        <p class="hint" x-show="rede.acessoLocal && networkInfo.urls && !networkInfo.urls.length">
+          Nenhuma interface de rede local detectada — verifique se o cabo/Wi-Fi está conectado.
+        </p>
+        <p class="hint" style="margin-top:1rem">
+          Recomendado: crie usuários com os cargos <strong>Garçom</strong> (só vê Mesas/Comandas) ou
+          <strong>Cozinha (KDS)</strong> (só vê o painel de produção) em vez de compartilhar o login de
+          administrador nesses aparelhos — veja <a href="/admin/usuarios">Usuários</a> e
+          <a href="/admin/cargos">Cargos</a>.
+        </p>
+      </section>
+    </div>
+    <% } %>
+
     <!-- ═══════ ABA: SEGURANÇA ═══════ -->
     <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
     <div x-show="tab === 'security'" x-cloak>
@@ -445,6 +500,7 @@
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
         fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
+        rede: { acessoLocal: false }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null }, copiedUrl: '',
 
         async load() {
           const r = await fetch('/api/settings');
@@ -459,6 +515,10 @@
           <% if (user.permissions.has('security.pin.manage')) { %>
           const p = await fetch('/api/security/pin/status');
           if (p.ok) this.pinConfigured = (await p.json()).configured;
+          <% } %>
+          <% if (user.permissions.has('settings.edit')) { %>
+          const n = await fetch('/api/settings/network-info');
+          if (n.ok) this.networkInfo = await n.json();
           <% } %>
         },
         syncSettings() {
@@ -488,6 +548,7 @@
           this.empresa.nome = this.settings.find(s => s.key === 'empresa.nome')?.value ?? '';
           this.empresa.documento = this.settings.find(s => s.key === 'empresa.documento')?.value ?? '';
           this.empresa.endereco = this.settings.find(s => s.key === 'empresa.endereco')?.value ?? '';
+          this.rede.acessoLocal = this.settings.find(s => s.key === 'rede.acesso_local')?.value === '1';
         },
         openLicenseDlg() {
           this.licenseForm = { companyUuid: '', licenseKey: '' };
@@ -617,6 +678,21 @@
           this.fidelidadeSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
           const s = await fetch('/api/settings');
           if (s.ok) { this.settings = await s.json(); this.syncSettings(); }
+        },
+        async saveRede() {
+          this.savingRede = true; this.redeSaved = '';
+          const r = await fetch('/api/settings/rede.acesso_local', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.rede.acessoLocal ? '1' : '0' }),
+          });
+          this.savingRede = false;
+          this.redeSaved = r.ok ? 'Salvo — reinicie o Katsu para aplicar.' : 'Falha ao salvar.';
+        },
+        copyUrl(u) {
+          navigator.clipboard?.writeText(u).then(() => {
+            this.copiedUrl = u;
+            setTimeout(() => { if (this.copiedUrl === u) this.copiedUrl = ''; }, 1500);
+          });
         },
         async saveSecurity() {
           this.savingSecurity = true; this.securitySaved = '';

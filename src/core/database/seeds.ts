@@ -36,6 +36,16 @@ const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }
   { slug: 'caixa', name: 'Caixa', permissions: [] },
   { slug: 'entregador', name: 'Entregador', permissions: [] },
   { slug: 'estoquista', name: 'Estoquista', permissions: [] },
+  /**
+   * Papéis restritos pensados para acesso pela rede local (celular do garçom,
+   * tablet fixo na cozinha) — não enxergam financeiro/caixa/configurações.
+   * Referenciam permissões dos módulos comandas/foodservice diretamente: seguro
+   * porque `role_permissions.permission_key` não tem FK para `permissions` (só
+   * fica "pendente" até o módulo carregar e popular o catálogo, o que sempre
+   * acontece antes de qualquer request real).
+   */
+  { slug: 'garcom', name: 'Garçom', permissions: ['comandas.view', 'comandas.manage', 'commercial.products.view'] },
+  { slug: 'cozinha', name: 'Cozinha (KDS)', permissions: ['foodservice.kitchen.view', 'foodservice.kitchen.manage'] },
 ];
 
 /** Idempotente: roda em todo boot sem duplicar nada. */

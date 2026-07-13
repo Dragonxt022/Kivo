@@ -111,7 +111,13 @@ async function boot() {
   // vigor depois de um "Sincronizar agora" manual — reiniciar sozinho não bastava.
   await refreshLicenseFromCloud();
   const { app: api } = await createServer();
-  api.listen(PORT, '127.0.0.1');
+  // Desligado por padrão: só passa a escutar em todas as interfaces (alcançável pelo
+  // celular do garçom / tablet da cozinha na mesma rede Wi-Fi/cabo) se o admin ligar
+  // "Acesso pela rede local" em Configurações — mudança de porta/host exige reiniciar.
+  const lanRow = getSqlite()
+    .prepare("SELECT value FROM settings WHERE key = 'rede.acesso_local' AND deleted_at IS NULL")
+    .get() as { value: string } | undefined;
+  api.listen(PORT, lanRow?.value === '1' ? '0.0.0.0' : '127.0.0.1');
 
   const win = new BrowserWindow({
     width: 1280,
