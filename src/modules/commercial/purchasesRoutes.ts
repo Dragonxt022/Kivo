@@ -4,6 +4,8 @@ import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
+import { validateBody } from '../../shared/validateBody';
+import { createPurchaseSchema, updatePurchaseSchema } from '../../shared/schemas';
 import { moveStockRaw } from './stock';
 
 const router = Router();
@@ -46,13 +48,9 @@ router.get('/:id/items', requirePermission('commercial.purchases.view'), (req, r
   ).all(req.params.id));
 });
 
-router.post('/', requirePermission('commercial.purchases.create'), (req, res) => {
-  const { supplierId, items, notes, status } = req.body ?? {};
+router.post('/', requirePermission('commercial.purchases.create'), validateBody(createPurchaseSchema), (req, res) => {
+  const { supplierId, items, notes, status } = req.body;
   const asDraft = status === 'rascunho';
-  if (!supplierId || !Array.isArray(items) || items.length === 0) {
-    res.status(400).json({ error: 'Campos obrigatórios: supplierId, items[{productId, qty, unitCostCents}].' });
-    return;
-  }
   const database = db();
   const supplier = database.prepare('SELECT id FROM suppliers WHERE id = ? AND deleted_at IS NULL').get(supplierId);
   if (!supplier) {
@@ -160,7 +158,7 @@ router.post('/:id/duplicate', requirePermission('commercial.purchases.create'), 
   res.status(201).json(created);
 });
 
-router.put('/:id', requirePermission('commercial.purchases.edit'), (req, res) => {
+router.put('/:id', requirePermission('commercial.purchases.edit'), validateBody(updatePurchaseSchema), (req, res) => {
   const id = String(req.params.id);
   const before = db().prepare('SELECT id, supplier_id, status, notes FROM purchases WHERE id = ? AND deleted_at IS NULL').get(id) as
     { id: number; supplier_id: number; status: string; notes: string | null } | undefined;
@@ -172,7 +170,7 @@ router.put('/:id', requirePermission('commercial.purchases.edit'), (req, res) =>
     res.status(400).json({ error: 'Compra cancelada não pode ser editada.' });
     return;
   }
-  const { supplierId, notes, items } = req.body ?? {};
+  const { supplierId, notes, items } = req.body;
   if (Array.isArray(items) && before.status !== 'rascunho') {
     res.status(400).json({ error: 'Só rascunhos podem ter os itens editados — compras recebidas já geraram estoque/custo.' });
     return;

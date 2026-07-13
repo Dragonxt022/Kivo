@@ -4,7 +4,7 @@ import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { validateBody } from '../../shared/validateBody';
-import { stockMoveSchema } from '../../shared/schemas';
+import { stockMoveSchema, createCategorySchema, updateCategorySchema, deleteCategorySchema, grantStoreCreditSchema } from '../../shared/schemas';
 import productsRouter from './productsRoutes';
 import { makeCrudRouter } from './crud';
 import { moveStock, listMovements, type MovementType } from './stock';
@@ -29,9 +29,9 @@ router.use('/agreement-companies', makeCrudRouter({
   fields: ['name', 'document', 'billing_day', 'contact_name', 'contact_phone', 'contact_email'], required: ['name'],
 }));
 
-router.post('/customers/:id/credit', requirePermission('commercial.customers.creditgrant'), (req, res) => {
+router.post('/customers/:id/credit', requirePermission('commercial.customers.creditgrant'), validateBody(grantStoreCreditSchema), (req, res) => {
   const customerId = Number(req.params.id);
-  const { amountCents, reason } = req.body ?? {};
+  const { amountCents, reason } = req.body;
   const customer = db().prepare('SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL').get(customerId);
   if (!customer) {
     res.status(404).json({ error: 'Cliente não encontrado.' });
@@ -52,8 +52,8 @@ router.post('/customers/:id/credit', requirePermission('commercial.customers.cre
 router.get('/categories', requirePermission('commercial.products.view'), (_req, res) => {
   res.json(db().prepare('SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL ORDER BY name').all());
 });
-router.post('/categories', requirePermission('commercial.products.create'), (req, res) => {
-  const { name, parentId } = req.body ?? {};
+router.post('/categories', requirePermission('commercial.products.create'), validateBody(createCategorySchema), (req, res) => {
+  const { name, parentId } = req.body;
   if (!name) {
     res.status(400).json({ error: 'Campo obrigatório: name' });
     return;
@@ -62,9 +62,9 @@ router.post('/categories', requirePermission('commercial.products.create'), (req
   audit(req, 'criar', 'category', Number(info.lastInsertRowid), null, { name });
   res.status(201).json({ id: Number(info.lastInsertRowid), name });
 });
-router.put('/categories/:id', requirePermission('commercial.products.edit'), (req, res) => {
+router.put('/categories/:id', requirePermission('commercial.products.edit'), validateBody(updateCategorySchema), (req, res) => {
   const id = Number(req.params.id);
-  const { name } = req.body ?? {};
+  const { name } = req.body;
   if (!name || !String(name).trim()) {
     res.status(400).json({ error: 'Campo obrigatório: name' });
     return;
@@ -79,7 +79,7 @@ router.put('/categories/:id', requirePermission('commercial.products.edit'), (re
   audit(req, 'editar', 'category', id, before, { name: String(name).trim() });
   res.json({ id, name: String(name).trim() });
 });
-router.delete('/categories/:id', requirePermission('commercial.products.delete'), (req, res) => {
+router.delete('/categories/:id', requirePermission('commercial.products.delete'), validateBody(deleteCategorySchema), (req, res) => {
   const id = Number(req.params.id);
   const before = db().prepare('SELECT id, name FROM categories WHERE id = ? AND deleted_at IS NULL').get(id) as
     { id: number; name: string } | undefined;
@@ -87,7 +87,7 @@ router.delete('/categories/:id', requirePermission('commercial.products.delete')
     res.status(404).json({ error: 'Categoria não encontrada.' });
     return;
   }
-  const { migrateToId } = req.body ?? {};
+  const { migrateToId } = req.body;
   if (migrateToId != null) {
     if (Number(migrateToId) === id) {
       res.status(400).json({ error: 'Categoria de destino não pode ser a mesma que está sendo excluída.' });

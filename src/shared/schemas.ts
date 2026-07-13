@@ -116,3 +116,40 @@ export const closeRegisterSchema = z.object({
   notes: z.string().optional(),
   countBreakdown: z.record(z.string(), z.number()).optional(),
 });
+
+export const createCategorySchema = z.object({
+  name: z.string().min(1, 'Campo obrigatório: name'),
+  parentId: z.number().int().positive().optional(),
+});
+
+export const updateCategorySchema = z.object({
+  name: z.string().min(1, 'Campo obrigatório: name'),
+});
+
+export const deleteCategorySchema = z.object({
+  migrateToId: z.number().int().positive().optional(),
+});
+
+const purchaseItemSchema = z.object({
+  productId: z.number().int().positive('ID do produto inválido.'),
+  qty: z.number().positive('Quantidade deve ser positiva.'),
+  unitCostCents: z.number().int('Custo unitário deve ser inteiro.'),
+});
+
+export const createPurchaseSchema = z.object({
+  supplierId: z.number().int().positive('Fornecedor inválido.'),
+  items: z.array(purchaseItemSchema).min(1, 'Informe ao menos um item.'),
+  notes: z.string().optional(),
+  status: z.enum(['rascunho', 'recebida']).optional(),
+});
+
+export const updatePurchaseSchema = z.object({
+  supplierId: z.number().int().positive().optional(),
+  notes: z.string().optional(),
+  items: z.array(purchaseItemSchema).optional(),
+});
+
+export const grantStoreCreditSchema = z.object({
+  amountCents: z.number().int().min(1, 'Valor deve ser positivo.'),
+  reason: z.string().optional(),
+});
