@@ -10,6 +10,13 @@ import { getSqlite } from '../core/database/connection';
 import { refreshLicenseFromCloud, validateLicense } from '../core/license/service';
 import { canAutoUpdate } from '../core/license/plans';
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
 
 // Mesmo par light/dark já usado na logo da tela de login (home.ejs) — reaproveitado
@@ -101,6 +108,11 @@ function setupAutoUpdater(): void {
 }
 
 async function boot() {
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
+
   Menu.setApplicationMenu(null);
 
   migrateUp();
@@ -130,6 +142,7 @@ async function boot() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
   win.maximize();

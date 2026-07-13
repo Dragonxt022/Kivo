@@ -1,18 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import type { Request } from 'express';
 import { getSqlite } from './connection';
-import { createSale } from '../../modules/store/sales';
-import { openRegister, closeRegister } from '../../modules/finance/cash';
-import { moveStockRaw } from '../../modules/commercial/stock';
+import { getService } from '../services/registry';
+import type { StoreSalesService } from '../../modules/store/setup';
+import type { CommercialStockService } from '../../modules/commercial/setup';
+import type { FinanceCashService } from '../../modules/finance/setup';
 
-/**
- * Seed de demonstração: popula o banco com ~30 dias de operação simulada de uma loja
- * de materiais de construção (produtos, clientes, fornecedores, categorias de DRE),
- * reaproveitando as mesmas funções de negócio da API (createSale, openRegister/closeRegister,
- * moveStockRaw) para garantir que estoque/caixa/recebíveis fiquem matematicamente
- * consistentes como ficariam via uso real. Rode via `npm run db:seed:demo` (chama
- * resetTestData() antes — todo dado de negócio anterior é substituído).
- */
+const SALES_SVC = 'store.sales';
+const STOCK_SVC = 'commercial.stock';
+const CASH_SVC = 'finance.cash';
 
 export interface SeedDemoSummary {
   days: number;
@@ -54,10 +49,7 @@ function isoDaysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Monta um Request "fake" mínimo com um usuário administrador real (mesmo formato de
- * AuthUser que src/core/auth/service.ts:loadAuthUser produz) — só o suficiente para as
- * funções de negócio (audit, permissões, user_id de referência) funcionarem sem sessão HTTP. */
-function fakeAdminRequest(): Request {
+function fakeAdminRequest() {
   const db = getSqlite();
   const admin = db.prepare(
     `SELECT u.id, u.username, u.name, u.role_id, r.slug AS role_slug
@@ -72,7 +64,7 @@ function fakeAdminRequest(): Request {
     roleId: admin.role_id, roleSlug: admin.role_slug,
     permissions: new Set(perms.map((p) => p.permission_key)),
   };
-  return { user, ip: '127.0.0.1', headers: {} } as unknown as Request;
+  return { user, ip: '127.0.0.1', headers: {} } as unknown as import('express').Request;
 }
 
 const CATEGORY_NAMES = ['Materiais de Construção', 'Elétrica', 'Hidráulica', 'Tintas e Acabamento', 'Ferramentas', 'Limpeza'] as const;
@@ -129,8 +121,6 @@ function seedMasterData(db: ReturnType<typeof getSqlite>) {
     ).run(p.name, categoryIds[p.category], p.priceCents, p.costCents, p.stock, randomUUID());
     return { id: Number(info.lastInsertRowid), ...p };
   });
-  // stock_qty inicial não passa pelo ledger (é só o ponto de partida da simulação) — registra
-  // uma entrada de ajuste para o histórico de estoque não começar "do nada".
   for (const p of products) {
     db.prepare(
       `INSERT INTO stock_movements (product_id, type, qty, balance_after, reason, uuid) VALUES (?, 'ajuste', ?, ?, 'Estoque inicial (seed demo)', ?)`,
@@ -164,7 +154,6 @@ function seedMasterData(db: ReturnType<typeof getSqlite>) {
   return { products, customerIds, supplierIds, dreCategoryIds, methodIdByType };
 }
 
-/** dinheiro/pix/débito/crédito majoritários, ~10% a prazo. */
 function weightedPaymentType(): string {
   const r = Math.random() * 100;
   if (r < 30) return 'dinheiro';
@@ -181,13 +170,8 @@ function backdateSale(db: ReturnType<typeof getSqlite>, saleId: number, ts: stri
   db.prepare(`UPDATE receivables SET updated_at = ? WHERE sale_id = ?`).run(ts, saleId);
 }
 
-/** Repõe só quem está baixo/negativo (venda no PDV pode vender sem estoque — allowNegative
- * — então dias de muita saída deixam saldo negativo). A quantidade é resolvida a partir do
- * saldo ATUAL de cada produto (não um intervalo fixo), garantindo que a entrada sempre chegue
- * a um nível saudável — moveStockRaw rejeita 'entrada' cujo saldo resultante ainda fique
- * negativo, então nunca uso um valor fixo pequeno demais para cobrir déficits grandes. */
 function simulateRestockIfNeeded(
-  req: Request, db: ReturnType<typeof getSqlite>, dateStr: string,
+  req: import('express').Request, db: ReturnType<typeof getSqlite>, dateStr: string,
   supplierIds: number[], products: { id: number; costCents: number }[],
 ): boolean {
   const LOW_THRESHOLD = 40;
@@ -199,6 +183,7 @@ function simulateRestockIfNeeded(
   const low = products.filter((p) => (stockById.get(p.id) ?? 0) < LOW_THRESHOLD);
   if (!low.length) return false;
 
+  const stock = getService<CommercialStockService>(STOCK_SVC);
   const supplierId = pick(supplierIds);
   const ts = `${dateStr} 09:00:00`;
   let total = 0;
@@ -217,7 +202,7 @@ function simulateRestockIfNeeded(
     db.prepare(`INSERT INTO purchase_items (purchase_id, product_id, qty, unit_cost_cents) VALUES (?, ?, ?, ?)`)
       .run(purchaseId, it.productId, it.qty, it.unitCost);
     db.prepare(`UPDATE products SET cost_cents = ?, updated_at = ? WHERE id = ?`).run(it.unitCost, ts, it.productId);
-    const move = moveStockRaw(req, it.productId, 'entrada', it.qty, 'compra (seed demo)', 'purchase', purchaseId);
+    const move = stock.moveRaw(req, it.productId, 'entrada', it.qty, 'compra (seed demo)', 'purchase', purchaseId);
     if (!move.ok) throw new Error(move.error);
   }
   db.prepare(`UPDATE stock_movements SET created_at = ? WHERE ref_entity = 'purchase' AND ref_id = ?`).run(ts, String(purchaseId));
@@ -263,12 +248,15 @@ export function seedDemoData(): SeedDemoSummary {
   let purchasesCount = 0;
   let revenueCents = 0;
 
+  const sales = getService<StoreSalesService>(SALES_SVC);
+  const cash = getService<FinanceCashService>(CASH_SVC);
+
   for (let dayIdx = 0; dayIdx < DAYS; dayIdx++) {
     const dateStr = addDaysStr(windowStart, dayIdx);
-    const dow = new Date(`${dateStr}T12:00:00Z`).getUTCDay(); // 0=domingo, 6=sábado
+    const dow = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
     const isWeekend = dow === 0 || dow === 6;
 
-    const opened = openRegister(req, 20000);
+    const opened = cash.openRegister(req, 20000);
     if (!opened.ok) throw new Error(`Dia ${dateStr}: ${opened.error}`);
     const registerId = opened.id;
 
@@ -285,7 +273,7 @@ export function seedDemoData(): SeedDemoSummary {
 
       const methodType = weightedPaymentType();
       const methodId = methodIdByType[methodType];
-      if (!methodId) continue; // forma de pagamento não cadastrada/ativa nesta instalação — pula
+      if (!methodId) continue;
 
       let customerId = Math.random() < 0.4 ? undefined : pick(customerIds);
       if (methodType === 'prazo' && !customerId) customerId = pick(customerIds);
@@ -296,7 +284,7 @@ export function seedDemoData(): SeedDemoSummary {
       if (methodType === 'dinheiro') payment.receivedCents = subtotal;
       if (methodType === 'prazo') payment.dueDate = addDaysStr(dateStr, 30);
 
-      const result = createSale(req, { items, payments: [payment], customerId });
+      const result = sales.createSale(req, { items, payments: [payment], customerId });
       if (!result.ok) throw new Error(`Dia ${dateStr}, venda ${i}: ${result.error}`);
       salesCount++;
       revenueCents += result.totalCents;
@@ -313,7 +301,7 @@ export function seedDemoData(): SeedDemoSummary {
        FROM cash_movements WHERE register_id = ?`,
     ).get(registerId) as { v: number };
     const counted = Math.max(0, registerExpected.v + variance);
-    const closed = closeRegister(req, counted);
+    const closed = cash.closeRegister(req, counted);
     if (!closed.ok) throw new Error(`Dia ${dateStr} (fechamento): ${closed.error}`);
 
     const openedAt = `${dateStr} 08:00:00`;

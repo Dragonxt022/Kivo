@@ -8,6 +8,13 @@ import { createServer } from './core/server';
 import { closeDb } from './core/database/connection';
 import { refreshLicenseFromCloud } from './core/license/service';
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
 const smoke = process.argv.includes('--smoke');
 

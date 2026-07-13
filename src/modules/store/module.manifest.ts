@@ -5,6 +5,7 @@ const manifest: ModuleManifest = {
   name: 'Loja (PDV e vendas)',
   version: '1.0.0',
   requiresCore: '>=0.1.0',
+  dependsOn: ['commercial', 'finance'],
   permissions: [
     { key: 'store.sales.view', description: 'Visualizar vendas' },
     { key: 'store.sales.create', description: 'Realizar vendas (PDV)' },

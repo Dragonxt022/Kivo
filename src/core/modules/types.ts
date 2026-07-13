@@ -35,6 +35,8 @@ export interface ModuleManifest {
   /** Arquivo executado no boot (export default function): registra serviços no Core. */
   setup?: string;
   menu?: ModuleMenuItem[];
+  /** Módulos dos quais este depende (devem carregar/setup antes deste). */
+  dependsOn?: string[];
   /** Tabelas sincronizáveis deste módulo (motor de sync da Fase 6a, KATSU_PLANO.md §6). */
   syncTables?: SyncTableSpec[];
 }

@@ -34,7 +34,7 @@ router.post('/run', requirePermission('sync.run'), async (req, res) => {
     const result = await runSync(req);
     // Independe do gate de plano do sync de tabelas: imagens de produto podem ser
     // contribuídas ao banco do Cloud por qualquer plano (ver cloud/src/routes/catalog.ts).
-    trySubmitPending().catch(() => {});
+    trySubmitPending().catch((e) => console.error('[submit] erro no sync manual:', e));
     if (result.skipped) {
       res.status(403).json({ error: 'Sincronização em nuvem não incluída no plano atual.' });
       return;

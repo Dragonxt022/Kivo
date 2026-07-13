@@ -301,7 +301,7 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
   const newId = Number(info.lastInsertRowid);
   if (img.buf && img.submit) {
     queueProductImageSubmission(newId, String(b.name), img.imageUrl!, img.buf);
-    trySubmitPending().catch(() => {});
+    trySubmitPending().catch((e) => console.error('[submit] erro ao enviar imagem:', e));
   }
   if (!b.sku && autoSkuEnabled()) {
     db().prepare("UPDATE products SET sku = ? WHERE id = ?").run(`P${String(newId).padStart(6, '0')}`, newId);
@@ -381,7 +381,7 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
   }
   if (img.buf && img.submit) {
     queueProductImageSubmission(Number(id), String(b.name ?? (before as unknown as { name: string }).name), img.imageUrl!, img.buf);
-    trySubmitPending().catch(() => {});
+    trySubmitPending().catch((e) => console.error('[submit] erro ao enviar imagem:', e));
   }
   const after = getProduct(id);
   audit(req, 'editar', 'product', id, before, after);

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { registerService } from '../../core/services/registry';
 import { getSqlite } from '../../core/database/connection';
-import { currentRegister, addMovement, expectedCents, getRegisterById } from './cash';
+import { currentRegister, addMovement, expectedCents, getRegisterById, openRegister, closeRegister } from './cash';
 import { chargeAgreementRaw, pendingTotal, generateInvoice, companiesDueForInvoice } from './agreements';
 import { startAgreementScheduler } from './agreementScheduler';
 
@@ -11,6 +11,8 @@ export interface FinanceCashService {
   addMovement: typeof addMovement;
   expectedCents: typeof expectedCents;
   getRegisterById: typeof getRegisterById;
+  openRegister: typeof openRegister;
+  closeRegister: typeof closeRegister;
 }
 
 export interface ReceivableRow {
@@ -101,7 +103,7 @@ const payMethods: FinancePayMethodsService = {
 };
 
 export default function setup(): void {
-  registerService('finance.cash', { currentRegister, addMovement, expectedCents, getRegisterById } satisfies FinanceCashService);
+  registerService('finance.cash', { currentRegister, addMovement, expectedCents, getRegisterById, openRegister, closeRegister } satisfies FinanceCashService);
   registerService('finance.receivables', { create: createReceivable, listBySale: listReceivablesBySale } satisfies FinanceReceivablesService);
   registerService('finance.paymethods', payMethods);
   registerService('finance.agreements', { chargeAgreementRaw, pendingTotal, generateInvoice, companiesDueForInvoice } satisfies FinanceAgreementsService);

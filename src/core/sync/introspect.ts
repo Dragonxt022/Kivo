@@ -22,16 +22,21 @@ interface PragmaRow {
  * só de `SyncTableSpec` declarado em manifestos (config interna de confiança, nunca
  * de input do usuário) — interpolação direta é segura, mesmo padrão de `crud.ts`.
  */
+const columnCache = new Map<string, ColumnInfo[]>();
+
 export function tableColumns(table: string): ColumnInfo[] {
+  if (columnCache.has(table)) return columnCache.get(table)!;
   const rows = getSqlite().prepare(`PRAGMA table_info(${table})`).all() as PragmaRow[];
   if (!rows.length) throw new Error(`Tabela não encontrada: ${table}`);
-  return rows.map((r) => ({
+  const result = rows.map((r) => ({
     name: r.name,
     type: r.type,
     notNull: !!r.notnull,
     pk: !!r.pk,
     hasDefault: r.dflt_value != null,
   }));
+  columnCache.set(table, result);
+  return result;
 }
 
 export function getRowByUuid(table: string, uuid: string): Record<string, unknown> | undefined {
@@ -67,10 +72,15 @@ interface ForeignKeyListRow {
   table: string;
 }
 
+const fkCache = new Map<string, Map<string, string>>();
+
 /** coluna -> tabela referenciada, via `PRAGMA foreign_key_list` (inclui FKs não declaradas no SyncTableSpec, ex.: `users`). */
 export function foreignKeyTargets(table: string): Map<string, string> {
+  if (fkCache.has(table)) return fkCache.get(table)!;
   const rows = getSqlite().prepare(`PRAGMA foreign_key_list(${table})`).all() as ForeignKeyListRow[];
-  return new Map(rows.map((r) => [r.from, r.table]));
+  const result = new Map(rows.map((r) => [r.from, r.table]));
+  fkCache.set(table, result);
+  return result;
 }
 
 /** Qualquer id existente na tabela — usado só como placeholder de FK NOT NULL não sincronizada (ex.: cash_registers.opened_by). */

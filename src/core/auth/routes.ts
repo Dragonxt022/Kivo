@@ -1,12 +1,22 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { login, logout, verifyPassword, hashPassword } from './service';
 import { SESSION_COOKIE } from './middleware';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
+import { validatePasswordStrength } from '../../shared/validation';
 
 const router = Router();
 
-router.post('/login', (req, res) => {
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'Muitas tentativas. Aguarde 1 minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/login', loginLimiter, (req, res) => {
   const { username, password, remember } = req.body ?? {};
   if (!username || !password) {
     res.status(400).json({ error: 'Informe usuário e senha.' });
@@ -20,7 +30,7 @@ router.post('/login', (req, res) => {
   }
   res.cookie(SESSION_COOKIE, result.token, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     expires: new Date(result.expiresAt),
   });
   req.user = result.user;
@@ -56,8 +66,9 @@ router.post('/change-password', (req, res) => {
     res.status(400).json({ error: 'Informe a senha atual e a nova senha.' });
     return;
   }
-  if (String(newPassword).length < 6) {
-    res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+  const pwError = validatePasswordStrength(newPassword);
+  if (pwError) {
+    res.status(400).json({ error: pwError });
     return;
   }
   const db = getSqlite();

@@ -4,6 +4,7 @@ import { getSqlite } from '../database/connection';
 import { requirePermission } from '../permissions/middleware';
 import { hashPassword } from '../auth/service';
 import { audit } from '../audit/service';
+import { validatePasswordStrength } from '../../shared/validation';
 
 const router = Router();
 
@@ -39,6 +40,11 @@ router.post('/', requirePermission('users.create'), (req, res) => {
     res.status(400).json({ error: 'Campos obrigatórios: username, name, password, roleSlug.' });
     return;
   }
+  const pwError = validatePasswordStrength(password);
+  if (pwError) {
+    res.status(400).json({ error: pwError });
+    return;
+  }
   const db = getSqlite();
   const role = db.prepare('SELECT id FROM roles WHERE slug = ?').get(roleSlug) as
     | { id: number }
@@ -70,6 +76,14 @@ router.put('/:id', requirePermission('users.edit'), (req, res) => {
   }
   const { name, email, roleSlug, active, password } = req.body ?? {};
   const db = getSqlite();
+
+  if (password) {
+    const pwError = validatePasswordStrength(password);
+    if (pwError) {
+      res.status(400).json({ error: pwError });
+      return;
+    }
+  }
 
   let roleId: number | undefined;
   if (roleSlug) {

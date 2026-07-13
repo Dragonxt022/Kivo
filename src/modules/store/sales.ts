@@ -82,6 +82,183 @@ function existingSaleByRequestId(clientRequestId: string): SaleResult | undefine
   return { ok: true, id: sale.id, totalCents: sale.total_cents, changeCents: sale.change_cents, feeCents: feeRow.fee, receivableId: sale.receivable_id ?? undefined };
 }
 
+interface ResolvedItem {
+  productId: number; name: string; qty: number; unitCents: number;
+  costCents: number; totalCents: number; notes: string | null;
+  lineGroupUuid: string | null;
+  recipeConsumption?: { productId: number; qty: number }[];
+}
+
+interface ResolvedPayment {
+  method: PaymentMethod;
+  amountCents: number;
+  receivedCents: number | null;
+  changeCents: number;
+  feeCents: number;
+  customerId?: number;
+  dueDate?: string;
+  installments?: { count: number; firstDueDate: string };
+  pointsUsed?: number;
+}
+
+function resolveSaleItems(
+  input: SaleInput,
+  pricing: CommercialPricingService,
+  opts: { allowPriceOverride?: boolean },
+): ResolvedItem[] | { error: string } {
+  const db = getSqlite();
+  const items: ResolvedItem[] = [];
+  for (const item of input.items) {
+    const p = db
+      .prepare('SELECT id, name, price_cents, cost_cents, product_type, active FROM products WHERE id = ? AND deleted_at IS NULL')
+      .get(item.productId) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; active: number } | undefined;
+    if (!p || !p.active) return { error: `Produto ${item.productId} não encontrado ou inativo.` };
+    if (!(item.qty > 0)) return { error: `Quantidade inválida para "${p.name}".` };
+    const unitCents =
+      opts.allowPriceOverride && item.unitPriceCents != null
+        ? Math.round(item.unitPriceCents)
+        : pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
+    const notes = item.notes ?? null;
+    const lineGroupUuid = item.lineGroupUuid ?? null;
+    items.push({
+      productId: p.id, name: p.name, qty: item.qty, unitCents,
+      costCents: p.cost_cents,
+      totalCents: Math.round(unitCents * item.qty),
+      notes, lineGroupUuid,
+    });
+
+    if (p.product_type === 'kit' || p.product_type === 'combo') {
+      const kitComponents = db.prepare(
+        `SELECT ki.qty AS compQty, comp.id, comp.name, comp.cost_cents, comp.active
+         FROM kit_items ki
+         JOIN products comp ON comp.id = ki.component_product_id AND comp.deleted_at IS NULL
+         WHERE ki.kit_product_id = ? AND ki.deleted_at IS NULL
+         ORDER BY ki.sort_order`,
+      ).all(p.id) as { compQty: number; id: number; name: string; cost_cents: number; active: number }[];
+      for (const comp of kitComponents) {
+        if (!comp.active) {
+          return { error: `Componente "${comp.name}" do kit "${p.name}" está inativo.` };
+        }
+        const compQty = comp.compQty * item.qty;
+        items.push({
+          productId: comp.id, name: comp.name, qty: compQty,
+          unitCents: 0, costCents: comp.cost_cents, totalCents: 0,
+          notes, lineGroupUuid,
+        });
+      }
+    }
+
+    if (p.product_type === 'produzido') {
+      const recipeItems = db.prepare(
+        `SELECT ri.qty AS recipeQty, input.id, input.name, input.cost_cents, input.active, input.track_stock
+         FROM product_recipe_items ri
+         JOIN products input ON input.id = ri.input_product_id AND input.deleted_at IS NULL
+         WHERE ri.produced_product_id = ? AND ri.deleted_at IS NULL
+         ORDER BY ri.sort_order`,
+      ).all(p.id) as { recipeQty: number; id: number; name: string; cost_cents: number; active: number; track_stock: number }[];
+      if (recipeItems.length > 0) {
+        for (const ri of recipeItems) {
+          if (!ri.active) {
+            return { error: `Insumo "${ri.name}" da ficha técnica de "${p.name}" está inativo.` };
+          }
+          if (!ri.track_stock) {
+            return { error: `Insumo "${ri.name}" não controla estoque — obrigatório para produtos com ficha técnica.` };
+          }
+        }
+        let recipeCostCents = 0;
+        const consumption: { productId: number; qty: number }[] = [];
+        for (const ri of recipeItems) {
+          const consumedQty = Math.round(ri.recipeQty * item.qty * 1000000) / 1000000;
+          recipeCostCents += Math.round(ri.recipeQty * ri.cost_cents);
+          consumption.push({ productId: ri.id, qty: consumedQty });
+        }
+        items[items.length - 1].costCents = Math.round(recipeCostCents);
+        items[items.length - 1].recipeConsumption = consumption;
+      }
+    }
+  }
+  return items;
+}
+
+function resolveSalePayments(
+  input: SaleInput,
+  methods: FinancePayMethodsService,
+  total: number,
+  loyalty: CommercialLoyaltyService,
+): ResolvedPayment[] | { error: string } {
+  const db = getSqlite();
+  const resolved: ResolvedPayment[] = [];
+
+  if (input.payments?.length) {
+    for (const pay of input.payments) {
+      const method = methods.get(Number(pay.methodId));
+      if (!method) return { error: `Forma de pagamento ${pay.methodId} inexistente ou inativa.` };
+      const amount = Math.round(pay.amountCents);
+      if (!(amount > 0)) return { error: `Valor inválido para "${method.name}".` };
+      let received: number | null = null;
+      let change = 0;
+      if (method.type === 'dinheiro') {
+        received = Math.round(pay.receivedCents ?? amount);
+        if (received < amount) return { error: `Recebido em "${method.name}" menor que a parcela.` };
+        change = received - amount;
+      }
+      resolved.push({
+        method, amountCents: amount, receivedCents: received, changeCents: change,
+        feeCents: Math.round((amount * method.fee_bps) / 10000),
+        customerId: pay.customerId, dueDate: pay.dueDate, installments: pay.installments, pointsUsed: pay.pointsUsed,
+      });
+    }
+  } else if (input.paymentMethod) {
+    const type = LEGACY_TYPE[input.paymentMethod];
+    const method = methods.getByType(type);
+    if (!method) return { error: `Nenhuma forma de pagamento ativa do tipo "${type}".` };
+    let received: number | null = null;
+    let change = 0;
+    if (method.type === 'dinheiro') {
+      received = Math.round(input.paidCents ?? total);
+      if (received < total) return { error: 'Valor recebido menor que o total.' };
+      change = received - total;
+    }
+    resolved.push({ method, amountCents: total, receivedCents: received, changeCents: change,
+      feeCents: Math.round((total * method.fee_bps) / 10000) });
+  } else {
+    return { error: 'Informe payments[] ou paymentMethod.' };
+  }
+
+  const paymentsSum = sumCents(...resolved.map((p) => p.amountCents));
+  if (paymentsSum !== total) {
+    return { error: `Pagamentos (${paymentsSum}) não fecham o total (${total}).` };
+  }
+
+  for (const pay of resolved) {
+    const custId = pay.customerId ?? input.customerId;
+    if (pay.method.type === 'prazo') {
+      if (!custId) return { error: 'Venda a prazo exige cliente.' };
+      const count = pay.installments?.count ?? 1;
+      if (count < 1 || count > 12) return { error: 'Parcelamento deve ser entre 1 e 12 vezes.' };
+    }
+    if (pay.method.type === 'credito_loja' && !custId) {
+      return { error: 'Pagamento com crédito de loja exige cliente.' };
+    }
+    if (pay.method.type === 'fidelidade') {
+      if (!custId) return { error: 'Pagamento com pontos de fidelidade exige cliente.' };
+      if (!loyalty.enabled()) return { error: 'Clube de fidelidade não está ativo.' };
+      const expected = Math.round((pay.pointsUsed ?? 0) * loyalty.centsPerPoint());
+      if (!pay.pointsUsed || expected !== pay.amountCents) {
+        return { error: 'Quantidade de pontos não corresponde ao valor do pagamento.' };
+      }
+    }
+    if (pay.method.type === 'convenio') {
+      if (!custId) return { error: 'Pagamento por convênio exige cliente.' };
+      const customer = db.prepare('SELECT agreement_company_id FROM customers WHERE id = ? AND deleted_at IS NULL').get(custId) as
+        { agreement_company_id: number | null } | undefined;
+      if (!customer?.agreement_company_id) return { error: 'Cliente não possui convênio vinculado.' };
+    }
+  }
+
+  return resolved;
+}
+
 export function createSale(
   req: Request,
   input: SaleInput,
@@ -89,8 +266,6 @@ export function createSale(
 ): SaleResult {
   const db = getSqlite();
 
-  // Idempotência: uma segunda tentativa com o mesmo clientRequestId devolve a venda já
-  // registrada em vez de duplicar estoque/caixa/crédito/pontos.
   if (input.clientRequestId) {
     const existing = existingSaleByRequestId(input.clientRequestId);
     if (existing) return existing;
@@ -112,171 +287,21 @@ export function createSale(
     return { ok: false, error: 'Permissão negada: store.sales.discount (desconto/acréscimo).' };
   }
 
-  // Congela produtos e preços do catálogo atual
-  const items: { productId: number; name: string; qty: number; unitCents: number; costCents: number; totalCents: number; notes: string | null; lineGroupUuid: string | null; recipeConsumption?: { productId: number; qty: number }[] }[] = [];
-  for (const item of input.items) {
-    const p = db
-      .prepare('SELECT id, name, price_cents, cost_cents, product_type, active FROM products WHERE id = ? AND deleted_at IS NULL')
-      .get(item.productId) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; active: number } | undefined;
-    if (!p || !p.active) return { ok: false, error: `Produto ${item.productId} não encontrado ou inativo.` };
-    if (!(item.qty > 0)) return { ok: false, error: `Quantidade inválida para "${p.name}".` };
-    const unitCents =
-      opts.allowPriceOverride && item.unitPriceCents != null
-        ? Math.round(item.unitPriceCents)
-        : pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
-    const notes = item.notes ?? null;
-    const lineGroupUuid = item.lineGroupUuid ?? null;
-    items.push({
-      productId: p.id, name: p.name, qty: item.qty, unitCents,
-      costCents: p.cost_cents,
-      totalCents: Math.round(unitCents * item.qty),
-      notes, lineGroupUuid,
-    });
-
-    // Expansão de kit/combo: para cada componente fixo, gera uma linha a preço zero
-    // mas com custo real (a receita já está toda na linha do kit).
-    if (p.product_type === 'kit' || p.product_type === 'combo') {
-      const kitComponents = db.prepare(
-        `SELECT ki.qty AS compQty, comp.id, comp.name, comp.cost_cents, comp.active
-         FROM kit_items ki
-         JOIN products comp ON comp.id = ki.component_product_id AND comp.deleted_at IS NULL
-         WHERE ki.kit_product_id = ? AND ki.deleted_at IS NULL
-         ORDER BY ki.sort_order`,
-      ).all(p.id) as { compQty: number; id: number; name: string; cost_cents: number; active: number }[];
-      for (const comp of kitComponents) {
-        if (!comp.active) {
-          return { ok: false, error: `Componente "${comp.name}" do kit "${p.name}" está inativo.` };
-        }
-        const compQty = comp.compQty * item.qty;
-        items.push({
-          productId: comp.id, name: comp.name, qty: compQty,
-          unitCents: 0, costCents: comp.cost_cents, totalCents: 0,
-          notes, lineGroupUuid,
-        });
-      }
-    }
-
-    // Produto produzido: calcula o custo real pela ficha técnica e agenda consumo de insumos
-    if (p.product_type === 'produzido') {
-      const recipeItems = db.prepare(
-        `SELECT ri.qty AS recipeQty, input.id, input.name, input.cost_cents, input.active, input.track_stock
-         FROM product_recipe_items ri
-         JOIN products input ON input.id = ri.input_product_id AND input.deleted_at IS NULL
-         WHERE ri.produced_product_id = ? AND ri.deleted_at IS NULL
-         ORDER BY ri.sort_order`,
-      ).all(p.id) as { recipeQty: number; id: number; name: string; cost_cents: number; active: number; track_stock: number }[];
-      if (recipeItems.length > 0) {
-        for (const ri of recipeItems) {
-          if (!ri.active) {
-            return { ok: false, error: `Insumo "${ri.name}" da ficha técnica de "${p.name}" está inativo.` };
-          }
-          if (!ri.track_stock) {
-            return { ok: false, error: `Insumo "${ri.name}" não controla estoque — obrigatório para produtos com ficha técnica.` };
-          }
-        }
-        let recipeCostCents = 0;
-        const consumption: { productId: number; qty: number }[] = [];
-        for (const ri of recipeItems) {
-          const consumedQty = Math.round(ri.recipeQty * item.qty * 1000000) / 1000000; // evita floating-point drift
-          recipeCostCents += Math.round(ri.recipeQty * ri.cost_cents);
-          consumption.push({ productId: ri.id, qty: consumedQty });
-        }
-        items[items.length - 1].costCents = Math.round(recipeCostCents);
-        items[items.length - 1].recipeConsumption = consumption;
-      }
-    }
-  }
+  const itemsResult = resolveSaleItems(input, pricing, opts);
+  if ('error' in itemsResult) return { ok: false, error: itemsResult.error };
+  const items = itemsResult;
 
   const subtotal = sumCents(...items.map((i) => i.totalCents));
   const total = subtotal - discount + surcharge;
   if (total < 0) return { ok: false, error: 'Desconto maior que o subtotal.' };
 
-  // ----- Resolve pagamentos (novo formato ou legado) -----
-  interface ResolvedPayment {
-    method: PaymentMethod;
-    amountCents: number;
-    receivedCents: number | null;
-    changeCents: number;
-    feeCents: number;
-    customerId?: number;
-    dueDate?: string;
-    installments?: { count: number; firstDueDate: string };
-    pointsUsed?: number;
-  }
-  const resolved: ResolvedPayment[] = [];
-
-  if (input.payments?.length) {
-    for (const pay of input.payments) {
-      const method = methods.get(Number(pay.methodId));
-      if (!method) return { ok: false, error: `Forma de pagamento ${pay.methodId} inexistente ou inativa.` };
-      const amount = Math.round(pay.amountCents);
-      if (!(amount > 0)) return { ok: false, error: `Valor inválido para "${method.name}".` };
-      let received: number | null = null;
-      let change = 0;
-      if (method.type === 'dinheiro') {
-        received = Math.round(pay.receivedCents ?? amount);
-        if (received < amount) return { ok: false, error: `Recebido em "${method.name}" menor que a parcela.` };
-        change = received - amount;
-      }
-      resolved.push({
-        method, amountCents: amount, receivedCents: received, changeCents: change,
-        feeCents: Math.round((amount * method.fee_bps) / 10000),
-        customerId: pay.customerId, dueDate: pay.dueDate, installments: pay.installments, pointsUsed: pay.pointsUsed,
-      });
-    }
-  } else if (input.paymentMethod) {
-    // Legado: uma forma, resolvida pelo tipo
-    const type = LEGACY_TYPE[input.paymentMethod];
-    const method = methods.getByType(type);
-    if (!method) return { ok: false, error: `Nenhuma forma de pagamento ativa do tipo "${type}".` };
-    let received: number | null = null;
-    let change = 0;
-    if (method.type === 'dinheiro') {
-      received = Math.round(input.paidCents ?? total);
-      if (received < total) return { ok: false, error: 'Valor recebido menor que o total.' };
-      change = received - total;
-    }
-    resolved.push({ method, amountCents: total, receivedCents: received, changeCents: change,
-      feeCents: Math.round((total * method.fee_bps) / 10000) });
-  } else {
-    return { ok: false, error: 'Informe payments[] ou paymentMethod.' };
-  }
-
-  const paymentsSum = sumCents(...resolved.map((p) => p.amountCents));
-  if (paymentsSum !== total) {
-    return { ok: false, error: `Pagamentos (${paymentsSum}) não fecham o total (${total}).` };
-  }
+  const paymentsResult = resolveSalePayments(input, methods, total, loyalty);
+  if ('error' in paymentsResult) return { ok: false, error: paymentsResult.error };
+  const resolved = paymentsResult;
 
   const hasCash = resolved.some((p) => p.method.type === 'dinheiro');
   const reg = cash.currentRegister();
   if (hasCash && !reg) return { ok: false, error: 'Abra o caixa antes de vender em dinheiro.' };
-
-  // ----- Validações pré-transação dos métodos especiais (evita abrir/reverter transação por erro previsível) -----
-  for (const pay of resolved) {
-    const custId = pay.customerId ?? input.customerId;
-    if (pay.method.type === 'prazo') {
-      if (!custId) return { ok: false, error: 'Venda a prazo exige cliente.' };
-      const count = pay.installments?.count ?? 1;
-      if (count < 1 || count > 12) return { ok: false, error: 'Parcelamento deve ser entre 1 e 12 vezes.' };
-    }
-    if (pay.method.type === 'credito_loja' && !custId) {
-      return { ok: false, error: 'Pagamento com crédito de loja exige cliente.' };
-    }
-    if (pay.method.type === 'fidelidade') {
-      if (!custId) return { ok: false, error: 'Pagamento com pontos de fidelidade exige cliente.' };
-      if (!loyalty.enabled()) return { ok: false, error: 'Clube de fidelidade não está ativo.' };
-      const expected = Math.round((pay.pointsUsed ?? 0) * loyalty.centsPerPoint());
-      if (!pay.pointsUsed || expected !== pay.amountCents) {
-        return { ok: false, error: 'Quantidade de pontos não corresponde ao valor do pagamento.' };
-      }
-    }
-    if (pay.method.type === 'convenio') {
-      if (!custId) return { ok: false, error: 'Pagamento por convênio exige cliente.' };
-      const customer = db.prepare('SELECT agreement_company_id FROM customers WHERE id = ? AND deleted_at IS NULL').get(custId) as
-        { agreement_company_id: number | null } | undefined;
-      if (!customer?.agreement_company_id) return { ok: false, error: 'Cliente não possui convênio vinculado.' };
-    }
-  }
 
   const totalChange = sumCents(...resolved.map((p) => p.changeCents));
   const totalFee = sumCents(...resolved.map((p) => p.feeCents));
@@ -307,10 +332,8 @@ export function createSale(
       );
       for (const i of items) {
         insertItem.run(saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, i.notes, i.lineGroupUuid);
-        // allowNegative: a venda não pode travar por falta de estoque (reposição pode atrasar).
         const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);
-        // Consumo de insumos da ficha técnica (não gera linhas em sale_items)
         if (i.recipeConsumption?.length) {
           for (const c of i.recipeConsumption) {
             const rmove = stock.moveRaw(req, c.productId, 'saida', c.qty, 'producao', 'sale', saleId, true);
@@ -380,7 +403,6 @@ export function createSale(
       }
       if (receivableId) db.prepare('UPDATE sales SET receivable_id = ? WHERE id = ?').run(receivableId, saleId);
 
-      // Acúmulo automático de pontos (exclui o que foi pago com crédito de loja/pontos — não gera pontos sobre pontos)
       if (input.customerId && loyalty.enabled() && loyaltyEarnBaseCents > 0) {
         const points = loyalty.pointsForSaleCents(loyaltyEarnBaseCents);
         if (points > 0) loyalty.accrueRaw(req, input.customerId, points, `Venda #${saleId}`, 'sale', saleId);
@@ -394,7 +416,6 @@ export function createSale(
   audit(req, 'venda', 'sale', saleId, null, {
     total, feeCents: totalFee, payments: resolved.map((p) => ({ method: p.method.name, amount: p.amountCents })),
   });
-  // Notificar cozinha best-effort (fora da transacao — falha nunca derruba a venda)
   try {
     if (hasService('foodservice.kitchen')) {
       getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
@@ -402,7 +423,7 @@ export function createSale(
         items: items.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, notes: i.notes ?? undefined })),
       });
     }
-  } catch { /* best-effort */ }
+  } catch (e) { console.error('[kitchen] falha ao notificar:', e); }
   return { ok: true, id: saleId, totalCents: total, changeCents: totalChange, feeCents: totalFee, receivableId };
 }
 

@@ -162,10 +162,37 @@ function requireModuleEntitlement(moduleId: string, kind: 'api' | 'page') {
  * requisição), nunca se o código é montado. Isso permite trocar de plano e ver o
  * efeito na hora, sem reiniciar o app.
  */
+interface ModuleDiscovery {
+  dir: string;
+  manifest: ModuleManifest;
+  manifestPath: string;
+}
+
+function topologicalSort(modules: ModuleDiscovery[]): ModuleDiscovery[] {
+  const visited = new Set<string>();
+  const sorted: ModuleDiscovery[] = [];
+  const byId = new Map(modules.map((m) => [m.manifest.id, m]));
+
+  function visit(m: ModuleDiscovery) {
+    if (visited.has(m.manifest.id)) return;
+    visited.add(m.manifest.id);
+    for (const dep of m.manifest.dependsOn ?? []) {
+      const depModule = byId.get(dep);
+      if (depModule) visit(depModule);
+    }
+    sorted.push(m);
+  }
+
+  for (const m of modules) visit(m);
+  return sorted;
+}
+
 export async function loadModules(app: Express): Promise<LoadedModule[]> {
   if (!fs.existsSync(MODULES_DIR)) return [];
   const loaded: LoadedModule[] = [];
 
+  // Primeira passada: descobre todos os módulos
+  const discovered: ModuleDiscovery[] = [];
   for (const entry of fs.readdirSync(MODULES_DIR, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = path.join(MODULES_DIR, entry.name);
@@ -173,15 +200,23 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
     if (!manifestPath) continue;
 
     const imported = await importFile(manifestPath);
-    const manifest: Partial<ModuleManifest> = imported.default ?? imported;
-    validateManifest(manifest, dir);
+    const manifestRaw: Partial<ModuleManifest> = imported.default ?? imported;
+    validateManifest(manifestRaw, dir);
 
-    if (!satisfiesCore(manifest.requiresCore)) {
-      console.warn(`[modules] "${manifest.id}" exige Core ${manifest.requiresCore} — ignorado.`);
+    if (!satisfiesCore(manifestRaw.requiresCore)) {
+      console.warn(`[modules] "${manifestRaw.id}" exige Core ${manifestRaw.requiresCore} — ignorado.`);
       continue;
     }
 
-    // setup: registra serviços do módulo no Core ANTES das rotas (outros módulos dependem)
+    discovered.push({ dir, manifest: manifestRaw as ModuleManifest, manifestPath });
+  }
+
+  // Ordenação topológica respeitando dependsOn
+  const sorted = topologicalSort(discovered);
+
+  // Segunda passada: carrega na ordem correta
+  for (const { dir, manifest } of sorted) {
+    // setup: registra serviços do módulo no Core ANTES das rotas
     if (manifest.setup) {
       const basePath = path.join(dir, manifest.setup);
       const resolved = [basePath, `${basePath}.ts`, `${basePath}.js`].find((p) => fs.existsSync(p));

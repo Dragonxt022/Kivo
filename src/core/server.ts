@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
+import helmet from 'helmet';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
@@ -25,7 +26,7 @@ import capabilitiesRoutes from './capabilities/routes';
  * só se autocura se o usuário reiniciar o app ou clicar em "Sincronizar agora". */
 function startLicenseRevalidationScheduler(): NodeJS.Timeout {
   const check = () => {
-    refreshLicenseFromCloud().catch(() => {});
+    refreshLicenseFromCloud().catch((e) => console.error('[license] falha na revalidação:', e));
   };
   const timer = setInterval(check, 4 * 3600e3); // a cada 4h
   timer.unref();
@@ -72,6 +73,12 @@ export async function createServer(): Promise<KatsuServer> {
   // número de versão hardcoded e divergente em cada tela que precisa exibi-lo.
   const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
   app.locals.appVersion = pkg.version;
+
+  // Security headers (Helmet) — CSP desligado para compatibilidade com Alpine.js CDN
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }));
 
   // Limite maior que o padrão (100kb): fotos de produto viajam como base64 no corpo JSON
   // (ver modules/commercial/routes.ts) — servidor local/Electron, não exposto à internet.
@@ -138,7 +145,13 @@ export async function createServer(): Promise<KatsuServer> {
   startBackupScheduler();
   startLicenseRevalidationScheduler();
   // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
-  trySubmitPending().catch(() => {});
+  trySubmitPending().catch((e) => console.error('[submit] erro ao enviar fotos pendentes:', e));
+
+  // Error handler global (deve ser o ÚLTIMO middleware)
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('[erro]', err);
+    res.status(500).json({ error: 'Erro interno do servidor.' });
+  });
 
   return { app, modules };
 }
