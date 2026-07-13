@@ -1,0 +1,210 @@
+{
+  "dev": {
+    "description": "Servidor Express sem Electron",
+    "pre": "node scripts/ensure-native-abi.js node",
+    "run": "tsx src/dev.ts"
+  },
+  "dev:electron": {
+    "description": "App Electron completo",
+    "pre": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
+    "run": "electron ."
+  },
+  "build": {
+    "description": "Compilar TypeScript + copiar assets",
+    "run": "tsc -p tsconfig.json && node scripts/copy-build-assets.js"
+  },
+  "rebuild:electron": {
+    "description": "Recompilar better-sqlite3 para Electron ABI",
+    "run": "electron-rebuild -f -w better-sqlite3"
+  },
+  "verify:native": {
+    "description": "Verificar compatibilidade ABI dos módulos nativos",
+    "run": "node scripts/verify-native-abi.js"
+  },
+  "dist:win": {
+    "description": "Gerar instalador Windows (NSIS)",
+    "pre": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
+    "run": "electron-rebuild -f -w better-sqlite3 && node scripts/verify-native-abi.js && electron-builder --win"
+  },
+  "release:win": {
+    "description": "Gerar e publicar release no GitHub",
+    "pre": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
+    "run": "electron-rebuild -f -w better-sqlite3 && node scripts/verify-native-abi.js && electron-builder --win --publish always"
+  },
+  "lint": {
+    "description": "ESLint — verificar código",
+    "run": "eslint src"
+  },
+  "format": {
+    "description": "Prettier — formatar código",
+    "run": "prettier --write \"src/**/*.ts\""
+  },
+  "db:migrate": {
+    "description": "Rodar migrations pendentes",
+    "run": "tsx src/core/database/cli.ts up"
+  },
+  "db:rollback": {
+    "description": "Reverter última migration",
+    "run": "tsx src/core/database/cli.ts down"
+  },
+  "db:reset": {
+    "description": "Resetar banco de dados de teste",
+    "run": "tsx src/core/database/cli.ts reset"
+  },
+  "db:seed:demo": {
+    "description": "Popular dados de demonstração (~30 dias)",
+    "run": "tsx src/core/database/cli.ts seed-demo"
+  },
+  "db:status": {
+    "description": "Exibir status das migrations",
+    "run": "tsx src/core/database/cli.ts status"
+  },
+  "smoke": {
+    "description": "Smoke test (health check + hello)",
+    "run": "tsx src/dev.ts --smoke"
+  },
+  "test": {
+    "description": "Rodar todos os testes de integração",
+    "run": "katsu test:all"
+  },
+  "test:shared": {
+    "description": "Testes de utilitários compartilhados",
+    "run": "tsx src/tests/shared.ts"
+  },
+  "test:fase1": {
+    "description": "Testes: auth, RBAC, auditoria",
+    "run": "tsx src/tests/fase1.ts"
+  },
+  "test:fase1b": {
+    "description": "Testes: autenticação (complementar)",
+    "run": "tsx src/tests/fase1b.ts"
+  },
+  "test:fase3": {
+    "description": "Testes: commercial CRUD base",
+    "run": "tsx src/tests/fase3.ts"
+  },
+  "test:fase3b": {
+    "description": "Testes: comercial (complementar)",
+    "run": "tsx src/tests/fase3b.ts"
+  },
+  "test:fase3c": {
+    "description": "Testes: comercial (complementar)",
+    "run": "tsx src/tests/fase3c.ts"
+  },
+  "test:fase4": {
+    "description": "Testes: movimentação de estoque",
+    "run": "tsx src/tests/fase4.ts"
+  },
+  "test:fase5": {
+    "description": "Testes: vendas",
+    "run": "tsx src/tests/fase5.ts"
+  },
+  "test:fase5b": {
+    "description": "Testes: orçamentos",
+    "run": "tsx src/tests/fase5b.ts"
+  },
+  "test:fase5c": {
+    "description": "Testes: PDV",
+    "run": "tsx src/tests/fase5c.ts"
+  },
+  "test:fase5d": {
+    "description": "Testes: PDV (complementar)",
+    "run": "tsx src/tests/fase5d.ts"
+  },
+  "test:fase6a": {
+    "description": "Testes: sync engine (requer Docker + cloud)",
+    "run": "tsx src/tests/fase6a.ts"
+  },
+  "test:fase6b": {
+    "description": "Testes: licenciamento remoto",
+    "run": "tsx src/tests/fase6b.ts"
+  },
+  "test:fase6c": {
+    "description": "Testes: backup nuvem",
+    "run": "tsx src/tests/fase6c.ts"
+  },
+  "test:fase6d": {
+    "description": "Testes: painel admin cloud",
+    "run": "tsx src/tests/fase6d.ts"
+  },
+  "test:fase7a": {
+    "description": "Testes: caixa",
+    "run": "tsx src/tests/fase7a.ts"
+  },
+  "test:fase7b": {
+    "description": "Testes: contas a pagar",
+    "run": "tsx src/tests/fase7b.ts"
+  },
+  "test:fase7c": {
+    "description": "Testes: contas a receber",
+    "run": "tsx src/tests/fase7c.ts"
+  },
+  "test:fase7d": {
+    "description": "Testes: financeiro (complementar)",
+    "run": "tsx src/tests/fase7d.ts"
+  },
+  "test:fase7e": {
+    "description": "Testes: financeiro (complementar)",
+    "run": "tsx src/tests/fase7e.ts"
+  },
+  "test:fase7f": {
+    "description": "Testes: financeiro (complementar)",
+    "run": "tsx src/tests/fase7f.ts"
+  },
+  "test:fase8": {
+    "description": "Testes: faturamento",
+    "run": "tsx src/tests/fase8.ts"
+  },
+  "test:fase8b": {
+    "description": "Testes: faturamento (complementar)",
+    "run": "tsx src/tests/fase8b.ts"
+  },
+  "test:capabilities": {
+    "description": "Testes: feature flags",
+    "run": "tsx src/tests/fase_capabilities.ts"
+  },
+  "test:variants": {
+    "description": "Testes: variações de produto",
+    "run": "tsx src/tests/fase_variants.ts"
+  },
+  "test:complementos": {
+    "description": "Testes: complementos de produto",
+    "run": "tsx src/tests/fase_complementos.ts"
+  },
+  "test:kits": {
+    "description": "Testes: kits / combos",
+    "run": "tsx src/tests/fase_kits.ts"
+  },
+  "test:producao": {
+    "description": "Testes: produção / ficha técnica",
+    "run": "tsx src/tests/fase_producao.ts"
+  },
+  "test:foodservice": {
+    "description": "Testes: cozinha (display de pedidos)",
+    "run": "tsx src/tests/fase_foodservice.ts"
+  },
+  "test:comandas": {
+    "description": "Testes: comandas / mesas",
+    "run": "tsx src/tests/fase_comandas.ts"
+  },
+  "cloud:install": {
+    "description": "Instalar dependências do cloud/",
+    "run": "npm --prefix cloud install"
+  },
+  "cloud:migrate": {
+    "description": "Rodar migrations do cloud/",
+    "run": "npm --prefix cloud run migrate"
+  },
+  "cloud:dev": {
+    "description": "Iniciar servidor cloud em dev",
+    "run": "npm --prefix cloud run dev"
+  },
+  "cloud:deploy": {
+    "description": "Fazer deploy do cloud/ (Linux/CI)",
+    "run": "bash scripts/deploy-cloud.sh"
+  },
+  "postinstall": {
+    "description": "Pós-instalação (copiar Alpine.js local)",
+    "run": "node -e \"require('fs').cpSync(require.resolve('alpinejs/dist/cdn.min.js'), 'src/public/vendor/alpine.min.js')\""
+  }
+}

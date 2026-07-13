@@ -9,6 +9,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3599);
 const base = `http://localhost:${PORT}`;
@@ -48,9 +49,9 @@ async function main() {
   const op = await loginAs('op5', '123456');
 
   // Preparação: cliente + produtos com estoque
-  const cli = (await (await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Fiado' }) }, admin!)).json()) as { id: number };
+  const cli = await unwrap<{ id: number }>(await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Fiado' }) }, admin!));
   const mkProd = async (name: string, price: number, stock: number) => {
-    const p = (await (await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name, priceCents: price }) }, admin!)).json()) as { id: number };
+    const p = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name, priceCents: price }) }, admin!));
     await api('/api/commercial/stock/move', { method: 'POST', body: JSON.stringify({ productId: p.id, type: 'entrada', qty: stock, reason: 'estoque inicial' }) }, admin!);
     return p.id;
   };
@@ -75,7 +76,7 @@ async function main() {
     method: 'POST',
     body: JSON.stringify({ items: [{ productId: cimento, qty: 2 }], paymentMethod: 'dinheiro', paidCents: 10000 }),
   }, admin!);
-  const v1 = (await v1r.json()) as { id: number; totalCents: number; changeCents: number };
+  const v1 = await unwrap<{ id: number; totalCents: number; changeCents: number }>(v1r);
   check('venda dinheiro concluída (90,00)', v1r.status === 201 && v1.totalCents === 9000);
   check('troco = 10,00', v1.changeCents === 1000);
   let stock = (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(cimento) as { stock_qty: number }).stock_qty;
@@ -98,7 +99,7 @@ async function main() {
     method: 'POST',
     body: JSON.stringify({ items: [{ productId: cimento, qty: 1 }], paymentMethod: 'prazo', customerId: cli.id, dueDate: '2026-08-05' }),
   }, admin!);
-  const v3 = (await v3r.json()) as { id: number; receivableId?: number };
+  const v3 = await unwrap<{ id: number; receivableId?: number }>(v3r);
   check('venda a prazo gera conta a receber', v3r.status === 201 && !!v3.receivableId);
   const recRow = db.prepare('SELECT status, amount_cents, customer_id FROM receivables WHERE id = ?').get(v3.receivableId) as { status: string; amount_cents: number; customer_id: number };
   check('conta a receber correta (45,00, aberta, cliente)', recRow.status === 'aberta' && recRow.amount_cents === 4500 && recRow.customer_id === cli.id);
@@ -112,7 +113,7 @@ async function main() {
     body: JSON.stringify({ items: [{ productId: tinta, qty: 99 }], paymentMethod: 'pix' }),
   }, admin!);
   check('estoque insuficiente não bloqueia a venda (201)', vOver.status === 201, String(vOver.status));
-  const vOverBody = (await vOver.json()) as { id: number };
+  const vOverBody = await unwrap<{ id: number }>(vOver);
   const stockAfterOver = (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(tinta) as { stock_qty: number }).stock_qty;
   check('saldo fica negativo (sem travar a venda)', stockAfterOver === stockBeforeOver - 99, `estoque=${stockAfterOver}`);
   check('cancela a venda de teste (sem deixar lixo no relatório)', (await api(`/api/store/sales/${vOverBody.id}/cancel`, { method: 'POST' }, admin!)).status === 200);
@@ -138,21 +139,21 @@ async function main() {
   check('cancelar de novo → 400', (await api(`/api/store/sales/${v1.id}/cancel`, { method: 'POST' }, admin!)).status === 400);
 
   // Caixa: 100 (abertura) + 90 (venda) - 90 (cancelamento) = 100,00
-  const cur = (await (await api('/api/finance/cash/current', {}, admin!)).json()) as { expectedCents: number };
+  const cur = await unwrap<{ expectedCents: number }>(await api('/api/finance/cash/current', {}, admin!));
   check('gaveta = 100,00 após cancelamento', cur.expectedCents === 10000, `gaveta=${cur.expectedCents}`);
 
   // Relatório do dia bate com as vendas concluídas (pix 289,00 + prazo 45,00 = 334,00)
-  const report = (await (await api('/api/store/reports/daily', {}, admin!)).json()) as {
+  const report = await unwrap<{
     totals: { vendas: number; total_cents: number };
     byPayment: { payment_method: string; total_cents: number }[];
-  };
+  }>(await api('/api/store/reports/daily', {}, admin!));
   const dbTotal = (db.prepare("SELECT COALESCE(SUM(total_cents),0) t FROM sales WHERE status = 'concluida' AND date(created_at) = date('now')").get() as { t: number }).t;
   check('relatório bate com o banco', report.totals.total_cents === dbTotal, `${report.totals.total_cents} vs ${dbTotal}`);
   check('relatório: 2 vendas concluídas, 334,00', report.totals.vendas === 2 && report.totals.total_cents === 33400);
   check('relatório por pagamento inclui PIX e A prazo (fiado)', ['PIX', 'A prazo (fiado)'].every((m) => report.byPayment.some((p) => p.payment_method === m)));
 
   // Fecha o dia: contado = esperado → diferença zero
-  const close = (await (await api('/api/finance/cash/close', { method: 'POST', body: JSON.stringify({ countedCents: cur.expectedCents }) }, admin!)).json()) as { difference: number };
+  const close = await unwrap<{ difference: number }>(await api('/api/finance/cash/close', { method: 'POST', body: JSON.stringify({ countedCents: cur.expectedCents }) }, admin!));
   check('fechamento do dia sem diferença', close.difference === 0);
 
   // Auditoria cobre vendas

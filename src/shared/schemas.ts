@@ -54,20 +54,33 @@ const saleItemSchema = z.object({
 });
 
 const salePaymentSchema = z.object({
-  methodId: z.number().int().positive('ID da forma de pagamento inválido.'),
+  methodId: z.number().int().positive('ID da forma de pagamento inválido.').optional(),
+  paymentMethodId: z.number().int().positive('ID da forma de pagamento inválido.').optional(),
   amountCents: z.number().int().positive('Valor do pagamento deve ser positivo.'),
   receivedCents: z.number().int().optional(),
-  installmentCount: z.number().int().positive().optional(),
-});
+  customerId: z.number().int().positive().optional(),
+  dueDate: z.string().optional(),
+  pointsUsed: z.number().int().positive().optional(),
+  installments: z.object({ count: z.number().int().positive(), firstDueDate: z.string().optional() }).optional(),
+}).transform((data) => ({
+  ...data,
+  methodId: data.methodId ?? data.paymentMethodId,
+}));
 
 export const createSaleSchema = z.object({
   items: z.array(saleItemSchema).min(1, 'Venda sem itens.'),
-  payments: z.array(salePaymentSchema).min(1, 'Venda sem pagamentos.'),
+  payments: z.array(salePaymentSchema).min(1, 'Venda sem pagamentos.').optional(),
+  paymentMethod: z.enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo']).optional(),
+  paidCents: z.number().int().optional(),
   customerId: z.number().int().positive().optional(),
+  dueDate: z.string().optional(),
   discountCents: z.number().int().min(0).optional().default(0),
   surchargeCents: z.number().int().min(0).optional().default(0),
   clientRequestId: z.string().optional(),
-});
+}).refine(
+  (data) => data.payments?.length || data.paymentMethod,
+  { message: 'Informe payments[] ou paymentMethod.', path: ['paymentMethod'] },
+);
 
 const quoteItemSchema = z.object({
   productId: z.number().int().positive('ID do produto inválido.'),

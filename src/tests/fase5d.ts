@@ -8,6 +8,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3899);
 const base = `http://localhost:${PORT}`;
@@ -45,7 +46,7 @@ async function main() {
   check('login admin', admin !== null);
 
   // ---------- Formas de pagamento ----------
-  const seeded = (await (await api('/api/finance/payment-methods?all=1', {}, admin!)).json()) as { name: string; type: string; id: number; active: number }[];
+  const seeded = await unwrap<{ name: string; type: string; id: number; active: number }[]>(await api('/api/finance/payment-methods?all=1', {}, admin!));
   // 5 formas clássicas (ativas) + 3 novas (crédito de loja/fidelidade/convênio, nascem desativadas — opt-in)
   check('formas padrão seedadas (8, sendo 3 novas desativadas)', seeded.length === 8, String(seeded.length));
   check('as 3 novas nascem desativadas', seeded.filter((m) => ['credito_loja', 'fidelidade', 'convenio'].includes(m.type)).every((m) => m.active === 0));
@@ -53,7 +54,7 @@ async function main() {
     method: 'POST', body: JSON.stringify({ name: 'Débito — Stone', type: 'debito', feeBps: 160 }),
   }, admin!);
   check('cria "Débito — Stone" 1,6%', stone.status === 201);
-  const stoneId = ((await stone.json()) as { id: number }).id;
+  const stoneId = (await unwrap<{ id: number }>(stone)).id;
   check('taxa inválida rejeitada', (await api('/api/finance/payment-methods', {
     method: 'POST', body: JSON.stringify({ name: 'X', type: 'debito', feeBps: 99999 }),
   }, admin!)).status === 400);
@@ -64,7 +65,7 @@ async function main() {
   const prod = await api('/api/commercial/products', {
     method: 'POST', body: JSON.stringify({ name: 'Argamassa 20kg', priceCents: 3000, initialStock: 40 }),
   }, admin!);
-  const prodData = (await prod.json()) as { id: number; stock_qty: number };
+  const prodData = await unwrap<{ id: number; stock_qty: number }>(prod);
   check('produto criado com estoque inicial 40', prod.status === 201 && prodData.stock_qty === 40, `estoque=${prodData.stock_qty}`);
   const movs = db.prepare("SELECT reason FROM stock_movements WHERE product_id = ? AND type = 'entrada'").all(prodData.id) as { reason: string }[];
   check('estoque inicial virou movimentação auditável', movs.some((m) => m.reason === 'estoque inicial'));
@@ -85,7 +86,7 @@ async function main() {
       ],
     }),
   }, admin!);
-  const saleData = (await sale.json()) as { id: number; totalCents: number; changeCents: number; feeCents: number };
+  const saleData = await unwrap<{ id: number; totalCents: number; changeCents: number; feeCents: number }>(sale);
   check('venda dividida concluída (115,00)', sale.status === 201 && saleData.totalCents === 11500, JSON.stringify(saleData));
   check('troco = 40,00', saleData.changeCents === 4000);
   check('taxa Stone = 0,88 (1,6% de 55,00)', saleData.feeCents === 88, `fee=${saleData.feeCents}`);
@@ -93,7 +94,7 @@ async function main() {
   check('2 pagamentos gravados com taxa congelada', pays.length === 2 && pays.reduce((a, p) => a + p.amount_cents, 0) === 11500);
 
   // gaveta: 50 abertura + 60 dinheiro = 110,00 (Stone não passa pela gaveta)
-  const cur = (await (await api('/api/finance/cash/current', {}, admin!)).json()) as { expectedCents: number };
+  const cur = await unwrap<{ expectedCents: number }>(await api('/api/finance/cash/current', {}, admin!));
   check('gaveta = 110,00 (só a parte em dinheiro)', cur.expectedCents === 11000, `gaveta=${cur.expectedCents}`);
 
   // pagamentos não fecham o total → 400
@@ -112,7 +113,7 @@ async function main() {
       ],
     }),
   }, admin!);
-  check('conta dividida por 3 (90,00)', split.status === 201 && ((await split.json()) as { totalCents: number }).totalCents === 9000);
+  check('conta dividida por 3 (90,00)', split.status === 201 && (await unwrap<{ totalCents: number }>(split)).totalCents === 9000);
 
   // legado continua funcionando (paymentMethod)
   const legacy = await api('/api/store/sales', {
@@ -121,17 +122,17 @@ async function main() {
   check('formato legado (paymentMethod) segue funcionando', legacy.status === 201);
 
   // cancelamento devolve só a parte em dinheiro
-  const beforeCancel = (await (await api('/api/finance/cash/current', {}, admin!)).json()) as { expectedCents: number };
+  const beforeCancel = await unwrap<{ expectedCents: number }>(await api('/api/finance/cash/current', {}, admin!));
   check('cancela venda dividida', (await api(`/api/store/sales/${saleData.id}/cancel`, { method: 'POST' }, admin!)).status === 200);
-  const afterCancel = (await (await api('/api/finance/cash/current', {}, admin!)).json()) as { expectedCents: number };
+  const afterCancel = await unwrap<{ expectedCents: number }>(await api('/api/finance/cash/current', {}, admin!));
   check('cancelamento tirou 60,00 da gaveta', beforeCancel.expectedCents - afterCancel.expectedCents === 6000,
     `${beforeCancel.expectedCents} → ${afterCancel.expectedCents}`);
 
   // relatório: por forma de pagamento com taxa
-  const report = (await (await api('/api/store/reports/daily', {}, admin!)).json()) as {
+  const report = await unwrap<{
     totals: { total_cents: number; fee_cents: number; surcharge_cents: number };
     byPayment: { payment_method: string; fee_cents: number }[];
-  };
+  }>(await api('/api/store/reports/daily', {}, admin!));
   const dbTotal = (db.prepare("SELECT COALESCE(SUM(total_cents),0) t FROM sales WHERE status = 'concluida' AND date(created_at) = date('now')").get() as { t: number }).t;
   check('relatório bate com o banco', report.totals.total_cents === dbTotal);
   check('relatório traz taxas por forma', Array.isArray(report.byPayment) && 'fee_cents' in (report.byPayment[0] ?? {}));

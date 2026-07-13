@@ -6,6 +6,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3759);
 const base = `http://localhost:${PORT}`;
@@ -41,37 +42,36 @@ async function main() {
     const admin = await loginAs('admin', 'admin');
     check('login admin', admin !== null);
 
-    const prod = (await (
-      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Idempotente', priceCents: 1500, initialStock: 10 }) }, admin!)
-    ).json()) as { id: number };
+    const prod = await unwrap<{ id: number }>(
+      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Idempotente', priceCents: 1500, initialStock: 10 }) }, admin!));
 
     const clientRequestId = 'test-request-id-fixo-123';
     const body = JSON.stringify({ items: [{ productId: prod.id, qty: 2 }], paymentMethod: 'pix', clientRequestId });
 
     const first = await api('/api/store/sales', { method: 'POST', body }, admin!);
     check('primeira tentativa cria a venda (201)', first.status === 201, String(first.status));
-    const firstBody = (await first.json()) as { id: number; totalCents: number };
+    const firstBody = await unwrap<{ id: number; totalCents: number }>(first);
 
     const second = await api('/api/store/sales', { method: 'POST', body }, admin!);
     check('segunda tentativa com o mesmo clientRequestId responde 201 (idempotente)', second.status === 201, String(second.status));
-    const secondBody = (await second.json()) as { id: number; totalCents: number };
+    const secondBody = await unwrap<{ id: number; totalCents: number }>(second);
     check('mesma venda devolvida (mesmo id)', secondBody.id === firstBody.id, `${firstBody.id} vs ${secondBody.id}`);
     check('mesmo totalCents devolvido', secondBody.totalCents === firstBody.totalCents);
 
     const third = await api('/api/store/sales', { method: 'POST', body }, admin!);
-    check('terceira tentativa também devolve a mesma venda', ((await third.json()) as { id: number }).id === firstBody.id);
+    check('terceira tentativa também devolve a mesma venda', (await unwrap<{ id: number }>(third)).id === firstBody.id);
 
     const salesCount = db.prepare("SELECT COUNT(*) c FROM sales WHERE client_request_id = ?").get(clientRequestId) as { c: number };
     check('apenas 1 linha em sales para este clientRequestId', salesCount.c === 1, String(salesCount.c));
 
-    const stock = ((await (await api('/api/commercial/products?q=Produto Idempotente', {}, admin!)).json()) as { stock_qty: number }[])[0];
+    const stock = (await unwrap<{ stock_qty: number }[]>(await api('/api/commercial/products?q=Produto Idempotente', {}, admin!)))[0];
     check('estoque baixou só uma vez (10-2=8, não 10-6=4)', stock.stock_qty === 8, String(stock.stock_qty));
 
     // Sem clientRequestId, vendas continuam podendo repetir livremente (comportamento de sempre)
     const bodyNoId = JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], paymentMethod: 'pix' });
     const noIdA = await api('/api/store/sales', { method: 'POST', body: bodyNoId }, admin!);
     const noIdB = await api('/api/store/sales', { method: 'POST', body: bodyNoId }, admin!);
-    check('sem clientRequestId, duas vendas distintas são criadas normalmente', ((await noIdA.json()) as { id: number }).id !== ((await noIdB.json()) as { id: number }).id);
+    check('sem clientRequestId, duas vendas distintas são criadas normalmente', (await unwrap<{ id: number }>(noIdA)).id !== (await unwrap<{ id: number }>(noIdB)).id);
   } finally {
     server.close();
     closeDb();

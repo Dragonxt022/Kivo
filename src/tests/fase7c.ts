@@ -12,6 +12,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { unwrap } from './testUtils';
 
 let failures = 0;
 function check(label: string, ok: boolean, extra = ''): void {
@@ -34,7 +35,7 @@ async function loginAs(base: string, u: string, p: string): Promise<string | nul
 }
 
 async function enablePaymentMethod(base: string, cookie: string, type: string): Promise<{ id: number }> {
-  const methods = (await (await api(base, '/api/finance/payment-methods?all=1', {}, cookie)).json()) as { id: number; type: string; active: number }[];
+  const methods = await unwrap<{ id: number; type: string; active: number }[]>(await api(base, '/api/finance/payment-methods?all=1', {}, cookie));
   const m = methods.find((x) => x.type === type)!;
   await api(base, `/api/finance/payment-methods/${m.id}`, { method: 'PUT', body: JSON.stringify({ active: true }) }, cookie);
   return { id: m.id };
@@ -55,13 +56,12 @@ async function phase1(): Promise<void> {
     const admin = await loginAs(base, 'admin', 'admin');
     check('login admin', admin !== null);
 
-    const cust = (await (
-      await api(base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Crédito' }) }, admin!)
-    ).json()) as { id: number };
+    const cust = await unwrap<{ id: number }>(
+      await api(base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Crédito' }) }, admin!));
 
     const grant = await api(base, `/api/commercial/customers/${cust.id}/credit`, { method: 'POST', body: JSON.stringify({ amountCents: 5000, reason: 'devolução' }) }, admin!);
     check('crédito concedido (201)', grant.status === 201, String(grant.status));
-    const balAfterGrant = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { store_credit_cents: number };
+    const balAfterGrant = await unwrap<{ store_credit_cents: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('saldo = 5000 após concessão', balAfterGrant.store_credit_cents === 5000, String(balAfterGrant.store_credit_cents));
 
     await api(base, '/api/users', { method: 'POST', body: JSON.stringify({ username: 'op7c', name: 'op7c', password: '123456', roleSlug: 'operador' }) }, admin!);
@@ -69,9 +69,8 @@ async function phase1(): Promise<void> {
     check('operador sem permissão não concede crédito (403)', (await api(base, `/api/commercial/customers/${cust.id}/credit`, { method: 'POST', body: JSON.stringify({ amountCents: 100 }) }, op!)).status === 403);
 
     const creditMethod = await enablePaymentMethod(base, admin!, 'credito_loja');
-    const prod = (await (
-      await api(base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Crédito', priceCents: 3000, initialStock: 10 }) }, admin!)
-    ).json()) as { id: number };
+    const prod = await unwrap<{ id: number }>(
+      await api(base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Crédito', priceCents: 3000, initialStock: 10 }) }, admin!));
 
     // Gasta parte do saldo numa venda
     const sale = await api(base, '/api/store/sales', {
@@ -79,26 +78,26 @@ async function phase1(): Promise<void> {
       body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, payments: [{ methodId: creditMethod.id, amountCents: 3000, customerId: cust.id }] }),
     }, admin!);
     check('venda com crédito de loja concluída', sale.status === 201, String(sale.status));
-    const balAfterSale = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { store_credit_cents: number };
+    const balAfterSale = await unwrap<{ store_credit_cents: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('saldo = 2000 após gastar 3000 de 5000', balAfterSale.store_credit_cents === 2000, String(balAfterSale.store_credit_cents));
 
     // Tenta gastar mais do que o saldo restante (2000) — venda inteira deve ser rejeitada
-    const stockBefore = ((await (await api(base, `/api/commercial/products?q=Produto Crédito`, {}, admin!)).json()) as { stock_qty: number }[])[0].stock_qty;
+    const stockBefore = (await unwrap<{ stock_qty: number }[]>(await api(base, `/api/commercial/products?q=Produto Crédito`, {}, admin!)))[0].stock_qty;
     const over = await api(base, '/api/store/sales', {
       method: 'POST',
       body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, payments: [{ methodId: creditMethod.id, amountCents: 3000, customerId: cust.id }] }),
     }, admin!);
     check('venda com saldo insuficiente é rejeitada (400)', over.status === 400, String(over.status));
-    const stockAfter = ((await (await api(base, `/api/commercial/products?q=Produto Crédito`, {}, admin!)).json()) as { stock_qty: number }[])[0].stock_qty;
+    const stockAfter = (await unwrap<{ stock_qty: number }[]>(await api(base, `/api/commercial/products?q=Produto Crédito`, {}, admin!)))[0].stock_qty;
     check('estoque não foi afetado pela venda rejeitada', stockAfter === stockBefore, `${stockBefore} -> ${stockAfter}`);
-    const balUnchanged = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { store_credit_cents: number };
+    const balUnchanged = await unwrap<{ store_credit_cents: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('saldo não foi afetado pela venda rejeitada', balUnchanged.store_credit_cents === 2000, String(balUnchanged.store_credit_cents));
 
     // Cancela a venda de 3000 — saldo volta a 5000
-    const saleId = ((await sale.json()) as { id: number }).id;
+    const saleId = (await unwrap<{ id: number }>(sale)).id;
     const cancel = await api(base, `/api/store/sales/${saleId}/cancel`, { method: 'POST' }, admin!);
     check('cancelamento ok', cancel.status === 200, String(cancel.status));
-    const balAfterCancel = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { store_credit_cents: number };
+    const balAfterCancel = await unwrap<{ store_credit_cents: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('saldo restaurado para 5000 após cancelamento', balAfterCancel.store_credit_cents === 5000, String(balAfterCancel.store_credit_cents));
   } finally {
     server.close();
@@ -170,25 +169,23 @@ async function phase2(): Promise<void> {
       check(`licença configurada em ${m.name}`, r.ok);
     }
 
-    const cust = (await (
-      await api(a.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Convergência' }) }, a.cookie)
-    ).json()) as { id: number };
+    const cust = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Convergência' }) }, a.cookie));
     await api(a.base, `/api/commercial/customers/${cust.id}/credit`, { method: 'POST', body: JSON.stringify({ amountCents: 1000, reason: 'inicial' }) }, a.cookie);
 
     await syncBothTwice(a, b);
 
-    const custOnB = (await (await api(b.base, '/api/commercial/customers?q=Cliente Convergência', {}, b.cookie)).json()) as { id: number; store_credit_cents: number }[];
+    const custOnB = await unwrap<{ id: number; store_credit_cents: number }[]>(await api(b.base, '/api/commercial/customers?q=Cliente Convergência', {}, b.cookie));
     check('cliente e saldo replicados em B (1000)', custOnB[0]?.store_credit_cents === 1000, JSON.stringify(custOnB[0]));
 
     // Ambas offline resgatam 700 do mesmo saldo de 1000 (cada uma vê localmente saldo suficiente) —
     // resgate acontece através de uma venda com pagamento "crédito de loja".
     const creditMethodA = (await enablePaymentMethod(a.base, a.cookie!, 'credito_loja'));
     const creditMethodB = (await enablePaymentMethod(b.base, b.cookie!, 'credito_loja'));
-    const prodA = (await (
-      await api(a.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Convergência', priceCents: 700, initialStock: 10 }) }, a.cookie)
-    ).json()) as { id: number };
+    const prodA = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Convergência', priceCents: 700, initialStock: 10 }) }, a.cookie));
     await syncBothTwice(a, b);
-    const prodOnB = (await (await api(b.base, '/api/commercial/products?q=Produto Convergência', {}, b.cookie)).json()) as { id: number }[];
+    const prodOnB = await unwrap<{ id: number }[]>(await api(b.base, '/api/commercial/products?q=Produto Convergência', {}, b.cookie));
 
     const saleA = await api(a.base, '/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prodA.id, qty: 1 }], customerId: cust.id, payments: [{ methodId: creditMethodA.id, amountCents: 700, customerId: cust.id }] }),
@@ -201,12 +198,12 @@ async function phase2(): Promise<void> {
 
     await syncBothTwice(a, b);
 
-    const finalA = (await (await api(a.base, '/api/commercial/customers?q=Cliente Convergência', {}, a.cookie)).json()) as { store_credit_cents: number }[];
-    const finalB = (await (await api(b.base, '/api/commercial/customers?q=Cliente Convergência', {}, b.cookie)).json()) as { store_credit_cents: number }[];
+    const finalA = await unwrap<{ store_credit_cents: number }[]>(await api(a.base, '/api/commercial/customers?q=Cliente Convergência', {}, a.cookie));
+    const finalB = await unwrap<{ store_credit_cents: number }[]>(await api(b.base, '/api/commercial/customers?q=Cliente Convergência', {}, b.cookie));
     check('saldo final convergiu para -400 em A (1000-700-700)', finalA[0]?.store_credit_cents === -400, String(finalA[0]?.store_credit_cents));
     check('saldo final convergiu para -400 em B (idêntico, não divergente)', finalB[0]?.store_credit_cents === -400, String(finalB[0]?.store_credit_cents));
 
-    const recon = (await (await api(a.base, '/api/finance/reconciliation/negative-balances', {}, a.cookie)).json()) as { id: number; store_credit_cents: number }[];
+    const recon = await unwrap<{ id: number; store_credit_cents: number }[]>(await api(a.base, '/api/finance/reconciliation/negative-balances', {}, a.cookie));
     check('cliente aparece no relatório de reconciliação (saldo negativo)', recon.some((r) => r.store_credit_cents === -400));
   } finally {
     a.proc.kill();

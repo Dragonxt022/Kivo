@@ -71,25 +71,28 @@ Ordem recomendada de execução (menor esforço, maior impacto):
 | 22 | F3 — Backup — stream em vez de `readFileSync` | F3 | `HEAD` |
 | 23 | F2 — Zod — validação de entrada schema-driven (auth, cash, sales, products) | F2 | `HEAD` |
 | 24 | F1/F8 — Divisão de `commercial/routes.ts` (1496→134 linhas) + CRUD factory | F1/F8 | `HEAD` |
-| 27 | F6 — Envelope de resposta padronizado (`{ success, data/error }`) | F6 | `HEAD` |
+| 25 | Repository layer — BaseRepository + 24 repositórios de domínio | F1 | `40b686a` |
+| 26 | F1 — Refatorar store: sales, quotes, reports, routes, pages | F1 | `40b686a` |
+| 27 | F1 — Refatorar finance: cash, bills, agreements, lateFees, setup, routes, pages | F1 | `40b686a` |
+| 28 | F1 — Refatorar foodservice: kitchen, routes | F1 | `40b686a` |
+| 29 | F1 — Refatorar comandas: comandas, routes | F1 | `40b686a` |
+| 30 | F6 — Envelope de resposta padronizado (`{ success, data/error }`) | F6 | `HEAD` |
+| 31 | F1 — Controller layer (store, finance, foodservice, comandas) | F1 | `40b686a` |
+| 32 | F8 — CancelSale extraída em 6 sub-funções | F8 | `40b686a` |
 
 ### 🔄 Pendente
 
-| Item | Fase | Esforço Estimado | Observação |
-|------|------|------------------|------------|
-| Repository layer (abstrair SQL raw) | F1 | ~12h | |
-| Controller layer (separar das routes) | F1 | ~6h | |
-| CancelSale — extração similar à createSale | F8 | ~2h | |
+*Nenhum — todos os itens do top 10 + refatorações planejadas concluídos.*
 
 ---
 
 ## Próximos Passos Sugeridos
 
-1. ~~**Correções rápidas** (itens 1-10 acima)~~ ✅ Concluído
-2. **Correções estruturais** — refatorar `commercial/routes.ts`, repository layer,
-   controller layer, padronização de respostas
-3. **Validação** — rodar `npx tsc --noEmit` (✅ passa) e testes (⚠️ shared + smoke ok)
-4. **Nova versão (v0.2.0)** com as melhorias implementadas
+1. ~~**Correções rápidas** (itens 1-10)~~ ✅
+2. ~~**Correções estruturais** — refatorar `commercial/routes.ts`, repository layer, padronização de respostas~~ ✅
+3. ~~**Controller layer** — store, finance, foodservice, comandas~~ ✅
+4. ~~**CancelSale extraction** — 6 sub-funções~~ ✅
+5. **Nova versão (v0.2.0)** — publicar as melhorias implementadas
 
 ---
 

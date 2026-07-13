@@ -8,6 +8,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3750);
 const base = `http://localhost:${PORT}`;
@@ -45,18 +46,16 @@ async function main() {
     const admin = await loginAs('admin', 'admin');
     check('login admin', admin !== null);
 
-    const prod = (await (
-      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Parcelado', priceCents: 10000 }) }, admin!)
-    ).json()) as { id: number };
-    const cust = (await (
-      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Parcelado' }) }, admin!)
-    ).json()) as { id: number };
-    const prazoMethod = (
-      (await (await api('/api/finance/payment-methods', {}, admin!)).json()) as { id: number; type: string }[]
-    ).find((m) => m.type === 'prazo')!;
+    const prod = await unwrap<{ id: number }>(
+      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Parcelado', priceCents: 10000 }) }, admin!));
+    const cust = await unwrap<{ id: number }>(
+      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Parcelado' }) }, admin!));
+    const methods = await unwrap<{ id: number; type: string }[]>(
+      await api('/api/finance/payment-methods', {}, admin!));
+    const prazoMethod = methods.find((m: { type: string }) => m.type === 'prazo')!;
 
     const firstDue = '2027-01-10';
-    const sale = (await (
+    const sale = await unwrap<{ id: number }>(
       await api('/api/store/sales', {
         method: 'POST',
         body: JSON.stringify({
@@ -64,8 +63,7 @@ async function main() {
           customerId: cust.id,
           payments: [{ methodId: prazoMethod.id, amountCents: 10000, customerId: cust.id, dueDate: firstDue, installments: { count: 3, firstDueDate: firstDue } }],
         }),
-      }, admin!)
-    ).json()) as { id: number };
+      }, admin!));
     check('venda parcelada criada', !!sale.id);
 
     const installments = db.prepare(
@@ -89,7 +87,7 @@ async function main() {
     check('todas as 3 parcelas canceladas', afterCancel.c === 3, String(afterCancel.c));
 
     // Bloqueio: se uma parcela já foi recebida, não cancela mais
-    const sale2 = (await (
+    const sale2 = await unwrap<{ id: number }>(
       await api('/api/store/sales', {
         method: 'POST',
         body: JSON.stringify({
@@ -97,13 +95,13 @@ async function main() {
           customerId: cust.id,
           payments: [{ methodId: prazoMethod.id, amountCents: 10000, customerId: cust.id, dueDate: firstDue }],
         }),
-      }, admin!)
-    ).json()) as { id: number };
+      }, admin!));
     const rec2 = db.prepare('SELECT id FROM receivables WHERE sale_id = ?').get(sale2.id) as { id: number };
     const pixMethod = db.prepare("SELECT id FROM payment_methods WHERE type = 'pix' AND active = 1 LIMIT 1").get() as { id: number };
-    await api(`/api/finance/receivables/${rec2.id}/settle`, {
-      method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pixMethod.id, amountCents: 10000 }] }),
-    }, admin!);
+    await unwrap<unknown>(
+      await api(`/api/finance/receivables/${rec2.id}/settle`, {
+        method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pixMethod.id, amountCents: 10000 }] }),
+      }, admin!));
     const blocked = await api(`/api/store/sales/${sale2.id}/cancel`, { method: 'POST' }, admin!);
     check('cancelamento bloqueado se parcela já recebida', blocked.status === 400, String(blocked.status));
   } finally {

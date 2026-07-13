@@ -6,6 +6,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3799);
 const base = `http://localhost:${PORT}`;
@@ -65,21 +66,21 @@ async function main() {
   // ---------- Categorias ----------
   const cat = await api('/api/commercial/categories', { method: 'POST', body: JSON.stringify({ name: 'Hidráulica' }) }, admin!);
   check('cria categoria', cat.status === 201);
-  const catId = ((await cat.json()) as { id: number }).id;
+  const catId = (await unwrap<{ id: number }>(cat)).id;
   const prod = await api('/api/commercial/products', {
     method: 'POST', body: JSON.stringify({ name: 'Cano PVC 25mm', priceCents: 1590, categoryId: catId }),
   }, admin!);
-  check('produto com categoria', prod.status === 201 && ((await prod.json()) as { category: string }).category === 'Hidráulica');
-  const list = (await (await api('/api/commercial/categories', {}, admin!)).json()) as { name: string }[];
+  check('produto com categoria', prod.status === 201 && (await unwrap<{ category: string }>(prod)).category === 'Hidráulica');
+  const list = await unwrap<{ name: string }[]>(await api('/api/commercial/categories', {}, admin!));
   check('lista categorias', list.some((c) => c.name === 'Hidráulica'));
 
   // ---------- Impressão ----------
   await api('/api/settings/empresa.nome', { method: 'PUT', body: JSON.stringify({ value: 'Depósito Katsu' }) }, admin!);
   const prodId = (db.prepare("SELECT id FROM products WHERE name = 'Cano PVC 25mm'").get() as { id: number }).id;
   await api('/api/commercial/stock/move', { method: 'POST', body: JSON.stringify({ productId: prodId, type: 'entrada', qty: 100 }) }, admin!);
-  const sale = (await (await api('/api/store/sales', {
+  const sale = await unwrap<{ id: number }>(await api('/api/store/sales', {
     method: 'POST', body: JSON.stringify({ items: [{ productId: prodId, qty: 4 }], paymentMethod: 'pix' }),
-  }, admin!)).json()) as { id: number };
+  }, admin!));
   const cupom = await fetch(`${base}/app/store/vendas/${sale.id}/cupom`, { headers: { cookie: admin! } });
   const cupomHtml = await cupom.text();
   check('cupom renderiza (200)', cupom.status === 200);

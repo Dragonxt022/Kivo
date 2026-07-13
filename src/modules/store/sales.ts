@@ -404,6 +404,93 @@ export function createSale(
   return { ok: true, id: saleId, totalCents: total, changeCents: totalChange, feeCents: totalFee, receivableId };
 }
 
+/* ---------- cancelSale sub-functions ---------- */
+
+interface CancellationSale {
+  id: number; customer_id: number | null; status: string;
+  payment_method: string; total_cents: number; receivable_id: number | null;
+}
+
+function validateCancellation(
+  sale: CancellationSale | undefined,
+  saleReceivables: { id: number; status: string }[],
+  agreementCharge: { id: number; invoiced_at: string | null } | undefined,
+): string | null {
+  if (!sale) return 'Venda não encontrada.';
+  if (sale.status === 'cancelada') return 'Venda já cancelada.';
+  if (saleReceivables.some((r) => r.status === 'recebida')) {
+    return 'Conta a receber desta venda já foi recebida — estorne no financeiro antes de cancelar.';
+  }
+  if (agreementCharge?.invoiced_at) {
+    return 'Cobrança de convênio desta venda já foi faturada — ajuste a fatura manualmente antes de cancelar.';
+  }
+  return null;
+}
+
+function reverseStockMovements(
+  stock: CommercialStockService, req: Request,
+  movements: { product_id: number; qty: number }[], saleId: number,
+): string | null {
+  for (const m of movements) {
+    const move = stock.moveRaw(req, m.product_id, 'entrada', m.qty, 'cancelamento de venda', 'sale', saleId, true);
+    if (!move.ok) return move.error;
+  }
+  return null;
+}
+
+function handleCashRefund(
+  cash: FinanceCashService, req: Request,
+  hasCashPayment: boolean,
+  payments: { method_type: string; amount_cents: number }[],
+  sale: CancellationSale, saleId: number,
+): string | null {
+  if (!hasCashPayment) return null;
+  const reg = cash.currentRegister();
+  if (!reg) return 'Abra o caixa para devolver o dinheiro do cancelamento.';
+  const cashAmount = payments.length
+    ? sumCents(...payments.filter((p) => p.method_type === 'dinheiro').map((p) => p.amount_cents))
+    : sale.total_cents;
+  cash.addMovement(req, reg.id, 'saida', 'pagamento', cashAmount, `Cancelamento venda #${saleId}`, 'sale', saleId);
+  return null;
+}
+
+function cancelReceivablesAndAgreements(
+  saleReceivables: { id: number }[],
+  agreementCharge: { id: number } | undefined,
+  saleId: number,
+): void {
+  if (saleReceivables.length) receivableRepository.cancelBySale(saleId);
+  if (agreementCharge) agreementChargeRepository.softDelete(agreementCharge.id);
+}
+
+function reversePaymentsInvolvingCustomer(
+  storeCredit: CommercialStoreCreditService, loyalty: CommercialLoyaltyService,
+  req: Request, payments: { method_type: string; amount_cents: number; points_used?: number | null }[],
+  customerId: number, saleId: number,
+): string | null {
+  for (const pay of payments) {
+    if (pay.method_type === 'credito_loja') {
+      const r = storeCredit.reverseRaw(req, customerId, pay.amount_cents, `Estorno cancelamento venda #${saleId}`, 'sale', saleId);
+      if (!r.ok) return r.error;
+    }
+    if (pay.method_type === 'fidelidade' && pay.points_used) {
+      const r = loyalty.reverseRaw(req, customerId, pay.points_used, `Estorno cancelamento venda #${saleId}`, 'sale', saleId);
+      if (!r.ok) return r.error;
+    }
+  }
+  return null;
+}
+
+function reverseEarnedLoyaltyPoints(
+  loyalty: CommercialLoyaltyService,
+  req: Request, customerId: number, saleId: number,
+): string | null {
+  const earned = loyaltyPointMovementRepository.findEarnedByRef('sale', saleId);
+  if (earned <= 0) return null;
+  const r = loyalty.reverseGrantRaw(req, customerId, earned, `Estorno de pontos ganhos — venda cancelada #${saleId}`, 'sale', saleId);
+  return r.ok ? null : r.error;
+}
+
 export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: false; error: string } {
   assertAuth(req);
   const stock = getService<CommercialStockService>('commercial.stock');
@@ -411,67 +498,38 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
   const loyalty = getService<CommercialLoyaltyService>('commercial.loyalty');
   const cash = getService<FinanceCashService>('finance.cash');
 
-  const sale = saleRepository.findFull(saleId) as
-    | { id: number; customer_id: number | null; status: string; payment_method: string; total_cents: number; receivable_id: number | null } | undefined;
-  if (!sale) return { ok: false, error: 'Venda não encontrada.' };
-  if (sale.status === 'cancelada') return { ok: false, error: 'Venda já cancelada.' };
-
+  const sale = saleRepository.findFull(saleId) as CancellationSale | undefined;
   const payments = salePaymentRepository.findBySale(saleId);
-
   const saleReceivables = receivableRepository.findSaleReceivables(saleId) as { id: number; status: string }[];
-  if (saleReceivables.some((r) => r.status === 'recebida')) {
-    return { ok: false, error: 'Conta a receber desta venda já foi recebida — estorne no financeiro antes de cancelar.' };
-  }
-
   const agreementCharge = agreementChargeRepository.findBySale(saleId) as
     | { id: number; invoiced_at: string | null } | undefined;
-  if (agreementCharge?.invoiced_at) {
-    return { ok: false, error: 'Cobrança de convênio desta venda já foi faturada — ajuste a fatura manualmente antes de cancelar.' };
-  }
+
+  const err = validateCancellation(sale, saleReceivables, agreementCharge);
+  if (err) return { ok: false, error: err };
 
   const hasCashPayment = payments.some((p) => p.method_type === 'dinheiro') ||
-    (payments.length === 0 && sale.payment_method === 'dinheiro');
-
+    (payments.length === 0 && sale!.payment_method === 'dinheiro');
   const movements = stockMovementRepository.findMovementQtysByRef('sale', saleId);
 
   let error: string | null = null;
   try {
     saleRepository.transaction(() => {
-      for (const m of movements) {
-        const move = stock.moveRaw(req, m.product_id, 'entrada', m.qty, 'cancelamento de venda', 'sale', saleId, true);
-        if (!move.ok) throw new Error(move.error);
+      error = reverseStockMovements(stock, req, movements, saleId);
+      if (error) throw new Error(error);
+
+      error = handleCashRefund(cash, req, hasCashPayment, payments, sale!, saleId);
+      if (error) throw new Error(error);
+
+      cancelReceivablesAndAgreements(saleReceivables, agreementCharge, saleId);
+
+      if (sale!.customer_id) {
+        error = reversePaymentsInvolvingCustomer(storeCredit, loyalty, req, payments, sale!.customer_id, saleId);
+        if (error) throw new Error(error);
+
+        error = reverseEarnedLoyaltyPoints(loyalty, req, sale!.customer_id, saleId);
+        if (error) throw new Error(error);
       }
-      if (hasCashPayment) {
-        const reg = cash.currentRegister();
-        if (!reg) throw new Error('Abra o caixa para devolver o dinheiro do cancelamento.');
-        const cashAmount = payments.length
-          ? sumCents(...payments.filter((p) => p.method_type === 'dinheiro').map((p) => p.amount_cents))
-          : sale.total_cents;
-        cash.addMovement(req, reg.id, 'saida', 'pagamento', cashAmount, `Cancelamento venda #${saleId}`, 'sale', saleId);
-      }
-      if (saleReceivables.length) {
-        receivableRepository.cancelBySale(saleId);
-      }
-      if (agreementCharge) {
-        agreementChargeRepository.softDelete(agreementCharge.id);
-      }
-      for (const pay of payments) {
-        if (pay.method_type === 'credito_loja' && sale.customer_id) {
-          const r = storeCredit.reverseRaw(req, sale.customer_id, pay.amount_cents, `Estorno cancelamento venda #${saleId}`, 'sale', saleId);
-          if (!r.ok) throw new Error(r.error);
-        }
-        if (pay.method_type === 'fidelidade' && sale.customer_id && pay.points_used) {
-          const r = loyalty.reverseRaw(req, sale.customer_id, pay.points_used, `Estorno cancelamento venda #${saleId}`, 'sale', saleId);
-          if (!r.ok) throw new Error(r.error);
-        }
-      }
-      if (sale.customer_id) {
-        const earned = loyaltyPointMovementRepository.findEarnedByRef('sale', saleId);
-        if (earned > 0) {
-          const r = loyalty.reverseGrantRaw(req, sale.customer_id, earned, `Estorno de pontos ganhos — venda cancelada #${saleId}`, 'sale', saleId);
-          if (!r.ok) throw new Error(r.error);
-        }
-      }
+
       saleRepository.cancel(saleId, req.user.id);
     });
   } catch (e) {

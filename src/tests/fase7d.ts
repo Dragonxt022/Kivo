@@ -11,6 +11,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { unwrap } from './testUtils';
 
 let failures = 0;
 function check(label: string, ok: boolean, extra = ''): void {
@@ -33,7 +34,7 @@ async function loginAs(base: string, u: string, p: string): Promise<string | nul
 }
 
 async function enablePaymentMethod(base: string, cookie: string, type: string): Promise<{ id: number }> {
-  const methods = (await (await api(base, '/api/finance/payment-methods?all=1', {}, cookie)).json()) as { id: number; type: string }[];
+  const methods = await unwrap<{ id: number; type: string }[]>(await api(base, '/api/finance/payment-methods?all=1', {}, cookie));
   const m = methods.find((x) => x.type === type)!;
   await api(base, `/api/finance/payment-methods/${m.id}`, { method: 'PUT', body: JSON.stringify({ active: true }) }, cookie);
   return { id: m.id };
@@ -63,24 +64,22 @@ async function phase1(): Promise<void> {
     check('login admin', admin !== null);
     await setFidelidade(base, admin!, true); // 1 ponto por real, 100 pts = R$5,00 (5 centavos/ponto)
 
-    const cust = (await (
-      await api(base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Fidelidade' }) }, admin!)
-    ).json()) as { id: number };
-    const prod = (await (
-      await api(base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Fidelidade', priceCents: 5000, initialStock: 10 }) }, admin!)
-    ).json()) as { id: number };
+    const cust = await unwrap<{ id: number }>(
+      await api(base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Fidelidade' }) }, admin!));
+    const prod = await unwrap<{ id: number }>(
+      await api(base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Fidelidade', priceCents: 5000, initialStock: 10 }) }, admin!));
 
     // Venda de R$50 com fidelidade ativa e 1 ponto/real → ganha 50 pontos
     const sale1 = await api(base, '/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, paymentMethod: 'pix' }),
     }, admin!);
     check('venda 1 concluída', sale1.status === 201, String(sale1.status));
-    const balAfterSale1 = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { loyalty_points: number };
+    const balAfterSale1 = await unwrap<{ loyalty_points: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('ganhou 50 pontos (R$50 x 1 ponto/real)', balAfterSale1.loyalty_points === 50, String(balAfterSale1.loyalty_points));
 
     // Mais uma venda de R$50 -> 100 pontos acumulados, suficiente pra resgatar
     await api(base, '/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, paymentMethod: 'pix' }) }, admin!);
-    const balBefore = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { loyalty_points: number };
+    const balBefore = await unwrap<{ loyalty_points: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('100 pontos acumulados', balBefore.loyalty_points === 100, String(balBefore.loyalty_points));
 
     const fidelidadeMethod = await enablePaymentMethod(base, admin!, 'fidelidade');
@@ -99,12 +98,12 @@ async function phase1(): Promise<void> {
       method: 'POST',
       body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, payments: [
         { methodId: fidelidadeMethod.id, amountCents: 500, pointsUsed: 100, customerId: cust.id },
-        { methodId: (await (await api(base, '/api/finance/payment-methods', {}, admin!)).json() as { id: number; type: string }[]).find((m: { type: string }) => m.type === 'pix')!.id, amountCents: 4500 },
+        { methodId: (await unwrap<{ id: number; type: string }[]>(await api(base, '/api/finance/payment-methods', {}, admin!))).find((m: { type: string }) => m.type === 'pix')!.id, amountCents: 4500 },
       ] }),
     }, admin!);
     check('venda com resgate de pontos concluída', sale2.status === 201, String(sale2.status));
-    const sale2Body = (await sale2.json()) as { id: number };
-    const balAfterRedeem = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { loyalty_points: number };
+    const sale2Body = await unwrap<{ id: number }>(sale2);
+    const balAfterRedeem = await unwrap<{ loyalty_points: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     // 100 (acumulado) - 100 (resgatado) + pontos ganhos na venda2 (4500 pix + 500 fidelidade, base exclui fidelidade -> 4500/100*1 = 45)
     // 100 (acumulado) - 100 (resgatados) + 45 (ganho da parte paga em pix, sem contar a parte paga com pontos) = 45
     check('saldo após resgatar 100 e ganhar 45 na mesma venda = 45', balAfterRedeem.loyalty_points === 45, String(balAfterRedeem.loyalty_points));
@@ -112,7 +111,7 @@ async function phase1(): Promise<void> {
     // Cancela a venda 2 — deve reverter tanto o resgate (+100) quanto o ganho daquela venda (-45)
     const cancel = await api(base, `/api/store/sales/${sale2Body.id}/cancel`, { method: 'POST' }, admin!);
     check('cancelamento ok', cancel.status === 200, String(cancel.status));
-    const balAfterCancel = (await (await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as { loyalty_points: number };
+    const balAfterCancel = await unwrap<{ loyalty_points: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('saldo volta a 100 após cancelar (resgate estornado, ganho revertido)', balAfterCancel.loyalty_points === 100, String(balAfterCancel.loyalty_points));
   } finally {
     server.close();
@@ -185,16 +184,14 @@ async function phase2(): Promise<void> {
       await setFidelidade(m.base, m.cookie!, true);
     }
 
-    const cust = (await (
-      await api(a.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Pontos Convergência' }) }, a.cookie)
-    ).json()) as { id: number };
-    const prod = (await (
-      await api(a.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Pontos', priceCents: 10000, initialStock: 20 }) }, a.cookie)
-    ).json()) as { id: number };
+    const cust = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Pontos Convergência' }) }, a.cookie));
+    const prod = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Pontos', priceCents: 10000, initialStock: 20 }) }, a.cookie));
 
     await syncBothTwice(a, b);
-    const custOnB = (await (await api(b.base, '/api/commercial/customers?q=Cliente Pontos Convergência', {}, b.cookie)).json()) as { id: number }[];
-    const prodOnB = (await (await api(b.base, '/api/commercial/products?q=Produto Pontos', {}, b.cookie)).json()) as { id: number }[];
+    const custOnB = await unwrap<{ id: number }[]>(await api(b.base, '/api/commercial/customers?q=Cliente Pontos Convergência', {}, b.cookie));
+    const prodOnB = await unwrap<{ id: number }[]>(await api(b.base, '/api/commercial/products?q=Produto Pontos', {}, b.cookie));
 
     // A vende R$100 (ganha 100 pontos) offline; B ainda não sabe
     await api(a.base, '/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, paymentMethod: 'pix' }) }, a.cookie);
@@ -208,8 +205,8 @@ async function phase2(): Promise<void> {
 
     await syncBothTwice(a, b);
 
-    const finalA = (await (await api(a.base, '/api/commercial/customers?q=Cliente Pontos Convergência', {}, a.cookie)).json()) as { loyalty_points: number }[];
-    const finalB = (await (await api(b.base, '/api/commercial/customers?q=Cliente Pontos Convergência', {}, b.cookie)).json()) as { loyalty_points: number }[];
+    const finalA = await unwrap<{ loyalty_points: number }[]>(await api(a.base, '/api/commercial/customers?q=Cliente Pontos Convergência', {}, a.cookie));
+    const finalB = await unwrap<{ loyalty_points: number }[]>(await api(b.base, '/api/commercial/customers?q=Cliente Pontos Convergência', {}, b.cookie));
     check('saldo de pontos convergiu para 100 em A', finalA[0]?.loyalty_points === 100, String(finalA[0]?.loyalty_points));
     check('saldo de pontos convergiu para 100 em B (idêntico)', finalB[0]?.loyalty_points === 100, String(finalB[0]?.loyalty_points));
   } finally {

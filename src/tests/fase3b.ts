@@ -15,6 +15,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { unwrap } from './testUtils';
 
 let failures = 0;
 function check(label: string, ok: boolean, extra = ''): void {
@@ -56,7 +57,7 @@ async function phase1(): Promise<void> {
     const validEan = '4006381333931'; // GTIN de teste conhecido, checksum correto
     const p1 = await api(base, `${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Produto A', barcode: validEan }) }, admin!);
     check('produto criado com EAN-13 válido', p1.status === 201, String(p1.status));
-    const p1Body = (await p1.json()) as { id: number };
+    const p1Body = await unwrap<{ id: number }>(p1);
 
     const dup = await api(base, `${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Produto A2', barcode: validEan }) }, admin!);
     check('barcode duplicado rejeitado (409)', dup.status === 409, String(dup.status));
@@ -76,27 +77,24 @@ async function phase1(): Promise<void> {
     check('gerar código interno (barcode ausente rejeitado, produto já tem um)', gen.status === 409 || gen.status === 200);
 
     const p2 = await api(base, `${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Produto Sem Barcode' }) }, admin!);
-    const p2Body = (await p2.json()) as { id: number };
+    const p2Body = await unwrap<{ id: number }>(p2);
     const gen2 = await api(base, `${C}/products/${p2Body.id}/barcode/generate`, { method: 'POST' }, admin!);
     check('gerar código interno ok', gen2.status === 200, String(gen2.status));
-    const gen2Body = (await gen2.json()) as { barcode: string };
+    const gen2Body = await unwrap<{ barcode: string }>(gen2);
     check('código interno começa com prefixo 2 e tem 13 dígitos', /^2\d{12}$/.test(gen2Body.barcode), gen2Body.barcode);
 
     const dupProd = await api(base, `${C}/products/${p1Body.id}/duplicate`, { method: 'POST' }, admin!);
-    const dupProdBody = (await dupProd.json()) as { barcode: string | null; sku: string | null };
+    const dupProdBody = await unwrap<{ barcode: string | null; sku: string | null }>(dupProd);
     check('duplicar produto não copia barcode/sku', dupProdBody.barcode === null && dupProdBody.sku === null);
 
     // ---- Listas de preço ----
-    const prodPreco = await (
-      await api(base, `${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Parafuso 3/4', priceCents: 1200 }) }, admin!)
-    ).json() as { id: number };
+    const prodPreco = await unwrap<{ id: number }>(
+      await api(base, `${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Parafuso 3/4', priceCents: 1200 }) }, admin!));
 
-    const defList = await (
-      await api(base, `${C}/price-lists`, { method: 'POST', body: JSON.stringify({ name: 'Quantidade', isDefault: true }) }, admin!)
-    ).json() as { id: number };
-    const atacado = await (
-      await api(base, `${C}/price-lists`, { method: 'POST', body: JSON.stringify({ name: 'Atacado' }) }, admin!)
-    ).json() as { id: number };
+    const defList = await unwrap<{ id: number }>(
+      await api(base, `${C}/price-lists`, { method: 'POST', body: JSON.stringify({ name: 'Quantidade', isDefault: true }) }, admin!));
+    const atacado = await unwrap<{ id: number }>(
+      await api(base, `${C}/price-lists`, { method: 'POST', body: JSON.stringify({ name: 'Atacado' }) }, admin!));
 
     const putDefItems = await api(base, `${C}/price-lists/${defList.id}/items`, {
       method: 'PUT',
@@ -112,23 +110,19 @@ async function phase1(): Promise<void> {
       body: JSON.stringify({ items: [{ productId: prodPreco.id, minQty: 1, unitPriceCents: 800 }] }),
     }, admin!);
 
-    const cust = await (
-      await api(base, `${C}/customers`, { method: 'POST', body: JSON.stringify({ name: 'Revenda XPTO', price_list_id: atacado.id }) }, admin!)
-    ).json() as { id: number };
+    const cust = await unwrap<{ id: number }>(
+      await api(base, `${C}/customers`, { method: 'POST', body: JSON.stringify({ name: 'Revenda XPTO', price_list_id: atacado.id }) }, admin!));
 
-    const resolveNoCust5 = await (
-      await api(base, `${C}/pricing/resolve`, { method: 'POST', body: JSON.stringify({ items: [{ productId: prodPreco.id, qty: 5 }] }) }, admin!)
-    ).json() as { prices: { unitCents: number; source: string }[] };
+    const resolveNoCust5 = await unwrap<{ prices: { unitCents: number; source: string }[] }>(
+      await api(base, `${C}/pricing/resolve`, { method: 'POST', body: JSON.stringify({ items: [{ productId: prodPreco.id, qty: 5 }] }) }, admin!));
     check('sem cliente, qty=5 usa faixa min_qty=1 (1000)', resolveNoCust5.prices[0].unitCents === 1000, JSON.stringify(resolveNoCust5.prices[0]));
 
-    const resolveNoCust12 = await (
-      await api(base, `${C}/pricing/resolve`, { method: 'POST', body: JSON.stringify({ items: [{ productId: prodPreco.id, qty: 12 }] }) }, admin!)
-    ).json() as { prices: { unitCents: number; source: string }[] };
+    const resolveNoCust12 = await unwrap<{ prices: { unitCents: number; source: string }[] }>(
+      await api(base, `${C}/pricing/resolve`, { method: 'POST', body: JSON.stringify({ items: [{ productId: prodPreco.id, qty: 12 }] }) }, admin!));
     check('sem cliente, qty=12 usa faixa min_qty=10 (900)', resolveNoCust12.prices[0].unitCents === 900, JSON.stringify(resolveNoCust12.prices[0]));
 
-    const resolveCust3 = await (
-      await api(base, `${C}/pricing/resolve`, { method: 'POST', body: JSON.stringify({ customerId: cust.id, items: [{ productId: prodPreco.id, qty: 3 }] }) }, admin!)
-    ).json() as { prices: { unitCents: number; source: string }[] };
+    const resolveCust3 = await unwrap<{ prices: { unitCents: number; source: string }[] }>(
+      await api(base, `${C}/pricing/resolve`, { method: 'POST', body: JSON.stringify({ customerId: cust.id, items: [{ productId: prodPreco.id, qty: 3 }] }) }, admin!));
     check(
       'cliente com lista própria vence mesmo com qty baixa (800, source=customer_list)',
       resolveCust3.prices[0].unitCents === 800 && resolveCust3.prices[0].source === 'customer_list',
@@ -137,18 +131,17 @@ async function phase1(): Promise<void> {
 
     // ---- Venda de fato usa o preço resolvido (abre caixa antes) ----
     await api(base, '/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 10000 }) }, admin!);
-    const sale = await (
+    const sale = await unwrap<{ totalCents: number }>(
       await api(base, '/api/store/sales', {
         method: 'POST',
         body: JSON.stringify({ items: [{ productId: prodPreco.id, qty: 3 }], paymentMethod: 'pix', customerId: cust.id }),
-      }, admin!)
-    ).json() as { totalCents: number };
+      }, admin!));
     check('venda para cliente Atacado cobra 800/un (total 2400)', sale.totalCents === 2400, String(sale.totalCents));
 
     // ---- Exclusão de lista remove associação do cliente ----
     const delList = await api(base, `${C}/price-lists/${atacado.id}`, { method: 'DELETE' }, admin!);
     check('lista de preço excluída', delList.status === 200, String(delList.status));
-    const custAfter = await (await api(base, `${C}/customers?q=Revenda`, {}, admin!)).json() as { price_list_id: number | null }[];
+    const custAfter = await unwrap<{ price_list_id: number | null }[]>(await api(base, `${C}/customers?q=Revenda`, {}, admin!));
     check('cliente fica sem lista após exclusão', custAfter[0]?.price_list_id == null, JSON.stringify(custAfter[0]));
 
     // ---- Permissões ----
@@ -206,7 +199,7 @@ async function syncBothTwice(a: Machine, b: Machine): Promise<void> {
 }
 
 async function findPriceList(m: Machine, name: string): Promise<{ id: number; name: string } | undefined> {
-  const rows = (await (await api(m.base, '/api/commercial/price-lists', {}, m.cookie)).json()) as { id: number; name: string }[];
+  const rows = await unwrap<{ id: number; name: string }[]>(await api(m.base, '/api/commercial/price-lists', {}, m.cookie));
   return rows.find((r) => r.name === name);
 }
 
@@ -245,36 +238,32 @@ async function phase2(): Promise<void> {
       check(`licença configurada em ${m.name}`, r.ok);
     }
 
-    const prod = await (
-      await api(a.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Tinta Especial', priceCents: 5000 }) }, a.cookie)
-    ).json() as { id: number };
-    const atacado = await (
-      await api(a.base, '/api/commercial/price-lists', { method: 'POST', body: JSON.stringify({ name: 'Atacado Tinta' }) }, a.cookie)
-    ).json() as { id: number };
+    const prod = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Tinta Especial', priceCents: 5000 }) }, a.cookie));
+    const atacado = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/price-lists', { method: 'POST', body: JSON.stringify({ name: 'Atacado Tinta' }) }, a.cookie));
     await api(a.base, `/api/commercial/price-lists/${atacado.id}/items`, {
       method: 'PUT', body: JSON.stringify({ items: [{ productId: prod.id, minQty: 1, unitPriceCents: 4000 }] }),
     }, a.cookie);
-    const cust = await (
-      await api(a.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Atacado', price_list_id: atacado.id }) }, a.cookie)
-    ).json() as { id: number };
+    const cust = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Atacado', price_list_id: atacado.id }) }, a.cookie));
 
     await syncBothTwice(a, b);
 
     const listOnB = await findPriceList(b, 'Atacado Tinta');
     check('lista de preço replicada em B', !!listOnB);
-    const listDetailB = (await (await api(b.base, `/api/commercial/price-lists/${listOnB!.id}`, {}, b.cookie)).json()) as
-      { items: { unit_price_cents: number }[] };
+    const listDetailB = await unwrap<{ items: { unit_price_cents: number }[] }>(
+      await api(b.base, `/api/commercial/price-lists/${listOnB!.id}`, {}, b.cookie));
     check('item da lista replicado em B (4000)', listDetailB.items[0]?.unit_price_cents === 4000, JSON.stringify(listDetailB.items));
 
-    const custOnB = (await (await api(b.base, '/api/commercial/customers?q=Cliente Atacado', {}, b.cookie)).json()) as { id: number; price_list_id: number }[];
+    const custOnB = await unwrap<{ id: number; price_list_id: number }[]>(await api(b.base, '/api/commercial/customers?q=Cliente Atacado', {}, b.cookie));
     check('cliente replicado em B com price_list_id correto', custOnB[0]?.price_list_id === listOnB!.id);
 
-    const prodOnB = (await (await api(b.base, '/api/commercial/products?q=Tinta Especial', {}, b.cookie)).json()) as { id: number }[];
-    const resolveB = (await (
+    const prodOnB = await unwrap<{ id: number }[]>(await api(b.base, '/api/commercial/products?q=Tinta Especial', {}, b.cookie));
+    const resolveB = await unwrap<{ prices: { unitCents: number }[] }>(
       await api(b.base, '/api/commercial/pricing/resolve', {
         method: 'POST', body: JSON.stringify({ customerId: custOnB[0].id, items: [{ productId: prodOnB[0].id, qty: 1 }] }),
-      }, b.cookie)
-    ).json()) as { prices: { unitCents: number }[] };
+      }, b.cookie));
     check('preço resolvido em B é igual ao de A (4000)', resolveB.prices[0].unitCents === 4000, JSON.stringify(resolveB.prices[0]));
 
     // --- Edição concorrente dos ITENS da mesma lista, em A e B, antes de sincronizar ---
@@ -288,14 +277,14 @@ async function phase2(): Promise<void> {
 
     await syncBothTwice(a, b);
 
-    const finalA = (await (await api(a.base, `/api/commercial/price-lists/${atacado.id}`, {}, a.cookie)).json()) as { items: { unit_price_cents: number }[] };
-    const finalB = (await (await api(b.base, `/api/commercial/price-lists/${listOnB!.id}`, {}, b.cookie)).json()) as { items: { unit_price_cents: number }[] };
+    const finalA = await unwrap<{ items: { unit_price_cents: number }[] }>(await api(a.base, `/api/commercial/price-lists/${atacado.id}`, {}, a.cookie));
+    const finalB = await unwrap<{ items: { unit_price_cents: number }[] }>(await api(b.base, `/api/commercial/price-lists/${listOnB!.id}`, {}, b.cookie));
     check('conflito de itens converge para a edição mais recente em A (4200)', finalA.items[0]?.unit_price_cents === 4200, JSON.stringify(finalA.items));
     check('conflito de itens converge para a edição mais recente em B (4200)', finalB.items[0]?.unit_price_cents === 4200, JSON.stringify(finalB.items));
 
     // --- Idempotência ---
     await syncBothTwice(a, b);
-    const idemA = (await (await api(a.base, `/api/commercial/price-lists/${atacado.id}`, {}, a.cookie)).json()) as { items: unknown[] };
+    const idemA = await unwrap<{ items: unknown[] }>(await api(a.base, `/api/commercial/price-lists/${atacado.id}`, {}, a.cookie));
     check('idempotente: sem duplicar itens em A', idemA.items.length === 1, String(idemA.items.length));
   } finally {
     a.proc.kill();

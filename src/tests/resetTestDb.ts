@@ -10,13 +10,28 @@ import { closeDb, getSqlite } from '../core/database/connection';
 
 const DB_DIR = path.resolve(process.cwd(), 'database');
 
+function unlinkWithRetry(fp: string, retries = 20): void {
+  for (let i = 0; i < retries; i++) {
+    try {
+      fs.unlinkSync(fp);
+      return;
+    } catch (e: unknown) {
+      if ((e as NodeJS.ErrnoException).code === 'EBUSY' && i < retries - 1) {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 /** Apaga o arquivo DB para que migrateUp() recrie tudo do zero. */
 export function resetTestDb(): void {
   closeDb();
   const dbPath = process.env.KATSU_DB_PATH ?? path.join(DB_DIR, 'katsu.db');
   for (const ext of ['', '-wal', '-shm']) {
     const fp = dbPath + ext;
-    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    if (fs.existsSync(fp)) unlinkWithRetry(fp);
   }
 }
 

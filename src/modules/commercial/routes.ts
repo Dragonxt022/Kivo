@@ -40,7 +40,7 @@ router.post('/customers/:id/credit', requirePermission('commercial.customers.cre
   let result: ReturnType<typeof grantStoreCredit>;
   customerRepository.transaction(() => {
     result = grantStoreCredit(req, customerId, Math.round(Number(amountCents)), reason, 'manual');
-  })();
+  });
   if (!result!.ok) {
     res.status(400).json(result!);
     return;

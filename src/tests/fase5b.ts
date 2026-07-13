@@ -6,6 +6,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3699);
 const base = `http://localhost:${PORT}`;
@@ -43,14 +44,14 @@ async function main() {
   check('login admin', admin !== null);
 
   // ---------- Cargos & permissões ----------
-  const roles = (await (await api('/api/roles', {}, admin!)).json()) as { slug: string; permissions: string[] }[];
+  const roles = await unwrap<{ slug: string; permissions: string[] }[]>(await api('/api/roles', {}, admin!));
   check('lista cargos com permissões', roles.some((r) => r.slug === 'administrador'));
-  const perms = (await (await api('/api/roles/permissions', {}, admin!)).json()) as { module: string }[];
+  const perms = await unwrap<{ module: string }[]>(await api('/api/roles/permissions', {}, admin!));
   check('catálogo agrupável por módulo', new Set(perms.map((p) => p.module)).size >= 3);
 
   const newRole = await api('/api/roles', { method: 'POST', body: JSON.stringify({ name: 'Vendedor Balcão' }) }, admin!);
   check('cria cargo customizado', newRole.status === 201);
-  const roleId = ((await newRole.json()) as { id: number }).id;
+  const roleId = (await unwrap<{ id: number }>(newRole)).id;
 
   const grant = await api(`/api/roles/${roleId}/permissions`, {
     method: 'PUT',
@@ -65,15 +66,15 @@ async function main() {
   await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'balcao', name: 'Balcão', password: '123456', roleSlug: 'vendedor-balcao' }) }, admin!);
   const balcao = await loginAs('balcao', '123456');
   check('usuário do novo cargo loga', balcao !== null);
-  const me = (await (await api('/api/auth/me', {}, balcao!)).json()) as { permissions: string[] };
+  const me = await unwrap<{ permissions: string[] }>(await api('/api/auth/me', {}, balcao!));
   check('herda permissões do cargo', me.permissions.includes('store.sales.create') && !me.permissions.includes('users.delete'));
 
   // cargo em uso não pode ser excluído
   check('cargo em uso não exclui', (await api(`/api/roles/${roleId}`, { method: 'DELETE' }, admin!)).status === 400);
 
   // ---------- Preparação p/ orçamento ----------
-  const cli = (await (await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Construtora ABC' }) }, admin!)).json()) as { id: number };
-  const prod = (await (await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Areia m3', priceCents: 12000, unit: 'm3' }) }, admin!)).json()) as { id: number };
+  const cli = await unwrap<{ id: number }>(await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Construtora ABC' }) }, admin!));
+  const prod = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Areia m3', priceCents: 12000, unit: 'm3' }) }, admin!));
   await api('/api/commercial/stock/move', { method: 'POST', body: JSON.stringify({ productId: prod.id, type: 'entrada', qty: 50 }) }, admin!);
 
   // ---------- Orçamentos ----------
@@ -81,7 +82,7 @@ async function main() {
     method: 'POST',
     body: JSON.stringify({ items: [{ productId: prod.id, qty: 10 }], customerId: cli.id, validUntil: '2027-01-01' }),
   }, balcao!);
-  check('balcão cria orçamento (1.200,00)', q1.status === 201 && ((await q1.json()) as { totalCents: number }).totalCents === 120000);
+  check('balcão cria orçamento (1.200,00)', q1.status === 201 && (await unwrap<{ totalCents: number }>(q1)).totalCents === 120000);
   const quoteId = (db.prepare('SELECT id FROM quotes ORDER BY id DESC LIMIT 1').get() as { id: number }).id;
 
   // orçamento não mexe em estoque
@@ -93,7 +94,7 @@ async function main() {
   const conv = await api(`/api/store/quotes/${quoteId}/convert`, {
     method: 'POST', body: JSON.stringify({ paymentMethod: 'pix' }),
   }, balcao!);
-  const convData = (await conv.json()) as { id: number; totalCents: number };
+  const convData = await unwrap<{ id: number; totalCents: number }>(conv);
   check('conversão honra preço cotado (1.200,00, não 1.500,00)', conv.status === 201 && convData.totalCents === 120000, `total=${convData.totalCents}`);
   stock = (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(prod.id) as { stock_qty: number }).stock_qty;
   check('conversão baixa estoque (50→40)', stock === 40);
@@ -115,7 +116,7 @@ async function main() {
   check('balcão não vê usuários (403)', (await api('/api/users', {}, balcao!)).status === 403);
 
   // ---------- Compras (página usa API já testada; sanity) ----------
-  const sup = (await (await api('/api/commercial/suppliers', { method: 'POST', body: JSON.stringify({ name: 'Areial do Zé' }) }, admin!)).json()) as { id: number };
+  const sup = await unwrap<{ id: number }>(await api('/api/commercial/suppliers', { method: 'POST', body: JSON.stringify({ name: 'Areial do Zé' }) }, admin!));
   const buy = await api('/api/commercial/purchases', {
     method: 'POST', body: JSON.stringify({ supplierId: sup.id, items: [{ productId: prod.id, qty: 30, unitCostCents: 8000 }] }),
   }, admin!);

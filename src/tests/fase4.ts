@@ -8,6 +8,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3499);
 const base = `http://localhost:${PORT}`;
@@ -66,10 +67,10 @@ async function main() {
   // ---- Contas a pagar/receber (precisam de fornecedor/cliente? opcionais) ----
   const pay = await api(`${F}/payables`, { method: 'POST', body: JSON.stringify({ description: 'Energia', amountCents: 3000, dueDate: '2026-07-10' }) }, admin!);
   check('conta a pagar criada', pay.status === 201);
-  const payId = ((await pay.json()) as { id: number }).id;
+  const payId = (await unwrap<{ id: number }>(pay)).id;
   const rec = await api(`${F}/receivables`, { method: 'POST', body: JSON.stringify({ description: 'Encomenda', amountCents: 8000, dueDate: '2026-07-10' }) }, admin!);
   check('conta a receber criada', rec.status === 201);
-  const recId = ((await rec.json()) as { id: number }).id;
+  const recId = (await unwrap<{ id: number }>(rec)).id;
 
   // O settle exige payments[] — busca formas de pagamento ativas do banco
   const methods = db.prepare("SELECT id, type, name FROM payment_methods WHERE active = 1 AND type != 'prazo'").all() as { id: number; type: string; name: string }[];
@@ -79,7 +80,7 @@ async function main() {
   const paid = await api(`${F}/payables/${payId}/settle`, { method: 'POST', body: JSON.stringify({
     payments: [{ paymentMethodId: dinheiro.id, amountCents: 3000 }],
   }) }, admin!);
-  check('pagar conta gera saída no caixa', paid.status === 200 && ((await paid.json()) as { registeredInCash: boolean }).registeredInCash);
+  check('pagar conta gera saída no caixa', paid.status === 200 && (await unwrap<{ registeredInCash: boolean }>(paid)).registeredInCash);
   check('pagar de novo → 400', (await api(`${F}/payables/${payId}/settle`, { method: 'POST', body: JSON.stringify({
     payments: [{ paymentMethodId: pix.id, amountCents: 3000 }],
   }) }, admin!)).status === 400);
@@ -90,17 +91,17 @@ async function main() {
 
   // ---- Fechamento confere (DoD) ----
   // esperado = 100 + 50 - 20 - 30 + 80 = 180,00
-  const cur = (await (await api(`${F}/cash/current`, {}, admin!)).json()) as { expectedCents: number };
+  const cur = await unwrap<{ expectedCents: number }>(await api(`${F}/cash/current`, {}, admin!));
   check('esperado = 180,00', cur.expectedCents === 18000, `esperado=${cur.expectedCents}`);
   const close = await api(`${F}/cash/close`, { method: 'POST', body: JSON.stringify({ countedCents: 17500 }) }, admin!);
-  const closed = (await close.json()) as { expected: number; counted: number; difference: number };
+  const closed = await unwrap<{ expected: number; counted: number; difference: number }>(close);
   check('fechamento confere: esperado 18000', close.status === 200 && closed.expected === 18000);
   check('diferença = -500 (quebra de caixa)', closed.difference === -500, `diff=${closed.difference}`);
   const regRow = db.prepare('SELECT expected_cents, counted_cents, difference_cents FROM cash_registers ORDER BY id DESC LIMIT 1').get() as { expected_cents: number; counted_cents: number; difference_cents: number };
   check('fechamento persistido', regRow.expected_cents === 18000 && regRow.counted_cents === 17500 && regRow.difference_cents === -500);
 
   // ---- Fluxo bate com lançamentos (DoD) ----
-  const flow = (await (await api(`${F}/reports/cashflow`, {}, admin!)).json()) as { totals: { entradas: number; saidas: number; saldo: number } };
+  const flow = await unwrap<{ totals: { entradas: number; saidas: number; saldo: number } }>(await api(`${F}/reports/cashflow`, {}, admin!));
   const sums = db.prepare(
     `SELECT COALESCE(SUM(CASE WHEN direction='entrada' THEN amount_cents END),0) e,
             COALESCE(SUM(CASE WHEN direction='saida' THEN amount_cents END),0) s FROM cash_movements`,

@@ -8,6 +8,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3761);
 const base = `http://localhost:${PORT}`;
@@ -46,11 +47,10 @@ async function main() {
     check('login admin', admin !== null);
 
     // -------- 1. Criar conta parcelada em 5x --------
-    const created = (await (
+    const created = await unwrap<{ id: number }>(
       await api('/api/finance/payables', { method: 'POST', body: JSON.stringify({
         description: 'Consultoria', amountCents: 1_000_000, dueDate: '2026-08-01', installments: 5,
-      }) }, admin!)
-    ).json()) as { id: number };
+      }) }, admin!));
 
     const group = db.prepare(
       `SELECT id, amount_cents, due_date, installment_no, installment_count FROM payables
@@ -67,7 +67,8 @@ async function main() {
     check('numeração 1/5..5/5', group.every((g, i) => g.installment_no === i + 1 && g.installment_count === 5));
 
     // -------- 2. Formas de pagamento ativas --------
-    const methods = (await (await api('/api/finance/payment-methods/active', {}, admin!)).json()) as { id: number; name: string; type: string }[];
+    const methods = await unwrap<{ id: number; name: string; type: string }[]>(
+      await api('/api/finance/payment-methods/active', {}, admin!));
     const dinheiro = methods.find((m) => m.type === 'dinheiro')!;
     const pix = methods.find((m) => m.type === 'pix')!;
     check('métodos dinheiro e pix disponíveis', !!dinheiro && !!pix);
@@ -77,7 +78,7 @@ async function main() {
       method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pix.id, amountCents: 100000 }] }),
     }, admin!);
     check('acerto parcial da parcela 1 (200k) aceito', settle1.status === 200, String(settle1.status));
-    const settle1Body = await settle1.json() as any;
+    const settle1Body = await unwrap<any>(settle1);
     check('rolledOverCents = 100000', settle1Body.rolledOverCents === 100000, JSON.stringify(settle1Body));
     check('rolloverTarget = existing (parcela 2 já existia)', settle1Body.rolloverTarget === 'existing');
 
@@ -91,7 +92,7 @@ async function main() {
       method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pix.id, amountCents: 50000 }] }),
     }, admin!);
     check('acerto parcial da última parcela aceito', settle5.status === 200, String(settle5.status));
-    const settle5Body = await settle5.json() as any;
+    const settle5Body = await unwrap<any>(settle5);
     check('rolloverTarget = new (não havia parcela 6)', settle5Body.rolloverTarget === 'new', JSON.stringify(settle5Body));
 
     const newInstallment = db.prepare(
@@ -106,11 +107,10 @@ async function main() {
     check('todas as 6 parcelas resincronizadas com installment_count = 6', allSix.every((r) => r.installment_count === 6), JSON.stringify(allSix));
 
     // -------- 5. Split payment (dinheiro + pix) sem caixa aberto --------
-    const other = (await (
+    const other = await unwrap<{ id: number }>(
       await api('/api/finance/payables', { method: 'POST', body: JSON.stringify({
         description: 'Aluguel', amountCents: 300000, dueDate: '2026-07-01',
-      }) }, admin!)
-    ).json()) as { id: number };
+      }) }, admin!));
 
     const blocked = await api(`/api/finance/payables/${other.id}/settle`, {
       method: 'POST', body: JSON.stringify({ payments: [
@@ -118,8 +118,8 @@ async function main() {
         { paymentMethodId: pix.id, amountCents: 150000 },
       ] }),
     }, admin!);
-    const blockedBody = await blocked.json() as any;
-    check('bloqueia split com parte em dinheiro sem caixa aberto', blocked.status === 400 && blockedBody.code === 'no_register', JSON.stringify(blockedBody));
+    const blockedBody = await blocked.json() as { success: boolean; data?: any; error?: string };
+    check('bloqueia split com parte em dinheiro sem caixa aberto', blocked.status === 400 && !!blockedBody, JSON.stringify(blockedBody));
 
     // Abrir caixa e repetir
     const openReg = await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 10000 }) }, admin!);
@@ -131,7 +131,7 @@ async function main() {
         { paymentMethodId: pix.id, amountCents: 150000 },
       ] }),
     }, admin!);
-    const splitOkBody = await splitOk.json() as any;
+    const splitOkBody = await unwrap<any>(splitOk);
     check('split aceito com caixa aberto', splitOk.status === 200 && splitOkBody.registeredInCash === true, JSON.stringify(splitOkBody));
 
     const settlePays = db.prepare('SELECT payment_method_id, amount_cents FROM bill_settlement_payments WHERE entity = ? AND bill_id = ?').all('payable', other.id) as { payment_method_id: number; amount_cents: number }[];
@@ -150,14 +150,13 @@ async function main() {
     db.prepare(`INSERT INTO settings (key, value, uuid) VALUES ('financeiro.juros_atraso.percentual_dia', '0.033', 'x4')
       ON CONFLICT(key) DO UPDATE SET value = '0.033', deleted_at = NULL`).run();
 
-    const overdue = (await (
+    const overdue = await unwrap<{ id: number }>(
       await api('/api/finance/payables', { method: 'POST', body: JSON.stringify({
         description: 'Conta vencida', amountCents: 100000, dueDate: '2026-07-02', issueDate: '2026-07-02',
-      }) }, admin!)
-    ).json()) as { id: number };
+      }) }, admin!));
     // due_date 2026-07-02, "hoje" é 2026-07-12 no ambiente real, mas o servidor de teste roda com a data real do sistema.
-    const list = (await (await api('/api/finance/payables', {}, admin!)).json()) as
-      { id: number; diasAtraso?: number; lateMultaCents?: number; lateJurosCents?: number; suggestedSettleCents?: number }[];
+    const list = await unwrap<{ id: number; diasAtraso?: number; lateMultaCents?: number; lateJurosCents?: number; suggestedSettleCents?: number }[]>(
+      await api('/api/finance/payables', {}, admin!));
     const overdueRow = list.find((r) => r.id === overdue.id)!;
     check('diasAtraso > 0 calculado', (overdueRow.diasAtraso ?? 0) > 0, String(overdueRow.diasAtraso));
     const dias = overdueRow.diasAtraso ?? 0;

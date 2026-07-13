@@ -8,6 +8,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3758);
 const base = `http://localhost:${PORT}`;
@@ -43,26 +44,22 @@ async function main() {
     const admin = await loginAs('admin', 'admin');
     check('login admin', admin !== null);
 
-    const company = (await (
-      await api('/api/commercial/agreement-companies', { method: 'POST', body: JSON.stringify({ name: 'Empresa Conveniada', billing_day: 5 }) }, admin!)
-    ).json()) as { id: number };
+    const company = await unwrap<{ id: number }>(
+      await api('/api/commercial/agreement-companies', { method: 'POST', body: JSON.stringify({ name: 'Empresa Conveniada', billing_day: 5 }) }, admin!));
 
-    const cust = (await (
-      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Funcionário Conveniado', agreement_company_id: company.id }) }, admin!)
-    ).json()) as { id: number };
+    const cust = await unwrap<{ id: number }>(
+      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Funcionário Conveniado', agreement_company_id: company.id }) }, admin!));
     check('cliente vinculado ao convênio', cust.id > 0);
 
-    const custSemConvenio = (await (
-      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Sem Convênio' }) }, admin!)
-    ).json()) as { id: number };
+    const custSemConvenio = await unwrap<{ id: number }>(
+      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Sem Convênio' }) }, admin!));
 
-    const methods = (await (await api('/api/finance/payment-methods?all=1', {}, admin!)).json()) as { id: number; type: string }[];
+    const methods = await unwrap<{ id: number; type: string }[]>(await api('/api/finance/payment-methods?all=1', {}, admin!));
     const convenioMethod = methods.find((m) => m.type === 'convenio')!;
     await api(`/api/finance/payment-methods/${convenioMethod.id}`, { method: 'PUT', body: JSON.stringify({ active: true }) }, admin!);
 
-    const prod = (await (
-      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Convênio', priceCents: 8000, initialStock: 10 }) }, admin!)
-    ).json()) as { id: number };
+    const prod = await unwrap<{ id: number }>(
+      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Convênio', priceCents: 8000, initialStock: 10 }) }, admin!));
 
     const semVinculo = await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: custSemConvenio.id, payments: [{ methodId: convenioMethod.id, amountCents: 8000, customerId: custSemConvenio.id }] }),
@@ -73,7 +70,7 @@ async function main() {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, payments: [{ methodId: convenioMethod.id, amountCents: 8000, customerId: cust.id }] }),
     }, admin!);
     check('venda por convênio concluída', sale.status === 201, String(sale.status));
-    const saleBody = (await sale.json()) as { id: number };
+    const saleBody = await unwrap<{ id: number }>(sale);
 
     const charge = db.prepare('SELECT id, amount_cents, invoiced_at FROM agreement_charges WHERE sale_id = ?').get(saleBody.id) as
       { id: number; amount_cents: number; invoiced_at: string | null } | undefined;
@@ -81,15 +78,15 @@ async function main() {
     check('sem movimento de caixa e sem recebível criados pela venda', !db.prepare('SELECT id FROM cash_movements WHERE ref_entity = ? AND ref_id = ?').get('sale', String(saleBody.id))
       && !db.prepare('SELECT id FROM receivables WHERE sale_id = ?').get(saleBody.id));
 
-    const pending = (await (await api(`/api/finance/agreements/${company.id}/pending`, {}, admin!)).json()) as { pendingCents: number };
+    const pending = await unwrap<{ pendingCents: number }>(await api(`/api/finance/agreements/${company.id}/pending`, {}, admin!));
     check('pendente = 8000', pending.pendingCents === 8000, String(pending.pendingCents));
 
     const invoice = await api(`/api/finance/agreements/${company.id}/invoice`, { method: 'POST' }, admin!);
     check('fatura gerada (201)', invoice.status === 201, String(invoice.status));
-    const invoiceBody = (await invoice.json()) as { receivableId: number; amountCents: number };
+    const invoiceBody = await unwrap<{ receivableId: number; amountCents: number }>(invoice);
     check('valor da fatura = 8000', invoiceBody.amountCents === 8000, String(invoiceBody.amountCents));
 
-    const pendingAfter = (await (await api(`/api/finance/agreements/${company.id}/pending`, {}, admin!)).json()) as { pendingCents: number };
+    const pendingAfter = await unwrap<{ pendingCents: number }>(await api(`/api/finance/agreements/${company.id}/pending`, {}, admin!));
     check('pendente zera após faturar', pendingAfter.pendingCents === 0, String(pendingAfter.pendingCents));
 
     const duplicate = await api(`/api/finance/agreements/${company.id}/invoice`, { method: 'POST' }, admin!);
@@ -103,12 +100,12 @@ async function main() {
     const sale2 = await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, payments: [{ methodId: convenioMethod.id, amountCents: 8000, customerId: cust.id }] }),
     }, admin!);
-    const sale2Body = (await sale2.json()) as { id: number };
+    const sale2Body = await unwrap<{ id: number }>(sale2);
     const cancel2 = await api(`/api/store/sales/${sale2Body.id}/cancel`, { method: 'POST' }, admin!);
     check('cancelamento de venda com cobrança não-faturada funciona', cancel2.status === 200, String(cancel2.status));
     const charge2 = db.prepare('SELECT deleted_at FROM agreement_charges WHERE sale_id = ?').get(sale2Body.id) as { deleted_at: string | null };
     check('cobrança pendente foi removida (soft delete)', charge2.deleted_at !== null);
-    const pendingAfterCancel = (await (await api(`/api/finance/agreements/${company.id}/pending`, {}, admin!)).json()) as { pendingCents: number };
+    const pendingAfterCancel = await unwrap<{ pendingCents: number }>(await api(`/api/finance/agreements/${company.id}/pending`, {}, admin!));
     check('pendente volta a 0 após cancelar (cobrança cancelada não conta)', pendingAfterCancel.pendingCents === 0, String(pendingAfterCancel.pendingCents));
   } finally {
     server.close();

@@ -7,6 +7,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3751);
 const base = `http://localhost:${PORT}`;
@@ -41,17 +42,16 @@ async function main() {
     const admin = await loginAs('admin', 'admin');
     check('login admin', admin !== null);
 
-    const cust = (await (
-      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Ficha', cep: '01001-000' }) }, admin!)
-    ).json()) as { id: number; cep: string };
+    const cust = await unwrap<{ id: number; cep: string }>(
+      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Ficha', cep: '01001-000' }) }, admin!));
     check('cep persiste na criação', cust.cep === '01001-000', cust.cep);
 
     // Tenta gravar store_credit_cents/loyalty_points direto via PUT — deve ser ignorado (somente leitura)
     await api(`/api/commercial/customers/${cust.id}`, {
       method: 'PUT', body: JSON.stringify({ store_credit_cents: 999999, loyalty_points: 999999 }),
     }, admin!);
-    const after = (await (await api(`/api/commercial/customers/${cust.id}`, {}, admin!)).json()) as
-      { store_credit_cents: number; loyalty_points: number };
+    const after = await unwrap<{ store_credit_cents: number; loyalty_points: number }>(
+      await api(`/api/commercial/customers/${cust.id}`, {}, admin!));
     check('store_credit_cents não é gravável via PUT (fica 0)', after.store_credit_cents === 0, String(after.store_credit_cents));
     check('loyalty_points não é gravável via PUT (fica 0)', after.loyalty_points === 0, String(after.loyalty_points));
 
@@ -62,26 +62,24 @@ async function main() {
     check('GET /customers/:id inexistente → 404', missing.status === 404);
 
     // Filtro ?customerId= em /api/store/sales
-    const prod = (await (
-      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Ficha', priceCents: 1000 }) }, admin!)
-    ).json()) as { id: number };
-    const otherCust = (await (
-      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Outro Cliente' }) }, admin!)
-    ).json()) as { id: number };
+    const prod = await unwrap<{ id: number }>(
+      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Ficha', priceCents: 1000 }) }, admin!));
+    const otherCust = await unwrap<{ id: number }>(
+      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Outro Cliente' }) }, admin!));
     await api('/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], paymentMethod: 'pix', customerId: cust.id }) }, admin!);
     await api('/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], paymentMethod: 'pix', customerId: otherCust.id }) }, admin!);
-    const salesFiltered = (await (await api(`/api/store/sales?customerId=${cust.id}`, {}, admin!)).json()) as { id: number }[];
+    const salesFiltered = await unwrap<{ id: number }[]>(await api(`/api/store/sales?customerId=${cust.id}`, {}, admin!));
     check('filtro ?customerId= só traz vendas do cliente certo', salesFiltered.length === 1, String(salesFiltered.length));
 
     // Filtro ?partyId= em /api/finance/receivables
-    const prazoMethod = ((await (await api('/api/finance/payment-methods', {}, admin!)).json()) as { id: number; type: string }[]).find((m) => m.type === 'prazo')!;
+    const prazoMethod = (await unwrap<{ id: number; type: string }[]>(await api('/api/finance/payment-methods', {}, admin!))).find((m) => m.type === 'prazo')!;
     await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, payments: [{ methodId: prazoMethod.id, amountCents: 1000, customerId: cust.id, dueDate: '2027-01-01' }] }),
     }, admin!);
     await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: otherCust.id, payments: [{ methodId: prazoMethod.id, amountCents: 1000, customerId: otherCust.id, dueDate: '2027-01-01' }] }),
     }, admin!);
-    const receivablesFiltered = (await (await api(`/api/finance/receivables?partyId=${cust.id}`, {}, admin!)).json()) as { id: number }[];
+    const receivablesFiltered = await unwrap<{ id: number }[]>(await api(`/api/finance/receivables?partyId=${cust.id}`, {}, admin!));
     check('filtro ?partyId= só traz recebíveis do cliente certo', receivablesFiltered.length === 1, String(receivablesFiltered.length));
   } finally {
     server.close();
