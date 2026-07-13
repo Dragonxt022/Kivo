@@ -9,6 +9,8 @@ import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
 import { validateBarcode, generateInternalBarcode } from '../../shared/barcode';
 import { assertAuth } from '../../shared/auth';
+import { validateBody } from '../../shared/validateBody';
+import { createProductSchema, updateProductSchema, stockMoveSchema } from '../../shared/schemas';
 import { makeCrudRouter } from './crud';
 import { moveStock, moveStockRaw, listMovements, type MovementType } from './stock';
 import { resolveMany } from './pricing';
@@ -261,13 +263,9 @@ router.get('/products/catalog-image/:id', requirePermission('commercial.products
   }
 });
 
-router.post('/products', requirePermission('commercial.products.create'), (req, res) => {
+router.post('/products', requirePermission('commercial.products.create'), validateBody(createProductSchema), (req, res) => {
   assertAuth(req);
-  const b = req.body ?? {};
-  if (!b.name) {
-    res.status(400).json({ error: 'Campo obrigatório: name' });
-    return;
-  }
+  const b = req.body;
   if (b.priceCents != null && !req.user.permissions.has('commercial.products.price')) {
     res.status(403).json({ error: 'Permissão negada: commercial.products.price (definir preço).' });
     return;
@@ -325,7 +323,7 @@ router.post('/products', requirePermission('commercial.products.create'), (req, 
   res.status(201).json(created);
 });
 
-router.put('/products/:id', requirePermission('commercial.products.edit'), (req, res) => {
+router.put('/products/:id', requirePermission('commercial.products.edit'), validateBody(updateProductSchema), (req, res) => {
   assertAuth(req);
   const id = String(req.params.id);
   const before = getProduct(id) as { price_cents: number; image_url: string | null } | undefined;
@@ -333,7 +331,7 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), (req,
     res.status(404).json({ error: 'Produto não encontrado.' });
     return;
   }
-  const b = req.body ?? {};
+  const b = req.body;
   // RBAC fino (plano Fase 1): alterar preço é permissão separada de editar produto
   if (b.priceCents != null && Math.round(b.priceCents) !== before.price_cents
       && !req.user.permissions.has('commercial.products.price')) {
@@ -1252,13 +1250,9 @@ router.get('/stock/movements', requirePermission('commercial.stock.view'), (req,
   res.json(listMovements(productId, Math.min(Number(req.query.limit ?? 100), 500)));
 });
 
-router.post('/stock/move', requirePermission('commercial.stock.move'), (req, res) => {
-  const { productId, type, qty, reason } = req.body ?? {};
-  if (!productId || !['entrada', 'saida', 'ajuste'].includes(type)) {
-    res.status(400).json({ error: 'Campos obrigatórios: productId, type (entrada|saida|ajuste), qty.' });
-    return;
-  }
-  const result = moveStock(req, Number(productId), type as MovementType, Number(qty), reason);
+router.post('/stock/move', requirePermission('commercial.stock.move'), validateBody(stockMoveSchema), (req, res) => {
+  const { productId, type, qty, reason } = req.body;
+  const result = moveStock(req, productId, type as MovementType, qty, reason);
   if (!result.ok) {
     res.status(400).json(result);
     return;

@@ -5,7 +5,8 @@ import { SESSION_COOKIE } from './middleware';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
 import { assertAuth } from '../../shared/auth';
-import { validatePasswordStrength } from '../../shared/validation';
+import { validateBody } from '../../shared/validateBody';
+import { loginSchema, changePasswordSchema } from '../../shared/schemas';
 
 const router = Router();
 
@@ -17,13 +18,9 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post('/login', loginLimiter, (req, res) => {
-  const { username, password, remember } = req.body ?? {};
-  if (!username || !password) {
-    res.status(400).json({ error: 'Informe usuário e senha.' });
-    return;
-  }
-  const result = login(String(username), String(password), Boolean(remember), req.ip);
+router.post('/login', loginLimiter, validateBody(loginSchema), (req, res) => {
+  const { username, password, remember } = req.body;
+  const result = login(username, password, remember, req.ip);
   if (!result) {
     audit(req, 'login_falhou', 'user', String(username));
     res.status(401).json({ error: 'Usuário ou senha inválidos.' });
@@ -57,21 +54,12 @@ router.post('/logout', (req, res) => {
 });
 
 /** Troca de senha do PRÓPRIO usuário: exige senha atual e derruba as outras sessões. */
-router.post('/change-password', (req, res) => {
+router.post('/change-password', validateBody(changePasswordSchema), (req, res) => {
   if (!req.user) {
     res.status(401).json({ error: 'Não autenticado.' });
     return;
   }
-  const { currentPassword, newPassword } = req.body ?? {};
-  if (!currentPassword || !newPassword) {
-    res.status(400).json({ error: 'Informe a senha atual e a nova senha.' });
-    return;
-  }
-  const pwError = validatePasswordStrength(newPassword);
-  if (pwError) {
-    res.status(400).json({ error: pwError });
-    return;
-  }
+  const { currentPassword, newPassword } = req.body;
   const db = getSqlite();
   const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id) as
     | { password_hash: string }

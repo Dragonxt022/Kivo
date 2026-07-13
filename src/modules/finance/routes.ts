@@ -6,6 +6,8 @@ import { audit } from '../../core/audit/service';
 import { openRegister, closeRegister, currentRegister, expectedCents, addMovement, editClosedRegister } from './cash';
 import { makeBillsRouter } from './bills';
 import { pendingTotal, generateInvoice } from './agreements';
+import { validateBody } from '../../shared/validateBody';
+import { openRegisterSchema, closeRegisterSchema } from '../../shared/schemas';
 
 const router = Router();
 const db = () => getSqlite();
@@ -133,8 +135,8 @@ router.get('/cash/history', requirePermission('finance.cash.view'), (_req, res) 
   ).all());
 });
 
-router.post('/cash/open', requirePermission('finance.cash.open'), (req, res) => {
-  const result = openRegister(req, Math.round(req.body?.openingCents ?? 0));
+router.post('/cash/open', requirePermission('finance.cash.open'), validateBody(openRegisterSchema), (req, res) => {
+  const result = openRegister(req, req.body.openingCents);
   if (!result.ok) {
     res.status(400).json(result);
     return;
@@ -142,15 +144,9 @@ router.post('/cash/open', requirePermission('finance.cash.open'), (req, res) => 
   res.status(201).json(result);
 });
 
-router.post('/cash/close', requirePermission('finance.cash.close'), (req, res) => {
-  if (req.body?.countedCents == null) {
-    res.status(400).json({ error: 'Informe countedCents (valor contado na gaveta).' });
-    return;
-  }
-  // Contagem por denominação é opcional (só quando o operador escolhe contar notas/moedas no fechamento).
-  const countBreakdown =
-    req.body?.countBreakdown && typeof req.body.countBreakdown === 'object' ? req.body.countBreakdown : undefined;
-  const result = closeRegister(req, Math.round(req.body.countedCents), req.body?.notes, countBreakdown);
+router.post('/cash/close', requirePermission('finance.cash.close'), validateBody(closeRegisterSchema), (req, res) => {
+  const { countedCents, notes, countBreakdown } = req.body;
+  const result = closeRegister(req, countedCents, notes, countBreakdown);
   if (!result.ok) {
     res.status(400).json(result);
     return;

@@ -3,9 +3,11 @@ import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { getService } from '../../core/services/registry';
 import type { FinancePayMethodsService } from '../finance/setup';
-import { createSale, cancelSale, type SaleInput } from './sales';
-import { createQuote, convertQuote, cancelQuote, updateQuote, type QuoteInput } from './quotes';
+import { createSale, cancelSale } from './sales';
+import { createQuote, convertQuote, cancelQuote, updateQuote } from './quotes';
 import { cashRegisterReport } from './reports';
+import { validateBody } from '../../shared/validateBody';
+import { createSaleSchema, createQuoteSchema, updateQuoteSchema } from '../../shared/schemas';
 
 const router = Router();
 const db = () => getSqlite();
@@ -15,8 +17,8 @@ router.get('/payment-methods', requirePermission('store.sales.create'), (_req, r
   res.json(getService<FinancePayMethodsService>('finance.paymethods').listActive());
 });
 
-router.post('/sales', requirePermission('store.sales.create'), (req, res) => {
-  const result = createSale(req, req.body as SaleInput);
+router.post('/sales', requirePermission('store.sales.create'), validateBody(createSaleSchema), (req, res) => {
+  const result = createSale(req, req.body);
   if (!result.ok) {
     res.status(400).json(result);
     return;
@@ -92,8 +94,8 @@ router.get('/quotes/:id', requirePermission('store.quotes.view'), (req, res) => 
   res.json({ ...quote, items });
 });
 
-router.post('/quotes', requirePermission('store.quotes.create'), (req, res) => {
-  const result = createQuote(req, req.body as QuoteInput);
+router.post('/quotes', requirePermission('store.quotes.create'), validateBody(createQuoteSchema), (req, res) => {
+  const result = createQuote(req, req.body);
   if (!result.ok) {
     res.status(400).json(result);
     return;
@@ -101,8 +103,8 @@ router.post('/quotes', requirePermission('store.quotes.create'), (req, res) => {
   res.status(201).json(result);
 });
 
-router.put('/quotes/:id', requirePermission('store.quotes.edit'), (req, res) => {
-  const result = updateQuote(req, Number(req.params.id), req.body ?? {});
+router.put('/quotes/:id', requirePermission('store.quotes.edit'), validateBody(updateQuoteSchema), (req, res) => {
+  const result = updateQuote(req, Number(req.params.id), req.body);
   if (!result.ok) {
     res.status(400).json(result);
     return;

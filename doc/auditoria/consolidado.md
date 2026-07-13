@@ -69,6 +69,7 @@ Ordem recomendada de execução (menor esforço, maior impacto):
 | 20 | F6 — Morgan — logging de requisições HTTP | F6 | `HEAD` |
 | 21 | F3 — Sync — paginação dirty rows (LIMIT) | F3 | `HEAD` |
 | 22 | F3 — Backup — stream em vez de `readFileSync` | F3 | `HEAD` |
+| 23 | F2 — Zod — validação de entrada schema-driven (auth, cash, sales, products) | F2 | `HEAD` |
 
 ### 🔄 Pendente
 
