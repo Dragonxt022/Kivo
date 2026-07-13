@@ -16,7 +16,7 @@
       <div class="flex-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
         <div>
           <h1 x-text="comanda ? 'Comanda #' + comanda.id + (comanda.table_label ? ' — Mesa ' + comanda.table_label : '') : 'Carregando...'"></h1>
-          <div x-show="comanda?.notes" class="text-muted" x-text="'Obs: ' + comanda.notes"></div>
+          <div x-show="comanda?.notes" class="text-muted" x-text="'Obs: ' + (comanda?.notes ?? '')"></div>
         </div>
         <div class="btn-group">
           <button type="button" class="btn" @click="openTransferDlg()" :disabled="!isOpen">Transferir</button>

@@ -16,7 +16,7 @@
       <div class="flex-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
         <h1>Mesas</h1>
         <div>
-          <button type="button" class="btn" @click="showAddTable = true; newTableLabel = ''; $nextTick(() => $refs.tableInput?.focus())">Nova Mesa</button>
+          <button type="button" class="btn" @click="newTableLabel = ''; $refs.addTableDlg.showModal(); $nextTick(() => $refs.tableInput?.focus())">Nova Mesa</button>
         </div>
       </div>
       <div class="tables-grid">
@@ -31,13 +31,13 @@
     </div>
 
     <!-- Dialog para criar mesa -->
-    <dialog x-ref="addTableDlg" x-show="showAddTable">
+    <dialog x-ref="addTableDlg">
       <form @submit.prevent="createTable" method="dialog">
         <h2>Nova Mesa</h2>
         <label>Nome / Numero</label>
         <input type="text" x-ref="tableInput" x-model="newTableLabel" class="form-input" required />
         <div class="form-actions">
-          <button type="button" class="btn secondary" @click="showAddTable = false">Cancelar</button>
+          <button type="button" class="btn secondary" @click="$refs.addTableDlg.close()">Cancelar</button>
           <button type="submit" class="btn">Criar</button>
         </div>
       </form>
@@ -56,7 +56,6 @@
     function mesasPage() {
       return {
         tables: [],
-        showAddTable: false,
         newTableLabel: '',
         pollTimer: null,
         async init() {
@@ -67,14 +66,27 @@
           const r = await fetch('/api/comandas/tables/status');
           if (r.ok) this.tables = await r.json();
         },
-        openTable(t) {
+        async openTable(t) {
           if (t.status === 'ocupada') {
-            const comanda = this.tables.find((x) => x.id === t.id && x.status === 'ocupada');
             // Buscar comanda aberta para esta mesa
-            fetch('/api/comandas/comandas?status=aberta').then(r => r.ok && r.json()).then(list => {
-              const c = list.find((c) => c.table_id === t.id);
-              if (c) window.location.href = '/app/comandas/mesas/' + c.id;
-            });
+            const r = await fetch('/api/comandas/comandas?status=aberta');
+            if (!r.ok) return;
+            const list = await r.json();
+            const c = list.find((c) => c.table_id === t.id);
+            if (c) window.location.href = '/app/comandas/mesas/' + c.id;
+            return;
+          }
+          // Mesa livre: abre uma comanda nova nela
+          const r = await fetch('/api/comandas/comandas', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tableId: t.id }),
+          });
+          if (r.ok) {
+            const c = await r.json();
+            window.location.href = '/app/comandas/mesas/' + c.id;
+          } else {
+            const e = await r.json();
+            alert(e.error);
           }
         },
         async createTable() {
@@ -83,7 +95,7 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ label: this.newTableLabel.trim() }),
           });
-          if (r.ok) { this.showAddTable = false; this.newTableLabel = ''; await this.load(); }
+          if (r.ok) { this.$refs.addTableDlg.close(); this.newTableLabel = ''; await this.load(); }
           else { const e = await r.json(); alert(e.error); }
         },
       };

@@ -784,6 +784,11 @@
 
         // ─── Inicialização ───
         async init() {
+          // Alpine chama init() 2x (hook automático de lifecycle + x-init="init()" explicito) —
+          // inofensivo na maioria das telas (fetch+set idempotente), mas loadComanda() não é
+          // idempotente (duplicaria a comanda em 2 abas de venda), por isso o guard aqui.
+          if (this._initDone) return;
+          this._initDone = true;
           this.restoreSlots();
           const [m, s, c, p] = await Promise.all([
             fetch('/api/store/payment-methods'),
