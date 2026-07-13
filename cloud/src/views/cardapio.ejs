@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <%- include('partials/theme-init') %>
+  <title><%= company ? `Cardápio — ${company.name ?? 'Katsu'}` : 'Cardápio não encontrado' %></title>
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <style>
+    .menu-page { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    .menu-header { text-align: center; margin-bottom: 32px; }
+    .menu-header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+    .menu-header p { color: var(--muted); margin: 0; font-size: 0.9rem; }
+    .menu-category { margin-bottom: 28px; }
+    .menu-category h2 {
+      font-size: 1.05rem; margin: 0 0 12px; padding-bottom: 8px;
+      border-bottom: 2px solid var(--primary-soft); color: var(--primary);
+    }
+    .menu-item {
+      display: flex; justify-content: space-between; gap: 16px;
+      padding: 12px 0; border-bottom: 1px solid var(--border-light);
+    }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item-name { font-weight: 600; font-size: 0.95rem; }
+    .menu-item-desc { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+    .menu-item-price { font-weight: 700; color: var(--primary); white-space: nowrap; font-size: 0.95rem; }
+    .menu-empty { text-align: center; color: var(--muted); padding: 48px 16px; }
+    .menu-footer { text-align: center; margin-top: 40px; font-size: 0.78rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <% if (!company) { %>
+    <div class="menu-page">
+      <div class="empty-state-box" style="margin-top:64px">
+        <p>Cardápio não encontrado.</p>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="menu-page">
+      <div class="menu-header">
+        <h1><%= company.name ?? 'Cardápio' %></h1>
+        <p>Cardápio online</p>
+      </div>
+      <% if (!categories.length) { %>
+        <div class="menu-empty">Nenhum item disponível no cardápio no momento.</div>
+      <% } else { %>
+        <% categories.forEach(function(cat) { %>
+          <div class="menu-category">
+            <h2><%= cat.name %></h2>
+            <% cat.items.forEach(function(item) { %>
+              <div class="menu-item">
+                <div>
+                  <div class="menu-item-name"><%= item.name %></div>
+                  <% if (item.description) { %><div class="menu-item-desc"><%= item.description %></div><% } %>
+                </div>
+                <div class="menu-item-price"><%= (item.price_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) %></div>
+              </div>
+            <% }); %>
+          </div>
+        <% }); %>
+      <% } %>
+      <div class="menu-footer">Cardápio gerado pelo Katsu</div>
+    </div>
+  <% } %>
+</body>
+</html>

@@ -32,6 +32,38 @@ function decodeCursor(cursor: string): { serverReceivedAt: string; id: number } 
   return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
 }
 
+/**
+ * Projeta produtos sincronizados na tabela pública `menu_items` (Fase 6 — cardápio
+ * online) quando o lojista marcou `visivel_cardapio` no app local. Só o subconjunto
+ * seguro (nome/descrição/preço/categoria) é copiado aqui — nunca custo/estoque, que
+ * ficam só em `sync_records` (autenticado). Best-effort: uma falha aqui nunca derruba
+ * o push do lote principal, mesmo padrão de `foodservice.kitchen.notifyOrder` no app local.
+ */
+async function projectMenuItem(
+  conn: import('mysql2/promise').PoolConnection,
+  companyUuid: string,
+  item: IncomingBatchItem,
+): Promise<void> {
+  if (item.entityType !== 'commercial.products') return;
+  try {
+    const p = item.payload;
+    const visible = !item.deletedAt && Number(p.active) === 1 && Number(p.visivel_cardapio) === 1;
+    if (visible) {
+      await conn.query(
+        `INSERT INTO menu_items (company_uuid, product_uuid, name, description, price_cents, category_uuid)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description),
+           price_cents = VALUES(price_cents), category_uuid = VALUES(category_uuid)`,
+        [companyUuid, item.uuid, String(p.name ?? ''), (p.description as string | null) ?? null, Number(p.price_cents ?? 0), (p.category_id as string | null) ?? null],
+      );
+    } else {
+      await conn.query('DELETE FROM menu_items WHERE company_uuid = ? AND product_uuid = ?', [companyUuid, item.uuid]);
+    }
+  } catch {
+    // best-effort: o cardápio online é um extra opcional, o push do lote principal não pode falhar por causa dele.
+  }
+}
+
 router.post('/push', requireCompanyAuth, requireCloudSavePlan, async (req: AuthedRequest, res) => {
   const body = req.body as { machineId?: string; batch?: IncomingBatchItem[] };
   if (!Array.isArray(body.batch)) {
@@ -64,6 +96,7 @@ router.post('/push', requireCompanyAuth, requireCloudSavePlan, async (req: Authe
             item.originMachine,
           ],
         );
+        await projectMenuItem(conn, req.companyUuid!, item);
         accepted++;
       } catch (e) {
         rejected.push({ uuid: item.uuid, reason: (e as Error).message });

@@ -7,6 +7,7 @@ import billingRoutes from './routes/billing';
 import catalogRoutes from './routes/catalog';
 import adminRoutes from './routes/admin';
 import wikiRoutes from './routes/wiki';
+import menuRoutes from './routes/menu';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -19,6 +20,7 @@ export function createCloudServer() {
   app.use(express.urlencoded({ extended: true }));
   app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'katsu-cloud' }));
   app.use('/wiki', wikiRoutes);
+  app.use('/cardapio', menuRoutes);
   app.use('/api/sync', syncRoutes);
   app.use('/api/license', licenseRoutes);
   app.use('/api/backup', backupRoutes);

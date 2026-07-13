@@ -44,7 +44,7 @@ const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }
    * fica "pendente" até o módulo carregar e popular o catálogo, o que sempre
    * acontece antes de qualquer request real).
    */
-  { slug: 'garcom', name: 'Garçom', permissions: ['comandas.view', 'comandas.manage', 'commercial.products.view'] },
+  { slug: 'garcom', name: 'Garçom', permissions: ['comandas.view', 'comandas.manage', 'commercial.products.search'] },
   { slug: 'cozinha', name: 'Cozinha (KDS)', permissions: ['foodservice.kitchen.view', 'foodservice.kitchen.manage'] },
 ];
 

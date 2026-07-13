@@ -48,7 +48,7 @@ export function resetTestData(): ResetSummary[] {
         continue;
       }
       // Preserva as categorias-sistema do DRE (Receita Bruta/CMV/Taxas de cartão etc.,
-      // semeadas uma única vez pela migration 0030_dre_base) — sem elas o relatório de
+      // semeadas uma única vez pela migration 0033_dre_base) — sem elas o relatório de
       // DRE fica mudo mesmo com vendas reais, porque não sobra onde agrupar as linhas
       // automáticas. Só categorias manuais criadas pelo usuário são consideradas teste.
       if (table === 'dre_categories') {

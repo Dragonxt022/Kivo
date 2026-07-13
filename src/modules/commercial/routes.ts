@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Router, type Request } from 'express';
 import { getSqlite } from '../../core/database/connection';
-import { requirePermission } from '../../core/permissions/middleware';
+import { requirePermission, requireAnyPermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
@@ -121,7 +121,7 @@ router.delete('/categories/:id', requirePermission('commercial.products.delete')
 // ---------- Produtos (RBAC fino: preço separado de edição) ----------
 const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
   p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active,
-  p.image_url, p.updated_at, p.product_type, p.parent_product_id`;
+  p.image_url, p.updated_at, p.product_type, p.parent_product_id, p.visivel_cardapio`;
 const getProduct = (id: string | number) =>
   db().prepare(`SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
                 WHERE p.id = ? AND p.deleted_at IS NULL`).get(id);
@@ -182,7 +182,7 @@ function deleteLocalImageIfOwned(imageUrl: string | null | undefined): void {
   }
 }
 
-router.get('/products', requirePermission('commercial.products.view'), (req, res) => {
+router.get('/products', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
   // Grade de cadastro: só produtos de topo (simples ou pais de variante), nunca variantes filhas.
   // Busca (q presente): variantes filhas aparecem, mas produto-pai nao (nao e vendavel).
@@ -449,6 +449,25 @@ router.put('/products/:id/favorite', requirePermission('commercial.products.edit
   }
   const favorite = req.body?.favorite ? 1 : 0;
   db().prepare(`UPDATE products SET favorite = ?, updated_at = datetime('now') WHERE id = ?`).run(favorite, id);
+  const after = getProduct(id);
+  audit(req, 'editar', 'product', id, before, after);
+  res.json(after);
+});
+
+/**
+ * Marca/desmarca o produto pro cardápio online público (Fase 6) — endpoint dedicado
+ * (mesmo padrão de /favorite) em vez de misturar no PUT genérico, pra poder exigir a
+ * capability sem travar a edição normal do produto quando ela estiver desligada.
+ */
+router.put('/products/:id/cardapio-online', requirePermission('commercial.products.edit'), requireCapability('commercial.cardapio_online'), (req, res) => {
+  const id = String(req.params.id);
+  const before = getProduct(id) as { visivel_cardapio: number } | undefined;
+  if (!before) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  const visivelCardapio = req.body?.visivelCardapio ? 1 : 0;
+  db().prepare(`UPDATE products SET visivel_cardapio = ?, updated_at = datetime('now') WHERE id = ?`).run(visivelCardapio, id);
   const after = getProduct(id);
   audit(req, 'editar', 'product', id, before, after);
   res.json(after);

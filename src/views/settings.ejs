@@ -45,6 +45,12 @@
         Rede local
       </button>
       <% } %>
+      <% if (user.permissions.has('settings.edit')) { %>
+      <button :class="{ active: tab === 'cardapio' }" @click="tab = 'cardapio'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Cardápio online
+      </button>
+      <% } %>
       <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
       <button :class="{ active: tab === 'security' }" @click="tab = 'security'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -297,11 +303,14 @@
         </div>
         <% } %>
         <div x-show="networkInfo.urls && networkInfo.urls.length" style="margin-top:1.25rem">
-          <p class="hint mt-0">Endereço(s) desta máquina na rede local — acesse pelo navegador do celular/tablet:</p>
-          <template x-for="u in networkInfo.urls" :key="u">
-            <div class="flex-row" style="align-items:center;gap:.5rem;margin-bottom:.4rem">
-              <code x-text="u" style="font-size:1rem;padding:.3rem .6rem;background:var(--surface-hover);border-radius:6px"></code>
-              <button type="button" class="btn secondary small" @click="copyUrl(u)" x-text="copiedUrl === u ? 'Copiado!' : 'Copiar'"></button>
+          <p class="hint mt-0">Endereço(s) desta máquina na rede local — acesse pelo navegador do celular/tablet, ou aponte a câmera para o QR:</p>
+          <template x-for="u in networkInfo.urls" :key="u.url">
+            <div class="flex-row" style="align-items:center;gap:.75rem;margin-bottom:.75rem">
+              <img :src="u.qr" width="80" height="80" alt="QR code do endereço" style="border-radius:6px;background:#fff;padding:4px" />
+              <div class="flex-row" style="align-items:center;gap:.5rem">
+                <code x-text="u.url" style="font-size:1rem;padding:.3rem .6rem;background:var(--surface-hover);border-radius:6px"></code>
+                <button type="button" class="btn secondary small" @click="copyUrl(u.url)" x-text="copiedUrl === u.url ? 'Copiado!' : 'Copiar'"></button>
+              </div>
             </div>
           </template>
         </div>
@@ -313,6 +322,47 @@
           <strong>Cozinha (KDS)</strong> (só vê o painel de produção) em vez de compartilhar o login de
           administrador nesses aparelhos — veja <a href="/admin/usuarios">Usuários</a> e
           <a href="/admin/cargos">Cargos</a>.
+        </p>
+      </section>
+    </div>
+    <% } %>
+
+    <!-- ═══════ ABA: CARDÁPIO ONLINE ═══════ -->
+    <% if (user.permissions.has('settings.edit')) { %>
+    <div x-show="tab === 'cardapio'" x-cloak>
+      <section class="panel">
+        <h2>Cardápio online</h2>
+        <p class="hint mt-0">
+          Página pública, sem login, com os produtos que você escolher — pra clientes verem o
+          cardápio pelo celular antes de vir na loja. Fica hospedada na nuvem do Katsu, separada
+          do app (não depende do computador estar ligado).
+        </p>
+        <p class="hint">
+          Requer o recurso <strong>"Cardápio online"</strong> ligado em
+          <a href="/admin/recursos">Configurações → Recursos</a> e um plano com salvamento em
+          nuvem. Depois de ligado, marque os produtos em
+          <a href="/app/commercial/produtos">Produtos</a> usando o ícone de globo em cada linha —
+          só os marcados aparecem na página pública.
+        </p>
+
+        <div x-show="cardapio.loading" class="hint">Carregando…</div>
+
+        <div x-show="!cardapio.loading && cardapio.url" style="margin-top:1rem">
+          <div class="flex-row" style="align-items:center;gap:.75rem">
+            <img :src="cardapio.qr" width="120" height="120" alt="QR code do cardápio" style="border-radius:6px;background:#fff;padding:6px" />
+            <div>
+              <code x-text="cardapio.url" style="font-size:.95rem;padding:.3rem .6rem;background:var(--surface-hover);border-radius:6px;word-break:break-all;display:inline-block"></code>
+              <div style="margin-top:.5rem">
+                <button type="button" class="btn secondary small" @click="copyCardapioUrl()" x-text="cardapio.copied ? 'Copiado!' : 'Copiar link'"></button>
+                <a :href="cardapio.url" target="_blank" rel="noopener" class="btn secondary small">Abrir</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="hint" x-show="!cardapio.loading && !cardapio.url" style="margin-top:1rem">
+          Ainda não é possível gerar o link: é preciso ativar a licença (Configurações → Licença)
+          com um plano que inclua salvamento em nuvem.
         </p>
       </section>
     </div>
@@ -501,6 +551,7 @@
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
         fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
         rede: { acessoLocal: false }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null }, copiedUrl: '',
+        cardapio: { url: '', qr: '', loading: true, copied: false },
 
         async load() {
           const r = await fetch('/api/settings');
@@ -519,6 +570,9 @@
           <% if (user.permissions.has('settings.edit')) { %>
           const n = await fetch('/api/settings/network-info');
           if (n.ok) this.networkInfo = await n.json();
+          const c = await fetch('/api/settings/cardapio-info');
+          if (c.ok) this.cardapio = { ...(await c.json()), loading: false, copied: false };
+          else this.cardapio.loading = false;
           <% } %>
         },
         syncSettings() {
@@ -692,6 +746,12 @@
           navigator.clipboard?.writeText(u).then(() => {
             this.copiedUrl = u;
             setTimeout(() => { if (this.copiedUrl === u) this.copiedUrl = ''; }, 1500);
+          });
+        },
+        copyCardapioUrl() {
+          navigator.clipboard?.writeText(this.cardapio.url).then(() => {
+            this.cardapio.copied = true;
+            setTimeout(() => { this.cardapio.copied = false; }, 1500);
           });
         },
         async saveSecurity() {
