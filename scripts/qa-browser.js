@@ -5,6 +5,8 @@
  * Uso:
  *   node scripts/qa-browser.js /app/store/pdv /app/commercial/produtos
  *   node scripts/qa-browser.js --user admin --pass admin /
+ *   node scripts/qa-browser.js --dark /app/store/pdv     (força tema escuro)
+ *   node scripts/qa-browser.js --mobile /app/store/pdv   (viewport de celular, 390x844)
  *   BASE_URL=http://localhost:3123 node scripts/qa-browser.js /
  *
  * Screenshots em .qa-screenshots/ (gitignored). Requer `npm run dev` já rodando.
@@ -20,20 +22,33 @@ function parseArgs(argv) {
   const routes = [];
   let user = 'admin';
   let pass = 'admin';
+  let dark = false;
+  let mobile = false;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--user') user = argv[++i];
     else if (argv[i] === '--pass') pass = argv[++i];
+    else if (argv[i] === '--dark') dark = true;
+    else if (argv[i] === '--mobile') mobile = true;
     else routes.push(argv[i]);
   }
-  return { routes: routes.length ? routes : ['/'], user, pass };
+  return { routes: routes.length ? routes : ['/'], user, pass, dark, mobile };
 }
 
 async function main() {
-  const { routes, user, pass } = parseArgs(process.argv.slice(2));
+  const { routes, user, pass, dark, mobile } = parseArgs(process.argv.slice(2));
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+  const context = await browser.newContext(
+    mobile
+      ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+      : { viewport: { width: 1400, height: 900 } },
+  );
+  if (dark) {
+    // theme-init.ejs lê isso do localStorage antes de pintar a página — precisa estar
+    // presente ANTES do 1º load, daí addInitScript (roda em toda navegação futura).
+    await context.addInitScript(() => localStorage.setItem('katsu-theme', 'dark'));
+  }
   const page = await context.newPage();
 
   const results = [];
@@ -69,7 +84,8 @@ async function main() {
     try {
       await page.goto(`${BASE_URL}${route}`, { waitUntil: 'load', timeout: 15000 });
       await page.waitForTimeout(300); // dá tempo pro Alpine terminar x-init/fetch
-      const file = path.join(OUT_DIR, route.replace(/[/?]/g, '_').replace(/^_+/, '') || 'home') + '.png';
+      const base = (route.replace(/[/?]/g, '_').replace(/^_+/, '') || 'home') + (dark ? '.dark' : '') + (mobile ? '.mobile' : '');
+      const file = path.join(OUT_DIR, base) + '.png';
       await page.screenshot({ path: file, fullPage: true });
       current.screenshot = file;
       current.title = await page.title();

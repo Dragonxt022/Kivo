@@ -69,6 +69,7 @@ git add -A
 git commit -m "mensagem do que mudou"
 git push origin main
 npm run cloud:deploy
+npm run katsu cloud:deploy
 ```
 
 O que `npm run cloud:deploy` faz sozinho (script `scripts/deploy-cloud.sh`):

@@ -12,55 +12,97 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/foodservice/roteamento' }) %>
   <main x-data="routingPage()" x-init="init()">
-    <div class="container">
-      <h1>Roteamento para Cozinha</h1>
-      <p class="text-muted">Defina quais produtos geram ticket na cozinha ao serem vendidos.</p>
-      <table class="table">
-        <thead>
-          <tr><th>Produto</th><th>SKU</th><th>Estação</th><th>Tempo Estimado (min)</th><th></th></tr>
-        </thead>
-        <tbody>
-          <template x-for="r in list" :key="r.id">
-            <tr>
-              <td x-text="r.product_name"></td>
-              <td x-text="r.sku || '-'"></td>
-              <td><input type="text" x-model="r.station" class="form-input" placeholder="ex.: Chapa" /></td>
-              <td><input type="number" x-model="r.estimated_minutes" class="form-input" style="width:80px" min="1" /></td>
-              <td>
-                <button type="button" class="btn btn-sm" @click="update(r)">Salvar</button>
-                <button type="button" class="btn btn-sm btn-danger" @click="remove(r)">Remover</button>
-              </td>
-            </tr>
+    <h1>Roteamento para cozinha</h1>
+    <p class="muted muted-block">Defina quais produtos geram ticket na cozinha ao serem vendidos.</p>
+
+    <table class="routing-table" x-show="list.length">
+      <thead>
+        <tr><th>Produto</th><th>SKU</th><th>Estação</th><th style="width:140px">Tempo estimado</th><th></th></tr>
+      </thead>
+      <tbody>
+        <template x-for="r in list" :key="r.id">
+          <tr>
+            <td data-label="Produto" x-text="r.product_name"></td>
+            <td data-label="SKU" class="muted" x-text="r.sku || '—'"></td>
+            <td data-label="Estação"><input type="text" x-model="r.station" class="input input-narrow-lg" placeholder="Ex.: Chapa" /></td>
+            <td data-label="Tempo estimado">
+              <div class="flex-center" style="gap:.35rem">
+                <input type="number" x-model="r.estimated_minutes" class="input input-narrow-sm" min="1" />
+                <span class="muted text-xs">min</span>
+              </div>
+            </td>
+            <td class="actions-cell">
+              <button type="button" class="icon-btn" @click="update(r)" title="Salvar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <span class="mobile-label">Salvar</span>
+              </button>
+              <button type="button" class="icon-btn active" @click="remove(r)" title="Remover">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                <span class="mobile-label">Remover</span>
+              </button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <div x-show="!list.length" x-cloak>
+      <%- include('partials/empty-state', { message: 'Nenhum produto roteado para a cozinha ainda.' }) %>
+    </div>
+
+    <div class="panel mt-2">
+      <h2>Adicionar produto</h2>
+      <div class="combo-wrap">
+        <input type="text" class="input" style="width:100%" x-model="searchQ"
+               @input.debounce.300ms="searchProducts" placeholder="Buscar produto por nome ou SKU…" />
+        <div class="combo-results" x-show="searchResults.length" x-cloak>
+          <template x-for="p in searchResults" :key="p.id">
+            <button type="button" class="combo-result" @click="addProduct(p)">
+              <span x-text="p.name"></span>
+              <span class="muted text-sm" x-text="p.sku || '—'"></span>
+            </button>
           </template>
-        </tbody>
-      </table>
-      <hr />
-      <h2>Adicionar Produto</h2>
-      <div class="form-row">
-        <input type="text" x-model="searchQ" @input.debounce.300ms="searchProducts" placeholder="Buscar produto..." class="form-input" />
+        </div>
       </div>
-      <template x-if="searchResults.length">
-        <table class="table">
-          <thead><tr><th>Produto</th><th>SKU</th><th></th></tr></thead>
-          <tbody>
-            <template x-for="p in searchResults" :key="p.id">
-              <tr>
-                <td x-text="p.name"></td>
-                <td x-text="p.sku || '-'"></td>
-                <td><button type="button" class="btn btn-sm" @click="addProduct(p)">Adicionar</button></td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </template>
+      <div class="error" x-text="error"></div>
     </div>
   </main>
+  <style>
+    .mobile-label { display: none; }
+    /* ─── Celular: tabela vira lista de cards (tabela larga é ilegível em tela estreita) ─── */
+    @media (max-width: 640px) {
+      .routing-table, .routing-table tbody, .routing-table tr, .routing-table td { display: block; width: 100%; }
+      .routing-table thead { display: none; }
+      .routing-table { box-shadow: none; }
+      .routing-table tr {
+        margin-bottom: .85rem; background: var(--surface); border: 1.5px solid var(--border-light);
+        border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-xs);
+      }
+      .routing-table td {
+        display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+        padding: .65rem .9rem; border-bottom: 1px solid var(--border-light); border-radius: 0 !important;
+      }
+      .routing-table td:last-child { border-bottom: 0; }
+      .routing-table td[data-label]::before {
+        content: attr(data-label); flex-shrink: 0;
+        font-size: .78rem; font-weight: 600; color: var(--text-muted);
+      }
+      .routing-table td .input { width: auto; flex: 1; max-width: 60%; }
+      .routing-table td.actions-cell { justify-content: flex-end; gap: .25rem; }
+      .routing-table .icon-btn {
+        width: auto; height: 38px; padding: 0 .8rem; gap: .4rem;
+        border: 1.5px solid var(--border-light); border-radius: 8px;
+      }
+      .routing-table .mobile-label { display: inline; font-size: .82rem; font-weight: 600; }
+    }
+  </style>
   <script>
     function routingPage() {
       return {
         list: [],
         searchQ: '',
         searchResults: [],
+        error: '',
         async init() { await this.load(); },
         async load() {
           const r = await fetch('/api/foodservice/kitchen-routing');
@@ -81,18 +123,20 @@
             body: JSON.stringify({ productId: p.id }),
           });
           if (r.ok) { this.searchQ = ''; this.searchResults = []; await this.load(); }
-          else { const e = await r.json(); alert(e.error); }
+          else this.error = (await r.json()).error ?? 'Erro ao adicionar produto.';
         },
         async update(r) {
-          await fetch(`/api/foodservice/kitchen-routing/${r.id}`, {
+          const res = await fetch(`/api/foodservice/kitchen-routing/${r.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ station: r.station, estimatedMinutes: Number(r.estimated_minutes) || null }),
           });
+          if (!res.ok) this.error = (await res.json()).error ?? 'Erro ao salvar.';
         },
         async remove(r) {
           if (!await window.confirmDlg('Remover ' + r.product_name + ' do roteamento?')) return;
-          await fetch(`/api/foodservice/kitchen-routing/${r.id}`, { method: 'DELETE' });
-          await this.load();
+          const res = await fetch(`/api/foodservice/kitchen-routing/${r.id}`, { method: 'DELETE' });
+          if (res.ok) await this.load();
+          else this.error = (await res.json()).error ?? 'Erro ao remover.';
         },
       };
     }

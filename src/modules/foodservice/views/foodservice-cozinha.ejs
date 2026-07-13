@@ -12,62 +12,97 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/foodservice/cozinha' }) %>
   <main x-data="cozinhaPage()" x-init="init()">
-    <div class="container">
-      <h1>Painel de Cozinha</h1>
-      <div class="kds-tabs">
-        <button type="button" :class="{ active: tab === 'pendente' }" @click="tab='pendente'; load()">Pendentes</button>
-        <button type="button" :class="{ active: tab === 'preparo' }" @click="tab='preparo'; load()">Em Preparo</button>
-        <button type="button" :class="{ active: tab === 'pronto' }" @click="tab='pronto'; load()">Prontos</button>
-        <button type="button" :class="{ active: tab === 'entregue' }" @click="tab='entregue'; load()">Entregues</button>
-      </div>
-      <div class="kds-grid">
-        <template x-for="ticket in tickets" :key="ticket.id">
-          <div class="kds-card" :class="'kds-' + ticket.status">
-            <div class="kds-card-header">
-              <span class="kds-source" x-text="ticket.source_type === 'comanda' ? 'Mesa ' + (ticket.table_label || ticket.source_id) : 'PDV #' + ticket.source_id"></span>
-              <span class="kds-time" x-text="ticket.updated_at?.slice(11, 16) || ''"></span>
-            </div>
-            <div class="kds-items">
-              <template x-for="item in (ticket.items || [])" :key="item.id">
-                <div class="kds-item" :class="'kds-item-' + item.status">
-                  <div class="kds-item-qty" x-text="item.qty + 'x'"></div>
-                  <div class="kds-item-info">
-                    <div class="kds-item-name" x-text="item.product_name"></div>
-                    <div class="kds-item-meta" x-show="item.notes" x-text="'Obs: ' + item.notes"></div>
-                    <div class="kds-item-meta" x-show="item.station" x-text="item.station"></div>
-                  </div>
-                  <button type="button" class="btn btn-sm" :disabled="item.status === 'entregue'" @click="advanceItem(ticket.id, item.id, item.status)">
-                    <span x-text="nextStatus(item.status)"></span>
-                  </button>
-                </div>
-              </template>
-            </div>
+    <h1>Painel de cozinha</h1>
+
+    <div class="tabs">
+      <button type="button" :class="{ active: tab === 'pendente' }" @click="tab = 'pendente'; load()">Pendentes</button>
+      <button type="button" :class="{ active: tab === 'preparo' }" @click="tab = 'preparo'; load()">Em preparo</button>
+      <button type="button" :class="{ active: tab === 'pronto' }" @click="tab = 'pronto'; load()">Prontos</button>
+      <button type="button" :class="{ active: tab === 'entregue' }" @click="tab = 'entregue'; load()">Entregues</button>
+    </div>
+
+    <div class="kds-grid" x-show="tickets.length">
+      <template x-for="ticket in tickets" :key="ticket.id">
+        <div class="kds-card" :class="'kds-' + ticket.status">
+          <div class="kds-card-header">
+            <span class="kds-source">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path x-show="ticket.source_type === 'comanda'" d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+                <g x-show="ticket.source_type !== 'comanda'"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></g>
+              </svg>
+              <span x-text="ticket.source_type === 'comanda' ? (ticket.table_label || ('Mesa ' + ticket.source_id)) : 'PDV #' + ticket.source_id"></span>
+            </span>
+            <span class="kds-time" x-text="ticket.updated_at?.slice(11, 16) || ''"></span>
           </div>
-        </template>
-        <div x-show="!tickets.length" class="kds-empty">Nenhum ticket.</div>
-      </div>
+          <div class="kds-items">
+            <template x-for="item in (ticket.items || [])" :key="item.id">
+              <div class="kds-item" :class="'kds-item-' + item.status">
+                <div class="kds-item-qty" x-text="item.qty + 'x'"></div>
+                <div class="kds-item-info">
+                  <div class="kds-item-name" x-text="item.product_name"></div>
+                  <div class="kds-item-meta" x-show="item.notes" x-text="'Obs.: ' + item.notes"></div>
+                  <span class="badge badge-info" x-show="item.station" x-text="item.station"></span>
+                </div>
+                <button type="button" class="btn small" :disabled="item.status === 'entregue'" @click="advanceItem(ticket.id, item.id, item.status)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon x-show="item.status === 'pendente'" points="6 3 20 12 6 21 6 3"/>
+                    <path x-show="item.status !== 'pendente'" d="M20 6 9 17l-5-5"/>
+                  </svg>
+                  <span x-text="nextStatus(item.status)"></span>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <div x-show="!tickets.length" x-cloak>
+      <%- include('partials/empty-state', { message: 'Nenhum ticket nesta etapa.' }) %>
     </div>
   </main>
   <style>
-    .kds-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-    .kds-tabs button { padding: 0.5rem 1rem; border: 1px solid var(--border); background: var(--bg); cursor: pointer; border-radius: 6px; }
-    .kds-tabs button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-    .kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
-    .kds-card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; background: var(--bg); }
-    .kds-card.kds-pendente { border-left: 4px solid #eab308; }
-    .kds-card.kds-preparo { border-left: 4px solid #3b82f6; }
-    .kds-card.kds-pronto { border-left: 4px solid #22c55e; }
-    .kds-card.kds-entregue { border-left: 4px solid #6b7280; opacity: 0.7; }
-    .kds-card-header { display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-weight: 600; }
-    .kds-time { color: var(--muted); font-size: 0.85rem; }
-    .kds-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--border); }
+    .kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+    .kds-card {
+      background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius);
+      box-shadow: var(--shadow-xs); overflow: hidden; border-left: 4px solid var(--border);
+    }
+    .kds-card.kds-pendente { border-left-color: var(--warning-text); }
+    .kds-card.kds-preparo { border-left-color: var(--kds-preparo); }
+    .kds-card.kds-pronto { border-left-color: var(--primary); }
+    .kds-card.kds-entregue { border-left-color: var(--text-muted); opacity: .65; }
+    .kds-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .75rem 1rem; font-weight: 600; font-size: .9rem;
+      background: var(--surface-hover); border-bottom: 1px solid var(--border-light);
+    }
+    .kds-source { display: flex; align-items: center; gap: .4rem; color: var(--text); }
+    .kds-time { color: var(--text-muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+    .kds-items { display: flex; flex-direction: column; }
+    .kds-item {
+      display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem;
+      border-top: 1px solid var(--border-light);
+    }
     .kds-item:first-child { border-top: none; }
-    .kds-item-qty { font-weight: 700; font-size: 1.1rem; min-width: 2rem; text-align: center; }
-    .kds-item-info { flex: 1; }
-    .kds-item-name { font-weight: 500; }
-    .kds-item-meta { font-size: 0.85rem; color: var(--muted); }
-    .kds-item-preparo { background: rgba(59,130,246,0.05); }
-    .kds-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 2rem; }
+    .kds-item-preparo { background: color-mix(in srgb, var(--kds-preparo) 8%, transparent); }
+    .kds-item-entregue { opacity: .55; }
+    .kds-item-qty {
+      font-weight: 700; font-size: 1rem; min-width: 2.1rem; text-align: center;
+      color: var(--primary); background: var(--primary-bg); border-radius: 7px; padding: .15rem 0;
+    }
+    .kds-item-info { flex: 1; min-width: 0; }
+    .kds-item-name { font-weight: 500; font-size: .92rem; }
+    .kds-item-meta { font-size: .8rem; color: var(--text-muted); margin: .1rem 0 .25rem; }
+
+    /* ─── Toque/mobile: alvo do botão de avançar maior, grid encolhe pra caber num celular ─── */
+    @media (hover: none), (max-width: 540px) {
+      .kds-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .75rem; }
+      .kds-item .btn.small { padding: .55rem .8rem; font-size: .82rem; }
+    }
+  </style>
+  <style>
+    :root { --kds-preparo: #2a78d6; }
+    :root[data-theme="dark"] { --kds-preparo: #3987e5; }
   </style>
   <script>
     function cozinhaPage() {

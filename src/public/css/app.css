@@ -393,7 +393,7 @@ thead tr:first-child th:first-child { border-radius: var(--radius) 0 0 0; }
 thead tr:first-child th:last-child { border-radius: 0 var(--radius) 0 0; }
 tr:last-child td:first-child { border-radius: 0 0 0 var(--radius); }
 tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
-.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable { cursor: pointer; -webkit-user-select: none; user-select: none; white-space: nowrap; }
 .sortable:hover { color: var(--text); }
 .sort-arrow { font-size: .6rem; margin-left: .15rem; }
 
@@ -486,7 +486,7 @@ tr:last-child td:last-child { border-radius: 0 0 var(--radius) 0; }
 details.advanced { margin-top: .5rem; }
 details.advanced > summary {
   cursor: pointer; font-size: .85rem; color: var(--text-muted); padding: .4rem 0; list-style: none;
-  display: flex; align-items: center; gap: .4rem; user-select: none;
+  display: flex; align-items: center; gap: .4rem; -webkit-user-select: none; user-select: none;
 }
 details.advanced > summary::-webkit-details-marker { display: none; }
 details.advanced > summary::before { content: '▸'; transition: transform var(--transition); }
@@ -781,11 +781,18 @@ dialog.product-modal > .dialog-body {
 }
 
 /* ─── Tabs ─── */
-.tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-light); }
+/* overflow-x: auto — em telas estreitas (celular), rola em vez de quebrar linha e
+   bagunçar a borda ativa; scrollbar some visualmente mas o toque/arraste continua. */
+.tabs {
+  display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-light);
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
 .tabs button {
   padding: .6rem 1.2rem; border: 0; background: transparent;
   color: var(--text-muted); font-size: .9rem; cursor: pointer;
   border-bottom: 2px solid transparent; margin-bottom: -2px;
+  white-space: nowrap; flex-shrink: 0;
   transition: color var(--transition), border-color var(--transition);
 }
 .tabs button:hover { color: var(--text); }
@@ -807,7 +814,7 @@ dialog.product-modal > .dialog-body {
   transition: background var(--transition), color var(--transition);
 }
 .month-nav button:hover { background: var(--surface-hover); color: var(--text); }
-.month-nav .month-label { min-width: 100px; text-align: center; user-select: none; }
+.month-nav .month-label { min-width: 100px; text-align: center; -webkit-user-select: none; user-select: none; }
 
 /* ─── Search + Filter ─── */
 .search-filter { position: relative; display: flex; gap: .4rem; flex: 1; max-width: 360px; }
