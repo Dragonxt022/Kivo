@@ -85,7 +85,7 @@ function loadAuthUser(userId: number): AuthUser | null {
   const perms = userRepository.raw(
     'SELECT permission_key FROM role_permissions WHERE role_id = ?',
     u.role_id,
-  ) as { permission_key: string }[];
+  ) as unknown as { permission_key: string }[];
 
   return {
     id: u.id,

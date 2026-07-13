@@ -359,7 +359,7 @@ router.post('/products/:id/duplicate', requirePermission('commercial.products.cr
 });
 
 router.get('/products/by-barcode/:code', requirePermission('commercial.products.view'), (req, res) => {
-  const row = productRepository.findByBarcode(req.params.code);
+  const row = productRepository.findByBarcode(String(req.params.code));
   if (!row) {
     res.status(404).json({ error: 'Nenhum produto com este código.' });
     return;

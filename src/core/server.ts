@@ -57,8 +57,10 @@ export interface KatsuServer {
 /** Página protegida por permissão: sem permissão → volta para a home. */
 function page(view: string, permission?: string) {
   return (req: Request, res: Response, _next: NextFunction) => {
-    assertAuth(req);
-    if (permission && !req.user.permissions.has(permission)) return res.redirect('/');
+    if (permission) {
+      assertAuth(req);
+      if (!req.user.permissions.has(permission)) return res.redirect('/');
+    }
     res.render(view, { user: req.user });
   };
 }

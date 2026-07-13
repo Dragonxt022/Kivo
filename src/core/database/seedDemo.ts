@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import Database from 'better-sqlite3';
 import { getService } from '../services/registry';
+import { getSqlite } from './connection';
 import type { StoreSalesService } from '../../modules/store/setup';
 import type { CommercialStockService } from '../../modules/commercial/setup';
 import type { FinanceCashService } from '../../modules/finance/setup';
@@ -57,7 +59,7 @@ function fakeAdminRequest() {
      ORDER BY u.id LIMIT 1`,
   ) as { id: number; username: string; name: string; role_id: number; role_slug: string } | undefined;
   if (!admin) throw new Error('Nenhum usuário administrador encontrado — rode as migrations/seeds do core primeiro.');
-  const perms = userRepository.raw('SELECT permission_key FROM role_permissions WHERE role_id = ?', admin.role_id) as { permission_key: string }[];
+  const perms = userRepository.raw('SELECT permission_key FROM role_permissions WHERE role_id = ?', admin.role_id) as unknown as { permission_key: string }[];
   const user = {
     id: admin.id, username: admin.username, name: admin.name,
     roleId: admin.role_id, roleSlug: admin.role_slug,
@@ -107,7 +109,7 @@ const SUPPLIERS = ['Distribuidora ABC', 'Casa do Construtor Atacado', 'Elétrica
 
 const DRE_MANUAL_CATEGORIES = ['Aluguel', 'Energia Elétrica', 'Água', 'Internet/Telefone', 'Salários', 'Marketing'];
 
-function seedMasterData(db: ReturnType<typeof userRepository.rawRun>) {
+function seedMasterData(db: Database.Database) {
   const categoryIds: Record<string, number> = {};
   for (const name of CATEGORY_NAMES) {
     const info = db.prepare('INSERT INTO categories (name, uuid) VALUES (?, ?)').run(name, randomUUID());
@@ -162,7 +164,7 @@ function weightedPaymentType(): string {
   return 'prazo';
 }
 
-function backdateSale(db: ReturnType<typeof userRepository.rawRun>, saleId: number, ts: string): void {
+function backdateSale(db: Database.Database, saleId: number, ts: string): void {
   db.prepare(`UPDATE sales SET created_at = ?, updated_at = ? WHERE id = ?`).run(ts, ts, saleId);
   db.prepare(`UPDATE cash_movements SET created_at = ? WHERE ref_entity = 'sale' AND ref_id = ?`).run(ts, String(saleId));
   db.prepare(`UPDATE stock_movements SET created_at = ? WHERE ref_entity = 'sale' AND ref_id = ?`).run(ts, String(saleId));
@@ -170,7 +172,7 @@ function backdateSale(db: ReturnType<typeof userRepository.rawRun>, saleId: numb
 }
 
 function simulateRestockIfNeeded(
-  req: import('express').Request, db: ReturnType<typeof userRepository.rawRun>, dateStr: string,
+  req: import('express').Request, db: Database.Database, dateStr: string,
   supplierIds: number[],
   productsData: { id: number; costCents: number }[],
 ): boolean {
@@ -209,7 +211,7 @@ function simulateRestockIfNeeded(
   return true;
 }
 
-function seedPayables(db: ReturnType<typeof userRepository.rawRun>, windowStart: string, dreCategoryIds: Record<string, number>): number {
+function seedPayables(db: Database.Database, windowStart: string, dreCategoryIds: Record<string, number>): number {
   const rows: { desc: string; category: string; day: number; amountCents: number; paid: boolean }[] = [
     { desc: 'Aluguel do galpão', category: 'Aluguel', day: 4, amountCents: 250000, paid: true },
     { desc: 'Internet e telefone', category: 'Internet/Telefone', day: 7, amountCents: 15000, paid: true },
@@ -238,7 +240,7 @@ function seedPayables(db: ReturnType<typeof userRepository.rawRun>, windowStart:
 }
 
 export function seedDemoData(): SeedDemoSummary {
-  const db = userRepository.db;
+  const db = getSqlite();
   const req = fakeAdminRequest();
   const { products, customerIds, supplierIds, dreCategoryIds, methodIdByType } = seedMasterData(db);
 

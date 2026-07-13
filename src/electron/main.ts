@@ -10,11 +10,30 @@ import { getSqlite } from '../core/database/connection';
 import { refreshLicenseFromCloud, validateLicense } from '../core/license/service';
 import { canAutoUpdate } from '../core/license/plans';
 
+function errorLogPath(): string {
+  if (app.isPackaged) {
+    return path.join(app.getPath('userData'), 'error.log');
+  }
+  return path.join(process.cwd(), 'error.log');
+}
+
+function appendErrorLog(msg: string): void {
+  try {
+    fs.appendFileSync(errorLogPath(), `${new Date().toISOString()} ${msg}\n`);
+  } catch {
+    // best-effort
+  }
+}
+
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
+  const msg = reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
+  console.error('[unhandledRejection]', msg);
+  appendErrorLog(`[unhandledRejection] ${msg}`);
 });
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err);
+  const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  console.error('[uncaughtException]', msg);
+  appendErrorLog(`[uncaughtException] ${msg}`);
 });
 
 const PORT = Number(process.env.KATSU_PORT ?? 3123);
@@ -60,6 +79,7 @@ function reportFatalBootError(err: unknown): void {
   } catch {
     // se nem isso funcionar, ao menos tenta mostrar o diálogo abaixo.
   }
+  appendErrorLog(`[boot-error] ${message}`);
   dialog.showErrorBox('Katsu — falha ao iniciar', message);
   app.quit();
 }

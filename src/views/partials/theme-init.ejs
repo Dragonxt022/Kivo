@@ -9,3 +9,20 @@
   } catch (e) {}
 })();
 </script>
+<script>
+// Todo JSON do servidor vem embrulhado em { success, data } ou { success: false, error }
+// (ver src/shared/responseEnvelope.ts), mas as telas foram escritas esperando o corpo "cru"
+// (ex.: this.rows = await r.json()). Desembrulha aqui, num único lugar carregado em toda
+// página, em vez de reescrever cada fetch() das views.
+(function () {
+  var originalJson = Response.prototype.json;
+  Response.prototype.json = function () {
+    return originalJson.call(this).then(function (body) {
+      if (body && typeof body === 'object' && typeof body.success === 'boolean') {
+        return body.success ? (body.data !== undefined ? body.data : body) : body;
+      }
+      return body;
+    });
+  };
+})();
+</script>
