@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertAuth } from '../shared/auth';
+import { responseEnvelope } from '../shared/responseEnvelope';
 import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
@@ -92,6 +93,9 @@ export async function createServer(): Promise<KatsuServer> {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.resolve(__dirname, '..', 'public')));
   app.use('/uploads/products', express.static(productImagesDir()));
+
+  // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
+  app.use(responseEnvelope);
 
   // Health check e tela de ativação: alcançáveis mesmo numa instalação ainda não
   // ativada (é o próprio propósito da tela). O gate abaixo bloqueia todo o resto.
