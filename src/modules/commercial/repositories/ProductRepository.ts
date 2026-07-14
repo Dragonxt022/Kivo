@@ -49,11 +49,29 @@ export class ProductRepository extends BaseRepository<ProductRow> {
     );
   }
 
+  searchAll(query: string): Row[] {
+    return this.raw(
+      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.deleted_at IS NULL
+         AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)
+       ORDER BY p.favorite DESC, p.name`,
+      `%${query}%`, query, query,
+    );
+  }
+
   listTopLevel(): Row[] {
     return this.raw(
       `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.deleted_at IS NULL AND p.parent_product_id IS NULL
          AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)
+       ORDER BY p.favorite DESC, p.name`,
+    );
+  }
+
+  listAll(): Row[] {
+    return this.raw(
+      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.deleted_at IS NULL AND p.parent_product_id IS NULL
        ORDER BY p.favorite DESC, p.name`,
     );
   }

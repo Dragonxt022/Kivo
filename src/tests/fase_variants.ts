@@ -158,12 +158,27 @@ async function main() {
   // Deve ter: 1 normal + 0 pai (pai excluido pelo NOT) = 1
   check('lista sem q mostra 1 produto (so o normal, pai excluido)', listamentoSemQ.c === 1);
 
-  // 11. Na busca com q, pai NAO aparece mas variantes aparecem
+  // 11. Na busca com q, pai NAO aparece mas variantes aparecem (search / listTopLevel)
   const buscaCamiseta = db.prepare(
     `SELECT COUNT(*) AS c FROM products p LEFT JOIN categories c ON c.id = p.category_id
      WHERE p.deleted_at IS NULL AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL) AND p.name LIKE ?`,
   ).get('%Camiseta%') as { c: number };
   check('busca "Camiseta" retorna 6 variantes (pai excluido)', buscaCamiseta.c === 6);
+
+  // 11b. listAll() inclui o produto-pai (sem o filtro excludente)
+  const listagemComPai = db.prepare(
+    `SELECT COUNT(*) AS c FROM products p LEFT JOIN categories c ON c.id = p.category_id
+     WHERE p.deleted_at IS NULL AND p.parent_product_id IS NULL`,
+  ).get() as { c: number };
+  // Deve ter: 1 normal + 1 pai = 2
+  check('listAll() mostra 2 produtos (normal + pai de variantes)', listagemComPai.c === 2);
+
+  // 11c. searchAll() retorna pai + 6 variantes = 7
+  const buscaComPai = db.prepare(
+    `SELECT COUNT(*) AS c FROM products p LEFT JOIN categories c ON c.id = p.category_id
+     WHERE p.deleted_at IS NULL AND p.name LIKE ?`,
+  ).get('%Camiseta%') as { c: number };
+  check('searchAll() "Camiseta" retorna 7 (pai + 6 variantes)', buscaComPai.c === 7);
 
   // 12. Duplicar variante preserva product_type e parent_product_id
   const sourceDuplicate = db.prepare('SELECT product_type, parent_product_id, unit, price_cents, cost_cents, track_stock, min_stock FROM products WHERE id = ?').get(variantIds[0]) as

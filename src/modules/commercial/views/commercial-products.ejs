@@ -93,18 +93,20 @@
             <td class="muted" x-text="p.unit"></td>
             <td @click.stop style="width:1%">
               <% if (user.permissions.has('commercial.products.edit')) { %>
-              <button class="icon-btn" :class="{ active: p.favorite }" @click="toggleFavorite(p)"
-                      :title="p.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'">
-                <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                </svg>
-              </button>
-              <button class="icon-btn" :class="{ active: p.visivel_cardapio }" @click="toggleCardapio(p)"
-                      :title="p.visivel_cardapio ? 'Remover do cardápio online' : 'Mostrar no cardápio online'">
-                <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.visivel_cardapio ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>
-                </svg>
-              </button>
+              <div class="flex-row">
+                <button class="icon-btn" :class="{ active: p.favorite }" @click="toggleFavorite(p)"
+                        :title="p.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'">
+                  <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
+                <button class="icon-btn" :class="{ active: p.visivel_cardapio }" @click="toggleCardapio(p)"
+                        :title="p.visivel_cardapio ? 'Remover do cardápio online' : 'Mostrar no cardápio online'">
+                  <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.visivel_cardapio ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/>
+                  </svg>
+                </button>
+              </div>
               <% } %>
             </td>
             <td class="text-right" @click.stop>
@@ -151,10 +153,13 @@
 
     <dialog x-ref="dlg" class="dialog-fixed product-modal">
       <h1 x-text="form.id ? 'Editar produto' : 'Novo produto'"></h1>
-      <div class="dialog-body">
+      <div class="dialog-body" :style="'grid-template-columns: 1fr 1fr' + (form.productType === 'fisico' ? '' : ' 1.2fr')">
         <div class="product-col">
           <label>Nome</label>
           <input type="text" x-model="form.name" @input.debounce.500ms="searchCatalogImages()" />
+
+          <label>Descrição / Ingredientes (cardápio online)</label>
+          <textarea x-model="form.description" rows="3" style="resize:vertical;min-height:80px"></textarea>
 
           <label>Tipo de produto</label>
           <select x-model="form.productType" :disabled="!!form.id">
@@ -245,150 +250,150 @@
           </div>
         </div>
 
-        <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
-      </div>
-      <template x-if="form.id && form.productType === 'variante'">
-        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
-          <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <h2 style="margin:0">Variantes</h2>
-            <div class="flex-row" style="gap:.5rem">
-              <button class="btn secondary small" type="button" @click="openAttrMgr()">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                Atributos
-              </button>
-              <button class="btn small" type="button" @click="openGenVariants()">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Gerar variantes
-              </button>
+        <div class="product-col-3" x-show="form.productType !== 'fisico'">
+          <template x-if="form.id && form.productType === 'variante'">
+            <div>
+              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.6rem">
+                <h2>Variantes</h2>
+                <div class="flex-row" style="gap:.5rem">
+                  <button class="btn secondary small" type="button" @click="openAttrMgr()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    Atributos
+                  </button>
+                  <button class="btn small" type="button" @click="openGenVariants()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Gerar variantes
+                  </button>
+                </div>
+              </div>
+              <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+                <table style="width:100%">
+                  <thead><tr>
+                    <th>Variante</th>
+                    <th>Atributos</th>
+                    <th>SKU</th>
+                    <th>Preço</th>
+                    <th>Est</th>
+                    <th></th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="v in variants" :key="v.id">
+                      <tr>
+                        <td x-text="v.name" style="white-space:nowrap"></td>
+                        <td class="muted text-xs" x-text="variantAttrsLabel(v)"></td>
+                        <td><input type="text" x-model="v.sku" class="inline-edit" @change="updateVariantField(v, 'sku')" style="width:70px" /></td>
+                        <td><input type="text" x-model="v.priceDisplay" class="inline-edit" @change="updateVariantPrice(v)" style="width:60px" /></td>
+                        <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock" /></td>
+                        <td @click.stop>
+                          <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="!variants.length"><td colspan="6" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhuma variante — use Atributos + Gerar variantes.</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-          <table>
-            <thead><tr>
-              <th>Variante</th>
-              <th>Atributos</th>
-              <th>SKU</th>
-              <th>Cód. barras</th>
-              <th>Preço</th>
-              <th>Estoque</th>
-              <th></th>
-            </tr></thead>
-            <tbody>
-              <template x-for="v in variants" :key="v.id">
-                <tr>
-                  <td x-text="v.name"></td>
-                  <td class="muted" x-text="variantAttrsLabel(v)"></td>
-                  <td><input type="text" x-model="v.sku" class="inline-edit" @change="updateVariantField(v, 'sku')" style="width:100px" /></td>
-                  <td><input type="text" x-model="v.barcode" class="inline-edit" @change="updateVariantField(v, 'barcode')" style="width:110px" /></td>
-                  <td><input type="text" x-model="v.priceDisplay" class="inline-edit" @change="updateVariantPrice(v)" style="width:80px" /></td>
-                  <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:70px" :disabled="!v.track_stock" /></td>
-                  <td @click.stop>
-                    <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                    </button>
-                  </td>
-                </tr>
-              </template>
-              <tr x-show="!variants.length"><td colspan="7" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhuma variante gerada ainda. Use "Atributos" para definir tamanhos/cores e "Gerar variantes" para criar as combinações.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </template>
-      <template x-if="form.id && (form.productType === 'kit' || form.productType === 'combo')">
-        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
-          <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <h2 style="margin:0">Componentes fixos</h2>
-            <button class="btn small" type="button" @click="openAddComponent()">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Adicionar componente
-            </button>
-          </div>
-          <table>
-            <thead><tr>
-              <th>Componente</th>
-              <th>SKU</th>
-              <th>Qtd</th>
-              <th>Preço (PDV)</th>
-              <th></th>
-            </tr></thead>
-            <tbody>
-              <template x-for="c in kitComponents" :key="c.id">
-                <tr>
-                  <td x-text="c.component_name"></td>
-                  <td class="muted" x-text="c.sku || '—'"></td>
-                  <td><input type="number" step="any" x-model="c.qty" class="inline-edit" @change="updateKitComponent(c)" style="width:60px" /></td>
-                  <td class="muted" x-text="brl(c.price_cents ?? 0)"></td>
-                  <td @click.stop>
-                    <button class="icon-btn" @click="deleteKitComponent(c)" title="Remover componente">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                    </button>
-                  </td>
-                </tr>
-              </template>
-              <tr x-show="!kitComponents.length"><td colspan="5" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhum componente adicionado ainda. Os componentes são incluídos automaticamente na venda do kit a custo real e preço zero.</td></tr>
-            </tbody>
-          </table>
-          <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border-light)">
-            <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.5rem">
-              <h3 style="margin:0;font-size:.95rem">Grupos de complementos vinculados</h3>
-              <button class="btn secondary small" type="button" @click="openAddComplementGroup()" title="Vincular grupo de complemento">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Vincular
-              </button>
-            </div>
-            <template x-for="g in complementGroups" :key="g.id">
-              <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.3rem 0">
-                <span x-text="g.group_name"></span>
-                <span class="muted text-xs" x-text="`min ${g.min_select}, máx ${g.max_select ?? '∞'}`"></span>
-                <button class="icon-btn" @click="unlinkComplementGroup(g)" title="Desvincular">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </template>
+          <template x-if="form.id && (form.productType === 'kit' || form.productType === 'combo')">
+            <div>
+              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.6rem">
+                <h2>Componentes fixos</h2>
+                <button class="btn small" type="button" @click="openAddComponent()">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Adicionar
                 </button>
               </div>
-            </template>
-            <p x-show="!complementGroups.length" class="muted text-xs" style="margin:.3rem 0">Nenhum grupo vinculado. Para combos com opções de escolha (ex.: "escolha o refrigerante"), vincule grupos de complemento aqui.</p>
-          </div>
-        </div>
-      </template>
-      <template x-if="form.id && form.productType === 'produzido'">
-        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
-          <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <h2 style="margin:0">Ficha técnica</h2>
-            <button class="btn small" type="button" @click="openAddRecipeInput()">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Adicionar insumo
-            </button>
-          </div>
-          <table>
-            <thead><tr>
-              <th>Insumo</th>
-              <th>SKU</th>
-              <th>Qtd por unidade</th>
-              <th>Custo unit.</th>
-              <th>Custo total</th>
-              <th></th>
-            </tr></thead>
-            <tbody>
-              <template x-for="r in recipeComponents" :key="r.id">
-                <tr>
-                  <td x-text="r.input_name"></td>
-                  <td class="muted" x-text="r.sku || '—'"></td>
-                  <td><input type="number" step="any" x-model="r.qty" class="inline-edit" @change="updateRecipeInput(r)" style="width:70px" /></td>
-                  <td class="muted" x-text="brl(r.cost_cents ?? 0)"></td>
-                  <td class="muted" x-text="brl(r.total_cost_cents ?? 0)"></td>
-                  <td @click.stop>
-                    <button class="icon-btn" @click="deleteRecipeInput(r)" title="Remover insumo">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+                <table style="width:100%">
+                  <thead><tr>
+                    <th>Componente</th>
+                    <th>Qtd</th>
+                    <th></th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="c in kitComponents" :key="c.id">
+                      <tr>
+                        <td x-text="c.component_name"></td>
+                        <td><input type="number" step="any" x-model="c.qty" class="inline-edit" @change="updateKitComponent(c)" style="width:50px" /></td>
+                        <td @click.stop>
+                          <button class="icon-btn" @click="deleteKitComponent(c)" title="Remover">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="!kitComponents.length"><td colspan="3" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum componente.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top:.75rem">
+                <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                  <h2 style="font-size:.95rem">Grupos de complementos</h2>
+                  <button class="btn secondary small" type="button" @click="openAddComplementGroup()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Vincular
+                  </button>
+                </div>
+                <template x-for="g in complementGroups" :key="g.id">
+                  <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.25rem 0;font-size:.85rem">
+                    <span x-text="g.group_name"></span>
+                    <span class="muted text-xs" x-text="`min ${g.min_select}, máx ${g.max_select ?? '∞'}`"></span>
+                    <button class="icon-btn" @click="unlinkComplementGroup(g)" title="Desvincular">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                     </button>
-                  </td>
-                </tr>
-              </template>
-              <tr x-show="!recipeComponents.length"><td colspan="6" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhum insumo cadastrado. Adicione produtos simples que serão consumidos do estoque ao vender este produto.</td></tr>
-            </tbody>
-          </table>
-          <div x-show="recipeComponents.length" class="muted text-xs" style="margin-top:.5rem;text-align:right">
-            Custo calculado por unidade: <strong x-text="brl(recipeComponents.reduce((s, r) => s + (r.total_cost_cents ?? 0), 0))"></strong>
-          </div>
+                  </div>
+                </template>
+                <p x-show="!complementGroups.length" class="muted text-xs" style="margin:.2rem 0">Nenhum grupo vinculado.</p>
+              </div>
+            </div>
+          </template>
+          <template x-if="form.id && form.productType === 'produzido'">
+            <div>
+              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.6rem">
+                <h2>Ficha técnica</h2>
+                <button class="btn small" type="button" @click="openAddRecipeInput()">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Adicionar insumo
+                </button>
+              </div>
+              <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+                <table style="width:100%">
+                  <thead><tr>
+                    <th>Insumo</th>
+                    <th>Qtd</th>
+                    <th>Custo un.</th>
+                    <th></th>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="r in recipeComponents" :key="r.id">
+                      <tr>
+                        <td x-text="r.input_name"></td>
+                        <td><input type="number" step="any" x-model="r.qty" class="inline-edit" @change="updateRecipeInput(r)" style="width:50px" /></td>
+                        <td class="text-xs" x-text="brl(r.cost_cents ?? 0)"></td>
+                        <td @click.stop>
+                          <button class="icon-btn" @click="deleteRecipeInput(r)" title="Remover">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                    <tr x-show="!recipeComponents.length"><td colspan="4" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum insumo.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p x-show="recipeComponents.length" class="muted text-xs" style="margin-top:.4rem;text-align:right">
+                Custo total: <strong x-text="brl(recipeComponents.reduce((s, r) => s + (r.total_cost_cents ?? 0), 0))"></strong>
+              </p>
+            </div>
+          </template>
+          <p x-show="!form.id" class="muted text-xs" style="margin-top:1rem;text-align:center">Salve o produto primeiro para gerenciar variantes, componentes ou ficha técnica.</p>
         </div>
-      </template>
+
+        <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
+      </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
@@ -667,7 +672,7 @@
 
     <dialog x-ref="recipeDlg">
       <h1>Adicionar insumo à ficha técnica</h1>
-      <p class="muted">Busque por nome, código de barras ou SKU (apenas produtos simples com controle de estoque).</p>
+      <p class="muted">Busque por nome, código de barras ou SKU (apenas produtos simples).</p>
       <input type="text" x-model="recipeSearchQ" placeholder="Buscar produto…" @input.debounce.300ms="searchRecipeInputs()" style="width:100%" />
       <div class="dialog-body" style="max-height:300px;overflow-y:auto">
         <template x-for="r in recipeSearchResults" :key="r.id">
@@ -733,9 +738,11 @@
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
-          const r = await fetch('/api/commercial/products' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
+          const params = new URLSearchParams({ includeParents: 'true' });
+          if (this.q) params.set('q', this.q);
+          const r = await fetch('/api/commercial/products?' + params.toString());
           if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
-          else this.error = (await r.json()).error;
+          else showToast((await r.json()).error, 'error');
           const [c, s] = await Promise.all([
             fetch('/api/commercial/categories'),
             fetch('/api/settings'),
@@ -752,7 +759,7 @@
           if (r.ok) {
             this.catEditId = null; this.catEditName = '';
             await this.load();
-          } else this.dlgError = (await r.json()).error;
+          } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         async deleteCategory() {
           const body = this.catDelAction === 'migrate' && this.catDelMigrateTo ? { migrateToId: this.catDelMigrateTo } : {};
@@ -762,7 +769,7 @@
           if (r.ok) {
             this.catDelId = null; this.catDelAction = 'unset'; this.catDelMigrateTo = null;
             await this.load();
-          } else this.dlgError = (await r.json()).error;
+          } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         async addCategory() {
           if (!this.newCat.trim()) return;
@@ -774,7 +781,7 @@
             if (c.ok) this.categories = await c.json();
             this.form.categoryId = created.id;
             this.newCat = '';
-          } else this.dlgError = (await r.json()).error;
+          } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         resetImageState() {
           this.form.imageUrl = null; this.form.newImagePreview = null;
@@ -855,7 +862,8 @@
           this.form = { id: p.id, name: p.name, barcode: p.barcode ?? '', sku: p.sku ?? '', unit: p.unit,
             categoryId: p.category_id ?? '',
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
-            minStock: p.min_stock, productType: p.product_type ?? 'fisico' };
+            minStock: p.min_stock, productType: p.product_type ?? 'fisico',
+            description: p.description ?? '' };
           this.dlgError = ''; this.barcodeHint = ''; this.resetImageState();
           this.form.imageUrl = p.image_url ?? null;
           this.variants = [];
@@ -885,10 +893,11 @@
           if (!this.form.id) return;
           const r = await fetch(`/api/commercial/products/${this.form.id}/barcode/generate`, { method: 'POST' });
           if (r.ok) { const p = await r.json(); this.form.barcode = p.barcode; this.barcodeHint = ''; }
-          else this.dlgError = (await r.json()).error ?? 'Erro ao gerar código.';
+          else { this.dlgError = (await r.json()).error ?? 'Erro ao gerar código.'; showToast(this.dlgError, 'error'); }
         },
         async save() {
-          const body = { name: this.form.name, barcode: this.form.barcode || null, sku: this.form.sku || null,
+          const body = { name: this.form.name, description: this.form.description || null,
+            barcode: this.form.barcode || null, sku: this.form.sku || null,
             unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined,
             categoryId: this.form.categoryId || null,
             productType: this.form.productType || 'fisico',
@@ -902,29 +911,29 @@
           const r = await fetch(isEdit ? `/api/commercial/products/${this.form.id}` : '/api/commercial/products', {
             method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); }
-          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast(isEdit ? 'Produto atualizado.' : 'Produto criado.', 'success'); }
+          else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
         },
         async remove(p) {
           if (!await window.confirmDlg(`Excluir "${p.name}"?`)) return;
           const r = await fetch(`/api/commercial/products/${p.id}`, { method: 'DELETE' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast(`"${p.name}" excluído.`, 'success'); } else showToast((await r.json()).error, 'error');
         },
         async toggleFavorite(p) {
           const r = await fetch(`/api/commercial/products/${p.id}/favorite`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ favorite: !p.favorite }),
           });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) this.load(); else showToast((await r.json()).error, 'error');
         },
         async toggleCardapio(p) {
           const r = await fetch(`/api/commercial/products/${p.id}/cardapio-online`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visivelCardapio: !p.visivel_cardapio }),
           });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) this.load(); else showToast((await r.json()).error, 'error');
         },
         async duplicate(p) {
           const r = await fetch(`/api/commercial/products/${p.id}/duplicate`, { method: 'POST' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast(`"${p.name}" duplicado.`, 'success'); } else showToast((await r.json()).error, 'error');
         },
         openMove(p) { this.move = { productId: p.id, name: p.name, current: p.stock_qty, type: 'entrada', qty: '', reason: '' }; this.mvError = ''; this.$refs.mv.showModal(); },
         async saveMove() {
@@ -987,7 +996,7 @@
           if (!await window.confirmDlg(`Excluir variante "${v.name}"?`)) return;
           const r = await fetch(`/api/commercial/products/${v.id}`, { method: 'DELETE' });
           if (r.ok) this.loadVariants(this.form.id);
-          else this.error = (await r.json()).error;
+          else showToast((await r.json()).error, 'error');
         },
         // ---------- Kits ----------
         async openAddComponent() {
@@ -1024,7 +1033,7 @@
           if (!await window.confirmDlg(`Remover "${c.component_name}" dos componentes do kit?`)) return;
           const r = await fetch(`/api/commercial/kit-items/${c.id}`, { method: 'DELETE' });
           if (r.ok) this.loadKitComponents(this.form.id);
-          else this.error = (await r.json()).error;
+          else showToast((await r.json()).error, 'error');
         },
         async openAddComplementGroup() {
           this.kitDlgError = ''; this.addCompSearch = ''; this.addCompResults = [];
@@ -1051,7 +1060,7 @@
           if (!await window.confirmDlg(`Desvincular grupo "${g.group_name}"?`)) return;
           const r = await fetch(`/api/commercial/products/${this.form.id}/complement-groups/${g.id}`, { method: 'DELETE' });
           if (r.ok) this.loadComplementGroups(this.form.id);
-          else this.error = (await r.json()).error;
+          else showToast((await r.json()).error, 'error');
         },
         // ---------- Ficha técnica ----------
         async loadRecipeComponents(productId) {
@@ -1071,7 +1080,7 @@
             const linkedIds = new Set(this.recipeComponents.map(c => c.input_product_id));
             this.recipeSearchResults = all.filter(p =>
               p.id !== this.form.id && p.product_type !== 'kit' && p.product_type !== 'combo' && p.product_type !== 'produzido'
-              && p.active && p.track_stock && !linkedIds.has(p.id)
+              && p.active && !linkedIds.has(p.id)
             );
           }
         },
@@ -1097,7 +1106,7 @@
           if (!await window.confirmDlg(`Remover "${r.input_name}" da ficha técnica?`)) return;
           const resp = await fetch(`/api/commercial/recipe-items/${r.id}`, { method: 'DELETE' });
           if (resp.ok) this.loadRecipeComponents(this.form.id);
-          else this.error = (await resp.json()).error;
+          else showToast((await resp.json()).error, 'error');
         },
         async openAttrMgr() {
           this.attrDlgError = ''; this.newAttrName = ''; this.attrEditId = null; this.addAttrValId = null;

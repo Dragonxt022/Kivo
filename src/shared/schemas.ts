@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createProductSchema = z.object({
   name: z.string().min(1, 'Campo obrigatório: name'),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   sku: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
   categoryId: z.number().int().positive().nullable().optional(),
@@ -21,7 +21,7 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = z.object({
   name: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   sku: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
   categoryId: z.number().int().positive().nullable().optional(),

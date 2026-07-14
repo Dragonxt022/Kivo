@@ -541,13 +541,13 @@ dialog label { display: block; font-size: .85rem; margin: .7rem 0 .25rem; color:
 /* :not(checkbox/radio) — sem isso, o width:100% estica a caixa desses inputs pro tamanho
    do container flex (ver .label-checkbox-sm), empurrando o texto do rótulo pra longe do
    círculo/caixa marcável em vez de ficar coladinho do lado. */
-dialog input:not([type="checkbox"]):not([type="radio"]), dialog select {
+dialog input:not([type="checkbox"]):not([type="radio"]), dialog select, dialog textarea {
   width: 100%; padding: .55rem .7rem; border-radius: 10px;
   border: 1.5px solid var(--border-light); background: var(--surface-hover); color: var(--text); font-size: .95rem;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 dialog input[type="checkbox"], dialog input[type="radio"] { flex-shrink: 0; }
-dialog input:focus, dialog select:focus {
+dialog input:focus, dialog select:focus, dialog textarea:focus {
   outline: none; border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
 }
@@ -569,14 +569,23 @@ dialog.dialog-fixed > .actions {
 }
 /* Dialog em 2 colunas (ex.: cadastro de produto — campos à esquerda, foto/sugestões à direita) */
 dialog.product-modal {
-  width: min(760px, calc(100vw - 2rem));
+  width: min(960px, calc(100vw - 2rem));
 }
 dialog.product-modal > .dialog-body {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; align-content: start;
+  display: grid; gap: 0 1.5rem; align-content: start;
 }
 .product-col { display: flex; flex-direction: column; min-width: 0; }
-@media (max-width: 720px) {
-  dialog.product-modal > .dialog-body { grid-template-columns: 1fr; }
+.product-col-3 { display: flex; flex-direction: column; min-width: 0; gap: .75rem; }
+.product-col-3 h2 { font-size: 1rem; margin: 0; }
+.product-col-3 table { font-size: .85rem; }
+.product-col-3 table th { padding: .3rem .4rem; font-size: .78rem; }
+.product-col-3 table td { padding: .3rem .4rem; }
+@media (max-width: 900px) {
+  dialog.product-modal > .dialog-body { grid-template-columns: 1fr 1fr !important; }
+  .product-col-3 { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  dialog.product-modal > .dialog-body { grid-template-columns: 1fr !important; }
 }
 
 /* ─── Onboarding Wizard (boas-vindas / configuração inicial) ─── */
@@ -942,6 +951,44 @@ dialog.wizard-dialog {
   background: linear-gradient(to top, rgba(0, 0, 0, .55), transparent 55%);
 }
 .hidden-file-input { display: none; }
+
+/* ─── Toast notifications ─── */
+#toast-container, .toast-dlg-container {
+  position: fixed; top: 12px; right: 12px; z-index: 2147483647;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  max-width: 420px; min-width: 280px;
+  padding: 12px 16px 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid;
+  font-size: .88rem; line-height: 1.45;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15);
+  display: flex; align-items: flex-start; gap: 10px;
+  animation: toast-in .25s ease backwards;
+  transition: opacity .2s, transform .2s;
+}
+.toast-icon { flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px; }
+.toast-msg { flex: 1; }
+.toast-close {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  padding: 2px; color: inherit; opacity: .6;
+}
+.toast-close:hover { opacity: 1; }
+.toast-error { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.toast-success { background: #f0fdf4; border-color: #86efac; color: #166534; }
+.toast-info { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+.toast-warning { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+[data-theme="dark"] .toast-error { background: #2d1517; border-color: #7f1d1d; color: #fca5a5; }
+[data-theme="dark"] .toast-success { background: #132b1e; border-color: #14532d; color: #86efac; }
+[data-theme="dark"] .toast-info { background: #15273f; border-color: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .toast-warning { background: #2d2510; border-color: #713f12; color: #fcd34d; }
+@keyframes toast-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
 .product-image-suggestions { display: flex; gap: .5rem; margin-top: .5rem; flex-wrap: wrap; }
 .product-image-suggestion {
   display: flex; flex-direction: column; align-items: center; gap: .3rem;

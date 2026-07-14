@@ -334,7 +334,7 @@
         async openCash() {
           const r = await fetch('/api/finance/cash/open', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ openingCents: this.cents(this.opening) }) });
-          if (r.ok) { this.$refs.openDlg.close(); this.load(); } else this.error = (await r.json()).error;
+          if (r.ok) { this.$refs.openDlg.close(); this.load(); showToast('Caixa aberto.', 'success'); } else showToast((await r.json()).error, 'error');
         },
         openMove(type) { this.move = { type, amount: '', description: '' }; this.mvError = ''; this.$refs.mv.showModal(); },
         async saveMove() {

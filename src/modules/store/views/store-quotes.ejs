@@ -192,7 +192,7 @@
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const r = await fetch('/api/store/quotes');
-          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+          if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
         },
         async refs() {
           if (!this.customers.length) {
@@ -234,12 +234,12 @@
             const r = await fetch(`/api/store/quotes/${this.form.id}`, {
               method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
             });
-            if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+            if (r.ok) { this.$refs.dlg.close(); this.load(); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
             return;
           }
           const r = await fetch('/api/store/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...body, items: this.form.items.map((i) => ({ productId: i.productId, qty: i.qty })) }) });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+          if (r.ok) { this.$refs.dlg.close(); this.load(); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         async openConvert(q) {
           this.converting = q; this.convError = '';
@@ -266,7 +266,7 @@
         async cancel(q) {
           if (!await window.confirmDlg(`Cancelar o orçamento #${q.id}?`)) return;
           const r = await fetch(`/api/store/quotes/${q.id}/cancel`, { method: 'POST' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Orçamento cancelado.', 'success'); } else showToast((await r.json()).error, 'error');
         },
       };
     }

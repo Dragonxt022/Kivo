@@ -23,7 +23,6 @@ export function moveStockRaw(
   const product = productRepository.findByIdWithColumns(productId, 'id, name, track_stock, stock_qty') as
     | { id: number; name: string; track_stock: number; stock_qty: number } | undefined;
   if (!product) return { ok: false, error: 'Produto não encontrado.' };
-  if (!product.track_stock) return { ok: false, error: 'Produto não controla estoque.' };
 
   const balance =
     type === 'entrada' ? product.stock_qty + qty

@@ -163,7 +163,7 @@
         async load() {
           const r = await fetch('/api/commercial/customers' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
           if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
-          else this.error = (await r.json()).error;
+          else showToast((await r.json()).error, 'error');
           const p = await fetch('/api/commercial/price-lists');
           if (p.ok) this.priceLists = await p.json();
           const a = await fetch('/api/commercial/agreement-companies');
@@ -192,13 +192,13 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(this.form),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); }
-          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Cliente salvo.', 'success'); }
+          else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
         },
         async remove(row) {
           if (!await window.confirmDlg(`Excluir "${row.name}"?`)) return;
           const r = await fetch(`/api/commercial/customers/${row.id}`, { method: 'DELETE' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+          if (r.ok) { this.load(); showToast('Cliente excluído.', 'success'); } else showToast((await r.json()).error ?? 'Erro ao excluir.', 'error');
         },
       };
     }

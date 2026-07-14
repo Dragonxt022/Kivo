@@ -205,7 +205,6 @@
   <script>
     const HOME_APPS_SEED = <%- JSON.stringify(typeof visibleItemsForAlpine !== 'undefined' ? visibleItemsForAlpine : []) %>;
     const HOME_ORDER_KEY = 'katsu-home-order';
-    const HOME_USAGE_KEY = 'katsu-home-usage';
 
     function homePage() {
       return {
@@ -239,41 +238,6 @@
         },
         saveOrder() {
           localStorage.setItem(HOME_ORDER_KEY, JSON.stringify(this.apps.map((a) => a.href)));
-        },
-
-        // Aprende com o uso: cada clique normal (não-arrasto) soma 1 pro app, e se ele
-        // passar a ter mais uso que o vizinho de cima, sobe uma posição. Uso repetido ao
-        // longo de várias visitas vai levando o app mais usado pro topo, aos poucos.
-        // Teto + decaimento: sem isso, um app com 100 cliques acumulados no passado
-        // ficaria praticamente impossível de ultrapassar. O teto limita quantos cliques
-        // bastam pra alcançar o topo, e o decaimento faz apps esquecidos perderem força
-        // aos poucos, dando espaço pra quem você passou a usar mais agora.
-        recordUsage(href) {
-          const DECAY = 0.9, CAP = 20;
-          let usage = {};
-          try { usage = JSON.parse(localStorage.getItem(HOME_USAGE_KEY) || '{}'); } catch {}
-          Object.keys(usage).forEach((h) => {
-            if (h === href) return;
-            const next = usage[h] * DECAY;
-            if (next < 0.5) delete usage[h]; else usage[h] = next;
-          });
-          usage[href] = Math.min((usage[href] || 0) + 1, CAP);
-          localStorage.setItem(HOME_USAGE_KEY, JSON.stringify(usage));
-
-          // Não mexe no array reativo `apps` aqui: o clique está prestes a navegar pra
-          // fora da página (link normal), e reordenar o DOM nesse instante podia fazer o
-          // navegador cancelar o próprio clique (card "não entrava"). Só grava a nova
-          // ordem no localStorage — ela aparece já reordenada na próxima visita à home.
-          const order = this.apps.map((a) => a.href);
-          const idx = order.indexOf(href);
-          if (idx > 0) {
-            const aboveHref = order[idx - 1];
-            if (usage[href] > (usage[aboveHref] || 0)) {
-              order[idx - 1] = href;
-              order[idx] = aboveHref;
-              localStorage.setItem(HOME_ORDER_KEY, JSON.stringify(order));
-            }
-          }
         },
 
         onCardPointerDown(e, a) {
@@ -312,7 +276,7 @@
           const onUp = () => {
             cleanup();
             if (dragging) this.finishDrag(a, card);
-            else this.recordUsage(a.href);
+            else {}
           };
           const cleanup = () => {
             clearTimeout(timer);

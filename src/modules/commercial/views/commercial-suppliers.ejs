@@ -130,7 +130,7 @@
         async load() {
           const r = await fetch('/api/commercial/suppliers' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
           if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
-          else this.error = (await r.json()).error ?? 'Erro ao carregar.';
+          else showToast((await r.json()).error ?? 'Erro ao carregar.', 'error');
         },
       };
     }

@@ -149,7 +149,7 @@
           if (this.dragId !== null) return;
           const r = await fetch('/api/comandas/tables/status');
           if (r.ok) this.tables = await r.json();
-          else this.error = (await r.json()).error ?? 'Erro ao carregar mesas.';
+          else showToast((await r.json()).error ?? 'Erro ao carregar mesas.', 'error');
         },
         onCardPointerDown(e, t) {
           if (!this.canManage || e.pointerType === 'mouse' && e.button !== 0) return;
@@ -236,7 +236,7 @@
             body: JSON.stringify({ sortOrder: u.sortOrder }),
           })));
           if (results.some((r) => r.status === 'rejected' || !r.value.ok)) {
-            this.error = 'Erro ao salvar nova ordem.';
+            showToast('Erro ao salvar nova ordem.', 'error');
           }
         },
         async openTable(t) {
@@ -257,7 +257,7 @@
             const c = await r.json();
             window.location.href = '/app/comandas/mesas/' + c.id;
           } else {
-            this.error = (await r.json()).error ?? 'Erro ao abrir comanda.';
+            showToast((await r.json()).error ?? 'Erro ao abrir comanda.', 'error');
           }
         },
         openNew() {
@@ -271,14 +271,14 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ label: this.newTableLabel.trim() }),
           });
-          if (r.ok) { this.$refs.addTableDlg.close(); await this.load(); }
-          else this.dlgError = (await r.json()).error ?? 'Erro ao criar mesa.';
+          if (r.ok) { this.$refs.addTableDlg.close(); await this.load(); showToast('Mesa criada.', 'success'); }
+          else { this.dlgError = (await r.json()).error ?? 'Erro ao criar mesa.'; showToast(this.dlgError, 'error'); }
         },
         async removeTable(t) {
           if (!await window.confirmDlg(`Remover a mesa "${t.label}"?`)) return;
           const r = await fetch('/api/comandas/tables/' + t.id, { method: 'DELETE' });
-          if (r.ok) await this.load();
-          else this.error = (await r.json()).error ?? 'Erro ao remover mesa.';
+          if (r.ok) { await this.load(); showToast('Mesa removida.', 'success'); }
+          else showToast((await r.json()).error ?? 'Erro ao remover mesa.', 'error');
         },
       };
     }

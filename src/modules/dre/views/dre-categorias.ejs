@@ -90,7 +90,7 @@
         bps(s) { const n = parseFloat(String(s || '0').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const r = await fetch('/api/dre/categories');
-          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+          if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
         },
         openNew() { this.form = { dreLine: 'despesas_operacionais', adjustment: '' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(c) {
@@ -105,12 +105,12 @@
           const r = await fetch(isEdit ? `/api/dre/categories/${this.form.id}` : '/api/dre/categories', {
             method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Categoria salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         async del(c) {
           if (!await window.confirmDlg(`Excluir a categoria "${c.label}"?`)) return;
           const r = await fetch(`/api/dre/categories/${c.id}`, { method: 'DELETE' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Categoria excluída.', 'success'); } else showToast((await r.json()).error, 'error');
         },
       };
     }

@@ -13,6 +13,7 @@ const KEEP_INTACT = new Set([
   'security_pin',
   'settings',
   'payment_methods',
+  'product_image_submissions',
 ]);
 
 export interface ResetSummary {
@@ -24,7 +25,9 @@ export interface ResetSummary {
  * Zera os dados de teste do banco local: apaga todo o histórico de negócio
  * (produtos, clientes, fornecedores, vendas, compras, orçamentos, contas,
  * caixa, auditoria, sessões etc.) e remove todo usuário que não tenha o cargo
- * "administrador". Não roda migrations nem seeds — só limpa linhas existentes.
+ * "administrador". Preserva a biblioteca de imagens (product_image_submissions)
+ * e os arquivos físicos em storage/product-images/. Não roda migrations nem
+ * seeds — só limpa linhas existentes.
  */
 export function resetTestData(): ResetSummary[] {
   const db = getSqlite();

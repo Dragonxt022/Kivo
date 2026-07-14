@@ -213,27 +213,27 @@
           this.running = true; this.error = '';
           const r = await fetch('/api/backup', { method: 'POST' });
           this.running = false;
-          if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Falha no backup.';
+          if (r.ok) { this.load(); showToast('Backup criado.', 'success'); } else showToast((await r.json()).error ?? 'Falha no backup.', 'error');
         },
         async restore(id) {
           if (!await window.confirmDlg('Restaurar este backup? Os dados atuais serão substituídos.')) return;
           this.notice = '';
           const r = await fetch(`/api/backup/${id}/restore`, { method: 'POST' });
-          if (r.ok) this.notice = 'Backup restaurado com sucesso.'; else this.error = (await r.json()).error ?? 'Falha na restauração.';
+          if (r.ok) showToast('Backup restaurado com sucesso.', 'success'); else showToast((await r.json()).error ?? 'Falha na restauração.', 'error');
         },
         async removeBackup(id) {
           if (!await window.confirmDlg('Excluir este backup? Esta ação não pode ser desfeita. Se ele também estiver na nuvem, a cópia na nuvem também será excluída.')) return;
           this.notice = ''; this.error = '';
           const r = await fetch(`/api/backup/${id}`, { method: 'DELETE' });
-          if (r.ok) { this.notice = 'Backup excluído.'; this.load(); }
-          else this.error = (await r.json()).error ?? 'Falha ao excluir backup.';
+          if (r.ok) { showToast('Backup excluído.', 'success'); this.load(); }
+          else showToast((await r.json()).error ?? 'Falha ao excluir backup.', 'error');
         },
         async removeCloudBackup(cb) {
           if (!await window.confirmDlg('Excluir este backup da nuvem? Esta ação não pode ser desfeita.')) return;
           this.notice = ''; this.error = '';
           const r = await fetch(`/api/backup/cloud/${cb.uuid}`, { method: 'DELETE' });
-          if (r.ok) { this.notice = 'Backup da nuvem excluído.'; this.load(); }
-          else this.error = (await r.json()).error ?? 'Falha ao excluir backup da nuvem.';
+          if (r.ok) { showToast('Backup da nuvem excluído.', 'success'); this.load(); }
+          else showToast((await r.json()).error ?? 'Falha ao excluir backup da nuvem.', 'error');
         },
         async downloadAndRestore(cb) {
           if (!await window.confirmDlg('Baixar este backup da nuvem e restaurar? Os dados atuais desta máquina serão substituídos.')) return;
@@ -241,14 +241,14 @@
           const d = await fetch(`/api/backup/cloud/${cb.uuid}/download`, { method: 'POST' });
           if (!d.ok) {
             this.downloadingUuid = null;
-            this.error = (await d.json()).error ?? 'Falha ao baixar backup da nuvem.';
+            showToast((await d.json()).error ?? 'Falha ao baixar backup da nuvem.', 'error');
             return;
           }
           const backup = await d.json();
           const r = await fetch(`/api/backup/${backup.id}/restore`, { method: 'POST' });
           this.downloadingUuid = null;
-          if (r.ok) { this.notice = 'Backup da nuvem restaurado com sucesso.'; this.load(); }
-          else this.error = (await r.json()).error ?? 'Falha na restauração.';
+          if (r.ok) { showToast('Backup da nuvem restaurado com sucesso.', 'success'); this.load(); }
+          else showToast((await r.json()).error ?? 'Falha na restauração.', 'error');
         },
       };
     }

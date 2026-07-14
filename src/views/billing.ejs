@@ -58,7 +58,7 @@
             const now = Date.now();
             const threeDays = 3 * 24 * 3600e3;
             this.urgent = this.charges.filter((c) => c.status === 'pendente' && new Date(c.due_date).getTime() - now <= threeDays);
-          } else this.error = 'Não foi possível carregar as cobranças (sem licença configurada ou nuvem indisponível).';
+          } else showToast('Não foi possível carregar as cobranças (sem licença configurada ou nuvem indisponível).', 'error');
         },
       };
     }

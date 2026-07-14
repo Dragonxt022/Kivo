@@ -806,8 +806,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ value: this.form.value }),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); }
-          else this.error = (await r.json()).error ?? 'Erro ao salvar.';
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Configuração salva.', 'success'); }
+          else showToast((await r.json()).error ?? 'Erro ao salvar.', 'error');
         },
       };
     }

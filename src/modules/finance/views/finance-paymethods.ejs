@@ -117,7 +117,7 @@
         bps(s) { const n = parseFloat(String(s || '0').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const r = await fetch('/api/finance/payment-methods?all=1');
-          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+          if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
         },
         openNew() { this.form = { type: 'debito', fee: '' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(m) {
@@ -132,19 +132,19 @@
           const r = await fetch(isEdit ? `/api/finance/payment-methods/${this.form.id}` : '/api/finance/payment-methods', {
             method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Forma de pagamento salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         async toggle(m) {
           const r = await fetch(`/api/finance/payment-methods/${m.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ active: !m.active }),
           });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) this.load(); else showToast((await r.json()).error, 'error');
         },
         async del(m) {
           if (!await window.confirmDlg(`Excluir a forma de pagamento "${m.name}"?`)) return;
           const r = await fetch(`/api/finance/payment-methods/${m.id}`, { method: 'DELETE' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Forma de pagamento excluída.', 'success'); } else showToast((await r.json()).error, 'error');
         },
       };
     }

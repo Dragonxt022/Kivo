@@ -131,7 +131,7 @@
         async cancel(s) {
           if (!await window.confirmDlg(`Cancelar a venda #${s.id} (${this.brl(s.total_cents)})? O estoque será devolvido` + (s.payment_method === 'dinheiro' ? ' e o dinheiro sairá da gaveta.' : '.'))) return;
           const r = await fetch(`/api/store/sales/${s.id}/cancel`, { method: 'POST' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Venda cancelada.', 'success'); } else showToast((await r.json()).error, 'error');
         },
       };
     }

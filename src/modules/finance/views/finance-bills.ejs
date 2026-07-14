@@ -238,7 +238,7 @@
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         async load() {
           const r = await fetch(api);
-          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+          if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
         },
         async loadCategories() {
           const r = await fetch('/api/dre/categories?manualOnly=1');
@@ -276,14 +276,14 @@
               body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
                 issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
                 dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined }) });
-            if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+            if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Conta salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
             return;
           }
           const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
               issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
               dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined, installments: this.form.installments || 1 }) });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Conta salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         settleOwedCents() { return this.settleForm.suggestedSettleCents || this.settleForm.amountCents; },
         settleTotalCents() { return (this.settleForm.payments || []).reduce((s, p) => s + this.cents(p.amount), 0); },
@@ -331,7 +331,7 @@
           if (!await window.confirmDlg(`Cancelar "${b.description}"?`)) return;
           const r = await fetch(`${api}/${b.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'cancelada' }) });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Conta cancelada.', 'success'); } else showToast((await r.json()).error, 'error');
         },
       };
     }

@@ -134,14 +134,14 @@
         get displayRows() { return this.sortedRows(this.filteredRows, this.sortGetters); },
         async load() {
           const r = await fetch('/api/users');
-          if (r.ok) { this.users = await r.json(); this.pruneSelection(this.users); } else this.error = (await r.json()).error;
+          if (r.ok) { this.users = await r.json(); this.pruneSelection(this.users); } else showToast((await r.json()).error, 'error');
           const roles = await fetch('/api/users/roles');
           if (roles.ok) this.roles = (await roles.json()).map((x) => x.slug);
         },
         onBulkDeleted(data) {
           this.load();
-          if (data && data.selfSkipped) this.error = 'Seu próprio usuário não pode ser excluído em massa — foi mantido na lista.';
-          else this.error = '';
+          if (data && data.selfSkipped) showToast('Seu próprio usuário não pode ser excluído em massa — foi mantido na lista.', 'warning');
+
         },
         openNew() { this.form = { roleSlug: 'operador' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(u) {
@@ -157,13 +157,13 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); }
-          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Usuário salvo.', 'success'); }
+          else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
         },
         async remove(u) {
           if (!await window.confirmDlg(`Excluir o usuário "${u.name}"?`)) return;
           const r = await fetch(`/api/users/${u.id}`, { method: 'DELETE' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+          if (r.ok) { this.load(); showToast('Usuário excluído.', 'success'); } else showToast((await r.json()).error ?? 'Erro ao excluir.', 'error');
         },
       };
     }

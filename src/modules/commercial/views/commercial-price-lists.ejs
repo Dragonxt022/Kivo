@@ -162,12 +162,12 @@
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
           const r = await fetch('/api/commercial/price-lists');
-          if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); } else this.error = (await r.json()).error;
+          if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); } else showToast((await r.json()).error, 'error');
         },
         openNew() { this.form = { isDefault: false }; this.items = []; this.dlgError = ''; this.itemsError = ''; this.$refs.dlg.showModal(); },
         async openEdit(l) {
           const r = await fetch(`/api/commercial/price-lists/${l.id}`);
-          if (!r.ok) { this.error = (await r.json()).error; return; }
+          if (!r.ok) { showToast((await r.json()).error, 'error'); return; }
           const data = await r.json();
           this.form = { id: data.id, name: data.name, isDefault: !!data.is_default, active: !!data.active };
           this.items = data.items.map((i) => ({ ...i, priceStr: (i.unit_price_cents / 100).toFixed(2).replace('.', ',') }));
@@ -183,12 +183,12 @@
           if (r.ok) {
             if (!isEdit) { const created = await r.json(); await this.load(); this.openEdit(created); }
             else { this.$refs.dlg.close(); this.load(); }
-          } else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+          } else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
         },
         async remove(l) {
           if (!await window.confirmDlg(`Excluir "${l.name}"?`)) return;
           const r = await fetch(`/api/commercial/price-lists/${l.id}`, { method: 'DELETE' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Lista excluída.', 'success'); } else showToast((await r.json()).error, 'error');
         },
         async searchProducts() {
           if (!this.prodQ.trim()) { this.prodResults = []; return; }

@@ -76,10 +76,19 @@ function deleteLocalImageIfOwned(imageUrl: string | null | undefined): void {
 
 router.get('/products', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
-  if (q) {
-    res.json(productRepository.search(q));
+  const includeParents = req.query.includeParents === 'true';
+  if (includeParents) {
+    if (q) {
+      res.json(productRepository.searchAll(q));
+    } else {
+      res.json(productRepository.listAll());
+    }
   } else {
-    res.json(productRepository.listTopLevel());
+    if (q) {
+      res.json(productRepository.search(q));
+    } else {
+      res.json(productRepository.listTopLevel());
+    }
   }
 });
 

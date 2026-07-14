@@ -151,18 +151,18 @@
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ permissions: this.selected }),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Permissões salvas.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         openNew() { this.newName = ''; this.dlgError = ''; this.$refs.novo.showModal(); },
         async create() {
           const r = await fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: this.newName }) });
-          if (r.ok) { this.$refs.novo.close(); this.load(); } else this.dlgError = (await r.json()).error;
+          if (r.ok) { this.$refs.novo.close(); this.load(); showToast('Cargo criado.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
         async remove(r) {
           if (!await window.confirmDlg(`Excluir o cargo "${r.name}"?`)) return;
           const resp = await fetch(`/api/roles/${r.id}`, { method: 'DELETE' });
-          if (resp.ok) this.load(); else this.error = (await resp.json()).error;
+          if (resp.ok) { this.load(); showToast('Cargo excluído.', 'success'); } else showToast((await resp.json()).error, 'error');
         },
       };
     }

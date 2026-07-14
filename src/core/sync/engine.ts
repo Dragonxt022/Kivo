@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
@@ -164,7 +165,7 @@ function applyChildren(spec: RegisteredSyncTable, parentLocalId: number, payload
     );
     for (const r of rows) {
       const values = cols.map((c) => {
-        if (!child.foreignKeys?.[c]) return r[c] ?? null;
+        if (!child.foreignKeys?.[c]) return c === 'uuid' ? (r[c] as string) ?? randomUUID() : r[c] ?? null;
         const uuidValue = r[c] as string | null;
         const localId = getIdByUuid(child.foreignKeys[c], uuidValue);
         if (uuidValue != null && localId == null) {

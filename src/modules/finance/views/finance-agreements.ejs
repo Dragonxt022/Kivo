@@ -121,7 +121,7 @@
         async load() {
           const r = await fetch('/api/commercial/agreement-companies');
           if (r.ok) { this.rows = await r.json(); await this.loadPending(); }
-          else this.error = (await r.json()).error;
+          else showToast((await r.json()).error, 'error');
         },
         async loadPending() {
           for (const c of this.rows) {
@@ -136,13 +136,13 @@
           const r = await fetch(isEdit ? `/api/commercial/agreement-companies/${this.form.id}` : '/api/commercial/agreement-companies', {
             method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.form),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); }
-          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Convênio salvo.', 'success'); }
+          else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
         },
         async remove(c) {
           if (!await window.confirmDlg(`Excluir "${c.name}"?`)) return;
           const r = await fetch(`/api/commercial/agreement-companies/${c.id}`, { method: 'DELETE' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Convênio excluído.', 'success'); } else showToast((await r.json()).error, 'error');
         },
         async openInvoices(c) {
           this.invCompany = c;
@@ -152,7 +152,7 @@
         },
         async generateInvoice(c) {
           const r = await fetch(`/api/finance/agreements/${c.id}/invoice`, { method: 'POST' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Fatura gerada.', 'success'); } else showToast((await r.json()).error, 'error');
         },
       };
     }

@@ -292,7 +292,7 @@
         },
         async load() {
           const r = await fetch('/api/comandas/comandas/' + this.comandaId);
-          if (!r.ok) { this.error = (await r.json()).error ?? 'Erro ao carregar comanda.'; return; }
+          if (!r.ok) { showToast((await r.json()).error ?? 'Erro ao carregar comanda.', 'error'); return; }
           const data = await r.json();
           this.comanda = data;
           this.items = data.items || [];
@@ -313,14 +313,14 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ productId: p.id, qty: 1 }),
           });
-          if (r.ok) { this.searchQ = ''; this.searchResults = []; await this.load(); this.$refs.searchInput?.focus(); }
-          else this.error = (await r.json()).error ?? 'Erro ao adicionar item.';
+          if (r.ok) { this.searchQ = ''; this.searchResults = []; await this.load(); this.$refs.searchInput?.focus(); showToast('Item adicionado.', 'success'); }
+          else showToast((await r.json()).error ?? 'Erro ao adicionar item.', 'error');
         },
         async voidItem(itemId, idx) {
           if (!await window.confirmDlg('Remover ' + this.items[idx].product_name + ' da comanda?')) return;
           const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/items/' + itemId, { method: 'DELETE' });
-          if (r.ok) await this.load();
-          else this.error = (await r.json()).error ?? 'Erro ao remover item.';
+          if (r.ok) { await this.load(); showToast('Item removido.', 'success'); }
+          else showToast((await r.json()).error ?? 'Erro ao remover item.', 'error');
         },
         async openTransferDlg() {
           this.transferTarget = null; this.dlgError = '';
@@ -334,7 +334,7 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tableId: this.transferTarget }),
           });
-          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao transferir.'; return; }
+          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao transferir.'; showToast(this.dlgError, 'error'); return; }
           this.$refs.transferDlg.close();
           await this.load();
         },
@@ -348,7 +348,7 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ itemIds: this.splitItemIds }),
           });
-          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao dividir.'; return; }
+          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao dividir.'; showToast(this.dlgError, 'error'); return; }
           const data = await r.json();
           this.$refs.splitDlg.close();
           window.location.href = '/app/comandas/mesas/' + data.newComandaId;
@@ -365,7 +365,7 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sourceComandaId: this.mergeSourceId }),
           });
-          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao unir.'; return; }
+          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao unir.'; showToast(this.dlgError, 'error'); return; }
           this.$refs.mergeDlg.close();
           await this.load();
         },
@@ -378,7 +378,7 @@
           if (!await window.confirmDlg('Cancelar esta comanda? Os itens serão perdidos.')) return;
           const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/cancel', { method: 'POST' });
           if (r.ok) window.location.href = '/app/comandas/mesas';
-          else this.error = (await r.json()).error ?? 'Erro ao cancelar.';
+          else showToast((await r.json()).error ?? 'Erro ao cancelar.', 'error');
         },
       };
     }

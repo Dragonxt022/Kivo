@@ -194,7 +194,7 @@
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const r = await fetch('/api/commercial/purchases');
-          if (r.ok) this.rows = await r.json(); else this.error = (await r.json()).error;
+          if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
         },
         async ensureCatalog() {
           if (!this.suppliers.length) {
@@ -226,16 +226,16 @@
         async cancelPurchase(p) {
           if (!(await window.confirmDlg(`Cancelar a compra #${p.id}?` + (p.status === 'recebida' ? ' O estoque recebido será estornado.' : '')))) return;
           const r = await fetch(`/api/commercial/purchases/${p.id}/cancel`, { method: 'POST' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Compra cancelada.', 'success'); } else showToast((await r.json()).error, 'error');
         },
         async receive(p) {
           if (!(await window.confirmDlg(`Receber a compra #${p.id}? Isso vai dar entrada no estoque e atualizar o custo dos produtos.`))) return;
           const r = await fetch(`/api/commercial/purchases/${p.id}/receive`, { method: 'POST' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Compra recebida.', 'success'); } else showToast((await r.json()).error, 'error');
         },
         async duplicate(p) {
           const r = await fetch(`/api/commercial/purchases/${p.id}/duplicate`, { method: 'POST' });
-          if (r.ok) this.load(); else this.error = (await r.json()).error;
+          if (r.ok) { this.load(); showToast('Compra duplicada.', 'success'); } else showToast((await r.json()).error, 'error');
         },
         searchProducts() {
           const q = (this.item.q || '').trim().toLowerCase();
@@ -272,10 +272,10 @@
             const r = await fetch(`/api/commercial/purchases/${this.form.id}`, {
               method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
             });
-            if (!r.ok) { this.dlgError = (await r.json()).error; return; }
+            if (!r.ok) { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); return; }
             if (receiveAfter && this.form.status === 'rascunho') {
               const rr = await fetch(`/api/commercial/purchases/${this.form.id}/receive`, { method: 'POST' });
-              if (!rr.ok) { this.dlgError = (await rr.json()).error; return; }
+              if (!rr.ok) { this.dlgError = (await rr.json()).error; showToast(this.dlgError, 'error'); return; }
             }
             this.$refs.dlg.close(); this.load();
             return;
@@ -286,7 +286,7 @@
             body: JSON.stringify({ supplierId: this.form.supplierId, notes: this.form.notes || undefined,
               items: itemsPayload, status: receiveAfter ? 'recebida' : 'rascunho' }),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); } else this.dlgError = (await r.json()).error;
+          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Compra salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
         },
       };
     }

@@ -123,20 +123,20 @@
             body: JSON.stringify({ productId: p.id }),
           });
           if (r.ok) { this.searchQ = ''; this.searchResults = []; await this.load(); }
-          else this.error = (await r.json()).error ?? 'Erro ao adicionar produto.';
+          else showToast((await r.json()).error ?? 'Erro ao adicionar produto.', 'error');
         },
         async update(r) {
           const res = await fetch(`/api/foodservice/kitchen-routing/${r.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ station: r.station, estimatedMinutes: Number(r.estimated_minutes) || null }),
           });
-          if (!res.ok) this.error = (await res.json()).error ?? 'Erro ao salvar.';
+          if (!res.ok) showToast((await res.json()).error ?? 'Erro ao salvar.', 'error');
         },
         async remove(r) {
           if (!await window.confirmDlg('Remover ' + r.product_name + ' do roteamento?')) return;
           const res = await fetch(`/api/foodservice/kitchen-routing/${r.id}`, { method: 'DELETE' });
           if (res.ok) await this.load();
-          else this.error = (await res.json()).error ?? 'Erro ao remover.';
+          else showToast((await res.json()).error ?? 'Erro ao remover.', 'error');
         },
       };
     }
