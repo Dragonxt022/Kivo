@@ -89,64 +89,106 @@
     </table>
     <%- include('partials/pager') %>
 
-    <dialog x-ref="dlg" class="dialog-fixed product-modal" style="width:min(820px,calc(100vw - 2rem))">
+    <dialog x-ref="dlg" class="dialog-fixed purchase-modal" style="width:min(680px,calc(100vw - 2rem))">
       <h1 x-text="form.id ? 'Editar compra #' + form.id : 'Nova compra'"></h1>
       <div class="dialog-body">
-        <div class="product-col">
+        <div class="field">
           <label>Fornecedor</label>
           <select x-model.number="form.supplierId">
             <option value="">Selecione…</option>
             <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
           </select>
+        </div>
 
-          <template x-if="!form.id || form.status === 'rascunho'">
-            <div>
-              <label style="margin-top:.9rem">Adicionar item</label>
-              <div class="combo-wrap" style="position:relative">
-                <input type="text" placeholder="Nome, SKU ou código de barras…" x-model="item.q"
-                       @input.debounce.200ms="searchProducts()" @keydown.enter.prevent="quickAddItem()"
-                       @keydown.down.prevent="comboIdx = Math.min(comboIdx + 1, comboResults.length - 1)"
-                       @keydown.up.prevent="comboIdx = Math.max(comboIdx - 1, 0)" />
-                <div class="combo-results" x-show="comboResults.length" x-cloak>
-                  <template x-for="(p, idx) in comboResults" :key="p.id">
-                    <button type="button" class="combo-result" :class="{ active: idx === comboIdx }" @click="pickProduct(p)">
-                      <span x-text="p.name"></span> <span class="muted text-xs" x-text="p.sku || p.barcode || ''"></span>
-                    </button>
-                  </template>
+        <template x-if="!form.id || form.status === 'rascunho'">
+          <div>
+            <!-- Card: adicionar item -->
+            <div class="purchase-additem">
+              <div class="field" style="margin-bottom:.6rem">
+                <label>Adicionar item</label>
+                <div class="combo-wrap">
+                  <input type="text" placeholder="Nome, SKU ou código de barras…" x-model="item.q"
+                         @input.debounce.200ms="searchProducts()" @keydown.enter.prevent="quickAddItem()"
+                         @keydown.down.prevent="comboIdx = Math.min(comboIdx + 1, comboResults.length - 1)"
+                         @keydown.up.prevent="comboIdx = Math.max(comboIdx - 1, 0)" />
+                  <div class="combo-results" x-show="comboResults.length" x-cloak>
+                    <template x-for="(p, idx) in comboResults" :key="p.id">
+                      <button type="button" class="combo-result" :class="{ active: idx === comboIdx }" @click="pickProduct(p)">
+                        <span x-text="p.name"></span> <span class="muted text-xs" x-text="p.sku || p.barcode || ''"></span>
+                      </button>
+                    </template>
+                  </div>
                 </div>
               </div>
-              <div class="form-grid" style="grid-template-columns:80px 110px 70px;margin-top:.4rem">
-                <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" x-ref="qtyInput" />
-                <input type="text" placeholder="Custo un. R$" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" />
-                <button type="button" class="btn secondary" @click="addItem()">
+              <div class="purchase-additem-row">
+                <div class="field" style="margin:0">
+                  <label>Qtd</label>
+                  <input type="number" step="any" min="0.001" placeholder="0" x-model.number="item.qty" x-ref="qtyInput" />
+                </div>
+                <div class="field" style="margin:0">
+                  <label>Custo un. (R$)</label>
+                  <input type="text" placeholder="0,00" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" @keydown.enter.prevent="addItem()" />
+                </div>
+                <button type="button" class="btn" @click="addItem()">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Adicionar
                 </button>
               </div>
-
-              <div class="scroll-box-md" style="margin-top:.8rem">
-                <template x-for="(i, idx) in form.items" :key="idx">
-                  <div class="form-row">
-                    <span x-text="`${i.name} — ${i.qty} × ${brl(i.unitCostCents)}`"></span>
-                    <span>
-                      <strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong>
-                      <button type="button" class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button>
-                    </span>
-                  </div>
-                </template>
-              </div>
-              <p class="text-right" style="margin-top:.5rem">Total: <strong x-text="brl(total())"></strong></p>
             </div>
-          </template>
-        </div>
 
-        <div class="product-col">
-          <label>Observações</label><input type="text" x-model="form.notes" />
-          <p class="muted text-xs" x-show="form.id && form.status !== 'rascunho'" style="margin-top:.5rem">
-            Compra já recebida — itens não podem mais ser alterados (estoque e custo já foram atualizados).
-          </p>
-        </div>
+            <!-- Tabela de itens -->
+            <div class="purchase-items">
+              <table>
+                <thead><tr>
+                  <th>Produto</th>
+                  <th class="text-right">Qtd</th>
+                  <th class="text-right">Custo un.</th>
+                  <th class="text-right">Subtotal</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="(i, idx) in form.items" :key="idx">
+                    <tr>
+                      <td x-text="i.name"></td>
+                      <td class="text-right" x-text="i.qty"></td>
+                      <td class="text-right muted" x-text="brl(i.unitCostCents)"></td>
+                      <td class="text-right"><strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong></td>
+                      <td class="text-right">
+                        <button type="button" class="icon-btn" title="Remover item" @click="form.items.splice(idx, 1)">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="!form.items.length">
+                    <td colspan="5">
+                      <div class="purchase-empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="30" height="30"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        <span>Nenhum item adicionado ainda — busque um produto acima.</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-        <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
+            <!-- Barra de total -->
+            <div class="purchase-total">
+              <span>Total da compra</span>
+              <strong x-text="brl(total())"></strong>
+            </div>
+          </div>
+        </template>
+
+        <div class="field" style="margin-top:1rem">
+          <label>Observações</label>
+          <input type="text" x-model="form.notes" placeholder="Nº da nota, condição de pagamento, etc. (opcional)" />
+        </div>
+        <p class="muted text-xs" x-show="form.id && form.status !== 'rascunho'" style="margin-top:.5rem">
+          Compra já recebida — itens não podem mais ser alterados (estoque e custo já foram atualizados).
+        </p>
+
+        <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">

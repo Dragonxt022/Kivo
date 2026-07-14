@@ -30,6 +30,16 @@
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
+    <div class="tabs product-tabs">
+      <button :class="{ active: productTab === 'vendaveis' }" @click="productTab = 'vendaveis'; page = 1; clearSelection()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+        Produtos <span class="tab-count" x-text="vendaveisCount"></span>
+      </button>
+      <button :class="{ active: productTab === 'complementos' }" @click="productTab = 'complementos'; page = 1; clearSelection()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Complementos <span class="tab-count" x-text="complementosCount"></span>
+      </button>
+    </div>
     <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
       <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
       <% if (user.permissions.has('commercial.products.delete')) { %>
@@ -156,7 +166,7 @@
 
     <dialog x-ref="dlg" class="dialog-fixed product-modal">
       <h1 x-text="form.id ? 'Editar produto' : 'Novo produto'"></h1>
-      <div class="dialog-body" :style="'grid-template-columns: 1fr 1fr' + (form.productType === 'fisico' ? '' : ' 1.2fr')">
+      <div class="dialog-body" :style="'grid-template-columns: 1fr 1fr' + ((form.productType !== 'fisico' || form.id) ? ' 1.2fr' : '')">
         <div class="product-col">
           <label>Nome</label>
           <input type="text" x-model="form.name" @input.debounce.500ms="searchCatalogImages()" />
@@ -253,7 +263,7 @@
           </div>
         </div>
 
-        <div class="product-col-3" x-show="form.productType !== 'fisico'">
+        <div class="product-col-3" x-show="form.productType !== 'fisico' || form.id">
           <template x-if="!form.id && form.productType === 'variante'">
             <div class="variant-guide">
               <div class="variant-guide-head">
@@ -363,25 +373,30 @@
                   Usar soma (<span x-text="brl(kitTotalCents())"></span>)
                 </button>
               </div>
-              <div style="margin-top:.75rem">
-                <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.4rem">
-                  <h2 style="font-size:.95rem">Grupos de complementos</h2>
-                  <button class="btn secondary small" type="button" @click="openAddComplementGroup()">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Vincular
+            </div>
+          </template>
+
+          <!-- Complementos / adicionais: vale para qualquer produto vendável (ex.: hambúrguer + queijo), menos a variante-mãe. -->
+          <template x-if="form.id && form.productType !== 'variante'">
+            <div class="complement-link-box">
+              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <h2 style="font-size:.95rem">Complementos / adicionais</h2>
+                <button class="btn secondary small" type="button" @click="openAddComplementGroup()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Vincular grupo
+                </button>
+              </div>
+              <p class="muted text-xs" style="margin:0 0 .5rem">Grupos de opcionais que aparecem no PDV ao vender este item (ex.: “Adicionais” com queijo, bacon…).</p>
+              <template x-for="g in complementGroups" :key="g.id">
+                <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.25rem 0;font-size:.85rem">
+                  <span x-text="g.group_name"></span>
+                  <span class="muted text-xs" x-text="`min ${g.min_select}, máx ${g.max_select ?? '∞'}`"></span>
+                  <button class="icon-btn" @click="unlinkComplementGroup(g)" title="Desvincular">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                   </button>
                 </div>
-                <template x-for="g in complementGroups" :key="g.id">
-                  <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.25rem 0;font-size:.85rem">
-                    <span x-text="g.group_name"></span>
-                    <span class="muted text-xs" x-text="`min ${g.min_select}, máx ${g.max_select ?? '∞'}`"></span>
-                    <button class="icon-btn" @click="unlinkComplementGroup(g)" title="Desvincular">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
-                  </div>
-                </template>
-                <p x-show="!complementGroups.length" class="muted text-xs" style="margin:.2rem 0">Nenhum grupo vinculado.</p>
-              </div>
+              </template>
+              <p x-show="!complementGroups.length" class="muted text-xs" style="margin:.2rem 0">Nenhum grupo vinculado ainda.</p>
             </div>
           </template>
           <template x-if="form.id && form.productType === 'produzido'">
@@ -747,7 +762,7 @@
     function productsPage() {
       return {
         ...tableToolkit(),
-        rows: [], form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
+        rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
         // Variantes
@@ -762,7 +777,14 @@
           price: (p) => p.price_cents, cost: (p) => p.cost_cents,
           stock: (p) => (p.track_stock ? p.stock_qty : -Infinity), unit: (p) => p.unit,
         },
-        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        // Aba "Complementos" mostra só produtos usados como adicional (is_complement);
+        // "Produtos" mostra o restante (o que se vende avulso/montado), sem misturar.
+        get tabRows() {
+          return this.rows.filter((p) => this.productTab === 'complementos' ? p.is_complement : !p.is_complement);
+        },
+        get vendaveisCount() { return this.rows.filter((p) => !p.is_complement).length; },
+        get complementosCount() { return this.rows.filter((p) => p.is_complement).length; },
+        get displayRows() { return this.sortedRows(this.tabRows, this.sortGetters); },
         get pageTotal() { return this.displayRows.length; },
         get pageRows() { return this.pagedRows(this.displayRows); },
         get previewCombos() {
@@ -929,11 +951,11 @@
           this.$refs.dlg.showModal();
           if (!this.form.imageUrl) this.searchCatalogImages();
           if (p.product_type === 'variante') this.loadVariants(p.id);
-          if (p.product_type === 'kit' || p.product_type === 'combo') {
-            this.loadKitComponents(p.id);
-            this.loadComplementGroups(p.id);
-          }
+          if (p.product_type === 'kit' || p.product_type === 'combo') this.loadKitComponents(p.id);
           if (p.product_type === 'produzido') this.loadRecipeComponents(p.id);
+          // Complementos/adicionais valem para qualquer produto vendável (ex.: hambúrguer
+          // com adicional de queijo), não só kit/combo — só a variante-mãe não usa.
+          if (p.product_type !== 'variante') this.loadComplementGroups(p.id);
         },
         checkBarcode(code) {
           if (!code) return '';

@@ -588,6 +588,44 @@ dialog.product-modal > .dialog-body {
   dialog.product-modal > .dialog-body { grid-template-columns: 1fr !important; }
 }
 
+/* ─── Modal de compra (Nova compra) ─── */
+.purchase-additem {
+  background: var(--surface-hover); border: 1px solid var(--border-light);
+  border-radius: var(--radius); padding: .9rem 1rem; margin-bottom: 1rem;
+}
+.purchase-additem-row { display: grid; grid-template-columns: 92px 1fr auto; gap: .6rem; align-items: end; }
+.purchase-additem-row .btn { height: 40px; white-space: nowrap; }
+.purchase-items { border: 1px solid var(--border-light); border-radius: var(--radius); overflow: hidden; }
+.purchase-items table { width: 100%; border-collapse: collapse; margin: 0; }
+.purchase-items th {
+  text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--text-muted); font-weight: 600; padding: .55rem .8rem;
+  background: var(--surface-hover); border-bottom: 1px solid var(--border-light);
+}
+.purchase-items td { padding: .6rem .8rem; border-bottom: 1px solid var(--border-light); font-size: .9rem; }
+.purchase-items tbody tr:last-child td { border-bottom: 0; }
+.purchase-items .text-right { text-align: right; }
+.purchase-empty {
+  display: flex; flex-direction: column; align-items: center; gap: .5rem;
+  padding: 1.6rem 1rem; color: var(--text-muted); text-align: center; font-size: .88rem;
+}
+.purchase-empty svg { stroke: var(--border); }
+.purchase-total {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 1rem; padding: .75rem 1rem; border-radius: var(--radius);
+  background: var(--primary-bg, color-mix(in srgb, var(--primary) 8%, transparent));
+  border: 1.5px solid color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.purchase-total > span { font-size: .9rem; font-weight: 600; color: var(--text); }
+.purchase-total > strong { font-size: 1.35rem; font-weight: 800; color: var(--primary); letter-spacing: -.01em; }
+@media (max-width: 520px) {
+  .purchase-additem-row { grid-template-columns: 1fr 1fr; }
+  .purchase-additem-row .btn { grid-column: 1 / -1; }
+}
+
+/* Caixa de vínculo de complementos no modal de produto (produto simples ou kit). */
+.complement-link-box { border: 1px solid var(--border-light); border-radius: var(--radius); padding: .8rem .9rem; margin-top: .75rem; }
+
 /* ─── Onboarding Wizard (boas-vindas / configuração inicial) ─── */
 dialog.wizard-dialog {
   width: min(640px, calc(100vw - 2rem));
@@ -881,6 +919,15 @@ dialog.wizard-dialog {
 }
 .tabs button:hover { color: var(--text); }
 .tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+/* Abas da tabela de produtos (Produtos / Complementos) com contador */
+.product-tabs { margin-bottom: 1rem; }
+.product-tabs button { display: inline-flex; align-items: center; gap: .45rem; }
+.tab-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+  padding: 0 6px; border-radius: 999px; background: var(--surface-hover); color: var(--text-muted);
+  font-size: .72rem; font-weight: 700; line-height: 1;
+}
+.tabs button.active .tab-count { background: var(--primary-bg, color-mix(in srgb, var(--primary) 12%, transparent)); color: var(--primary); }
 
 @media (max-width: 400px) {
   .app-grid { grid-template-columns: 1fr; gap: .7rem; }

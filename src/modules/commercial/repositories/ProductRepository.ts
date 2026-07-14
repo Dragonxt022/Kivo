@@ -23,7 +23,8 @@ export interface ProductRow extends Row {
 
 const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
   p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active,
-  p.image_url, p.updated_at, p.product_type, p.parent_product_id, p.visivel_cardapio`;
+  p.image_url, p.updated_at, p.product_type, p.parent_product_id, p.visivel_cardapio,
+  (SELECT EXISTS(SELECT 1 FROM complement_group_items cgi WHERE cgi.product_id = p.id AND cgi.deleted_at IS NULL)) AS is_complement`;
 
 export class ProductRepository extends BaseRepository<ProductRow> {
   constructor() {
