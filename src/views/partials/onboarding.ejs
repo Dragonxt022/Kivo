@@ -1,0 +1,143 @@
+<dialog x-ref="onboardingDlg" class="wizard-dialog" tabindex="-1" @cancel.prevent @close="open = false">
+  <div class="wizard-progress" x-show="step < totalSteps - 1">
+    <template x-for="i in totalSteps - 1" :key="i">
+      <div class="dot" :class="(i - 1) < step ? 'done' : ((i - 1) === step ? 'active' : '')"></div>
+    </template>
+  </div>
+
+  <div class="wizard-viewport">
+    <div class="wizard-track" :style="'transform: translateX(-' + (step * 100) + '%)'">
+
+      <!-- 0: boas-vindas -->
+      <div class="wizard-step">
+        <div class="wizard-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 4.1L6 9l4.1 1.9L12 15l1.9-4.1L18 9l-4.1-1.9L12 3Z"/><path d="M5 3v4M3 5h4M19 17v4M17 19h4"/></svg>
+        </div>
+        <h2 class="wizard-title">Bem-vindo(a) ao Katsu! 🎉</h2>
+        <p class="wizard-subtitle">
+          Vamos deixar o sistema do seu jeito antes de começar — leva menos de um minuto
+          e já preparamos um ambiente pronto pra você testar.
+        </p>
+      </div>
+
+      <!-- 1: onde vai usar -->
+      <div class="wizard-step">
+        <h2 class="wizard-title">Onde você vai usar o Katsu?</h2>
+        <p class="wizard-subtitle">Isso ajuda a deixar as telas certas em destaque pra você.</p>
+        <div class="choice-grid">
+          <button type="button" class="choice-card" :class="answers.usage === 'balcao' ? 'selected' : ''" @click="chooseUsage('balcao')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span class="choice-label">Só no balcão</span>
+            <span class="choice-desc">PDV, venda rápida</span>
+          </button>
+          <button type="button" class="choice-card" :class="answers.usage === 'mesas' ? 'selected' : ''" @click="chooseUsage('mesas')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+            <span class="choice-label">Só nas mesas</span>
+            <span class="choice-desc">Comandas, atendimento</span>
+          </button>
+          <button type="button" class="choice-card" :class="answers.usage === 'ambos' ? 'selected' : ''" @click="chooseUsage('ambos')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span class="choice-label">Os dois</span>
+            <span class="choice-desc">Balcão e mesas</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2: tipo de negocio -->
+      <div class="wizard-step">
+        <h2 class="wizard-title">Qual é o seu tipo de negócio?</h2>
+        <p class="wizard-subtitle">Com base nisso já deixamos alguns produtos de exemplo prontos pra você testar.</p>
+        <div class="choice-grid">
+          <button type="button" class="choice-card" :class="answers.businessType === 'restaurante' ? 'selected' : ''" @click="chooseBusiness('restaurante')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+            <span class="choice-label">Restaurante / lanchonete</span>
+            <span class="choice-desc">Produtos com complementos</span>
+          </button>
+          <button type="button" class="choice-card" :class="answers.businessType === 'roupas' ? 'selected' : ''" @click="chooseBusiness('roupas')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+            <span class="choice-label">Loja de roupas / acessórios</span>
+            <span class="choice-desc">Produtos com tamanho e cor</span>
+          </button>
+          <button type="button" class="choice-card" :class="answers.businessType === 'outro' ? 'selected' : ''" @click="chooseBusiness('outro')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+            <span class="choice-label">Outro tipo de negócio</span>
+            <span class="choice-desc">Começo só com o básico</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 3: formas de pagamento -->
+      <div class="wizard-step">
+        <h2 class="wizard-title">Formas de pagamento</h2>
+        <p class="wizard-subtitle">Marque as que você aceita — dá pra mudar depois em Configurações.</p>
+        <div class="wizard-payment-list">
+          <template x-for="pm in paymentMethods" :key="pm.id">
+            <label class="wizard-payment-item" :class="answers.activePaymentMethodIds.includes(pm.id) ? 'selected' : ''">
+              <input type="checkbox" :checked="answers.activePaymentMethodIds.includes(pm.id)" @change="togglePayment(pm.id)" />
+              <span x-text="pm.name"></span>
+            </label>
+          </template>
+          <p class="hint" x-show="!paymentMethods.length">Carregando…</p>
+        </div>
+      </div>
+
+      <!-- 4: resumo -->
+      <div class="wizard-step">
+        <h2 class="wizard-title">Tudo certo?</h2>
+        <p class="wizard-subtitle">Confira o que vamos preparar pra você:</p>
+        <div class="wizard-summary-list">
+          <div class="wizard-summary-item" x-show="willCreateTables()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span>10 mesas já cadastradas, prontas pra usar</span>
+          </div>
+          <div class="wizard-summary-item" x-show="answers.businessType === 'restaurante'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span>Produtos de exemplo (suco, lanche…) com complementos, prontos pro PDV e pras mesas</span>
+          </div>
+          <div class="wizard-summary-item" x-show="answers.businessType === 'roupas'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span>Produtos de exemplo com variações de tamanho e cor</span>
+          </div>
+          <div class="wizard-summary-item">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="answers.activePaymentMethodIds.length + ' forma(s) de pagamento ativa(s)'"></span>
+          </div>
+        </div>
+        <p class="hint" x-show="mode === 'reopen'">
+          Isso salva suas preferências. Se quiser gerar mesas/produtos de exemplo agora, use o botão "Gerar dados de exemplo".
+        </p>
+        <div class="error" x-text="error"></div>
+      </div>
+
+      <!-- 5: sucesso -->
+      <div class="wizard-step">
+        <div class="wizard-icon" style="background:var(--primary);color:#fff">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <h2 class="wizard-title">Prontinho!</h2>
+        <p class="wizard-subtitle" x-text="successMessage()"></p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="wizard-footer">
+    <button type="button" class="btn secondary" @click="back()" x-show="step > 0 && step < totalSteps - 1">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Voltar
+    </button>
+    <button type="button" class="btn secondary" @click="skipWizard()" x-show="step === 0 && mode === 'first-run'">Pular por agora</button>
+    <button type="button" class="btn secondary" @click="close()" x-show="step === 0 && mode === 'reopen'">Fechar</button>
+    <div class="spacer"></div>
+    <button type="button" class="btn" @click="next()" x-show="step === 0">
+      Vamos lá
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <button type="button" class="btn" @click="next()" x-show="step === 3" :disabled="!paymentMethods.length">Continuar</button>
+    <button type="button" class="btn secondary" @click="finish(true)" x-show="step === 4 && mode === 'reopen'" :disabled="loading">Gerar dados de exemplo</button>
+    <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 4" :disabled="loading">
+      <span x-text="loading ? 'Configurando…' : (mode === 'first-run' ? 'Concluir e configurar' : 'Salvar preferências')"></span>
+    </button>
+    <button type="button" class="btn" @click="close()" x-show="step === 5">Ir para o sistema</button>
+  </div>
+</dialog>

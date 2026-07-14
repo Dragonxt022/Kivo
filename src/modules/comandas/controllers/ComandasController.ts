@@ -32,7 +32,10 @@ export const comandasController = {
     const existing = storeTableRepository.rawOne('SELECT id FROM store_tables WHERE id = ? AND deleted_at IS NULL', id);
     if (!existing) { res.status(404).json({ error: 'Mesa nao encontrada.' }); return; }
     const { label, sortOrder } = req.body ?? {};
-    storeTableRepository.update(id, { label: label ?? null, sort_order: sortOrder ?? null });
+    const data: Record<string, unknown> = {};
+    if (label !== undefined) data.label = label;
+    if (sortOrder !== undefined) data.sort_order = sortOrder;
+    if (Object.keys(data).length) storeTableRepository.update(id, data);
     audit(req, 'editar_mesa', 'table', id);
     res.json({ ok: true });
   },

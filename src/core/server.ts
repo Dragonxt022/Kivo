@@ -24,6 +24,7 @@ import activationRoutes from './license/activationRoutes';
 import { productImagesDir, trySubmitPending } from './catalog/submissionQueue';
 import { registerSyncTables } from './sync/registry';
 import capabilitiesRoutes from './capabilities/routes';
+import onboardingRoutes from './onboarding/routes';
 
 /** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina/relógio
  * só se autocura se o usuário reiniciar o app ou clicar em "Sincronizar agora". */
@@ -127,6 +128,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.use('/api/billing', requireAuth, billingRoutes);
   app.use('/api/security', requireAuth, securityRoutes);
   app.use('/api/core/capabilities', requireAuth, capabilitiesRoutes);
+  app.use('/api/onboarding', requireAuth, onboardingRoutes);
 
   // Páginas do Core
   app.get('/', page('home'));

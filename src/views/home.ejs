@@ -99,21 +99,28 @@
       <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
     </div>
 
-    <div class="app-grid">
+    <div class="app-grid" x-ref="grid">
+      <template x-for="a in apps" :key="a.href">
+        <a class="app-card drag-enabled" :href="a.href" :data-href="a.href" draggable="false"
+           x-show="matches(a.label)"
+           :class="[dragId === a.href ? 'dragging' : '', dropOverId === a.href ? 'drop-target' : '']"
+           @pointerdown="onCardPointerDown($event, a)">
+          <img class="card-icon" :src="'/icons/' + a.icon + '.svg'" alt="" width="40" height="40" />
+          <span class="card-title" x-text="a.label"></span>
+          <span class="card-desc" x-text="a.description"></span>
+        </a>
+      </template>
       <%
-        var visibleItems = [];
+        var moduleItems = [];
         (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) {
           if (!item.permission || user.permissions.has(item.permission)) {
-            visibleItems.push(item);
-      %>
-          <a class="app-card" href="<%= item.href %>" x-show="matches('<%= item.label %>')">
-            <img class="card-icon" src="/icons/<%= item.icon %>.svg" alt="" width="40" height="40" />
-            <span class="card-title"><%= item.label %></span>
-            <span class="card-desc"><%= item.description ?? '' %></span>
-          </a>
-      <%
+            moduleItems.push(item);
           }
         });
+        var visibleItemsForAlpine = moduleItems.map(function (item) {
+          return { label: item.label, href: item.href, icon: item.icon, description: item.description ?? '' };
+        });
+        var visibleItems = moduleItems.slice();
         var adminItems = [];
         if (user.permissions.has('users.view')) adminItems.push({ label: 'Usuários', href: '/admin/usuarios', icon: 'user-cog', description: 'Contas, cargos e acesso.' });
         if (user.permissions.has('roles.view')) adminItems.push({ label: 'Cargos', href: '/admin/cargos', icon: 'key', description: 'Permissões por cargo.' });
@@ -140,9 +147,9 @@
       <% }) %>
 
       <%
-        var rem = visibleItems.length % 4;
+        var rem = visibleItems.length % 6;
         if (rem > 0) {
-          for (var i = 0; i < 4 - rem; i++) {
+          for (var i = 0; i < 6 - rem; i++) {
       %>
           <div class="app-card" style="visibility:hidden;border-color:transparent;box-shadow:none;cursor:default;pointer-events:none"></div>
       <%
@@ -152,6 +159,12 @@
     </div>
     <% } %>
   </main>
+
+  <% if (user && user.permissions.has('settings.edit')) { %>
+  <div x-data="onboardingWizard()" x-init="checkFirstRun()">
+    <%- include('partials/onboarding') %>
+  </div>
+  <% } %>
 
   <div x-data="helpChat()">
     <button type="button" class="fab" title="Ajuda" @click="open()">
@@ -186,7 +199,14 @@
     </dialog>
   </div>
 
+  <% if (user && user.permissions.has('settings.edit')) { %>
+  <script src="/js/onboarding.js"></script>
+  <% } %>
   <script>
+    const HOME_APPS_SEED = <%- JSON.stringify(typeof visibleItemsForAlpine !== 'undefined' ? visibleItemsForAlpine : []) %>;
+    const HOME_ORDER_KEY = 'katsu-home-order';
+    const HOME_USAGE_KEY = 'katsu-home-usage';
+
     function homePage() {
       return {
         greeting: '',
@@ -200,8 +220,146 @@
         loginRemember: false,
         loginLoading: false,
         loginError: '',
+        apps: [],
+        dragId: null,
+        dropOverId: null,
+
+        loadOrder(items) {
+          let saved = [];
+          try { saved = JSON.parse(localStorage.getItem(HOME_ORDER_KEY) || '[]'); } catch {}
+          if (!saved.length) return items;
+          const byHref = new Map(items.map((i) => [i.href, i]));
+          const ordered = [];
+          saved.forEach((href) => {
+            const it = byHref.get(href);
+            if (it) { ordered.push(it); byHref.delete(href); }
+          });
+          byHref.forEach((it) => ordered.push(it));
+          return ordered;
+        },
+        saveOrder() {
+          localStorage.setItem(HOME_ORDER_KEY, JSON.stringify(this.apps.map((a) => a.href)));
+        },
+
+        // Aprende com o uso: cada clique normal (não-arrasto) soma 1 pro app, e se ele
+        // passar a ter mais uso que o vizinho de cima, sobe uma posição. Uso repetido ao
+        // longo de várias visitas vai levando o app mais usado pro topo, aos poucos.
+        // Teto + decaimento: sem isso, um app com 100 cliques acumulados no passado
+        // ficaria praticamente impossível de ultrapassar. O teto limita quantos cliques
+        // bastam pra alcançar o topo, e o decaimento faz apps esquecidos perderem força
+        // aos poucos, dando espaço pra quem você passou a usar mais agora.
+        recordUsage(href) {
+          const DECAY = 0.9, CAP = 20;
+          let usage = {};
+          try { usage = JSON.parse(localStorage.getItem(HOME_USAGE_KEY) || '{}'); } catch {}
+          Object.keys(usage).forEach((h) => {
+            if (h === href) return;
+            const next = usage[h] * DECAY;
+            if (next < 0.5) delete usage[h]; else usage[h] = next;
+          });
+          usage[href] = Math.min((usage[href] || 0) + 1, CAP);
+          localStorage.setItem(HOME_USAGE_KEY, JSON.stringify(usage));
+
+          // Não mexe no array reativo `apps` aqui: o clique está prestes a navegar pra
+          // fora da página (link normal), e reordenar o DOM nesse instante podia fazer o
+          // navegador cancelar o próprio clique (card "não entrava"). Só grava a nova
+          // ordem no localStorage — ela aparece já reordenada na próxima visita à home.
+          const order = this.apps.map((a) => a.href);
+          const idx = order.indexOf(href);
+          if (idx > 0) {
+            const aboveHref = order[idx - 1];
+            if (usage[href] > (usage[aboveHref] || 0)) {
+              order[idx - 1] = href;
+              order[idx] = aboveHref;
+              localStorage.setItem(HOME_ORDER_KEY, JSON.stringify(order));
+            }
+          }
+        },
+
+        onCardPointerDown(e, a) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          const card = e.currentTarget;
+          const startX = e.clientX, startY = e.clientY;
+          const rect = card.getBoundingClientRect();
+          let dragging = false;
+
+          const activate = () => {
+            dragging = true;
+            this.dragId = a.href;
+            card.style.width = rect.width + 'px';
+            card.style.height = rect.height + 'px';
+            card.style.left = rect.left + 'px';
+            card.style.top = rect.top + 'px';
+            try { card.setPointerCapture(e.pointerId); } catch {}
+            card.addEventListener('click', suppressClick, { capture: true, once: true });
+            if (navigator.vibrate) navigator.vibrate(12);
+          };
+          const suppressClick = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+
+          const timer = setTimeout(activate, 260);
+
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX, dy = ev.clientY - startY;
+            if (!dragging) {
+              if (Math.hypot(dx, dy) > 8) cleanup();
+              return;
+            }
+            ev.preventDefault();
+            card.style.transform = `translate(${dx}px, ${dy}px) scale(1.04)`;
+            const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.app-card');
+            this.dropOverId = under && under !== card && under.dataset.href ? under.dataset.href : null;
+          };
+          const onUp = () => {
+            cleanup();
+            if (dragging) this.finishDrag(a, card);
+            else this.recordUsage(a.href);
+          };
+          const cleanup = () => {
+            clearTimeout(timer);
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+          };
+
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
+        },
+        finishDrag(a, card) {
+          card.removeAttribute('style');
+          this.dragId = null;
+          const overHref = this.dropOverId;
+          this.dropOverId = null;
+          const fromIdx = this.apps.findIndex((x) => x.href === a.href);
+          const toIdx = overHref != null ? this.apps.findIndex((x) => x.href === overHref) : -1;
+          if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+          this.reorder(fromIdx, toIdx);
+        },
+        async reorder(fromIdx, toIdx) {
+          const grid = this.$refs.grid;
+          const before = new Map();
+          grid.querySelectorAll('.app-card').forEach((el) => before.set(el, el.getBoundingClientRect()));
+
+          const [moved] = this.apps.splice(fromIdx, 1);
+          this.apps.splice(toIdx, 0, moved);
+          this.saveOrder();
+          await this.$nextTick();
+
+          grid.querySelectorAll('.app-card').forEach((el) => {
+            const prev = before.get(el);
+            if (!prev) return;
+            const next = el.getBoundingClientRect();
+            const dx = prev.left - next.left, dy = prev.top - next.top;
+            if (!dx && !dy) return;
+            el.style.transition = 'none';
+            el.style.transform = `translate(${dx}px, ${dy}px)`;
+            requestAnimationFrame(() => {
+              el.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1)';
+              el.style.transform = '';
+            });
+          });
+        },
 
         init() {
+          this.apps = this.loadOrder(HOME_APPS_SEED);
           const now = new Date();
           const h = now.getHours();
           const isWeekend = now.getDay() === 0 || now.getDay() === 6;

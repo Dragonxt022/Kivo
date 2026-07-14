@@ -11,7 +11,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/comandas/mesas' }) %>
-  <main x-data="mesasPage()" x-init="init()">
+  <main x-data="mesasPage(<%- JSON.stringify(user.permissions.has('comandas.tables.manage')) %>)" x-init="init()">
     <h1>Mesas</h1>
     <div class="toolbar">
       <% if (user.permissions.has('comandas.tables.manage')) { %>
@@ -23,12 +23,15 @@
       <span class="error" x-text="error"></span>
     </div>
 
-    <div class="tables-grid" x-show="tables.length">
+    <div class="tables-grid" x-ref="grid" x-show="tables.length">
       <template x-for="t in tables" :key="t.id">
-        <div class="table-card" :class="t.status === 'livre' ? 'table-livre' : 'table-ocupada'">
+        <div class="table-card"
+             :data-id="t.id"
+             :class="[t.status === 'livre' ? 'table-livre' : 'table-ocupada', canManage ? 'drag-enabled' : '', dragId === t.id ? 'dragging' : '', dropOverId === t.id ? 'drop-target' : '']"
+             @pointerdown="onCardPointerDown($event, t)">
           <% if (user.permissions.has('comandas.tables.manage')) { %>
           <button type="button" class="icon-btn table-remove" x-show="t.status === 'livre'"
-                  @click.stop="removeTable(t)" title="Remover mesa">
+                  @pointerdown.stop @click.stop="removeTable(t)" title="Remover mesa">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </button>
           <% } %>
@@ -73,13 +76,27 @@
   </main>
   <style>
     .tables-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem;
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem;
     }
+    @media (max-width: 1200px) { .tables-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 900px)  { .tables-grid { grid-template-columns: repeat(3, 1fr); } }
     .table-card {
       position: relative;
       background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius-lg);
       box-shadow: var(--shadow-xs);
-      transition: border-color var(--transition), box-shadow var(--transition);
+      transition: border-color var(--transition), box-shadow var(--transition), transform .15s ease;
+    }
+    .table-card.drag-enabled { cursor: grab; touch-action: none; }
+    .table-card.drag-enabled:active { cursor: grabbing; }
+    .table-card.dragging {
+      position: fixed; top: 0; left: 0; z-index: 60; margin: 0;
+      cursor: grabbing; pointer-events: none;
+      box-shadow: 0 20px 40px rgba(0,0,0,.28);
+      transition: box-shadow .15s ease;
+    }
+    .table-card.drop-target {
+      outline: 2px dashed var(--primary); outline-offset: 3px;
+      transition: outline-color .15s ease;
     }
     .table-card.table-livre:hover { border-color: var(--primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 16%, transparent); }
     .table-card.table-ocupada:hover { border-color: var(--danger); box-shadow: 0 8px 24px color-mix(in srgb, var(--danger) 16%, transparent); }
@@ -115,20 +132,112 @@
     }
   </style>
   <script>
-    function mesasPage() {
+    function mesasPage(canManage) {
       return {
         tables: [],
         newTableLabel: '',
         error: '', dlgError: '',
         pollTimer: null,
+        canManage: !!canManage,
+        dragId: null,
+        dropOverId: null,
         async init() {
           await this.load();
           this.pollTimer = setInterval(() => this.load(), 10000);
         },
         async load() {
+          if (this.dragId !== null) return;
           const r = await fetch('/api/comandas/tables/status');
           if (r.ok) this.tables = await r.json();
           else this.error = (await r.json()).error ?? 'Erro ao carregar mesas.';
+        },
+        onCardPointerDown(e, t) {
+          if (!this.canManage || e.pointerType === 'mouse' && e.button !== 0) return;
+          const card = e.currentTarget;
+          const startX = e.clientX, startY = e.clientY;
+          const rect = card.getBoundingClientRect();
+          let dragging = false;
+
+          const activate = () => {
+            dragging = true;
+            this.dragId = t.id;
+            card.style.width = rect.width + 'px';
+            card.style.height = rect.height + 'px';
+            card.style.left = rect.left + 'px';
+            card.style.top = rect.top + 'px';
+            try { card.setPointerCapture(e.pointerId); } catch {}
+            card.addEventListener('click', suppressClick, { capture: true, once: true });
+            if (navigator.vibrate) navigator.vibrate(12);
+          };
+          const suppressClick = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+
+          const timer = setTimeout(activate, 260);
+
+          const onMove = (ev) => {
+            const dx = ev.clientX - startX, dy = ev.clientY - startY;
+            if (!dragging) {
+              if (Math.hypot(dx, dy) > 8) cleanup();
+              return;
+            }
+            ev.preventDefault();
+            card.style.transform = `translate(${dx}px, ${dy}px) scale(1.04)`;
+            const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.table-card');
+            this.dropOverId = under && under !== card ? Number(under.dataset.id) : null;
+          };
+          const onUp = () => {
+            cleanup();
+            if (dragging) this.finishDrag(t, card);
+          };
+          const cleanup = () => {
+            clearTimeout(timer);
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+          };
+
+          window.addEventListener('pointermove', onMove);
+          window.addEventListener('pointerup', onUp);
+        },
+        finishDrag(t, card) {
+          card.removeAttribute('style');
+          this.dragId = null;
+          const overId = this.dropOverId;
+          this.dropOverId = null;
+          const fromIdx = this.tables.findIndex((x) => x.id === t.id);
+          const toIdx = overId != null ? this.tables.findIndex((x) => x.id === overId) : -1;
+          if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+          this.reorder(fromIdx, toIdx);
+        },
+        async reorder(fromIdx, toIdx) {
+          const grid = this.$refs.grid;
+          const before = new Map();
+          grid.querySelectorAll('.table-card').forEach((el) => before.set(el.dataset.id, el.getBoundingClientRect()));
+
+          const [moved] = this.tables.splice(fromIdx, 1);
+          this.tables.splice(toIdx, 0, moved);
+          await this.$nextTick();
+
+          grid.querySelectorAll('.table-card').forEach((el) => {
+            const prev = before.get(el.dataset.id);
+            if (!prev) return;
+            const next = el.getBoundingClientRect();
+            const dx = prev.left - next.left, dy = prev.top - next.top;
+            if (!dx && !dy) return;
+            el.style.transition = 'none';
+            el.style.transform = `translate(${dx}px, ${dy}px)`;
+            requestAnimationFrame(() => {
+              el.style.transition = 'transform .32s cubic-bezier(.2,.8,.2,1)';
+              el.style.transform = '';
+            });
+          });
+
+          const updates = this.tables.map((tb, i) => ({ id: tb.id, sortOrder: i }));
+          const results = await Promise.allSettled(updates.map((u) => fetch('/api/comandas/tables/' + u.id, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sortOrder: u.sortOrder }),
+          })));
+          if (results.some((r) => r.status === 'rejected' || !r.value.ok)) {
+            this.error = 'Erro ao salvar nova ordem.';
+          }
         },
         async openTable(t) {
           this.error = '';

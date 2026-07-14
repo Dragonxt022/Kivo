@@ -140,6 +140,22 @@
         </div>
         <% } %>
       </section>
+      <% if (user.permissions.has('settings.edit')) { %>
+      <section class="panel" x-data="onboardingWizard()">
+        <h2>Assistente de configuração inicial</h2>
+        <p class="hint mt-0">
+          A mesma tela de boas-vindas do primeiro acesso — refaça as perguntas pra ajustar
+          formas de pagamento e preferências, ou gere mesas/produtos de exemplo pra testar.
+        </p>
+        <div class="toolbar">
+          <button class="btn secondary" @click="openReopen()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 4.1L6 9l4.1 1.9L12 15l1.9-4.1L18 9l-4.1-1.9L12 3Z"/><path d="M5 3v4M3 5h4M19 17v4M17 19h4"/></svg>
+            Reabrir assistente de boas-vindas
+          </button>
+        </div>
+        <%- include('partials/onboarding') %>
+      </section>
+      <% } %>
     </div>
 
     <!-- ═══════ ABA: ESTOQUE ═══════ -->
@@ -534,6 +550,7 @@
     </dialog>
   </main>
   <script src="/js/masks.js"></script>
+  <script src="/js/onboarding.js"></script>
   <script>
     function settingsPage() {
       return {
