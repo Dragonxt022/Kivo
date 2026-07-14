@@ -104,7 +104,8 @@
           </div>
         </div>
         <p class="hint" x-show="mode === 'reopen'">
-          Isso salva suas preferências. Se quiser gerar mesas/produtos de exemplo agora, use o botão "Gerar dados de exemplo".
+          Isso salva suas preferências. Se quiser gerar/regenerar mesas/produtos de exemplo agora,
+          use o botão "Regenerar dados de exemplo".
         </p>
         <div class="error" x-text="error"></div>
       </div>
@@ -134,7 +135,7 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
     <button type="button" class="btn" @click="next()" x-show="step === 3" :disabled="!paymentMethods.length">Continuar</button>
-    <button type="button" class="btn secondary" @click="finish(true)" x-show="step === 4 && mode === 'reopen'" :disabled="loading">Gerar dados de exemplo</button>
+    <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 4 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
     <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 4" :disabled="loading">
       <span x-text="loading ? 'Configurando…' : (mode === 'first-run' ? 'Concluir e configurar' : 'Salvar preferências')"></span>
     </button>

@@ -88,7 +88,7 @@ function onboardingWizard() {
       this.close();
     },
 
-    async finish(createDemoData) {
+    async finish(createDemoData, resetDemoData = false) {
       if (!this.answers.usage || !this.answers.businessType) {
         this.error = 'Volte e responda as perguntas anteriores.';
         return;
@@ -104,6 +104,7 @@ function onboardingWizard() {
             businessType: this.answers.businessType,
             activePaymentMethodIds: this.answers.activePaymentMethodIds,
             createDemoData,
+            resetDemoData,
           }),
         });
         if (!r.ok) {

@@ -42,6 +42,10 @@ export function markOnboardingCompleted(): void {
   settingsRepository.set(COMPLETED_KEY, '1');
 }
 
+export function resetDemoData(): void {
+  settingsRepository.set(DEMO_DATA_KEY, '0');
+}
+
 export function listPaymentMethodsForWizard() {
   return paymentMethodRepository.listAll();
 }
@@ -73,9 +77,9 @@ function createTables(count: number): number {
   return count;
 }
 
-function createSimpleProduct(name: string, priceCents: number, unit = 'un'): number {
+function createSimpleProduct(name: string, priceCents: number, unit = 'un', categoryId?: number): number {
   return productRepository.create({
-    name, unit, price_cents: priceCents, cost_cents: 0, product_type: 'fisico', track_stock: 0, uuid: randomUUID(),
+    name, unit, price_cents: priceCents, cost_cents: 0, product_type: 'fisico', track_stock: 0, category_id: categoryId ?? null, uuid: randomUUID(),
   } as Record<string, unknown>);
 }
 
@@ -91,10 +95,21 @@ function attachComplementGroup(sellableProductId: number, groupName: string, min
   productComplementGroupRepository.create({ product_id: sellableProductId, group_id: groupId, sort_order: 0, uuid: randomUUID() });
 }
 
+function getOrCreateCategory(name: string): number {
+  const existing = categoryRepository.rawOne('SELECT id FROM categories WHERE name = ? AND deleted_at IS NULL', name) as { id: number } | undefined;
+  if (existing) return existing.id;
+  return categoryRepository.create({ name, parent_id: null, uuid: randomUUID() });
+}
+
 function createRestauranteDemoProducts(): number {
   let count = 0;
 
-  const suco = createSimpleProduct('Suco Natural', 800);
+  // Criar/obter categorias
+  const catHamburgueres = getOrCreateCategory('Hambúrgueres');
+  const catBebidas = getOrCreateCategory('Bebidas');
+  const catAcompanhamentos = getOrCreateCategory('Acompanhamentos');
+
+  const suco = createSimpleProduct('Suco Natural', 800, 'un', catBebidas);
   attachComplementGroup(suco, 'Sabor do suco', 1, 1, [
     { name: 'Laranja', priceCents: 0 },
     { name: 'Abacaxi', priceCents: 0 },
@@ -102,7 +117,7 @@ function createRestauranteDemoProducts(): number {
   ]);
   count += 4; // suco + 3 sabores
 
-  const lanche = createSimpleProduct('Lanche Completo (X-Burger)', 1800);
+  const lanche = createSimpleProduct('Lanche Completo (X-Burger)', 1800, 'un', catHamburgueres);
   attachComplementGroup(lanche, 'Adicionais', 0, 4, [
     { name: 'Bacon extra', priceCents: 300 },
     { name: 'Queijo extra', priceCents: 200 },
@@ -111,8 +126,8 @@ function createRestauranteDemoProducts(): number {
   ]);
   count += 5; // lanche + 4 adicionais
 
-  createSimpleProduct('Refrigerante Lata', 600);
-  createSimpleProduct('Batata Frita', 1200);
+  createSimpleProduct('Refrigerante Lata', 600, 'un', catBebidas);
+  createSimpleProduct('Batata Frita', 1200, 'un', catAcompanhamentos);
   count += 2;
 
   return count;
