@@ -71,9 +71,15 @@
     <div class="panel" x-show="isOpen" x-cloak>
       <h2>Adicionar item</h2>
       <div class="combo-wrap">
-        <input type="text" class="input" style="width:100%" x-model="searchQ"
-               @input.debounce.300ms="searchProducts" @keydown.enter.prevent="quickAdd"
-               placeholder="Buscar produto por nome, SKU ou código de barras…" x-ref="searchInput" />
+        <div style="display:flex;gap:.5rem">
+          <input type="text" class="input" style="flex:1" x-model="searchQ"
+                 @input.debounce.300ms="searchProducts" @keydown.enter.prevent="quickAdd"
+                 placeholder="Buscar produto por nome, SKU ou código de barras…" x-ref="searchInput" />
+          <button type="button" class="btn secondary" @click="openBrowse()" title="Procurar produtos">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Procurar
+          </button>
+        </div>
         <div class="combo-results" x-show="searchResults.length" x-cloak>
           <template x-for="p in searchResults" :key="p.id">
             <button type="button" class="combo-result" @click="addItem(p)">
@@ -190,6 +196,51 @@
         </div>
       </div>
     </dialog>
+
+    <!-- ─── Modal: Procurar produtos ─── -->
+    <dialog x-ref="browseDlg" style="width:min(960px, 94vw)">
+      <h1>Procurar produtos</h1>
+      <input type="text" x-ref="browseInput" x-model="browseQ"
+             @input.debounce.250ms="searchBrowse()"
+             placeholder="Buscar por nome, código de barras ou SKU…" />
+      <div class="browse-cats" x-show="browseCategories.length">
+        <button type="button" class="browse-cat-chip"
+                :class="{ active: !browseCategoryId }"
+                @click="browseCategoryId = ''">Todas</button>
+        <template x-for="c in browseCategories" :key="c.id">
+          <button type="button" class="browse-cat-chip"
+                  :class="{ active: browseCategoryId === c.id }"
+                  @click="browseCategoryId = browseCategoryId === c.id ? '' : c.id"
+                  x-text="c.name"></button>
+        </template>
+      </div>
+      <div class="browse-list">
+        <template x-for="p in browseFiltered()" :key="p.id">
+          <div class="browse-result" @click="addItem(p); $refs.browseDlg.close()">
+            <span class="browse-result-thumb">
+              <img x-show="p.image_url" :src="p.image_url" alt="" />
+              <template x-if="!p.image_url">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </template>
+            </span>
+            <span class="browse-name" x-text="p.name"></span>
+            <span class="browse-category muted text-sm" x-show="p.category" x-text="p.category"></span>
+            <span class="browse-price" x-text="brl(p.price_cents)"></span>
+            <span class="browse-stock"
+                  :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
+                  x-show="p.track_stock"
+                  x-text="'Est: ' + p.stock_qty"></span>
+          </div>
+        </template>
+        <p class="browse-empty" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.browseDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar
+        </button>
+      </div>
+    </dialog>
   </main>
   <style>
     .comanda-header {
@@ -268,6 +319,39 @@
       .comanda-item { padding: .95rem 1rem; }
       .comanda-item .icon-btn { width: 40px; height: 40px; }
     }
+
+    /* ─── Browse modal ─── */
+    .browse-cats { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
+    .browse-cat-chip {
+      border: 1.5px solid var(--border-light); background: var(--surface-hover); color: var(--text-secondary);
+      border-radius: 999px; padding: .35rem .85rem; font-size: .82rem; font-weight: 600; cursor: pointer;
+      transition: border-color var(--transition), background var(--transition), color var(--transition);
+    }
+    .browse-cat-chip:hover { border-color: var(--primary); color: var(--primary); }
+    .browse-cat-chip.active { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+    .browse-list { max-height: min(64vh, 680px); overflow-y: auto; margin-top: .75rem; border: 1.5px solid var(--border-light); border-radius: var(--radius); }
+    .browse-result {
+      display: grid; grid-template-columns: 38px 1fr auto auto auto; gap: .75rem; align-items: center;
+      padding: .7rem .9rem; cursor: pointer; border-bottom: 1px solid var(--border-light);
+      transition: background var(--transition);
+    }
+    .browse-result:last-child { border-bottom: 0; }
+    .browse-result:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+    .browse-result-thumb {
+      width: 36px; height: 36px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
+      background: var(--surface-hover); border: 1px solid var(--border-light);
+      display: grid; place-items: center; color: var(--text-muted);
+    }
+    .browse-result-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .browse-name { font-weight: 600; font-size: .95rem; color: var(--text); }
+    .browse-category { font-size: .8rem; }
+    .browse-price { font-weight: 700; font-size: .95rem; color: var(--primary); white-space: nowrap; }
+    .browse-stock {
+      font-size: .78rem; color: var(--text-muted); white-space: nowrap; text-align: right;
+    }
+    .browse-stock.low { color: var(--danger); }
+    .browse-stock.negative { color: var(--danger); }
+    .browse-empty { padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
   </style>
   <script>
     function comandaDetalhePage() {
@@ -285,6 +369,10 @@
         otherComandas: [],
         mergeSourceId: null,
         pollTimer: null,
+        browseQ: '',
+        browseResults: [],
+        browseCategories: [],
+        browseCategoryId: '',
 
         async init() {
           await this.load();
@@ -307,6 +395,26 @@
         },
         quickAdd() {
           if (this.searchResults.length === 1) this.addItem(this.searchResults[0]);
+        },
+        async openBrowse() {
+          this.browseQ = '';
+          this.browseResults = [];
+          this.browseCategoryId = '';
+          this.$refs.browseDlg.showModal();
+          this.$nextTick(() => this.$refs.browseInput?.focus());
+          if (!this.browseCategories.length) {
+            const c = await fetch('/api/commercial/categories');
+            if (c.ok) this.browseCategories = await c.json();
+          }
+          this.searchBrowse();
+        },
+        async searchBrowse() {
+          const r = await fetch('/api/commercial/products' + (this.browseQ.trim() ? '?q=' + encodeURIComponent(this.browseQ.trim()) : ''));
+          if (r.ok) this.browseResults = await r.json();
+        },
+        browseFiltered() {
+          if (!this.browseCategoryId) return this.browseResults;
+          return this.browseResults.filter((p) => p.category_id === this.browseCategoryId);
         },
         async addItem(p) {
           const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/items', {
