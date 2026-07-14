@@ -106,6 +106,12 @@
                 <div class="prod-name" x-text="i.name"></div>
                 <div class="prod-unit" x-text="(i.sku ? ('SKU: ' + i.sku + ' · ') : '') + brl(i.price_cents) + ' un.'"></div>
                 <div class="prod-notes" x-show="i.notes" x-text="i.notes"></div>
+                <button type="button" class="prod-note-btn"
+                        x-show="!slots[activeSlot].comandaId && !(i.lineGroupUuid && idx > 0 && cart[idx-1]?.lineGroupUuid === i.lineGroupUuid)"
+                        @click="openNoteDlg(idx)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <span x-text="i.notes ? 'Editar observação' : 'Observação'"></span>
+                </button>
               </div>
               <div class="qty-wrap" x-show="!slots[activeSlot].comandaId">
                 <button @click="qtyMinus(idx)" :disabled="i.qty <= 0.001">−</button>
@@ -285,6 +291,26 @@
         <button class="btn" @click="saveValue()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           Aplicar (Enter)
+        </button>
+      </div>
+    </dialog>
+
+    <!-- ─── MODAL: Observação do item ─── -->
+    <dialog x-ref="noteDlg">
+      <h1>Observação do item</h1>
+      <p class="muted" style="margin-top:-.3rem">Ex.: sem cebola, com provolone, ponto da carne…</p>
+      <textarea x-ref="noteInput" x-model="noteDlg.text" rows="3"
+                placeholder="Digite a observação para a cozinha/balcão"
+                @keydown.enter.meta.prevent="saveNote()" @keydown.escape.prevent="$refs.noteDlg.close()"
+                style="width:100%"></textarea>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.noteDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar (Esc)
+        </button>
+        <button class="btn" @click="saveNote()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
         </button>
       </div>
     </dialog>
@@ -661,6 +687,7 @@
         fidelidadeForm: { pointsUsed: 0 }, fidelidadeError: '',
         cloudOnline: false,
         complementDlg: { product: null, groups: [], selections: {}, mainNotes: '', errors: {} },
+        noteDlg: { idx: null, text: '' },
 
         // ─── Complementos ───
         openComplementDlg(product, groups) {
@@ -972,6 +999,19 @@
           this.focusSearch();
           this.persistSlots();
           this.repriceCart();
+        },
+        // ─── Observação por item (ex.: "sem cebola, com provolone") ───
+        openNoteDlg(idx) {
+          this.noteDlg = { idx, text: this.cart[idx]?.notes ?? '' };
+          this.$refs.noteDlg.showModal();
+          this.$nextTick(() => this.$refs.noteInput?.focus());
+        },
+        saveNote() {
+          const { idx, text } = this.noteDlg;
+          if (idx == null || !this.cart[idx]) { this.$refs.noteDlg.close(); return; }
+          this.cart[idx].notes = text.trim() || null;
+          this.persistSlots();
+          this.$refs.noteDlg.close();
         },
 
         // ─── Tabelas de preço (atacado/varejo/cliente) ───

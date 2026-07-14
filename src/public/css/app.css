@@ -930,6 +930,66 @@ dialog.wizard-dialog {
   display: grid; place-items: center; color: var(--text-muted);
 }
 .product-thumb img { width: 100%; height: 100%; object-fit: cover; }
+/* Ícone do tipo de produto (simples/variante/kit/combo/produzido) na coluna do nome. */
+.type-name-wrap { display: inline-flex; align-items: center; gap: .45rem; }
+.type-icon { display: inline-flex; flex-shrink: 0; align-items: center; }
+.type-icon svg { display: block; }
+
+/* Guia passo-a-passo para criar produto com variantes. */
+.variant-guide {
+  background: var(--primary-bg, color-mix(in srgb, var(--primary) 8%, transparent));
+  border: 1.5px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: var(--radius); padding: .9rem 1rem; margin-bottom: .75rem;
+}
+.variant-guide-head { display: flex; align-items: center; gap: .5rem; color: var(--primary); margin-bottom: .5rem; }
+.variant-guide-head strong { font-size: .95rem; }
+.variant-guide-steps { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .35rem; font-size: .85rem; line-height: 1.4; }
+.variant-guide-steps li { padding-left: .2rem; }
+
+/* ─── Atalhos flutuantes de páginas recentes (canto inferior direito) ─── */
+.recent-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 45;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+  pointer-events: none;
+}
+.recent-fab-pill {
+  pointer-events: none;
+  display: inline-flex; align-items: center; gap: .5rem;
+  margin-right: calc(var(--rev, 0) * 16px);
+  padding: .6rem .55rem .6rem 1rem;
+  background: var(--surface); color: var(--text);
+  border: 1.5px solid var(--border-light); border-radius: 999px;
+  box-shadow: var(--shadow); font-size: .88rem; font-weight: 600;
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+  opacity: 0; transform: translateX(42px) scale(.95);
+  transition: opacity .38s cubic-bezier(.22,1,.36,1), transform .38s cubic-bezier(.22,1,.36,1),
+              box-shadow .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+}
+.recent-fab-pill.show { opacity: 1; transform: translateX(0) scale(1); pointer-events: auto; }
+.recent-fab-pill.leaving { opacity: 0; transform: translateX(42px) scale(.95); pointer-events: none; }
+.recent-fab-pill:hover {
+  border-color: var(--primary); color: var(--primary);
+  background: var(--primary-bg, color-mix(in srgb, var(--primary) 9%, transparent));
+  transform: translateX(-3px) scale(1.03); box-shadow: var(--shadow-lg); text-decoration: none;
+}
+.recent-fab-arrow { width: 16px; height: 16px; flex-shrink: 0; color: var(--primary); transition: color .2s ease; }
+.recent-fab-pill:hover .recent-fab-arrow { color: inherit; }
+.recent-fab-label { line-height: 1; }
+.recent-fab-close {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 20px; height: 20px; border-radius: 50%; margin-left: .05rem;
+  color: var(--text-muted); font-size: 1.1rem; line-height: 1; cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.recent-fab-close:hover { background: var(--danger-bg); color: var(--danger); }
+@media (max-width: 640px) {
+  .recent-fab { right: 12px; bottom: 12px; gap: 9px; max-width: 88vw; }
+  .recent-fab-pill { margin-right: calc(var(--rev, 0) * 10px); font-size: .82rem; padding: .5rem .5rem .5rem .85rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recent-fab-pill { transition-duration: .12s; }
+  .recent-fab-pill, .recent-fab-pill.show { transform: none; }
+}
 /* Bloco quadrado clicável: vazio = clique abre o seletor de arquivo (ícone de upload
    aparece no hover); preenchido = mostra a foto (ícone de lixeira aparece no hover,
    ancorado embaixo, com clique próprio que não reabre o seletor). */

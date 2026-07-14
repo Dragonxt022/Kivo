@@ -82,7 +82,10 @@
               </div>
             </td>
             <td>
-              <span x-text="p.name"></span>
+              <span class="type-name-wrap">
+                <span x-html="typeIcon(p.product_type)"></span>
+                <span x-text="p.name"></span>
+              </span>
               <span class="badge off" x-show="p.track_stock && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
               <span class="badge off" x-show="p.track_stock && p.stock_qty >= 0 && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
             </td>
@@ -251,6 +254,20 @@
         </div>
 
         <div class="product-col-3" x-show="form.productType !== 'fisico'">
+          <template x-if="!form.id && form.productType === 'variante'">
+            <div class="variant-guide">
+              <div class="variant-guide-head">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <strong>Como criar um produto com variantes</strong>
+              </div>
+              <ol class="variant-guide-steps">
+                <li><strong>Salve este produto</strong> primeiro (preço e nome já bastam).</li>
+                <li>Cadastre os <strong>atributos</strong> (ex.: Tamanho: P, M, G · Cor: Preto, Branco).</li>
+                <li>Clique em <strong>Gerar variantes</strong> e marque os valores — o sistema cria todas as combinações (P-Preto, P-Branco, M-Preto…).</li>
+              </ol>
+              <p class="muted text-xs" style="margin:.4rem 0 0">Depois você ajusta preço, SKU e estoque de cada variante individualmente.</p>
+            </div>
+          </template>
           <template x-if="form.id && form.productType === 'variante'">
             <div>
               <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.6rem">
@@ -311,6 +328,8 @@
                   <thead><tr>
                     <th>Componente</th>
                     <th>Qtd</th>
+                    <th class="text-right">Preço un.</th>
+                    <th class="text-right">Subtotal</th>
                     <th></th>
                   </tr></thead>
                   <tbody>
@@ -318,6 +337,8 @@
                       <tr>
                         <td x-text="c.component_name"></td>
                         <td><input type="number" step="any" x-model="c.qty" class="inline-edit" @change="updateKitComponent(c)" style="width:50px" /></td>
+                        <td class="text-right muted" x-text="brl(c.component_price_cents ?? 0)"></td>
+                        <td class="text-right" x-text="brl(Math.round((c.component_price_cents ?? 0) * (Number(c.qty) || 0)))"></td>
                         <td @click.stop>
                           <button class="icon-btn" @click="deleteKitComponent(c)" title="Remover">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -325,9 +346,22 @@
                         </td>
                       </tr>
                     </template>
-                    <tr x-show="!kitComponents.length"><td colspan="3" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum componente.</td></tr>
+                    <tr x-show="!kitComponents.length"><td colspan="5" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum componente.</td></tr>
                   </tbody>
+                  <tfoot x-show="kitComponents.length">
+                    <tr style="border-top:1.5px solid var(--border-light)">
+                      <td colspan="3" class="text-right" style="font-weight:600">Soma dos componentes</td>
+                      <td class="text-right" style="font-weight:700;color:var(--primary)" x-text="brl(kitTotalCents())"></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
                 </table>
+              </div>
+              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-top:.4rem;gap:.5rem">
+                <span class="muted text-xs">O preço do kit é somado automaticamente ao adicionar/remover itens. Você pode ajustar o campo <strong>Preço</strong> acima livremente.</span>
+                <button class="btn secondary small" type="button" @click="applyKitAutoTotal()" x-show="kitComponents.length" title="Reaplicar a soma dos componentes ao preço do kit">
+                  Usar soma (<span x-text="brl(kitTotalCents())"></span>)
+                </button>
               </div>
               <div style="margin-top:.75rem">
                 <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.4rem">
@@ -578,7 +612,14 @@
       <p class="muted">Selecione os valores de atributo para gerar as combinações.</p>
       <div class="dialog-body">
         <template x-if="!genGroups.length">
-          <p class="muted text-xs">Nenhum atributo cadastrado. Crie atributos primeiro em "Atributos".</p>
+          <div class="variant-guide" style="margin:0">
+            <p style="margin:0 0 .5rem"><strong>Cadastre um atributo primeiro.</strong></p>
+            <p class="muted text-xs" style="margin:0 0 .6rem">Um atributo é uma característica que varia — ex.: <strong>Tamanho</strong> com valores P, M, G, ou <strong>Cor</strong> com valores Preto, Branco. As variantes são as combinações desses valores.</p>
+            <button class="btn small" type="button" @click="$refs.genVarDlg.close(); openAttrMgr()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Cadastrar atributos
+            </button>
+          </div>
         </template>
         <template x-for="(group, gi) in genGroups" :key="gi">
           <div style="margin-bottom:.75rem">
@@ -726,9 +767,10 @@
         get pageRows() { return this.pagedRows(this.displayRows); },
         get previewCombos() {
           if (!this.genSelectedValues.length || !this.genGroups.length) return [];
+          const selectedIds = this.genSelectedValues.map(Number);
           const groups = [];
           for (const g of this.genGroups) {
-            const selected = g.values.filter(v => this.genSelectedValues.includes(v.id));
+            const selected = g.values.filter(v => selectedIds.includes(Number(v.id)));
             if (selected.length) groups.push(selected.map(v => v.value));
           }
           if (!groups.length) return [];
@@ -737,6 +779,21 @@
         },
         brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
+        // ─── Sinalização do tipo de produto na tabela (ícone + rótulo) ───
+        typeMeta(t) {
+          const map = {
+            fisico:    { label: 'Produto simples', color: '#8a8a98', path: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>' },
+            variante:  { label: 'Produto com variantes', color: '#7c5cff', path: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>' },
+            kit:       { label: 'Kit', color: '#00a37a', path: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>' },
+            combo:     { label: 'Combo', color: '#f5872e', path: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>' },
+            produzido: { label: 'Produzido (ficha técnica)', color: '#e5484d', path: '<path d="M15 11h.01"/><path d="M11 15h.01"/><path d="M16 16h.01"/><path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"/><path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"/>' },
+          };
+          return map[t] || map.fisico;
+        },
+        typeIcon(t) {
+          const m = this.typeMeta(t);
+          return `<span class="type-icon" style="color:${m.color}" title="${m.label}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${m.path}</svg></span>`;
+        },
         async load() {
           const params = new URLSearchParams({ includeParents: 'true' });
           if (this.q) params.set('q', this.q);
@@ -949,6 +1006,22 @@
           const r = await fetch(`/api/commercial/products/${productId}/kit-items`);
           if (r.ok) this.kitComponents = await r.json();
         },
+        // Soma dos componentes (preço unitário × qtd). Base para o total automático do kit/combo.
+        kitTotalCents() {
+          return this.kitComponents.reduce((s, c) => s + Math.round((c.component_price_cents ?? 0) * (Number(c.qty) || 0)), 0);
+        },
+        // Aplica a soma dos componentes ao preço do kit e persiste — chamado ao adicionar,
+        // remover ou mudar a quantidade de um componente. O campo Preço acima continua
+        // editável livremente (o lojista pode sobrescrever depois).
+        async applyKitAutoTotal() {
+          if (!this.form.id) return;
+          const cents = this.kitTotalCents();
+          this.form.price = (cents / 100).toFixed(2).replace('.', ',');
+          await fetch(`/api/commercial/products/${this.form.id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ priceCents: cents }),
+          });
+        },
         async loadComplementGroups(productId) {
           const r = await fetch(`/api/commercial/products/${productId}/complement-groups`);
           if (r.ok) this.complementGroups = await r.json();
@@ -1020,7 +1093,8 @@
           });
           if (r.ok) {
             this.$refs.kitCompDlg.close();
-            this.loadKitComponents(this.form.id);
+            await this.loadKitComponents(this.form.id);
+            await this.applyKitAutoTotal();
           } else this.kitDlgError = (await r.json()).error;
         },
         async updateKitComponent(c) {
@@ -1028,12 +1102,15 @@
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ qty: Number(c.qty) }),
           });
+          await this.applyKitAutoTotal();
         },
         async deleteKitComponent(c) {
           if (!await window.confirmDlg(`Remover "${c.component_name}" dos componentes do kit?`)) return;
           const r = await fetch(`/api/commercial/kit-items/${c.id}`, { method: 'DELETE' });
-          if (r.ok) this.loadKitComponents(this.form.id);
-          else showToast((await r.json()).error, 'error');
+          if (r.ok) {
+            await this.loadKitComponents(this.form.id);
+            await this.applyKitAutoTotal();
+          } else showToast((await r.json()).error, 'error');
         },
         async openAddComplementGroup() {
           this.kitDlgError = ''; this.addCompSearch = ''; this.addCompResults = [];
@@ -1175,7 +1252,8 @@
           else this.attrDlgError = (await r.json()).error;
         },
         async openGenVariants() {
-          this.attrDlgError = ''; this.genSelectedValues = []; this.previewCombos = [];
+          // previewCombos é um getter (computado) — não se atribui a ele; limpar a seleção já zera a prévia.
+          this.attrDlgError = ''; this.genSelectedValues = [];
           await this.loadAttributes();
           // Montar grupos de valores por atributo
           this.genGroups = this.attributes.map(a => ({
@@ -1190,7 +1268,7 @@
           this.attrDlgError = '';
           const r = await fetch(`/api/commercial/products/${this.form.id}/attributes/generate-variants`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ attributeValueIds: this.genSelectedValues }),
+            body: JSON.stringify({ attributeValueIds: this.genSelectedValues.map(Number) }),
           });
           if (r.ok) {
             this.$refs.genVarDlg.close();

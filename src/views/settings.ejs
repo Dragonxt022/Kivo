@@ -39,6 +39,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 8 8 12 8c4 0 5-4 7.5-4a2.5 2.5 0 0 1 0 5H18"/><path d="M12 9v10M18 9v10"/></svg>
         Fidelidade
       </button>
+      <button :class="{ active: tab === 'interface' }" @click="tab = 'interface'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Interface
+      </button>
       <% if (user.permissions.has('settings.edit')) { %>
       <button :class="{ active: tab === 'rede' }" @click="tab = 'rede'">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="18" x2="10.01" y2="18"/><path d="M6 14V7a6 6 0 0 1 12 0v7"/></svg>
@@ -226,6 +230,43 @@
           <span class="muted" x-show="salesSaved" x-text="salesSaved"></span>
         </div>
         <% } %>
+      </section>
+    </div>
+
+    <!-- ═══════ ABA: INTERFACE (preferências deste computador) ═══════ -->
+    <div x-show="tab === 'interface'" x-cloak>
+      <section class="panel" x-data="{
+        enabled: (function(){ try { return (localStorage.getItem('katsu:recent-enabled') ?? '1') !== '0'; } catch(e){ return true; } })(),
+        cleared: false,
+        toggle() {
+          this.enabled = !this.enabled;
+          try { localStorage.setItem('katsu:recent-enabled', this.enabled ? '1' : '0'); } catch(e) {}
+          // Some com o balão já visível na hora ao desligar (sem esperar recarregar).
+          if (!this.enabled) { var fab = document.querySelector('.recent-fab'); if (fab) fab.remove(); }
+        },
+        clear() {
+          try { localStorage.removeItem('katsu:recent'); } catch(e) {}
+          this.cleared = true; setTimeout(() => this.cleared = false, 2500);
+        }
+      }">
+        <h2>Atalhos de páginas recentes</h2>
+        <p class="hint mt-0">
+          Mostra balões flutuantes no canto inferior direito com atalhos para as últimas páginas que você abriu
+          (até 3), facilitando voltar rapidamente. Esta preferência vale só neste computador.
+        </p>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" :checked="enabled" @change="toggle()" />
+            Mostrar atalhos flutuantes de páginas recentes
+          </label>
+        </div>
+        <div class="toolbar">
+          <button class="btn secondary small" @click="clear()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Limpar histórico de páginas recentes
+          </button>
+          <span class="muted" x-show="cleared" x-cloak>Histórico limpo.</span>
+        </div>
       </section>
     </div>
 

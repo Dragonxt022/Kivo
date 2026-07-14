@@ -500,7 +500,11 @@ router.delete('/complement-groups/:groupId/items/:id', requirePermission('commer
   res.json({ ok: true });
 });
 
-router.get('/products/:id/complement-groups', requirePermission('commercial.products.view'), (req, res) => {
+// Mesma permissão da busca de produtos (GET /products) — quem consegue achar o produto no
+// PDV precisa conseguir ler os complementos dele, senão o caixa com apenas
+// `commercial.products.search` levava 403 aqui e a modal de complementos (ex.: açaí)
+// nunca abria, entrando o produto direto sem os opcionais.
+router.get('/products/:id/complement-groups', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
   res.json(productComplementGroupRepository.listByProduct(Number(req.params.id)));
 });
 

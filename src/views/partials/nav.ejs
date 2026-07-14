@@ -335,5 +335,72 @@
   };
 })();
 </script>
+<% if (user) { %>
+<script>
+(function(){
+  // ─── Atalhos flutuantes de páginas recentes (preferência deste computador) ───
+  // Registra a página atual e mostra balões no canto inferior direito com as últimas
+  // páginas visitadas (exceto a home/lançador e a própria página atual). Máx. 3.
+  var STORAGE = 'katsu:recent', ENABLED = 'katsu:recent-enabled', SHOW_MAX = 3, STORE_MAX = 12, APPEAR_DELAY = 3000, STAGGER = 220;
+  function enabled(){ try { return (localStorage.getItem(ENABLED) ?? '1') !== '0'; } catch(e){ return true; } }
+  function read(){ try { return JSON.parse(localStorage.getItem(STORAGE) || '[]'); } catch(e){ return []; } }
+  function write(l){ try { localStorage.setItem(STORAGE, JSON.stringify(l)); } catch(e){} }
+  function here(){ return location.pathname + location.search; }
+  function pageLabel(){
+    var t = (document.title || '').replace(/^\s*Katsu\s*[—–-]\s*/i, '').trim();
+    return t || location.pathname;
+  }
+  // "não a home dos módulos": pula o lançador (/) e páginas sem sessão.
+  function excluded(){
+    var p = location.pathname;
+    return p === '/' || p === '' || p === '/app' || p.indexOf('/login') === 0 || p.indexOf('/ativacao') === 0;
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  // 1) Registra a página atual no topo do histórico (deduplicado por href).
+  if (!excluded()) {
+    var list = read().filter(function(e){ return e && e.href !== here(); });
+    list.unshift({ href: here(), label: pageLabel(), ts: Date.now() });
+    write(list.slice(0, STORE_MAX));
+  }
+
+  if (!enabled()) return;
+
+  // 2) Monta os balões: as páginas mais recentes, exceto a atual.
+  var recents = read().filter(function(e){ return e && e.href && e.href !== here(); }).slice(0, SHOW_MAX);
+  if (!recents.length) return;
+
+  function build(){
+    var wrap = document.createElement('div');
+    wrap.className = 'recent-fab';
+    recents.forEach(function(e, i){
+      var pill = document.createElement('a');
+      pill.className = 'recent-fab-pill';
+      pill.href = e.href;
+      pill.style.setProperty('--rev', (recents.length - 1 - i)); // escadinha: topo mais à esquerda
+      pill.innerHTML =
+        '<svg class="recent-fab-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>' +
+        '<span class="recent-fab-label">Ir para ' + esc(e.label) + '</span>' +
+        '<span class="recent-fab-close" role="button" aria-label="Dispensar">&times;</span>';
+      pill.querySelector('.recent-fab-close').addEventListener('click', function(ev){
+        ev.preventDefault(); ev.stopPropagation();
+        pill.classList.add('leaving');
+        setTimeout(function(){ if (pill.parentElement) pill.remove(); if (!wrap.querySelector('.recent-fab-pill')) wrap.remove(); }, 280);
+      });
+      wrap.appendChild(pill);
+    });
+    document.body.appendChild(wrap);
+    // 3) Entrada escalonada (um a um) após ~3s na página.
+    setTimeout(function(){
+      Array.prototype.forEach.call(wrap.querySelectorAll('.recent-fab-pill'), function(pill, i){
+        setTimeout(function(){ pill.classList.add('show'); }, i * STAGGER);
+      });
+    }, APPEAR_DELAY);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
+  else build();
+})();
+</script>
+<% } %>
 <%- include('confirm') %>
 <%- include('password') %>

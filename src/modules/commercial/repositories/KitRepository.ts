@@ -7,7 +7,8 @@ export class KitItemRepository extends BaseRepository {
 
   listByProduct(productId: number): Row[] {
     return this.raw(
-      `SELECT ki.id, ki.kit_product_id, ki.component_product_id, p.name AS component_name, p.sku, ki.qty, ki.sort_order, ki.uuid, ki.updated_at
+      `SELECT ki.id, ki.kit_product_id, ki.component_product_id, p.name AS component_name, p.sku,
+              p.price_cents AS component_price_cents, ki.qty, ki.sort_order, ki.uuid, ki.updated_at
        FROM kit_items ki JOIN products p ON p.id = ki.component_product_id
        WHERE ki.kit_product_id = ? AND ki.deleted_at IS NULL ORDER BY ki.sort_order, p.name`,
       productId,
