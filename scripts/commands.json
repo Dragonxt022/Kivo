@@ -195,6 +195,10 @@
     "description": "Testes: comandas / mesas",
     "run": "tsx src/tests/fase_comandas.ts"
   },
+  "test:e2e": {
+    "description": "E2E (Playwright): fluxo completo de cadastro de produtos",
+    "run": "tsx src/tests/e2e/product-fluxo-completo.ts"
+  },
   "cloud:install": {
     "description": "Instalar dependências do cloud/",
     "run": "npm --prefix cloud install"

@@ -59,7 +59,7 @@ function listCommands() {
 function runTestAll() {
   const testsDir = join(ROOT, 'src', 'tests');
   const files = readdirSync(testsDir)
-    .filter((f) => f.endsWith('.ts') && f !== 'resetTestDb.ts')
+    .filter((f) => f.endsWith('.ts') && f !== 'resetTestDb.ts' && !f.startsWith('e2e'))
     .sort();
 
   let passed = 0;
