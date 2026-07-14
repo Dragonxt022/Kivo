@@ -5,63 +5,298 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <%- include('partials/theme-init') %>
   <title><%= company ? `Cardápio — ${company.name ?? 'Katsu'}` : 'Cardápio não encontrado' %></title>
+  <meta name="description" content="<%= company ? `Cardápio digital de ${company.name ?? 'Katsu'}` : 'Cardápio não encontrado' %>">
   <link rel="icon" href="/favicon.png">
   <%- include('partials/styles') %>
   <style>
-    .menu-page { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
-    .menu-header { text-align: center; margin-bottom: 32px; }
-    .menu-header h1 { margin: 0 0 4px; font-size: 1.6rem; }
-    .menu-header p { color: var(--muted); margin: 0; font-size: 0.9rem; }
-    .menu-category { margin-bottom: 28px; }
-    .menu-category h2 {
-      font-size: 1.05rem; margin: 0 0 12px; padding-bottom: 8px;
-      border-bottom: 2px solid var(--primary-soft); color: var(--primary);
+    <%
+      // Paleta de acento por categoria — determinística (hash simples do nome), pra cada
+      // categoria sempre cair na mesma cor/ícone entre visitas, sem precisar de dado extra.
+      var ACCENTS = [
+        { hue: '#00c951', bg: 'color-mix(in srgb, #00c951 12%, transparent)' },
+        { hue: '#f59e0b', bg: 'color-mix(in srgb, #f59e0b 14%, transparent)' },
+        { hue: '#3b82f6', bg: 'color-mix(in srgb, #3b82f6 12%, transparent)' },
+        { hue: '#ec4899', bg: 'color-mix(in srgb, #ec4899 12%, transparent)' },
+        { hue: '#8b5cf6', bg: 'color-mix(in srgb, #8b5cf6 12%, transparent)' },
+        { hue: '#ef4444', bg: 'color-mix(in srgb, #ef4444 12%, transparent)' },
+      ];
+      function accentFor(name) {
+        var h = 0;
+        for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+        return ACCENTS[h % ACCENTS.length];
+      }
+      // Ícone por categoria — reconhece palavras comuns de cardápio em pt-BR; sem match,
+      // cai num garfo-e-faca genérico. Puramente cosmético, não depende de dado novo.
+      function iconFor(name) {
+        var n = name.toLowerCase();
+        if (/bebida|suco|refri|drink|cerveja|chopp|vinho|caf[ée]/.test(n))
+          return '<path d="M8 2h8l-1 7H9L8 2Z"/><path d="M12 9v13"/><path d="M8 22h8"/>';
+        if (/sobremesa|doce|bolo|sorvete|pudim/.test(n))
+          return '<path d="M20 21H4a1 1 0 0 1-1-1v-2a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v2a1 1 0 0 1-1 1Z"/><path d="M12 4a2 2 0 1 0-2-2 2 2 0 0 0 2 2Z"/><path d="M12 14V4"/>';
+        if (/lanche|burger|hamb[uú]rguer|sandu[ií]che/.test(n))
+          return '<path d="M3 11h18v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2Z"/><path d="M4 11a8 4 0 0 1 16 0"/><path d="M3 17h18"/>';
+        if (/pizza/.test(n))
+          return '<path d="m12 2 9.5 8.5L12 22 2.5 10.5Z"/><circle cx="12" cy="10" r="1.2" fill="currentColor" stroke="none"/>';
+        if (/salada|vegetari|vegano|legume/.test(n))
+          return '<path d="M12 3c-4 0-7 3-7 7 0 6 4 10 7 11 3-1 7-5 7-11 0-4-3-7-7-7Z"/><path d="M12 3v18"/>';
+        if (/massa|macarr[aã]o|lasanha|nhoque/.test(n))
+          return '<circle cx="12" cy="12" r="9"/><path d="M8 9c1 2 1 4 0 6M12 8c1 2.5 1 5.5 0 8M16 9c1 2 1 4 0 6"/>';
+        if (/carne|churrasco|grelhado|espeto/.test(n))
+          return '<path d="M8.5 8.5 3 21l4-1.5"/><path d="M14 3a5 5 0 0 1 5 5c0 3-2 4.5-4 6.5s-3.5 4-6.5 4a5 5 0 0 1-5-5c0-3 2-4.5 4-6.5S11 3 14 3Z"/>';
+        return '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>';
+      }
+      var DIACRITICS_RE = new RegExp('\\u0300-\\u036f'.replace(/(.+)/, '[$1]'), 'g');
+      function slug(s) { return String(s).toLowerCase().normalize('NFD').replace(DIACRITICS_RE, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
+    %>
+    .menu-page { max-width: 760px; margin: 0 auto; padding: 0 0 72px; }
+
+    .menu-hero {
+      padding: 48px 20px 28px; text-align: center;
+      background: radial-gradient(120% 140% at 50% -20%, var(--primary-soft), transparent 60%);
     }
+    .menu-hero-badge {
+      display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase; color: var(--primary);
+      background: var(--primary-soft); padding: 5px 12px; border-radius: 999px; margin-bottom: 14px;
+    }
+    .menu-hero h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 5vw, 2.1rem); letter-spacing: -.01em; }
+    .menu-hero p { color: var(--muted); margin: 0; font-size: .92rem; }
+
+    .menu-search-wrap { position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 14px 20px 10px; }
+    .menu-search { position: relative; }
+    .menu-search svg {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none;
+    }
+    .menu-search input {
+      width: 100%; margin: 0; padding: 12px 14px 12px 42px; border-radius: 999px;
+      border: 1.5px solid var(--border-light); background: var(--surface); font-size: .95rem;
+      box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s;
+    }
+    .menu-search input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+
+    .menu-nav {
+      display: flex; gap: 8px; overflow-x: auto; padding: 10px 20px 4px; margin-bottom: 4px;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    }
+    .menu-nav::-webkit-scrollbar { display: none; }
+    .menu-nav a {
+      flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
+      font-size: .82rem; font-weight: 600; color: var(--muted); background: var(--surface);
+      border: 1.5px solid var(--border-light); white-space: nowrap; transition: all .15s;
+    }
+    .menu-nav a svg { width: 14px; height: 14px; }
+    .menu-nav a:hover { text-decoration: none; border-color: var(--primary); color: var(--primary); }
+    .menu-nav a.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    .menu-body { padding: 8px 20px 0; }
+    .menu-category { margin: 34px 0; scroll-margin-top: 116px; }
+    .menu-category-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .menu-category-icon {
+      width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0;
+    }
+    .menu-category-icon svg { width: 18px; height: 18px; }
+    .menu-category h2 { font-size: 1.08rem; margin: 0; }
+    .menu-category-count { color: var(--muted); font-size: .8rem; font-weight: 500; }
+
     .menu-item {
-      display: flex; justify-content: space-between; gap: 16px;
-      padding: 12px 0; border-bottom: 1px solid var(--border-light);
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+      padding: 13px 2px; border-bottom: 1px solid var(--border-light);
+      animation: menu-item-in .35s ease backwards;
     }
     .menu-item:last-child { border-bottom: none; }
-    .menu-item-name { font-weight: 600; font-size: 0.95rem; }
-    .menu-item-desc { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
-    .menu-item-price { font-weight: 700; color: var(--primary); white-space: nowrap; font-size: 0.95rem; }
-    .menu-empty { text-align: center; color: var(--muted); padding: 48px 16px; }
-    .menu-footer { text-align: center; margin-top: 40px; font-size: 0.78rem; color: var(--muted); }
+    .menu-item-main { min-width: 0; }
+    .menu-item-name { font-weight: 600; font-size: .97rem; }
+    .menu-item-desc { color: var(--muted); font-size: .84rem; margin-top: 3px; line-height: 1.45; }
+    .menu-item-leader {
+      flex: 1; border-bottom: 1px dotted var(--border); margin: 0 8px; min-width: 24px;
+      transform: translateY(-4px);
+    }
+    .menu-item-price {
+      font-weight: 700; color: var(--primary); white-space: nowrap; font-size: .95rem; flex-shrink: 0;
+    }
+    @media (max-width: 480px) {
+      .menu-item { flex-wrap: wrap; }
+      .menu-item-leader { display: none; }
+      .menu-item-main { width: 100%; }
+    }
+
+    @keyframes menu-item-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .menu-empty, .menu-no-results {
+      text-align: center; color: var(--muted); padding: 64px 20px; display: none;
+    }
+    .menu-empty svg, .menu-no-results svg { color: var(--border); margin-bottom: 10px; }
+    .menu-empty.show, .menu-no-results.show { display: block; }
+
+    .menu-footer {
+      text-align: center; margin-top: 56px; padding: 0 20px; font-size: .78rem; color: var(--muted);
+    }
+    .menu-footer .mark { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; color: var(--text); }
+    .menu-footer .mark svg { color: var(--primary); }
+
+    .menu-top-btn {
+      position: fixed; right: 18px; bottom: 18px; width: 44px; height: 44px; border-radius: 50%;
+      background: var(--surface); border: 1.5px solid var(--border-light); box-shadow: var(--shadow);
+      display: grid; place-items: center; color: var(--text); opacity: 0; pointer-events: none;
+      transform: translateY(8px); transition: opacity .2s, transform .2s;
+    }
+    .menu-top-btn.show { opacity: 1; pointer-events: auto; transform: none; }
+
+    .menu-notfound { max-width: 420px; margin: 96px auto; text-align: center; padding: 0 20px; color: var(--muted); }
+    .menu-notfound svg { color: var(--border); margin-bottom: 14px; }
+    .menu-notfound h1 { font-size: 1.15rem; color: var(--text); margin: 0 0 6px; }
   </style>
 </head>
 <body>
   <% if (!company) { %>
-    <div class="menu-page">
-      <div class="empty-state-box" style="margin-top:64px">
-        <p>Cardápio não encontrado.</p>
-      </div>
+    <div class="menu-notfound">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+      <h1>Cardápio não encontrado</h1>
+      <p>Verifique o link ou peça um novo QR code ao estabelecimento.</p>
     </div>
   <% } else { %>
     <div class="menu-page">
-      <div class="menu-header">
+      <div class="menu-hero">
+        <span class="menu-hero-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+          Cardápio digital
+        </span>
         <h1><%= company.name ?? 'Cardápio' %></h1>
-        <p>Cardápio online</p>
+        <% if (categories.length) { %>
+        <p><%= categories.reduce((n, c) => n + c.items.length, 0) %> itens em <%= categories.length %> categoria<%= categories.length === 1 ? '' : 's' %></p>
+        <% } %>
       </div>
+
       <% if (!categories.length) { %>
-        <div class="menu-empty">Nenhum item disponível no cardápio no momento.</div>
+        <div class="menu-empty show">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>
+          <p>Nenhum item disponível no cardápio no momento.</p>
+        </div>
       <% } else { %>
-        <% categories.forEach(function(cat) { %>
-          <div class="menu-category">
-            <h2><%= cat.name %></h2>
-            <% cat.items.forEach(function(item) { %>
-              <div class="menu-item">
-                <div>
-                  <div class="menu-item-name"><%= item.name %></div>
-                  <% if (item.description) { %><div class="menu-item-desc"><%= item.description %></div><% } %>
-                </div>
-                <div class="menu-item-price"><%= (item.price_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) %></div>
-              </div>
-            <% }); %>
+        <div class="menu-search-wrap">
+          <div class="menu-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="menuSearch" placeholder="Buscar no cardápio…" autocomplete="off">
           </div>
-        <% }); %>
+        </div>
+
+        <% if (categories.length > 1) { %>
+        <nav class="menu-nav" id="menuNav">
+          <% categories.forEach(function(cat) { %>
+          <a href="#cat-<%= slug(cat.name) %>" data-target="cat-<%= slug(cat.name) %>">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><%- iconFor(cat.name) %></svg>
+            <%= cat.name %>
+          </a>
+          <% }); %>
+        </nav>
+        <% } %>
+
+        <div class="menu-body" id="menuBody">
+          <% categories.forEach(function(cat) { var a = accentFor(cat.name); %>
+            <div class="menu-category" id="cat-<%= slug(cat.name) %>" data-category>
+              <div class="menu-category-head">
+                <span class="menu-category-icon" style="background:<%- a.bg %>;color:<%- a.hue %>">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><%- iconFor(cat.name) %></svg>
+                </span>
+                <h2><%= cat.name %></h2>
+                <span class="menu-category-count">· <%= cat.items.length %></span>
+              </div>
+              <% cat.items.forEach(function(item, idx) { %>
+                <div class="menu-item" data-item data-search="<%= (item.name + ' ' + (item.description || '')).toLowerCase() %>" style="animation-delay:<%= Math.min(idx, 6) * 0.04 %>s">
+                  <div class="menu-item-main">
+                    <div class="menu-item-name"><%= item.name %></div>
+                    <% if (item.description) { %><div class="menu-item-desc"><%= item.description %></div><% } %>
+                  </div>
+                  <span class="menu-item-leader"></span>
+                  <div class="menu-item-price"><%= (item.price_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) %></div>
+                </div>
+              <% }); %>
+            </div>
+          <% }); %>
+        </div>
+
+        <div class="menu-no-results">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <p>Nada encontrado. Tente outro termo.</p>
+        </div>
       <% } %>
-      <div class="menu-footer">Cardápio gerado pelo Katsu</div>
+
+      <div class="menu-footer">
+        <span class="mark">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+          Katsu
+        </span>
+        <div style="margin-top:2px">Cardápio gerado pelo Katsu</div>
+      </div>
     </div>
+
+    <button type="button" class="menu-top-btn" id="menuTopBtn" aria-label="Voltar ao topo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+    </button>
+
+    <script>
+    (function () {
+      var search = document.getElementById('menuSearch');
+      var cats = [].slice.call(document.querySelectorAll('[data-category]'));
+      var noResults = document.querySelector('.menu-no-results');
+
+      if (search) {
+        search.addEventListener('input', function () {
+          var q = search.value.trim().toLowerCase();
+          var anyVisible = false;
+          cats.forEach(function (cat) {
+            var catItems = [].slice.call(cat.querySelectorAll('[data-item]'));
+            var visibleCount = 0;
+            catItems.forEach(function (it) {
+              var match = !q || it.getAttribute('data-search').indexOf(q) !== -1;
+              it.style.display = match ? '' : 'none';
+              if (match) visibleCount++;
+            });
+            cat.style.display = visibleCount ? '' : 'none';
+            if (visibleCount) anyVisible = true;
+          });
+          noResults.classList.toggle('show', !anyVisible && q.length > 0);
+        });
+      }
+
+      // realce da categoria ativa no menu de navegação, conforme a rolagem
+      var navLinks = [].slice.call(document.querySelectorAll('#menuNav a'));
+      if (navLinks.length && 'IntersectionObserver' in window) {
+        var byId = {};
+        navLinks.forEach(function (a) { byId[a.dataset.target] = a; });
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var link = byId[entry.target.id];
+            if (!link) return;
+            if (entry.isIntersecting) {
+              navLinks.forEach(function (a) { a.classList.remove('active'); });
+              link.classList.add('active');
+              // só rola a tira horizontal de categorias (nunca a página) — scrollIntoView()
+              // aqui mexeria no scroll vertical também, já que o nav é sticky, e ficava
+              // brigando com a rolagem natural do usuário.
+              var navEl = document.getElementById('menuNav');
+              if (navEl) {
+                var target = link.offsetLeft - navEl.clientWidth / 2 + link.clientWidth / 2;
+                navEl.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+              }
+            }
+          });
+        }, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
+        cats.forEach(function (c) { observer.observe(c); });
+      }
+
+      // botão flutuante "voltar ao topo"
+      var topBtn = document.getElementById('menuTopBtn');
+      if (topBtn) {
+        window.addEventListener('scroll', function () {
+          topBtn.classList.toggle('show', window.scrollY > 480);
+        }, { passive: true });
+        topBtn.addEventListener('click', function () {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
+    })();
+    </script>
   <% } %>
 </body>
 </html>
