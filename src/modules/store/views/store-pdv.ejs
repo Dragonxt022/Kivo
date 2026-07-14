@@ -45,7 +45,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             Adicionar produtos
           </button>
-          <a href="/app/comandas/mesas" class="btn secondary small">Cancelar</a>
+          <button type="button" class="btn secondary small" @click="cancelComanda()">Cancelar</button>
         </div>
 
         <div class="pdv-search" x-show="!slots[activeSlot].comandaId">
@@ -168,19 +168,23 @@
             <button type="button" class="pdv-action" style="--action-color:#3DA5F4" @click="printLast()"
                     :disabled="!lastSaleId" title="Imprimir última venda (F11)">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
+              <span class="pdv-action-label">Imprimir</span>
               <span class="shortcut">F11</span>
             </button>
             <button type="button" class="pdv-action" style="--action-color:#F2542D" @click="clearCart()" title="Limpar carrinho (F9)">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              <span class="pdv-action-label">Limpar</span>
               <span class="shortcut">F9</span>
             </button>
             <% if (user.permissions.has('store.sales.discount')) { %>
             <button type="button" class="pdv-action" style="--action-color:#F5C344" @click="openValue('acrescimo')" title="Acréscimo (F7)">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+              <span class="pdv-action-label">Acréscimo</span>
               <span class="shortcut">F7</span>
             </button>
             <button type="button" class="pdv-action" style="--action-color:#34D399" @click="openValue('desconto')" title="Desconto (F4)">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
+              <span class="pdv-action-label">Desconto</span>
               <span class="shortcut">F4</span>
             </button>
             <% } %>
@@ -404,7 +408,7 @@
                   <div class="name" x-text="methodName(p.methodId)"></div>
                   <div class="amount" x-text="brl(p.amountCents)"></div>
                 </div>
-                <button @click="pay.list.splice(idx, 1)" title="Remover">
+                <button @click="removePayment(idx)" title="Remover">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
               </div>
@@ -1142,6 +1146,18 @@
           this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
           this.calcChange();
         },
+        removePayment(idx) {
+          const removed = this.pay.list[idx];
+          if (!removed) return;
+          this.pay.list.splice(idx, 1);
+          // Devolve a forma removida como selecionada e joga o restante de volta no campo
+          // "Valor do pagamento", pronto pra reeditar/readicionar.
+          this.pay.methodId = removed.methodId;
+          const rest = this.remaining();
+          this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
+          this.payError = '';
+          this.calcChange();
+        },
         splitEqual() {
           const n = this.pay.split;
           if (!n || n < 2) return;
@@ -1227,6 +1243,20 @@
           this.$refs.fidelidadeDlg.close();
         },
 
+        async cancelComanda() {
+          const comandaId = this.slots[this.activeSlot].comandaId;
+          if (!comandaId || !await window.confirmDlg('Cancelar esta comanda? Os itens serão perdidos.')) return;
+          const r = await fetch('/api/comandas/comandas/' + comandaId + '/cancel', { method: 'POST' });
+          if (r.ok) {
+            this.slots[this.activeSlot].comandaId = null;
+            this.slots[this.activeSlot].cart = [];
+            this.persistSlots();
+            window.location.href = '/app/comandas/mesas';
+          } else {
+            const err = (await r.json()).error ?? 'Erro ao cancelar.';
+            showToast(err, 'error');
+          }
+        },
         async finish() {
           if (this.saving || this.remaining() !== 0) return;
           this.saving = true; this.payError = '';
@@ -1247,24 +1277,17 @@
           });
           const comandaId = this.slots[this.activeSlot].comandaId;
           let r;
+          const commonBody = {
+            payments,
+            discountCents: this.discountCents || undefined,
+            surchargeCents: this.surchargeCents || undefined,
+            customerId: this.customerId || undefined,
+            items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
+          };
           if (comandaId) {
-            const body = {
-              payments,
-              discountCents: this.discountCents || undefined,
-              surchargeCents: this.surchargeCents || undefined,
-              customerId: this.customerId || undefined,
-            };
-            r = await fetch(`/api/comandas/comandas/${comandaId}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            r = await fetch(`/api/comandas/comandas/${comandaId}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...commonBody, clientRequestId: this.pay.clientRequestId || undefined }) });
           } else {
-            const body = {
-              items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
-              payments,
-              discountCents: this.discountCents || undefined,
-              surchargeCents: this.surchargeCents || undefined,
-              customerId: this.customerId || undefined,
-              clientRequestId: this.pay.clientRequestId || undefined,
-            };
-            r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...commonBody, clientRequestId: this.pay.clientRequestId || undefined }) });
           }
           this.saving = false;
           if (r.ok) {

@@ -134,9 +134,9 @@ export const comandasController = {
 
   closeComandaAction(req: Request, res: Response) {
     const comandaId = Number(req.params.id);
-    const { payments, discountCents, surchargeCents, customerId } = req.body ?? {};
+    const { payments, discountCents, surchargeCents, customerId, items, clientRequestId } = req.body ?? {};
     if (!payments?.length) { res.status(400).json({ error: 'payments obrigatorio.' }); return; }
-    const result = closeComanda(req, comandaId, { payments, discountCents, surchargeCents, customerId });
+    const result = closeComanda(req, comandaId, { payments, discountCents, surchargeCents, customerId, items, clientRequestId });
     if (!result.ok) { res.status(400).json(result); return; }
     res.json({ saleId: result.saleId });
   },

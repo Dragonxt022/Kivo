@@ -9,6 +9,7 @@ import type { SaleInput } from '../store/sales';
 import { assertAuth } from '../../shared/auth';
 import { comandaRepository, comandaItemRepository } from './repositories/ComandaRepository';
 import { storeTableRepository } from './repositories/StoreTableRepository';
+import { saleRepository } from '../store/repositories/SaleRepository';
 
 interface OpenComandaParams { tableId?: number; customerId?: number; notes?: string }
 interface AddItemParams { productId: number; qty: number; notes?: string; lineGroupUuid?: string }
@@ -102,17 +103,21 @@ export function transfer(req: Request, comandaId: number, targetTableId: number)
   ) as { id: number; table_id: number | null; status: string } | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  const target = storeTableRepository.rawOne(
-    "SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL",
-    targetTableId,
-  ) as { id: number; status: string } | undefined;
-  if (!target) return { ok: false, error: 'Mesa destino nao encontrada.' };
-  if (target.status !== 'livre') return { ok: false, error: 'Mesa destino esta ocupada.' };
-  comandaRepository.transaction(() => {
-    if (comanda.table_id) storeTableRepository.free(comanda.table_id);
-    storeTableRepository.occupy(targetTableId);
-    comandaRepository.transferTable(comandaId, targetTableId);
-  });
+  try {
+    comandaRepository.transaction(() => {
+      const target = storeTableRepository.rawOne(
+        "SELECT id, status FROM store_tables WHERE id = ? AND deleted_at IS NULL",
+        targetTableId,
+      ) as { id: number; status: string } | undefined;
+      if (!target) throw new Error('Mesa destino nao encontrada.');
+      if (target.status !== 'livre') throw new Error('Mesa destino esta ocupada.');
+      if (comanda.table_id) storeTableRepository.free(comanda.table_id);
+      storeTableRepository.occupy(targetTableId);
+      comandaRepository.transferTable(comandaId, targetTableId);
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Erro ao transferir.' };
+  }
   audit(req, 'transferir_comanda', 'comanda', comandaId, { tableIdAntes: comanda.table_id }, { tableIdDepois: targetTableId });
   return { ok: true };
 }
@@ -157,31 +162,45 @@ export function merge(req: Request, targetComandaId: number, sourceComandaId: nu
 
 export function closeComanda(
   req: Request, comandaId: number,
-  input: { payments: any[]; discountCents?: number; surchargeCents?: number; customerId?: number },
+  input: {
+    payments: any[]; discountCents?: number; surchargeCents?: number; customerId?: number;
+    items?: { productId: number; qty: number; notes?: string; lineGroupUuid?: string; unitPriceCents?: number }[];
+    clientRequestId?: string;
+  },
 ): { ok: true; saleId: number } | { ok: false; error: string } {
+  if (input.clientRequestId) {
+    const existing = saleRepository.findByClientRequestId(input.clientRequestId);
+    if (existing) return { ok: true, saleId: existing.id as number };
+  }
   const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  const items = comandaItemRepository.listActiveByComanda(comandaId) as unknown as ComandaItemRow[];
+  const dbItems = comandaItemRepository.listActiveByComanda(comandaId) as unknown as ComandaItemRow[];
+  const items = input.items?.length
+    ? input.items
+    : dbItems.map((i) => ({
+        productId: i.productId,
+        qty: i.qty,
+        notes: i.notes ?? undefined,
+        lineGroupUuid: i.lineGroupUuid ?? undefined,
+        unitPriceCents: i.unit_price_cents,
+      }));
   if (!items.length) return { ok: false, error: 'Comanda sem itens para fechar.' };
   const saleInput: SaleInput = {
-    items: items.map((i) => ({
-      productId: i.productId,
-      qty: i.qty,
-      notes: i.notes ?? undefined,
-      lineGroupUuid: i.lineGroupUuid ?? undefined,
-      unitPriceCents: i.unit_price_cents,
-    })),
+    items,
     payments: input.payments,
     discountCents: input.discountCents,
     surchargeCents: input.surchargeCents,
     customerId: input.customerId ?? comanda.customer_id ?? undefined,
+    clientRequestId: input.clientRequestId,
   };
   const storeSales = getService<StoreSalesService>('store.sales');
   const saleResult = storeSales.createSale(req, saleInput, { allowPriceOverride: true });
   if (!saleResult.ok) return { ok: false, error: saleResult.error };
-  comandaRepository.close(comandaId, saleResult.id);
-  if (comanda.table_id) storeTableRepository.free(comanda.table_id);
+  comandaRepository.transaction(() => {
+    comandaRepository.close(comandaId, saleResult.id);
+    if (comanda.table_id) storeTableRepository.free(comanda.table_id);
+  });
   audit(req, 'fechar_comanda', 'comanda', comandaId, null, { saleId: saleResult.id });
   return { ok: true, saleId: saleResult.id };
 }

@@ -132,6 +132,9 @@
 }
 .cart-line:last-child { border-bottom: 0; }
 .cart-line:hover { background: var(--surface-hover); }
+/* deixa a coluna de info encolher (senão o texto nowrap vira min-content e estoura a
+   largura no mobile, empurrando a página inteira pro lado). */
+.cart-line > div:not([class]) { min-width: 0; }
 .cart-line-thumb {
   width: 42px; height: 42px; border-radius: 9px; overflow: hidden; flex-shrink: 0;
   background: var(--surface-hover); border: 1px solid var(--border-light);
@@ -190,17 +193,23 @@
 }
 .pdv-card h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
 
-/* ─── Botões de ação rápida (cartões verticais) ─── */
-.pdv-actions { display: flex; flex-direction: row; flex-wrap: wrap; gap: .65rem; }
+/* ─── Botões de ação rápida (grade organizada, rótulo sempre visível) ─── */
+.pdv-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem; }
 .pdv-action {
-  width: 64px; height: 64px; border-radius: 14px; border: 0; flex-shrink: 0;
+  position: relative; width: 100%; min-height: 52px; border-radius: 12px; border: 0;
   background: var(--action-color, var(--primary)); color: #fff; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .45rem;
+  padding: .55rem .7rem;
   box-shadow: var(--shadow-xs);
   transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
 }
-.pdv-action-icon svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
-.pdv-action .shortcut { font-size: .6rem; font-weight: 700; color: rgba(255,255,255,.85); letter-spacing: .02em; }
+.pdv-action-icon { display: flex; flex-shrink: 0; }
+.pdv-action-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.pdv-action-label { font-size: .82rem; font-weight: 700; letter-spacing: -.01em; }
+.pdv-action .shortcut {
+  position: absolute; top: 5px; right: 7px;
+  font-size: .55rem; font-weight: 700; color: rgba(255,255,255,.8); letter-spacing: .02em;
+}
 .pdv-action:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .pdv-action:active { transform: scale(.96); }
 .pdv-action:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -223,9 +232,15 @@
 .pdv-total-row .value { font-weight: 500; }
 .pdv-total-row.discount .value { color: #4ade80; }
 .pdv-total-row.surcharge .value { color: #ff8589; }
-.pdv-total-row.final { padding: .4rem 0; }
-.pdv-total-row.final .label { font-size: 1rem; font-weight: 600; color: var(--text); }
-.pdv-total-row.final .value { font-size: 1.6rem; font-weight: 800; color: var(--primary); letter-spacing: -.02em; }
+.pdv-total-row.final {
+  flex-direction: column; align-items: center; justify-content: center; gap: .1rem;
+  padding: .65rem 0 .3rem; margin-top: .35rem; border-top: 1.5px solid var(--border-light);
+}
+.pdv-total-row.final .label { font-size: .95rem; font-weight: 600; color: var(--text-muted); text-align: center; }
+.pdv-total-row.final .value {
+  font-size: 2.5rem; font-weight: 800; color: var(--primary); letter-spacing: -.02em;
+  line-height: 1.05; text-align: center;
+}
 
 .btn-finalize {
   width: 100%; padding: .95rem; font-size: 1.1rem; font-weight: 700;
@@ -312,11 +327,21 @@ dialog.pay-modal[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5
 }
 
 /* ─── Rodapé: atalhos + status de conexão ─── */
+/* main vira coluna flex que preenche a altura da tela (descontando header + espaços do
+   body) — assim o rodapé desce com margin-top:auto e fica colado no fim da janela mesmo
+   com o carrinho vazio, sem esticar as colunas do meio. */
+main:has(.pdv-footer-bar) {
+  display: flex; flex-direction: column;
+  min-height: calc(100vh - var(--header-height) - 24px);
+}
 .pdv-footer-bar {
+  margin-top: auto; margin-bottom: 0;
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem;
-  margin-top: 1rem; padding: .6rem 1rem; background: var(--surface); border: 1.5px solid var(--border-light);
+  padding: .6rem 1rem; background: var(--surface); border: 1.5px solid var(--border-light);
   border-radius: var(--radius); font-size: .78rem; color: var(--text-muted);
 }
+/* espacinho respirando entre o conteúdo do PDV e o rodapé quando há conteúdo suficiente */
+.pdv { margin-bottom: 1rem; }
 .pdv-footer-shortcuts { display: flex; gap: 1.1rem; flex-wrap: wrap; }
 .pdv-footer-shortcuts kbd {
   background: var(--surface-hover); border: 1px solid var(--border-light); border-radius: 5px;
@@ -331,6 +356,50 @@ dialog.pay-modal[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5
 @media (max-width: 1080px) {
   .pdv { grid-template-columns: 1fr; gap: 1rem; }
   .pdv-right { position: static; }
+}
+
+/* ─── Mobile (telas estreitas) ─── */
+@media (max-width: 640px) {
+  /* nada pode forçar largura maior que a viewport */
+  .pdv, .pdv-left, .pdv-right, .pdv-card { min-width: 0; }
+  .pdv-left { gap: .6rem; }
+
+  /* Busca: fonte um pouco menor pra caber melhor */
+  .pdv-search-box { padding: 0 .3rem 0 .85rem; }
+  .pdv-search-box input { font-size: 1rem; padding: .7rem 0; }
+
+  /* Linha do carrinho: reflow em 2 fileiras (info+total em cima, qtd+remover embaixo)
+     em vez das colunas fixas largas que estouravam a tela. */
+  .cart-line {
+    grid-template-columns: 40px 1fr auto;
+    grid-template-areas:
+      "thumb info  total"
+      "thumb qty   remove";
+    column-gap: .55rem; row-gap: .4rem;
+    padding: .6rem;
+  }
+  .cart-line-thumb { grid-area: thumb; align-self: start; }
+  .cart-line > div:not([class]) { grid-area: info; }
+  .cart-line .qty-wrap { grid-area: qty; justify-self: start; }
+  .cart-line .prod-total { grid-area: total; align-self: start; }
+  .cart-line .remove-btn { grid-area: remove; justify-self: end; align-self: center; }
+  .cart-line .prod-unit { white-space: normal; }
+
+  /* Dropdown de resultados: nome pode encolher com reticências */
+  .pdv-result { grid-template-columns: 34px 1fr auto; gap: .5rem; padding: .6rem .7rem; }
+  .pdv-result .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdv-result .stock { grid-column: 2 / -1; text-align: left; }
+
+  /* Ações rápidas: mantém 2 colunas, um pouco mais compactas */
+  .pdv-action { min-height: 48px; padding: .5rem .5rem; }
+  .pdv-action-label { font-size: .78rem; }
+
+  /* Total grande cabe bem centralizado */
+  .pdv-total-row.final .value { font-size: 2.1rem; }
+
+  /* Rodapé: empilha atalhos e status, sem apertar */
+  .pdv-footer-bar { flex-direction: column; align-items: flex-start; gap: .45rem; }
+  .pdv-footer-shortcuts { gap: .5rem .9rem; }
 }
 
 /* ─── Complementos (modal) ─── */
