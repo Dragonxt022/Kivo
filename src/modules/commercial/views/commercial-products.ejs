@@ -197,10 +197,18 @@
           <label>SKU</label><input type="text" x-model="form.sku" />
           <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
           <label>Categoria</label>
-          <select x-model.number="form.categoryId">
-            <option value="">— sem categoria —</option>
-            <template x-for="c in categories" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
-          </select>
+          <div class="flex-row" style="align-items:center;gap:.5rem">
+            <div class="category-image-preview" style="width:36px;height:36px;border-radius:50%;background:var(--surface-hover);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+              <img x-show="selectedCategoryImage" :src="selectedCategoryImage" alt="" style="width:100%;height:100%;object-fit:cover" />
+              <template x-if="!selectedCategoryImage">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+              </template>
+            </div>
+            <select x-model.number="form.categoryId" @change="updateCategoryImage()" style="flex:1">
+              <option value="">— sem categoria —</option>
+              <template x-for="c in categories" :key="c.id"><option :value="c.id" :data-image="c.image_url" x-text="c.name"></option></template>
+            </select>
+          </div>
           <div class="flex-row" style="margin-top:.3rem">
             <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
             <button class="btn secondary small" type="button" @click="addCategory()">
@@ -765,6 +773,7 @@
         rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
+        selectedCategoryImage: '',
         // Variantes
         variants: [], attributes: [], attrValues: {}, attrEditId: null, attrEditName: '', attrValEditId: null, attrValEditName: '',
         attrDlgError: '', newAttrName: '', addAttrValId: null, genGroups: [], genSelectedValues: [],
@@ -828,6 +837,12 @@
           ]);
           if (c.ok) this.categories = await c.json();
           if (s.ok) this.appSettings = await s.json();
+        },
+        updateCategoryImage() {
+          const select = this.$refs?.dlg?.querySelector?.('select[x-model.number="form.categoryId"]');
+          if (!select) return;
+          const opt = select.options[select.selectedIndex];
+          this.selectedCategoryImage = opt?.dataset?.image || '';
         },
         openCatMgr() { this.dlgError = ''; this.$refs.catDlg.showModal(); },
         async renameCategory(id) {
@@ -927,6 +942,7 @@
         },
         openNew() {
           this.form = { unit: 'un', productType: 'fisico' }; this.dlgError = ''; this.resetImageState();
+          this.selectedCategoryImage = '';
           const autoSku = this.appSettings?.find(s => s.key === 'estoque.auto_sku')?.value;
           if (autoSku === '1') this.form.sku = 'SKU-' + String(Date.now()).slice(-8);
           const defMinStock = this.appSettings?.find(s => s.key === 'estoque.min_stock_padrao')?.value;
@@ -945,6 +961,7 @@
             description: p.description ?? '' };
           this.dlgError = ''; this.barcodeHint = ''; this.resetImageState();
           this.form.imageUrl = p.image_url ?? null;
+          this.selectedCategoryImage = p.category_image_url ?? '';
           this.variants = [];
           this.kitComponents = [];
           this.complementGroups = [];
@@ -956,6 +973,12 @@
           // Complementos/adicionais valem para qualquer produto vendável (ex.: hambúrguer
           // com adicional de queijo), não só kit/combo — só a variante-mãe não usa.
           if (p.product_type !== 'variante') this.loadComplementGroups(p.id);
+        },
+        updateCategoryImage() {
+          const select = this.$refs.dlg.querySelector('select[x-model.number="form.categoryId"]');
+          if (!select) return;
+          const opt = select.options[select.selectedIndex];
+          this.selectedCategoryImage = opt?.dataset?.image ?? '';
         },
         checkBarcode(code) {
           if (!code) return '';

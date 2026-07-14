@@ -21,7 +21,7 @@ import securityRoutes from './security/routes';
 import { startBackupScheduler } from './backup/service';
 import { validateLicense, isActivated, refreshLicenseFromCloud } from './license/service';
 import activationRoutes from './license/activationRoutes';
-import { productImagesDir, trySubmitPending } from './catalog/submissionQueue';
+import { productImagesDir, categoryImagesDir, trySubmitPending } from './catalog/submissionQueue';
 import { registerSyncTables } from './sync/registry';
 import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
@@ -96,6 +96,7 @@ export async function createServer(): Promise<KatsuServer> {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.resolve(__dirname, '..', 'public')));
   app.use('/uploads/products', express.static(productImagesDir()));
+  app.use('/uploads/categories', express.static(categoryImagesDir()));
 
   // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
   app.use(responseEnvelope);

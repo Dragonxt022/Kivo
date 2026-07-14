@@ -6,7 +6,7 @@ export class CategoryRepository extends BaseRepository {
   }
 
   listAll(): Row[] {
-    return this.raw('SELECT id, name, parent_id FROM categories WHERE deleted_at IS NULL ORDER BY name');
+    return this.raw('SELECT id, name, parent_id, image_url FROM categories WHERE deleted_at IS NULL ORDER BY name');
   }
 
   migrateProducts(fromId: number, toId: number | null): void {

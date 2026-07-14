@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Katsu — Categorias</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/categorias' }) %>
+  <main x-data="categoriesPage()" x-init="load()">
+    <h1>Categorias</h1>
+    <div class="toolbar">
+      <button class="btn" @click="openNew()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova categoria
+      </button>
+      <input type="text" placeholder="Buscar por nome…" x-model="q" @input.debounce.300ms="load()" class="input-search" style="min-width:280px" />
+      <span class="muted" x-text="categories.length + ' categoria(s)'"></span>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th style="width:1%"></th>
+        <th style="width:60px">Imagem</th>
+        <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th @click="sortCycle('parent')" class="sortable">Categoria pai<span class="sort-arrow" x-text="sortArrow('parent')"></span></th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="c in displayRows" :key="c.id">
+          <tr @click="openEdit(c)" style="cursor:pointer">
+            <td>
+              <div class="category-thumb" style="width:40px;height:40px;border-radius:50%;background:var(--surface-hover);display:flex;align-items:center;justify-content:center;overflow:hidden">
+                <img x-show="c.image_url" :src="c.image_url" alt="" style="width:100%;height:100%;object-fit:cover" />
+                <template x-if="!c.image_url">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                </template>
+              </div>
+            </td>
+            <td>
+              <span class="type-name-wrap">
+                <span x-text="c.name"></span>
+              </span>
+            </td>
+            <td class="muted" x-text="c.parent_name ?? '—'"></td>
+            <td class="text-right" style="width:1%">
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === c.id ? null : c.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                  </svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === c.id" x-cloak @click.outside="openMenu = null">
+                  <button @click="openMenu = null; openEdit(c)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    Editar
+                  </button>
+                  <% if (user.permissions.has('commercial.products.delete')) { %>
+                  <button class="danger" @click="openMenu = null; remove(c)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Excluir
+                  </button>
+                  <% } %>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!displayRows.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma categoria cadastrada ainda.' }) %></td></tr>
+      </tbody>
+    </table>
+    <%- include('partials/pager') %>
+
+    <dialog x-ref="dlg" class="dialog-fixed category-modal">
+      <h1 x-text="form.id ? 'Editar categoria' : 'Nova categoria'"></h1>
+      <div class="dialog-body" style="grid-template-columns: 1fr 1fr">
+        <div class="category-col">
+          <label>Nome</label>
+          <input type="text" x-model="form.name" placeholder="Ex.: Hambúrgueres, Bebidas, Sobremesas…" />
+
+          <label>Categoria pai (opcional)</label>
+          <select x-model.number="form.parentId">
+            <option value="">— Nenhuma (nível raiz) —</option>
+            <template x-for="c in parentOptions" :key="c.id">
+              <option :value="c.id" x-text="c.name"></option>
+            </template>
+          </select>
+
+          <label style="margin-top:.9rem">Imagem da categoria</label>
+          <div class="category-image-picker" @click="!(form.newImagePreview || form.imageUrl) && $refs.imageFile.click()">
+            <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
+            <template x-if="form.newImagePreview || form.imageUrl">
+              <img :src="form.newImagePreview || form.imageUrl" alt="" style="border-radius:50%;width:100%;height:100%;object-fit:cover" />
+            </template>
+            <template x-if="!form.newImagePreview && !form.imageUrl">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+            </template>
+            <div class="category-image-overlay" x-show="!form.newImagePreview && !form.imageUrl">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="category-image-overlay remove-overlay" x-show="form.newImagePreview || form.imageUrl" @click.stop="removeImage()" title="Remover imagem">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="category-col">
+          <label>&nbsp;</label>
+          <p class="muted text-xs" style="margin-top:1.8rem">A imagem aparece em círculo nos modais de produto e ajuda a identificar visualmente a categoria.</p>
+          <p class="muted text-xs" style="margin-top:.4rem">Formatos aceitos: JPEG, PNG, WEBP — máx. 6MB.</p>
+        </div>
+      </div>
+      <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="save()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar
+        </button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="delDlg">
+      <h1>Excluir categoria</h1>
+      <div class="dialog-body">
+        <p style="margin-bottom:.8rem" x-text="'Excluir "' + (categories.find(c => c.id === delId)?.name ?? '') + '"?'"></p>
+        <label class="label-checkbox-sm" style="margin-bottom:.5rem">
+          <input type="radio" value="unset" x-model="delAction" /> Deixar produtos sem categoria
+        </label>
+        <label class="label-checkbox-sm" style="margin-bottom:.5rem">
+          <input type="radio" value="migrate" x-model="delAction" /> Migrar produtos para:
+        </label>
+        <select x-show="delAction === 'migrate'" x-model.number="delMigrateTo" style="width:100%;margin-bottom:.8rem">
+          <option value="">Selecione…</option>
+          <template x-for="c in categories.filter(c => c.id !== delId)" :key="c.id">
+            <option :value="c.id" x-text="c.name"></option>
+          </template>
+        </select>
+        <div class="error" x-text="dlgError"></div>
+        <div class="actions actions-inline">
+          <button class="btn secondary" @click="delId = null; delAction = 'unset'; delMigrateTo = null">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+            Cancelar
+          </button>
+          <button class="btn danger" @click="deleteCategory()" :disabled="delAction === 'migrate' && !delMigrateTo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            Confirmar exclusão
+          </button>
+        </div>
+      </div>
+    </dialog>
+  </main>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function categoriesPage() {
+      return {
+        ...tableToolkit(),
+        categories: [],
+        q: '', error: '', dlgError: '',
+        form: {}, parentOptions: [],
+        openMenu: null,
+        delId: null, delAction: 'unset', delMigrateTo: null,
+        sortGetters: {
+          name: (c) => c.name,
+          parent: (c) => c.parent_name ?? '',
+        },
+        get displayRows() { return this.sortedRows(this.filteredRows, this.sortGetters); },
+        get filteredRows() {
+          const q = (this.q || '').toLowerCase();
+          return this.categories.filter(c => !q || (c.name?.toLowerCase().includes(q) || (c.parent_name ?? '').toLowerCase().includes(q)));
+        },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
+
+        async load() {
+          const [cats, prods] = await Promise.all([
+            fetch('/api/commercial/categories').then(r => r.ok ? r.json() : []),
+            fetch('/api/commercial/products?includeParents=true').then(r => r.ok ? r.json() : []),
+          ]);
+          this.categories = cats;
+          // Build parent options: only categories that are not descendants of current (to avoid cycles)
+          this.parentOptions = this.categories;
+        },
+
+        openNew() {
+          this.form = { name: '', parentId: '' };
+          this.dlgError = ''; this.resetImageState();
+          this.$refs.dlg.showModal();
+        },
+
+        openEdit(c) {
+          this.form = { id: c.id, name: c.name, parentId: c.parent_id ?? '' };
+          this.dlgError = ''; this.resetImageState();
+          this.form.imageUrl = c.image_url ?? null;
+          this.$refs.dlg.showModal();
+        },
+
+        resetImageState() {
+          this.form.newImagePreview = null;
+          this.form.pendingImageBase64 = null;
+          this.form.removeImage = false;
+        },
+
+        onImageFile(e) {
+          const file = e.target.files[0];
+          e.target.value = '';
+          if (!file) return;
+          if (file.size > 6 * 1024 * 1024) { this.dlgError = 'Imagem muito grande (máximo 6MB).'; return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result);
+            this.form.newImagePreview = dataUrl;
+            this.form.pendingImageBase64 = dataUrl.split(',')[1] ?? '';
+            this.form.removeImage = false;
+          };
+          reader.readAsDataURL(file);
+        },
+
+        removeImage() {
+          this.form.newImagePreview = null;
+          this.form.imageUrl = null;
+          this.form.pendingImageBase64 = null;
+          this.form.removeImage = true;
+        },
+
+        async save() {
+          const body = { name: this.form.name?.trim(), parentId: this.form.parentId || null };
+          const isEdit = !!this.form.id;
+          const url = isEdit ? `/api/commercial/categories/${this.form.id}` : '/api/commercial/categories';
+          const method = isEdit ? 'PUT' : 'POST';
+
+          const r = await fetch(url, {
+            method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; return; }
+
+          // Se tem imagem nova, fazer upload separado
+          if (this.form.pendingImageBase64) {
+            const imgRes = await fetch(`/api/commercial/categories/${isEdit ? this.form.id : (await r.json()).id}/image`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageBase64: this.form.pendingImageBase64 }),
+            });
+            if (!imgRes.ok) { this.dlgError = (await imgRes.json()).error ?? 'Erro ao enviar imagem.'; return; }
+          } else if (this.form.removeImage && isEdit) {
+            await fetch(`/api/commercial/categories/${this.form.id}/image`, { method: 'DELETE' });
+          }
+
+          this.$refs.dlg.close();
+          await this.load();
+        },
+
+        remove(c) {
+          this.delId = c.id; this.delAction = 'unset'; this.delMigrateTo = null;
+          this.$refs.delDlg.showModal();
+        },
+
+        async deleteCategory() {
+          const body = this.delAction === 'migrate' && this.delMigrateTo ? { migrateToId: this.delMigrateTo } : {};
+          const r = await fetch(`/api/commercial/categories/${this.delId}`, {
+            method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (r.ok) {
+            this.delId = null; this.delAction = 'unset'; this.delMigrateTo = null;
+            this.$refs.delDlg.close();
+            await this.load();
+          } else { this.dlgError = (await r.json()).error; }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

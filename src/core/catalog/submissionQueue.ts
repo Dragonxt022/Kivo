@@ -5,6 +5,7 @@ import { getSqlite } from '../database/connection';
 import { getLicenseCredentials, machineId } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
 import type { ImageFormat } from './imageValidation';
+import { validateImageBuffer } from './imageValidation';
 
 /**
  * Banco de imagens do Katsu Cloud (ecossistema descrito em conversa com o usuário):
@@ -34,6 +35,14 @@ export function productImagesDir(): string {
   return dir;
 }
 
+export function categoryImagesDir(): string {
+  const dbPath = process.env.KATSU_DB_PATH ?? path.resolve(process.cwd(), 'database', 'katsu.db');
+  const dataRoot = path.dirname(path.dirname(dbPath));
+  const dir = path.join(dataRoot, 'storage', 'category-images');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 function sha256(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex');
 }
@@ -43,6 +52,12 @@ export function saveLocalProductImage(buf: Buffer, format: ImageFormat): string 
   const filename = `${randomUUID()}.${EXT_BY_FORMAT[format]}`;
   fs.writeFileSync(path.join(productImagesDir(), filename), buf);
   return `/uploads/products/${filename}`;
+}
+
+export function saveLocalCategoryImage(buf: Buffer, format: ImageFormat): string {
+  const filename = `${randomUUID()}.${EXT_BY_FORMAT[format]}`;
+  fs.writeFileSync(path.join(categoryImagesDir(), filename), buf);
+  return `/uploads/categories/${filename}`;
 }
 
 /** Enfileira a imagem para envio ao banco de imagens do Cloud (não bloqueia o salvamento do produto). */

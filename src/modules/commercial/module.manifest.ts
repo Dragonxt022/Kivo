@@ -54,6 +54,7 @@ const manifest: ModuleManifest = {
     { label: 'Clientes', href: '/app/commercial/clientes', permission: 'commercial.customers.view', description: 'Cadastro de clientes.', icon: 'users' },
     { label: 'Fornecedores', href: '/app/commercial/fornecedores', permission: 'commercial.suppliers.view', description: 'Cadastro de fornecedores.', icon: 'truck' },
     { label: 'Produtos', href: '/app/commercial/produtos', permission: 'commercial.products.view', description: 'Catálogo, preços e estoque.', icon: 'package' },
+    { label: 'Categorias', href: '/app/commercial/categorias', permission: 'commercial.products.view', description: 'Gerenciar categorias e imagens.', icon: 'folder' },
     { label: 'Listas de preço', href: '/app/commercial/listas-de-preco', permission: 'commercial.pricelists.view', description: 'Atacado, varejo, faixas por quantidade e listas por cliente.', icon: 'dollar-sign' },
     { label: 'Compras', href: '/app/commercial/compras', permission: 'commercial.purchases.view', description: 'Recebimento de mercadoria e custos.', icon: 'bag' },
   ],

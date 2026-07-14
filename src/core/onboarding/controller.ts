@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { audit } from '../audit/service';
 import { assertAuth } from '../../shared/auth';
-import { getOnboardingStatus, listPaymentMethodsForWizard, markOnboardingCompleted, provision, type OnboardingBusinessType, type OnboardingUsage } from './service';
+import { getOnboardingStatus, listPaymentMethodsForWizard, markOnboardingCompleted, provision, resetDemoData, type OnboardingBusinessType, type OnboardingUsage } from './service';
 
 const USAGE_VALUES = new Set(['balcao', 'mesas', 'ambos']);
 const BUSINESS_TYPE_VALUES = new Set(['restaurante', 'roupas', 'outro']);
@@ -23,7 +23,7 @@ export const onboardingController = {
 
   provisionAction(req: Request, res: Response) {
     assertAuth(req);
-    const { usage, businessType, activePaymentMethodIds, createDemoData } = req.body ?? {};
+    const { usage, businessType, activePaymentMethodIds, createDemoData, resetDemoData } = req.body ?? {};
     if (!USAGE_VALUES.has(usage)) {
       res.status(400).json({ error: 'Campo usage inválido (balcao, mesas ou ambos).' });
       return;
@@ -38,6 +38,7 @@ export const onboardingController = {
       businessType: businessType as OnboardingBusinessType,
       activePaymentMethodIds: ids,
       createDemoData: !!createDemoData,
+      resetDemoData: !!resetDemoData,
     });
     audit(req, 'onboarding_concluir', 'onboarding', 'provision', null, result);
     res.json(result);

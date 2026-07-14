@@ -4,6 +4,7 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 import { setCapabilityEnabled } from '../capabilities/service';
 import { storeTableRepository } from '../../modules/comandas/repositories/StoreTableRepository';
 import { productRepository } from '../../modules/commercial/repositories/ProductRepository';
+import { categoryRepository } from '../../modules/commercial/repositories/CategoryRepository';
 import { complementGroupRepository, complementItemRepository, productComplementGroupRepository } from '../../modules/commercial/repositories/ComplementRepository';
 import { productAttributeRepository, productAttributeValueRepository, productVariantValueRepository } from '../../modules/commercial/repositories/AttributeRepository';
 import { paymentMethodRepository } from '../../modules/finance/repositories/PaymentMethodRepository';
@@ -21,6 +22,7 @@ export interface ProvisionInput {
   businessType: OnboardingBusinessType;
   activePaymentMethodIds: number[];
   createDemoData: boolean;
+  resetDemoData?: boolean;
 }
 
 export interface ProvisionResult {
@@ -164,6 +166,26 @@ function cartesian<T>(arrays: T[][]): T[][] {
   return arrays.reduce<T[][]>((acc, arr) => acc.flatMap((a) => arr.map((b) => [...a, b])), [[]]);
 }
 
+function createDemoCategories(): number {
+  // Categorias de exemplo para restaurante
+  const categorias = [
+    { name: 'Hambúrgueres', image_url: null },
+    { name: 'Bebidas', image_url: null },
+    { name: 'Acompanhamentos', image_url: null },
+    { name: 'Sobremesas', image_url: null },
+  ];
+
+  let count = 0;
+  for (const cat of categorias) {
+    const existing = categoryRepository.rawOne('SELECT id FROM categories WHERE name = ? AND deleted_at IS NULL', cat.name);
+    if (!existing) {
+      categoryRepository.create({ name: cat.name, parent_id: null, uuid: randomUUID() });
+      count++;
+    }
+  }
+  return count;
+}
+
 function tryEnableCapability(req: Request, key: string): void {
   try { setCapabilityEnabled(req, key, true); } catch (e) {
     console.error(`[onboarding] não deu pra ligar a capability ${key}:`, e);
@@ -179,10 +201,14 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
   let tablesCreated = 0;
   let productsCreated = 0;
 
-  // Mesas nunca duplicam (guarda por contagem existente) — já produtos de exemplo podem
-  // ser gerados de novo deliberadamente (ex.: reabrir o assistente pra somar um segundo
-  // tipo de negócio), então só criamos, sem bloqueio de "uma vez só" aqui.
-  if (input.createDemoData) {
+  if (input.resetDemoData) {
+    settingsRepository.set(DEMO_DATA_KEY, '0');
+  }
+
+  // Se resetDemoData ou se ainda não criou demo data, permite criar
+  const shouldCreateDemo = input.createDemoData && (input.resetDemoData || !settingsRepository.getBool(DEMO_DATA_KEY, false));
+
+  if (shouldCreateDemo) {
     const wantsTables = (input.usage === 'mesas' || input.usage === 'ambos') && input.businessType !== 'roupas';
     if (wantsTables) {
       tryEnableCapability(req, 'comandas.mesas');
@@ -195,6 +221,8 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
       tryEnableCapability(req, 'commercial.variantes');
       productsCreated = createRoupasDemoProducts();
     }
+    // Criar categorias de exemplo com imagens
+    productsCreated += createDemoCategories();
     settingsRepository.set(DEMO_DATA_KEY, '1');
   }
 
