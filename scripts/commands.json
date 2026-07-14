@@ -195,6 +195,14 @@
     "description": "Testes: comandas / mesas",
     "run": "tsx src/tests/fase_comandas.ts"
   },
+  "test:license-profile": {
+    "description": "Testes: perfil de empresa que desce na ativação (offline)",
+    "run": "tsx src/tests/license-company-profile.ts"
+  },
+  "coverage:license-profile": {
+    "description": "Cobertura (c8) do módulo de licença via teste de perfil de empresa",
+    "run": "c8 --reporter=text --src src --include \"src/core/license/**\" -- tsx src/tests/license-company-profile.ts"
+  },
   "test:e2e": {
     "description": "E2E (Playwright): fluxo completo de cadastro de produtos",
     "run": "tsx src/tests/e2e/product-fluxo-completo.ts"

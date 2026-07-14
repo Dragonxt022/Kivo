@@ -218,7 +218,7 @@ export function isModuleEntitled(moduleId: string): boolean {
   return modules === null || modules.includes(moduleId);
 }
 
-interface CloudCompanyProfile {
+export interface CloudCompanyProfile {
   name: string | null;
   legalName: string | null;
   document: string | null;
@@ -248,7 +248,7 @@ interface CloudValidateResponse {
  * Junta rua, número, complemento, bairro, cidade e UF numa linha só — é o formato que o
  * cupom (`empresa.endereco`) espera. Partes vazias somem sem deixar vírgula solta.
  */
-function composeAddress(c: CloudCompanyProfile): string {
+export function composeAddress(c: CloudCompanyProfile): string {
   const linha1 = [c.street, c.number].filter((s) => s && s.trim()).join(', ');
   const cidadeUf = [c.city, c.state].filter((s) => s && s.trim()).join(' — ');
   return [linha1, c.complement, c.district, cidadeUf, c.zip]
@@ -262,7 +262,7 @@ function composeAddress(c: CloudCompanyProfile): string {
  * cloud — SÓ os campos que ainda estão vazios, pra nunca sobrescrever o que o lojista
  * editou à mão. Chamado na ativação (e nas revalidações, de forma idempotente).
  */
-function applyCompanyProfile(c: CloudCompanyProfile | null | undefined): void {
+export function applyCompanyProfile(c: CloudCompanyProfile | null | undefined): void {
   if (!c) return;
   const fillIfEmpty = (key: string, value: string | null | undefined): void => {
     const v = (value ?? '').trim();
