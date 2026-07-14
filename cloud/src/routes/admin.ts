@@ -194,18 +194,41 @@ router.get('/companies/:uuid', requireAdminAuth, async (req, res) => {
   res.render('company-detail', { ...detail, revealedLicenseKey: null, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
 });
 
+/** Normaliza um campo de texto do formulário: string aparada ou NULL se vazio. */
+function textOrNull(v: unknown): string | null {
+  const s = typeof v === 'string' ? v.trim() : '';
+  return s ? s : null;
+}
+
 router.post('/companies/:uuid', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  const { name, plan, modules, validUntil, maxDevices } = req.body ?? {};
+  const b = req.body ?? {};
+  const { name, plan, modules, validUntil, maxDevices } = b;
   const modulesList = parseModules(modules);
   await getPool().query(
-    'UPDATE companies SET name = ?, plan = ?, modules = CAST(? AS JSON), valid_until = ?, max_devices = ? WHERE company_uuid = ?',
+    `UPDATE companies SET
+       name = ?, plan = ?, modules = CAST(? AS JSON), valid_until = ?, max_devices = ?,
+       legal_name = ?, document = ?, state_registration = ?, email = ?, phone = ?,
+       zip = ?, street = ?, number = ?, complement = ?, district = ?, city = ?, state = ?
+     WHERE company_uuid = ?`,
     [
       name || null,
       plan || null,
       modulesList.length ? JSON.stringify(modulesList) : null,
       resolveValidUntil(plan || null, validUntil),
       maxDevices ? Math.max(1, Number(maxDevices)) : 1,
+      textOrNull(b.legalName),
+      textOrNull(b.document),
+      textOrNull(b.stateRegistration),
+      textOrNull(b.email),
+      textOrNull(b.phone),
+      textOrNull(b.zip),
+      textOrNull(b.street),
+      textOrNull(b.number),
+      textOrNull(b.complement),
+      textOrNull(b.district),
+      textOrNull(b.city),
+      textOrNull(b.state)?.toUpperCase().slice(0, 2) ?? null,
       uuid,
     ],
   );

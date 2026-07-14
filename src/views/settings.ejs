@@ -119,12 +119,28 @@
         <h2>Dados da empresa</h2>
         <p class="hint mt-0">Usados no cabeçalho dos cupons de venda e orçamentos impressos.</p>
         <div class="field">
-          <label>Nome da empresa</label>
+          <label>Nome fantasia</label>
           <input class="input" type="text" x-model="empresa.nome" placeholder="Nome que aparece no cupom/orçamento">
+        </div>
+        <div class="field">
+          <label>Razão social</label>
+          <input class="input" type="text" x-model="empresa.razaoSocial" placeholder="Nome jurídico completo">
         </div>
         <div class="field">
           <label>CNPJ ou CPF</label>
           <input class="input" type="text" x-model="empresa.documento" placeholder="00.000.000/0000-00">
+        </div>
+        <div class="field">
+          <label>Inscrição estadual</label>
+          <input class="input" type="text" x-model="empresa.ie" placeholder="Isento, se não tiver">
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          <input class="input" type="email" x-model="empresa.email" placeholder="empresa@exemplo.com">
+        </div>
+        <div class="field">
+          <label>Telefone</label>
+          <input class="input" type="text" x-model="empresa.telefone" placeholder="(00) 00000-0000">
         </div>
         <div class="field">
           <label>Endereço</label>
@@ -562,7 +578,7 @@
         sales: { exibirCupom: true, lembreteCaixa24h: true }, savingSales: false, salesSaved: '',
         financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
         savingFinanceiro: false, financeiroSaved: '',
-        empresa: { nome: '', documento: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
+        empresa: { nome: '', razaoSocial: '', documento: '', ie: '', email: '', telefone: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
@@ -617,7 +633,11 @@
           const cu = this.settings.find(s => s.key === 'sync.server_url');
           this.cloudUrlForm.value = cu?.value ?? '';
           this.empresa.nome = this.settings.find(s => s.key === 'empresa.nome')?.value ?? '';
+          this.empresa.razaoSocial = this.settings.find(s => s.key === 'empresa.razao_social')?.value ?? '';
           this.empresa.documento = this.settings.find(s => s.key === 'empresa.documento')?.value ?? '';
+          this.empresa.ie = this.settings.find(s => s.key === 'empresa.ie')?.value ?? '';
+          this.empresa.email = this.settings.find(s => s.key === 'empresa.email')?.value ?? '';
+          this.empresa.telefone = this.settings.find(s => s.key === 'empresa.telefone')?.value ?? '';
           this.empresa.endereco = this.settings.find(s => s.key === 'empresa.endereco')?.value ?? '';
           this.rede.acessoLocal = this.settings.find(s => s.key === 'rede.acesso_local')?.value === '1';
         },
@@ -725,7 +745,11 @@
           });
           const results = await Promise.all([
             upsert('empresa.nome', this.empresa.nome),
+            upsert('empresa.razao_social', this.empresa.razaoSocial),
             upsert('empresa.documento', this.empresa.documento),
+            upsert('empresa.ie', this.empresa.ie),
+            upsert('empresa.email', this.empresa.email),
+            upsert('empresa.telefone', this.empresa.telefone),
             upsert('empresa.endereco', this.empresa.endereco),
           ]);
           this.savingEmpresa = false;

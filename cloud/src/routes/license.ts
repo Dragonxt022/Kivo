@@ -9,6 +9,20 @@ interface CompanyLicenseRow {
   modules: string[] | string | null;
   valid_until: string | null;
   max_devices: number;
+  // Perfil da empresa — desce na ativação e preenche as configurações do Katsu local.
+  name: string | null;
+  legal_name: string | null;
+  document: string | null;
+  state_registration: string | null;
+  email: string | null;
+  phone: string | null;
+  zip: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
 }
 
 /**
@@ -31,7 +45,10 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
   try {
     await conn.beginTransaction();
     const [companyRows] = await conn.query(
-      'SELECT plan, modules, valid_until, max_devices FROM companies WHERE company_uuid = ? FOR UPDATE',
+      `SELECT plan, modules, valid_until, max_devices,
+              name, legal_name, document, state_registration, email, phone,
+              zip, street, number, complement, district, city, state
+       FROM companies WHERE company_uuid = ? FOR UPDATE`,
       [req.companyUuid],
     );
     const company = (companyRows as CompanyLicenseRow[])[0];
@@ -88,6 +105,23 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
       validUntil: company.valid_until,
       supportPhone: settingsMap.support_phone ?? null,
       supportEmail: settingsMap.support_email ?? null,
+      // Perfil da empresa cadastrado no painel — o Katsu local usa para preencher as
+      // configurações (nome/documento/endereço do cupom) na ativação, só se vazias.
+      company: {
+        name: company.name,
+        legalName: company.legal_name,
+        document: company.document,
+        stateRegistration: company.state_registration,
+        email: company.email,
+        phone: company.phone,
+        zip: company.zip,
+        street: company.street,
+        number: company.number,
+        complement: company.complement,
+        district: company.district,
+        city: company.city,
+        state: company.state,
+      },
       // Alimenta o watermark anti-retrocesso de relógio no Katsu local — o cliente não
       // deve confiar no próprio relógio pra isso, só no horário que o servidor confirma.
       serverTime: new Date().toISOString(),

@@ -1,0 +1,12 @@
+ALTER TABLE companies DROP COLUMN legal_name;
+ALTER TABLE companies DROP COLUMN document;
+ALTER TABLE companies DROP COLUMN state_registration;
+ALTER TABLE companies DROP COLUMN email;
+ALTER TABLE companies DROP COLUMN phone;
+ALTER TABLE companies DROP COLUMN zip;
+ALTER TABLE companies DROP COLUMN street;
+ALTER TABLE companies DROP COLUMN number;
+ALTER TABLE companies DROP COLUMN complement;
+ALTER TABLE companies DROP COLUMN district;
+ALTER TABLE companies DROP COLUMN city;
+ALTER TABLE companies DROP COLUMN state;

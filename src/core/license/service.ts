@@ -4,6 +4,7 @@ import path from 'node:path';
 import { machineIdSync } from 'node-machine-id';
 import { getSqlite } from '../database/connection';
 import { getCloudServerUrl } from '../config/cloud';
+import { settingsRepository } from '../repositories/SettingsRepository';
 
 /**
  * Licenciamento (KATSU_PLANO.md §7): Machine ID + Empresa UUID + License Key.
@@ -217,13 +218,73 @@ export function isModuleEntitled(moduleId: string): boolean {
   return modules === null || modules.includes(moduleId);
 }
 
+interface CloudCompanyProfile {
+  name: string | null;
+  legalName: string | null;
+  document: string | null;
+  stateRegistration: string | null;
+  email: string | null;
+  phone: string | null;
+  zip: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+}
+
 interface CloudValidateResponse {
   plan: string | null;
   modules: string[] | null;
   validUntil: string | null;
   supportPhone: string | null;
   supportEmail: string | null;
+  company?: CloudCompanyProfile | null;
   serverTime?: string;
+}
+
+/**
+ * Junta rua, número, complemento, bairro, cidade e UF numa linha só — é o formato que o
+ * cupom (`empresa.endereco`) espera. Partes vazias somem sem deixar vírgula solta.
+ */
+function composeAddress(c: CloudCompanyProfile): string {
+  const linha1 = [c.street, c.number].filter((s) => s && s.trim()).join(', ');
+  const cidadeUf = [c.city, c.state].filter((s) => s && s.trim()).join(' — ');
+  return [linha1, c.complement, c.district, cidadeUf, c.zip]
+    .map((s) => (s ?? '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+/**
+ * Preenche as configurações da empresa no Katsu local a partir do perfil cadastrado no
+ * cloud — SÓ os campos que ainda estão vazios, pra nunca sobrescrever o que o lojista
+ * editou à mão. Chamado na ativação (e nas revalidações, de forma idempotente).
+ */
+function applyCompanyProfile(c: CloudCompanyProfile | null | undefined): void {
+  if (!c) return;
+  const fillIfEmpty = (key: string, value: string | null | undefined): void => {
+    const v = (value ?? '').trim();
+    if (!v) return;
+    const current = settingsRepository.get(key);
+    if (current == null || current.trim() === '') settingsRepository.set(key, v);
+  };
+  fillIfEmpty('empresa.nome', c.name);
+  fillIfEmpty('empresa.razao_social', c.legalName);
+  fillIfEmpty('empresa.documento', c.document);
+  fillIfEmpty('empresa.ie', c.stateRegistration);
+  fillIfEmpty('empresa.email', c.email);
+  fillIfEmpty('empresa.telefone', c.phone);
+  fillIfEmpty('empresa.cep', c.zip);
+  fillIfEmpty('empresa.rua', c.street);
+  fillIfEmpty('empresa.numero', c.number);
+  fillIfEmpty('empresa.complemento', c.complement);
+  fillIfEmpty('empresa.bairro', c.district);
+  fillIfEmpty('empresa.cidade', c.city);
+  fillIfEmpty('empresa.uf', c.state);
+  // Linha única usada no cabeçalho do cupom.
+  fillIfEmpty('empresa.endereco', composeAddress(c));
 }
 
 type ActivateResult =
@@ -285,6 +346,7 @@ export async function activateLicense(companyUuid: string, licenseKey: string): 
     );
   const row = getRow()!;
   bumpWatermark(row, body.serverTime ? new Date(body.serverTime).getTime() : Date.now());
+  applyCompanyProfile(body.company);
   return { ok: true, info: validateLicense() };
 }
 
@@ -339,6 +401,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
       );
     const row = getRow()!;
     bumpWatermark(row, body.serverTime ? new Date(body.serverTime).getTime() : Date.now());
+    applyCompanyProfile(body.company);
   } catch {
     // offline ou cloud fora do ar: mantém o cache local, não interrompe o sync.
   }
