@@ -159,7 +159,7 @@ router.post('/products', requirePermission('commercial.products.create'), valida
     return;
   }
   const productType = String(b.productType ?? 'fisico');
-  const trackStock = productType === 'variante' ? 0 : (b.trackStock === false ? 0 : 1);
+  const trackStock = (productType === 'variante' || productType === 'complemento') ? 0 : (b.trackStock === false ? 0 : 1);
   let info: { lastInsertRowid: number | bigint };
   try {
     info = productRepository.rawRun(
@@ -228,7 +228,7 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
   }
   const finalImageUrl = img.imageUrl !== undefined ? img.imageUrl : before.image_url;
   const productType = b.productType ?? (before as unknown as Record<string, unknown>).product_type ?? 'fisico';
-  const trackStock = productType === 'variante' ? 0 : (b.trackStock != null ? (b.trackStock ? 1 : 0) : null);
+  const trackStock = (productType === 'variante' || productType === 'complemento') ? 0 : (b.trackStock != null ? (b.trackStock ? 1 : 0) : null);
   try {
     productRepository.rawRun(
       `UPDATE products SET
@@ -394,158 +394,6 @@ router.post('/products/:id/barcode/generate', requirePermission('commercial.prod
   const after = productRepository.findDetailed(id);
   audit(req, 'editar', 'product', id, before, after);
   res.json(after);
-});
-
-// ---------- Complementos / Opcionais ----------
-router.get('/complement-groups', requirePermission('commercial.products.view'), requireCapability('commercial.complementos'), (_req, res) => {
-  res.json(complementGroupRepository.listAll());
-});
-
-router.post('/complement-groups', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const { name, minSelect, maxSelect } = req.body ?? {};
-  if (!name || !String(name).trim()) {
-    res.status(400).json({ error: 'Campo obrigatório: name' });
-    return;
-  }
-  const id = complementGroupRepository.create({ name: String(name).trim(), min_select: Math.round(Number(minSelect ?? 0)), max_select: maxSelect != null ? Math.round(Number(maxSelect)) : null, uuid: randomUUID() });
-  const created = complementGroupRepository.findById(id);
-  audit(req, 'criar', 'complement_group', id, null, created);
-  res.status(201).json(created);
-});
-
-router.put('/complement-groups/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const id = Number(req.params.id);
-  const before = complementGroupRepository.findById(id);
-  if (!before) {
-    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
-    return;
-  }
-  const { name, minSelect, maxSelect } = req.body ?? {};
-  complementGroupRepository.update(id, {
-    name: name ? String(name).trim() : null,
-    min_select: minSelect != null ? Math.round(Number(minSelect)) : null,
-    max_select: maxSelect !== undefined ? (maxSelect != null ? Math.round(Number(maxSelect)) : null) : null,
-  } as Record<string, unknown>);
-  const after = complementGroupRepository.findById(id);
-  audit(req, 'editar', 'complement_group', id, before, after);
-  res.json(after);
-});
-
-router.delete('/complement-groups/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const id = Number(req.params.id);
-  const before = complementGroupRepository.findById(id);
-  if (!before) {
-    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
-    return;
-  }
-  complementGroupRepository.softDeleteWithItems(id);
-  audit(req, 'excluir', 'complement_group', id, before, null);
-  res.json({ ok: true });
-});
-
-router.get('/complement-groups/:id/items', requirePermission('commercial.products.view'), requireCapability('commercial.complementos'), (req, res) => {
-  res.json(complementItemRepository.listByGroup(Number(req.params.id)));
-});
-
-router.post('/complement-groups/:id/items', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const groupId = Number(req.params.id);
-  const group = complementGroupRepository.findById(groupId);
-  if (!group) {
-    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
-    return;
-  }
-  const { productId, priceOverrideCents, sortOrder } = req.body ?? {};
-  if (!productId) {
-    res.status(400).json({ error: 'Campo obrigatório: productId.' });
-    return;
-  }
-  const prod = productRepository.findById(productId);
-  if (!prod) {
-    res.status(404).json({ error: 'Produto não encontrado.' });
-    return;
-  }
-  const id = complementItemRepository.create({ group_id: groupId, product_id: productId, price_override_cents: priceOverrideCents != null ? Math.round(Number(priceOverrideCents)) : null, sort_order: Math.round(Number(sortOrder ?? 0)), uuid: randomUUID() });
-  const created = complementItemRepository.findDetailed(id);
-  audit(req, 'criar', 'complement_group_item', id, null, created);
-  res.status(201).json(created);
-});
-
-router.put('/complement-groups/:groupId/items/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const id = Number(req.params.id);
-  const before = complementItemRepository.findById(id);
-  if (!before) {
-    res.status(404).json({ error: 'Item de complemento não encontrado.' });
-    return;
-  }
-  const { productId, priceOverrideCents, sortOrder } = req.body ?? {};
-  complementItemRepository.update(id, {
-    product_id: productId ?? null,
-    price_override_cents: priceOverrideCents !== undefined ? (priceOverrideCents != null ? Math.round(Number(priceOverrideCents)) : null) : null,
-    sort_order: sortOrder != null ? Math.round(Number(sortOrder)) : null,
-  } as Record<string, unknown>);
-  const after = complementItemRepository.findById(id);
-  audit(req, 'editar', 'complement_group_item', id, before, after);
-  res.json(after);
-});
-
-router.delete('/complement-groups/:groupId/items/:id', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const id = Number(req.params.id);
-  const before = complementItemRepository.findById(id);
-  if (!before) {
-    res.status(404).json({ error: 'Item de complemento não encontrado.' });
-    return;
-  }
-  complementItemRepository.softDelete(id);
-  audit(req, 'excluir', 'complement_group_item', id, before, null);
-  res.json({ ok: true });
-});
-
-// Mesma permissão da busca de produtos (GET /products) — quem consegue achar o produto no
-// PDV precisa conseguir ler os complementos dele, senão o caixa com apenas
-// `commercial.products.search` levava 403 aqui e a modal de complementos (ex.: açaí)
-// nunca abria, entrando o produto direto sem os opcionais.
-router.get('/products/:id/complement-groups', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
-  res.json(productComplementGroupRepository.listByProduct(Number(req.params.id)));
-});
-
-router.post('/products/:id/complement-groups', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const productId = Number(req.params.id);
-  const { groupId, sortOrder } = req.body ?? {};
-  if (!groupId) {
-    res.status(400).json({ error: 'Campo obrigatório: groupId.' });
-    return;
-  }
-  const prod = productRepository.findById(productId);
-  if (!prod) {
-    res.status(404).json({ error: 'Produto não encontrado.' });
-    return;
-  }
-  const group = complementGroupRepository.findById(groupId);
-  if (!group) {
-    res.status(404).json({ error: 'Grupo de complementos não encontrado.' });
-    return;
-  }
-  const existing = productComplementGroupRepository.findExisting(productId, groupId);
-  if (existing) {
-    res.status(409).json({ error: 'Este grupo já está vinculado ao produto.' });
-    return;
-  }
-  const id = productComplementGroupRepository.create({ product_id: productId, group_id: groupId, sort_order: Math.round(Number(sortOrder ?? 0)), uuid: randomUUID() });
-  const created = productComplementGroupRepository.findById(id);
-  audit(req, 'criar', 'product_complement_group', id, null, created);
-  res.status(201).json(created);
-});
-
-router.delete('/products/:id/complement-groups/:linkId', requirePermission('commercial.products.complements.manage'), requireCapability('commercial.complementos'), (req, res) => {
-  const linkId = Number(req.params.linkId);
-  const before = productComplementGroupRepository.findById(linkId);
-  if (!before) {
-    res.status(404).json({ error: 'Vínculo não encontrado.' });
-    return;
-  }
-  productComplementGroupRepository.softDelete(linkId);
-  audit(req, 'excluir', 'product_complement_group', linkId, before, null);
-  res.json({ ok: true });
 });
 
 // ---------- Kits & Combos (componentes fixos) ----------

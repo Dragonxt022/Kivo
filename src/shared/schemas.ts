@@ -11,7 +11,7 @@ export const createProductSchema = z.object({
   costCents: z.number().int().optional(),
   trackStock: z.boolean().optional(),
   minStock: z.number().int().min(0).optional(),
-  productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura']).optional(),
+  productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura', 'complemento']).optional(),
   initialStock: z.number().int().positive().optional(),
   imageBase64: z.string().optional(),
   imageUrl: z.string().optional(),
@@ -31,7 +31,7 @@ export const updateProductSchema = z.object({
   trackStock: z.boolean().optional(),
   minStock: z.number().int().min(0).optional(),
   active: z.boolean().optional(),
-  productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura']).optional(),
+  productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura', 'complemento']).optional(),
   imageBase64: z.string().optional(),
   imageUrl: z.string().optional(),
   removeImage: z.boolean().optional(),
@@ -132,7 +132,7 @@ export const closeRegisterSchema = z.object({
 
 export const createCategorySchema = z.object({
   name: z.string().min(1, 'Campo obrigatório: name'),
-  parentId: z.number().int().positive().optional(),
+  parentId: z.number().int().positive().nullable().optional(),
 });
 
 export const updateCategorySchema = z.object({
@@ -165,4 +165,28 @@ export const updatePurchaseSchema = z.object({
 export const grantStoreCreditSchema = z.object({
   amountCents: z.number().int().min(1, 'Valor deve ser positivo.'),
   reason: z.string().optional(),
+});
+
+export const createComplementGroupSchema = z.object({
+  name: z.string().min(1, 'Campo obrigatório: name'),
+  minSelect: z.number().int().min(0).optional().default(0),
+  maxSelect: z.number().int().min(0).nullable().optional(),
+});
+
+export const updateComplementGroupSchema = z.object({
+  name: z.string().min(1).optional(),
+  minSelect: z.number().int().min(0).optional(),
+  maxSelect: z.number().int().min(0).nullable().optional(),
+});
+
+export const createComplementItemSchema = z.object({
+  productId: z.number().int().positive('ID do produto inválido.'),
+  priceOverrideCents: z.number().int().min(0).nullable().optional(),
+  sortOrder: z.number().int().min(0).optional().default(0),
+});
+
+export const updateComplementItemSchema = z.object({
+  productId: z.number().int().positive().optional(),
+  priceOverrideCents: z.number().int().min(0).nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
 });

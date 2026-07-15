@@ -166,109 +166,226 @@
 
     <dialog x-ref="dlg" class="dialog-fixed product-modal">
       <h1 x-text="form.id ? 'Editar produto' : 'Novo produto'"></h1>
-      <div class="dialog-body" :style="'grid-template-columns: 1fr 1fr' + ((form.productType !== 'fisico' || form.id) ? ' 1.2fr' : '')">
-        <div class="product-col">
-          <label>Nome</label>
-          <input type="text" x-model="form.name" @input.debounce.500ms="searchCatalogImages()" />
-
-          <label>Descrição / Ingredientes (cardápio online)</label>
-          <textarea x-model="form.description" rows="3" style="resize:vertical;min-height:80px"></textarea>
-
-          <label>Tipo de produto</label>
-          <select x-model="form.productType" :disabled="!!form.id">
-            <option value="fisico">Produto simples</option>
-            <option value="variante">Produto com variantes</option>
-            <option value="kit">Kit</option>
-            <option value="combo">Combo</option>
-            <option value="produzido">Produzido (ficha técnica)</option>
-          </select>
-
-          <label>Código de barras</label>
-          <div class="flex-row">
-            <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
-            <template x-if="form.id">
-              <button class="btn secondary small" type="button" @click="genBarcode()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M6 4v16"/><path d="M10 4v4"/><path d="M10 16v4"/><path d="M14 4v8"/><path d="M14 16v4"/><path d="M18 4v4"/><path d="M18 12v8"/><path d="M22 4v16"/></svg>
-                Gerar código interno
-              </button>
-            </template>
-          </div>
-          <span class="muted text-xs" x-show="barcodeHint" x-text="barcodeHint"></span>
-          <label>SKU</label><input type="text" x-model="form.sku" />
-          <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
-          <label>Categoria</label>
-          <div class="flex-row" style="align-items:center;gap:.5rem">
-            <div class="category-image-preview" style="width:36px;height:36px;border-radius:50%;background:var(--surface-hover);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
-              <img x-show="selectedCategoryImage" :src="selectedCategoryImage" alt="" style="width:100%;height:100%;object-fit:cover" />
-              <template x-if="!selectedCategoryImage">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
-              </template>
+      <div class="dialog-body">
+        <!-- Linha superior: duas colunas (formulário | imagem) -->
+        <div class="pm-top-row">
+          <div class="pm-top-form">
+            <!-- Informações básicas -->
+            <div class="pm-section">
+              <h2 class="pm-section-title">Informações básicas</h2>
+              <div class="pm-field">
+                <label>Nome</label>
+                <input type="text" x-model="form.name" @input.debounce.500ms="searchCatalogImages()" />
+              </div>
+              <div class="pm-field">
+                <label>Descrição / Ingredientes (cardápio online)</label>
+                <textarea x-model="form.description" rows="3" style="resize:vertical;min-height:80px"></textarea>
+              </div>
+              <div class="pm-field">
+                <label>Tipo de produto</label>
+                <div class="product-type-picker">
+                  <button class="product-type-btn" :class="{ active: form.productType === 'fisico' }"
+                          @click="form.productType = 'fisico'" :disabled="!!form.id"
+                          title="Produto simples — item físico comum com estoque próprio">
+                    <span class="type-icon" style="color:#8a8a98"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></span>
+                    <span>Simples</span>
+                  </button>
+                  <button class="product-type-btn" :class="{ active: form.productType === 'complemento' }"
+                          @click="form.productType = 'complemento'" :disabled="!!form.id"
+                          title="Complemento — usado como adicional/opcional dentro de outros produtos">
+                    <span class="type-icon" style="color:#7c5cff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+                    <span>Complemento</span>
+                  </button>
+                  <button class="product-type-btn" :class="{ active: form.productType === 'variante' }"
+                          @click="form.productType = 'variante'" :disabled="!!form.id"
+                          title="Produto com variantes — tamanhos, cores, sabores etc.">
+                    <span class="type-icon" style="color:#7c5cff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/></svg></span>
+                    <span>Variantes</span>
+                  </button>
+                  <button class="product-type-btn" :class="{ active: form.productType === 'kit' }"
+                          @click="form.productType = 'kit'" :disabled="!!form.id"
+                          title="Kit — conjunto de produtos vendidos juntos como um só item">
+                    <span class="type-icon" style="color:#00a37a"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg></span>
+                    <span>Kit</span>
+                  </button>
+                  <button class="product-type-btn" :class="{ active: form.productType === 'combo' }"
+                          @click="form.productType = 'combo'" :disabled="!!form.id"
+                          title="Combo — combinação promocional com preço especial">
+                    <span class="type-icon" style="color:#f5872e"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></span>
+                    <span>Combo</span>
+                  </button>
+                  <button class="product-type-btn" :class="{ active: form.productType === 'produzido' }"
+                          @click="form.productType = 'produzido'" :disabled="!!form.id"
+                          title="Produzido — fabricado internamente com ficha técnica (consome insumos do estoque)">
+                    <span class="type-icon" style="color:#e5484d"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 11h.01"/><path d="M11 15h.01"/><path d="M16 16h.01"/><path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"/><path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"/></svg></span>
+                    <span>Produzido</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <select x-model.number="form.categoryId" @change="updateCategoryImage()" style="flex:1">
-              <option value="">— sem categoria —</option>
-              <template x-for="c in categories" :key="c.id"><option :value="c.id" :data-image="c.image_url" x-text="c.name"></option></template>
-            </select>
-            <button class="icon-btn" @click="openCatMgr()" title="Gerenciar categorias">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </button>
+
+            <!-- Identificação -->
+            <div class="pm-section">
+              <h2 class="pm-section-title">Identificação</h2>
+              <div class="pm-field">
+                <label>Código de barras</label>
+                <div class="flex-row">
+                  <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
+                  <template x-if="form.id">
+                    <button class="btn secondary small" type="button" @click="genBarcode()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M6 4v16"/><path d="M10 4v4"/><path d="M10 16v4"/><path d="M14 4v8"/><path d="M14 16v4"/><path d="M18 4v4"/><path d="M18 12v8"/><path d="M22 4v16"/></svg>
+                      Gerar código interno
+                    </button>
+                  </template>
+                </div>
+                <span class="muted text-xs" x-show="barcodeHint" x-text="barcodeHint"></span>
+              </div>
+              <div class="pm-field">
+                <label>SKU</label><input type="text" x-model="form.sku" />
+              </div>
+              <div class="pm-field">
+                <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
+              </div>
+            </div>
+
+            <!-- Comercial -->
+            <div class="pm-section">
+              <h2 class="pm-section-title">Comercial</h2>
+              <div class="pm-field">
+                <label>Categoria</label>
+                <div class="flex-row" style="align-items:center;gap:.5rem">
+                  <div class="category-image-preview" style="width:36px;height:36px;border-radius:50%;background:var(--surface-hover);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                    <img x-show="selectedCategoryImage" :src="selectedCategoryImage" alt="" style="width:100%;height:100%;object-fit:cover" />
+                    <template x-if="!selectedCategoryImage">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                    </template>
+                  </div>
+                  <select x-model.number="form.categoryId" @change="updateCategoryImage()" style="flex:1">
+                    <option value="">— sem categoria —</option>
+                    <template x-for="c in categories" :key="c.id"><option :value="c.id" :data-image="c.image_url" x-text="c.name"></option></template>
+                  </select>
+                  <button class="icon-btn" @click="openCatMgr()" title="Gerenciar categorias">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  </button>
+                </div>
+              </div>
+              <% if (user.permissions.has('commercial.products.price')) { %>
+              <div class="pm-field">
+                <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
+              </div>
+              <% } %>
+              <div class="pm-field">
+                <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
+              </div>
+            </div>
           </div>
-          <% if (user.permissions.has('commercial.products.price')) { %>
-            <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
-          <% } %>
-          <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
-          <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
-          <label class="toggle-switch" style="margin-top:.4rem;display:flex;align-items:center;gap:.5rem">
-            <input type="checkbox" x-model="form.noStockControl" class="toggle-input" />
-            <span class="toggle-slider"></span>
-            <span class="toggle-label">Não controla estoque (serviços, digitais, combos com estoque dos componentes)</span>
-          </label>
+
+          <div class="pm-image-column">
+            <div class="pm-image-card">
+              <h3 class="pm-image-title">Foto do produto</h3>
+              <div class="product-image-picker" @click="!(form.newImagePreview || form.imageUrl) && $refs.imageFile.click()">
+                <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
+                <template x-if="form.newImagePreview || form.imageUrl">
+                  <img :src="form.newImagePreview || form.imageUrl" alt="" />
+                </template>
+                <template x-if="!form.newImagePreview && !form.imageUrl">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                </template>
+                <div class="product-image-overlay" x-show="!form.newImagePreview && !form.imageUrl">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div class="product-image-overlay remove-overlay" x-show="form.newImagePreview || form.imageUrl" @click.stop="removeProductImage()" title="Remover imagem">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </div>
+              </div>
+
+              <div class="pm-image-actions">
+                <button class="btn small" type="button" @click="$refs.imageFile.click()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Alterar imagem
+                </button>
+                <button class="btn secondary small" type="button" x-show="form.newImagePreview || form.imageUrl" @click="removeProductImage()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  Remover
+                </button>
+              </div>
+
+              <label class="label-checkbox-sm" x-show="form.pendingImageBase64" style="margin-top:.5rem">
+                <input type="checkbox" x-model="form.submitToCatalog" /> Contribuir esta foto com o banco de imagens do Katsu Cloud
+              </label>
+
+              <div class="pm-image-suggestions">
+                <h4 class="pm-image-suggestions-title">Sugestões automáticas</h4>
+                <p class="muted text-xs" x-show="!form.name || form.name.trim().length < 3">Digite o nome do produto para ver sugestões.</p>
+                <p class="muted text-xs" x-show="imgSearchOffline">Banco de imagens indisponível agora.</p>
+                <p class="muted text-xs" x-show="imgSearching">Buscando…</p>
+                <p class="muted text-xs" x-show="!imgSearching && form.name && form.name.trim().length >= 3 && !imgSearchResults.length && !imgSearchOffline">Nenhuma sugestão encontrada.</p>
+                <div class="product-image-suggestions" x-show="imgSearchResults.length">
+                  <template x-for="r in imgSearchResults" :key="r.id">
+                    <button type="button" class="product-image-suggestion" @click="pickCatalogImage(r)">
+                      <img :src="r.url" :alt="r.name" />
+                      <span x-text="r.name"></span>
+                    </button>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seções em largura total abaixo -->
+        <div class="pm-section">
+          <h2 class="pm-section-title">Estoque</h2>
+          <div class="pm-field">
+            <label class="toggle-switch" style="display:flex;align-items:center;gap:.5rem">
+              <input type="checkbox" x-model="form.noStockControl" class="toggle-input" />
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">Não controla estoque (serviços, digitais, combos com estoque dos componentes)</span>
+            </label>
+          </div>
+          <div class="pm-field" x-show="!form.noStockControl">
+            <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
+          </div>
           <template x-if="!form.id">
-            <div>
+            <div class="pm-field" x-show="!form.noStockControl">
               <label>Estoque inicial (opcional)</label>
               <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
             </div>
           </template>
         </div>
 
-        <div class="product-col">
-          <label>Foto do produto</label>
-          <div class="product-image-picker" @click="!(form.newImagePreview || form.imageUrl) && $refs.imageFile.click()">
-            <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
-            <template x-if="form.newImagePreview || form.imageUrl">
-              <img :src="form.newImagePreview || form.imageUrl" alt="" />
-            </template>
-            <template x-if="!form.newImagePreview && !form.imageUrl">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
-            </template>
-            <div class="product-image-overlay" x-show="!form.newImagePreview && !form.imageUrl">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <template x-if="form.id && form.productType !== 'variante'">
+          <div class="pm-section">
+            <div class="pm-section-head">
+              <h2 class="pm-section-title" style="margin:0;flex:none">Complementos / adicionais</h2>
+              <div class="flex-row" style="gap:.35rem">
+                <button class="btn secondary small" type="button" @click="openAddComplementGroup()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Vincular grupo
+                </button>
+                <button class="btn secondary small" type="button" @click="openCompGroupMgr()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                  Gerenciar
+                </button>
+              </div>
             </div>
-            <div class="product-image-overlay remove-overlay" x-show="form.newImagePreview || form.imageUrl" @click.stop="removeProductImage()" title="Remover imagem">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            </div>
-          </div>
-          <label class="label-checkbox-sm" x-show="form.pendingImageBase64" style="margin-top:.2rem">
-            <input type="checkbox" x-model="form.submitToCatalog" /> Contribuir esta foto com o banco de imagens do Katsu Cloud
-          </label>
-
-          <label style="margin-top:.9rem">Sugestões do banco de imagens</label>
-          <p class="muted text-xs" x-show="!form.name || form.name.trim().length < 3">Digite o nome do produto para ver sugestões automáticas.</p>
-          <p class="muted text-xs" x-show="imgSearchOffline">Banco de imagens indisponível agora (sem internet ou plano sem esse recurso).</p>
-          <p class="muted text-xs" x-show="imgSearching">Buscando…</p>
-          <p class="muted text-xs" x-show="!imgSearching && form.name && form.name.trim().length >= 3 && !imgSearchResults.length && !imgSearchOffline">Nenhuma sugestão encontrada — cadastre com sua própria foto.</p>
-          <div class="product-image-suggestions" x-show="imgSearchResults.length">
-            <template x-for="r in imgSearchResults" :key="r.id">
-              <button type="button" class="product-image-suggestion" @click="pickCatalogImage(r)">
-                <img :src="r.url" :alt="r.name" />
-                <span x-text="r.name"></span>
-              </button>
+            <p class="muted text-xs" style="margin:0 0 .5rem">Grupos de opcionais que aparecem no PDV ao vender este item.</p>
+            <template x-for="g in complementGroups" :key="g.id">
+              <div class="pm-compact-row">
+                <span class="pm-compact-name" x-text="g.group_name"></span>
+                <span class="pm-compact-meta" x-text="`mín ${g.min_select}, máx ${g.max_select ?? '∞'}`"></span>
+                <button class="icon-btn" @click="unlinkComplementGroup(g)" title="Desvincular">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+              </div>
             </template>
+            <p x-show="!complementGroups.length" class="muted text-xs" style="margin:.2rem 0">Nenhum grupo vinculado ainda.</p>
           </div>
-        </div>
+        </template>
 
-        <div class="product-col-3" x-show="form.productType !== 'fisico' || form.id">
-          <template x-if="!form.id && form.productType === 'variante'">
-            <div class="variant-guide">
+        <template x-if="!form.id && form.productType === 'variante'">
+          <div class="pm-section">
+            <div class="variant-guide" style="margin:0">
               <div class="variant-guide-head">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                 <strong>Como criar um produto com variantes</strong>
@@ -280,171 +397,151 @@
               </ol>
               <p class="muted text-xs" style="margin:.4rem 0 0">Depois você ajusta preço, SKU e estoque de cada variante individualmente.</p>
             </div>
-          </template>
-          <template x-if="form.id && form.productType === 'variante'">
-            <div>
-              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.6rem">
-                <h2>Variantes</h2>
-                <div class="flex-row" style="gap:.5rem">
-                  <button class="btn secondary small" type="button" @click="openAttrMgr()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                    Atributos
-                  </button>
-                  <button class="btn small" type="button" @click="openGenVariants()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Gerar variantes
-                  </button>
-                </div>
-              </div>
-              <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
-                <table style="width:100%">
-                  <thead><tr>
-                    <th>Variante</th>
-                    <th>Atributos</th>
-                    <th>SKU</th>
-                    <th>Preço</th>
-                    <th>Est</th>
-                    <th></th>
-                  </tr></thead>
-                  <tbody>
-                    <template x-for="v in variants" :key="v.id">
-                      <tr>
-                        <td x-text="v.name" style="white-space:nowrap"></td>
-                        <td class="muted text-xs" x-text="variantAttrsLabel(v)"></td>
-                        <td><input type="text" x-model="v.sku" class="inline-edit" @change="updateVariantField(v, 'sku')" style="width:70px" /></td>
-                        <td><input type="text" x-model="v.priceDisplay" class="inline-edit" @change="updateVariantPrice(v)" style="width:60px" /></td>
-                        <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock" /></td>
-                        <td @click.stop>
-                          <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                          </button>
-                        </td>
-                      </tr>
-                    </template>
-                    <tr x-show="!variants.length"><td colspan="6" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhuma variante — use Atributos + Gerar variantes.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </template>
-          <template x-if="form.id && (form.productType === 'kit' || form.productType === 'combo')">
-            <div>
-              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.6rem">
-                <h2>Componentes fixos</h2>
-                <button class="btn small" type="button" @click="openAddComponent()">
+          </div>
+        </template>
+
+        <template x-if="form.id && form.productType === 'variante'">
+          <div class="pm-section">
+            <div class="pm-section-head">
+              <h2 class="pm-section-title" style="margin:0;flex:none">Variantes</h2>
+              <div class="flex-row" style="gap:.5rem">
+                <button class="btn secondary small" type="button" @click="openAttrMgr()">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  Atributos
+                </button>
+                <button class="btn small" type="button" @click="openGenVariants()">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Adicionar
+                  Gerar variantes
                 </button>
               </div>
-              <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
-                <table style="width:100%">
-                  <thead><tr>
-                    <th>Componente</th>
-                    <th>Qtd</th>
-                    <th class="text-right">Preço un.</th>
-                    <th class="text-right">Subtotal</th>
-                    <th></th>
-                  </tr></thead>
-                  <tbody>
-                    <template x-for="c in kitComponents" :key="c.id">
-                      <tr>
-                        <td x-text="c.component_name"></td>
-                        <td><input type="number" step="any" x-model="c.qty" class="inline-edit" @change="updateKitComponent(c)" style="width:50px" /></td>
-                        <td class="text-right muted" x-text="brl(c.component_price_cents ?? 0)"></td>
-                        <td class="text-right" x-text="brl(Math.round((c.component_price_cents ?? 0) * (Number(c.qty) || 0)))"></td>
-                        <td @click.stop>
-                          <button class="icon-btn" @click="deleteKitComponent(c)" title="Remover">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                          </button>
-                        </td>
-                      </tr>
-                    </template>
-                    <tr x-show="!kitComponents.length"><td colspan="5" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum componente.</td></tr>
-                  </tbody>
-                  <tfoot x-show="kitComponents.length">
-                    <tr style="border-top:1.5px solid var(--border-light)">
-                      <td colspan="3" class="text-right" style="font-weight:600">Soma dos componentes</td>
-                      <td class="text-right" style="font-weight:700;color:var(--primary)" x-text="brl(kitTotalCents())"></td>
-                      <td></td>
+            </div>
+            <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+              <table style="width:100%">
+                <thead><tr>
+                  <th>Variante</th>
+                  <th>Atributos</th>
+                  <th>SKU</th>
+                  <th>Preço</th>
+                  <th>Est</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="v in variants" :key="v.id">
+                    <tr>
+                      <td x-text="v.name" style="white-space:nowrap"></td>
+                      <td class="muted text-xs" x-text="variantAttrsLabel(v)"></td>
+                      <td><input type="text" x-model="v.sku" class="inline-edit" @change="updateVariantField(v, 'sku')" style="width:70px" /></td>
+                      <td><input type="text" x-model="v.priceDisplay" class="inline-edit" @change="updateVariantPrice(v)" style="width:60px" /></td>
+                      <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock" /></td>
+                      <td @click.stop>
+                        <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
+                      </td>
                     </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-top:.4rem;gap:.5rem">
-                <span class="muted text-xs">O preço do kit é somado automaticamente ao adicionar/remover itens. Você pode ajustar o campo <strong>Preço</strong> acima livremente.</span>
-                <button class="btn secondary small" type="button" @click="applyKitAutoTotal()" x-show="kitComponents.length" title="Reaplicar a soma dos componentes ao preço do kit">
-                  Usar soma (<span x-text="brl(kitTotalCents())"></span>)
-                </button>
-              </div>
+                  </template>
+                  <tr x-show="!variants.length"><td colspan="6" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhuma variante — use Atributos + Gerar variantes.</td></tr>
+                </tbody>
+              </table>
             </div>
-          </template>
+          </div>
+        </template>
 
-          <!-- Complementos / adicionais: vale para qualquer produto vendável (ex.: hambúrguer + queijo), menos a variante-mãe. -->
-          <template x-if="form.id && form.productType !== 'variante'">
-            <div class="complement-link-box">
-              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.4rem">
-                <h2 style="font-size:.95rem">Complementos / adicionais</h2>
-                <button class="btn secondary small" type="button" @click="openAddComplementGroup()">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Vincular grupo
-                </button>
-              </div>
-              <p class="muted text-xs" style="margin:0 0 .5rem">Grupos de opcionais que aparecem no PDV ao vender este item (ex.: “Adicionais” com queijo, bacon…).</p>
-              <template x-for="g in complementGroups" :key="g.id">
-                <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.25rem 0;font-size:.85rem">
-                  <span x-text="g.group_name"></span>
-                  <span class="muted text-xs" x-text="`min ${g.min_select}, máx ${g.max_select ?? '∞'}`"></span>
-                  <button class="icon-btn" @click="unlinkComplementGroup(g)" title="Desvincular">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                  </button>
-                </div>
-              </template>
-              <p x-show="!complementGroups.length" class="muted text-xs" style="margin:.2rem 0">Nenhum grupo vinculado ainda.</p>
+        <template x-if="form.id && (form.productType === 'kit' || form.productType === 'combo')">
+          <div class="pm-section">
+            <div class="pm-section-head">
+              <h2 class="pm-section-title" style="margin:0;flex:none">Componentes fixos</h2>
+              <button class="btn small" type="button" @click="openAddComponent()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Adicionar
+              </button>
             </div>
-          </template>
-          <template x-if="form.id && form.productType === 'produzido'">
-            <div>
-              <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.6rem">
-                <h2>Ficha técnica</h2>
-                <button class="btn small" type="button" @click="openAddRecipeInput()">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Adicionar insumo
-                </button>
-              </div>
-              <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
-                <table style="width:100%">
-                  <thead><tr>
-                    <th>Insumo</th>
-                    <th>Qtd</th>
-                    <th>Custo un.</th>
-                    <th></th>
-                  </tr></thead>
-                  <tbody>
-                    <template x-for="r in recipeComponents" :key="r.id">
-                      <tr>
-                        <td x-text="r.input_name"></td>
-                        <td><input type="number" step="any" x-model="r.qty" class="inline-edit" @change="updateRecipeInput(r)" style="width:50px" /></td>
-                        <td class="text-xs" x-text="brl(r.cost_cents ?? 0)"></td>
-                        <td @click.stop>
-                          <button class="icon-btn" @click="deleteRecipeInput(r)" title="Remover">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                          </button>
-                        </td>
-                      </tr>
-                    </template>
-                    <tr x-show="!recipeComponents.length"><td colspan="4" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum insumo.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <p x-show="recipeComponents.length" class="muted text-xs" style="margin-top:.4rem;text-align:right">
-                Custo total: <strong x-text="brl(recipeComponents.reduce((s, r) => s + (r.total_cost_cents ?? 0), 0))"></strong>
-              </p>
+            <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+              <table style="width:100%">
+                <thead><tr>
+                  <th>Componente</th>
+                  <th>Qtd</th>
+                  <th class="text-right">Preço un.</th>
+                  <th class="text-right">Subtotal</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="c in kitComponents" :key="c.id">
+                    <tr>
+                      <td x-text="c.component_name"></td>
+                      <td><input type="number" step="any" x-model="c.qty" class="inline-edit" @change="updateKitComponent(c)" style="width:50px" /></td>
+                      <td class="text-right muted" x-text="brl(c.component_price_cents ?? 0)"></td>
+                      <td class="text-right" x-text="brl(Math.round((c.component_price_cents ?? 0) * (Number(c.qty) || 0)))"></td>
+                      <td @click.stop>
+                        <button class="icon-btn" @click="deleteKitComponent(c)" title="Remover">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="!kitComponents.length"><td colspan="5" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum componente.</td></tr>
+                </tbody>
+                <tfoot x-show="kitComponents.length">
+                  <tr style="border-top:1.5px solid var(--border-light)">
+                    <td colspan="3" class="text-right" style="font-weight:600">Soma dos componentes</td>
+                    <td class="text-right" style="font-weight:700;color:var(--primary)" x-text="brl(kitTotalCents())"></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-          </template>
-          <p x-show="!form.id" class="muted text-xs" style="margin-top:1rem;text-align:center">Salve o produto primeiro para gerenciar variantes, componentes ou ficha técnica.</p>
-        </div>
+            <div class="flex-row" style="justify-content:space-between;align-items:center;margin-top:.6rem;gap:.5rem">
+              <span class="muted text-xs">O preço do kit é somado automaticamente ao adicionar/remover itens. Você pode ajustar o campo <strong>Preço</strong> acima livremente.</span>
+              <button class="btn secondary small" type="button" @click="applyKitAutoTotal()" x-show="kitComponents.length" title="Reaplicar a soma dos componentes ao preço do kit">
+                Usar soma (<span x-text="brl(kitTotalCents())"></span>)
+              </button>
+            </div>
+          </div>
+        </template>
 
-        <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
+        <template x-if="form.id && form.productType === 'produzido'">
+          <div class="pm-section">
+            <div class="pm-section-head">
+              <h2 class="pm-section-title" style="margin:0;flex:none">Ficha técnica</h2>
+              <button class="btn small" type="button" @click="openAddRecipeInput()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Adicionar insumo
+              </button>
+            </div>
+            <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
+              <table style="width:100%">
+                <thead><tr>
+                  <th>Insumo</th>
+                  <th>Qtd</th>
+                  <th>Custo un.</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="r in recipeComponents" :key="r.id">
+                    <tr>
+                      <td x-text="r.input_name"></td>
+                      <td><input type="number" step="any" x-model="r.qty" class="inline-edit" @change="updateRecipeInput(r)" style="width:50px" /></td>
+                      <td class="text-xs" x-text="brl(r.cost_cents ?? 0)"></td>
+                      <td @click.stop>
+                        <button class="icon-btn" @click="deleteRecipeInput(r)" title="Remover">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="!recipeComponents.length"><td colspan="4" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum insumo.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p x-show="recipeComponents.length" class="muted text-xs" style="margin-top:.4rem;text-align:right">
+              Custo total: <strong x-text="brl(recipeComponents.reduce((s, r) => s + (r.total_cost_cents ?? 0), 0))"></strong>
+            </p>
+          </div>
+        </template>
+
+        <p x-show="!form.id" class="muted text-xs" style="margin-top:.5rem;text-align:center">Salve o produto primeiro para gerenciar variantes, componentes ou ficha técnica.</p>
+
+        <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">
@@ -483,36 +580,72 @@
       </div>
     </dialog>
 
-    <dialog x-ref="catDlg" class="dialog-fixed">
+    <dialog x-ref="catDlg" class="dialog-fixed" style="min-width:min(550px,90vw)">
       <h1>Gerenciar categorias</h1>
       <div class="dialog-body">
-        <template x-for="c in categories" :key="c.id">
-          <div class="flex-center" style="padding:.35rem 0">
-            <template x-if="catEditId !== c.id">
-              <span style="flex:1" x-text="c.name"></span>
-            </template>
-            <template x-if="catEditId === c.id">
-              <input type="text" x-model="catEditName" style="flex:1" @keydown.enter="renameCategory(c.id)" />
-            </template>
-            <% if (user.permissions.has('commercial.products.edit')) { %>
-            <template x-if="catEditId !== c.id">
-              <button class="icon-btn" @click="catEditId = c.id; catEditName = c.name" title="Renomear">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-              </button>
-            </template>
-            <template x-if="catEditId === c.id">
-              <button class="icon-btn" @click="renameCategory(c.id)" title="Salvar">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </button>
-            </template>
-            <% } %>
-            <% if (user.permissions.has('commercial.products.delete')) { %>
-            <button class="icon-btn" @click="catDelId = c.id; catDelAction = 'unset'; catDelMigrateTo = null" title="Excluir">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            </button>
-            <% } %>
-          </div>
-        </template>
+        <% if (user.permissions.has('commercial.products.create')) { %>
+        <div class="flex-row" style="gap:.5rem;margin-bottom:.75rem">
+          <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" @keydown.enter="addCategory()" />
+          <button class="btn secondary small" type="button" @click="addCategory()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar
+          </button>
+        </div>
+        <% } %>
+        <div style="max-height:350px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-md)">
+          <table style="margin:0;border:none">
+            <thead><tr>
+              <th style="width:36px">Img</th>
+              <th>Nome</th>
+              <th style="width:80px" class="text-center">Produtos</th>
+              <th style="width:1%"></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="c in categories" :key="c.id">
+                <tr>
+                  <td>
+                    <div style="width:32px;height:32px;border-radius:50%;background:var(--surface-hover);display:flex;align-items:center;justify-content:center;overflow:hidden">
+                      <img x-show="c.image_url" :src="c.image_url" alt="" style="width:100%;height:100%;object-fit:cover" />
+                      <template x-if="!c.image_url">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                      </template>
+                    </div>
+                  </td>
+                  <td>
+                    <template x-if="catEditId !== c.id">
+                      <span x-text="c.name"></span>
+                    </template>
+                    <template x-if="catEditId === c.id">
+                      <div class="flex-row" style="gap:.3rem">
+                        <input type="text" x-model="catEditName" style="flex:1;min-width:100px" @keydown.enter="renameCategory(c.id)" />
+                        <button class="icon-btn" @click="renameCategory(c.id)" title="Salvar">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </button>
+                        <button class="icon-btn" @click="catEditId = null" title="Cancelar">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
+                      </div>
+                    </template>
+                  </td>
+                  <td class="text-center muted text-xs" x-text="(rows || []).filter(p => p.category_id === c.id).length"></td>
+                  <td class="text-right" style="white-space:nowrap">
+                    <template x-if="catEditId !== c.id">
+                      <button class="icon-btn" @click="catEditId = c.id; catEditName = c.name" title="Renomear">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      </button>
+                    </template>
+                    <% if (user.permissions.has('commercial.products.delete')) { %>
+                    <button class="icon-btn" @click="catDelId = c.id; catDelAction = 'unset'; catDelMigrateTo = null" title="Excluir">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                    <% } %>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!categories.length"><td colspan="4" class="muted" style="text-align:center;padding:.75rem">Nenhuma categoria cadastrada.</td></tr>
+            </tbody>
+          </table>
+        </div>
 
         <template x-if="catDelId">
           <div style="margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border-light)">
@@ -729,6 +862,160 @@
       </div>
     </dialog>
 
+    <!-- Gestão de grupos de complemento -->
+    <dialog x-ref="compGroupMgrDlg" class="comp-group-mgr">
+      <h1>Gerenciar grupos de complemento</h1>
+      <div class="dialog-body">
+        <!-- Topo: Novo grupo + contador -->
+        <div class="cgm-toolbar">
+          <button class="btn small" @click="openNewCompGroup()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo grupo
+          </button>
+          <span class="cgm-count" x-text="compMgr.groups.length + ' grupo(s)'"></span>
+        </div>
+
+        <!-- Lista de grupos + edição lado a lado -->
+        <div class="cgm-layout">
+          <!-- Coluna: lista de grupos -->
+          <div class="cgm-list-col">
+            <div class="cgm-list">
+              <template x-for="g in compMgr.groups" :key="g.id">
+                <button class="cgm-group-card" :class="{ active: compMgr.editGroup?.id === g.id }"
+                        @click="editCompGroup(g)">
+                  <div class="cgm-group-info">
+                    <span class="cgm-group-name" x-text="g.name"></span>
+                    <span class="cgm-group-meta">
+                      <span x-text="(g.itemCount ?? 0) + ' itens'"></span>
+                      <span class="dot">·</span>
+                      <span x-text="'mín ' + (g.min_select ?? 0) + ' / máx ' + (g.max_select ?? '∞')"></span>
+                    </span>
+                  </div>
+                  <div class="cgm-group-actions" @click.stop>
+                    <button class="icon-btn" @click="editCompGroup(g)" title="Editar">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button class="icon-btn" @click="deleteCompGroup(g)" title="Excluir">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </button>
+              </template>
+              <div x-show="!compMgr.groups.length" class="cgm-empty">
+                <p>Nenhum grupo ainda.</p>
+                <p class="muted text-xs">Clique em "Novo grupo" para criar.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coluna: edição do grupo selecionado -->
+          <div class="cgm-edit-col">
+            <template x-if="!compMgr.editGroup">
+              <div class="cgm-placeholder">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <p>Selecione um grupo ou crie um novo</p>
+              </div>
+            </template>
+            <template x-if="compMgr.editGroup">
+              <div class="cgm-edit-area">
+                <!-- Formulário do grupo -->
+                <div class="cgm-section-title">
+                  <h3>Dados do grupo</h3>
+                </div>
+                <div class="cgm-form">
+                  <div class="cgm-field">
+                    <label>Nome do grupo</label>
+                    <input type="text" x-model="compMgr.editGroup.name" placeholder="Ex.: Adicionais, Tamanho, Sabor…" />
+                  </div>
+                  <div class="cgm-field-row">
+                    <div class="cgm-field cgm-field-sm">
+                      <label>Mínimo</label>
+                      <input type="number" min="0" x-model.number="compMgr.editGroup.minSelect" placeholder="0" />
+                    </div>
+                    <div class="cgm-field cgm-field-sm">
+                      <label>Máximo</label>
+                      <input type="number" min="0" x-model.number="compMgr.editGroup.maxSelect" placeholder="∞ (ilimitado)" />
+                    </div>
+                    <div class="cgm-field-save">
+                      <button class="btn" @click="saveCompGroup()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        Salvar
+                      </button>
+                    </div>
+                  </div>
+                  <div class="error" x-text="compMgr.err" x-show="compMgr.err"></div>
+                </div>
+
+                <!-- Itens do grupo -->
+                <div class="cgm-section-title" style="margin-top:1.25rem">
+                  <h3>Itens deste grupo</h3>
+                  <button class="btn secondary small" @click="openAddCompItem()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Adicionar item
+                  </button>
+                </div>
+                <div class="cgm-items-table-wrap">
+                  <table class="cgm-items-table">
+                    <thead><tr><th>Produto</th><th style="width:120px">Preço</th><th style="width:1%"></th></tr></thead>
+                    <tbody>
+                      <template x-for="item in compMgr.editGroup.items" :key="item.id">
+                        <tr>
+                          <td><span class="cgm-item-name" x-text="item.product_name"></span></td>
+                          <td>
+                            <span class="cgm-item-price" x-text="item.price_override_cents != null ? 'R$ ' + (item.price_override_cents / 100).toFixed(2).replace('.', ',') : '—'"></span>
+                          </td>
+                          <td class="text-right">
+                            <button class="icon-btn" @click="removeCompItem(item)" title="Remover">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
+                          </td>
+                        </tr>
+                      </template>
+                      <tr x-show="!compMgr.editGroup.items.length">
+                        <td colspan="3" class="cgm-items-empty">Nenhum item ainda. Adicione produtos ao grupo.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="closeCompGroupMgr()">Fechar</button>
+      </div>
+    </dialog>
+
+    <!-- Sub-modal: adicionar item ao grupo -->
+    <dialog x-ref="compItemDlg" style="min-width:400px">
+      <h1>Adicionar item ao grupo</h1>
+      <div class="dialog-body">
+        <input type="text" x-model="compMgr.itemSearch" placeholder="Buscar produto por nome, código ou SKU…" @input.debounce.300ms="searchCompProducts()" style="width:100%" />
+        <div style="max-height:250px;overflow-y:auto;margin-top:.5rem">
+          <template x-for="p in compMgr.itemResults" :key="p.id">
+            <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.35rem 0;border-bottom:1px solid var(--border-light)">
+              <div>
+                <span x-text="p.name"></span>
+                <span class="muted text-xs" x-show="p.sku" x-text="` (${p.sku})`"></span>
+              </div>
+              <button class="btn secondary small" type="button" @click="addCompItem(p)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Adicionar
+              </button>
+            </div>
+          </template>
+          <p x-show="!compMgr.itemResults.length && compMgr.itemSearch.trim().length >= 2" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum produto encontrado.</p>
+          <p x-show="compMgr.itemSearch.trim().length < 2" class="muted text-xs" style="text-align:center;padding:.5rem">Digite ao menos 2 caracteres.</p>
+        </div>
+        <label style="margin-top:.5rem;font-size:.8rem">Preço (R$) — opcional</label>
+        <input type="text" x-model="compMgr.itemPriceDisplay" placeholder="Deixe vazio para usar o preço do produto" @input="compMgr.itemPriceDisplay = maskMoney(compMgr.itemPriceDisplay)" style="width:200px" />
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.compItemDlg.close()">Fechar</button>
+      </div>
+    </dialog>
+
     <dialog x-ref="recipeDlg">
       <h1>Adicionar insumo à ficha técnica</h1>
       <p class="muted">Busque por nome, código de barras ou SKU (apenas produtos simples).</p>
@@ -774,6 +1061,8 @@
         attrDlgError: '', newAttrName: '', addAttrValId: null, genGroups: [], genSelectedValues: [],
         // Kits
         kitComponents: [], complementGroups: [], kitDlgError: '', addCompSearch: '', addCompResults: [],
+        // Complement group manager
+        compMgr: { groups: [], editGroup: null, err: '', itemSearch: '', itemResults: [], itemPriceDisplay: '' },
         // Ficha técnica
         recipeComponents: [], recipeDlgError: '', recipeSearchResults: [], recipeSearchQ: '',
         sortGetters: {
@@ -813,6 +1102,7 @@
             kit:       { label: 'Kit', color: '#00a37a', path: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/>' },
             combo:     { label: 'Combo', color: '#f5872e', path: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>' },
             produzido: { label: 'Produzido (ficha técnica)', color: '#e5484d', path: '<path d="M15 11h.01"/><path d="M11 15h.01"/><path d="M16 16h.01"/><path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"/><path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"/>' },
+            complemento: { label: 'Complemento', color: '#7c5cff', path: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>' },
           };
           return map[t] || map.fisico;
         },
@@ -998,7 +1288,7 @@
             unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined,
             categoryId: this.form.categoryId || null,
             productType: this.form.productType || 'fisico',
-            trackStock: this.form.noStockControl ? 0 : 1,
+            trackStock: !this.form.noStockControl,
             initialStock: !this.form.id && this.form.initialStock ? Number(this.form.initialStock) : undefined };
           const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
           const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;
@@ -1179,6 +1469,94 @@
           const r = await fetch(`/api/commercial/products/${this.form.id}/complement-groups/${g.id}`, { method: 'DELETE' });
           if (r.ok) this.loadComplementGroups(this.form.id);
           else showToast((await r.json()).error, 'error');
+        },
+        // ---------- Gestão de grupos de complemento ----------
+        async loadCompMgrGroups() {
+          const groups = await fetch('/api/commercial/complement-groups').then(r => r.ok ? r.json() : []);
+          this.compMgr.groups = await Promise.all(groups.map(async (g) => {
+            const items = await fetch('/api/commercial/complement-groups/' + g.id + '/items').then(r => r.ok ? r.json() : []);
+            g.itemCount = items.length; return g;
+          }));
+        },
+        async openCompGroupMgr() {
+          this.compMgr.editGroup = null; this.compMgr.err = '';
+          await this.loadCompMgrGroups();
+          this.$refs.compGroupMgrDlg.showModal();
+        },
+        closeCompGroupMgr() { this.compMgr.editGroup = null; this.$refs.compGroupMgrDlg.close(); },
+        async openNewCompGroup() {
+          this.compMgr.editGroup = { id: null, name: '', minSelect: 0, maxSelect: null, items: [] };
+          this.compMgr.err = '';
+        },
+        async editCompGroup(g) {
+          const items = await fetch('/api/commercial/complement-groups/' + g.id + '/items').then(r => r.ok ? r.json() : []);
+          this.compMgr.editGroup = {
+            id: g.id, name: g.name, minSelect: g.min_select ?? 0, maxSelect: g.max_select ?? null, items: items || [],
+          };
+          this.compMgr.err = '';
+        },
+        async saveCompGroup() {
+          const g = this.compMgr.editGroup;
+          const body = { name: g.name?.trim(), minSelect: g.minSelect ?? 0, maxSelect: g.maxSelect ?? null };
+          const isEdit = !!g.id;
+          const r = await fetch(isEdit ? '/api/commercial/complement-groups/' + g.id : '/api/commercial/complement-groups', {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (!r.ok) { this.compMgr.err = (await r.json()).error ?? 'Erro ao salvar.'; return; }
+          this.compMgr.editGroup = null;
+          await this.loadCompMgrGroups();
+          // Recarregar complementos do produto se o modal de produto estiver aberto
+          if (this.form?.id && this.form.productType !== 'variante') this.loadComplementGroups(this.form.id);
+        },
+        async deleteCompGroup(g) {
+          if (!await window.confirmDlg('Excluir o grupo "' + g.name + '"? Todos os itens e vínculos serão removidos.')) return;
+          const r = await fetch('/api/commercial/complement-groups/' + g.id, { method: 'DELETE' });
+          if (!r.ok) { this.compMgr.err = (await r.json()).error; return; }
+          this.compMgr.editGroup = null;
+          await this.loadCompMgrGroups();
+          if (this.form?.id && this.form.productType !== 'variante') this.loadComplementGroups(this.form.id);
+        },
+        async searchCompProducts() {
+          const q = this.compMgr.itemSearch?.trim() ?? '';
+          if (q.length < 2) { this.compMgr.itemResults = []; return; }
+          const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(q));
+          if (r.ok) {
+            const all = await r.json();
+            const existingIds = new Set((this.compMgr.editGroup?.items ?? []).map(i => i.product_id));
+            this.compMgr.itemResults = all.filter(p => p.product_type === 'complemento' && !existingIds.has(p.id));
+          }
+        },
+        async openAddCompItem() {
+          if (!this.compMgr.editGroup?.id) { this.compMgr.err = 'Salve o grupo primeiro.'; return; }
+          this.compMgr.itemSearch = ''; this.compMgr.itemResults = []; this.compMgr.itemPriceDisplay = '';
+          this.$refs.compItemDlg.showModal();
+        },
+        async addCompItem(p) {
+          const priceCents = this.compMgr.itemPriceDisplay
+            ? Math.round(parseFloat(this.compMgr.itemPriceDisplay.replace(',', '.')) * 100)
+            : null;
+          const r = await fetch('/api/commercial/complement-groups/' + this.compMgr.editGroup.id + '/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productId: p.id, priceOverrideCents: priceCents }),
+          });
+          if (r.ok) {
+            const items = await fetch('/api/commercial/complement-groups/' + this.compMgr.editGroup.id + '/items').then(r => r.ok ? r.json() : []);
+            this.compMgr.editGroup.items = items || [];
+            this.compMgr.itemSearch = ''; this.compMgr.itemResults = [];
+            this.$refs.compItemDlg.close();
+            await this.loadCompMgrGroups();
+          } else { this.compMgr.err = (await r.json()).error ?? 'Erro ao adicionar item.'; }
+        },
+        async removeCompItem(item) {
+          if (!await window.confirmDlg('Remover "' + item.product_name + '" do grupo?')) return;
+          const r = await fetch('/api/commercial/complement-groups/' + item.group_id + '/items/' + item.id, { method: 'DELETE' });
+          if (r.ok) {
+            this.compMgr.editGroup.items = this.compMgr.editGroup.items.filter(i => i.id !== item.id);
+            await this.loadCompMgrGroups();
+          } else { this.compMgr.err = (await r.json()).error ?? 'Erro ao remover item.'; }
         },
         // ---------- Ficha técnica ----------
         async loadRecipeComponents(productId) {

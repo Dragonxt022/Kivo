@@ -23,11 +23,13 @@
     </div>
 
     <table>
-      <thead><tr>
+      <thead><>
         <th style="width:1%"></th>
         <th style="width:60px">Imagem</th>
         <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
         <th @click="sortCycle('parent')" class="sortable">Categoria pai<span class="sort-arrow" x-text="sortArrow('parent')"></span></th>
+        <th style="width:90px" class="text-center">Produtos</th>
+        
         <th></th>
       </tr></thead>
       <tbody>
@@ -47,7 +49,9 @@
               </span>
             </td>
             <td class="muted" x-text="c.parent_name ?? '—'"></td>
-            <td class="text-right" style="width:1%">
+            <td class="text-center muted text-xs" x-text="(products || []).filter(p => p.category_id === c.id).length"></td>
+            <td class="text-center muted text-xs" x-text="c.id"></td>
+            <td class="text-right" style="width:1%" @click.stop>
               <div class="dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === c.id ? null : c.id" title="Mais ações">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -70,7 +74,7 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!displayRows.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma categoria cadastrada ainda.' }) %></td></tr>
+        <tr x-show="!displayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma categoria cadastrada ainda.' }) %></td></tr>
       </tbody>
     </table>
     <%- include('partials/pager') %>
@@ -89,29 +93,32 @@
               <option :value="c.id" x-text="c.name"></option>
             </template>
           </select>
-
-          <label style="margin-top:.9rem">Imagem da categoria</label>
-          <div class="category-image-picker" @click="!(form.newImagePreview || form.imageUrl) && $refs.imageFile.click()">
-            <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
-            <template x-if="form.newImagePreview || form.imageUrl">
-              <img :src="form.newImagePreview || form.imageUrl" alt="" style="border-radius:50%;width:100%;height:100%;object-fit:cover" />
-            </template>
-            <template x-if="!form.newImagePreview && !form.imageUrl">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
-            </template>
-            <div class="category-image-overlay" x-show="!form.newImagePreview && !form.imageUrl">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            </div>
-            <div class="category-image-overlay remove-overlay" x-show="form.newImagePreview || form.imageUrl" @click.stop="removeImage()" title="Remover imagem">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            </div>
-          </div>
         </div>
 
-        <div class="category-col">
-          <label>&nbsp;</label>
-          <p class="muted text-xs" style="margin-top:1.8rem">A imagem aparece em círculo nos modais de produto e ajuda a identificar visualmente a categoria.</p>
-          <p class="muted text-xs" style="margin-top:.4rem">Formatos aceitos: JPEG, PNG, WEBP — máx. 6MB.</p>
+        <div class="cat-upload-col">
+          <label>Imagem da categoria</label>
+          <div class="cat-upload-zone" @click="!(form.newImagePreview || form.imageUrl) && $refs.imageFile.click()">
+            <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
+            <template x-if="form.newImagePreview || form.imageUrl">
+              <div class="cat-upload-preview">
+                <img :src="form.newImagePreview || form.imageUrl" alt="" />
+                <div class="cat-upload-overlay" @click.stop="removeImage()" title="Remover imagem">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                </div>
+              </div>
+            </template>
+            <template x-if="!form.newImagePreview && !form.imageUrl">
+              <div class="cat-upload-empty">
+                <div class="cat-upload-icons">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <span class="cat-upload-label">Clique para adicionar foto</span>
+                <span class="cat-upload-hint">JPEG, PNG, WEBP · máx. 6MB</span>
+              </div>
+            </template>
+          </div>
+          <p class="muted text-xs" style="margin-top:.5rem">A imagem aparece em círculo nos modais de produto e ajuda a identificar visualmente a categoria.</p>
         </div>
       </div>
       <div class="error" x-text="dlgError" style="grid-column:1 / -1"></div>
@@ -130,7 +137,7 @@
     <dialog x-ref="delDlg">
       <h1>Excluir categoria</h1>
       <div class="dialog-body">
-        <p style="margin-bottom:.8rem" x-text="'Excluir "' + (categories.find(c => c.id === delId)?.name ?? '') + '"?'"></p>
+        <p style="margin-bottom:.8rem" x-text="'Excluir ' + (categories.find(c => c.id === delId)?.name ?? '') + '?'"></p>
         <label class="label-checkbox-sm" style="margin-bottom:.5rem">
           <input type="radio" value="unset" x-model="delAction" /> Deixar produtos sem categoria
         </label>
@@ -145,7 +152,7 @@
         </select>
         <div class="error" x-text="dlgError"></div>
         <div class="actions actions-inline">
-          <button class="btn secondary" @click="delId = null; delAction = 'unset'; delMigrateTo = null">
+          <button class="btn secondary" @click="delId = null; delAction = 'unset'; delMigrateTo = null; $refs.delDlg.close()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
             Cancelar
           </button>
@@ -164,6 +171,7 @@
       return {
         ...tableToolkit(),
         categories: [],
+        products: [],
         q: '', error: '', dlgError: '',
         form: {}, parentOptions: [],
         openMenu: null,

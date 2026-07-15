@@ -623,26 +623,146 @@ dialog.dialog-fixed > .dialog-body {
 dialog.dialog-fixed > .actions {
   flex-shrink: 0; position: static; border-top: 1px solid var(--border-light); margin-top: 1rem; padding-top: 1rem;
 }
-/* Dialog em 2 colunas (ex.: cadastro de produto — campos à esquerda, foto/sugestões à direita) */
+/* Dialog em 2 colunas (ex.: cadastro de produto — formulário + painel de imagem) */
 dialog.product-modal {
-  width: min(960px, calc(100vw - 2rem));
+  width: min(1059px, calc(100vw - 2rem));
 }
+
+/* Category modal: coluna de upload de imagem */
+.category-modal .cat-upload-col {
+  display: flex; flex-direction: column;
+}
+.category-modal .cat-upload-col label {
+  margin-bottom: .5rem;
+}
+.cat-upload-zone {
+  border: 1.5px dashed var(--border-light);
+  border-radius: 12px;
+  background: var(--surface-hover);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--transition), background var(--transition);
+}
+.cat-upload-zone:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+.cat-upload-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .35rem;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+}
+.cat-upload-icons {
+  display: flex; align-items: center; gap: .35rem;
+  margin-bottom: .15rem;
+  opacity: .6;
+}
+.cat-upload-label {
+  font-size: .82rem; font-weight: 600; color: var(--text-secondary);
+}
+.cat-upload-hint {
+  font-size: .72rem; color: var(--text-muted);
+}
+.cat-upload-preview {
+  position: relative;
+  display: grid; place-items: center;
+  padding: .75rem;
+}
+.cat-upload-preview img {
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.cat-upload-overlay {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,.45);
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--transition);
+  border-radius: 12px;
+}
+.cat-upload-zone:hover .cat-upload-overlay { opacity: 1; }
 dialog.product-modal > .dialog-body {
-  display: grid; gap: 0 1.5rem; align-content: start;
+  display: flex; flex-direction: column; gap: 1rem;
 }
-.product-col { display: flex; flex-direction: column; min-width: 0; }
-.product-col-3 { display: flex; flex-direction: column; min-width: 0; gap: .75rem; }
-.product-col-3 h2 { font-size: 1rem; margin: 0; }
-.product-col-3 table { font-size: .85rem; }
-.product-col-3 table th { padding: .3rem .4rem; font-size: .78rem; }
-.product-col-3 table td { padding: .3rem .4rem; }
 @media (max-width: 900px) {
-  dialog.product-modal > .dialog-body { grid-template-columns: 1fr 1fr !important; }
-  .product-col-3 { grid-column: 1 / -1; }
+  .pm-top-row { grid-template-columns: 1fr !important; }
 }
 @media (max-width: 600px) {
-  dialog.product-modal > .dialog-body { grid-template-columns: 1fr !important; }
+  .pm-section-head { flex-direction: column; align-items: flex-start; gap: .5rem; }
 }
+
+/* Topo: duas colunas (formulário | imagem) */
+.pm-top-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.pm-top-form {
+  display: flex; flex-direction: column; gap: 1rem;
+  min-width: 0;
+}
+.pm-image-column {
+  /* sem position: sticky, sem largura fixa automática — a grid define */
+}
+.pm-section {
+  background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: 12px; padding: 1rem 1.1rem;
+}
+.pm-section-title {
+  margin: 0 0 .75rem; font-size: .78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--text-muted);
+}
+.pm-section-head {
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  margin-bottom: .75rem;
+}
+.pm-field {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.pm-field + .pm-field { margin-top: .65rem; }
+.pm-field label { font-size: .78rem; font-weight: 600; color: var(--text-secondary); }
+.pm-field input, .pm-field textarea, .pm-field select {
+  width: 100%; padding: .5rem .65rem; font-size: .85rem;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text);
+}
+.pm-field input:focus, .pm-field textarea:focus, .pm-field select:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+/* Image card panel */
+.pm-image-card {
+  background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: 12px; padding: 1rem;
+}
+.pm-image-title { margin: 0 0 .75rem; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.pm-image-card .product-image-picker {
+  max-width: 100%; margin-bottom: 0;
+}
+.pm-image-actions {
+  display: flex; gap: .35rem; margin-top: .6rem;
+}
+.pm-image-actions .btn { flex: 1; justify-content: center; }
+.pm-image-suggestions { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light); }
+.pm-image-suggestions-title {
+  margin: 0 0 .5rem; font-size: .72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
+}
+
+/* Complement rows */
+.pm-compact-row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .3rem 0; font-size: .85rem;
+}
+.pm-compact-row + .pm-compact-row { border-top: 1px solid var(--border-light); }
+.pm-compact-name { font-weight: 500; min-width: 0; flex: 1; }
+.pm-compact-meta { font-size: .75rem; color: var(--text-muted); white-space: nowrap; }
 
 /* ─── Modal de compra (Nova compra) ─── */
 .purchase-additem {
@@ -678,9 +798,6 @@ dialog.product-modal > .dialog-body {
   .purchase-additem-row { grid-template-columns: 1fr 1fr; }
   .purchase-additem-row .btn { grid-column: 1 / -1; }
 }
-
-/* Caixa de vínculo de complementos no modal de produto (produto simples ou kit). */
-.complement-link-box { border: 1px solid var(--border-light); border-radius: var(--radius); padding: .8rem .9rem; margin-top: .75rem; }
 
 /* ─── Onboarding Wizard (boas-vindas / configuração inicial) ─── */
 dialog.wizard-dialog {
@@ -1038,6 +1155,51 @@ dialog.wizard-dialog {
 .type-icon { display: inline-flex; flex-shrink: 0; align-items: center; }
 .type-icon svg { display: block; }
 
+/* Seletor de tipo de produto (ícones em grade) */
+.product-type-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: .35rem;
+}
+.product-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  padding: .5rem .25rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+  font-size: .65rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+  text-align: center;
+}
+.product-type-btn:hover {
+  border-color: var(--border);
+  background: var(--surface-hover);
+}
+.product-type-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+.product-type-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.product-type-btn:disabled:hover {
+  border-color: var(--border-light);
+  background: var(--surface);
+}
+.product-type-btn .type-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* Guia passo-a-passo para criar produto com variantes. */
 .variant-guide {
   background: var(--primary-bg, color-mix(in srgb, var(--primary) 8%, transparent));
@@ -1162,3 +1324,106 @@ dialog.wizard-dialog {
 .product-image-suggestion:hover { border-color: var(--primary); background: var(--primary-bg); }
 .product-image-suggestion img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
 .product-image-suggestion span { font-size: .7rem; color: var(--text-muted); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* ====== Gestão de grupos de complemento (compGroupMgr) ====== */
+.comp-group-mgr {
+  min-width: min(960px, 92vw);
+  width: min(960px, 92vw);
+}
+.comp-group-mgr .dialog-body { padding: 0; }
+.comp-group-mgr h1 {
+  display: flex; align-items: center; gap: .5rem; margin: 0;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-light);
+  font-size: 1rem; font-weight: 700;
+}
+.comp-group-mgr .actions {
+  padding: .75rem 1.25rem; border-top: 1px solid var(--border-light);
+}
+
+/* Toolbar */
+.cgm-toolbar {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .75rem 1.25rem; border-bottom: 1px solid var(--border-light);
+}
+.cgm-count { font-size: .78rem; color: var(--text-muted); }
+
+/* Layout two-column */
+.cgm-layout {
+  display: grid; grid-template-columns: 320px 1fr;
+  min-height: 420px; max-height: 520px;
+}
+.cgm-list-col {
+  border-right: 1px solid var(--border-light);
+  overflow-y: auto; background: var(--surface-hover);
+}
+.cgm-edit-col {
+  overflow-y: auto; padding: 1.25rem;
+}
+
+/* Group list cards */
+.cgm-list { padding: .5rem; display: flex; flex-direction: column; gap: 2px; }
+.cgm-group-card {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  width: 100%; padding: .6rem .75rem; border-radius: 8px;
+  background: transparent; border: none; cursor: pointer; text-align: left;
+  transition: background .12s ease;
+}
+.cgm-group-card:hover { background: var(--surface-hover); }
+.cgm-group-card.active { background: var(--primary-bg); }
+.cgm-group-card.active .cgm-group-name { color: var(--primary); }
+.cgm-group-info { min-width: 0; flex: 1; }
+.cgm-group-name { display: block; font-size: .875rem; font-weight: 600; color: var(--text); }
+.cgm-group-meta { display: block; font-size: .72rem; color: var(--text-muted); margin-top: 1px; }
+.cgm-group-meta .dot { margin: 0 4px; }
+.cgm-group-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .12s ease; }
+.cgm-group-card:hover .cgm-group-actions,
+.cgm-group-card.active .cgm-group-actions { opacity: 1; }
+.cgm-group-actions .icon-btn { color: var(--text-muted); }
+.cgm-group-actions .icon-btn:hover { color: var(--text); background: var(--surface-hover); }
+.cgm-empty { padding: 2rem 1rem; text-align: center; }
+.cgm-empty p { font-size: .82rem; color: var(--text-muted); }
+
+/* Placeholder when nothing selected */
+.cgm-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; min-height: 300px; color: var(--text-muted); gap: .75rem;
+}
+.cgm-placeholder p { font-size: .85rem; color: var(--text-muted); }
+
+/* Edit area */
+.cgm-edit-area { display: flex; flex-direction: column; }
+.cgm-section-title {
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  margin-bottom: .75rem;
+}
+.cgm-section-title h3 { margin: 0; font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); }
+
+/* Group form */
+.cgm-form { display: flex; flex-direction: column; gap: .6rem; }
+.cgm-field { display: flex; flex-direction: column; gap: 3px; }
+.cgm-field label { font-size: .75rem; font-weight: 600; color: var(--text-muted); }
+.cgm-field input { width: 100%; padding: .45rem .6rem; font-size: .85rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.cgm-field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent); }
+.cgm-field-row {
+  display: flex; gap: .6rem; align-items: flex-end;
+}
+.cgm-field-sm { flex: 1; }
+.cgm-field-sm input { width: 100%; }
+.cgm-field-save { flex-shrink: 0; }
+.cgm-field-save .btn {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .45rem .9rem; font-size: .85rem;
+}
+
+/* Items table */
+.cgm-items-table-wrap {
+  border: 1px solid var(--border-light); border-radius: 8px;
+  overflow: hidden;
+}
+.cgm-items-table { margin: 0; border: none; font-size: .82rem; width: 100%; }
+.cgm-items-table th { background: var(--surface-hover); font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); padding: .4rem .6rem; }
+.cgm-items-table td { padding: .4rem .6rem; vertical-align: middle; }
+.cgm-items-table tr:not(:last-child) td { border-bottom: 1px solid var(--border-light); }
+.cgm-item-name { font-weight: 500; }
+.cgm-item-price { font-family: var(--font-mono, monospace); font-size: .8rem; color: var(--text-muted); }
+.cgm-items-empty { text-align: center; padding: 1.5rem .5rem; color: var(--text-muted); font-size: .8rem; }
