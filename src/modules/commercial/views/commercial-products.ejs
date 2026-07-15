@@ -208,25 +208,20 @@
               <option value="">— sem categoria —</option>
               <template x-for="c in categories" :key="c.id"><option :value="c.id" :data-image="c.image_url" x-text="c.name"></option></template>
             </select>
-          </div>
-          <div class="flex-row" style="margin-top:.3rem">
-            <input type="text" x-model="newCat" placeholder="Nova categoria…" style="flex:1" />
-            <button class="btn secondary small" type="button" @click="addCategory()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Criar
-            </button>
-            <% if (user.permissions.has('commercial.products.edit') || user.permissions.has('commercial.products.delete')) { %>
-            <button class="btn secondary small" type="button" @click="openCatMgr()">
+            <button class="icon-btn" @click="openCatMgr()" title="Gerenciar categorias">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              Gerenciar
             </button>
-            <% } %>
           </div>
           <% if (user.permissions.has('commercial.products.price')) { %>
             <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
           <% } %>
           <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
           <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
+          <label class="toggle-switch" style="margin-top:.4rem;display:flex;align-items:center;gap:.5rem">
+            <input type="checkbox" x-model="form.noStockControl" class="toggle-input" />
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Não controla estoque (serviços, digitais, combos com estoque dos componentes)</span>
+          </label>
           <template x-if="!form.id">
             <div>
               <label>Estoque inicial (opcional)</label>
@@ -941,7 +936,7 @@
           }
         },
         openNew() {
-          this.form = { unit: 'un', productType: 'fisico' }; this.dlgError = ''; this.resetImageState();
+          this.form = { unit: 'un', productType: 'fisico', noStockControl: false }; this.dlgError = ''; this.resetImageState();
           this.selectedCategoryImage = '';
           const autoSku = this.appSettings?.find(s => s.key === 'estoque.auto_sku')?.value;
           if (autoSku === '1') this.form.sku = 'SKU-' + String(Date.now()).slice(-8);
@@ -957,7 +952,7 @@
           this.form = { id: p.id, name: p.name, barcode: p.barcode ?? '', sku: p.sku ?? '', unit: p.unit,
             categoryId: p.category_id ?? '',
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
-            minStock: p.min_stock, productType: p.product_type ?? 'fisico',
+            minStock: p.min_stock, productType: p.product_type ?? 'fisico', noStockControl: !p.track_stock,
             description: p.description ?? '' };
           this.dlgError = ''; this.barcodeHint = ''; this.resetImageState();
           this.form.imageUrl = p.image_url ?? null;
@@ -1003,6 +998,7 @@
             unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined,
             categoryId: this.form.categoryId || null,
             productType: this.form.productType || 'fisico',
+            trackStock: this.form.noStockControl ? 0 : 1,
             initialStock: !this.form.id && this.form.initialStock ? Number(this.form.initialStock) : undefined };
           const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
           const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;

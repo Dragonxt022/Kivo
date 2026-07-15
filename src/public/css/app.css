@@ -263,6 +263,62 @@ header.nav .btn-link:hover { background: var(--surface-hover); color: var(--text
 }
 .theme-switch.dark .theme-switch-thumb { transform: translateX(24px); }
 
+/* ─── Toggle Switch (reutilizável) ─── */
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-switch .toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-switch .toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--border-light);
+  border: 1.5px solid var(--border);
+  transition: background var(--transition), border-color var(--transition);
+  flex-shrink: 0;
+}
+.toggle-switch .toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--transition), background var(--transition);
+}
+.toggle-switch .toggle-input:checked + .toggle-slider {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.toggle-switch .toggle-input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+  background: #fff;
+}
+.toggle-switch .toggle-input:focus-visible + .toggle-slider {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.toggle-switch .toggle-label {
+  font-size: .8rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+/* dark mode adjustments already covered by CSS variables */
+
 /* ─── Main ───
    Mesma largura do header.nav (width: calc(100% - 32px), max-width: 1100px) — as bordas
    do conteúdo ficam alinhadas com a barra flutuante em qualquer resolução. Telas densas
