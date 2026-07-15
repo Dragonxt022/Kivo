@@ -81,6 +81,15 @@
   color: var(--primary); font-weight: 700; margin-bottom: 6px;
 }
 
+/* ── Callout (aviso / pré-requisito) ───────────────── */
+.wiki-callout {
+  background: var(--warning-soft, rgba(245, 158, 11, 0.12));
+  border-left: 3px solid var(--warning, #f59e0b);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 12px 18px; margin: 12px 0 16px;
+}
+.wiki-callout p { margin: 0; font-size: 0.9rem; }
+
 /* ── Objetivo (para que serve, não só como usar) ──── */
 .wiki-objective {
   display: flex; gap: 14px; align-items: flex-start;

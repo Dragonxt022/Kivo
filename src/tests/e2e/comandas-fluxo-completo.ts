@@ -21,7 +21,6 @@ import { runSeeds } from '../../core/database/seeds';
 import { getSqlite, closeDb } from '../../core/database/connection';
 import { createServer } from '../../core/server';
 import { resetTestDb, activateTestLicense } from '../resetTestDb';
-import { registerCapabilities } from '../../core/modules/loader';
 import { unwrap } from '../testUtils';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3600);
@@ -61,8 +60,6 @@ async function setup() {
     { key: 'commercial.kits', description: 'Kits e combos' },
     { key: 'commercial.producao', description: 'Ficha técnica' },
   ];
-  registerCapabilities('comandas', CAPS);
-  registerCapabilities('commercial', CAPS.slice(1));
   for (const cap of CAPS) {
     const existing = db.prepare('SELECT id FROM capabilities WHERE key = ?').get(cap.key) as { id: number } | undefined;
     if (!existing) {
@@ -163,7 +160,7 @@ async function main() {
     await api(`/api/comandas/comandas/${comandaA.id}`, {}, admin));
   check('Comanda A fechada', comandaACheck.status === 'fechada' && comandaACheck.sale_id != null);
   check('Mesa E2E liberada após fechar',
-    (await unwrap<{ status: string }[]>(await api('/api/comandas/tables/status', {}, admin)))
+    (await unwrap<{ id: number; status: string }[]>(await api('/api/comandas/tables/status', {}, admin)))
       .find((t) => t.id === tableD.id)?.status === 'livre');
 
   // ─── 4. Teste B: Cancelar comanda pelo PDV ────────────────────────────────
@@ -204,7 +201,7 @@ async function main() {
 
   // Verificar mesa livre
   check('Mesa E2E liberada após cancelar',
-    (await unwrap<{ status: string }[]>(await api('/api/comandas/tables/status', {}, admin)))
+    (await unwrap<{ id: number; status: string }[]>(await api('/api/comandas/tables/status', {}, admin)))
       .find((t) => t.id === tableD.id)?.status === 'livre');
 
   // ─── 5. Teste C: Fechamento com itens do client (elimina payment mismatch) ─

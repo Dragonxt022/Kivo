@@ -18,7 +18,6 @@ import { runSeeds } from '../../core/database/seeds';
 import { getSqlite, closeDb } from '../../core/database/connection';
 import { createServer } from '../../core/server';
 import { resetTestDb, activateTestLicense } from '../resetTestDb';
-import { registerCapabilities } from '../../core/modules/loader';
 
 const PORT = Number(process.env.KATSU_PORT ?? 3599);
 const BASE = `http://localhost:${PORT}`;
@@ -57,7 +56,6 @@ async function startServer() {
     { key: 'commercial.producao', description: 'Ficha técnica' },
     { key: 'commercial.cardapio_online', description: 'Cardápio online' },
   ];
-  registerCapabilities('commercial', CAPS);
   for (const cap of CAPS) {
     const existing = db.prepare('SELECT id FROM capabilities WHERE key = ?').get(cap.key) as { id: number } | undefined;
     if (!existing) {

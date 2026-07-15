@@ -30,6 +30,8 @@
         <a href="#clientes" class="wiki-toc-link" data-section="clientes">Clientes</a>
         <a href="#fornecedores" class="wiki-toc-link" data-section="fornecedores">Fornecedores</a>
         <a href="#produtos" class="wiki-toc-link" data-section="produtos">Produtos</a>
+        <a href="#categorias" class="wiki-toc-link" data-section="categorias">Categorias</a>
+        <a href="#complementos" class="wiki-toc-link" data-section="complementos">Complementos</a>
         <a href="#estoque" class="wiki-toc-link" data-section="estoque">Estoque</a>
         <a href="#listas-preco" class="wiki-toc-link" data-section="listas-preco">Listas de Preço</a>
         <a href="#compras" class="wiki-toc-link" data-section="compras">Compras</a>
@@ -55,8 +57,10 @@
       <div class="wiki-toc-group">
         <div class="wiki-toc-label">Restaurante</div>
         <a href="#mesas-comandas" class="wiki-toc-link" data-section="mesas-comandas">Mesas &amp; Comandas</a>
+        <a href="#modo-garcom" class="wiki-toc-link" data-section="modo-garcom">Modo Garçom</a>
         <a href="#cozinha-kds" class="wiki-toc-link" data-section="cozinha-kds">Cozinha (Painel de Produção)</a>
         <a href="#roteamento-cozinha" class="wiki-toc-link" data-section="roteamento-cozinha">Roteamento para a Cozinha</a>
+        <a href="#cardapio-online" class="wiki-toc-link" data-section="cardapio-online">Cardápio Online</a>
       </div>
 
       <div class="wiki-toc-group">
@@ -210,6 +214,65 @@
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
             <p>Cadastrar <strong>Argamassa 20kg</strong> com preço <em>R$ 30,00</em> e estoque inicial <em>40 unidades</em>. O produto já aparece no PDV e o estoque começa em 40, com uma movimentação de entrada registrada automaticamente.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="categorias">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h3>Categorias</h3>
+          </div>
+          <p>Organize seu catálogo em categorias (ex: Bebidas, Lanches, Sobremesas). Cada categoria pode ter uma <strong>imagem</strong> e uma <strong>categoria pai</strong>, formando uma hierarquia (ex: "Cervejas" dentro de "Bebidas").</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Encontrar produtos mais rápido no PDV e no cardápio agrupando o catálogo por seção — e deixar as telas de venda visualmente organizadas com uma imagem por categoria, em vez de uma lista sem fim de itens soltos.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> No menu, clique em <em>Categorias</em>.</p>
+          <ol>
+            <li>Clique em <strong>+ Nova categoria</strong> e informe o nome.</li>
+            <li>Se fizer sentido, escolha uma <strong>categoria pai</strong> para aninhar (ex: "Refrigerantes" sob "Bebidas").</li>
+            <li>Envie uma <strong>imagem</strong> para a categoria — ela aparece nos modais de venda e no cardápio. É possível remover a imagem depois pelo mesmo lugar.</li>
+            <li>Salve. Ao cadastrar ou editar um produto, você pode vinculá-lo a essa categoria.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Criar a categoria <strong>Lanches</strong> com uma foto de hambúrguer e, dentro dela, a subcategoria <strong>Vegetarianos</strong>. Ao cadastrar o produto "X-Salada", associe-o a Lanches — ele passa a aparecer agrupado no PDV e no cardápio online, com a imagem da categoria como referência visual.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="complementos">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <h3>Complementos</h3>
+          </div>
+          <p>Complementos são os <strong>adicionais e opcionais</strong> que o cliente escolhe na hora de pedir um produto — como "bacon extra", "sem cebola" ou o ponto da carne. Você os organiza em <strong>grupos</strong> (com regras de quantidade mínima e máxima) e vincula esses grupos aos produtos que os oferecem.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Registrar personalizações de pedido de forma padronizada — cada adicional já com seu preço — para que o garçom ou o caixa não precise digitar item avulso nem esquecer de cobrar o extra, e para que a cozinha receba o pedido exatamente como o cliente pediu.</p>
+            </div>
+          </div>
+          <div class="wiki-callout">
+            <p><strong>Requer o recurso "Complementos" ativo.</strong> Ele é uma capacidade opcional do módulo Comercial — se não aparecer no seu sistema, ative em <em>Configurações → Recursos</em> (ou fale com o suporte).</p>
+          </div>
+          <p><strong>Passo 1 — Cadastre os adicionais como produtos.</strong> Na tela de <em>Produtos</em>, ao criar um item, escolha o tipo <strong>Complemento</strong> (ex: "Bacon", "Cheddar extra"). Esses itens ficam separados na aba <strong>Complementos</strong> da tela de produtos e não poluem o catálogo principal.</p>
+          <p><strong>Passo 2 — Crie os grupos.</strong> Em <em>Gerenciar grupos de complemento</em>, crie um grupo (ex: "Adicionais do lanche"), defina quantos itens o cliente pode escolher (mínimo e máximo) e adicione os complementos ao grupo — com opção de sobrescrever o preço dentro daquele grupo.</p>
+          <p><strong>Passo 3 — Vincule aos produtos.</strong> Ao editar um produto, use <strong>Vincular grupo</strong> para conectar um grupo de complementos a ele. No PDV, ao vender esse produto, os grupos aparecem para o atendente marcar as escolhas do cliente.</p>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Crie os complementos <strong>Bacon (+R$ 4,00)</strong> e <strong>Cheddar (+R$ 3,00)</strong>. Monte o grupo <strong>"Adicionais"</strong> com mínimo 0 e máximo 3, contendo esses dois itens. Vincule o grupo ao produto <strong>X-Burguer</strong>. No PDV, ao adicionar um X-Burguer, o atendente vê "Adicionais" e marca "Bacon" — o sistema soma os R$ 4,00 automaticamente e o pedido chega à cozinha já com o adicional.</p>
           </div>
         </div>
 
@@ -613,6 +676,36 @@
           </div>
         </div>
 
+        <div class="wiki-section" id="modo-garcom">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6a4 4 0 0 0-8 0c0 2 1 3 1 3H9l-6 12h18L15 9h-2s1-1 1-3z"/><line x1="12" y1="2" x2="12" y2="4"/></svg>
+            </div>
+            <h3>Modo Garçom</h3>
+          </div>
+          <p>O "modo garçom" não é uma tela separada: é o seu garçom usando as <a href="#mesas-comandas">Mesas &amp; Comandas</a> pelo <strong>próprio celular</strong>, conectado ao Katsu pela rede local. Ele anota o pedido direto na mesa, sem ir e voltar ao balcão nem usar papel.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Agilizar o atendimento e reduzir erro de pedido: o garçom lança na hora, na frente do cliente; a cozinha já começa a preparar; e o caixa recebe a conta pronta. Tudo com um usuário restrito, que só enxerga mesas — nunca o caixa nem o financeiro.</p>
+            </div>
+          </div>
+          <p><strong>Como preparar (uma vez só):</strong></p>
+          <ol>
+            <li>Ative o <a href="#rede-local">Acesso pela Rede Local</a> em <em>Configurações → Rede local</em> e reinicie o Katsu.</li>
+            <li>Crie um usuário para cada garçom em <em>Usuários</em>, usando o cargo <strong>Garçom</strong> (já vem pronto — só enxerga Mesas e Comandas).</li>
+            <li>No celular do garçom, abra o navegador, digite o endereço da máquina mostrado em Configurações (ex: <code>http://192.168.0.10:3123</code>) e faça login com o usuário dele. Sugestão: salve como atalho na tela inicial do celular.</li>
+          </ol>
+          <p><strong>No dia a dia:</strong> o garçom abre a mesa, lança os itens (com complementos, se houver), e envia. Ele pode acompanhar pelo próprio celular quando a cozinha marca cada prato como <em>Pronto</em>. Quando o cliente pede a conta, o fechamento vai para o PDV/caixa — o garçom não precisa mexer em dinheiro.</p>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>O garçom <strong>João</strong> faz login no celular com o usuário "garcom-joao". Na Mesa 7, ele lança "2 Chopp" e "1 X-Burguer com bacon". O X-Burguer aparece na cozinha na hora; o chopp vai direto pro bar. Quando a cozinha marca "Pronto", João vê no celular e leva o prato. No fim, ele clica em "Fechar Comanda" e o caixa recebe o pedido completo para cobrar.</p>
+          </div>
+        </div>
+
         <div class="wiki-section" id="cozinha-kds">
           <div class="wiki-section-head">
             <div class="wiki-section-icon">
@@ -668,6 +761,37 @@
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
             <p>Rotear <strong>Hambúrguer</strong> com estação <em>"Chapa"</em> e tempo estimado de <em>12 minutos</em>. A partir daí, toda vez que um Hambúrguer for vendido ou pedido numa comanda, ele aparece automaticamente no painel da cozinha com essas informações.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="cardapio-online">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
+            <h3>Cardápio Online</h3>
+          </div>
+          <p>O cardápio online é uma <strong>página pública, sem login</strong>, hospedada na nuvem, que mostra os produtos que você escolher — com foto, preço e organizados por categoria. Ideal para compartilhar o link ou um QR Code com o cliente na mesa.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Mostrar o cardápio atualizado ao cliente sem imprimir nada: mudou um preço no sistema, mudou no cardápio online na hora. E como é um link público, o cliente vê pelo próprio celular via QR Code, sem instalar app nem fazer login.</p>
+            </div>
+          </div>
+          <div class="wiki-callout">
+            <p><strong>Requer o recurso "Cardápio online" ativo</strong> e licença com nuvem. É uma capacidade opcional — ative em <em>Configurações → Recursos</em> ou fale com o suporte.</p>
+          </div>
+          <ol>
+            <li>Ao cadastrar ou editar um produto, marque a opção <strong>Visível no cardápio</strong>. Só os produtos marcados aparecem na página pública.</li>
+            <li>Capriche nas <a href="#categorias">categorias</a> e nas imagens — é o que o cliente vê primeiro.</li>
+            <li>Compartilhe o link do cardápio (ou gere um QR Code a partir dele) para colar nas mesas ou divulgar nas redes.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Você marca "Visível no cardápio" nos 20 pratos principais e nas bebidas, cada um com foto e categoria. Gera um QR Code do link e cola em cada mesa. O cliente aponta o celular, vê o cardápio com fotos e preços atualizados — e você nunca mais reimprime um cardápio de papel por causa de um reajuste.</p>
           </div>
         </div>
 
