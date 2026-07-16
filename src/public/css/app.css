@@ -1427,3 +1427,49 @@ dialog.wizard-dialog {
 .cgm-item-name { font-weight: 500; }
 .cgm-item-price { font-family: var(--font-mono, monospace); font-size: .8rem; color: var(--text-muted); }
 .cgm-items-empty { text-align: center; padding: 1.5rem .5rem; color: var(--text-muted); font-size: .8rem; }
+
+/* ─────────── Importação de produtos ─────────── */
+.import-steps {
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+  padding: 1rem; border: 1px dashed var(--border); border-radius: 10px;
+  background: var(--surface-hover); margin-bottom: .75rem;
+}
+.import-steps .btn { cursor: pointer; }
+.import-hint { font-size: .82rem; line-height: 1.5; margin: 0 0 .5rem; }
+
+.import-summary { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+
+.import-chip {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; white-space: nowrap;
+}
+.import-chip.novo { background: var(--success-bg); color: var(--success-text); }
+.import-chip.atualizar { background: var(--warning-bg); color: var(--warning-text); }
+.import-chip.erro { background: var(--danger-bg); color: var(--danger-text); }
+
+.import-alert {
+  padding: .6rem .85rem; border-radius: 8px; font-size: .85rem;
+  line-height: 1.45; margin-bottom: .75rem;
+}
+.import-alert.erro { background: var(--danger-bg); color: var(--danger-text); }
+.import-alert.info { background: var(--surface-hover); color: var(--text-muted); border: 1px solid var(--border); }
+
+/* Altura fixa: a lista pode ter centenas de linhas e não pode empurrar as ações
+   do diálogo para fora da tela. */
+.import-table-wrap { max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.import-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.import-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--surface);
+  text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border);
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted);
+}
+.import-table td { padding: .45rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.import-table tr:last-child td { border-bottom: none; }
+.import-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.import-table .mono { font-family: var(--font-mono, monospace); font-size: .78rem; }
+.import-table .matched-by { font-size: .68rem; margin-left: .25rem; }
+.import-table .import-erros { color: var(--danger-text); font-size: .76rem; line-height: 1.35; }
+
+/* A linha com erro salta aos olhos: fundo + barra na lateral, não só o texto. */
+.import-table tr.row-erro { background: var(--danger-bg); }
+.import-table tr.row-erro td:first-child { box-shadow: inset 3px 0 0 var(--danger); }

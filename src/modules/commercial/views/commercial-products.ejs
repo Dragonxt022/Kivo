@@ -27,6 +27,18 @@
              @keydown.enter.prevent="scanLookup($event.target.value); $event.target.value = ''"
              class="input-search" style="min-width:280px" />
       <% } %>
+      <% if (user.permissions.has('commercial.products.create')) { %>
+        <button class="btn secondary" @click="openImport()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Importar
+        </button>
+      <% } %>
+      <% if (user.permissions.has('commercial.products.view')) { %>
+        <a class="btn secondary" href="/api/commercial/products/export.csv" download>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Exportar
+        </a>
+      <% } %>
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
@@ -555,6 +567,100 @@
       </div>
     </dialog>
 
+    <!-- Importação de produtos: escolher arquivo → conferir → gravar.
+         O passo de conferência é obrigatório: nada é gravado antes do preview. -->
+    <dialog x-ref="importDlg" class="dialog-fixed" style="min-width:min(980px,95vw)">
+      <h1>Importar produtos</h1>
+
+      <!-- Passo 1: arquivo -->
+      <template x-if="!importReport">
+        <div>
+          <p class="muted" style="margin-top:0">
+            Planilha em CSV, no formato do modelo. Nesta versão entram só produtos simples —
+            variantes, kits e combos continuam pelo cadastro normal.
+          </p>
+          <div class="import-steps">
+            <a class="btn secondary" href="/api/commercial/products/import-template.csv" download>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              1. Baixar modelo
+            </a>
+            <span class="muted">2. Preencher no Excel</span>
+            <label class="btn">
+              3. Escolher arquivo
+              <input type="file" accept=".csv,text/csv" @change="pickImportFile($event)" style="display:none" />
+            </label>
+          </div>
+          <p class="muted import-hint">
+            Já tem produtos cadastrados? Use <strong>Exportar</strong>, edite a planilha e importe de volta —
+            os produtos existentes são atualizados, não duplicados.
+          </p>
+          <div class="error" x-text="importError"></div>
+          <div class="muted" x-show="importLoading">Conferindo o arquivo…</div>
+        </div>
+      </template>
+
+      <!-- Passo 2: conferência -->
+      <template x-if="importReport">
+        <div>
+          <div class="import-summary">
+            <span class="import-chip novo" x-text="importReport.totals.novos + ' novo(s)'"></span>
+            <span class="import-chip atualizar" x-text="importReport.totals.atualizar + ' para atualizar'"></span>
+            <span class="import-chip erro" x-show="importReport.totals.erros > 0" x-text="importReport.totals.erros + ' com erro'"></span>
+            <span class="muted" x-text="importFileName"></span>
+          </div>
+
+          <div class="import-alert erro" x-show="importReport.totals.erros > 0">
+            <strong x-text="importReport.totals.erros + ' linha(s) com erro.'"></strong>
+            Corrija na planilha e importe de novo — <strong>nada é gravado enquanto houver erro</strong>.
+          </div>
+          <div class="import-alert info" x-show="importReport.newCategories.length">
+            Vai criar <strong x-text="importReport.newCategories.length"></strong> categoria(s):
+            <span x-text="importReport.newCategories.join(', ')"></span>
+          </div>
+
+          <div class="import-table-wrap">
+            <table class="import-table">
+              <thead>
+                <tr>
+                  <th>Linha</th><th>Situação</th><th>Nome</th><th>SKU</th>
+                  <th class="num">Venda</th><th class="num">Custo</th><th class="num">Estoque</th><th>Problema</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="r in importReport.rows" :key="r.line">
+                  <tr :class="r.status === 'erro' ? 'row-erro' : ''">
+                    <td class="num" x-text="r.line"></td>
+                    <td>
+                      <span class="import-chip" :class="r.status"
+                            x-text="r.status === 'novo' ? 'novo' : r.status === 'atualizar' ? 'atualizar' : 'erro'"></span>
+                      <span class="muted matched-by" x-show="r.matchedBy" x-text="'por ' + r.matchedBy"></span>
+                    </td>
+                    <td x-text="r.data.name || '—'"></td>
+                    <td class="mono" x-text="r.data.sku || '—'"></td>
+                    <!-- Valor já convertido: é aqui que se pega vírgula trocada antes de gravar. -->
+                    <td class="num" x-text="brl(r.data.priceCents)"></td>
+                    <td class="num" x-text="brl(r.data.costCents)"></td>
+                    <td class="num" x-text="r.data.initialStock ?? '—'"></td>
+                    <td class="import-erros" x-text="r.errors.join(' · ') || '—'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <div class="error" x-text="importError"></div>
+        </div>
+      </template>
+
+      <div class="actions">
+        <button class="btn secondary" @click="closeImport()">Cancelar</button>
+        <button class="btn secondary" x-show="importReport" @click="resetImport()">Trocar arquivo</button>
+        <button class="btn" x-show="importReport"
+                :disabled="importReport && (importReport.totals.erros > 0 || importSaving)"
+                @click="confirmImport()"
+                x-text="importSaving ? 'Gravando…' : 'Confirmar importação'"></button>
+      </div>
+    </dialog>
+
     <dialog x-ref="mv">
       <h1>Movimentar estoque</h1>
       <p class="muted" x-text="`${move.name} — saldo atual: ${move.current}`"></p>
@@ -1052,6 +1158,8 @@
     function productsPage() {
       return {
         ...tableToolkit(),
+        // Importação
+        importCsv: '', importFileName: '', importReport: null, importError: '', importLoading: false, importSaving: false,
         rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
@@ -1110,6 +1218,73 @@
           const m = this.typeMeta(t);
           return `<span class="type-icon" style="color:${m.color}" title="${m.label}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${m.path}</svg></span>`;
         },
+        // ─────────── Importação de produtos ───────────
+        openImport() {
+          this.resetImport();
+          this.$refs.importDlg.showModal();
+        },
+        resetImport() {
+          this.importCsv = ''; this.importFileName = ''; this.importReport = null;
+          this.importError = ''; this.importLoading = false; this.importSaving = false;
+        },
+        closeImport() {
+          this.$refs.importDlg.close();
+          this.resetImport();
+        },
+        async pickImportFile(e) {
+          const file = e.target.files?.[0];
+          e.target.value = ''; // permite reescolher o mesmo arquivo depois
+          if (!file) return;
+          this.importError = '';
+          this.importLoading = true;
+          try {
+            const text = await file.text();
+            // O modelo e a exportação são UTF-8. Planilha salva como ANSI/Windows-1252
+            // chega com caracteres de substituição — melhor avisar do que gravar "Feijão".
+            if (text.includes('�')) {
+              this.importError = 'O arquivo não está em UTF-8 (os acentos vieram corrompidos). No Excel, use "Salvar como → CSV UTF-8".';
+              return;
+            }
+            this.importCsv = text;
+            this.importFileName = file.name;
+            const r = await fetch('/api/commercial/products/import/preview', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ csv: text }),
+            });
+            const data = await r.json();
+            if (!r.ok) { this.importError = data.error ?? 'Não consegui ler o arquivo.'; return; }
+            this.importReport = data;
+          } catch (err) {
+            this.importError = String(err);
+          } finally {
+            this.importLoading = false;
+          }
+        },
+        async confirmImport() {
+          if (!this.importReport || this.importReport.totals.erros > 0) return;
+          this.importSaving = true;
+          this.importError = '';
+          try {
+            const r = await fetch('/api/commercial/products/import/commit', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ csv: this.importCsv }),
+            });
+            const data = await r.json();
+            if (!r.ok) { this.importError = data.error ?? 'Falha ao gravar.'; return; }
+            const partes = [];
+            if (data.criados) partes.push(`${data.criados} produto(s) criado(s)`);
+            if (data.atualizados) partes.push(`${data.atualizados} atualizado(s)`);
+            if (data.categoriasCriadas) partes.push(`${data.categoriasCriadas} categoria(s) nova(s)`);
+            showToast(partes.join(', ') || 'Nada a fazer.', 'success');
+            this.closeImport();
+            await this.load();
+          } catch (err) {
+            this.importError = String(err);
+          } finally {
+            this.importSaving = false;
+          }
+        },
+
         async load() {
           const params = new URLSearchParams({ includeParents: 'true' });
           if (this.q) params.set('q', this.q);

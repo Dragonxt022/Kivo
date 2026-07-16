@@ -8,6 +8,7 @@ import { audit } from '../../core/audit/service';
 import { createCategorySchema, updateCategorySchema, deleteCategorySchema, grantStoreCreditSchema, createComplementGroupSchema, updateComplementGroupSchema, createComplementItemSchema, updateComplementItemSchema } from '../../shared/schemas';
 import { validateBody } from '../../shared/validateBody';
 import productsRouter from './productsRoutes';
+import productsImportRouter from './productsImportRoutes';
 import stockRouter from './stockRoutes';
 import { makeCrudRouter } from './crud';
 import { grant as grantStoreCredit } from './storeCredit';
@@ -307,6 +308,9 @@ router.delete('/products/:id/complement-groups/:linkId', requirePermission('comm
   res.json({ ok: true });
 });
 
+// Antes do productsRouter: rotas literais ('/products/export.csv') têm que ser
+// avaliadas antes de qualquer '/products/:algo' que possa capturá-las.
+router.use(productsImportRouter);
 router.use(productsRouter);
 
 router.use('/stock', stockRouter);
