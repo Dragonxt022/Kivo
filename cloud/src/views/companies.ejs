@@ -10,6 +10,7 @@
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
+  <%- include('partials/plan-icons') %>
   <div class="app-shell">
     <%- include('partials/sidebar', { active: 'companies' }) %>
     <main class="content">
@@ -61,8 +62,10 @@
                       <div class="cell-sub" x-text="c.company_uuid.slice(0, 8)"></div>
                     </td>
                     <td>
-                      <span class="badge plan" x-show="c.plan" x-text="planLabels[c.plan] || c.plan"></span>
-                      <span class="cell-muted" x-show="!c.plan">—</span>
+                      <span class="plan-seal" :class="'plan-seal--' + sealKey(c.plan)">
+                        <svg class="plan-seal-icon"><use :href="'#plan-icon-' + sealKey(c.plan)"/></svg>
+                        <span x-text="c.plan ? (planLabels[c.plan] || c.plan) : 'Sem plano'"></span>
+                      </span>
                     </td>
                     <td class="cell-modules" x-text="c.modules ? c.modules.join(', ') : 'sem restrição'"></td>
                     <td>
@@ -106,12 +109,7 @@
         <label>Nome</label>
         <input type="text" name="name" required autofocus>
         <label>Plano</label>
-        <select name="plan">
-          <option value="">—</option>
-          <% planTiers.forEach(function(tier) { %>
-          <option value="<%= tier %>"><%= planLabels[tier] %></option>
-          <% }) %>
-        </select>
+        <%- include('partials/plan-picker', { selectedPlan: '' }) %>
         <label>Válido até</label>
         <input type="date" name="validUntil">
         <p class="field-hint">Deixe em branco no plano Trial para usar automaticamente hoje + 15 dias.</p>
@@ -131,8 +129,13 @@
         ...tableToolkit(),
         rows: <%- JSON.stringify(companies) %>,
         planLabels: <%- JSON.stringify(planLabels) %>,
+        planTiers: <%- JSON.stringify(planTiers) %>,
         q: '',
         planFilter: '',
+        /** Plano legado (fora dos tiers) não tem selo próprio — cai no neutro. */
+        sealKey(plan) {
+          return plan && this.planTiers.includes(plan) ? plan : 'none';
+        },
         sortGetters: {
           name: (c) => (c.name || c.company_uuid).toLowerCase(),
           plan: (c) => c.plan || '',

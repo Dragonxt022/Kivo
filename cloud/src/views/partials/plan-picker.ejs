@@ -1,0 +1,44 @@
+<%
+  /**
+   * Seletor de plano em cartões. Espera `planTiers`, `planLabels` e (opcional)
+   * `selectedPlan`. Continua sendo um <input type="radio" name="plan">, então o
+   * POST recebe exatamente o mesmo campo que o <select> antigo mandava.
+   * Requer o sprite: inclua partials/plan-icons uma vez na página.
+   */
+  var selected = typeof selectedPlan !== 'undefined' && selectedPlan ? selectedPlan : '';
+  var PLAN_DESC = {
+    trial: '15 dias, sem nuvem',
+    prata: 'Local, sem nuvem',
+    ouro: 'Com salvamento na nuvem',
+    diamante: 'Tudo, sem limites',
+  };
+%>
+<div class="plan-picker" role="radiogroup" aria-label="Plano">
+  <div class="plan-option plan-option--none">
+    <input type="radio" name="plan" id="plan-opt-none" value="" <%= selected ? '' : 'checked' %>>
+    <label for="plan-opt-none">
+      <span class="plan-mark"><svg><use href="#plan-icon-none"/></svg></span>
+      <span class="plan-name">Sem plano</span>
+      <span class="plan-desc">Nenhuma licença ativa</span>
+    </label>
+  </div>
+  <% planTiers.forEach(function (tier) { %>
+  <div class="plan-option plan-option--<%= tier %>">
+    <input type="radio" name="plan" id="plan-opt-<%= tier %>" value="<%= tier %>" <%= selected === tier ? 'checked' : '' %>>
+    <label for="plan-opt-<%= tier %>">
+      <span class="plan-mark"><svg><use href="#plan-icon-<%= tier %>"/></svg></span>
+      <span class="plan-name"><%= planLabels[tier] %></span>
+      <span class="plan-desc"><%= PLAN_DESC[tier] || '' %></span>
+    </label>
+  </div>
+  <% }) %>
+</div>
+<%
+  // Plano legado (fora dos tiers atuais) não pode sumir só porque não tem cartão:
+  // sem isto, salvar apagaria silenciosamente o plano do cliente.
+  if (selected && !planTiers.includes(selected)) { %>
+<p class="field-hint" style="margin-top:-8px">
+  Plano legado <strong><%= selected %></strong> — escolher um cartão acima substitui.
+</p>
+<input type="radio" name="plan" value="<%= selected %>" checked style="display:none">
+<% } %>

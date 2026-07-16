@@ -1,0 +1,36 @@
+<%
+  /**
+   * Sprite dos selos de plano. Incluir UMA vez por página; depois referenciar com
+   *   <svg class="plan-seal-icon"><use href="#plan-icon-ouro"/></svg>
+   * ou, dentro do Alpine, <use :href="'#plan-icon-' + (c.plan || 'none')"/>.
+   * Sprite em vez de partial repetido porque a lista renderiza no cliente e o
+   * detalhe no servidor — os dois precisam do mesmo desenho.
+   */
+%>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <!-- Teste: ampulheta, o plano que expira -->
+  <symbol id="plan-icon-trial" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 2h12M6 22h12"/>
+    <path d="M8 2v4.5c0 1.5 4 3.8 4 5.5 0-1.7 4-4 4-5.5V2"/>
+    <path d="M8 22v-4.5c0-1.5 4-3.8 4-5.5 0 1.7 4 4 4 5.5V22"/>
+  </symbol>
+  <!-- Prata: escudo, entrada -->
+  <symbol id="plan-icon-prata" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2.5l7.5 3v6c0 4.6-3.2 8.6-7.5 10-4.3-1.4-7.5-5.4-7.5-10v-6z"/>
+  </symbol>
+  <!-- Ouro: coroa -->
+  <symbol id="plan-icon-ouro" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.5 7.5l3.8 3.2L12 4l5.7 6.7 3.8-3.2-1.8 11H4.3z"/>
+    <path d="M4.3 18.5h15.4"/>
+  </symbol>
+  <!-- Diamante: gema lapidada, o topo -->
+  <symbol id="plan-icon-diamante" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3h12l4 6-10 12L2 9z"/>
+    <path d="M2 9h20M9.5 3L7 9l5 12M14.5 3L17 9l-5 12"/>
+  </symbol>
+  <!-- Sem plano: ausência, não um nível -->
+  <symbol id="plan-icon-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="8" y1="12" x2="16" y2="12"/>
+  </symbol>
+</svg>

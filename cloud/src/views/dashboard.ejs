@@ -10,6 +10,7 @@
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
+  <%- include('partials/plan-icons') %>
   <div class="app-shell">
     <%- include('partials/sidebar', { active: 'dashboard' }) %>
     <main class="content">
@@ -368,9 +369,13 @@
             </div>
             <% if (planDistribution.length) { %>
             <div class="dash-bar-list" style="margin-top: 12px;">
-              <% planDistribution.forEach(function (p) { %>
+              <% planDistribution.forEach(function (p) {
+                   var seal = planTiers.includes(p.plan_label) ? p.plan_label : 'none'; %>
               <div class="dash-bar-row">
-                <div class="dash-bar-label"><%= planLabels[p.plan_label] || p.plan_label %></div>
+                <div class="dash-bar-label plan-seal-label plan-seal--<%= seal %>">
+                  <svg class="plan-seal-icon"><use href="#plan-icon-<%= seal %>"/></svg>
+                  <span><%= planLabels[p.plan_label] || p.plan_label %></span>
+                </div>
                 <div class="dash-bar-track">
                   <div class="dash-bar-fill" style="width: <%= Math.max(Math.round((Number(p.cnt) / maxPlanCount) * 100), 2) %>%; background: <%= planColor(p.plan_label) %>;"></div>
                 </div>
@@ -423,12 +428,7 @@
         <label>Nome</label>
         <input type="text" name="name" required autofocus>
         <label>Plano</label>
-        <select name="plan">
-          <option value="">—</option>
-          <% planTiers.forEach(function(tier) { %>
-          <option value="<%= tier %>"><%= planLabels[tier] %></option>
-          <% }) %>
-        </select>
+        <%- include('partials/plan-picker', { selectedPlan: '' }) %>
         <label>Válido até</label>
         <input type="date" name="validUntil">
         <p class="field-hint">Deixe em branco no plano Trial para usar automaticamente hoje + 15 dias.</p>

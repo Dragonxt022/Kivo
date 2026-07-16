@@ -40,6 +40,15 @@
     --viz-ink-muted: #8a8a98;
     --viz-good: #0ca30c;
     --viz-critical: #d03b3b;
+
+    /* ─── Selos de plano ─── */
+    /* Identidade de cada plano. Não são cores de gráfico: o selo sempre traz ícone +
+       o nome escrito, então a cor reforça e nunca carrega o sentido sozinha. */
+    --plan-trial: #7c3aed;
+    --plan-prata: #475569;
+    --plan-ouro: #b45309;
+    --plan-diamante: #0e7490;
+    --plan-none: #8a8a98;
   }
   :root[data-theme="dark"] {
     --bg: #14161c;
@@ -79,6 +88,13 @@
     --viz-ink-muted: #8a8a97;
     --viz-good: #0ca30c;
     --viz-critical: #e66767;
+
+    /* Passos próprios para a superfície escura, não um espelho automático. */
+    --plan-trial: #a78bfa;
+    --plan-prata: #94a3b8;
+    --plan-ouro: #fbbf24;
+    --plan-diamante: #22d3ee;
+    --plan-none: #8a8a97;
   }
   * { box-sizing: border-box; }
   body {
@@ -542,6 +558,12 @@
   .dash-bar-list { display: flex; flex-direction: column; gap: 12px; }
   .dash-bar-row { display: flex; align-items: center; gap: 12px; }
   .dash-bar-label { font-size: 0.82rem; font-weight: 600; min-width: 80px; text-align: right; }
+  /* Ícone do selo identifica o plano; a barra segue na rampa ordinal, que codifica quantidade. */
+  .plan-seal-label {
+    display: flex; align-items: center; justify-content: flex-end; gap: 5px;
+    min-width: 118px; text-align: right;
+  }
+  .plan-seal-label .plan-seal-icon { color: var(--seal); width: 13px; height: 13px; flex-shrink: 0; order: -1; }
   .dash-bar-track { flex: 1; height: 22px; background: var(--surface-hover); border-radius: 6px; overflow: hidden; }
   .dash-bar-fill { height: 100%; border-radius: 6px; transition: width .4s ease; display: flex; align-items: center; padding: 0 8px; }
   .dash-bar-fill span { font-size: 0.72rem; font-weight: 700; color: #fff; white-space: nowrap; }
@@ -644,6 +666,96 @@
   .viz-table[hidden] { display: none; }
 
   .card-link { font-size: .8rem; font-weight: 600; white-space: nowrap; }
+
+  /* ─── Abas (tela de detalhe) ─── */
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-light);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px; border: 0; background: transparent;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    color: var(--muted); font-family: inherit; font-size: .88rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: color .12s, border-color .12s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-danger:hover, .tab-danger.active { color: var(--danger); }
+  .tab-danger.active { border-bottom-color: var(--danger); }
+  .tab-badge {
+    background: var(--danger); color: #fff; font-size: .68rem; font-weight: 700;
+    min-width: 17px; height: 17px; border-radius: 999px; padding: 0 5px;
+    display: inline-grid; place-items: center; line-height: 1;
+  }
+
+  /* ─── Selo de plano ─── */
+  /* A cor entra por uma variável local, então marcação e CSS não repetem o mapa de planos. */
+  .plan-seal {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px 3px 7px; border-radius: 999px;
+    font-size: .76rem; font-weight: 700; white-space: nowrap;
+    color: var(--seal);
+    background: color-mix(in srgb, var(--seal) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--seal) 28%, transparent);
+  }
+  .plan-seal-icon { width: 13px; height: 13px; flex-shrink: 0; }
+  .plan-seal--trial { --seal: var(--plan-trial); }
+  .plan-seal--prata { --seal: var(--plan-prata); }
+  .plan-seal--ouro { --seal: var(--plan-ouro); }
+  .plan-seal--diamante { --seal: var(--plan-diamante); }
+  .plan-seal--none { --seal: var(--plan-none); }
+
+  /* ─── Seletor de plano em cartões ─── */
+  .plan-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .plan-option { position: relative; }
+  /* O input continua sendo a fonte da verdade — o cartão é só a superfície clicável.
+     Escondido com clip, não display:none, para o foco de teclado continuar existindo. */
+  .plan-option input {
+    position: absolute; width: 1px; height: 1px; margin: 0; padding: 0;
+    clip: rect(0 0 0 0); clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+  }
+  .plan-option label {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 14px 10px; margin: 0; cursor: pointer; text-align: center;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    background: var(--surface); transition: border-color .12s, background .12s, transform .12s;
+  }
+  .plan-option label:hover { border-color: color-mix(in srgb, var(--seal) 55%, transparent); transform: translateY(-2px); }
+  .plan-option .plan-mark {
+    width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+    color: var(--seal); background: color-mix(in srgb, var(--seal) 13%, transparent);
+    transition: background .12s;
+  }
+  .plan-option .plan-mark svg { width: 20px; height: 20px; }
+  .plan-option .plan-name { font-size: .84rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+  .plan-option .plan-desc { font-size: .7rem; color: var(--muted); line-height: 1.3; }
+
+  /* Selecionado: borda + fundo + check. O check existe para o estado não ser só cor. */
+  .plan-option input:checked + label {
+    border-color: var(--seal);
+    background: color-mix(in srgb, var(--seal) 7%, var(--surface));
+  }
+  .plan-option input:checked + label .plan-mark { background: color-mix(in srgb, var(--seal) 20%, transparent); }
+  .plan-option input:focus-visible + label { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .plan-option input:checked + label::after {
+    content: "";
+    position: absolute; top: 8px; right: 8px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--seal) center / 10px 10px no-repeat;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  }
+  .plan-option--trial { --seal: var(--plan-trial); }
+  .plan-option--prata { --seal: var(--plan-prata); }
+  .plan-option--ouro { --seal: var(--plan-ouro); }
+  .plan-option--diamante { --seal: var(--plan-diamante); }
+  .plan-option--none { --seal: var(--plan-none); }
+  @media (prefers-reduced-motion: reduce) { .plan-option label:hover { transform: none; } }
+
+  .entity-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .entity-uuid { font-size: .74rem; color: var(--muted); font-family: ui-monospace, "Cascadia Code", monospace; }
+  .actions-hint { font-size: .78rem; color: var(--muted); }
 
   /* ─── Página de listagem (tabela cheia) ─── */
   .page-wide { max-width: 1400px; }

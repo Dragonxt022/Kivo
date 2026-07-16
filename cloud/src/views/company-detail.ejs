@@ -10,250 +10,353 @@
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
+  <%- include('partials/plan-icons') %>
   <div class="app-shell">
-    <%- include('partials/sidebar', {}) %>
+    <%- include('partials/sidebar', { active: 'companies' }) %>
     <main class="content">
-      <%- include('partials/navbar', {}) %>
+      <%- include('partials/navbar', { active: 'companies' }) %>
 
-      <div class="page">
-    <div class="breadcrumb"><a href="/admin">&larr; Empresas</a></div>
+      <%
+        var pendingCharges = charges.filter(function (c) { return c.status === 'pendente'; }).length;
+        var validUntil = company.valid_until ? String(company.valid_until).slice(0, 10) : null;
+        var daysLeft = validUntil
+          ? Math.floor((new Date(validUntil + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 86400000)
+          : null;
+      %>
 
-    <% if (typeof revealedLicenseKey !== 'undefined' && revealedLicenseKey) { %>
-      <div class="key-reveal">
-        <strong>Chave de licença (mostrada uma única vez — copie agora):</strong><br>
-        <code><%= revealedLicenseKey %></code>
-      </div>
-    <% } %>
+      <div class="page page-wide" x-data="companyTabs()">
+        <div class="breadcrumb"><a href="/admin/companies">&larr; Empresas</a></div>
 
-    <div class="page-header">
-      <div>
-        <h1><%= company.name || company.company_uuid %></h1>
-        <div class="breadcrumb"><%= company.company_uuid %></div>
-      </div>
-    </div>
-
-    <form method="post" action="/admin/companies/<%= company.company_uuid %>">
-      <div class="card">
-        <h2>Dados da empresa</h2>
-        <p class="card-intro">Estes dados descem automaticamente para o Katsu do cliente na ativação da licença e preenchem o cadastro dele (nome no cupom, documento e endereço) — sem sobrescrever o que ele já tiver ajustado.</p>
-
-        <div class="form-section">
-          <div class="form-section-head">
-            <span class="step-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg></span>
-            <div><h3>Identificação</h3><p>Nome fantasia aparece no cupom; a razão social e o documento são os dados fiscais.</p></div>
+        <% if (typeof revealedLicenseKey !== 'undefined' && revealedLicenseKey) { %>
+          <div class="key-reveal">
+            <strong>Chave de licença (mostrada uma única vez — copie agora):</strong><br>
+            <code><%= revealedLicenseKey %></code>
           </div>
-          <div class="form-grid">
-            <div class="field col-6">
-              <label>Nome fantasia</label>
-              <input type="text" name="name" value="<%= company.name || '' %>" placeholder="Como o cliente é conhecido">
-            </div>
-            <div class="field col-6">
-              <label>Razão social</label>
-              <input type="text" name="legalName" value="<%= company.legal_name || '' %>" placeholder="Nome jurídico completo">
-            </div>
-            <div class="field col-6">
-              <label>CNPJ / CPF</label>
-              <input type="text" name="document" value="<%= company.document || '' %>" placeholder="00.000.000/0000-00">
-            </div>
-            <div class="field col-6">
-              <label>Inscrição estadual</label>
-              <input type="text" name="stateRegistration" value="<%= company.state_registration || '' %>" placeholder="Isento, se não tiver">
-            </div>
-          </div>
-        </div>
+        <% } %>
 
-        <div class="form-section">
-          <div class="form-section-head">
-            <span class="step-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.98.36 1.93.7 2.84a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.24-1.24a2 2 0 0 1 2.11-.45c.9.34 1.86.57 2.84.7A2 2 0 0 1 22 16.92z"/></svg></span>
-            <div><h3>Contato</h3><p>Usados no cabeçalho do cupom e para o cliente falar com você.</p></div>
-          </div>
-          <div class="form-grid">
-            <div class="field col-6">
-              <label>E-mail</label>
-              <input type="email" name="email" value="<%= company.email || '' %>" placeholder="empresa@exemplo.com">
-            </div>
-            <div class="field col-6">
-              <label>Telefone</label>
-              <input type="text" name="phone" value="<%= company.phone || '' %>" placeholder="(00) 00000-0000">
-            </div>
-          </div>
-        </div>
-
-        <div class="form-section">
-          <div class="form-section-head">
-            <span class="step-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
-            <div><h3>Endereço</h3><p>Montado numa linha só no cupom do cliente.</p></div>
-          </div>
-          <div class="form-grid">
-            <div class="field col-3">
-              <label>CEP</label>
-              <input type="text" name="zip" value="<%= company.zip || '' %>" placeholder="00000-000">
-            </div>
-            <div class="field col-6">
-              <label>Rua / logradouro</label>
-              <input type="text" name="street" value="<%= company.street || '' %>" placeholder="Av. Exemplo">
-            </div>
-            <div class="field col-3">
-              <label>Número</label>
-              <input type="text" name="number" value="<%= company.number || '' %>" placeholder="123">
-            </div>
-            <div class="field col-6">
-              <label>Complemento</label>
-              <input type="text" name="complement" value="<%= company.complement || '' %>" placeholder="Sala, bloco...">
-            </div>
-            <div class="field col-6">
-              <label>Bairro</label>
-              <input type="text" name="district" value="<%= company.district || '' %>" placeholder="Centro">
-            </div>
-            <div class="field col-9">
-              <label>Cidade</label>
-              <input type="text" name="city" value="<%= company.city || '' %>" placeholder="Cidade">
-            </div>
-            <div class="field col-3">
-              <label>UF</label>
-              <input type="text" name="state" maxlength="2" value="<%= company.state || '' %>" placeholder="SP" style="text-transform:uppercase">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Licença e acesso</h2>
-        <div class="form-grid">
-          <div class="field col-6">
-            <label>Plano</label>
-            <select name="plan">
-              <option value="">—</option>
-              <% planTiers.forEach(function(tier) { %>
-              <option value="<%= tier %>" <%= company.plan === tier ? 'selected' : '' %>><%= planLabels[tier] %></option>
-              <% }) %>
-              <% if (company.plan && !planTiers.includes(company.plan)) { %>
-              <option value="<%= company.plan %>" selected><%= company.plan %> (legado)</option>
+        <div class="page-header">
+          <div>
+            <h1><%= company.name || company.company_uuid %></h1>
+            <div class="entity-meta">
+              <span class="entity-uuid"><%= company.company_uuid %></span>
+              <span class="plan-seal plan-seal--<%= company.plan && planTiers.includes(company.plan) ? company.plan : 'none' %>">
+                <svg class="plan-seal-icon"><use href="#plan-icon-<%= company.plan && planTiers.includes(company.plan) ? company.plan : 'none' %>"/></svg>
+                <%= company.plan ? (planLabels[company.plan] || company.plan) : 'Sem plano' %>
+              </span>
+              <% if (daysLeft !== null && daysLeft < 0) { %>
+                <span class="badge money-pending">Licença vencida</span>
+              <% } else if (daysLeft !== null && daysLeft <= 7) { %>
+                <span class="badge pendente">Vence em <%= daysLeft %> dia<%= daysLeft === 1 ? '' : 's' %></span>
               <% } %>
-            </select>
-          </div>
-          <div class="field col-3">
-            <label>Validade</label>
-            <input type="date" name="validUntil" value="<%= company.valid_until ? String(company.valid_until).slice(0,10) : '' %>">
-          </div>
-          <div class="field col-3">
-            <label>Dispositivos</label>
-            <input type="number" name="maxDevices" min="1" value="<%= company.max_devices || 1 %>">
+            </div>
           </div>
         </div>
-        <p class="field-hint">Quantos computadores podem usar esta chave ao mesmo tempo. Para trocar de máquina além do limite, remova um dispositivo abaixo.</p>
-        <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
-      </div>
 
-      <div class="form-actions-bar">
-        <button type="button" class="btn danger" onclick="document.getElementById('modal-rotate-key').showModal()">Gerar nova chave de licença</button>
-        <div class="spacer"></div>
-        <button type="submit" class="btn">Salvar alterações</button>
-      </div>
-    </form>
-
-    <div class="card">
-      <h2>Dispositivos ativados</h2>
-      <p class="field-hint" style="margin-top:0">
-        Máquinas que já validaram esta licença. Remover libera a vaga e bloqueia imediatamente aquela máquina —
-        use para autorizar a troca de computador de um cliente.
-      </p>
-      <table>
-        <thead><tr><th>Machine ID</th><th>Primeira vez visto</th><th>Visto por último</th><th></th></tr></thead>
-        <tbody>
-          <% devices.forEach(function(d) { %>
-          <tr>
-            <td class="muted"><%= d.machine_id.slice(0, 16) %>…</td>
-            <td><%= d.first_seen_at %></td>
-            <td><%= d.last_seen_at %></td>
-            <td class="text-right">
-              <form method="post" action="/admin/companies/<%= company.company_uuid %>/devices/<%= d.id %>/delete"
-                    onsubmit="return confirm('Remover este dispositivo? Ele será bloqueado imediatamente na próxima tentativa de uso.')">
-                <button type="submit" class="btn danger small">Remover</button>
-              </form>
-            </td>
-          </tr>
-          <% }) %>
-          <% if (!devices.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum dispositivo ativado ainda.' }) %></td></tr><% } %>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card">
-      <h2>Sincronização</h2>
-      <div class="stat-row">
-        <div class="stat">
-          <div class="value"><%= syncStats.total %></div>
-          <div class="label">Registros sincronizados</div>
+        <!-- Abas: cada área salva o que mostra, sem pisar no que as outras editam. -->
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab" role="tab" :class="{ active: tab === 'detalhes' }"
+                  :aria-selected="tab === 'detalhes'" @click="go('detalhes')">Detalhes da empresa</button>
+          <button type="button" class="tab" role="tab" :class="{ active: tab === 'licenca' }"
+                  :aria-selected="tab === 'licenca'" @click="go('licenca')">Chaves e licença</button>
+          <button type="button" class="tab" role="tab" :class="{ active: tab === 'cobrancas' }"
+                  :aria-selected="tab === 'cobrancas'" @click="go('cobrancas')">
+            Cobranças<% if (pendingCharges) { %><span class="tab-badge"><%= pendingCharges %></span><% } %>
+          </button>
+          <button type="button" class="tab" role="tab" :class="{ active: tab === 'sync' }"
+                  :aria-selected="tab === 'sync'" @click="go('sync')">Sincronização</button>
+          <button type="button" class="tab tab-danger" role="tab" :class="{ active: tab === 'perigo' }"
+                  :aria-selected="tab === 'perigo'" @click="go('perigo')">Zona de perigo</button>
         </div>
-        <div class="stat">
-          <div class="value"><%= syncStats.last_activity || 'nunca' %></div>
-          <div class="label">Última atividade</div>
-        </div>
-      </div>
-    </div>
 
-    <div class="card">
-      <h2>Backups na nuvem</h2>
-      <table>
-        <thead><tr><th>UUID</th><th>Máquina</th><th>Tamanho</th><th>Quando</th></tr></thead>
-        <tbody>
-          <% backups.forEach(function(b) { %>
-          <tr><td><%= b.uuid %></td><td><%= b.machine_id %></td><td><%= (b.size_bytes/1024).toFixed(1) %> KB</td><td><%= b.created_at %></td></tr>
-          <% }) %>
-          <% if (!backups.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum backup ainda.' }) %></td></tr><% } %>
-        </tbody>
-      </table>
-    </div>
+        <!-- ─────────── Detalhes da empresa ─────────── -->
+        <section x-show="tab === 'detalhes'" role="tabpanel">
+          <form method="post" action="/admin/companies/<%= company.company_uuid %>/profile">
+            <div class="card">
+              <h2>Dados da empresa</h2>
+              <p class="card-intro">Estes dados descem automaticamente para o Katsu do cliente na ativação da licença e preenchem o cadastro dele (nome no cupom, documento e endereço) — sem sobrescrever o que ele já tiver ajustado.</p>
 
-    <div class="card" x-data="chargesTable()">
-      <div class="card-header">
-        <h2>Cobranças</h2>
-        <button class="btn" onclick="document.getElementById('modal-new-charge').showModal()">+ Nova cobrança</button>
-      </div>
-      <table>
-        <thead><tr>
-          <th class="sortable" @click="sortCycle('description')">Descrição<span class="sort-arrow" x-text="sortArrow('description')"></span></th>
-          <th class="sortable" @click="sortCycle('amount_cents')">Valor<span class="sort-arrow" x-text="sortArrow('amount_cents')"></span></th>
-          <th class="sortable" @click="sortCycle('due_date')">Vencimento<span class="sort-arrow" x-text="sortArrow('due_date')"></span></th>
-          <th class="sortable" @click="sortCycle('status')">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
-          <th>Pago em</th><th>Instruções</th><th></th>
-        </tr></thead>
-        <tbody>
-          <template x-for="ch in displayRows" :key="ch.id">
-            <tr>
-              <td x-text="ch.description"></td>
-              <td x-text="(ch.amount_cents/100).toFixed(2)"></td>
-              <td x-text="ch.due_date"></td>
-              <td><span class="badge" :class="ch.status" x-text="ch.status"></span></td>
-              <td x-text="ch.paid_at || '—'"></td>
-              <td class="instructions-cell" :title="ch.instructions || ''" x-text="ch.instructions || '—'"></td>
-              <td class="text-right" @click.outside="openMenu = null">
-                <div class="dropdown" x-show="ch.status === 'pendente'">
-                  <button type="button" class="icon-btn" @click="openMenu = openMenu === ch.id ? null : ch.id" title="Mais ações">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                  </button>
-                  <div class="dropdown-menu" x-show="openMenu === ch.id" x-cloak>
-                    <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/pay'"><button type="submit">Marcar paga</button></form>
-                    <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/cancel'"><button type="submit" class="danger">Cancelar</button></form>
+              <div class="form-section">
+                <div class="form-section-head">
+                  <span class="step-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg></span>
+                  <div><h3>Identificação</h3><p>Nome fantasia aparece no cupom; a razão social e o documento são os dados fiscais.</p></div>
+                </div>
+                <div class="form-grid">
+                  <div class="field col-6">
+                    <label>Nome fantasia</label>
+                    <input type="text" name="name" value="<%= company.name || '' %>" placeholder="Como o cliente é conhecido">
+                  </div>
+                  <div class="field col-6">
+                    <label>Razão social</label>
+                    <input type="text" name="legalName" value="<%= company.legal_name || '' %>" placeholder="Nome jurídico completo">
+                  </div>
+                  <div class="field col-6">
+                    <label>CNPJ / CPF</label>
+                    <input type="text" name="document" value="<%= company.document || '' %>" placeholder="00.000.000/0000-00">
+                  </div>
+                  <div class="field col-6">
+                    <label>Inscrição estadual</label>
+                    <input type="text" name="stateRegistration" value="<%= company.state_registration || '' %>" placeholder="Isento, se não tiver">
                   </div>
                 </div>
-              </td>
-            </tr>
-          </template>
-          <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma cobrança ainda.' }) %></td></tr>
-        </tbody>
-      </table>
-    </div>
+              </div>
 
-    <div class="card" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent);">
-      <h2 style="color: var(--danger);">Zona de perigo</h2>
-      <p class="field-hint" style="margin-top:0;">
-        Apaga a empresa e todo o histórico de sincronização, backups e cobranças associados. Imagens que ela enviou
-        ao banco de imagens permanecem lá (sem vínculo). Essa ação não pode ser desfeita.
-      </p>
-      <button type="button" class="btn danger" onclick="document.getElementById('modal-delete-company').showModal()">Excluir empresa definitivamente</button>
-    </div>
+              <div class="form-section">
+                <div class="form-section-head">
+                  <span class="step-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.98.36 1.93.7 2.84a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.24-1.24a2 2 0 0 1 2.11-.45c.9.34 1.86.57 2.84.7A2 2 0 0 1 22 16.92z"/></svg></span>
+                  <div><h3>Contato</h3><p>Usados no cabeçalho do cupom e para o cliente falar com você.</p></div>
+                </div>
+                <div class="form-grid">
+                  <div class="field col-6">
+                    <label>E-mail</label>
+                    <input type="email" name="email" value="<%= company.email || '' %>" placeholder="empresa@exemplo.com">
+                  </div>
+                  <div class="field col-6">
+                    <label>Telefone</label>
+                    <input type="text" name="phone" value="<%= company.phone || '' %>" placeholder="(00) 00000-0000">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <div class="form-section-head">
+                  <span class="step-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                  <div><h3>Endereço</h3><p>Montado numa linha só no cupom do cliente.</p></div>
+                </div>
+                <div class="form-grid">
+                  <div class="field col-3">
+                    <label>CEP</label>
+                    <input type="text" name="zip" value="<%= company.zip || '' %>" placeholder="00000-000">
+                  </div>
+                  <div class="field col-6">
+                    <label>Rua / logradouro</label>
+                    <input type="text" name="street" value="<%= company.street || '' %>" placeholder="Av. Exemplo">
+                  </div>
+                  <div class="field col-3">
+                    <label>Número</label>
+                    <input type="text" name="number" value="<%= company.number || '' %>" placeholder="123">
+                  </div>
+                  <div class="field col-6">
+                    <label>Complemento</label>
+                    <input type="text" name="complement" value="<%= company.complement || '' %>" placeholder="Sala, bloco...">
+                  </div>
+                  <div class="field col-6">
+                    <label>Bairro</label>
+                    <input type="text" name="district" value="<%= company.district || '' %>" placeholder="Centro">
+                  </div>
+                  <div class="field col-9">
+                    <label>Cidade</label>
+                    <input type="text" name="city" value="<%= company.city || '' %>" placeholder="Cidade">
+                  </div>
+                  <div class="field col-3">
+                    <label>UF</label>
+                    <input type="text" name="state" maxlength="2" value="<%= company.state || '' %>" placeholder="SP" style="text-transform:uppercase">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions-bar">
+              <span class="actions-hint">Salva apenas os dados cadastrais.</span>
+              <div class="spacer"></div>
+              <button type="submit" class="btn">Salvar dados</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ─────────── Chaves e licença ─────────── -->
+        <section x-show="tab === 'licenca'" role="tabpanel" x-cloak>
+          <form method="post" action="/admin/companies/<%= company.company_uuid %>/license">
+            <div class="card">
+              <h2>Plano e validade</h2>
+              <p class="card-intro">Define o que o cliente pode usar e até quando a licença responde.</p>
+              <label>Plano</label>
+              <%- include('partials/plan-picker', { selectedPlan: company.plan }) %>
+
+              <div class="form-grid">
+                <div class="field col-6">
+                  <label>Validade</label>
+                  <input type="date" name="validUntil" value="<%= validUntil || '' %>">
+                </div>
+                <div class="field col-6">
+                  <label>Dispositivos</label>
+                  <input type="number" name="maxDevices" min="1" value="<%= company.max_devices || 1 %>">
+                </div>
+              </div>
+              <p class="field-hint">Quantos computadores podem usar esta chave ao mesmo tempo. Para trocar de máquina além do limite, remova um dispositivo na lista abaixo.</p>
+              <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
+            </div>
+
+            <div class="form-actions-bar">
+              <span class="actions-hint">Salva plano, validade e módulos.</span>
+              <div class="spacer"></div>
+              <button type="submit" class="btn">Salvar licença</button>
+            </div>
+          </form>
+
+          <div class="card">
+            <h2>Chave de licença</h2>
+            <p class="field-hint" style="margin-top:0">
+              A chave só aparece uma vez, no momento em que é gerada — o servidor guarda apenas o hash dela.
+              Se o cliente perdeu a chave, gere outra.
+            </p>
+            <button type="button" class="btn danger" onclick="document.getElementById('modal-rotate-key').showModal()">Gerar nova chave de licença</button>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2>Dispositivos ativados</h2>
+              <span class="table-count"><%= devices.length %> de <%= company.max_devices || 1 %> vaga<%= (company.max_devices || 1) === 1 ? '' : 's' %></span>
+            </div>
+            <p class="field-hint" style="margin-top:0">
+              Máquinas que já validaram esta licença. Remover libera a vaga e bloqueia imediatamente aquela máquina —
+              use para autorizar a troca de computador de um cliente.
+            </p>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Machine ID</th><th>Primeira vez visto</th><th>Visto por último</th><th></th></tr></thead>
+                <tbody>
+                  <% devices.forEach(function(d) { %>
+                  <tr>
+                    <td class="cell-sub"><%= d.machine_id.slice(0, 16) %>…</td>
+                    <td><%= d.first_seen_at %></td>
+                    <td><%= d.last_seen_at %></td>
+                    <td class="text-right">
+                      <form method="post" action="/admin/companies/<%= company.company_uuid %>/devices/<%= d.id %>/delete"
+                            onsubmit="return confirm('Remover este dispositivo? Ele será bloqueado imediatamente na próxima tentativa de uso.')">
+                        <input type="hidden" name="redirectTo" value="/admin/companies/<%= company.company_uuid %>">
+                        <button type="submit" class="btn danger small">Remover</button>
+                      </form>
+                    </td>
+                  </tr>
+                  <% }) %>
+                  <% if (!devices.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum dispositivo ativado ainda.' }) %></td></tr><% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────── Cobranças ─────────── -->
+        <section x-show="tab === 'cobrancas'" role="tabpanel" x-cloak>
+          <div class="card table-card" x-data="chargesTable()">
+            <div class="table-toolbar">
+              <div class="filter-chips" role="group" aria-label="Filtrar por status">
+                <button type="button" class="chip" :class="{ active: statusFilter === '' }" @click="statusFilter = ''">Todas</button>
+                <button type="button" class="chip" :class="{ active: statusFilter === 'pendente' }" @click="statusFilter = 'pendente'">Pendentes</button>
+                <button type="button" class="chip" :class="{ active: statusFilter === 'paga' }" @click="statusFilter = 'paga'">Pagas</button>
+                <button type="button" class="chip" :class="{ active: statusFilter === 'cancelada' }" @click="statusFilter = 'cancelada'">Canceladas</button>
+              </div>
+              <div class="table-count" x-text="totalsLabel"></div>
+              <button class="btn small" onclick="document.getElementById('modal-new-charge').showModal()">+ Nova cobrança</button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr>
+                  <th class="sortable" @click="sortCycle('description')">Descrição<span class="sort-arrow" x-text="sortArrow('description')"></span></th>
+                  <th class="sortable text-right" @click="sortCycle('amount_cents')">Valor<span class="sort-arrow" x-text="sortArrow('amount_cents')"></span></th>
+                  <th class="sortable" @click="sortCycle('due_date')">Vencimento<span class="sort-arrow" x-text="sortArrow('due_date')"></span></th>
+                  <th class="sortable" @click="sortCycle('status')">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+                  <th>Pago em</th><th>Instruções</th><th></th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="ch in displayRows" :key="ch.id">
+                    <tr>
+                      <td x-text="ch.description"></td>
+                      <td class="text-right tabular" x-text="brl(ch.amount_cents)"></td>
+                      <td>
+                        <span :class="dueClass(ch)" x-text="fmtDate(ch.due_date)"></span>
+                      </td>
+                      <td><span class="badge" :class="ch.status" x-text="ch.status"></span></td>
+                      <td class="cell-muted" x-text="ch.paid_at ? fmtDate(ch.paid_at) : '—'"></td>
+                      <td class="instructions-cell cell-muted" :title="ch.instructions || ''" x-text="ch.instructions || '—'"></td>
+                      <td class="text-right" @click.outside="openMenu = null">
+                        <div class="dropdown" x-show="ch.status === 'pendente'">
+                          <button type="button" class="icon-btn" @click="openMenu = openMenu === ch.id ? null : ch.id" title="Mais ações">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                          </button>
+                          <div class="dropdown-menu" x-show="openMenu === ch.id" x-cloak>
+                            <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/pay'"><button type="submit">Marcar paga</button></form>
+                            <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/cancel'"><button type="submit" class="danger">Cancelar</button></form>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                  <tr x-show="!displayRows.length">
+                    <td colspan="7">
+                      <div class="empty-state-box">
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <p x-text="rows.length ? 'Nenhuma cobrança com esse status.' : 'Nenhuma cobrança ainda.'"></p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────── Sincronização ─────────── -->
+        <section x-show="tab === 'sync'" role="tabpanel" x-cloak>
+          <div class="dash-kpi-grid">
+            <div class="dash-kpi">
+              <div class="dash-kpi-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              </div>
+              <div class="dash-kpi-value"><%= Number(syncStats.total || 0).toLocaleString('pt-BR') %></div>
+              <div class="dash-kpi-label">Registros sincronizados</div>
+            </div>
+            <div class="dash-kpi">
+              <div class="dash-kpi-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div class="dash-kpi-value" style="font-size:1.05rem;"><%= syncStats.last_activity || 'nunca' %></div>
+              <div class="dash-kpi-label">Última atividade</div>
+            </div>
+            <div class="dash-kpi">
+              <div class="dash-kpi-icon amber">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
+              <div class="dash-kpi-value"><%= backups.length %></div>
+              <div class="dash-kpi-label">Backups na nuvem</div>
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-toolbar">
+              <h2 style="margin:0; font-size:1.05rem;">Backups na nuvem</h2>
+              <div class="table-count"><%= backups.length %> arquivo<%= backups.length === 1 ? '' : 's' %></div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>UUID</th><th>Máquina</th><th class="text-right">Tamanho</th><th>Quando</th></tr></thead>
+                <tbody>
+                  <% backups.forEach(function(b) { %>
+                  <tr>
+                    <td class="cell-sub"><%= b.uuid %></td>
+                    <td class="cell-muted"><%= b.machine_id %></td>
+                    <td class="text-right tabular"><%= (b.size_bytes/1024).toFixed(1) %> KB</td>
+                    <td class="cell-muted"><%= b.created_at %></td>
+                  </tr>
+                  <% }) %>
+                  <% if (!backups.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum backup ainda.' }) %></td></tr><% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─────────── Zona de perigo ─────────── -->
+        <section x-show="tab === 'perigo'" role="tabpanel" x-cloak>
+          <div class="card" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent);">
+            <h2 style="color: var(--danger);">Excluir empresa</h2>
+            <p class="field-hint" style="margin-top:0;">
+              Apaga a empresa e todo o histórico de sincronização, backups e cobranças associados. Imagens que ela enviou
+              ao banco de imagens permanecem lá (sem vínculo). Essa ação não pode ser desfeita.
+            </p>
+            <button type="button" class="btn danger" onclick="document.getElementById('modal-delete-company').showModal()">Excluir empresa definitivamente</button>
+          </div>
+        </section>
       </div>
     </main>
   </div>
@@ -321,17 +424,58 @@
 
   <script src="/js/table-toolkit.js"></script>
   <script>
+    var VALID_TABS = ['detalhes', 'licenca', 'cobrancas', 'sync', 'perigo'];
+
+    function companyTabs() {
+      return {
+        // A aba vive no hash: salvar redireciona de volta para a aba certa,
+        // e recarregar/compartilhar o link cai onde a pessoa estava.
+        tab: VALID_TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'detalhes',
+        go(t) {
+          this.tab = t;
+          history.replaceState(null, '', '#' + t);
+        },
+        init() {
+          window.addEventListener('hashchange', () => {
+            var h = location.hash.slice(1);
+            if (VALID_TABS.includes(h)) this.tab = h;
+          });
+        },
+      };
+    }
+
     function chargesTable() {
       return {
         ...tableToolkit(),
         rows: <%- JSON.stringify(charges.map(function (ch) {
           return { ...ch, due_date: String(ch.due_date).slice(0, 10) };
         })) %>,
+        statusFilter: '',
         sortGetters: {
-          description: (c) => c.description, amount_cents: (c) => c.amount_cents,
+          description: (c) => c.description, amount_cents: (c) => Number(c.amount_cents),
           due_date: (c) => c.due_date, status: (c) => c.status,
         },
-        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        brl(cents) {
+          return (Number(cents) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        },
+        fmtDate(v) {
+          const s = String(v).slice(0, 10).split('-');
+          return s[2] + '/' + s[1] + '/' + s[0];
+        },
+        /** Vencida e ainda pendente é o que precisa saltar aos olhos. */
+        dueClass(ch) {
+          if (ch.status !== 'pendente') return 'cell-muted';
+          return new Date(ch.due_date + 'T00:00:00') < new Date().setHours(0, 0, 0, 0) ? 'expiry expired' : '';
+        },
+        get filteredRows() {
+          return this.statusFilter ? this.rows.filter((c) => c.status === this.statusFilter) : this.rows;
+        },
+        get displayRows() { return this.sortedRows(this.filteredRows, this.sortGetters); },
+        get totalsLabel() {
+          const pend = this.rows.filter((c) => c.status === 'pendente');
+          const sum = pend.reduce((s, c) => s + Number(c.amount_cents), 0);
+          return pend.length ? `${pend.length} pendente${pend.length === 1 ? '' : 's'} · ${this.brl(sum)}` : 'nada em aberto';
+        },
       };
     }
 
