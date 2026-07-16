@@ -22,9 +22,45 @@ function replacePurchaseItems(purchaseId: number, items: { productId: number; qt
   return total;
 }
 
+/**
+ * Custo médio ponderado móvel: novo custo = (saldo × custo atual + entrada × custo da
+ * compra) / (saldo + entrada).
+ *
+ * Antes o custo era SOBRESCRITO pelo da última compra. Comprar 100un a R$10 e depois
+ * 1un a R$14 fazia todo o estoque valer R$14 — e, como a venda tira um retrato de
+ * `products.cost_cents` para `sale_items.cost_cents` (ver store/sales.ts), e o DRE soma
+ * `qty × cost_cents` desses itens, o CMV saía inflado e a margem, subestimada. O erro
+ * ficava gravado na venda: corrigir o cadastro depois não conserta o passado.
+ *
+ * Casos que caem de volta no custo da compra (média não faz sentido):
+ *  - saldo <= 0 (estoque zerado ou negativo): não há o que ponderar;
+ *  - custo atual == 0: produto nunca custeado, a 1ª compra define o custo;
+ *  - produto sem controle de estoque: não há saldo para ponderar.
+ */
+export function weightedAverageCostCents(
+  saldoAtual: number,
+  custoAtualCents: number,
+  qtdEntrada: number,
+  custoEntradaCents: number,
+): number {
+  if (!(qtdEntrada > 0)) return custoAtualCents;
+  if (!(saldoAtual > 0) || !(custoAtualCents > 0)) return Math.round(custoEntradaCents);
+  const valorTotal = saldoAtual * custoAtualCents + qtdEntrada * custoEntradaCents;
+  return Math.round(valorTotal / (saldoAtual + qtdEntrada));
+}
+
 function postPurchaseItems(req: import('express').Request, purchaseId: number, items: { productId: number; qty: number; unitCostCents: number }[]): void {
   for (const item of items) {
-    productRepository.updateCost(item.productId, Math.round(item.unitCostCents));
+    // Lê o saldo ANTES da entrada: é ele que pondera contra a quantidade que chega.
+    const before = productRepository.findByIdWithColumns(Number(item.productId), 'id, stock_qty, cost_cents, track_stock') as
+      | { id: number; stock_qty: number; cost_cents: number; track_stock: number } | undefined;
+    if (!before) throw new Error(`Produto ${item.productId} não encontrado.`);
+
+    const novoCusto = before.track_stock
+      ? weightedAverageCostCents(before.stock_qty, before.cost_cents, Number(item.qty), Math.round(item.unitCostCents))
+      : Math.round(item.unitCostCents);
+    productRepository.updateCost(item.productId, novoCusto);
+
     const move = moveStockRaw(req, Number(item.productId), 'entrada', Number(item.qty), 'compra', 'purchase', purchaseId);
     if (!move.ok) throw new Error(move.error);
   }
@@ -195,6 +231,11 @@ router.post('/:id/cancel', requirePermission('commercial.purchases.cancel'), (re
       if (purchase.status === 'recebida') {
         const items = purchaseItemRepository.listProductQtys(id);
         for (const item of items) {
+          // Reverte o ESTOQUE, mas não o custo: média móvel não tem volta confiável.
+          // Desfazer a média exigiria que nada tivesse acontecido desde a compra, e
+          // pode ter havido vendas no meio — a "des-média" produziria um número
+          // inventado. Cancelar uma compra recebida deixa o custo médio como está;
+          // para corrigir de fato, lance um ajuste de custo no produto.
           const move = moveStockRaw(req, item.product_id, 'saida', item.qty, 'cancelamento de compra', 'purchase', id, true);
           if (!move.ok) throw new Error(move.error);
         }

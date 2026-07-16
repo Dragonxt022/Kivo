@@ -1,8 +1,73 @@
+/* ─────────────────────────────────────────────────────────────
+   Liquid glass do PDV.
+
+   Esta é a tela que fica aberta o dia inteiro, então duas regras guiaram o visual:
+   1. O blur é caro. Só as superfícies GRANDES e estáveis são de vidro (cartões,
+      barras, modais). Nada de blur por linha de carrinho ou por chip — numa lista
+      de 40 itens isso vira 40 camadas compostas a cada scroll.
+   2. Contraste vem antes de efeito: texto e valores continuam em cima de camada
+      opaca o suficiente para ler a 60cm de distância, no sol da loja.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --pdv-glass: rgba(255, 255, 255, .72);
+  --pdv-glass-strong: rgba(255, 255, 255, .88);
+  --pdv-glass-border: rgba(255, 255, 255, .75);
+  --pdv-glass-ring: rgba(11, 11, 11, .07);
+  --pdv-blur: 20px;
+  --pdv-sheen: linear-gradient(180deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,0) 62%);
+}
+:root[data-theme="dark"] {
+  --pdv-glass: rgba(32, 36, 45, .72);
+  --pdv-glass-strong: rgba(32, 36, 45, .9);
+  --pdv-glass-border: rgba(255, 255, 255, .09);
+  --pdv-glass-ring: rgba(0, 0, 0, .5);
+  --pdv-sheen: linear-gradient(180deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,0) 62%);
+}
+/* Sem suporte a backdrop-filter, o vidro vira superfície opaca — continua legível. */
+@supports not (backdrop-filter: blur(4px)) {
+  :root { --pdv-glass: var(--surface); --pdv-glass-strong: var(--surface); }
+}
+
+/* Manchas de cor atrás de tudo: é o que o blur capta e o que faz o vidro parecer
+   vidro em vez de branco translúcido.
+
+   Vão no background-image do PRÓPRIO body — NÃO use body::before aqui: o app.css já
+   usa esse pseudo-elemento para a marca-d'água do logo, com `opacity: .04`. Uma
+   regra mais específica (body:has(.pdv)::before) não cria outra camada: ela
+   sobrescreve a MESMA, apagando a marca-d'água e herdando o opacity .04 — as
+   manchas somem sem deixar rastro no DevTools. Como fundo do body, o
+   backdrop-filter desfoca normalmente e a marca-d'água continua intacta.
+   `fixed` mantém as manchas paradas ao rolar. */
+body:has(.pdv) {
+  background-image:
+    radial-gradient(820px circle at 6% -8%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 60%),
+    radial-gradient(680px circle at 98% 12%, color-mix(in srgb, #3b82f6 11%, transparent), transparent 58%),
+    radial-gradient(760px circle at 55% 106%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+.pdv-glass {
+  background: var(--pdv-glass);
+  -webkit-backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  border: 1px solid var(--pdv-glass-border);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.4);
+}
+:root[data-theme="dark"] .pdv-glass { box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.05); }
+
 /* `main` segue a regra global (mesma largura do header.nav, 1100px) — sem exceção aqui,
    pra bordas do PDV baterem com a barra do topo como nas outras telas. */
 /* align-items: stretch — as duas colunas ficam com a mesma altura (a "Resumo da
    venda" acompanha o carrinho, em vez de encolher pro tamanho do próprio conteúdo). */
-.pdv { display: grid; grid-template-columns: 62fr 38fr; gap: 1.25rem; align-items: stretch; }
+/* flex:1 dentro do main (que é coluna flex por causa do rodapé): sem isto, as duas
+   colunas param na altura do conteúdo e sobra um vão morto enorme até o rodapé —
+   com o carrinho vazio, metade da tela era espaço vazio. Aqui o carrinho ocupa a
+   altura disponível, que é o certo: ele é o assunto da tela. */
+.pdv {
+  display: grid; grid-template-columns: 62fr 38fr; gap: 1.25rem;
+  align-items: stretch; flex: 1; min-height: 0;
+}
 
 /* ─── Coluna da Esquerda ─── */
 .pdv-left { display: flex; flex-direction: column; gap: .75rem; }
@@ -10,8 +75,12 @@
 /* ─── Barra de abas de venda simultânea ─── */
 .sale-tabs-bar {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap;
-  background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius);
-  padding: .5rem; box-shadow: var(--shadow-xs);
+  border-radius: var(--radius); padding: .5rem;
+  background: var(--pdv-glass);
+  -webkit-backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  border: 1px solid var(--pdv-glass-border);
+  box-shadow: var(--shadow-xs);
 }
 .sale-tabs { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
 .sale-tab {
@@ -39,15 +108,22 @@
 
 /* ─── Busca ─── */
 .pdv-search { position: relative; z-index: 10; }
+/* A busca é onde a mão do operador vive: ela ganha o vidro mais forte e o
+   destaque de foco mais evidente da tela. */
 .pdv-search-box {
   display: flex; align-items: center; gap: .6rem;
-  border-radius: var(--radius); border: 2px solid var(--border-light);
-  background: var(--surface); box-shadow: var(--shadow-xs); padding: 0 .4rem 0 1.1rem;
+  border-radius: var(--radius); padding: 0 .4rem 0 1.1rem;
+  background: var(--pdv-glass-strong);
+  -webkit-backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  border: 1.5px solid var(--pdv-glass-border);
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255,255,255,.5);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
+:root[data-theme="dark"] .pdv-search-box { box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255,255,255,.05); }
 .pdv-search-box:focus-within {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent), var(--shadow-sm);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent), var(--shadow);
 }
 .pdv-search-box .search-icon { color: var(--text-muted); flex-shrink: 0; }
 .pdv-search-box input {
@@ -64,9 +140,14 @@
 .pdv-search-scan-btn:hover { background: var(--primary-bg); color: var(--primary); }
 
 /* ─── Dropdown de resultados ─── */
+/* Vidro forte: este dropdown flutua SOBRE o carrinho, então precisa de opacidade
+   suficiente para o texto de trás não vazar por baixo dos nomes de produto. */
 .pdv-results {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-  background: var(--surface); border: 1.5px solid var(--border-light);
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--pdv-glass-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--pdv-glass-border);
   border-radius: var(--radius); box-shadow: var(--shadow-lg);
   max-height: 45vh; overflow-y: auto; z-index: 50;
 }
@@ -95,14 +176,31 @@
 [x-cloak] { display: none !important; }
 
 /* ─── Modal: consultar produtos ─── */
-.pdv-browse-cats { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
+.pdv-browse-cats {
+  display: flex; gap: .45rem; flex-wrap: wrap; margin-top: .7rem;
+  max-height: 25vh; overflow-y: auto;
+}
 .pdv-cat-chip {
+  display: inline-flex; align-items: center; gap: .5rem;
   border: 1.5px solid var(--border-light); background: var(--surface-hover); color: var(--text-secondary);
-  border-radius: 999px; padding: .35rem .85rem; font-size: .82rem; font-weight: 600; cursor: pointer;
+  border-radius: 999px; padding: .3rem .85rem .3rem .3rem;
+  font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
   transition: border-color var(--transition), background var(--transition), color var(--transition);
 }
 .pdv-cat-chip:hover { border-color: var(--primary); color: var(--primary); }
 .pdv-cat-chip.active { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+
+/* Miniatura da categoria. Redonda e do tamanho do chip: a imagem é a âncora
+   visual, o texto confirma. */
+.pdv-cat-thumb {
+  width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  background: var(--surface); border: 1px solid var(--border-light);
+  display: grid; place-items: center; color: var(--text-muted);
+}
+.pdv-cat-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pdv-cat-thumb svg { width: 14px; height: 14px; }
+.pdv-cat-chip.active .pdv-cat-thumb { border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+
 .pdv-browse-list { max-height: min(64vh, 680px); overflow-y: auto; }
 
 /* ─── Carrinho ─── */
@@ -112,10 +210,16 @@
 }
 .cart-header h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
 .cart-header .count { color: var(--text-muted); font-size: .85rem; }
+/* Vidro no contêiner do carrinho, nunca nas linhas: a lista rola, e blur por linha
+   custaria uma recomposição por item a cada frame de scroll. */
 .cart-items {
   flex: 1; overflow-y: auto; min-height: 280px;
-  background: var(--surface); border-radius: var(--radius);
-  border: 1.5px solid var(--border-light); box-shadow: var(--shadow-xs);
+  border-radius: var(--radius);
+  background: var(--pdv-glass);
+  -webkit-backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  border: 1px solid var(--pdv-glass-border);
+  box-shadow: var(--shadow-xs);
 }
 .cart-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -194,11 +298,23 @@
 /* ─── Coluna do meio (ações rápidas) e da direita (resumo) ─── */
 .pdv-right { position: sticky; top: 1rem; height: 100%; }
 .pdv-card {
-  background: var(--surface); border: 1.5px solid var(--border-light);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  position: relative; overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--pdv-glass-strong);
+  -webkit-backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  border: 1px solid var(--pdv-glass-border);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.45);
   padding: 1.25rem; display: flex; flex-direction: column; gap: .85rem;
   height: 100%; justify-content: space-between;
 }
+:root[data-theme="dark"] .pdv-card { box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.05); }
+/* Brilho no topo: é o que dá a leitura de "vidro" em vez de "painel translúcido". */
+.pdv-card::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 48%;
+  background: var(--pdv-sheen); pointer-events: none;
+}
+.pdv-card > * { position: relative; }
 .pdv-card h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
 
 /* ─── Botões de ação rápida (grade organizada, rótulo sempre visível) ─── */
@@ -267,6 +383,9 @@
 
 /* ─── Modal de pagamento (duas colunas) ─── */
 dialog.pay-modal[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 780px; max-width: 96vw; }
+/* Coluna em flex para o "Voltar" cair no rodapé com margin-top:auto, em vez de
+   flutuar logo abaixo do último auxiliar aberto. */
+.pay-modal .pay-left { display: flex; flex-direction: column; }
 .pay-modal h1 { font-size: 1.15rem; margin-bottom: .1rem; }
 .pay-modal .subtitle { font-size: .82rem; color: var(--text-muted); margin-bottom: 1.1rem; display: flex; align-items: center; gap: .35rem; }
 .pay-label { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); display: block; margin: 0 0 .4rem; }
@@ -280,6 +399,71 @@ dialog.pay-modal[open] { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5
   letter-spacing: -.02em; width: 100%; padding: 0;
 }
 .pay-value-box input:focus { outline: none; }
+/* ─── Atalhos de pagamento (dividir conta / troco) ───
+   Vêm depois da forma de pagamento: os dois dependem dela. Recolhidos por padrão. */
+.pay-helpers { display: flex; gap: .4rem; flex-wrap: wrap; margin: -.4rem 0 .8rem; }
+.pay-helper-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  border: 1.5px solid var(--border-light); background: var(--surface); color: var(--text-muted);
+  border-radius: 999px; padding: .3rem .7rem; cursor: pointer;
+  font-size: .74rem; font-weight: 600; font-family: inherit; white-space: nowrap;
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+.pay-helper-chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+.pay-helper-chip:hover { border-color: var(--primary); color: var(--primary); }
+.pay-helper-chip.active { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+
+.pay-helper-panel {
+  background: var(--surface-hover); border: 1.5px solid var(--border-light);
+  border-radius: 10px; padding: .6rem .7rem; margin: -.3rem 0 .9rem;
+}
+.pay-helper-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.pay-helper-label { font-size: .78rem; color: var(--text-muted); font-weight: 600; }
+/* Frase explicando o efeito do botão — texto corrido, em tom secundário.
+   Verde-negrito aqui competiria com os valores, que são o que importa na tela. */
+.pay-helper-hint { font-size: .74rem; color: var(--text-muted); line-height: 1.45; margin: .45rem 0 0; }
+.pay-helper-apply {
+  margin-left: auto; border: 1.5px solid var(--primary); background: var(--primary-bg); color: var(--primary);
+  border-radius: 8px; padding: .3rem .8rem; font-size: .76rem; font-weight: 700;
+  font-family: inherit; cursor: pointer; transition: background var(--transition), color var(--transition);
+}
+.pay-helper-apply:hover { background: var(--primary); color: #fff; }
+
+/* Stepper: no balcão se bate no +/- com o dedo, não se digita. */
+.pay-stepper {
+  display: inline-flex; align-items: center; border: 1.5px solid var(--border-light);
+  border-radius: 8px; overflow: hidden; background: var(--surface);
+}
+.pay-stepper button {
+  border: 0; background: transparent; color: var(--text-secondary);
+  width: 28px; height: 28px; cursor: pointer; font-size: 1rem; font-weight: 700;
+  display: grid; place-items: center; line-height: 1;
+  transition: background var(--transition), color var(--transition);
+}
+.pay-stepper button:hover { background: var(--primary-bg); color: var(--primary); }
+.pay-stepper input {
+  width: 38px; height: 28px; border: 0; text-align: center; padding: 0;
+  font-size: .85rem; font-weight: 700; background: transparent; color: var(--text);
+  -moz-appearance: textfield; appearance: textfield;
+}
+.pay-stepper input::-webkit-inner-spin-button { display: none; }
+.pay-stepper input:focus { outline: none; background: var(--surface-hover); }
+
+.pay-helper-input {
+  display: inline-flex; align-items: center; gap: .3rem;
+  border: 1.5px solid var(--border-light); border-radius: 8px; background: var(--surface); padding: .2rem .5rem;
+}
+.pay-helper-input span { font-size: .76rem; font-weight: 700; color: var(--text-muted); }
+.pay-helper-input input {
+  border: 0; background: transparent; width: 78px; padding: .15rem 0;
+  font-size: .9rem; font-weight: 700; color: var(--text);
+}
+.pay-helper-input input:focus { outline: none; }
+.pay-helper-troco { margin-left: auto; font-size: .78rem; color: var(--text-muted); }
+.pay-helper-troco strong { color: var(--primary); font-size: .95rem; }
+
+.pay-back-btn { width: 100%; margin-top: auto; }
+
 .pay-method-row { display: flex; gap: .5rem; align-items: center; margin-bottom: 1rem; }
 .pay-method-row select { flex: 1; }
 .pay-quick-methods { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
@@ -345,8 +529,12 @@ main:has(.pdv-footer-bar) {
 .pdv-footer-bar {
   margin-top: auto; margin-bottom: 0;
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem;
-  padding: .6rem 1rem; background: var(--surface); border: 1.5px solid var(--border-light);
-  border-radius: var(--radius); font-size: .78rem; color: var(--text-muted);
+  padding: .6rem 1rem; border-radius: var(--radius);
+  background: var(--pdv-glass);
+  -webkit-backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
+  border: 1px solid var(--pdv-glass-border);
+  font-size: .78rem; color: var(--text-muted);
 }
 /* espacinho respirando entre o conteúdo do PDV e o rodapé quando há conteúdo suficiente */
 .pdv { margin-bottom: 1rem; }
@@ -431,4 +619,40 @@ main:has(.pdv-footer-bar) {
 .prod-notes {
   font-size: .78rem; color: var(--text-muted); margin-top: .1rem;
   font-style: italic;
+}
+
+/* ─── Vidro nos modais do PDV ───
+   O ::backdrop global já desfoca o fundo; aqui o painel em si ganha translucidez
+   para o desfoque atravessar. Escopado ao PDV (body:has(.pdv)) para não alterar
+   os diálogos das outras telas sem querer. */
+body:has(.pdv) dialog {
+  background: var(--pdv-glass-strong);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--pdv-glass-border);
+  box-shadow: 0 20px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.45);
+}
+:root[data-theme="dark"] body:has(.pdv) dialog {
+  box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* ─── Micro-interações ───
+   Sutis de propósito: numa tela usada 8h/dia, animação chamativa vira irritação
+   na terceira hora. Só o suficiente para o clique responder. */
+.sale-tab, .pdv-cat-chip, .pay-quick-method, .pay-helper-chip {
+  transition: transform 90ms ease, border-color var(--transition),
+              background var(--transition), color var(--transition);
+}
+.sale-tab:active, .pdv-cat-chip:active, .pay-quick-method:active, .pay-helper-chip:active {
+  transform: scale(.97);
+}
+.pdv-result { transition: background var(--transition), padding-left var(--transition); }
+.pdv-result:hover { padding-left: 1.15rem; }
+
+/* Respeita quem pediu menos movimento no sistema. */
+@media (prefers-reduced-motion: reduce) {
+  .pdv-action:hover, .btn-finalize:hover { transform: none; }
+  .sale-tab:active, .pdv-cat-chip:active, .pay-quick-method:active, .pay-helper-chip:active { transform: none; }
+  .pdv-result:hover { padding-left: .9rem; }
+  dialog { animation: none; }
 }

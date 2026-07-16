@@ -75,6 +75,10 @@
     "description": "Cobertura de código (c8 + tsx) — executa teste informado via ARGS",
     "run": "c8 --reporter=text --reporter=lcov --src src -- tsx"
   },
+  "test:purchase-cost": {
+    "description": "Testes: custo médio ponderado na entrada de compra (alimenta o CMV do DRE)",
+    "run": "tsx src/tests/purchase-cost.ts"
+  },
   "test:products-import": {
     "description": "Testes: importação/exportação de produtos (parser + rotas)",
     "run": "tsx src/tests/products-import.ts && node scripts/test-isolated.js src/tests/products-import-api.ts"

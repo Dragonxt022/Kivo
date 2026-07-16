@@ -238,10 +238,32 @@
       <input type="text" x-ref="browseInput" x-model="browseQ" @input.debounce.250ms="searchBrowse()"
              placeholder="Buscar por nome, código de barras ou SKU…" />
 
+      <!-- A API já devolve image_url das categorias; o chip mostra a imagem quando
+           existe e cai num ícone neutro quando não — reconhecer por imagem é mais
+           rápido que ler, e num PDV velocidade é o produto. -->
       <div class="pdv-browse-cats" x-show="browseCategories.length">
-        <button type="button" class="pdv-cat-chip" :class="{ active: !browseCategoryId }" @click="browseCategoryId = ''">Todas</button>
+        <button type="button" class="pdv-cat-chip" :class="{ active: !browseCategoryId }" @click="browseCategoryId = ''">
+          <span class="pdv-cat-thumb all">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          </span>
+          <span>Todas</span>
+        </button>
         <template x-for="c in browseCategories" :key="c.id">
-          <button type="button" class="pdv-cat-chip" :class="{ active: browseCategoryId === c.id }" @click="browseCategoryId = browseCategoryId === c.id ? '' : c.id" x-text="c.name"></button>
+          <button type="button" class="pdv-cat-chip" :class="{ active: browseCategoryId === c.id }"
+                  @click="browseCategoryId = browseCategoryId === c.id ? '' : c.id">
+            <span class="pdv-cat-thumb">
+              <!-- @error: imagem apagada/URL quebrada cairia no glifo de "imagem
+                   quebrada" do navegador. Zerando image_url, o Alpine re-renderiza
+                   no ícone neutro — o chip nunca fica feio. -->
+              <template x-if="c.image_url">
+                <img :src="c.image_url" :alt="c.name" loading="lazy" @error="c.image_url = null" />
+              </template>
+              <template x-if="!c.image_url">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+              </template>
+            </span>
+            <span x-text="c.name"></span>
+          </button>
         </template>
       </div>
 
@@ -394,29 +416,51 @@
           </template>
         </div>
 
-        <button type="button" class="btn secondary small" style="margin-bottom:.75rem" x-show="!showSplit" @click="showSplit = true">
-          Dividir conta
-        </button>
-        <div class="flex-row" style="align-items:center;margin-bottom:.75rem" x-show="showSplit" x-cloak>
-          <span class="muted text-xs">Dividir por</span>
-          <input type="number" min="2" max="20" x-model.number="pay.split" style="width:55px;padding:.3rem .4rem" />
-          <button class="btn secondary small" @click="splitEqual()">pessoas</button>
-          <span class="muted text-xs" x-show="pay.split >= 2" x-text="'≈ ' + brl(Math.ceil(remaining() > 0 ? remaining() / (pay.split || 1) : total() / (pay.split || 1))) + '/pessoa'"></span>
+        <!-- Atalhos DEPOIS da forma de pagamento, porque os dois dependem dela:
+             splitEqual() cria os pagamentos com o método selecionado, e o troco só
+             existe em dinheiro. Ficam recolhidos: quem não usa não vê ruído. -->
+        <div class="pay-helpers">
+          <button type="button" class="pay-helper-chip" :class="{ active: showSplit }"
+                  @click="showSplit = !showSplit; if (showSplit) $nextTick(() => $refs.splitInput?.focus())">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M21 3 3 21"/><path d="M16 21h5v-5"/></svg>
+            Dividir conta
+          </button>
+          <button type="button" class="pay-helper-chip" :class="{ active: showCashReceived }"
+                  x-show="needsCashReceived()"
+                  @click="showCashReceived = !showCashReceived">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+            Calcular troco
+          </button>
         </div>
 
-        <template x-if="needsCashReceived()">
-          <div>
-            <button type="button" class="btn secondary small" style="margin-bottom:.6rem" x-show="!showCashReceived" @click="showCashReceived = true">
-              Cliente pagou com nota maior (calcular troco)
-            </button>
-            <div x-show="showCashReceived" x-cloak>
-              <span class="pay-label">Recebido em dinheiro (R$)</span>
-              <input type="text" x-model="pay.received" placeholder="0,00" style="margin-bottom:.6rem" @input="pay.received = maskMoney(pay.received); calcChange()" />
-              <p class="muted text-sm" style="margin:-.3rem 0 .6rem">Troco: <strong x-text="brl(pay.changeCents)"></strong></p>
+        <div class="pay-helper-panel" x-show="showSplit" x-cloak>
+          <div class="pay-helper-row">
+            <span class="pay-helper-label">Dividir por</span>
+            <div class="pay-stepper">
+              <button type="button" @click="pay.split = Math.max(2, (pay.split || 2) - 1)" aria-label="Menos uma pessoa">−</button>
+              <input type="number" min="2" max="20" x-ref="splitInput" x-model.number="pay.split" aria-label="Número de pessoas" />
+              <button type="button" @click="pay.split = Math.min(20, (pay.split || 2) + 1)" aria-label="Mais uma pessoa">+</button>
             </div>
+            <span class="pay-helper-label">pessoas</span>
+            <button type="button" class="pay-helper-apply" @click="splitEqual()">Dividir</button>
           </div>
-        </template>
-        <button class="btn secondary" style="width:100%;margin-top:.5rem" @click="$refs.pay.close()">
+          <!-- Diz o que o botão FAZ (substitui a lista), não só quanto dá por pessoa. -->
+          <p class="pay-helper-hint" x-show="pay.split >= 2"
+             x-text="'Cria ' + pay.split + ' pagamentos de ~' + brl(Math.floor(total() / (pay.split || 1))) + ' em ' + methodName(pay.methodId) + ', substituindo os já lançados.'"></p>
+        </div>
+
+        <div class="pay-helper-panel" x-show="showCashReceived && needsCashReceived()" x-cloak>
+          <div class="pay-helper-row">
+            <span class="pay-helper-label">Recebido</span>
+            <div class="pay-helper-input">
+              <span>R$</span>
+              <input type="text" x-model="pay.received" placeholder="0,00" @input="pay.received = maskMoney(pay.received); calcChange()" />
+            </div>
+            <span class="pay-helper-troco">Troco <strong x-text="brl(pay.changeCents)"></strong></span>
+          </div>
+        </div>
+
+        <button class="btn secondary pay-back-btn" @click="$refs.pay.close()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:.3rem;vertical-align:-2px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Voltar
         </button>
       </div>
