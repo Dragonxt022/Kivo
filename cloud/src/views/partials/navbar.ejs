@@ -46,7 +46,7 @@
     <div class="user-menu">
       <button type="button" class="user-menu-btn" id="user-menu-btn">
         <span class="avatar"><%= (typeof adminUsername !== 'undefined' && adminUsername ? adminUsername : '?').charAt(0).toUpperCase() %></span>
-        <%= typeof adminUsername !== 'undefined' ? adminUsername : '' %>
+        <span class="username"><%= typeof adminUsername !== 'undefined' ? adminUsername : '' %></span>
       </button>
       <div class="user-menu-dropdown" id="user-menu-dropdown">
         <a href="/admin/profile">Meu perfil</a>

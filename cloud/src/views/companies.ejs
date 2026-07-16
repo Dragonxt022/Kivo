@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Katsu Cloud — Empresas</title>
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'companies' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'companies' }) %>
+
+      <div class="page page-wide" x-data="companiesTable()">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Geral</div>
+            <h1>Empresas</h1>
+          </div>
+          <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <div class="table-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" placeholder="Buscar por nome…" x-model="q" @input="page = 1" aria-label="Buscar empresa por nome">
+            </div>
+            <div class="filter-chips" role="group" aria-label="Filtrar por plano">
+              <button type="button" class="chip" :class="{ active: planFilter === '' }" @click="planFilter = ''; page = 1">Todas</button>
+              <% planTiers.forEach(function (tier) { %>
+              <button type="button" class="chip" :class="{ active: planFilter === '<%= tier %>' }" @click="planFilter = '<%= tier %>'; page = 1"><%= planLabels[tier] %></button>
+              <% }) %>
+              <button type="button" class="chip" :class="{ active: planFilter === '__none' }" @click="planFilter = '__none'; page = 1">Sem plano</button>
+            </div>
+            <div class="table-count" x-text="countLabel"></div>
+          </div>
+
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th class="sortable" @click="sortCycle('name')">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+                  <th class="sortable" @click="sortCycle('plan')">Plano<span class="sort-arrow" x-text="sortArrow('plan')"></span></th>
+                  <th>Módulos</th>
+                  <th class="sortable" @click="sortCycle('valid_until')">Validade<span class="sort-arrow" x-text="sortArrow('valid_until')"></span></th>
+                  <th class="sortable text-right" @click="sortCycle('sync_count')">Sincronizações<span class="sort-arrow" x-text="sortArrow('sync_count')"></span></th>
+                  <th class="sortable" @click="sortCycle('last_activity')">Última atividade<span class="sort-arrow" x-text="sortArrow('last_activity')"></span></th>
+                  <th class="sortable text-right" @click="sortCycle('pending_cents')">Pendente<span class="sort-arrow" x-text="sortArrow('pending_cents')"></span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="c in displayRows" :key="c.company_uuid">
+                  <tr>
+                    <td>
+                      <a :href="'/admin/companies/' + c.company_uuid" class="cell-name" x-text="c.name || c.company_uuid"></a>
+                      <div class="cell-sub" x-text="c.company_uuid.slice(0, 8)"></div>
+                    </td>
+                    <td>
+                      <span class="badge plan" x-show="c.plan" x-text="planLabels[c.plan] || c.plan"></span>
+                      <span class="cell-muted" x-show="!c.plan">—</span>
+                    </td>
+                    <td class="cell-modules" x-text="c.modules ? c.modules.join(', ') : 'sem restrição'"></td>
+                    <td>
+                      <span :class="expiryClass(c.valid_until)" x-text="c.valid_until ? fmtDate(c.valid_until) : '—'"></span>
+                    </td>
+                    <td class="text-right tabular" x-text="Number(c.sync_count).toLocaleString('pt-BR')"></td>
+                    <td class="cell-muted" x-text="c.last_activity ? fmtDateTime(c.last_activity) : 'nunca'"></td>
+                    <td class="text-right tabular">
+                      <span class="badge money-pending" x-show="c.pending_cents > 0" x-text="brl(c.pending_cents)"></span>
+                      <span class="cell-muted" x-show="!(c.pending_cents > 0)">—</span>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="!displayRows.length">
+                  <td colspan="7">
+                    <div class="empty-state-box">
+                      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                      <p x-text="rows.length ? 'Nenhuma empresa corresponde ao filtro.' : 'Nenhuma empresa cadastrada ainda.'"></p>
+                      <button type="button" class="btn secondary small" x-show="rows.length" @click="q = ''; planFilter = ''; page = 1">Limpar filtros</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <%- include('partials/pager') %>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="modal-new-company">
+    <form method="post" action="/admin/companies">
+      <div class="modal-header">
+        <h2>Nova empresa</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-company').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nome</label>
+        <input type="text" name="name" required autofocus>
+        <label>Plano</label>
+        <select name="plan">
+          <option value="">—</option>
+          <% planTiers.forEach(function(tier) { %>
+          <option value="<%= tier %>"><%= planLabels[tier] %></option>
+          <% }) %>
+        </select>
+        <label>Válido até</label>
+        <input type="date" name="validUntil">
+        <p class="field-hint">Deixe em branco no plano Trial para usar automaticamente hoje + 15 dias.</p>
+        <%- include('partials/module-toggles', { checkedModules: [] }) %>
+        <div class="modal-actions">
+          <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-company').close()">Cancelar</button>
+          <button type="submit" class="btn">Criar empresa</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function companiesTable() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(companies) %>,
+        planLabels: <%- JSON.stringify(planLabels) %>,
+        q: '',
+        planFilter: '',
+        sortGetters: {
+          name: (c) => (c.name || c.company_uuid).toLowerCase(),
+          plan: (c) => c.plan || '',
+          valid_until: (c) => c.valid_until || '',
+          sync_count: (c) => Number(c.sync_count),
+          last_activity: (c) => c.last_activity || '',
+          pending_cents: (c) => Number(c.pending_cents),
+        },
+        brl(cents) {
+          return (Number(cents) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        },
+        fmtDate(v) {
+          const s = String(v).slice(0, 10).split('-');
+          return s[2] + '/' + s[1] + '/' + s[0];
+        },
+        fmtDateTime(v) {
+          const s = String(v);
+          return this.fmtDate(s) + ' ' + s.slice(11, 16);
+        },
+        /** Validade vencida/próxima merece destaque — é o dado que o admin caça nesta tela. */
+        expiryClass(v) {
+          if (!v) return 'cell-muted';
+          const days = (new Date(String(v).slice(0, 10)) - new Date().setHours(0, 0, 0, 0)) / 86400000;
+          if (days < 0) return 'expiry expired';
+          if (days <= 7) return 'expiry soon';
+          return '';
+        },
+        get filteredRows() {
+          const q = this.q.trim().toLowerCase();
+          return this.rows.filter((c) => {
+            if (q && !(c.name || c.company_uuid).toLowerCase().includes(q)) return false;
+            if (this.planFilter === '__none') return !c.plan;
+            if (this.planFilter) return c.plan === this.planFilter;
+            return true;
+          });
+        },
+        /** O paginador do partial lê `pageTotal`: total já filtrado, antes de fatiar. */
+        get pageTotal() {
+          return this.filteredRows.length;
+        },
+        get displayRows() {
+          return this.pagedRows(this.sortedRows(this.filteredRows, this.sortGetters));
+        },
+        get countLabel() {
+          const n = this.pageTotal;
+          const total = this.rows.length;
+          return n === total ? `${total} empresa${total === 1 ? '' : 's'}` : `${n} de ${total}`;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

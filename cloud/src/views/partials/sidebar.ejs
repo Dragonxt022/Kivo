@@ -2,10 +2,15 @@
   var activeKey = typeof active !== 'undefined' ? active : '';
   var settingsGroupOpen = activeKey === 'settings' || activeKey === 'admins' || activeKey === 'devices';
 %>
+<div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-group">
     <div class="sidebar-group-label">Geral</div>
-    <a href="/admin" class="sidebar-link <%= activeKey === 'dashboard' ? 'active' : '' %>" title="Empresas">
+    <a href="/admin" class="sidebar-link <%= activeKey === 'dashboard' ? 'active' : '' %>" title="Dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      <span class="sidebar-label">Dashboard</span>
+    </a>
+    <a href="/admin/companies" class="sidebar-link <%= activeKey === 'companies' ? 'active' : '' %>" title="Empresas">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
       <span class="sidebar-label">Empresas</span>
     </a>
@@ -48,15 +53,46 @@
     });
 
     var sidebar = document.getElementById('sidebar');
+    var backdrop = document.getElementById('sidebar-backdrop');
     var toggle = document.getElementById('sidebar-toggle');
+    var mobile = window.matchMedia('(max-width: 900px)');
+
+    function closeDrawer() {
+      sidebar.classList.remove('open');
+      backdrop.classList.remove('open');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    }
+
     if (toggle) {
       try {
         if (localStorage.getItem('katsu-sidebar-collapsed') === '1') sidebar.classList.add('collapsed');
       } catch (e) {}
+      toggle.setAttribute('aria-controls', 'sidebar');
+      toggle.setAttribute('aria-expanded', 'false');
+
+      // Mesmo botão, dois papéis: gaveta no celular, recolher no desktop.
       toggle.addEventListener('click', function () {
+        if (mobile.matches) {
+          var open = !sidebar.classList.contains('open');
+          sidebar.classList.toggle('open', open);
+          backdrop.classList.toggle('open', open);
+          toggle.setAttribute('aria-expanded', String(open));
+          return;
+        }
         sidebar.classList.toggle('collapsed');
         try { localStorage.setItem('katsu-sidebar-collapsed', sidebar.classList.contains('collapsed') ? '1' : '0'); } catch (e) {}
       });
     }
+
+    backdrop.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeDrawer();
+    });
+    // Navegar fecha a gaveta; sem isso ela fica aberta sobre a página seguinte.
+    sidebar.addEventListener('click', function (e) {
+      if (mobile.matches && e.target.closest('a')) closeDrawer();
+    });
+    // Voltar ao desktop com a gaveta aberta deixaria o backdrop preso na tela.
+    mobile.addEventListener('change', closeDrawer);
   });
 </script>

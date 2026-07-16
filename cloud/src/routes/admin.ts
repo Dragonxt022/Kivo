@@ -100,24 +100,92 @@ router.post('/logout', (req, res) => {
 
 // --- Empresas ---
 
-router.get('/', requireAdminAuth, async (_req, res) => {
-  const pool = getPool();
-  const [companies] = await pool.query(
+/** Lista completa de empresas com métricas agregadas — usada pela página /admin/companies. */
+async function loadCompaniesList() {
+  const [companies] = await getPool().query(
     `SELECT c.company_uuid, c.name, c.plan, c.modules, c.valid_until,
             (SELECT COUNT(*) FROM sync_records sr WHERE sr.company_uuid = c.company_uuid) AS sync_count,
             (SELECT MAX(server_received_at) FROM sync_records sr WHERE sr.company_uuid = c.company_uuid) AS last_activity,
             (SELECT COALESCE(SUM(amount_cents),0) FROM charges ch WHERE ch.company_uuid = c.company_uuid AND ch.status = 'pendente') AS pending_cents
      FROM companies c ORDER BY c.created_at DESC`,
   );
+  return companies;
+}
+
+router.get('/companies', requireAdminAuth, async (_req, res) => {
+  res.render('companies', {
+    companies: await loadCompaniesList(),
+    planTiers: PLAN_TIERS,
+    planLabels: PLAN_LABELS,
+  });
+});
+
+router.get('/', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
 
   const [kpiRows] = await pool.query(
     `SELECT
        (SELECT COUNT(*) FROM companies) AS total_companies,
        (SELECT COUNT(*) FROM companies WHERE plan IS NOT NULL AND plan != '') AS active_companies,
        (SELECT COUNT(*) FROM sync_records WHERE server_received_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) AS syncs_7d,
-       (SELECT COALESCE(SUM(amount_cents), 0) FROM charges WHERE status = 'pendente') AS pending_amount_cents`,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM charges WHERE status = 'pendente') AS pending_amount_cents,
+       -- Janelas anteriores, para calcular a variação exibida nos KPIs.
+       (SELECT COUNT(*) FROM sync_records
+         WHERE server_received_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+           AND server_received_at <  DATE_SUB(NOW(), INTERVAL 7 DAY)) AS syncs_prev_7d,
+       (SELECT COUNT(*) FROM companies WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) AS new_companies_30d,
+       (SELECT COUNT(*) FROM companies
+         WHERE created_at >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+           AND created_at <  DATE_SUB(NOW(), INTERVAL 30 DAY)) AS new_companies_prev_30d,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM charges
+         WHERE status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01')) AS revenue_month_cents,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM charges
+         WHERE status = 'paga'
+           AND paid_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01')
+           AND paid_at <  DATE_FORMAT(NOW(), '%Y-%m-01')) AS revenue_prev_month_cents,
+       (SELECT COUNT(*) FROM company_devices WHERE removed_at IS NULL) AS active_devices,
+       (SELECT COUNT(*) FROM charges WHERE status = 'pendente' AND due_date < CURDATE()) AS overdue_count`,
   );
   const kpis = (kpiRows as any)[0];
+
+  // Série diária dos últimos 14 dias. O MySQL só devolve dias com registro, então
+  // preenchemos os buracos com zero para o gráfico não mentir sobre a continuidade.
+  const [syncTrendRows] = await pool.query(
+    `SELECT DATE(server_received_at) AS d, COUNT(*) AS cnt
+     FROM sync_records
+     WHERE server_received_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+     GROUP BY d ORDER BY d ASC`,
+  );
+  const trendByDay = new Map<string, number>();
+  for (const r of syncTrendRows as { d: Date | string; cnt: number }[]) {
+    const key = r.d instanceof Date ? r.d.toISOString().slice(0, 10) : String(r.d).slice(0, 10);
+    trendByDay.set(key, Number(r.cnt));
+  }
+  const syncTrend: { date: string; count: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    day.setDate(day.getDate() - i);
+    const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    syncTrend.push({ date: key, count: trendByDay.get(key) ?? 0 });
+  }
+
+  const [revenueRows] = await pool.query(
+    `SELECT DATE_FORMAT(paid_at, '%Y-%m') AS ym, COALESCE(SUM(amount_cents), 0) AS cents
+     FROM charges
+     WHERE status = 'paga' AND paid_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 5 MONTH), '%Y-%m-01')
+     GROUP BY ym ORDER BY ym ASC`,
+  );
+  const revenueByMonth = new Map<string, number>();
+  for (const r of revenueRows as { ym: string; cents: number }[]) revenueByMonth.set(String(r.ym), Number(r.cents));
+  const revenueTrend: { month: string; cents: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    revenueTrend.push({ month: key, cents: revenueByMonth.get(key) ?? 0 });
+  }
 
   const [planRows] = await pool.query(
     `SELECT COALESCE(plan, 'sem plano') AS plan_label, COUNT(*) AS cnt FROM companies GROUP BY plan_label ORDER BY cnt DESC`,
@@ -159,8 +227,8 @@ router.get('/', requireAdminAuth, async (_req, res) => {
   }
 
   res.render('dashboard', {
-    companies, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS,
-    kpis, planDistribution, recentActivity, alerts,
+    planTiers: PLAN_TIERS, planLabels: PLAN_LABELS,
+    kpis, planDistribution, recentActivity, alerts, syncTrend, revenueTrend,
   });
 });
 
@@ -304,7 +372,7 @@ router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
       // arquivo já não existe — a exclusão do registro já foi commitada, segue o jogo
     }
   }
-  res.redirect('/admin');
+  res.redirect('/admin/companies');
 });
 
 router.post('/companies/:uuid/rotate-key', requireAdminAuth, async (req, res) => {
