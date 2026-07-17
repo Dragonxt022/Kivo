@@ -721,4 +721,98 @@ router.post('/catalog/manual', rawCatalogImage, requireAdminAuth, async (req: Ad
   res.status(201).json({ ok: true, catalogImageId: (info as { insertId: number }).insertId });
 });
 
+// --- Leads do formulário de contato da landing ---
+
+const LEAD_STATUSES = ['novo', 'contatado', 'convertido', 'descartado'] as const;
+
+router.get('/leads', requireAdminAuth, async (_req, res) => {
+  const [leads] = await getPool().query('SELECT * FROM contact_leads ORDER BY created_at DESC');
+  res.render('leads', { leads });
+});
+
+router.post('/leads/:id/status', requireAdminAuth, async (req, res) => {
+  const status = String(req.body?.status ?? '');
+  if (!(LEAD_STATUSES as readonly string[]).includes(status)) {
+    return res.status(400).send('Status inválido.');
+  }
+  // contacted_at marca o primeiro contato e não regride ao alternar o status depois.
+  await getPool().query(
+    `UPDATE contact_leads
+       SET status = ?, contacted_at = IF(? = 'contatado' AND contacted_at IS NULL, NOW(3), contacted_at)
+     WHERE id = ?`,
+    [status, status, Number(req.params.id)],
+  );
+  res.redirect('/admin/leads');
+});
+
+router.post('/leads/:id/delete', requireAdminAuth, async (req, res) => {
+  await getPool().query('DELETE FROM contact_leads WHERE id = ?', [Number(req.params.id)]);
+  res.redirect('/admin/leads');
+});
+
+// --- Suporte: tickets do chat do app ---
+
+const TICKET_STATUSES = ['aberto', 'fechado', 'arquivado'] as const;
+
+router.get('/support', requireAdminAuth, async (_req, res) => {
+  const [tickets] = await getPool().query(
+    `SELECT t.*, c.name AS company_name
+       FROM support_tickets t
+       LEFT JOIN companies c ON c.company_uuid = t.company_uuid
+      ORDER BY t.last_message_at DESC`,
+  );
+  res.render('support', { tickets });
+});
+
+router.get('/support/:id', requireAdminAuth, async (req, res) => {
+  const pool = getPool();
+  const [tickets] = await pool.query(
+    `SELECT t.*, c.name AS company_name
+       FROM support_tickets t
+       LEFT JOIN companies c ON c.company_uuid = t.company_uuid
+      WHERE t.id = ?`,
+    [Number(req.params.id)],
+  );
+  const ticket = (tickets as { id: number; admin_unread: number }[])[0];
+  if (!ticket) return res.status(404).send('Ticket não encontrado.');
+  const [messages] = await pool.query(
+    'SELECT id, sender, sender_name, body, created_at FROM support_messages WHERE ticket_id = ? ORDER BY id',
+    [ticket.id],
+  );
+  if (ticket.admin_unread > 0) {
+    await pool.query('UPDATE support_tickets SET admin_unread = 0 WHERE id = ?', [ticket.id]);
+  }
+  res.render('support-detail', { ticket, messages });
+});
+
+router.post('/support/:id/reply', requireAdminAuth, async (req: AdminRequest, res) => {
+  const id = Number(req.params.id);
+  const body = String(req.body?.body ?? '').trim();
+  if (!body || body.length > 4000) return res.status(400).send('Mensagem vazia ou longa demais.');
+  const [tickets] = await getPool().query('SELECT id, status FROM support_tickets WHERE id = ?', [id]);
+  const ticket = (tickets as { id: number; status: string }[])[0];
+  if (!ticket) return res.status(404).send('Ticket não encontrado.');
+  await getPool().query(
+    'INSERT INTO support_messages (ticket_id, sender, sender_name, body) VALUES (?, ?, ?, ?)',
+    [id, 'suporte', req.adminUsername ?? 'suporte', body],
+  );
+  // Responder um ticket fechado reabre a conversa (arquivado permanece arquivado
+  // até o admin mudar o status de propósito).
+  await getPool().query(
+    `UPDATE support_tickets
+        SET client_unread = client_unread + 1, last_message_at = NOW(3),
+            status = IF(status = 'fechado', 'aberto', status)
+      WHERE id = ?`,
+    [id],
+  );
+  res.redirect(`/admin/support/${id}`);
+});
+
+router.post('/support/:id/status', requireAdminAuth, async (req, res) => {
+  const status = String(req.body?.status ?? '');
+  if (!(TICKET_STATUSES as readonly string[]).includes(status)) return res.status(400).send('Status inválido.');
+  await getPool().query('UPDATE support_tickets SET status = ? WHERE id = ?', [status, Number(req.params.id)]);
+  res.redirect(`/admin/support/${Number(req.params.id)}`);
+});
+
 export default router;

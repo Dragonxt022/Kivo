@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getPool } from '../db';
 
 /**
  * Landing page pública de venda do Katsu (rota "/").
@@ -66,6 +67,68 @@ const router = Router();
 router.get('/', async (_req, res) => {
   const { downloadUrl, version } = await getReleaseInfo();
   res.render('landing', { downloadUrl, appVersion: version });
+});
+
+// ─── Formulário de contato (público) ───
+// Leads caem em contact_leads e aparecem no painel admin (/admin/leads).
+
+/** Rate limit simples em memória: máx. 5 envios por IP por hora. */
+const contactHits = new Map<string, number[]>();
+const CONTACT_WINDOW_MS = 60 * 60 * 1000;
+const CONTACT_MAX_PER_WINDOW = 5;
+
+function contactRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (contactHits.get(ip) ?? []).filter((t) => now - t < CONTACT_WINDOW_MS);
+  if (hits.length >= CONTACT_MAX_PER_WINDOW) return true;
+  hits.push(now);
+  contactHits.set(ip, hits);
+  // Evita a lista crescer para sempre com IPs que nunca voltam.
+  if (contactHits.size > 5000) {
+    for (const [k, v] of contactHits) {
+      if (v.every((t) => now - t >= CONTACT_WINDOW_MS)) contactHits.delete(k);
+    }
+  }
+  return false;
+}
+
+router.post('/api/contact', async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+
+  // Honeypot: campo invisível para humanos; bot que preencher recebe um "ok" falso.
+  if (typeof b.website === 'string' && b.website.trim() !== '') {
+    return res.json({ ok: true });
+  }
+
+  const name = String(b.name ?? '').trim();
+  const whatsapp = String(b.whatsapp ?? '').trim();
+  const email = String(b.email ?? '').trim();
+  const business = String(b.business ?? '').trim();
+  const message = String(b.message ?? '').trim();
+
+  if (name.length < 2 || name.length > 120) {
+    return res.status(400).json({ ok: false, error: 'Informe seu nome.' });
+  }
+  const phoneDigits = whatsapp.replace(/\D/g, '');
+  if (phoneDigits.length < 8 || whatsapp.length > 40) {
+    return res.status(400).json({ ok: false, error: 'Informe um WhatsApp válido, com DDD.' });
+  }
+  if (email && (email.length > 160 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    return res.status(400).json({ ok: false, error: 'E-mail inválido.' });
+  }
+  if (business.length > 160 || message.length > 2000) {
+    return res.status(400).json({ ok: false, error: 'Mensagem longa demais.' });
+  }
+
+  if (contactRateLimited(req.ip ?? 'desconhecido')) {
+    return res.status(429).json({ ok: false, error: 'Muitos envios seguidos — tente novamente mais tarde.' });
+  }
+
+  await getPool().query(
+    'INSERT INTO contact_leads (name, whatsapp, email, business, message) VALUES (?, ?, ?, ?, ?)',
+    [name, whatsapp, email || null, business || null, message || null],
+  );
+  res.json({ ok: true });
 });
 
 export default router;

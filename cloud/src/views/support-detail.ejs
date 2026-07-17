@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Katsu Cloud — Ticket #<%= ticket.id %></title>
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <style>
+    .chat-thread { display: flex; flex-direction: column; gap: .75rem; padding: 1.25rem; max-height: 55vh; overflow-y: auto; }
+    .chat-bubble { max-width: 72%; padding: .7rem 1rem; border-radius: 14px; font-size: .95rem; white-space: pre-wrap; }
+    .chat-bubble .meta { font-size: .72rem; color: var(--muted); margin-top: .35rem; }
+    .chat-bubble.cliente { align-self: flex-start; background: var(--surface-hover); border: 1px solid var(--border-light); border-bottom-left-radius: 4px; }
+    .chat-bubble.suporte { align-self: flex-end; background: var(--primary-soft); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-bottom-right-radius: 4px; }
+    .chat-bubble.suporte .meta { text-align: right; }
+    .reply-row { display: flex; gap: .6rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border-light); }
+    .reply-row textarea { flex: 1; resize: vertical; min-height: 44px; max-height: 160px; padding: .6rem .8rem; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; font-size: .95rem; }
+    .reply-row textarea:focus { outline: none; border-color: var(--primary); }
+    .ticket-meta { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; align-items: center; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'support' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'support' }) %>
+
+      <div class="page">
+        <div class="page-header" style="flex-wrap: wrap; gap: .75rem;">
+          <h1 style="display:flex; align-items:center; gap:.6rem;">
+            Ticket #<%= ticket.id %> — <%= ticket.subject %>
+            <span class="badge <%= ticket.status === 'aberto' ? 'pendente' : ticket.status === 'fechado' ? 'paga' : 'cancelada' %>"><%= ticket.status %></span>
+          </h1>
+          <div style="display:flex; gap:.5rem;">
+            <% if (ticket.status !== 'aberto') { %>
+            <form method="post" action="/admin/support/<%= ticket.id %>/status"><input type="hidden" name="status" value="aberto"><button class="btn small" type="submit">Reabrir</button></form>
+            <% } %>
+            <% if (ticket.status === 'aberto') { %>
+            <form method="post" action="/admin/support/<%= ticket.id %>/status"><input type="hidden" name="status" value="fechado"><button class="btn secondary small" type="submit">Fechar</button></form>
+            <% } %>
+            <% if (ticket.status !== 'arquivado') { %>
+            <form method="post" action="/admin/support/<%= ticket.id %>/status"><input type="hidden" name="status" value="arquivado"><button class="btn danger small" type="submit">Arquivar</button></form>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="ticket-meta" style="margin-bottom: 14px;">
+          <span>Empresa: <a href="/admin/companies/<%= ticket.company_uuid %>"><%= ticket.company_name || ticket.company_uuid %></a></span>
+          <span>Categoria: <%= ticket.category %></span>
+          <span>Aberto por: <%= ticket.created_by || '—' %></span>
+          <span>Criado em: <%= String(ticket.created_at).slice(0, 16) %></span>
+          <a href="/admin/support">← Voltar para a lista</a>
+        </div>
+
+        <div class="card" style="padding: 0;">
+          <div class="chat-thread" id="thread">
+            <% messages.forEach(function (m) { %>
+            <div class="chat-bubble <%= m.sender === 'suporte' ? 'suporte' : 'cliente' %>">
+              <div><%= m.body %></div>
+              <div class="meta"><%= m.sender === 'suporte' ? 'Suporte' : 'Cliente' %><%= m.sender_name ? ' · ' + m.sender_name : '' %> · <%= String(m.created_at).slice(0, 16) %></div>
+            </div>
+            <% }) %>
+          </div>
+          <form class="reply-row" method="post" action="/admin/support/<%= ticket.id %>/reply">
+            <textarea name="body" required maxlength="4000"
+                      placeholder="<%= ticket.status === 'arquivado' ? 'Ticket arquivado — reabra para responder.' : 'Escreva a resposta… (responder um ticket fechado reabre a conversa)' %>"
+                      <%= ticket.status === 'arquivado' ? 'disabled' : '' %>></textarea>
+            <button class="btn" type="submit" <%= ticket.status === 'arquivado' ? 'disabled' : '' %>>Responder</button>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    var thread = document.getElementById('thread');
+    thread.scrollTop = thread.scrollHeight;
+  </script>
+</body>
+</html>

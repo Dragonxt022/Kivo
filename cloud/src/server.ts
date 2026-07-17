@@ -8,6 +8,7 @@ import catalogRoutes from './routes/catalog';
 import adminRoutes from './routes/admin';
 import wikiRoutes from './routes/wiki';
 import landingRoutes from './routes/landing';
+import supportRoutes from './routes/support';
 import menuRoutes from './routes/menu';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
@@ -28,6 +29,7 @@ export function createCloudServer() {
   app.use('/api/backup', backupRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/catalog', catalogRoutes);
+  app.use('/api/support', supportRoutes);
   app.use('/admin', adminRoutes);
   return app;
 }

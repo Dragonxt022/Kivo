@@ -56,9 +56,76 @@
       border: 1.5px solid var(--border-light); border-radius: 10px; background: var(--surface-hover);
       color: var(--text); font-size: .88rem; font-weight: 500; text-decoration: none;
       transition: border-color var(--transition), color var(--transition);
+      cursor: pointer; width: 100%; text-align: left; font-family: inherit;
     }
     .help-chat-contact:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
     .help-chat-contact svg { color: var(--primary); flex-shrink: 0; }
+
+    /* ─── Chat de suporte ─── */
+    .fab-unread {
+      position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px;
+      border-radius: 999px; background: var(--danger); color: #fff;
+      font-size: .68rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+      padding: 0 5px; border: 2px solid var(--surface);
+    }
+    .support-dlg { width: min(420px, 94vw); padding: 0; overflow: hidden; }
+    .support-head {
+      background: var(--primary); color: #fff; padding: 1.1rem 1.25rem;
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .support-head h2 { margin: 0; font-size: 1.05rem; line-height: 1.3; }
+    .support-head .sub { font-size: .78rem; opacity: .9; }
+    .support-head .back-btn, .support-head .close-btn {
+      background: rgba(255,255,255,.18); border: none; color: #fff; cursor: pointer;
+      width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      flex: none;
+    }
+    .support-head .close-btn { margin-left: auto; }
+    .support-body { padding: 1.1rem 1.25rem; max-height: 60vh; overflow-y: auto; }
+    .support-ticket-item {
+      display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left;
+      padding: .6rem .8rem; border: 1.5px solid var(--border-light); border-radius: 10px;
+      background: var(--surface-hover); cursor: pointer; font-family: inherit; color: var(--text);
+      margin-bottom: .5rem; font-size: .86rem;
+    }
+    .support-ticket-item:hover { border-color: var(--primary); }
+    .support-ticket-item .t-subject { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .support-badge { font-size: .68rem; font-weight: 700; padding: .15rem .55rem; border-radius: 999px; flex: none; }
+    .support-badge.aberto { background: var(--warning-soft); color: var(--warning); }
+    .support-badge.fechado { background: var(--success-soft); color: var(--success); }
+    .support-badge.arquivado { background: var(--danger-soft); color: var(--danger); }
+    .support-unread-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); flex: none; }
+    .support-thread { display: flex; flex-direction: column; gap: .6rem; }
+    .support-bubble { max-width: 82%; padding: .55rem .85rem; border-radius: 12px; font-size: .88rem; white-space: pre-wrap; }
+    .support-bubble .meta { font-size: .68rem; color: var(--text-muted); margin-top: .25rem; }
+    .support-bubble.cliente { align-self: flex-end; background: color-mix(in srgb, var(--primary) 14%, transparent); border-bottom-right-radius: 4px; }
+    .support-bubble.suporte { align-self: flex-start; background: var(--surface-hover); border: 1px solid var(--border-light); border-bottom-left-radius: 4px; }
+    .support-input-row { display: flex; gap: .5rem; padding: .85rem 1.25rem; border-top: 1px solid var(--border-light); }
+    .support-input-row textarea {
+      flex: 1; resize: none; min-height: 42px; max-height: 120px; padding: .55rem .8rem;
+      border-radius: 10px; border: 1.5px solid var(--border-light); background: var(--surface-hover);
+      color: var(--text); font-family: inherit; font-size: .9rem;
+    }
+    .support-input-row textarea:focus { outline: none; border-color: var(--primary); }
+    .support-send-btn {
+      background: var(--primary); border: none; color: #fff; cursor: pointer; flex: none;
+      width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    }
+    .support-send-btn:disabled { opacity: .5; cursor: default; }
+    .support-form label { display: block; font-weight: 600; font-size: .85rem; margin: 0 0 .3rem; }
+    .support-form input, .support-form textarea {
+      width: 100%; padding: .6rem .8rem; border-radius: 10px; margin-bottom: .85rem;
+      border: 1.5px solid var(--border-light); background: var(--surface-hover);
+      color: var(--text); font-family: inherit; font-size: .9rem;
+    }
+    .support-form input:focus, .support-form textarea:focus { outline: none; border-color: var(--primary); }
+    .support-form textarea { resize: vertical; min-height: 90px; }
+    .support-note { font-size: .8rem; color: var(--text-muted); text-align: center; padding: .6rem 1.25rem .9rem; }
+    .support-closed-note {
+      text-align: center; font-size: .82rem; color: var(--text-muted);
+      padding: .6rem; border-top: 1px solid var(--border-light);
+    }
+    .support-error { color: var(--danger); font-size: .82rem; margin-top: .4rem; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -166,22 +233,64 @@
   </div>
   <% } %>
 
-  <div x-data="helpChat()">
-    <button type="button" class="fab" title="Ajuda" @click="open()">
+  <% if (user) { %>
+  <div x-data="helpChat()" x-init="init()">
+    <button type="button" class="fab" title="Ajuda e suporte" @click="open()">
       <img src="/icons/chat.svg" width="22" height="22" alt="" />
+      <span class="fab-unread" x-show="unread > 0" x-text="unread > 9 ? '9+' : unread" x-cloak></span>
     </button>
 
-    <dialog x-ref="dlg" style="width:360px">
-      <div class="dialog-body-center">
-        <div class="dialog-icon dialog-icon-primary">
-          <img src="/icons/chat.svg" width="22" height="22" alt="" />
+    <dialog x-ref="dlg" class="support-dlg" @close="stopPolling()">
+      <div class="support-head">
+        <button type="button" class="back-btn" x-show="view !== 'home'" @click="goHome()" title="Voltar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div style="min-width:0">
+          <h2 x-text="view === 'chat' ? ticket.subject : (view === 'new' ? novoTitulo() : 'Suporte Katsu')"></h2>
+          <div class="sub" x-show="view === 'home'">Normalmente respondemos em poucas horas</div>
+          <div class="sub" x-show="view === 'chat'" x-text="'Ticket #' + ticket.id + ' · ' + ticket.status"></div>
         </div>
-        <h2 class="dialog-heading-md">Oi! 👋</h2>
-        <p class="dialog-muted">
-          Nosso chat de suporte ainda está a caminho — em breve você vai poder falar com a
-          gente direto por aqui. Por enquanto, é só chamar pelos contatos abaixo:
+        <button type="button" class="close-btn" @click="$refs.dlg.close()" title="Fechar">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- ─── Boas-vindas + atalhos ─── -->
+      <div class="support-body" x-show="view === 'home'">
+        <p style="margin:.1rem 0 1rem; font-size:.92rem">
+          Oi<span x-text="userName ? ', ' + userName : ''"></span>! 👋 Como podemos ajudar hoje?
         </p>
-        <div class="help-chat-contacts">
+
+        <div class="help-chat-contacts" style="margin-bottom:1rem">
+          <button type="button" class="help-chat-contact" @click="newTicket('suporte')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span><strong>Ajuda e suporte</strong><br /><span class="muted text-xs">Dúvida ou problema? Abra um chamado.</span></span>
+          </button>
+          <button type="button" class="help-chat-contact" @click="newTicket('sugestao')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/><line x1="9" y1="22" x2="15" y2="22"/></svg>
+            <span><strong>Sugestões e melhorias</strong><br /><span class="muted text-xs">Sua ideia pode virar recurso do Katsu.</span></span>
+          </button>
+          <button type="button" class="help-chat-contact" @click="shareWithFriend()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span><strong x-text="shared ? 'Link copiado! ✔' : 'Compartilhar com um amigo'"></strong><br /><span class="muted text-xs">Indique o Katsu para quem você gosta.</span></span>
+          </button>
+        </div>
+
+        <template x-if="tickets.length">
+          <div>
+            <p class="muted text-xs" style="margin:.25rem 0 .5rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em">Meus atendimentos</p>
+            <template x-for="t in tickets" :key="t.id">
+              <button type="button" class="support-ticket-item" @click="openTicket(t.id)">
+                <span class="support-unread-dot" x-show="t.client_unread > 0"></span>
+                <span class="t-subject" x-text="t.subject"></span>
+                <span class="support-badge" :class="t.status" x-text="t.status"></span>
+              </button>
+            </template>
+          </div>
+        </template>
+
+        <div class="help-chat-contacts" x-show="email || phone" style="margin-top:1rem">
+          <p class="muted text-xs" style="margin:0 0 .25rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em">Outros canais</p>
           <a :href="'mailto:' + email" class="help-chat-contact" x-show="email">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>
             <span x-text="email"></span>
@@ -190,14 +299,56 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
             <span x-text="phone"></span>
           </a>
-          <p class="muted text-xs" x-show="loaded && !email && !phone">Contato de suporte ainda não configurado.</p>
         </div>
-        <div class="actions actions-center">
-          <button type="button" class="btn" @click="$refs.dlg.close()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Entendi</button>
+        <div class="support-error" x-text="error"></div>
+      </div>
+
+      <!-- ─── Novo ticket ─── -->
+      <div class="support-body" x-show="view === 'new'">
+        <form class="support-form" @submit.prevent="createTicket()">
+          <label for="sup-subject">Assunto</label>
+          <input id="sup-subject" type="text" x-model="form.subject" maxlength="160" required
+                 :placeholder="form.category === 'sugestao' ? 'Ex.: Sugestão para o PDV' : 'Ex.: Dúvida no fechamento do caixa'" />
+          <label for="sup-message">Como podemos ajudar?</label>
+          <textarea id="sup-message" x-model="form.message" maxlength="4000" required
+                    placeholder="Descreva com detalhes — quanto mais contexto, mais rápido resolvemos."></textarea>
+          <button type="submit" class="btn" style="width:100%; justify-content:center" :disabled="sending">
+            <span x-text="sending ? 'Abrindo chamado…' : 'Abrir chamado'"></span>
+          </button>
+          <div class="support-error" x-text="error"></div>
+        </form>
+      </div>
+
+      <!-- ─── Conversa ─── -->
+      <div x-show="view === 'chat'">
+        <div class="support-body support-thread" x-ref="thread">
+          <template x-for="m in messages" :key="m.id">
+            <div class="support-bubble" :class="m.sender === 'cliente' ? 'cliente' : 'suporte'">
+              <div x-text="m.body"></div>
+              <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Katsu' : (m.sender_name || 'Você')) + ' · ' + String(m.created_at).slice(0, 16).replace('T', ' ')"></div>
+            </div>
+          </template>
+          <p class="muted text-xs" x-show="!messages.length" style="text-align:center">Carregando conversa…</p>
         </div>
+        <div class="support-input-row" x-show="ticket.status === 'aberto'">
+          <textarea x-model="draft" x-ref="draftBox" placeholder="Escreva sua mensagem…" maxlength="4000"
+                    @keydown.enter.prevent="if (!$event.shiftKey) sendMessage(); else draft += '\n'"></textarea>
+          <button type="button" class="support-send-btn" @click="sendMessage()" :disabled="sending || !draft.trim()" title="Enviar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </div>
+        <div class="support-note" x-show="ticket.status === 'aberto'">
+          <button type="button" class="btn secondary small" @click="closeTicket()">Encerrar atendimento</button>
+        </div>
+        <div class="support-closed-note" x-show="ticket.status !== 'aberto'">
+          Este atendimento foi encerrado. Precisa de mais ajuda?
+          <a href="#" @click.prevent="newTicket('suporte')">Abra um novo chamado</a>.
+        </div>
+        <div class="support-error" x-text="error" style="padding:0 1.25rem .75rem"></div>
       </div>
     </dialog>
   </div>
+  <% } %>
 
   <% if (user && user.permissions.has('settings.edit')) { %>
   <script src="/js/onboarding.js"></script>
@@ -402,21 +553,146 @@
 
     function helpChat() {
       return {
-        email: '', phone: '', loaded: false,
+        view: 'home',
+        userName: <%- JSON.stringify(typeof user !== 'undefined' && user ? (user.name || '').split(' ')[0] : '') %>,
+        tickets: [], unread: 0,
+        ticket: { id: 0, subject: '', status: '' }, messages: [],
+        form: { subject: '', message: '', category: 'suporte' },
+        draft: '', sending: false, error: '', shared: false,
+        email: '', phone: '', contactsLoaded: false,
+        pollTimer: null,
+
+        async api(path, opts) {
+          const r = await fetch('/api/support' + path, opts ? {
+            method: opts.method || 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+          } : undefined);
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || j.success === false) throw new Error(j.error || 'Falha ao falar com o suporte.');
+          return j.data !== undefined ? j.data : j;
+        },
+
+        async init() {
+          // Badge de não-lidas no botão flutuante; silencioso se offline/sem licença.
+          try { await this.refreshTickets(); } catch (e) {}
+        },
+        async refreshTickets() {
+          const d = await this.api('/tickets');
+          this.tickets = d.tickets || [];
+          this.unread = this.tickets.reduce((n, t) => n + (t.client_unread || 0), 0);
+        },
+
         async open() {
+          this.error = '';
           this.$refs.dlg.showModal();
-          if (this.loaded) return;
-          try {
-            const r = await fetch('/api/license/status');
-            if (r.ok) {
-              const d = await r.json();
-              this.email = d.supportEmail || '';
-              this.phone = d.supportPhone || '';
-            }
-          } catch (e) {
-            // sem sessão/rede — o modal segue com a mensagem amigável, só sem os contatos
+          try { await this.refreshTickets(); } catch (e) { this.error = e.message; }
+          if (!this.contactsLoaded) {
+            try {
+              const r = await fetch('/api/license/status');
+              if (r.ok) {
+                const d = await r.json();
+                const s = d.data !== undefined ? d.data : d;
+                this.email = s.supportEmail || '';
+                this.phone = s.supportPhone || '';
+              }
+            } catch (e) { /* sem contatos, segue o jogo */ }
+            this.contactsLoaded = true;
           }
-          this.loaded = true;
+        },
+
+        goHome() {
+          this.stopPolling();
+          this.view = 'home';
+          this.error = '';
+          this.refreshTickets().catch(() => {});
+        },
+        novoTitulo() {
+          return this.form.category === 'sugestao' ? 'Sugestões e melhorias' : 'Ajuda e suporte';
+        },
+
+        newTicket(category) {
+          this.form = { subject: '', message: '', category };
+          this.error = '';
+          this.view = 'new';
+        },
+        async createTicket() {
+          if (this.sending) return;
+          this.sending = true; this.error = '';
+          try {
+            const d = await this.api('/tickets', { body: this.form });
+            await this.openTicket(d.id);
+          } catch (e) { this.error = e.message; }
+          this.sending = false;
+        },
+
+        async openTicket(id) {
+          this.error = '';
+          this.view = 'chat';
+          this.messages = [];
+          this.ticket = { id, subject: '…', status: '' };
+          try {
+            await this.loadMessages(id);
+            this.startPolling();
+            this.$nextTick(() => this.$refs.draftBox && this.$refs.draftBox.focus());
+          } catch (e) { this.error = e.message; }
+        },
+        async loadMessages(id) {
+          const d = await this.api('/tickets/' + id + '/messages');
+          this.ticket = d.ticket;
+          const atBottom = this.isThreadAtBottom();
+          const grew = (d.messages || []).length !== this.messages.length;
+          this.messages = d.messages || [];
+          if (grew && atBottom) this.$nextTick(() => this.scrollThread());
+        },
+        async sendMessage() {
+          const body = this.draft.trim();
+          if (!body || this.sending) return;
+          this.sending = true; this.error = '';
+          try {
+            await this.api('/tickets/' + this.ticket.id + '/messages', { body: { body } });
+            this.draft = '';
+            await this.loadMessages(this.ticket.id);
+            this.scrollThread();
+          } catch (e) { this.error = e.message; }
+          this.sending = false;
+        },
+        async closeTicket() {
+          if (!confirm('Encerrar este atendimento? Você pode abrir um novo chamado quando quiser.')) return;
+          try {
+            await this.api('/tickets/' + this.ticket.id + '/close', { body: {} });
+            await this.loadMessages(this.ticket.id);
+          } catch (e) { this.error = e.message; }
+        },
+
+        startPolling() {
+          this.stopPolling();
+          // Novas respostas do suporte aparecem sem recarregar; só enquanto a conversa está aberta.
+          this.pollTimer = setInterval(() => {
+            if (this.view === 'chat' && this.$refs.dlg.open) this.loadMessages(this.ticket.id).catch(() => {});
+          }, 5000);
+        },
+        stopPolling() {
+          if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+        },
+        isThreadAtBottom() {
+          const el = this.$refs.thread;
+          return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+        },
+        scrollThread() {
+          const el = this.$refs.thread;
+          if (el) el.scrollTop = el.scrollHeight;
+        },
+
+        async shareWithFriend() {
+          try {
+            const d = await this.api('/share-link');
+            await navigator.clipboard.writeText(
+              'Conhece o Katsu? É o sistema que eu uso para PDV, estoque e financeiro — funciona até sem internet. Dá uma olhada: ' + d.url,
+            );
+            this.shared = true;
+            setTimeout(() => { this.shared = false; }, 2500);
+          } catch (e) { this.error = 'Não consegui copiar o link.'; }
         },
       };
     }

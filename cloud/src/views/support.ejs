@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Katsu Cloud — Suporte</title>
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'support' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'support' }) %>
+
+      <div class="page" x-data="supportPage()">
+        <div class="page-header">
+          <h1>Suporte</h1>
+        </div>
+        <p class="field-hint" style="margin-top:0">
+          Tickets abertos pelo chat de suporte dentro do Katsu. A conversa inteira fica registrada —
+          quem escreveu, quando e o quê. Clique num ticket para responder.
+        </p>
+
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <input type="text" class="input-search" placeholder="Buscar por empresa, assunto ou autor…" x-model="q">
+          <select x-model="statusFilter">
+            <option value="">Ativos (abertos e fechados)</option>
+            <option value="aberto">Abertos</option>
+            <option value="fechado">Fechados</option>
+            <option value="arquivado">Arquivados</option>
+          </select>
+        </div>
+
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead><tr>
+              <th class="sortable" @click="sortCycle('last_message_at')">Última mensagem<span class="sort-arrow" x-text="sortArrow('last_message_at')"></span></th>
+              <th class="sortable" @click="sortCycle('company_name')">Empresa<span class="sort-arrow" x-text="sortArrow('company_name')"></span></th>
+              <th>Assunto</th>
+              <th>Categoria</th>
+              <th>Aberto por</th>
+              <th class="sortable" @click="sortCycle('status')">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="t in displayRows" :key="t.id">
+                <tr>
+                  <td class="muted" x-text="(t.last_message_at || '').slice(0, 16)"></td>
+                  <td>
+                    <a :href="'/admin/companies/' + t.company_uuid" x-text="t.company_name || t.company_uuid.slice(0, 8) + '…'"></a>
+                    <span class="badge pendente" x-show="t.admin_unread > 0" x-text="t.admin_unread + ' nova(s)'" style="margin-left:.4rem"></span>
+                  </td>
+                  <td><a :href="'/admin/support/' + t.id"><strong x-text="t.subject"></strong></a></td>
+                  <td class="muted" x-text="categoryLabels[t.category] || t.category"></td>
+                  <td class="muted" x-text="t.created_by || '—'"></td>
+                  <td><span class="badge" :class="statusBadge[t.status] || 'pendente'" x-text="t.status"></span></td>
+                  <td class="text-right"><a class="btn small" :href="'/admin/support/' + t.id">Abrir conversa</a></td>
+                </tr>
+              </template>
+              <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum ticket por aqui — quando um cliente abrir um chamado pelo chat do Katsu, ele aparece nesta lista.' }) %></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function supportPage() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(tickets) %>,
+        q: '',
+        statusFilter: '',
+        statusBadge: { aberto: 'pendente', fechado: 'paga', arquivado: 'cancelada' },
+        categoryLabels: { suporte: 'Ajuda e suporte', sugestao: 'Sugestão/melhoria', outro: 'Outro' },
+        sortGetters: {
+          last_message_at: (t) => t.last_message_at ?? '',
+          company_name: (t) => t.company_name || t.company_uuid,
+          status: (t) => t.status,
+        },
+        get displayRows() {
+          const q = this.q.trim().toLowerCase();
+          let filtered = this.statusFilter
+            ? this.rows.filter((t) => t.status === this.statusFilter)
+            : this.rows.filter((t) => t.status !== 'arquivado');
+          if (q) {
+            filtered = filtered.filter((t) =>
+              (t.company_name || '').toLowerCase().includes(q)
+              || t.subject.toLowerCase().includes(q)
+              || (t.created_by || '').toLowerCase().includes(q));
+          }
+          return this.sortedRows(filtered, this.sortGetters);
+        },
+      };
+    }
+  </script>
+</body>
+</html>

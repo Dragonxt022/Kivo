@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Katsu Cloud — Leads</title>
+  <link rel="icon" href="/favicon.png">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'leads' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'leads' }) %>
+
+      <div class="page" x-data="leadsPage()">
+        <div class="page-header">
+          <h1>Leads</h1>
+        </div>
+        <p class="field-hint" style="margin-top:0">
+          Contatos deixados no formulário da página de vendas. Chame no WhatsApp e atualize o status
+          para o time saber quem já foi atendido.
+        </p>
+
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <input type="text" class="input-search" placeholder="Buscar por nome, WhatsApp ou negócio…" x-model="q">
+          <select x-model="statusFilter">
+            <option value="">Todos os status</option>
+            <option value="novo">Novos</option>
+            <option value="contatado">Contatados</option>
+            <option value="convertido">Convertidos</option>
+            <option value="descartado">Descartados</option>
+          </select>
+        </div>
+
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead><tr>
+              <th class="sortable" @click="sortCycle('created_at')">Quando<span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
+              <th class="sortable" @click="sortCycle('name')">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+              <th>WhatsApp</th>
+              <th>Negócio</th>
+              <th>Mensagem</th>
+              <th class="sortable" @click="sortCycle('status')">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="l in displayRows" :key="l.id">
+                <tr>
+                  <td class="muted" x-text="(l.created_at || '').slice(0, 16)"></td>
+                  <td><strong x-text="l.name"></strong><div class="muted" x-show="l.email" x-text="l.email"></div></td>
+                  <td><a :href="'https://wa.me/55' + l.whatsapp.replace(/\D/g, '')" target="_blank" rel="noopener" x-text="l.whatsapp"></a></td>
+                  <td x-text="l.business || '—'"></td>
+                  <td class="muted" style="max-width: 260px; white-space: pre-wrap;" x-text="l.message || '—'"></td>
+                  <td><span class="badge" :class="statusBadge[l.status] || 'pendente'" x-text="l.status"></span></td>
+                  <td class="text-right" style="white-space: nowrap;">
+                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" style="display:inline" x-show="l.status === 'novo'">
+                      <input type="hidden" name="status" value="contatado">
+                      <button type="submit" class="btn small">Contatado</button>
+                    </form>
+                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" style="display:inline" x-show="l.status === 'contatado'">
+                      <input type="hidden" name="status" value="convertido">
+                      <button type="submit" class="btn small">Convertido</button>
+                    </form>
+                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" style="display:inline" x-show="l.status !== 'descartado' && l.status !== 'convertido'">
+                      <input type="hidden" name="status" value="descartado">
+                      <button type="submit" class="btn secondary small">Descartar</button>
+                    </form>
+                    <form method="post" :action="'/admin/leads/' + l.id + '/delete'" style="display:inline"
+                          @submit.prevent="if (confirm('Excluir definitivamente o lead de ' + l.name + '?')) $el.submit()">
+                      <button type="submit" class="btn danger small">Excluir</button>
+                    </form>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum lead ainda — quando alguém preencher o formulário da página de vendas, aparece aqui.' }) %></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function leadsPage() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(leads) %>,
+        q: '',
+        statusFilter: '',
+        statusBadge: { novo: 'pendente', contatado: 'paga', convertido: 'paga', descartado: 'cancelada' },
+        sortGetters: {
+          created_at: (l) => l.created_at ?? '', name: (l) => l.name, status: (l) => l.status,
+        },
+        get displayRows() {
+          const q = this.q.trim().toLowerCase();
+          let filtered = this.rows;
+          if (this.statusFilter) filtered = filtered.filter((l) => l.status === this.statusFilter);
+          if (q) {
+            filtered = filtered.filter((l) =>
+              l.name.toLowerCase().includes(q)
+              || l.whatsapp.toLowerCase().includes(q)
+              || (l.business || '').toLowerCase().includes(q));
+          }
+          return this.sortedRows(filtered, this.sortGetters);
+        },
+      };
+    }
+  </script>
+</body>
+</html>
