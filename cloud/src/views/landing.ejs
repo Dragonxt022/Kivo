@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Katsu — PDV, estoque, financeiro e mesas num só sistema</title>
+  <meta name="description" content="Katsu: sistema completo para comércio e food service. PDV rápido, gestão de estoque, compras inteligentes, DRE, caixa, mesas, cardápio online. Funciona offline e salva na nuvem. Teste grátis por 15 dias." />
+  <link rel="icon" href="/favicon.png" />
+  <%- include('partials/theme-init') %>
+  <style>
+    :root {
+      --bg: #f2f0f1;
+      --surface: #ffffff;
+      --border: #d4d4d8;
+      --border-light: #eae8ea;
+      --text: #1e1e2a;
+      --muted: #8a8a98;
+      --primary: #00c951;
+      --primary-hover: #00b048;
+      --primary-soft: color-mix(in srgb, #00c951 10%, transparent);
+      --radius: 14px;
+      --shadow: 0 4px 16px rgba(0,0,0,.07);
+      --shadow-lg: 0 24px 64px rgba(0,0,0,.18);
+      --glass-bg: rgba(255,255,255,.72);
+      --glass-border: rgba(255,255,255,.7);
+    }
+    :root[data-theme="dark"] {
+      --bg: #14161c;
+      --surface: #1c1f26;
+      --border: #383c46;
+      --border-light: #2a2d36;
+      --text: #ececf0;
+      --muted: #8a8a97;
+      --primary-hover: #1ee066;
+      --shadow: 0 4px 16px rgba(0,0,0,.4);
+      --shadow-lg: 0 24px 64px rgba(0,0,0,.55);
+      --glass-bg: rgba(32,36,45,.72);
+      --glass-border: rgba(255,255,255,.09);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg); color: var(--text); margin: 0; line-height: 1.6;
+    }
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background:
+        radial-gradient(760px circle at 8% -6%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 62%),
+        radial-gradient(680px circle at 96% 4%, color-mix(in srgb, #3b82f6 12%, transparent), transparent 60%),
+        radial-gradient(720px circle at 62% 108%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 60%);
+    }
+    a { color: var(--primary); text-decoration: none; }
+    img { max-width: 100%; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 1.25rem; }
+
+    /* ─── Topbar ─── */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--glass-bg); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border-light);
+    }
+    .topbar-in { display: flex; align-items: center; gap: 1.5rem; height: 64px; }
+    .brand { display: flex; align-items: center; gap: .6rem; font-weight: 800; font-size: 1.2rem; color: var(--text); }
+    .brand img { height: 34px; }
+    .nav { display: flex; gap: 1.25rem; margin-left: auto; align-items: center; }
+    .nav a { color: var(--muted); font-weight: 600; font-size: .95rem; }
+    .nav a:hover { color: var(--text); }
+    @media (max-width: 760px) {
+      .nav { gap: .75rem; }
+      .nav a:not(.btn) { display: none; }
+      .brand img { height: 28px; }
+    }
+    .theme-btn {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 999px; width: 36px; height: 36px; cursor: pointer; font-size: 1rem;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem; font-weight: 700;
+      background: var(--primary); color: #fff; border: none; cursor: pointer;
+      padding: .7rem 1.3rem; border-radius: 999px; font-size: 1rem;
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 35%, transparent);
+      transition: transform .12s, background .15s;
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn.secondary {
+      background: var(--surface); color: var(--text); border: 1.5px solid var(--border); box-shadow: none;
+    }
+    .btn.big { padding: .95rem 1.9rem; font-size: 1.1rem; }
+
+    /* ─── Hero ─── */
+    .hero { padding: 4.5rem 0 2.5rem; text-align: center; }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.15; margin: 0 0 1rem; letter-spacing: -.02em; }
+    .hero h1 em { color: var(--primary); font-style: normal; }
+    .hero p.sub { font-size: clamp(1.05rem, 2vw, 1.3rem); color: var(--muted); max-width: 46rem; margin: 0 auto 2rem; }
+    .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-bottom: .75rem; }
+    .hero-note { color: var(--muted); font-size: .9rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; margin: 2rem 0 3rem; }
+    .chip {
+      background: var(--surface); border: 1px solid var(--border-light); border-radius: 999px;
+      padding: .4rem 1rem; font-size: .9rem; font-weight: 600; color: var(--text);
+      box-shadow: var(--shadow); display: inline-flex; align-items: center; gap: .45rem;
+    }
+    .chip svg { color: var(--primary); flex: none; }
+
+    .shot-frame {
+      background: var(--surface); border: 1px solid var(--border-light); border-radius: 18px;
+      box-shadow: var(--shadow-lg); overflow: hidden; position: relative;
+    }
+    .shot-frame .bar {
+      display: flex; gap: .4rem; padding: .65rem .9rem; border-bottom: 1px solid var(--border-light);
+      background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+    }
+    .shot-frame .bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--border); display: block; }
+    .shot-frame .bar i:nth-child(1) { background: #ff5f57; } .shot-frame .bar i:nth-child(2) { background: #febc2e; } .shot-frame .bar i:nth-child(3) { background: #28c840; }
+    .shot-frame img { display: block; width: 100%; }
+    :root[data-theme="dark"] .theme-swap .shot-light { display: none; }
+    :root:not([data-theme="dark"]) .theme-swap .shot-dark { display: none; }
+    :root[data-theme="dark"] .logo-light { display: none; }
+    :root:not([data-theme="dark"]) .logo-dark { display: none; }
+
+    /* ─── Seções de recurso ─── */
+    section { padding: 3.5rem 0; }
+    .kicker { color: var(--primary); font-weight: 800; text-transform: uppercase; font-size: .8rem; letter-spacing: .12em; margin-bottom: .4rem; }
+    h2 { font-size: clamp(1.5rem, 3.2vw, 2.2rem); line-height: 1.2; margin: 0 0 .75rem; letter-spacing: -.01em; }
+    .feature { display: grid; grid-template-columns: 1fr 1.25fr; gap: 3rem; align-items: center; margin-bottom: 4.5rem; }
+    .feature:last-child { margin-bottom: 0; }
+    .feature.flip .feat-text { order: 2; }
+    .feature p { color: var(--muted); font-size: 1.05rem; }
+    .feature ul { list-style: none; padding: 0; margin: 1.25rem 0 0; display: grid; gap: .6rem; }
+    .feature li { display: flex; gap: .6rem; align-items: flex-start; font-size: .98rem; }
+    .feature li svg { color: var(--primary); flex: none; margin-top: .25rem; }
+    @media (max-width: 860px) {
+      .feature { grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 3rem; }
+      .feature.flip .feat-text { order: 0; }
+    }
+
+    /* ─── Cardápio (mockup celular) ─── */
+    .menu-split { display: grid; grid-template-columns: 1.2fr 1fr; gap: 3rem; align-items: center; }
+    @media (max-width: 860px) { .menu-split { grid-template-columns: 1fr; } }
+    .phone {
+      width: min(320px, 86vw); margin: 0 auto; border-radius: 42px; padding: .8rem;
+      background: var(--surface); border: 1px solid var(--border-light); box-shadow: var(--shadow-lg);
+    }
+    .phone-screen { border-radius: 32px; overflow: hidden; border: 1px solid var(--border-light); background: var(--bg); }
+    .phone-head { background: var(--primary); color: #fff; padding: 1.4rem 1.1rem 1rem; }
+    .phone-head .rest { font-weight: 800; font-size: 1.05rem; }
+    .phone-head .status { font-size: .75rem; opacity: .9; }
+    .phone-cats { display: flex; gap: .4rem; padding: .7rem .9rem 0; flex-wrap: wrap; }
+    .phone-cats span { font-size: .7rem; font-weight: 700; padding: .25rem .7rem; border-radius: 999px; background: var(--surface); border: 1px solid var(--border-light); color: var(--muted); }
+    .phone-cats span.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .menu-item { display: flex; gap: .7rem; align-items: center; padding: .7rem .9rem; }
+    .menu-item + .menu-item { border-top: 1px solid var(--border-light); }
+    .menu-item img { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; flex: none; }
+    .menu-item .n { font-weight: 700; font-size: .84rem; line-height: 1.25; }
+    .menu-item .d { color: var(--muted); font-size: .72rem; }
+    .menu-item .p { margin-left: auto; font-weight: 800; color: var(--primary); font-size: .84rem; white-space: nowrap; }
+
+    /* ─── Grid de destaques ─── */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.25rem; margin-top: 2rem; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
+      padding: 1.5rem; box-shadow: var(--shadow);
+    }
+    .card .ico {
+      width: 44px; height: 44px; border-radius: 12px; background: var(--primary-soft);
+      display: flex; align-items: center; justify-content: center; color: var(--primary); margin-bottom: .9rem;
+    }
+    .card h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .92rem; }
+
+    /* ─── Planos ─── */
+    .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.25rem; margin-top: 2rem; }
+    .plan {
+      background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius);
+      padding: 1.75rem 1.5rem; box-shadow: var(--shadow); display: flex; flex-direction: column;
+    }
+    .plan.featured { border-color: var(--primary); position: relative; }
+    .plan.featured::before {
+      content: "Mais escolhido"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--primary); color: #fff; font-size: .72rem; font-weight: 800;
+      padding: .2rem .8rem; border-radius: 999px; white-space: nowrap;
+    }
+    .plan h3 { margin: 0 0 .25rem; font-size: 1.2rem; }
+    .plan .tag { color: var(--muted); font-size: .85rem; margin-bottom: 1rem; }
+    .plan ul { list-style: none; padding: 0; margin: 0 0 1.5rem; display: grid; gap: .5rem; flex: 1; }
+    .plan li { display: flex; gap: .5rem; font-size: .9rem; align-items: flex-start; }
+    .plan li svg { flex: none; margin-top: .3rem; }
+    .plan li.yes svg { color: var(--primary); }
+    .plan li.no { color: var(--muted); }
+    .plan li.no svg { color: var(--border); }
+    .plan .btn { justify-content: center; }
+
+    /* ─── FAQ ─── */
+    .faq { max-width: 46rem; margin: 2rem auto 0; }
+    .faq details {
+      background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
+      padding: 1rem 1.25rem; margin-bottom: .75rem; box-shadow: var(--shadow);
+    }
+    .faq summary { font-weight: 700; cursor: pointer; }
+    .faq details p { color: var(--muted); margin: .75rem 0 0; }
+
+    /* ─── CTA final ─── */
+    .cta-final {
+      text-align: center; background: var(--surface); border: 1px solid var(--border-light);
+      border-radius: 22px; padding: 3.5rem 1.5rem; box-shadow: var(--shadow-lg);
+      position: relative; overflow: hidden;
+    }
+    .cta-final::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(600px circle at 50% -20%, var(--primary-soft), transparent 70%);
+    }
+    footer { padding: 2.5rem 0 3rem; color: var(--muted); font-size: .9rem; }
+    .foot-in { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-light); padding-top: 1.75rem; }
+    .center { text-align: center; }
+    .center h2 { margin-bottom: .5rem; }
+    .center > p { color: var(--muted); max-width: 44rem; margin: 0 auto; }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="/">
+        <img class="logo-light" src="/img/landing/katsu_logo.png" alt="Katsu" />
+        <img class="logo-dark" src="/img/landing/logo_marca_branco.png" alt="Katsu" />
+      </a>
+      <nav class="nav">
+        <a href="#recursos">Recursos</a>
+        <a href="#planos">Planos</a>
+        <a href="/wiki">Wiki</a>
+        <a href="#faq">FAQ</a>
+        <button class="theme-btn" onclick="toggleTheme()" title="Alternar tema" aria-label="Alternar tema claro/escuro">◐</button>
+        <a class="btn" href="<%= downloadUrl %>">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar grátis
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="wrap">
+      <h1>O sistema completo para<br /><em>vender, controlar e crescer</em></h1>
+      <p class="sub">
+        PDV rápido, estoque inteligente, financeiro, mesas e cardápio online — tudo num só lugar.
+        Funciona <strong>sem internet</strong> e, quando conectado, salva tudo automaticamente na nuvem.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn big" href="<%= downloadUrl %>">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar para Windows — v<%= appVersion %>
+        </a>
+        <a class="btn big secondary" href="#recursos">Conhecer os recursos</a>
+      </div>
+      <div class="hero-note">✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração de dados inclusa</div>
+
+      <div class="chips">
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Nuvem automática</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Treinamento e suporte 24/7</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Wiki bem documentada</span>
+      </div>
+
+      <div class="shot-frame theme-swap">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <img class="shot-light" src="/img/landing/pdv.png" alt="PDV do Katsu com carrinho de venda montado" />
+        <img class="shot-dark" src="/img/landing/pdv-dark.png" alt="PDV do Katsu no tema escuro" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── RECURSOS ─── -->
+  <section id="recursos">
+    <div class="wrap">
+
+      <div class="center" style="margin-bottom:3.5rem">
+        <div class="kicker">Recursos</div>
+        <h2>Tudo o que o seu negócio precisa, de verdade</h2>
+        <p>Telas reais do sistema, sem maquiagem: é assim que o Katsu funciona no dia a dia do seu balcão, da sua cozinha e do seu escritório.</p>
+      </div>
+
+      <div class="feature">
+        <div class="feat-text">
+          <div class="kicker">PDV</div>
+          <h2>Frente de caixa veloz, feita para o balcão</h2>
+          <p>Bipe o código de barras ou busque pelo nome. Atalhos de teclado para tudo — finalizar, desconto, acréscimo, imprimir — e várias vendas abertas ao mesmo tempo.</p>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Dinheiro, PIX, débito, crédito e venda a prazo</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Complementos e adicionais direto no carrinho</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Preço por cliente, listas de preço e fidelidade</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Continua vendendo mesmo se a internet cair</li>
+          </ul>
+        </div>
+        <div class="shot-frame theme-swap">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img class="shot-light" loading="lazy" src="/img/landing/pdv.png" alt="PDV do Katsu" />
+          <img class="shot-dark" loading="lazy" src="/img/landing/pdv-dark.png" alt="PDV do Katsu no tema escuro" />
+        </div>
+      </div>
+
+      <div class="feature flip">
+        <div class="feat-text">
+          <div class="kicker">Catálogo</div>
+          <h2>Cadastro de produtos com todos os tipos</h2>
+          <p>Produto simples, kit, combo, fracionado, produzido com ficha técnica, serviço, variantes e complementos. Importação e exportação por planilha.</p>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <strong>Sugestor de imagens inteligente:</strong> cadastrou "Coca-Cola"? A foto certa aparece sozinha</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Cadastro rápido bipando o código de barras</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Ficha técnica desconta insumos do estoque a cada venda</li>
+          </ul>
+        </div>
+        <div class="shot-frame">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img loading="lazy" src="/img/landing/produtos.png" alt="Cadastro de produtos do Katsu com fotos, preços, custos e estoque" />
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feat-text">
+          <div class="kicker">Compras &amp; Estoque</div>
+          <h2>Reponha o estoque do jeito inteligente</h2>
+          <p>Lance a compra do fornecedor e o Katsu faz o resto: entrada no estoque, atualização do custo pelo <strong>custo médio ponderado</strong> e alerta de estoque mínimo.</p>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Compra em rascunho para cotação, recebimento em um clique</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Histórico de movimentações item a item</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Custo real refletido direto na margem do DRE</li>
+          </ul>
+        </div>
+        <div class="shot-frame">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img loading="lazy" src="/img/landing/compras.png" alt="Tela de compras do Katsu com pedidos recebidos e em rascunho" />
+        </div>
+      </div>
+
+      <div class="feature flip">
+        <div class="feat-text">
+          <div class="kicker">Financeiro</div>
+          <h2>Caixa com relatório completo, sem surpresa no fechamento</h2>
+          <p>Abertura com fundo de troco, sangria, suprimento e cada venda registrada na gaveta. No fechamento, o esperado contra o contado — diferença na cara, na hora.</p>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Histórico de fechamentos com busca e filtros</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Contas a pagar e a receber com vencimentos</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fluxo de caixa por dia e por forma de pagamento</li>
+          </ul>
+        </div>
+        <div class="shot-frame">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img loading="lazy" src="/img/landing/caixa.png" alt="Relatório de caixa do Katsu com movimentações e histórico de fechamentos" />
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="feat-text">
+          <div class="kicker">DRE</div>
+          <h2>Quanto o negócio deu de lucro? O DRE responde</h2>
+          <p>Receita, CMV e margem calculados automaticamente a partir das vendas e compras — sem planilha, sem contador de plantão. E ainda dá para simular cenários com ajustes por categoria.</p>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> CMV pelo custo real de cada item vendido</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Coluna projetada para simular aumento de preço ou corte de custo</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Impressão pronta para levar ao contador</li>
+          </ul>
+        </div>
+        <div class="shot-frame">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img loading="lazy" src="/img/landing/dre.png" alt="DRE do Katsu com receita, CMV e lucro bruto calculados" />
+        </div>
+      </div>
+
+      <div class="feature flip">
+        <div class="feat-text">
+          <div class="kicker">Mesas &amp; Garçom</div>
+          <h2>Mapa de mesas e modo garçom no salão</h2>
+          <p>Veja quem está livre e quem está ocupada num relance. O garçom abre a comanda na mesa, lança os pedidos e a cozinha recebe na tela — sem papelzinho, sem gritaria.</p>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Transferir, dividir e juntar comandas</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Painel de produção da cozinha (KDS) e roteamento de impressão</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fechamento da comanda direto no PDV</li>
+          </ul>
+        </div>
+        <div class="shot-frame">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img loading="lazy" src="/img/landing/mesas.png" alt="Mapa de mesas do Katsu com mesas livres e ocupadas" />
+        </div>
+      </div>
+
+      <!-- Cardápio online -->
+      <div class="menu-split" style="margin-top:1rem">
+        <div class="feat-text">
+          <div class="kicker">Cardápio online</div>
+          <h2>Seu cardápio no celular do cliente</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Ative o modo cardápio e seus produtos — com foto, preço e descrição — viram um cardápio digital
+            elegante, acessível por link ou QR code na mesa. Atualizou o preço no sistema? Atualizou no cardápio.
+          </p>
+          <ul style="list-style:none; padding:0; margin:1.25rem 0 0; display:grid; gap:.6rem">
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> QR code pronto para imprimir e colar na mesa</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Você escolhe o que aparece: produto a produto</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Status aberto/fechado com horário de funcionamento</li>
+          </ul>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-head">
+              <div class="rest">Lanchonete do Katsu</div>
+              <div class="status">● Aberto agora · Cardápio digital</div>
+            </div>
+            <div class="phone-cats">
+              <span class="on">Hambúrgueres</span><span>Bebidas</span><span>Porções</span><span>Sobremesas</span>
+            </div>
+            <div>
+              <div class="menu-item">
+                <img src="/img/landing/prod/burger2.jpg" alt="X-Burger Duplo Especial" />
+                <div><div class="n">X-Burger Duplo Especial</div><div class="d">Dois blends 160g, cheddar duplo</div></div>
+                <div class="p">R$ 24,90</div>
+              </div>
+              <div class="menu-item">
+                <img src="/img/landing/prod/burger.jpg" alt="Lanche Completo" />
+                <div><div class="n">Lanche Completo (X-Burger)</div><div class="d">Blend 160g, queijo, salada</div></div>
+                <div class="p">R$ 18,00</div>
+              </div>
+              <div class="menu-item">
+                <img src="/img/landing/prod/fritas.jpg" alt="Batata Frita" />
+                <div><div class="n">Batata Frita Grande</div><div class="d">Porção generosa, bem crocante</div></div>
+                <div class="p">R$ 18,00</div>
+              </div>
+              <div class="menu-item">
+                <img src="/img/landing/prod/coca.jpg" alt="Coca-Cola" />
+                <div><div class="n">Coca-Cola Lata</div><div class="d">350ml gelada</div></div>
+                <div class="p">R$ 6,00</div>
+              </div>
+              <div class="menu-item">
+                <img src="/img/landing/prod/suco.jpg" alt="Suco Natural" />
+                <div><div class="n">Suco Natural</div><div class="d">Laranja, abacaxi ou morango</div></div>
+                <div class="p">R$ 8,00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boas-vindas -->
+      <div class="feature" style="margin-top:4.5rem">
+        <div class="feat-text">
+          <div class="kicker">Primeiros passos</div>
+          <h2>Instalou, configurou, vendeu — no mesmo dia</h2>
+          <p>Nada de manual de 200 páginas. Ao abrir o Katsu pela primeira vez, uma página de boas-vindas te guia passo a passo: dados da empresa, formas de pagamento e até produtos de exemplo para você já sair testando o PDV.</p>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Assistente de configuração inicial guiado</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <strong>Migração de dados inclusa</strong> — trazemos seus produtos e clientes do sistema antigo</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Treinamento da equipe e suporte 24/7</li>
+          </ul>
+        </div>
+        <div class="shot-frame">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img loading="lazy" src="/img/landing/home.png" alt="Tela inicial do Katsu com todos os módulos organizados" />
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── DESTAQUES EXTRAS ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">E tem mais</div>
+        <h2>Feito para operar sem sustos</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissões e cargos refinados</h3>
+          <p>Cada função com seu acesso: o caixa vende, o estoquista movimenta, o gerente vê tudo. Permissão por ação, não só por tela.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+          <h3>Offline primeiro, nuvem sempre</h3>
+          <p>Internet caiu? Continue vendendo normalmente. Voltou? Tudo sincroniza sozinho com a nuvem, sem você fazer nada.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
+          <h3>Backups e atualizações automáticas</h3>
+          <p>Backup do banco na nuvem e novas versões instaladas sozinhas. Seu sistema sempre em dia, seus dados sempre a salvo.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Auditoria completa</h3>
+          <p>Quem cancelou a venda? Quem deu o desconto? Cada ação importante fica registrada com usuário, data e hora.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Clientes, convênios e fidelidade</h3>
+          <p>Ficha do cliente com histórico de compras, venda a prazo, empresas conveniadas e programa de pontos.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <h3>Wiki bem documentada</h3>
+          <p>Dúvida no meio do expediente? A <a href="/wiki">wiki do Katsu</a> tem passo a passo com imagem de cada tela do sistema.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PLANOS ─── -->
+  <section id="planos">
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Planos</div>
+        <h2>Comece grátis, cresça no seu ritmo</h2>
+        <p>Todos os planos incluem migração de dados, treinamento e suporte 24/7.</p>
+      </div>
+      <div class="plans">
+        <div class="plan">
+          <h3>Teste</h3>
+          <div class="tag">15 dias grátis — sem cartão</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Todos os módulos liberados</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona offline</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Suporte no período de teste</li>
+            <li class="no"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Salvamento em nuvem</li>
+          </ul>
+          <a class="btn secondary" href="<%= downloadUrl %>">Começar grátis</a>
+        </div>
+        <div class="plan">
+          <h3>Prata</h3>
+          <div class="tag">Para começar a operar</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV, estoque e financeiro completos</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona offline</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Migração + treinamento + suporte 24/7</li>
+            <li class="no"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Nuvem e atualização automática</li>
+          </ul>
+          <a class="btn secondary" href="#contato">Falar com a gente</a>
+        </div>
+        <div class="plan featured">
+          <h3>Ouro</h3>
+          <div class="tag">O equilíbrio ideal</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Prata</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <strong>Salvamento automático em nuvem</strong></li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Atualizações automáticas</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Cardápio online</li>
+          </ul>
+          <a class="btn" href="#contato">Falar com a gente</a>
+        </div>
+        <div class="plan">
+          <h3>Diamante</h3>
+          <div class="tag">Operação completa</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Ouro</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Prioridade máxima no suporte</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mesas, garçom e cozinha (KDS)</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Acesso web (em breve)</li>
+          </ul>
+          <a class="btn secondary" href="#contato">Falar com a gente</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FAQ ─── -->
+  <section id="faq">
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Dúvidas frequentes</div>
+        <h2>Perguntas que todo mundo faz</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>O Katsu funciona sem internet?</summary>
+          <p>Sim, 100%. O Katsu roda no seu computador e não depende de conexão para vender, controlar estoque ou fechar o caixa. Quando a internet volta, tudo é sincronizado automaticamente com a nuvem (planos Ouro e Diamante).</p>
+        </details>
+        <details>
+          <summary>Como funciona o teste grátis de 15 dias?</summary>
+          <p>Baixe o instalador, crie sua conta e use todos os módulos por 15 dias — sem cartão de crédito e sem compromisso. Ao final, escolha o plano que faz sentido para o seu negócio.</p>
+        </details>
+        <details>
+          <summary>Consigo trazer meus dados do sistema antigo?</summary>
+          <p>Sim, e sem custo: a migração de dados está inclusa em todos os planos. Nossa equipe importa seus produtos, clientes e fornecedores para você começar com tudo no lugar.</p>
+        </details>
+        <details>
+          <summary>Preciso treinar minha equipe?</summary>
+          <p>Nós treinamos com você. Além do treinamento, o suporte funciona 24/7 e a <a href="/wiki">wiki</a> documenta cada tela do sistema com passo a passo ilustrado.</p>
+        </details>
+        <details>
+          <summary>Quais os requisitos para instalar?</summary>
+          <p>Um computador com Windows 10 ou superior. O instalador tem menos de 200 MB e o assistente de boas-vindas deixa tudo configurado em poucos minutos.</p>
+        </details>
+        <details>
+          <summary>Serve para restaurante, lanchonete e loja?</summary>
+          <p>Sim. O Katsu é modular: uma loja de varejo usa PDV + estoque + financeiro; um restaurante liga também mesas, garçom, cozinha e cardápio online. Você ativa só o que precisa.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA FINAL ─── -->
+  <section id="contato">
+    <div class="wrap">
+      <div class="cta-final">
+        <div class="kicker">Pronto para começar?</div>
+        <h2>Baixe agora e venda ainda hoje</h2>
+        <p style="color:var(--muted); max-width:38rem; margin:0 auto 2rem">
+          15 dias grátis com todos os recursos, migração de dados inclusa e a nossa equipe
+          do seu lado no treinamento e no suporte, 24 horas por dia.
+        </p>
+        <div class="hero-ctas">
+          <a class="btn big" href="<%= downloadUrl %>">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Baixar Katsu para Windows
+          </a>
+          <a class="btn big secondary" href="/wiki">Explorar a wiki</a>
+        </div>
+        <p class="hero-note" style="margin-top:1rem">Versão <%= appVersion %> · Windows 10+ · Canais de atendimento em breve nesta página</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap foot-in">
+      <div class="brand" style="font-size:1rem">
+        <img class="logo-light" src="/img/landing/katsu_logo.png" alt="Katsu" style="height:26px" />
+        <img class="logo-dark" src="/img/landing/logo_marca_branco.png" alt="Katsu" style="height:26px" />
+      </div>
+      <div>PDV · Estoque · Compras · Financeiro · DRE · Mesas · Cardápio online</div>
+      <div><a href="/wiki">Wiki</a> · <a href="<%= downloadUrl %>">Download v<%= appVersion %></a></div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', cur);
+      try { localStorage.setItem('katsu-theme', cur); } catch (e) {}
+    }
+  </script>
+</body>
+</html>
