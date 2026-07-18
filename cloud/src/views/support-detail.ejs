@@ -57,7 +57,10 @@
           <div class="chat-thread" id="thread">
             <% messages.forEach(function (m) { %>
             <div class="chat-bubble <%= m.sender === 'suporte' ? 'suporte' : 'cliente' %>">
-              <div><%= m.body %></div>
+              <% if (m.body) { %><div><%= m.body %></div><% } %>
+              <% if (m.attachment) { %>
+              <div><a href="<%= m.attachment %>" target="_blank" rel="noopener"><img src="<%= m.attachment %>" alt="Print anexado" style="max-width: 260px; max-height: 260px; border-radius: 8px; display: block; margin-top: .4rem;"></a></div>
+              <% } %>
               <div class="meta"><%= m.sender === 'suporte' ? 'Suporte' : 'Cliente' %><%= m.sender_name ? ' · ' + m.sender_name : '' %> · <%= String(m.created_at).slice(0, 16) %></div>
             </div>
             <% }) %>

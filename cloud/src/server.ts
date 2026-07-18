@@ -18,7 +18,7 @@ export function createCloudServer() {
   app.set('view engine', 'ejs');
   app.set('views', path.resolve(__dirname, 'views'));
   app.use(express.static(path.resolve(__dirname, 'public')));
-  app.use(express.json());
+  app.use(express.json({ limit: '8mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'katsu-cloud' }));
   app.use('/', landingRoutes);

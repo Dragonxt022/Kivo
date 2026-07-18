@@ -30,6 +30,17 @@ interface TicketRow {
   created_at: string;
 }
 
+/** Print de erro anexado à mensagem — data URI (`data:image/...;base64,...`), até ~4MB
+ * de imagem original. Sem storage dedicado: cabe direto na coluna MEDIUMTEXT. */
+const MAX_ATTACHMENT_CHARS = 6_000_000;
+
+function parseAttachment(value: unknown): string | null {
+  if (typeof value !== 'string' || !value) return null;
+  if (!/^data:image\/(png|jpeg|webp);base64,/.test(value)) return null;
+  if (value.length > MAX_ATTACHMENT_CHARS) return null;
+  return value;
+}
+
 async function findOwnTicket(companyUuid: string, id: number): Promise<TicketRow | undefined> {
   const [rows] = await getPool().query(
     'SELECT * FROM support_tickets WHERE id = ? AND company_uuid = ?',
@@ -57,6 +68,7 @@ router.post('/tickets', async (req: AuthedRequest, res) => {
   const category = (TICKET_CATEGORIES as readonly string[]).includes(String(b.category))
     ? String(b.category)
     : 'suporte';
+  const attachment = parseAttachment(b.attachment);
 
   if (!subject) return res.status(400).json({ error: 'Informe o assunto.' });
   if (!message || message.length > 4000) return res.status(400).json({ error: 'Mensagem vazia ou longa demais.' });
@@ -70,8 +82,8 @@ router.post('/tickets', async (req: AuthedRequest, res) => {
     );
     const ticketId = (info as { insertId: number }).insertId;
     await conn.query(
-      'INSERT INTO support_messages (ticket_id, sender, sender_name, body) VALUES (?, ?, ?, ?)',
-      [ticketId, 'cliente', userName, message],
+      'INSERT INTO support_messages (ticket_id, sender, sender_name, body, attachment) VALUES (?, ?, ?, ?, ?)',
+      [ticketId, 'cliente', userName, message, attachment],
     );
     await conn.commit();
     res.status(201).json({ id: ticketId });
@@ -88,7 +100,7 @@ router.get('/tickets/:id/messages', async (req: AuthedRequest, res) => {
   const ticket = await findOwnTicket(req.companyUuid!, Number(req.params.id));
   if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado.' });
   const [messages] = await getPool().query(
-    'SELECT id, sender, sender_name, body, created_at FROM support_messages WHERE ticket_id = ? ORDER BY id',
+    'SELECT id, sender, sender_name, body, attachment, created_at FROM support_messages WHERE ticket_id = ? ORDER BY id',
     [ticket.id],
   );
   if (ticket.client_unread > 0) {
@@ -107,11 +119,13 @@ router.post('/tickets/:id/messages', async (req: AuthedRequest, res) => {
   const b = (req.body ?? {}) as Record<string, unknown>;
   const body = String(b.body ?? '').trim();
   const userName = String(b.userName ?? '').trim().slice(0, 120) || null;
-  if (!body || body.length > 4000) return res.status(400).json({ error: 'Mensagem vazia ou longa demais.' });
+  const attachment = parseAttachment(b.attachment);
+  if (body.length > 4000) return res.status(400).json({ error: 'Mensagem longa demais.' });
+  if (!body && !attachment) return res.status(400).json({ error: 'Mensagem vazia.' });
 
   await getPool().query(
-    'INSERT INTO support_messages (ticket_id, sender, sender_name, body) VALUES (?, ?, ?, ?)',
-    [ticket.id, 'cliente', userName, body],
+    'INSERT INTO support_messages (ticket_id, sender, sender_name, body, attachment) VALUES (?, ?, ?, ?, ?)',
+    [ticket.id, 'cliente', userName, body, attachment],
   );
   await getPool().query(
     'UPDATE support_tickets SET admin_unread = admin_unread + 1, last_message_at = NOW(3) WHERE id = ?',

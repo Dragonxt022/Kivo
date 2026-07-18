@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getLicenseCredentials } from '../license/service';
-import { getCloudServerUrl } from '../config/cloud';
+import { getCloudServerUrl, PRODUCTION_CLOUD_URL } from '../config/cloud';
 
 /**
  * Chat de suporte — proxy autenticado para a API de tickets do cloud.
@@ -60,10 +60,10 @@ router.get('/tickets', (_req, res) => {
 });
 
 router.post('/tickets', (req, res) => {
-  const { subject, category, message } = (req.body ?? {}) as Record<string, unknown>;
+  const { subject, category, message, attachment } = (req.body ?? {}) as Record<string, unknown>;
   void proxy(res, '/api/support/tickets', {
     method: 'POST',
-    body: { subject, category, message, userName: req.user?.name },
+    body: { subject, category, message, attachment, userName: req.user?.name },
   });
 });
 
@@ -72,9 +72,10 @@ router.get('/tickets/:id/messages', (req, res) => {
 });
 
 router.post('/tickets/:id/messages', (req, res) => {
+  const { body, attachment } = (req.body ?? {}) as Record<string, unknown>;
   void proxy(res, `/api/support/tickets/${Number(req.params.id)}/messages`, {
     method: 'POST',
-    body: { body: (req.body ?? {}).body, userName: req.user?.name },
+    body: { body, attachment, userName: req.user?.name },
   });
 });
 
@@ -82,9 +83,12 @@ router.post('/tickets/:id/close', (req, res) => {
   void proxy(res, `/api/support/tickets/${Number(req.params.id)}/close`, { method: 'POST' });
 });
 
-/** Link da página de vendas, para o atalho "compartilhar com um amigo" do widget. */
+/** Link da página de vendas, para o atalho "compartilhar com um amigo" do widget.
+ * Sempre o domínio público oficial — nunca `cloudBase()`, que pode apontar para um
+ * servidor de sync local/privado configurado pelo admin (sem sentido para indicar
+ * a um amigo, e no caso de um endereço LAN nem seria alcançável por ele). */
 router.get('/share-link', (_req, res) => {
-  res.json({ url: cloudBase() ?? 'https://github.com/Dragonxt022/katsu/releases' });
+  res.json({ url: PRODUCTION_CLOUD_URL });
 });
 
 export default router;

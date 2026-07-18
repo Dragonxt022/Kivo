@@ -14,12 +14,17 @@ const SETTING_KEY = 'sync.server_url';
  * `KATSU_SYNC_SERVER_URL` (env, usado por testes/dev para apontar a um cloud/ local);
  * (3) `PRODUCTION_CLOUD_URL` (valor de fábrica do instalador). Retorna `null` só se
  * nenhuma das três estiver definida (app roda 100% offline).
+ *
+ * Normaliza o valor (tira espaço/barra sobrando, completa `https://` quando o admin
+ * digita só o domínio) — sem isso um valor colado errado na tela de Configurações
+ * quebra o `fetch()` com um erro genérico de "sem conexão", escondendo a causa real.
  */
 export function getCloudServerUrl(): string | null {
   const row = getSqlite()
     .prepare("SELECT value FROM settings WHERE key = ? AND deleted_at IS NULL")
     .get(SETTING_KEY) as { value: string | null } | undefined;
-  if (row?.value) return row.value;
-  if (process.env.KATSU_SYNC_SERVER_URL) return process.env.KATSU_SYNC_SERVER_URL;
-  return PRODUCTION_CLOUD_URL || null;
+  const raw = (row?.value || process.env.KATSU_SYNC_SERVER_URL || PRODUCTION_CLOUD_URL || '').trim();
+  if (!raw) return null;
+  const noTrailingSlash = raw.replace(/\/+$/, '');
+  return /^https?:\/\//i.test(noTrailingSlash) ? noTrailingSlash : `https://${noTrailingSlash}`;
 }

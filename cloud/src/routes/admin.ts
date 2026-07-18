@@ -776,7 +776,7 @@ router.get('/support/:id', requireAdminAuth, async (req, res) => {
   const ticket = (tickets as { id: number; admin_unread: number }[])[0];
   if (!ticket) return res.status(404).send('Ticket não encontrado.');
   const [messages] = await pool.query(
-    'SELECT id, sender, sender_name, body, created_at FROM support_messages WHERE ticket_id = ? ORDER BY id',
+    'SELECT id, sender, sender_name, body, attachment, created_at FROM support_messages WHERE ticket_id = ? ORDER BY id',
     [ticket.id],
   );
   if (ticket.admin_unread > 0) {

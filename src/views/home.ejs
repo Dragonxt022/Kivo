@@ -126,6 +126,15 @@
       padding: .6rem; border-top: 1px solid var(--border-light);
     }
     .support-error { color: var(--danger); font-size: .82rem; margin-top: .4rem; white-space: pre-wrap; }
+    .support-attach-btn {
+      background: var(--surface-hover); border: 1.5px solid var(--border-light); color: var(--text-muted); cursor: pointer; flex: none;
+      width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    }
+    .support-attach-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .support-attach-preview { display: flex; align-items: center; gap: .5rem; margin: -.4rem 0 .85rem; }
+    .support-attach-preview img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-light); }
+    .support-attach-preview button { background: none; border: none; color: var(--danger); font-size: .8rem; cursor: pointer; padding: 0; }
+    .support-bubble img.attachment { max-width: 100%; border-radius: 8px; display: block; margin-top: .35rem; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -312,6 +321,23 @@
           <label for="sup-message">Como podemos ajudar?</label>
           <textarea id="sup-message" x-model="form.message" maxlength="4000" required
                     placeholder="Descreva com detalhes — quanto mais contexto, mais rápido resolvemos."></textarea>
+
+          <input type="file" accept="image/png,image/jpeg,image/webp" x-ref="formFile" class="sr-only" style="display:none"
+                 @change="onPickAttachment($event, 'form')">
+          <template x-if="!form.attachment">
+            <button type="button" class="btn secondary" style="width:100%; justify-content:center; margin-bottom:.4rem"
+                    @click="$refs.formFile.click()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.41 17.41a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48"/></svg>
+              Anexar print do erro
+            </button>
+          </template>
+          <p class="support-error" x-show="attachError && !form.attachment" x-text="attachError" style="margin-top:0"></p>
+          <div class="support-attach-preview" x-show="form.attachment">
+            <img :src="form.attachment" alt="Print anexado">
+            <span class="muted text-xs" style="flex:1">Print anexado</span>
+            <button type="button" @click="form.attachment = ''; $refs.formFile.value = ''">Remover</button>
+          </div>
+
           <button type="submit" class="btn" style="width:100%; justify-content:center" :disabled="sending">
             <span x-text="sending ? 'Abrindo chamado…' : 'Abrir chamado'"></span>
           </button>
@@ -324,16 +350,28 @@
         <div class="support-body support-thread" x-ref="thread">
           <template x-for="m in messages" :key="m.id">
             <div class="support-bubble" :class="m.sender === 'cliente' ? 'cliente' : 'suporte'">
-              <div x-text="m.body"></div>
+              <div x-text="m.body" x-show="m.body"></div>
+              <img class="attachment" x-show="m.attachment" :src="m.attachment" alt="Print anexado" @click="window.open(m.attachment, '_blank')">
               <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Katsu' : (m.sender_name || 'Você')) + ' · ' + String(m.created_at).slice(0, 16).replace('T', ' ')"></div>
             </div>
           </template>
           <p class="muted text-xs" x-show="!messages.length" style="text-align:center">Carregando conversa…</p>
         </div>
+        <p class="support-error" x-show="attachError && !draftAttachment" x-text="attachError" style="padding:0 1.25rem"></p>
+        <div class="support-attach-preview" x-show="draftAttachment" style="padding:0 1.25rem">
+          <img :src="draftAttachment" alt="Print anexado">
+          <span class="muted text-xs" style="flex:1">Print anexado</span>
+          <button type="button" @click="draftAttachment = ''; $refs.draftFile.value = ''">Remover</button>
+        </div>
         <div class="support-input-row" x-show="ticket.status === 'aberto'">
+          <input type="file" accept="image/png,image/jpeg,image/webp" x-ref="draftFile" style="display:none"
+                 @change="onPickAttachment($event, 'draft')">
+          <button type="button" class="support-attach-btn" @click="$refs.draftFile.click()" title="Anexar print">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05 12.25 20.24a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L9.41 17.41a1.5 1.5 0 0 1-2.12-2.12l8.49-8.48"/></svg>
+          </button>
           <textarea x-model="draft" x-ref="draftBox" placeholder="Escreva sua mensagem…" maxlength="4000"
                     @keydown.enter.prevent="if (!$event.shiftKey) sendMessage(); else draft += '\n'"></textarea>
-          <button type="button" class="support-send-btn" @click="sendMessage()" :disabled="sending || !draft.trim()" title="Enviar">
+          <button type="button" class="support-send-btn" @click="sendMessage()" :disabled="sending || (!draft.trim() && !draftAttachment)" title="Enviar">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
           </button>
         </div>
@@ -557,8 +595,8 @@
         userName: <%- JSON.stringify(typeof user !== 'undefined' && user ? (user.name || '').split(' ')[0] : '') %>,
         tickets: [], unread: 0,
         ticket: { id: 0, subject: '', status: '' }, messages: [],
-        form: { subject: '', message: '', category: 'suporte' },
-        draft: '', sending: false, error: '', shared: false,
+        form: { subject: '', message: '', category: 'suporte', attachment: '' },
+        draft: '', draftAttachment: '', attachError: '', sending: false, error: '', shared: false,
         email: '', phone: '', contactsLoaded: false,
         pollTimer: null,
 
@@ -612,9 +650,28 @@
         },
 
         newTicket(category) {
-          this.form = { subject: '', message: '', category };
+          this.form = { subject: '', message: '', category, attachment: '' };
+          this.attachError = '';
           this.error = '';
           this.view = 'new';
+        },
+        /** Converte o print escolhido em data URI e guarda no form (novo ticket) ou no
+         * rascunho da conversa — sem upload/storage à parte, cabe direto na mensagem. */
+        onPickAttachment(event, target) {
+          const file = event.target.files && event.target.files[0];
+          event.target.value = '';
+          if (!file) return;
+          this.attachError = '';
+          if (file.size > 4 * 1024 * 1024) {
+            this.attachError = 'Imagem muito grande (máx. 4MB).';
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (target === 'form') this.form.attachment = reader.result;
+            else this.draftAttachment = reader.result;
+          };
+          reader.readAsDataURL(file);
         },
         async createTicket() {
           if (this.sending) return;
@@ -628,6 +685,8 @@
 
         async openTicket(id) {
           this.error = '';
+          this.attachError = '';
+          this.draftAttachment = '';
           this.view = 'chat';
           this.messages = [];
           this.ticket = { id, subject: '…', status: '' };
@@ -647,11 +706,13 @@
         },
         async sendMessage() {
           const body = this.draft.trim();
-          if (!body || this.sending) return;
+          const attachment = this.draftAttachment;
+          if ((!body && !attachment) || this.sending) return;
           this.sending = true; this.error = '';
           try {
-            await this.api('/tickets/' + this.ticket.id + '/messages', { body: { body } });
+            await this.api('/tickets/' + this.ticket.id + '/messages', { body: { body, attachment } });
             this.draft = '';
+            this.draftAttachment = '';
             await this.loadMessages(this.ticket.id);
             this.scrollThread();
           } catch (e) { this.error = e.message; }
