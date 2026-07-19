@@ -412,7 +412,11 @@
 
         <div class="pay-quick-methods">
           <template x-for="(m, idx) in visibleQuickMethods()" :key="'q' + m.id">
-            <button type="button" class="pay-quick-method" :class="{ selected: pay.methodId === m.id }" @click="selectQuickMethod(m)" x-html="methodIcon(m.type) + '<span>' + m.name + '</span>' + (idx < 9 ? '<span class=shortcut>F' + (idx+1) + '</span>' : '')"></button>
+            <button type="button" class="pay-quick-method" :class="{ selected: pay.methodId === m.id }" @click="selectQuickMethod(m)">
+              <span x-html="methodIcon(m.type)"></span>
+              <span x-text="m.name"></span>
+              <span class="shortcut" x-show="idx < 9" x-text="'F' + (idx + 1)"></span>
+            </button>
           </template>
         </div>
 

@@ -32,19 +32,28 @@ export function openComanda(req: Request, params: OpenComandaParams): { ok: true
     if (!table) return { ok: false, error: 'Mesa nao encontrada.' };
     if (table.status !== 'livre') return { ok: false, error: 'Mesa ja esta ocupada.' };
   }
-  const id = comandaRepository.create({
-    table_id: params.tableId ?? null,
-    customer_id: params.customerId ?? null,
-    opened_by: req.user.id,
-    notes: params.notes ?? null,
-    uuid: randomUUID(),
-    origin_machine: req.headers['x-machine'] ?? null,
-  });
-  if (params.tableId) {
-    storeTableRepository.occupy(params.tableId);
+  // Garante atomicidade: a criação da comanda e a ocupação da mesa ocorrem juntas
+  // ou nenhuma das duas é persistida.
+  let id: number;
+  try {
+    comandaRepository.transaction(() => {
+      id = comandaRepository.create({
+        table_id: params.tableId ?? null,
+        customer_id: params.customerId ?? null,
+        opened_by: req.user.id,
+        notes: params.notes ?? null,
+        uuid: randomUUID(),
+        origin_machine: req.headers['x-machine'] ?? null,
+      });
+      if (params.tableId) {
+        storeTableRepository.occupy(params.tableId);
+      }
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Erro ao abrir comanda.' };
   }
-  audit(req, 'abrir_comanda', 'comanda', id, null, { tableId: params.tableId, customerId: params.customerId });
-  return { ok: true, id };
+  audit(req, 'abrir_comanda', 'comanda', id!, null, { tableId: params.tableId, customerId: params.customerId });
+  return { ok: true, id: id! };
 }
 
 export function addItem(req: Request, comandaId: number, params: AddItemParams): { ok: true; id: number } | { ok: false; error: string } {
@@ -195,14 +204,23 @@ export function closeComanda(
     clientRequestId: input.clientRequestId,
   };
   const storeSales = getService<StoreSalesService>('store.sales');
-  const saleResult = storeSales.createSale(req, saleInput, { allowPriceOverride: true });
-  if (!saleResult.ok) return { ok: false, error: saleResult.error };
-  comandaRepository.transaction(() => {
-    comandaRepository.close(comandaId, saleResult.id);
-    if (comanda.table_id) storeTableRepository.free(comanda.table_id);
-  });
-  audit(req, 'fechar_comanda', 'comanda', comandaId, null, { saleId: saleResult.id });
-  return { ok: true, saleId: saleResult.id };
+
+  // Garante atomicidade: a venda, o fechamento da comanda e a liberação da mesa
+  // são uma operação única. Se qualquer etapa falhar, o estado permanece intacto.
+  let saleId: number;
+  try {
+    comandaRepository.transaction(() => {
+      const saleResult = storeSales.createSale(req, saleInput, { allowPriceOverride: true });
+      if (!saleResult.ok) throw new Error(saleResult.error);
+      saleId = saleResult.id;
+      comandaRepository.close(comandaId, saleResult.id);
+      if (comanda.table_id) storeTableRepository.free(comanda.table_id);
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Erro ao fechar comanda.' };
+  }
+  audit(req, 'fechar_comanda', 'comanda', comandaId, null, { saleId: saleId! });
+  return { ok: true, saleId: saleId! };
 }
 
 export function cancelComanda(req: Request, comandaId: number): { ok: true } | { ok: false; error: string } {

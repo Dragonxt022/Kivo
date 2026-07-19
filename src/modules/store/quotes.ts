@@ -89,22 +89,35 @@ export function convertQuote(
     quoteId,
   ) as { product_id: number; qty: number; unit_price_cents: number }[];
 
-  const result = createSale(req, {
-    items: items.map((i) => ({ productId: i.product_id, qty: i.qty, unitPriceCents: i.unit_price_cents })),
-    paymentMethod: payment.paymentMethod,
-    payments: payment.payments,
-    paidCents: payment.paidCents,
-    discountCents: quote.discount_cents,
-    customerId: payment.customerId ?? quote.customer_id ?? undefined,
-    dueDate: payment.dueDate,
-  }, { allowPriceOverride: true });
+  // Garante atomicidade: a venda e a atualização do orçamento ocorrem na mesma
+  // transação. Se qualquer etapa falhar, nenhuma alteração é persistida no banco.
+  let result: ReturnType<typeof createSale> = { ok: false, error: 'Falha desconhecida ao converter orçamento.' };
+  try {
+    quoteRepository.transaction(() => {
+      const saleResult = createSale(req, {
+        items: items.map((i) => ({ productId: i.product_id, qty: i.qty, unitPriceCents: i.unit_price_cents })),
+        paymentMethod: payment.paymentMethod,
+        payments: payment.payments,
+        paidCents: payment.paidCents,
+        discountCents: quote.discount_cents,
+        customerId: payment.customerId ?? quote.customer_id ?? undefined,
+        dueDate: payment.dueDate,
+      }, { allowPriceOverride: true });
+
+      if (!saleResult.ok) throw new Error(saleResult.error);
+
+      quoteRepository.rawRun(
+        `UPDATE quotes SET status = 'convertido', sale_id = ?, converted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+        saleResult.id, quoteId,
+      );
+      result = saleResult;
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 
   if (result.ok) {
-    quoteRepository.rawRun(
-      `UPDATE quotes SET status = 'convertido', sale_id = ?, converted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
-      result.id, quoteId,
-    );
-    audit(req, 'converter', 'quote', quoteId, { status: 'aberto' }, { status: 'convertido', saleId: result.id });
+    audit(req, 'converter', 'quote', quoteId, { status: 'aberto' }, { status: 'convertido', saleId: (result as { ok: true; id: number }).id });
   }
   return result;
 }

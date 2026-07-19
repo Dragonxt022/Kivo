@@ -87,4 +87,16 @@ export function runSeeds(): void {
     ).run('admin', 'Administrador', bcrypt.hashSync('admin', 10), roleId, randomUUID());
     console.warn('[seeds] usuário inicial criado: admin / admin — TROQUE A SENHA no primeiro acesso.');
   }
+
+  // Configurações padrão do sistema — inseridas apenas se ainda não existirem,
+  // preservando quaisquer alterações feitas pelo administrador.
+  db.prepare(
+    `INSERT OR IGNORE INTO settings (key, value, uuid, comment)
+     VALUES (?, ?, ?, ?)`,
+  ).run(
+    'estoque.venda_estoque_zerado',
+    '1',
+    randomUUID(),
+    'Permite realizar vendas mesmo quando o estoque do produto está zerado. "1" = permitir (padrão); "0" = bloquear.',
+  );
 }
