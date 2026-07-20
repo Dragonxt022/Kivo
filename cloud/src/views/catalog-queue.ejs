@@ -62,55 +62,79 @@
           <div style="padding: 16px 20px 0; display: flex; justify-content: flex-end;">
             <input type="text" class="input-search" placeholder="Buscar por produto…" x-model="q">
           </div>
+
+          <% if (activeStatus === 'pendente') { %>
+          <div class="batch-bar" x-show="selectedIds.length > 0" x-cloak style="display:flex; align-items:center; gap:8px; padding:10px 20px; background:var(--surface-hover); border-bottom:1px solid var(--border-light);">
+            <span style="font-size:0.85rem; font-weight:600;" x-text="selectedIds.length + ' selecionada(s)'"></span>
+            <form method="post" action="/admin/catalog/batch-approve" style="display:inline;" @submit.prevent="submitBatch($el, 'approve')">
+              <input type="hidden" name="ids" x-model="JSON.stringify(selectedIds)">
+              <input type="hidden" name="redirectStatus" value="pendente">
+              <button type="submit" class="btn small" style="background:var(--success);color:#fff;">✓ Aprovar selecionadas</button>
+            </form>
+            <form method="post" action="/admin/catalog/batch-reject" style="display:inline;" @submit.prevent="if (confirm('Rejeitar ' + selectedIds.length + ' imagem(ns)?')) submitBatch($el, 'reject')">
+              <input type="hidden" name="ids" x-model="JSON.stringify(selectedIds)">
+              <input type="hidden" name="redirectStatus" value="pendente">
+              <button type="submit" class="btn small danger">✕ Rejeitar selecionadas</button>
+            </form>
+          </div>
+          <% } %>
+
           <table>
             <thead><tr>
+              <% if (activeStatus === 'pendente') { %>
+              <th style="width:40px;">
+                <input type="checkbox" @change="toggleAll($event.target.checked)" :checked="selectedIds.length === displayRows.length && displayRows.length > 0">
+              </th>
+              <% } %>
               <th></th>
               <th class="sortable" @click="sortCycle('product_name')">Produto<span class="sort-arrow" x-text="sortArrow('product_name')"></span></th>
               <th class="sortable" @click="sortCycle('origin')">Origem<span class="sort-arrow" x-text="sortArrow('origin')"></span></th>
               <th class="sortable" @click="sortCycle('size_bytes')">Detalhes<span class="sort-arrow" x-text="sortArrow('size_bytes')"></span></th>
               <th class="sortable" @click="sortCycle('created_at')"><%= activeStatus === 'aprovada' ? 'Aprovada em' : 'Enviada em' %><span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
-              <th></th>
+              <th style="min-width:140px;"></th>
             </tr></thead>
             <tbody>
               <template x-for="img in displayRows" :key="img.id">
-                <tr>
+                <tr :class="{ 'row-selected': selectedIds.includes(img.id) }">
+                  <% if (activeStatus === 'pendente') { %>
+                  <td>
+                    <input type="checkbox" :checked="selectedIds.includes(img.id)" @change="toggleOne(img.id, $event.target.checked)">
+                  </td>
+                  <% } %>
                   <td><img style="width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--border-light);background:var(--surface-hover)" :src="'/admin/catalog/' + img.id + '/image'" :alt="img.product_name"></td>
                   <td x-text="img.product_name"></td>
                   <td style="font-size:0.78rem;color:var(--muted)" x-text="img.origin"></td>
                   <td style="font-size:0.78rem;color:var(--muted)" x-text="img.width + '×' + img.height + 'px · ' + img.sizeLabel + ' · ' + img.format"></td>
                   <td style="font-size:0.78rem;color:var(--muted)" x-text="img.created_at"></td>
-                  <td class="text-right" @click.outside="openMenu = null">
-                    <div class="dropdown">
-                      <button type="button" class="icon-btn" @click="openMenu = openMenu === img.id ? null : img.id" title="Mais ações">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                      </button>
-                      <div class="dropdown-menu" x-show="openMenu === img.id" x-cloak>
-                        <a :href="'/admin/catalog/' + img.id + '/image'" download>Baixar</a>
-                        <template x-if="activeStatus === 'pendente'">
-                          <form method="post" :action="'/admin/catalog/' + img.id + '/approve'">
-                            <input type="hidden" name="redirectStatus" :value="activeStatus">
-                            <button type="submit">Aprovar</button>
+                  <td class="text-right">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;">
+                      <a :href="'/admin/catalog/' + img.id + '/image'" download class="btn small secondary" title="Baixar">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </a>
+                      <template x-if="activeStatus === 'pendente'">
+                        <>
+                          <form method="post" :action="'/admin/catalog/' + img.id + '/approve'" style="display:inline;">
+                            <input type="hidden" name="redirectStatus" value="pendente">
+                            <button type="submit" class="btn small" style="background:var(--success);color:#fff;" title="Aprovar">✓</button>
                           </form>
-                        </template>
-                        <template x-if="activeStatus === 'pendente'">
-                          <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" @submit.prevent="if (confirm('Rejeitar e excluir esta imagem?')) $el.submit()">
-                            <input type="hidden" name="redirectStatus" :value="activeStatus">
-                            <button type="submit" class="danger">Rejeitar</button>
+                          <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" style="display:inline;" @submit.prevent="if (confirm('Rejeitar e excluir esta imagem?')) $el.submit()">
+                            <input type="hidden" name="redirectStatus" value="pendente">
+                            <button type="submit" class="btn small danger" title="Rejeitar">✕</button>
                           </form>
-                        </template>
-                        <template x-if="activeStatus !== 'pendente'">
-                          <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" @submit.prevent="if (confirm('Remover esta imagem do catálogo aprovado?')) $el.submit()">
-                            <input type="hidden" name="redirectStatus" :value="activeStatus">
-                            <button type="submit" class="danger">Remover do catálogo</button>
-                          </form>
-                        </template>
-                      </div>
+                        </>
+                      </template>
+                      <template x-if="activeStatus !== 'pendente'">
+                        <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" style="display:inline;" @submit.prevent="if (confirm('Remover esta imagem do catálogo aprovado?')) $el.submit()">
+                          <input type="hidden" name="redirectStatus" value="aprovada">
+                          <button type="submit" class="btn small danger">Remover</button>
+                        </form>
+                      </template>
                     </div>
                   </td>
                 </tr>
               </template>
               <tr x-show="!displayRows.length">
-                <td colspan="6">
+                <td colspan="<%= activeStatus === 'pendente' ? 7 : 6 %>">
                   <%- include('partials/empty-state', { message: activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.' }) %>
                 </td>
               </tr>
@@ -191,6 +215,7 @@
     function catalogTable() {
       return {
         ...tableToolkit(),
+        selectedIds: [],
         activeStatus: <%- JSON.stringify(activeStatus) %>,
         rows: <%- JSON.stringify(images.map(function (img) {
           return {
@@ -210,12 +235,28 @@
           const filtered = q ? this.rows.filter((i) => i.product_name.toLowerCase().includes(q)) : this.rows;
           return this.sortedRows(filtered, this.sortGetters);
         },
+        toggleAll(checked) {
+          this.selectedIds = checked ? this.displayRows.map((i) => i.id) : [];
+        },
+        toggleOne(id, checked) {
+          if (checked) {
+            if (!this.selectedIds.includes(id)) this.selectedIds.push(id);
+          } else {
+            this.selectedIds = this.selectedIds.filter((sid) => sid !== id);
+          }
+        },
       };
+    }
+
+    function submitBatch(form, action) {
+      var ids = JSON.parse(form.querySelector('[name="ids"]').value);
+      if (!ids.length) return;
+      form.querySelector('[name="ids"]').value = ids.join(',');
+      form.submit();
     }
 
     var pendingFiles = [];
 
-    /** Nome do arquivo vira nome do produto: sem extensão, traços/underscores viram espaço. */
     function nameFromFilename(filename) {
       return filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
     }

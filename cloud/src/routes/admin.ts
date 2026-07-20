@@ -678,6 +678,46 @@ router.post('/catalog/:id/reject', requireAdminAuth, async (req: AdminRequest, r
   res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
 });
 
+router.post('/catalog/batch-approve', requireAdminAuth, async (req: AdminRequest, res) => {
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids) || !ids.length) {
+    res.redirect('/admin/catalog');
+    return;
+  }
+  const placeholders = ids.map(() => '?').join(',');
+  await getPool().query(
+    `UPDATE catalog_images SET status = 'aprovada', reviewed_by = ?, reviewed_at = NOW(3) WHERE id IN (${placeholders}) AND status = 'pendente'`,
+    [req.adminUsername, ...ids],
+  );
+  res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
+});
+
+router.post('/catalog/batch-reject', requireAdminAuth, async (req: AdminRequest, res) => {
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids) || !ids.length) {
+    res.redirect('/admin/catalog');
+    return;
+  }
+  const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await getPool().query(
+    `SELECT id, image_path FROM catalog_images WHERE id IN (${placeholders})`,
+    ids,
+  );
+  const images = rows as { id: number; image_path: string }[];
+  for (const img of images) {
+    if (img.image_path) {
+      try {
+        fs.unlinkSync(path.join(CATALOG_STORAGE_DIR, img.image_path));
+      } catch { /* já foi */ }
+    }
+  }
+  await getPool().query(
+    `UPDATE catalog_images SET status = 'rejeitada', image_path = '', reviewed_by = ?, reviewed_at = NOW(3) WHERE id IN (${placeholders})`,
+    [req.adminUsername, ...ids],
+  );
+  res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
+});
+
 /**
  * Exclusão em massa: apaga todas as imagens de um status específico (pendente ou aprovada).
  * 1. Valida o parâmetro status
