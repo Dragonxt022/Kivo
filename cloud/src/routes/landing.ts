@@ -32,7 +32,7 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
     tag_name?: string;
     assets?: { name: string; browser_download_url: string }[];
   };
-  const asset = (rel.assets ?? []).find((a) => /^Kivo-Setup-.*\.exe$/i.test(a.name));
+  const asset = (rel.assets ?? []).find((a) => /^(Kivo|Katsu)-Setup-.*\.exe$/i.test(a.name));
   if (!asset) return null;
   const version = String(rel.tag_name ?? '').replace(/^v/, '') || FALLBACK_VERSION;
   return { downloadUrl: asset.browser_download_url, version };
