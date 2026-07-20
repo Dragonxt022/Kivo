@@ -593,7 +593,7 @@
                 <input type="checkbox" :checked="complementDlg.selections[g.group_id]?.some(s => s.product_id === item.product_id)"
                        @change="toggleComplement(g.group_id, item)" />
                 <span x-text="item.product_name" style="flex:1"></span>
-                <span class="text-sm" x-text="brl(item.price_override_cents != null ? item.price_override_cents : complementDlg.product?.price_cents)"></span>
+                <span class="text-sm" x-text="brl(item.price_override_cents != null ? item.price_override_cents : item.price_cents)"></span>
                 <template x-if="complementDlg.selections[g.group_id]?.some(s => s.product_id === item.product_id)">
                   <div style="display:flex;align-items:center;gap:.25rem">
                     <button class="btn secondary small" @click="complementQty(g.group_id, item.product_id, -1)" style="padding:.1rem .4rem">−</button>
@@ -802,7 +802,7 @@
               const complementProduct = {
                 id: sel.product_id,
                 name: sel.product_name,
-                price_cents: sel.price_override_cents != null ? sel.price_override_cents : p.price_cents,
+                price_cents: sel.price_override_cents != null ? sel.price_override_cents : sel.price_cents,
                 sku: null,
                 image_url: null,
               };

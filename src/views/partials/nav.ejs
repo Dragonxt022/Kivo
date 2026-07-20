@@ -357,10 +357,30 @@
   }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
+  // ─── Mapa de URL → ícone do módulo ───
+  var URL_ICON = {};
+  <% (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function(item) { %>
+    URL_ICON[<%- JSON.stringify(item.href) %>] = <%- JSON.stringify(item.icon) %>;
+  <% }); %>
+  <% if (typeof adminItems !== 'undefined') { adminItems.forEach(function(item) { %>
+    URL_ICON[<%- JSON.stringify(item.href) %>] = <%- JSON.stringify(item.icon) %>;
+  <% }); } %>
+  var SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
+  function pageIcon(path){
+    var p = path;
+    while (p) {
+      if (URL_ICON[p]) return URL_ICON[p];
+      var i = p.lastIndexOf('/');
+      if (i <= 0) break;
+      p = p.substring(0, i);
+    }
+    return '';
+  }
+
   // 1) Registra a página atual no topo do histórico (deduplicado por href).
   if (!excluded()) {
     var list = read().filter(function(e){ return e && e.href !== here(); });
-    list.unshift({ href: here(), label: pageLabel(), ts: Date.now() });
+    list.unshift({ href: here(), label: pageLabel(), icon: pageIcon(location.pathname), ts: Date.now() });
     write(list.slice(0, STORE_MAX));
   }
 
@@ -379,7 +399,7 @@
       pill.href = e.href;
       pill.style.setProperty('--rev', (recents.length - 1 - i)); // escadinha: topo mais à esquerda
       pill.innerHTML =
-        '<svg class="recent-fab-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>' +
+        (e.icon && SVG_ICONS[e.icon] ? SVG_ICONS[e.icon].replace('<svg', '<svg class="recent-fab-arrow" width="16" height="16"') : '') +
         '<span class="recent-fab-label">Ir para ' + esc(e.label) + '</span>' +
         '<span class="recent-fab-close" role="button" aria-label="Dispensar">&times;</span>';
       pill.querySelector('.recent-fab-close').addEventListener('click', function(ev){

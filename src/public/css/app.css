@@ -1215,7 +1215,7 @@ dialog.wizard-dialog {
 
 /* ─── Atalhos flutuantes de páginas recentes (canto inferior direito) ─── */
 .recent-fab {
-  position: fixed; right: 22px; bottom: 22px; z-index: 45;
+  position: fixed; right: 22px; bottom: 95px; z-index: 45;
   display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
   pointer-events: none;
 }
@@ -1377,13 +1377,13 @@ dialog.wizard-dialog {
 .cgm-group-name { display: block; font-size: .875rem; font-weight: 600; color: var(--text); }
 .cgm-group-meta { display: block; font-size: .72rem; color: var(--text-muted); margin-top: 1px; }
 .cgm-group-meta .dot { margin: 0 4px; }
-.cgm-group-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .12s ease; }
-.cgm-group-card:hover .cgm-group-actions,
-.cgm-group-card.active .cgm-group-actions { opacity: 1; }
+.cgm-group-actions { display: flex; gap: 2px; }
 .cgm-group-actions .icon-btn { color: var(--text-muted); }
 .cgm-group-actions .icon-btn:hover { color: var(--text); background: var(--surface-hover); }
 .cgm-empty { padding: 2rem 1rem; text-align: center; }
 .cgm-empty p { font-size: .82rem; color: var(--text-muted); }
+.cgm-item-row:hover { background: var(--surface-hover); }
+.cgm-item-row:last-child { border-bottom: none !important; }
 
 /* Placeholder when nothing selected */
 .cgm-placeholder {

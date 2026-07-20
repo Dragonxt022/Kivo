@@ -16,6 +16,8 @@
     .activation-card img.logo { width: 72px; margin-bottom: .75rem; }
     .activation-card h1 { font-size: 1.15rem; font-weight: 600; margin-bottom: .4rem; }
     .activation-card .subtitle { font-size: .85rem; color: var(--text-muted); margin-bottom: 1.4rem; }
+    .activation-card .divider { display: flex; align-items: center; gap: .75rem; margin: 1.25rem 0; color: var(--text-muted); font-size: .82rem; }
+    .activation-card .divider::before, .activation-card .divider::after { content: ''; flex: 1; height: 1px; background: var(--border-light); }
     .activation-card label { display: block; text-align: left; font-size: .82rem; color: var(--text-muted); margin-bottom: .25rem; }
     .activation-card input[type="text"] {
       width: 100%; padding: .6rem .75rem; border-radius: 10px; border: 1.5px solid var(--border-light);
@@ -25,39 +27,114 @@
     .activation-card input:focus {
       outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
     }
-    .activation-card button[type="submit"] {
-      width: 100%; padding: .7rem; border: 0; border-radius: 10px; background: var(--primary); color: #fff;
-      font-size: .95rem; font-weight: 600; cursor: pointer; transition: background var(--transition), transform var(--transition);
+    .activation-card .btn {
+      width: 100%; padding: .7rem; border: 0; border-radius: 10px; font-size: .95rem; font-weight: 600;
+      cursor: pointer; transition: background var(--transition), transform var(--transition);
       display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
     }
-    .activation-card button[type="submit"]:hover { background: var(--primary-hover); transform: translateY(-1px); }
-    .activation-card button[type="submit"]:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+    .activation-card .btn:hover { transform: translateY(-1px); }
+    .activation-card .btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+    .activation-card .btn-primary { background: var(--primary); color: #fff; }
+    .activation-card .btn-primary:hover { background: var(--primary-hover); }
+    .activation-card .btn-secondary { background: var(--surface-hover); color: var(--text); border: 1.5px solid var(--border-light); }
+    .activation-card .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
+    .activation-card .btn-ghost { background: transparent; color: var(--text-muted); font-size: .85rem; }
+    .activation-card .btn-ghost:hover { color: var(--primary); }
     .activation-card .error { color: var(--danger); font-size: .85rem; margin-top: .75rem; min-height: 1.2em; }
+    .activation-card .trial-features { text-align: left; margin: 1rem 0; font-size: .85rem; color: var(--text-muted); }
+    .activation-card .trial-features li { padding: .25rem 0; display: flex; align-items: center; gap: .4rem; }
+    .activation-card .trial-features svg { flex-shrink: 0; color: var(--primary); }
+    .activation-card .success-check { color: var(--primary); margin-bottom: .5rem; }
   </style>
 </head>
 <body>
   <div class="activation-card" x-data="activationPage()">
     <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
     <h1>Ativar o Kivo</h1>
-    <p class="subtitle">Informe os dados fornecidos na compra. É preciso estar conectado à internet nesta primeira ativação.</p>
-    <form @submit.prevent="activate">
-      <label for="act-company">Empresa (UUID)</label>
-      <input id="act-company" type="text" x-model="companyUuid" placeholder="uuid fornecido na ativação" autocomplete="off" />
-      <label for="act-key">Chave de licença</label>
-      <input id="act-key" type="text" x-model="licenseKey" placeholder="chave fornecida na ativação" autocomplete="off" />
-      <button type="submit" :disabled="loading">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5"/></svg>
-        <span x-text="loading ? 'Ativando…' : 'Ativar'"></span>
-      </button>
-      <div class="error" x-text="error"></div>
-    </form>
+
+    <template x-if="mode === 'choice'">
+      <div>
+        <p class="subtitle">Escolha como deseja começar:</p>
+        <button class="btn btn-primary" :disabled="loading" @click="startTrial">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span x-text="loading ? 'Solicitando…' : 'Testar Grátis por 15 Dias'"></span>
+        </button>
+
+        <div class="trial-features">
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sem necessidade de cartão de crédito</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Acesso completo a todos os recursos</li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Suporte técnico durante o teste</li>
+        </div>
+
+        <div class="divider">ou</div>
+
+        <button class="btn btn-secondary" @click="mode = 'key'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5"/></svg>
+          Adicionar Chave
+        </button>
+
+        <button class="btn btn-ghost" @click="viewPlans">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><circle cx="12" cy="14" r="1.5"/><path d="M12 5V3"/></svg>
+          Ver Planos
+        </button>
+
+        <div class="error" x-text="error"></div>
+      </div>
+    </template>
+
+    <template x-if="mode === 'key'">
+      <div>
+        <p class="subtitle">Informe os dados fornecidos na compra. É preciso estar conectado à internet nesta primeira ativação.</p>
+        <form @submit.prevent="activate">
+          <label for="act-company">Empresa (UUID)</label>
+          <input id="act-company" type="text" x-model="companyUuid" placeholder="uuid fornecido na ativação" autocomplete="off" />
+          <label for="act-key">Chave de licença</label>
+          <input id="act-key" type="text" x-model="licenseKey" placeholder="chave fornecida na ativação" autocomplete="off" />
+          <button class="btn btn-primary" type="submit" :disabled="loading">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5"/></svg>
+            <span x-text="loading ? 'Ativando…' : 'Ativar'"></span>
+          </button>
+          <div class="error" x-text="error"></div>
+        </form>
+        <div class="divider"></div>
+        <button class="btn btn-ghost" @click="mode = 'choice'; error = ''">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Voltar
+        </button>
+      </div>
+    </template>
+
+    <template x-if="mode === 'success'">
+      <div>
+        <div class="success-check">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h1>Teste iniciado com sucesso!</h1>
+        <p class="subtitle">Bem-vindo ao Kivo. Você tem 15 dias para testar todos os recursos.</p>
+        <p class="subtitle" style="margin-bottom:0">Redirecionando…</p>
+      </div>
+    </template>
   </div>
   <script defer src="/vendor/alpine.min.js"></script>
   <script>
     function activationPage() {
       return {
         theme: document.documentElement.getAttribute('data-theme') || 'light',
+        mode: 'choice',
         companyUuid: '', licenseKey: '', loading: false, error: '',
+        async startTrial() {
+          this.loading = true; this.error = '';
+          try {
+            const r = await fetch('/api/activation/request-trial', { method: 'POST' });
+            if (r.ok) { this.mode = 'success'; setTimeout(() => { window.location.href = '/'; }, 1500); return; }
+            const data = await r.json();
+            this.error = data.error || 'Falha ao solicitar teste.';
+          } catch (e) {
+            this.error = 'Erro de conexão. Verifique sua internet e tente novamente.';
+          } finally {
+            this.loading = false;
+          }
+        },
         async activate() {
           if (!this.companyUuid.trim() || !this.licenseKey.trim()) {
             this.error = 'Preencha empresa e chave de licença.';
@@ -77,6 +154,9 @@
           } finally {
             this.loading = false;
           }
+        },
+        viewPlans() {
+          window.open('https://kivo.buscamais.org/#planos', '_blank');
         },
       };
     }

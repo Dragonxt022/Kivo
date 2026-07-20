@@ -296,6 +296,58 @@ type ActivateResult =
  * `refreshLicenseFromCloud`, NÃO engole erro — a primeira conexão precisa mesmo
  * acontecer, então quem chama precisa saber exatamente por que falhou.
  */
+type TrialResult =
+  | { ok: true; info: LicenseInfo }
+  | { ok: false; error: string; reason: 'offline' | 'already_used' | 'not_configured' };
+
+/**
+ * Solicita um teste grátis de 15 dias no servidor. O servidor verifica se esta máquina
+ * já utilizou o teste (via `trial_registry`) e, se não, cria uma empresa trial e retorna
+ * as credenciais. O usuário não precisa digitar nada — a ativação é automática.
+ */
+export async function requestTrial(): Promise<TrialResult> {
+  const url = getCloudServerUrl();
+  if (!url) return { ok: false, error: 'Servidor de licenciamento não configurado.', reason: 'not_configured' };
+
+  let res: Response;
+  try {
+    res = await fetch(`${url.replace(/\/$/, '')}/api/license/request-trial`, {
+      method: 'POST',
+      headers: { 'X-Kivo-Machine-Id': machineId() },
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch {
+    return { ok: false, error: 'Sem conexão com a internet. Conecte-se para ativar.', reason: 'offline' };
+  }
+
+  if (res.status === 409) {
+    return { ok: false, error: 'Esta máquina já utilizou o período de teste gratuito.', reason: 'already_used' };
+  }
+  if (!res.ok) return { ok: false, error: `Falha ao solicitar teste (HTTP ${res.status}).`, reason: 'offline' };
+
+  const body = (await res.json()) as {
+    companyUuid: string; licenseKey: string; plan: string; validUntil: string;
+    supportPhone?: string; supportEmail?: string; serverTime?: string;
+  };
+
+  ensureLicenseRow();
+  getSqlite()
+    .prepare(
+      `UPDATE license SET company_uuid = ?, license_key = ?, plan = ?, valid_until = ?,
+       support_phone = ?, support_email = ?, machine_id = ?, machine_id_version = ?,
+       last_validated_at = datetime('now'), activated_at = datetime('now'), updated_at = datetime('now')`,
+    )
+    .run(
+      body.companyUuid, body.licenseKey, body.plan, body.validUntil,
+      body.supportPhone ?? null, body.supportEmail ?? null,
+      machineId(), MACHINE_ID_VERSION,
+    );
+  const row = getRow()!;
+  bumpWatermark(row, body.serverTime ? new Date(body.serverTime).getTime() : Date.now());
+
+  return { ok: true, info: validateLicense() };
+}
+
 export async function activateLicense(companyUuid: string, licenseKey: string): Promise<ActivateResult> {
   const url = getCloudServerUrl();
   if (!url) return { ok: false, error: 'Servidor de licenciamento não configurado.', reason: 'not_configured' };

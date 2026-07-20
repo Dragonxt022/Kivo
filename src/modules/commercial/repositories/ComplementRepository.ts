@@ -61,7 +61,7 @@ export class ProductComplementGroupRepository extends BaseRepository {
   listByProduct(productId: number): Row[] {
     return this.raw(
       `SELECT pcg.id, pcg.group_id, cg.name AS group_name, cg.min_select, cg.max_select, pcg.sort_order,
-              json_group_array(json_object('id', i.id, 'product_id', i.product_id, 'product_name', p.name, 'price_override_cents', i.price_override_cents, 'sort_order', i.sort_order)) AS items
+              json_group_array(json_object('id', i.id, 'product_id', i.product_id, 'product_name', p.name, 'price_cents', p.price_cents, 'price_override_cents', i.price_override_cents, 'sort_order', i.sort_order)) AS items
        FROM product_complement_groups pcg
        JOIN complement_groups cg ON cg.id = pcg.group_id AND cg.deleted_at IS NULL
        LEFT JOIN complement_group_items i ON i.group_id = pcg.group_id AND i.deleted_at IS NULL

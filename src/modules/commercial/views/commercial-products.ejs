@@ -987,7 +987,7 @@
           <div class="cgm-list-col">
             <div class="cgm-list">
               <template x-for="g in compMgr.groups" :key="g.id">
-                <button class="cgm-group-card" :class="{ active: compMgr.editGroup?.id === g.id }"
+                <div class="cgm-group-card" :class="{ active: compMgr.editGroup?.id === g.id }"
                         @click="editCompGroup(g)">
                   <div class="cgm-group-info">
                     <span class="cgm-group-name" x-text="g.name"></span>
@@ -1005,7 +1005,7 @@
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                     </button>
                   </div>
-                </button>
+                </div>
               </template>
               <div x-show="!compMgr.groups.length" class="cgm-empty">
                 <p>Nenhum grupo ainda.</p>
@@ -1094,25 +1094,33 @@
     </dialog>
 
     <!-- Sub-modal: adicionar item ao grupo -->
-    <dialog x-ref="compItemDlg" style="min-width:400px">
+    <dialog x-ref="compItemDlg" style="min-width:480px">
       <h1>Adicionar item ao grupo</h1>
       <div class="dialog-body">
-        <input type="text" x-model="compMgr.itemSearch" placeholder="Buscar produto por nome, código ou SKU…" @input.debounce.300ms="searchCompProducts()" style="width:100%" />
-        <div style="max-height:250px;overflow-y:auto;margin-top:.5rem">
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input type="text" x-model="compMgr.itemSearch" placeholder="Buscar produto por nome, código ou SKU…" @input="searchCompProducts()" style="flex:1" />
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap;cursor:pointer">
+            <input type="checkbox" x-model="compMgr.filterComplemento" @change="searchCompProducts()" />
+            Apenas complementos
+          </label>
+        </div>
+        <div style="max-height:300px;overflow-y:auto;margin-top:.5rem;border:1px solid var(--border-light);border-radius:var(--radius)">
           <template x-for="p in compMgr.itemResults" :key="p.id">
-            <div class="flex-row" style="justify-content:space-between;align-items:center;padding:.35rem 0;border-bottom:1px solid var(--border-light)">
+            <div class="flex-row cgm-item-row" style="justify-content:space-between;align-items:center;padding:.45rem .5rem;border-bottom:1px solid var(--border-light);cursor:pointer" @click="addCompItem(p)">
               <div>
                 <span x-text="p.name"></span>
                 <span class="muted text-xs" x-show="p.sku" x-text="` (${p.sku})`"></span>
+                <span class="muted text-xs" x-show="p.price_cents != null" x-text="` · R$ ${(p.price_cents / 100).toFixed(2).replace('.', ',')}`" style="margin-left:.25rem"></span>
               </div>
-              <button class="btn secondary small" type="button" @click="addCompItem(p)">
+              <button class="btn secondary small" type="button" @click.stop="addCompItem(p)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Adicionar
               </button>
             </div>
           </template>
-          <p x-show="!compMgr.itemResults.length && compMgr.itemSearch.trim().length >= 2" class="muted text-xs" style="text-align:center;padding:.5rem">Nenhum produto encontrado.</p>
-          <p x-show="compMgr.itemSearch.trim().length < 2" class="muted text-xs" style="text-align:center;padding:.5rem">Digite ao menos 2 caracteres.</p>
+          <p x-show="compMgr.loadingItems" class="muted text-xs" style="text-align:center;padding:.75rem">Carregando…</p>
+          <p x-show="!compMgr.loadingItems && !compMgr.itemResults.length && compMgr.itemSearch.trim().length > 0" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhum produto encontrado.</p>
+          <p x-show="!compMgr.loadingItems && !compMgr.itemResults.length && compMgr.itemSearch.trim().length === 0" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhum produto disponível. Todos os produtos já foram adicionados a este grupo.</p>
         </div>
         <label style="margin-top:.5rem;font-size:.8rem">Preço (R$) — opcional</label>
         <input type="text" x-model="compMgr.itemPriceDisplay" placeholder="Deixe vazio para usar o preço do produto" @input="compMgr.itemPriceDisplay = maskMoney(compMgr.itemPriceDisplay)" style="width:200px" />
@@ -1170,7 +1178,7 @@
         // Kits
         kitComponents: [], complementGroups: [], kitDlgError: '', addCompSearch: '', addCompResults: [],
         // Complement group manager
-        compMgr: { groups: [], editGroup: null, err: '', itemSearch: '', itemResults: [], itemPriceDisplay: '' },
+        compMgr: { groups: [], editGroup: null, err: '', itemSearch: '', itemResults: [], itemPriceDisplay: '', loadingItems: false, filterComplemento: false },
         // Ficha técnica
         recipeComponents: [], recipeDlgError: '', recipeSearchResults: [], recipeSearchQ: '',
         sortGetters: {
@@ -1695,18 +1703,25 @@
         },
         async searchCompProducts() {
           const q = this.compMgr.itemSearch?.trim() ?? '';
-          if (q.length < 2) { this.compMgr.itemResults = []; return; }
-          const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(q));
+          const url = q ? '/api/commercial/products?q=' + encodeURIComponent(q) : '/api/commercial/products';
+          this.compMgr.loadingItems = true;
+          const r = await fetch(url);
           if (r.ok) {
             const all = await r.json();
             const existingIds = new Set((this.compMgr.editGroup?.items ?? []).map(i => i.product_id));
-            this.compMgr.itemResults = all.filter(p => p.product_type === 'complemento' && !existingIds.has(p.id));
+            this.compMgr.itemResults = all.filter(p => {
+              if (this.compMgr.filterComplemento && p.product_type !== 'complemento') return false;
+              return !existingIds.has(p.id);
+            });
           }
+          this.compMgr.loadingItems = false;
         },
         async openAddCompItem() {
           if (!this.compMgr.editGroup?.id) { this.compMgr.err = 'Salve o grupo primeiro.'; return; }
           this.compMgr.itemSearch = ''; this.compMgr.itemResults = []; this.compMgr.itemPriceDisplay = '';
+          this.compMgr.loadingItems = true;
           this.$refs.compItemDlg.showModal();
+          await this.searchCompProducts();
         },
         async addCompItem(p) {
           const priceCents = this.compMgr.itemPriceDisplay

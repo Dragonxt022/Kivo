@@ -156,16 +156,18 @@ function applyChildren(spec: RegisteredSyncTable, parentLocalId: number, payload
     const rows = (payload[child.table] as Record<string, unknown>[] | undefined) ?? [];
     db().prepare(`DELETE FROM ${child.table} WHERE ${child.parentColumn} = ?`).run(parentLocalId);
     if (!rows.length) continue;
+    const CHILD_SKIP = new Set(['id', 'synced_at', 'origin_machine', 'updated_at', 'deleted_at', 'comment']);
     const cols = tableColumns(child.table)
       .map((c) => c.name)
-      .filter((n) => n !== 'id' && n !== child.parentColumn && n !== 'comment' && !child.excludeColumns?.includes(n));
+      .filter((n) => !CHILD_SKIP.has(n) && n !== child.parentColumn && !child.excludeColumns?.includes(n));
     const insertCols = [child.parentColumn, ...cols];
     const stmt = db().prepare(
       `INSERT INTO ${child.table} (${insertCols.join(', ')}) VALUES (${insertCols.map(() => '?').join(', ')})`,
     );
     for (const r of rows) {
       const values = cols.map((c) => {
-        if (!child.foreignKeys?.[c]) return c === 'uuid' ? (r[c] as string) ?? randomUUID() : r[c] ?? null;
+        if (c === 'uuid') return (r[c] as string) ?? randomUUID();
+        if (!child.foreignKeys?.[c]) return r[c] ?? null;
         const uuidValue = r[c] as string | null;
         const localId = getIdByUuid(child.foreignKeys[c], uuidValue);
         if (uuidValue != null && localId == null) {

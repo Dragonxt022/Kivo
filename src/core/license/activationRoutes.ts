@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { activateLicense, isActivated } from './service';
+import { activateLicense, requestTrial, isActivated } from './service';
 
 /**
  * Rotas PÚBLICAS (sem `requireAuth`) — a tela de ativação precisa ser alcançável antes
@@ -24,6 +24,16 @@ router.post('/api/activation/activate', async (req, res) => {
   const result = await activateLicense(String(companyUuid).trim(), String(licenseKey).trim());
   if (!result.ok) {
     const statusCode = result.reason === 'offline' ? 503 : result.reason === 'invalid_credentials' ? 401 : 403;
+    res.status(statusCode).json({ error: result.error, reason: result.reason });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+router.post('/api/activation/request-trial', async (_req, res) => {
+  const result = await requestTrial();
+  if (!result.ok) {
+    const statusCode = result.reason === 'offline' ? 503 : 409;
     res.status(statusCode).json({ error: result.error, reason: result.reason });
     return;
   }

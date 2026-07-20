@@ -1,6 +1,8 @@
+import { randomUUID, randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import { getPool } from '../db';
-import { requireCompanyAuth, type AuthedRequest } from '../auth';
+import { requireCompanyAuth, hashLicenseKey, type AuthedRequest } from '../auth';
+import { trialValidUntil } from '../plans';
 
 const router = Router();
 
@@ -24,6 +26,80 @@ interface CompanyLicenseRow {
   city: string | null;
   state: string | null;
 }
+
+/**
+ * Solicitação de teste grátis (15 dias): cria uma empresa trial automaticamente,
+ * sem necessidade de chave prévia. A mesma máquina (machine_id) só pode solicitar
+ * uma única vez — o servidor mantém um registro (`trial_registry`) para evitar
+ * múltiplos trials no mesmo hardware.
+ */
+router.post('/request-trial', async (req, res) => {
+  const machineId = req.header('X-Kivo-Machine-Id');
+  if (!machineId) {
+    res.status(400).json({ error: 'Cabeçalho obrigatório: X-Kivo-Machine-Id.' });
+    return;
+  }
+
+  const pool = getPool();
+
+  // Verifica se esta máquina já usou o teste
+  const [existing] = await pool.query('SELECT company_uuid FROM trial_registry WHERE machine_id_hash = ?', [machineId]);
+  if ((existing as { company_uuid: string }[]).length > 0) {
+    res.status(409).json({ error: 'Esta máquina já utilizou o período de teste gratuito.', alreadyUsed: true });
+    return;
+  }
+
+  // Gera credenciais para a empresa trial
+  const companyUuid = randomUUID();
+  const licenseKey = randomBytes(24).toString('hex');
+  const validUntil = trialValidUntil();
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `INSERT INTO companies (company_uuid, license_key_hash, name, plan, valid_until, max_devices)
+       VALUES (?, ?, ?, 'trial', ?, 1)`,
+      [companyUuid, hashLicenseKey(licenseKey), `Avaliação — ${machineId.slice(0, 8)}`, validUntil],
+    );
+
+    await conn.query(
+      'INSERT INTO company_devices (company_uuid, machine_id) VALUES (?, ?)',
+      [companyUuid, machineId],
+    );
+
+    await conn.query(
+      'INSERT INTO trial_registry (machine_id_hash, company_uuid) VALUES (?, ?)',
+      [machineId, companyUuid],
+    );
+
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+
+  // Contato de suporte global
+  const [settingsRows] = await pool.query(
+    "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('support_phone','support_email')",
+  );
+  const settingsMap = Object.fromEntries(
+    (settingsRows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
+  );
+
+  res.json({
+    companyUuid,
+    licenseKey,
+    plan: 'trial',
+    validUntil,
+    supportPhone: settingsMap.support_phone ?? null,
+    supportEmail: settingsMap.support_email ?? null,
+    serverTime: new Date().toISOString(),
+  });
+});
 
 /**
  * Serve tanto a ativação inicial quanto a revalidação periódica (Kivo local). Registra
