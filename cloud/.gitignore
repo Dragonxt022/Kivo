@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-installer/
+database/*.db
+database/*.db-*
+storage/
+temp/
+uploads/
+*.log
+.env
+package-lock.json
+# Coverage
+coverage/
+
+# QA visual (scripts/qa-browser.js)
+.qa-screenshots/
