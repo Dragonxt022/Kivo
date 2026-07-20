@@ -5,14 +5,15 @@
   "private": true,
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx src/server.ts",
-    "build": "tsc -p tsconfig.json && node scripts/copy-views.js",
-    "migrate": "tsx src/migrate.ts up",
-    "migrate:down": "tsx src/migrate.ts down",
-    "reset": "tsx src/reset-db.ts"
+"dev": "tsx -r dotenv/config src/server.ts",
+"build": "tsc -p tsconfig.json && node scripts/copy-views.js",
+"migrate": "tsx -r dotenv/config src/migrate.ts up",
+"migrate:down": "tsx -r dotenv/config src/migrate.ts down",
+"reset": "tsx -r dotenv/config src/reset-db.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
+    "dotenv": "^17.4.2",
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "image-size": "^1.2.0",
