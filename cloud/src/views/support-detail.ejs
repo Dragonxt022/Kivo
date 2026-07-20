@@ -7,6 +7,7 @@
   <title>Kivo Cloud — Ticket #<%= ticket.id %></title>
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
   <style>
     .chat-thread { display: flex; flex-direction: column; gap: .75rem; padding: 1.25rem; max-height: 55vh; overflow-y: auto; }
     .chat-bubble { max-width: 72%; padding: .7rem 1rem; border-radius: 14px; font-size: .95rem; white-space: pre-wrap; }
@@ -26,22 +27,16 @@
     <main class="content">
       <%- include('partials/navbar', { active: 'support' }) %>
 
-      <div class="page">
+      <div class="page" x-data="chatDetail()" x-init="init()">
         <div class="page-header" style="flex-wrap: wrap; gap: .75rem;">
           <h1 style="display:flex; align-items:center; gap:.6rem;">
-            Ticket #<%= ticket.id %> — <%= ticket.subject %>
-            <span class="badge <%= ticket.status === 'aberto' ? 'pendente' : ticket.status === 'fechado' ? 'paga' : 'cancelada' %>"><%= ticket.status %></span>
+            Ticket #<%= ticket.id %> — <span x-text="subject"><%= ticket.subject %></span>
+            <span class="badge" :class="statusBadge" x-text="status"><%= ticket.status %></span>
           </h1>
           <div style="display:flex; gap:.5rem;">
-            <% if (ticket.status !== 'aberto') { %>
-            <form method="post" action="/admin/support/<%= ticket.id %>/status"><input type="hidden" name="status" value="aberto"><button class="btn small" type="submit">Reabrir</button></form>
-            <% } %>
-            <% if (ticket.status === 'aberto') { %>
-            <form method="post" action="/admin/support/<%= ticket.id %>/status"><input type="hidden" name="status" value="fechado"><button class="btn secondary small" type="submit">Fechar</button></form>
-            <% } %>
-            <% if (ticket.status !== 'arquivado') { %>
-            <form method="post" action="/admin/support/<%= ticket.id %>/status"><input type="hidden" name="status" value="arquivado"><button class="btn danger small" type="submit">Arquivar</button></form>
-            <% } %>
+            <form method="post" action="/admin/support/<%= ticket.id %>/status" x-show="status !== 'aberto'"><input type="hidden" name="status" value="aberto"><button class="btn small" type="submit">Reabrir</button></form>
+            <form method="post" action="/admin/support/<%= ticket.id %>/status" x-show="status === 'aberto'"><input type="hidden" name="status" value="fechado"><button class="btn secondary small" type="submit">Fechar</button></form>
+            <form method="post" action="/admin/support/<%= ticket.id %>/status" x-show="status !== 'arquivado'"><input type="hidden" name="status" value="arquivado"><button class="btn danger small" type="submit">Arquivar</button></form>
           </div>
         </div>
 
@@ -54,30 +49,86 @@
         </div>
 
         <div class="card" style="padding: 0;">
-          <div class="chat-thread" id="thread">
-            <% messages.forEach(function (m) { %>
-            <div class="chat-bubble <%= m.sender === 'suporte' ? 'suporte' : 'cliente' %>">
-              <% if (m.body) { %><div><%= m.body %></div><% } %>
-              <% if (m.attachment) { %>
-              <div><a href="<%= m.attachment %>" target="_blank" rel="noopener"><img src="<%= m.attachment %>" alt="Print anexado" style="max-width: 260px; max-height: 260px; border-radius: 8px; display: block; margin-top: .4rem;"></a></div>
-              <% } %>
-              <div class="meta"><%= m.sender === 'suporte' ? 'Suporte' : 'Cliente' %><%= m.sender_name ? ' · ' + m.sender_name : '' %> · <%= String(m.created_at).slice(0, 16) %></div>
-            </div>
-            <% }) %>
+          <div class="chat-thread" id="thread" x-ref="thread">
+            <template x-for="m in messages" :key="m.id">
+              <div class="chat-bubble" :class="m.sender === 'suporte' ? 'suporte' : 'cliente'">
+                <div x-text="m.body" x-show="m.body"></div>
+                <div x-show="m.attachment">
+                  <a :href="m.attachment" target="_blank" rel="noopener"><img :src="m.attachment" alt="Print anexado" style="max-width: 260px; max-height: 260px; border-radius: 8px; display: block; margin-top: .4rem;"></a>
+                </div>
+                <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte' : 'Cliente') + (m.sender_name ? ' · ' + m.sender_name : '') + ' · ' + (m.created_at || '').slice(0, 16)"></div>
+              </div>
+            </template>
+            <template x-if="!messages.length">
+              <div style="text-align:center;color:var(--muted);padding:2rem;">Nenhuma mensagem ainda — aguardando resposta.</div>
+            </template>
           </div>
           <form class="reply-row" method="post" action="/admin/support/<%= ticket.id %>/reply">
             <textarea name="body" required maxlength="4000"
                       placeholder="<%= ticket.status === 'arquivado' ? 'Ticket arquivado — reabra para responder.' : 'Escreva a resposta… (responder um ticket fechado reabre a conversa)' %>"
-                      <%= ticket.status === 'arquivado' ? 'disabled' : '' %>></textarea>
-            <button class="btn" type="submit" <%= ticket.status === 'arquivado' ? 'disabled' : '' %>>Responder</button>
+                      x-bind:disabled="status === 'arquivado'"></textarea>
+            <button class="btn" type="submit" x-bind:disabled="status === 'arquivado'">Responder</button>
           </form>
         </div>
       </div>
     </main>
   </div>
   <script>
+    var ticketId = <%= ticket.id %>;
     var thread = document.getElementById('thread');
     thread.scrollTop = thread.scrollHeight;
+
+    function chatDetail() {
+      return {
+        ticketId: ticketId,
+        subject: '<%= ticket.subject.replace(/'/g, "\\'") %>',
+        status: '<%= ticket.status %>',
+        messages: <%- JSON.stringify(messages) %>,
+        pollTimer: null,
+
+        init() {
+          this.startPolling();
+          var self = this;
+          this.$watch('status', function (val) { self.updateStatusBadge(val); });
+        },
+        updateStatusBadge(s) {
+          var badge = this.$el.querySelector('.badge');
+          if (!badge) return;
+          badge.className = 'badge ' + (s === 'aberto' ? 'pendente' : s === 'fechado' ? 'paga' : 'cancelada');
+        },
+        get statusBadge() {
+          return this.status === 'aberto' ? 'pendente' : this.status === 'fechado' ? 'paga' : 'cancelada';
+        },
+        startPolling() {
+          var self = this;
+          this.pollTimer = setInterval(function () {
+            fetch('/admin/support/api/tickets/' + self.ticketId + '/messages', { credentials: 'same-origin' })
+              .then(function (r) { return r.ok ? r.json() : null; })
+              .then(function (d) {
+                if (!d) return;
+                self.subject = d.ticket.subject;
+                self.status = d.ticket.status;
+                var atBottom = self.isThreadAtBottom();
+                var grew = (d.messages || []).length !== self.messages.length;
+                self.messages = d.messages || [];
+                if (grew && atBottom) self.$nextTick(function () { self.scrollThread(); });
+              })
+              .catch(function () {});
+          }, 5000);
+        },
+        isThreadAtBottom() {
+          var el = this.$refs.thread;
+          return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        },
+        scrollThread() {
+          var el = this.$refs.thread;
+          if (el) el.scrollTop = el.scrollHeight;
+        },
+        destroy() {
+          if (this.pollTimer) clearInterval(this.pollTimer);
+        },
+      };
+    }
   </script>
 </body>
 </html>

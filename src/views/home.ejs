@@ -601,6 +601,7 @@
         draft: '', draftAttachment: '', attachError: '', sending: false, error: '', shared: false,
         email: '', phone: '', contactsLoaded: false,
         pollTimer: null,
+        bgTimer: null,
 
         async api(path, opts) {
           const r = await fetch('/api/support' + path, opts ? {
@@ -616,6 +617,10 @@
         async init() {
           // Badge de não-lidas no botão flutuante; silencioso se offline/sem licença.
           try { await this.refreshTickets(); } catch (e) {}
+          // Atualiza o badge a cada 30s mesmo com o chat fechado.
+          this.bgTimer = setInterval(() => {
+            this.refreshTickets().catch(() => {});
+          }, 30000);
         },
         async refreshTickets() {
           const d = await this.api('/tickets');
@@ -724,7 +729,10 @@
           if (!confirm('Encerrar este atendimento? Você pode abrir um novo chamado quando quiser.')) return;
           try {
             await this.api('/tickets/' + this.ticket.id + '/close', { body: {} });
-            await this.loadMessages(this.ticket.id);
+            this.stopPolling();
+            this.view = 'home';
+            this.error = '';
+            await this.refreshTickets();
           } catch (e) { this.error = e.message; }
         },
 
@@ -745,6 +753,11 @@
         scrollThread() {
           const el = this.$refs.thread;
           if (el) el.scrollTop = el.scrollHeight;
+        },
+
+        destroy() {
+          this.stopPolling();
+          if (this.bgTimer) { clearInterval(this.bgTimer); this.bgTimer = null; }
         },
 
         async shareWithFriend() {

@@ -76,6 +76,7 @@
         rows: <%- JSON.stringify(tickets) %>,
         q: '',
         statusFilter: '',
+        pollTimer: null,
         statusBadge: { aberto: 'pendente', fechado: 'paga', arquivado: 'cancelada' },
         categoryLabels: { suporte: 'Ajuda e suporte', sugestao: 'Sugestão/melhoria', outro: 'Outro' },
         sortGetters: {
@@ -95,6 +96,20 @@
               || (t.created_by || '').toLowerCase().includes(q));
           }
           return this.sortedRows(filtered, this.sortGetters);
+        },
+        init() {
+          this.startPolling();
+        },
+        startPolling() {
+          this.pollTimer = setInterval(() => {
+            fetch('/admin/support/api/tickets', { credentials: 'same-origin' })
+              .then(r => r.ok ? r.json() : null)
+              .then(d => { if (d && d.tickets) this.rows = d.tickets; })
+              .catch(() => {});
+          }, 10000);
+        },
+        destroy() {
+          if (this.pollTimer) clearInterval(this.pollTimer);
         },
       };
     }

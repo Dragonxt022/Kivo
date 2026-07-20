@@ -809,6 +809,12 @@ router.post('/catalog/manual', rawCatalogImage, requireAdminAuth, async (req: Ad
 
 const LEAD_STATUSES = ['novo', 'contatado', 'convertido', 'descartado'] as const;
 
+/** JSON endpoint para polling da lista de leads. */
+router.get('/leads/api/list', requireAdminAuth, async (_req, res) => {
+  const [leads] = await getPool().query('SELECT * FROM contact_leads ORDER BY created_at DESC');
+  res.json({ leads });
+});
+
 router.get('/leads', requireAdminAuth, async (_req, res) => {
   const [leads] = await getPool().query('SELECT * FROM contact_leads ORDER BY created_at DESC');
   res.render('leads', { leads });
@@ -834,9 +840,74 @@ router.post('/leads/:id/delete', requireAdminAuth, async (req, res) => {
   res.redirect('/admin/leads');
 });
 
+// --- Notificações em tempo real (consumido pelo Alpine.js do painel) ---
+
+router.get('/api/notifications', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
+  const [ticketRows] = await pool.query(
+    'SELECT COUNT(*) AS cnt FROM support_tickets WHERE admin_unread > 0',
+  );
+  const [leadRows] = await pool.query(
+    "SELECT COUNT(*) AS cnt FROM contact_leads WHERE status = 'novo'",
+  );
+  const [recentTickets] = await pool.query(
+    `SELECT t.id, t.subject, t.admin_unread, t.last_message_at, c.name AS company_name
+       FROM support_tickets t
+       LEFT JOIN companies c ON c.company_uuid = t.company_uuid
+      WHERE t.admin_unread > 0
+      ORDER BY t.last_message_at DESC
+      LIMIT 5`,
+  );
+  const [recentLeads] = await pool.query(
+    `SELECT id, name, whatsapp, created_at
+       FROM contact_leads
+      WHERE status = 'novo'
+      ORDER BY created_at DESC
+      LIMIT 5`,
+  );
+  res.json({
+    unreadTickets: Number((ticketRows as { cnt: number }[])[0]?.cnt ?? 0),
+    newLeads: Number((leadRows as { cnt: number }[])[0]?.cnt ?? 0),
+    recentTickets: recentTickets as { id: number; subject: string; admin_unread: number; last_message_at: string; company_name: string | null }[],
+    recentLeads: recentLeads as { id: number; name: string; whatsapp: string; created_at: string }[],
+  });
+});
+
 // --- Suporte: tickets do chat do app ---
 
 const TICKET_STATUSES = ['aberto', 'fechado', 'arquivado'] as const;
+
+/** JSON endpoint para polling da lista de tickets (consumido pelo Alpine.js sem recarregar a página). */
+router.get('/support/api/tickets', requireAdminAuth, async (_req, res) => {
+  const [tickets] = await getPool().query(
+    `SELECT t.*, c.name AS company_name
+       FROM support_tickets t
+       LEFT JOIN companies c ON c.company_uuid = t.company_uuid
+      ORDER BY t.last_message_at DESC`,
+  );
+  res.json({ tickets });
+});
+
+/** JSON endpoint para polling das mensagens de um ticket (recarregamento automático). */
+router.get('/support/api/tickets/:id/messages', requireAdminAuth, async (req, res) => {
+  const [tickets] = await getPool().query(
+    `SELECT t.*, c.name AS company_name
+       FROM support_tickets t
+       LEFT JOIN companies c ON c.company_uuid = t.company_uuid
+      WHERE t.id = ?`,
+    [Number(req.params.id)],
+  );
+  const ticket = (tickets as { id: number; subject: string; status: string; company_name: string | null; admin_unread: number }[])[0];
+  if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado.' });
+  const [messages] = await getPool().query(
+    'SELECT id, sender, sender_name, body, attachment, created_at FROM support_messages WHERE ticket_id = ? ORDER BY id',
+    [ticket.id],
+  );
+  if (ticket.admin_unread > 0) {
+    await getPool().query('UPDATE support_tickets SET admin_unread = 0 WHERE id = ?', [ticket.id]);
+  }
+  res.json({ ticket: { id: ticket.id, subject: ticket.subject, status: ticket.status }, messages });
+});
 
 router.get('/support', requireAdminAuth, async (_req, res) => {
   const [tickets] = await getPool().query(

@@ -17,10 +17,12 @@
     <a href="/admin/leads" class="sidebar-link <%= activeKey === 'leads' ? 'active' : '' %>" title="Leads">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
       <span class="sidebar-label">Leads</span>
+      <span class="sidebar-badge" id="leads-badge" style="display:none">0</span>
     </a>
     <a href="/admin/support" class="sidebar-link <%= activeKey === 'support' ? 'active' : '' %>" title="Suporte">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <span class="sidebar-label">Suporte</span>
+      <span class="sidebar-badge" id="support-badge" style="display:none">0</span>
     </a>
     <a href="/admin/catalog" class="sidebar-link <%= activeKey === 'catalog' ? 'active' : '' %>" title="Banco de imagens">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
@@ -103,4 +105,94 @@
     // Voltar ao desktop com a gaveta aberta deixaria o backdrop preso na tela.
     mobile.addEventListener('change', closeDrawer);
   });
+
+  // ─── Notificações: polling de novos tickets e leads ───
+  (function () {
+    var isAdminPage = window.location.pathname.startsWith('/admin');
+    if (!isAdminPage) return;
+    var supportBadge = document.getElementById('support-badge');
+    var leadsBadge = document.getElementById('leads-badge');
+    var notifBadge = document.querySelector('#notif-btn .notif-badge');
+    if (!supportBadge && !leadsBadge) return;
+
+    var lastNotifTickets = 0;
+    var lastNotifLeads = 0;
+    var notifList = document.getElementById('notif-list');
+
+    function updateBadges() {
+      fetch('/admin/api/notifications', { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d) return;
+          var total = d.unreadTickets + d.newLeads;
+          // Suporte
+          if (supportBadge) {
+            supportBadge.style.display = d.unreadTickets > 0 ? 'inline-flex' : 'none';
+            supportBadge.textContent = d.unreadTickets > 9 ? '9+' : d.unreadTickets;
+          }
+          // Leads
+          if (leadsBadge) {
+            leadsBadge.style.display = d.newLeads > 0 ? 'inline-flex' : 'none';
+            leadsBadge.textContent = d.newLeads > 9 ? '9+' : d.newLeads;
+          }
+          // Navbar bell badge
+          if (notifBadge) {
+            notifBadge.style.display = total > 0 ? 'grid' : 'none';
+            notifBadge.textContent = total > 9 ? '9+' : total;
+          }
+          // Dropdown de notificações
+          if (notifList) {
+            var html = '';
+            if (!total) {
+              html = '<div class="notif-empty">Nenhuma notificação por aqui.</div>';
+            } else {
+              (d.recentTickets || []).forEach(function (t) {
+                html += '<a href="/admin/support/' + t.id + '" class="notif-item">' +
+                  '<div class="notif-title">' + (t.company_name || 'Empresa') + ': ' + t.subject + '</div>' +
+                  '<div class="notif-meta">' + t.admin_unread + ' nova(s) · ' + (t.last_message_at || '').slice(0, 16) + '</div>' +
+                  '</a>';
+              });
+              (d.recentLeads || []).forEach(function (l) {
+                html += '<a href="/admin/leads" class="notif-item">' +
+                  '<div class="notif-title">Novo lead: ' + l.name + '</div>' +
+                  '<div class="notif-meta">' + l.whatsapp + ' · ' + (l.created_at || '').slice(0, 16) + '</div>' +
+                  '</a>';
+              });
+            }
+            notifList.innerHTML = html;
+          }
+          // Notificação do navegador para novos tickets
+          if (d.unreadTickets > lastNotifTickets && lastNotifTickets > 0) {
+            var n = d.recentTickets && d.recentTickets[0];
+            if (n && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('Novo ticket de suporte', {
+                body: (n.company_name || 'Empresa') + ': ' + n.subject,
+                icon: '/logo_kivo-icon.svg',
+              });
+            }
+          }
+          if (d.newLeads > lastNotifLeads && lastNotifLeads > 0) {
+            var l = d.recentLeads && d.recentLeads[0];
+            if (l && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('Novo lead', {
+                body: l.name + ' · ' + l.whatsapp,
+                icon: '/logo_kivo-icon.svg',
+              });
+            }
+          }
+          lastNotifTickets = d.unreadTickets;
+          lastNotifLeads = d.newLeads;
+        })
+        .catch(function () { /* silencioso */ });
+    }
+
+    // Executa imediatamente e a cada 15 segundos
+    updateBadges();
+    setInterval(updateBadges, 15000);
+
+    // Pede permissão para notificações do navegador
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  })();
 </script>

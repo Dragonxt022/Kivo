@@ -179,7 +179,12 @@
   .sidebar-submenu { display: none; flex-direction: column; gap: 2px; padding-left: 27px; margin-top: 2px; }
   .sidebar-submenu.open { display: flex; }
   .sidebar.collapsed .sidebar-submenu { display: none !important; }
-  .sidebar.collapsed .sidebar-label, .sidebar.collapsed .chevron { display: none; }
+  .sidebar-badge {
+    margin-left: auto; background: var(--danger); color: #fff; font-size: .65rem; font-weight: 700;
+    min-width: 16px; height: 16px; border-radius: 999px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .sidebar.collapsed .sidebar-label, .sidebar.collapsed .chevron, .sidebar.collapsed .sidebar-badge { display: none; }
   .sidebar.collapsed .sidebar-link, .sidebar.collapsed .sidebar-parent { justify-content: center; }
 
   main.content { flex: 1; min-width: 0; }
