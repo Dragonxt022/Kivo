@@ -12,7 +12,7 @@ export interface ModuleMenuItem {
   moduleId?: string;
 }
 
-/** Contrato do module.manifest.ts (KATSU_PLANO.md §4). */
+/** Contrato do module.manifest.ts (KIVO_PLANO.md §4). */
 export interface ModuleManifest {
   id: string;
   name: string;
@@ -37,7 +37,7 @@ export interface ModuleManifest {
   menu?: ModuleMenuItem[];
   /** Módulos dos quais este depende (devem carregar/setup antes deste). */
   dependsOn?: string[];
-  /** Tabelas sincronizáveis deste módulo (motor de sync da Fase 6a, KATSU_PLANO.md §6). */
+  /** Tabelas sincronizáveis deste módulo (motor de sync da Fase 6a, KIVO_PLANO.md §6). */
   syncTables?: SyncTableSpec[];
 }
 

@@ -1,4 +1,4 @@
-/** Validação de código de barras (Katsu) — cópia client-side de shared/barcode (sem bundler). */
+/** Validação de código de barras (Kivo) — cópia client-side de shared/barcode (sem bundler). */
 window.validateBarcodeClient = function (code) {
   const raw = String(code || '').trim();
   const digits = raw.replace(/\D/g, '');

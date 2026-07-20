@@ -1,4 +1,4 @@
-## Katsu v0.2.0
+## Kivo v0.2.0
 
 ### Novidades
 - **Cardápio online renovado**: nova estrutura de página com busca de produtos.
@@ -15,4 +15,4 @@
 - Adicionada cobertura de código (`c8`) e QA visual automatizado (Playwright).
 
 ---
-📥 Baixe o instalador `Katsu-Setup-0.2.0.exe` abaixo. Quem já tem o Katsu instalado recebe o aviso de atualização automaticamente no próximo boot.
+📥 Baixe o instalador `Kivo-Setup-0.2.0.exe` abaixo. Quem já tem o Kivo instalado recebe o aviso de atualização automaticamente no próximo boot.

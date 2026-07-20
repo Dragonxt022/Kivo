@@ -9,7 +9,7 @@ interface CompanyLicenseRow {
   modules: string[] | string | null;
   valid_until: string | null;
   max_devices: number;
-  // Perfil da empresa — desce na ativação e preenche as configurações do Katsu local.
+  // Perfil da empresa — desce na ativação e preenche as configurações do Kivo local.
   name: string | null;
   legal_name: string | null;
   document: string | null;
@@ -26,7 +26,7 @@ interface CompanyLicenseRow {
 }
 
 /**
- * Serve tanto a ativação inicial quanto a revalidação periódica (Katsu local). Registra
+ * Serve tanto a ativação inicial quanto a revalidação periódica (Kivo local). Registra
  * o dispositivo (machine_id) na primeira vez que o vê, dentro do limite `max_devices`
  * da empresa; uma máquina já conhecida nunca é recontada contra o limite — só uma
  * máquina NOVA é que compara. Um dispositivo removido pelo suporte (`removed_at`) é
@@ -34,9 +34,9 @@ interface CompanyLicenseRow {
  * ter mais vaga (`device_limit_exceeded`).
  */
 router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
-  const machineId = req.header('X-Katsu-Machine-Id');
+  const machineId = req.header('X-Kivo-Machine-Id');
   if (!machineId) {
-    res.status(400).json({ error: 'Cabeçalho obrigatório: X-Katsu-Machine-Id.' });
+    res.status(400).json({ error: 'Cabeçalho obrigatório: X-Kivo-Machine-Id.' });
     return;
   }
 
@@ -91,7 +91,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
     // diferente de `[]` (configurado explicitamente como "nenhum módulo"), que bloqueia tudo.
     const modules = company.modules == null ? null : typeof company.modules === 'string' ? JSON.parse(company.modules) : company.modules;
 
-    // Contato de suporte é global (do fornecedor Katsu), não por empresa — mesmo valor para todas.
+    // Contato de suporte é global (do fornecedor Kivo), não por empresa — mesmo valor para todas.
     const [settingsRows] = await pool.query(
       "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('support_phone','support_email')",
     );
@@ -105,7 +105,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
       validUntil: company.valid_until,
       supportPhone: settingsMap.support_phone ?? null,
       supportEmail: settingsMap.support_email ?? null,
-      // Perfil da empresa cadastrado no painel — o Katsu local usa para preencher as
+      // Perfil da empresa cadastrado no painel — o Kivo local usa para preencher as
       // configurações (nome/documento/endereço do cupom) na ativação, só se vazias.
       company: {
         name: company.name,
@@ -122,7 +122,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
         city: company.city,
         state: company.state,
       },
-      // Alimenta o watermark anti-retrocesso de relógio no Katsu local — o cliente não
+      // Alimenta o watermark anti-retrocesso de relógio no Kivo local — o cliente não
       // deve confiar no próprio relógio pra isso, só no horário que o servidor confirma.
       serverTime: new Date().toISOString(),
     });

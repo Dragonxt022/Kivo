@@ -1,4 +1,4 @@
-# Katsu — Plano de Desenvolvimento
+# Kivo — Plano de Desenvolvimento
 
 > **Versão atual:** 0.1.5
 > **Arquitetura:** desktop-first, Electron + Express 5 + SQLite, módulos de domínio com camada Controller → Service → Repository.
@@ -16,7 +16,7 @@
 | ORM (migrations) | **Drizzle ORM** (mínimo — só para schema types e migrations) |
 | Views | **EJS** + **Alpine.js 3** (sem build step) |
 | Validação | **Zod** 4 |
-| Autenticação | **bcryptjs** + sessão via cookie (`katsu_session`) |
+| Autenticação | **bcryptjs** + sessão via cookie (`kivo_session`) |
 | Segurança HTTP | **Helmet**, **express-rate-limit**, **Morgan** |
 | Atualização | **electron-updater** (GitHub Releases) |
 | Nuvem | Node + Express + MySQL (`cloud/`, deploy independente) |
@@ -26,7 +26,7 @@
 ## 2. Estrutura de pastas (real)
 
 ```
-katsu/
+kivo/
 ├── src/
 │   ├── core/
 │   │   ├── audit/              # Log de auditoria (routes, service)
@@ -76,7 +76,7 @@ katsu/
 ├── build/                      # Ícones, NSIS config
 ├── scripts/                    # copy-build-assets, deploy, ensure-native-abi
 ├── doc/
-│   ├── KATSU_PLANO.md          # Este arquivo
+│   ├── KIVO_PLANO.md          # Este arquivo
 │   └── auditoria/              # Relatórios de auditoria técnica
 │
 ├── package.json
@@ -238,15 +238,15 @@ Deploy: `docker compose -f cloud/docker-compose.yml up -d` + migrations via `clo
 
 ## 8. CLI
 
-Os comandos do projeto estão em `scripts/commands.json` e são executados via `scripts/katsu.js`:
+Os comandos do projeto estão em `scripts/commands.json` e são executados via `scripts/kivo.js`:
 
 ```sh
-node scripts/katsu              # listar todos os comandos
-node scripts/katsu dev          # servidor dev
-npm run katsu dev               # (atalho)
+node scripts/kivo              # listar todos os comandos
+node scripts/kivo dev          # servidor dev
+npm run kivo dev               # (atalho)
 npm run dev                     # (atalho mais curto)
 npm run test                    # rodar todos os testes
-npm run katsu test:fase1        # teste específico
+npm run kivo test:fase1        # teste específico
 ```
 
 O `package.json` contém apenas os atalhos mais usados; a lista completa está em `scripts/commands.json`.

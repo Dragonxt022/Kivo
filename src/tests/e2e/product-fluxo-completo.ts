@@ -19,7 +19,7 @@ import { getSqlite, closeDb } from '../../core/database/connection';
 import { createServer } from '../../core/server';
 import { resetTestDb, activateTestLicense } from '../resetTestDb';
 
-const PORT = Number(process.env.KATSU_PORT ?? 3599);
+const PORT = Number(process.env.KIVO_PORT ?? 3599);
 const BASE = `http://localhost:${PORT}`;
 const SCREENSHOT_DIR = path.resolve(process.cwd(), '.qa-screenshots', 'e2e-products');
 

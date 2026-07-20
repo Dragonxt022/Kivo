@@ -264,7 +264,7 @@ exportar do próprio módulo em um arquivo `types.ts` padronizado.
 - **Inversão de dependência quase perfeita:** Core não conhece módulos (exceto
   seedDemo.ts), módulos conhecem Core
 - **Middleware chain bem organizada:** Orhem clara e consistente em server.ts
-- **Bootstrap elegante:** Dynamic import resolve problema de timing do KATSU_DB_PATH
+- **Bootstrap elegante:** Dynamic import resolve problema de timing do KIVO_DB_PATH
 - **Segurança do Electron:** `contextIsolation: true`, `nodeIntegration: false`
 - **CRUD factory existe** e é bem projetada — só precisa ser mais usada
 - **Ausência proposital de IPC:** Toda comunicação é HTTP local, simplificando

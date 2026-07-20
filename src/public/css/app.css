@@ -7,12 +7,13 @@
   --text: #1e1e2a;
   --text-secondary: #4a4a5a;
   --text-muted: #8a8a98;
-  --primary: #00c951;
-  --primary-hover: #00b048;
-  --primary-bg: color-mix(in srgb, #00c951 8%, transparent);
+  --primary: #FF8000;
+  --icon-color: #FF8000;
+  --primary-hover: #ff9225;
+  --primary-bg: color-mix(in srgb, #FF8000 8%, transparent);
   --danger: #ef4444;
   --success-bg: #d1fae5;
-  --success-text: #065f46;
+  --success-text: #e67300;
   --danger-bg: #fce4ec;
   --danger-text: #c62828;
   --warning-bg: #fef3c7;
@@ -44,12 +45,12 @@
   --text: #ececf0;
   --text-secondary: #c2c2cc;
   --text-muted: #83838f;
-  --primary: #00c951;
-  --primary-hover: #1ee066;
-  --primary-bg: color-mix(in srgb, #00c951 16%, transparent);
+  --primary: #FF8000;
+  --primary-hover: #ff9225;
+  --primary-bg: color-mix(in srgb, #FF8000 16%, transparent);
   --danger: #ff6b6b;
-  --success-bg: color-mix(in srgb, #00c951 18%, transparent);
-  --success-text: #4ade80;
+  --success-bg: color-mix(in srgb, #FF8000 18%, transparent);
+  --success-text: #FF8000;
   --danger-bg: color-mix(in srgb, #ff6b6b 18%, transparent);
   --danger-text: #ff9a9a;
   --warning-bg: color-mix(in srgb, #fbbf24 20%, transparent);
@@ -164,7 +165,7 @@ header.nav .user .role {
   font-size: .7rem; color: var(--text-muted); line-height: 1.2;
 }
 header.nav .btn-icon {
-  border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+  border: 0; background: transparent; color: var(--icon-color); cursor: pointer;
   width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
   transition: background var(--transition), color var(--transition), transform var(--transition);
 }
@@ -222,10 +223,10 @@ header.nav .btn-link:hover { background: var(--surface-hover); color: var(--text
   font-size: .9rem; font-weight: 500;
   transition: color var(--transition), background var(--transition);
 }
-.apps-drawer-item img, .apps-drawer-item svg { flex-shrink: 0; opacity: .8; }
+.apps-drawer-item svg { flex-shrink: 0; opacity: .8; color: var(--icon-color); }
 .apps-drawer-item:hover { background: var(--surface-hover); color: var(--text); }
 .apps-drawer-item.active { background: var(--primary-bg); color: var(--primary); }
-.apps-drawer-item.active img, .apps-drawer-item.active svg { opacity: 1; }
+.apps-drawer-item.active svg { opacity: 1; }
 .apps-drawer-divider { height: 1px; background: var(--border-light); margin: .6rem .25rem; }
 
 .theme-row {
@@ -351,7 +352,7 @@ main {
 }
 .search-wrap .search-icon {
   position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
-  pointer-events: none;
+  pointer-events: none; color: var(--icon-color); display: flex;
 }
 .search-wrap input {
   width: 100%;
@@ -403,7 +404,8 @@ button.app-card { font: inherit; cursor: pointer; }
 .app-card:active {
   transform: translateY(-2px) scale(.98);
 }
-.app-card .card-icon { width: 40px; height: 40px; align-self: center; }
+.app-card .card-icon { width: 40px; height: 40px; align-self: center; display: flex; align-items: center; justify-content: center; color: var(--icon-color); }
+.app-card .card-icon svg { width: 40px; height: 40px; }
 .app-card .card-title {
   font-size: .95rem; font-weight: 600; text-align: center; line-height: 1.3;
   color: var(--text-secondary);
@@ -879,7 +881,7 @@ dialog.wizard-dialog {
 
 /* ─── Ícone-botão genérico (linhas de tabela, toolbars) ─── */
 .icon-btn {
-  border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+  border: 0; background: transparent; color: var(--icon-color); cursor: pointer;
   width: 32px; height: 32px; border-radius: 8px; display: inline-grid; place-items: center;
   transition: background var(--transition), color var(--transition);
 }

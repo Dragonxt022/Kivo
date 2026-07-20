@@ -3,7 +3,7 @@
  * sincronização entre máquinas em fusos diferentes. Aqui só a EXIBIÇÃO converte pro
  * fuso da loja (Porto Velho/Amazonas, sem horário de verão desde 2019).
  */
-const KATSU_TIMEZONE = 'America/Porto_Velho';
+const KIVO_TIMEZONE = 'America/Porto_Velho';
 
 /** Timestamp completo (created_at, opened_at, paid_at...) — é um instante, precisa converter fuso. */
 function fmtDateTime(raw) {
@@ -11,7 +11,7 @@ function fmtDateTime(raw) {
   const d = new Date(String(raw).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z');
   if (isNaN(d.getTime())) return String(raw);
   return d.toLocaleString('pt-BR', {
-    timeZone: KATSU_TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: KIVO_TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).replace(',', '');
 }
 
@@ -25,7 +25,7 @@ function fmtDate(raw) {
 
 /** "Hoje" no fuso da loja, formato YYYY-MM-DD — para filtros de dia (ex.: relatório de vendas). */
 function todayLocal() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: KATSU_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: KIVO_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
 /**

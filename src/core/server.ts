@@ -51,7 +51,7 @@ function requireActivation(req: Request, res: Response, next: NextFunction): voi
   res.redirect('/ativacao');
 }
 
-export interface KatsuServer {
+export interface KivoServer {
   app: Express;
   modules: LoadedModule[];
 }
@@ -68,7 +68,7 @@ function page(view: string, permission?: string) {
 }
 
 /** Cria a API local (Express 5) + views EJS e carrega os módulos via manifesto. */
-export async function createServer(): Promise<KatsuServer> {
+export async function createServer(): Promise<KivoServer> {
   const app = express();
   // Relativo a __dirname (não process.cwd()): dev resolve para src/views|public; app
   // empacotado resolve para dist/views|public (ver scripts/copy-build-assets.js).
@@ -81,6 +81,32 @@ export async function createServer(): Promise<KatsuServer> {
   // número de versão hardcoded e divergente em cada tela que precisa exibi-lo.
   const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
   app.locals.appVersion = pkg.version;
+
+  // Helper EJS: retorna o SVG inline para icones — as views usam currentColor
+  const iconsDir = path.resolve(__dirname, '..', 'public', 'icons');
+  function svgIcon(name: string, width = 24, height = 24): string {
+    try {
+      const file = path.join(iconsDir, name + '.svg');
+      return fs.readFileSync(file, 'utf8').replace(/<svg\b/, `<svg width="${width}" height="${height}"`);
+    } catch { return ''; }
+  }
+  app.locals.svgIcon = svgIcon;
+
+  // Mapa nome→SVG para renderização inline no Alpine.js
+  const svgMap = (() => {
+    const map: Record<string, string> = {};
+    try {
+      const files = fs.readdirSync(iconsDir);
+      for (const f of files) {
+        if (!f.endsWith('.svg')) continue;
+        const name = f.slice(0, -4);
+        const svg = fs.readFileSync(path.join(iconsDir, f), 'utf8');
+        map[name] = svg;
+      }
+    } catch { /* sem icones */ }
+    return map;
+  })();
+  app.locals.svgIconMapJson = JSON.stringify(svgMap);
 
   // Logging de requisições HTTP
   app.use(morgan('dev'));
@@ -105,7 +131,7 @@ export async function createServer(): Promise<KatsuServer> {
   // Health check e tela de ativação: alcançáveis mesmo numa instalação ainda não
   // ativada (é o próprio propósito da tela). O gate abaixo bloqueia todo o resto.
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, name: 'katsu', ts: new Date().toISOString() });
+    res.json({ ok: true, name: 'kivo', ts: new Date().toISOString() });
   });
   app.use(activationRoutes);
   app.use(requireActivation);

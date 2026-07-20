@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { userFromToken, type AuthUser } from './service';
 
-export const SESSION_COOKIE = 'katsu_session';
+export const SESSION_COOKIE = 'kivo_session';
 
 declare module 'express-serve-static-core' {
   interface Request {

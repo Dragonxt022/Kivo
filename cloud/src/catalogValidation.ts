@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { imageSize } from 'image-size';
 
 /**
- * Validação do banco de imagens (Katsu Cloud): roda em toda submissão ANTES de cair na
+ * Validação do banco de imagens (Kivo Cloud): roda em toda submissão ANTES de cair na
  * fila de curadoria humana do /admin — barra formato inválido, tamanho fora da faixa e
  * dimensão mínima automaticamente, para o admin só revisar imagens que já passaram no
  * crivo técnico. Duplicada em relação a src/core/catalog/imageValidation.ts do app local

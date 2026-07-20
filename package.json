@@ -1,22 +1,22 @@
 {
-  "name": "katsu",
+  "name": "Kivo",
   "version": "0.2.7",
-  "description": "Katsu — plataforma comercial modular desktop-first",
-  "author": "Katsu",
+  "description": "Kivo — plataforma comercial modular desktop-first",
+  "author": "Kivo",
   "private": true,
   "main": "dist/electron/bootstrap.js",
   "scripts": {
-    "dev": "node scripts/katsu dev",
-    "dev:electron": "node scripts/katsu dev:electron",
-    "build": "node scripts/katsu build",
-    "dist:win": "node scripts/katsu dist:win",
-    "release:win": "node scripts/katsu release:win",
-    "lint": "node scripts/katsu lint",
-    "format": "node scripts/katsu format",
-    "smoke": "node scripts/katsu smoke",
-    "test": "node scripts/katsu test",
-    "postinstall": "node scripts/katsu postinstall",
-    "katsu": "node scripts/katsu"
+    "dev": "node scripts/kivo dev",
+    "dev:electron": "node scripts/kivo dev:electron",
+    "build": "node scripts/kivo build",
+    "dist:win": "node scripts/kivo dist:win",
+    "release:win": "node scripts/kivo release:win",
+    "lint": "node scripts/kivo lint",
+    "format": "node scripts/kivo format",
+    "smoke": "node scripts/kivo smoke",
+    "test": "node scripts/kivo test",
+    "postinstall": "node scripts/kivo postinstall",
+    "kivo": "node scripts/kivo"
   },
   "dependencies": {
     "alpinejs": "^3.14.0",
@@ -54,8 +54,8 @@
     "typescript-eslint": "^8.32.0"
   },
   "build": {
-    "appId": "com.katsu.desktop",
-    "productName": "Katsu",
+    "appId": "com.kivo.desktop",
+    "productName": "Kivo",
     "asar": false,
     "files": [
       "dist/**/*",
@@ -74,7 +74,7 @@
     "publish": {
       "provider": "github",
       "owner": "Dragonxt022",
-      "repo": "katsu",
+      "repo": "kivo",
       "releaseType": "release"
     },
     "directories": {

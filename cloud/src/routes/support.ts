@@ -3,7 +3,7 @@ import { getPool } from '../db';
 import { requireCompanyAuth, type AuthedRequest } from '../auth';
 
 /**
- * Chat de suporte (tickets) — API consumida pelo Katsu desktop, autenticada pelo
+ * Chat de suporte (tickets) — API consumida pelo Kivo desktop, autenticada pelo
  * par company_uuid + license_key (mesma auth do sync). Disponível em todos os
  * planos: suporte não é recurso premium.
  *

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Katsu Cloud — Login</title>
-  <link rel="icon" href="/favicon.png">
+  <title>Kivo Cloud — Login</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <style>
     body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -17,7 +17,7 @@
 </head>
 <body>
   <div class="card login-card">
-    <div class="brand"><img id="brand-logo" src="/favicon.png" alt=""> Katsu Cloud</div>
+    <div class="brand"><img id="brand-logo" src="/logo_kivo-icon.svg" alt=""> Kivo Cloud</div>
     <% if (error) { %><p class="error-banner"><%= error %></p><% } %>
     <form method="post" action="/admin/login">
       <label>Usuário</label>
@@ -29,7 +29,7 @@
   </div>
   <script>
     if (document.documentElement.getAttribute('data-theme') === 'dark') {
-      document.getElementById('brand-logo').src = '/favicon_branco.png';
+      document.getElementById('brand-logo').src = '/logo_kivo-icon_branco.svg';
     }
   </script>
 </body>

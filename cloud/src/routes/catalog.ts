@@ -6,7 +6,7 @@ import { requireCompanyAuth, requireCloudSavePlan, type AuthedRequest } from '..
 import { validateCatalogImage, normalizeKeywords, sha256, type ImageFormat } from '../catalogValidation';
 
 /**
- * Banco de imagens do Katsu Cloud: qualquer empresa pode contribuir uma foto de produto
+ * Banco de imagens do Kivo Cloud: qualquer empresa pode contribuir uma foto de produto
  * (POST /submit) — best-effort, sem custo de storage relevante, cresce o catálogo pra
  * todo mundo. Só entra no catálogo pesquisável depois de aprovada por um admin em
  * /admin/catalog (ver routes/admin.ts). A busca (GET /search) é um benefício de plano
@@ -33,11 +33,11 @@ interface CatalogImageRow {
 }
 
 router.post('/submit', rawImage, requireCompanyAuth, async (req: AuthedRequest, res) => {
-  const productName = req.header('X-Katsu-Product-Name');
-  const submissionUuid = req.header('X-Katsu-Submission-Uuid');
+  const productName = req.header('X-Kivo-Product-Name');
+  const submissionUuid = req.header('X-Kivo-Submission-Uuid');
   const body = req.body as Buffer;
   if (!productName || !submissionUuid || !Buffer.isBuffer(body) || !body.length) {
-    res.status(400).json({ error: 'Cabeçalhos obrigatórios: X-Katsu-Product-Name, X-Katsu-Submission-Uuid, corpo binário (imagem).' });
+    res.status(400).json({ error: 'Cabeçalhos obrigatórios: X-Kivo-Product-Name, X-Kivo-Submission-Uuid, corpo binário (imagem).' });
     return;
   }
 

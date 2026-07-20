@@ -1,6 +1,6 @@
-# Guia de Deploy — Katsu
+# Guia de Deploy — Kivo
 
-Passo a passo para desenvolver, testar e publicar novas versões do Katsu (app desktop) e do `cloud/` (painel + servidor na VPS).
+Passo a passo para desenvolver, testar e publicar novas versões do Kivo (app desktop) e do `cloud/` (painel + servidor na VPS).
 
 ---
 
@@ -54,8 +54,8 @@ npm run test:fase8b
 
 **Dica:** se você já tem `npm run dev` aberto num terminal, rode os testes com um banco isolado para não conflitar:
 ```bash
-KATSU_DB_PATH="$(pwd)/database/katsu-test.db" npm run test:fase1b
-rm -f database/katsu-test.db*
+KIVO_DB_PATH="$(pwd)/database/kivo-test.db" npm run test:fase1b
+rm -f database/kivo-test.db*
 ```
 
 ---
@@ -69,7 +69,7 @@ git add -A
 git commit -m "mensagem do que mudou"
 git push origin main
 npm run cloud:deploy
-npm run katsu cloud:deploy
+npm run kivo cloud:deploy
 ```
 
 O que `npm run cloud:deploy` faz sozinho (script `scripts/deploy-cloud.sh`):
@@ -77,14 +77,14 @@ O que `npm run cloud:deploy` faz sozinho (script `scripts/deploy-cloud.sh`):
 2. `git pull` no clone do repositório lá dentro.
 3. `npm install` + `npm run build` do `cloud/`.
 4. Roda migrations novas automaticamente.
-5. Reinicia o serviço (`systemctl restart katsu-cloud`).
+5. Reinicia o serviço (`systemctl restart kivo-cloud`).
 6. Confere `/api/health` no domínio público.
 
 Não precisa fazer nada manual na VPS — é só isso.
 
 ### Se precisar rodar algo manual na VPS
 ```bash
-ssh -i ~/.ssh/katsu_vps_deploy root@187.77.251.231
+ssh -i ~/.ssh/kivo_vps_deploy root@187.77.251.231
 ```
 
 ---
@@ -115,7 +115,7 @@ Esse comando sozinho:
 
 **Importante:** precisa da variável `GH_TOKEN` (token do GitHub, escopo `public_repo`) disponível na sessão. Se você já rodou `setx GH_TOKEN "..."` uma vez, ela já fica salva permanentemente pro seu usuário do Windows — não precisa repetir.
 
-**Atenção:** só dar `git push` **não** libera nada para quem já tem o Katsu instalado. É `npm run release:win` que efetivamente publica a atualização.
+**Atenção:** só dar `git push` **não** libera nada para quem já tem o Kivo instalado. É `npm run release:win` que efetivamente publica a atualização.
 
 ### 4.4. Depois de publicar
 Volte o `better-sqlite3` para o ABI do sistema, para continuar desenvolvendo:
@@ -126,9 +126,9 @@ npm rebuild better-sqlite3
 
 ### 4.5. Conferir se a Release saiu certa
 ```bash
-curl -s https://api.github.com/repos/Dragonxt022/katsu/releases/latest
+curl -s https://api.github.com/repos/Dragonxt022/kivo/releases/latest
 ```
-Deve mostrar a tag nova (`v0.1.4`) com os arquivos `Katsu-Setup-*.exe`, `.blockmap` e `latest.yml`.
+Deve mostrar a tag nova (`v0.1.4`) com os arquivos `Kivo-Setup-*.exe`, `.blockmap` e `latest.yml`.
 
 Quem já tem o app instalado recebe o aviso de atualização sozinho no próximo boot (o app checa a Release automaticamente).
 
@@ -172,4 +172,4 @@ Quem já tem o app instalado recebe o aviso de atualização sozinho no próximo
 
 - **Erro de `NODE_MODULE_VERSION`** ao rodar `npm run dev`/testes: normal se a última coisa que você rodou foi `npm run dist:win`/`release:win`. O `predev` já resolve sozinho na próxima vez que rodar `npm run dev`. Se quiser forçar na mão: `npm rebuild better-sqlite3`.
 - **`EPERM`/arquivo travado** ao rodar `electron-rebuild`: geralmente é outro processo Node ainda rodando (um `npm run dev` esquecido aberto em outro terminal). Feche-o e tente de novo.
-- **Release saiu como rascunho** (não devia mais acontecer, mas caso aconteça): entre em https://github.com/Dragonxt022/katsu/releases, edite a Release e clique em "Publish release".
+- **Release saiu como rascunho** (não devia mais acontecer, mas caso aconteça): entre em https://github.com/Dragonxt022/kivo/releases, edite a Release e clique em "Publish release".

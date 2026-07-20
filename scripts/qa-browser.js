@@ -1,5 +1,5 @@
 /**
- * QA visual — abre o Katsu num Chromium real (Playwright), loga, visita cada rota
+ * QA visual — abre o Kivo num Chromium real (Playwright), loga, visita cada rota
  * informada, e reporta erros de console/página/rede + screenshot de cada uma.
  *
  * Uso:
@@ -47,7 +47,7 @@ async function main() {
   if (dark) {
     // theme-init.ejs lê isso do localStorage antes de pintar a página — precisa estar
     // presente ANTES do 1º load, daí addInitScript (roda em toda navegação futura).
-    await context.addInitScript(() => localStorage.setItem('katsu-theme', 'dark'));
+    await context.addInitScript(() => localStorage.setItem('kivo-theme', 'dark'));
   }
   const page = await context.newPage();
 

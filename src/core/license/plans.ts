@@ -1,5 +1,5 @@
 /**
- * Planos comerciais do Katsu. Trial e Prata não incluem atualização automática nem
+ * Planos comerciais do Kivo. Trial e Prata não incluem atualização automática nem
  * salvamento em nuvem (sync/backup); Ouro e Diamante incluem os dois. `app.online` fica
  * reservado para uma futura versão web do Diamante — sem produto associado ainda.
  *

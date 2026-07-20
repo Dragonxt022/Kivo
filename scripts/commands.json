@@ -69,7 +69,7 @@
   },
   "test": {
     "description": "Rodar todos os testes de integração",
-    "run": "katsu test:all"
+    "run": "kivo test:all"
   },
   "coverage": {
     "description": "Cobertura de código (c8 + tsx) — executa teste informado via ARGS",

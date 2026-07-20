@@ -2,9 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Katsu — Entrar</title>
+  <title>Kivo — Entrar</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <script defer src="/vendor/alpine.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; }
@@ -28,8 +28,8 @@
 </head>
 <body>
   <div class="card" x-data="loginForm()">
-    <img class="logo" src="/katsu_logo.png" alt="Katsu" />
-    <h1>Entrar no Katsu</h1>
+    <img class="logo" src="/logo_kivo-horizontal.svg" alt="Kivo" />
+    <h1>Entrar no Kivo</h1>
     <form @submit.prevent="submit">
       <label for="username">Usuário</label>
       <input id="username" type="text" x-model="username" autocomplete="username" autofocus />

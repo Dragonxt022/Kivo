@@ -1,5 +1,5 @@
 -- 0026_products_image_catalog — foto do produto + fila local de envio ao banco de
--- imagens do Katsu Cloud (curadoria manual, ver cloud/migrations/0008_catalog_images).
+-- imagens do Kivo Cloud (curadoria manual, ver cloud/migrations/0008_catalog_images).
 ALTER TABLE products ADD COLUMN image_url TEXT;
 
 CREATE TABLE product_image_submissions (
@@ -13,6 +13,6 @@ CREATE TABLE product_image_submissions (
   error_message TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-  comment TEXT NOT NULL DEFAULT 'Fila local de imagens de produto enviadas ao banco de imagens do Katsu Cloud para curadoria manual (best-effort — falha de rede não afeta o app offline, só fica pendente para a próxima tentativa).'
+  comment TEXT NOT NULL DEFAULT 'Fila local de imagens de produto enviadas ao banco de imagens do Kivo Cloud para curadoria manual (best-effort — falha de rede não afeta o app offline, só fica pendente para a próxima tentativa).'
 );
 CREATE INDEX idx_product_image_submissions_status ON product_image_submissions(status);

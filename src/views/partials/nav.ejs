@@ -51,7 +51,7 @@
   toggleTheme() {
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', this.theme);
-    try { localStorage.setItem('katsu-theme', this.theme); } catch (e) {}
+    try { localStorage.setItem('kivo-theme', this.theme); } catch (e) {}
   },
 }">
 <% if (user) { %>
@@ -70,7 +70,7 @@
   </div>
 
   <a href="/" class="brand">
-    <img class="logo" :src="theme === 'dark' ? '/favicon_branco.png' : '/favicon.png'" alt="Katsu" />
+    <img class="logo" :src="theme === 'dark' ? '/logo_kivo-icon_branco.svg' : '/logo_kivo-icon.svg'" alt="Kivo" />
   </a>
 
   <% if (user) { %>
@@ -152,7 +152,7 @@
       dispositivo). Conecte esta máquina à internet para revalidar. Se o problema continuar, contate o suporte.
     </p>
     <p class="dialog-text" x-show="!licenseStatus || licenseStatus.status !== 'bloqueada'">
-      Entre em contato com o suporte para renovar sua licença e continuar usando o Katsu.
+      Entre em contato com o suporte para renovar sua licença e continuar usando o Kivo.
     </p>
     <p class="dialog-text-sm" x-show="licenseStatus && licenseStatus.supportPhone">
       Telefone: <strong x-text="licenseStatus && licenseStatus.supportPhone"></strong>
@@ -269,7 +269,7 @@
     <% (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) { %>
       <% if (!item.permission || user.permissions.has(item.permission)) { %>
       <a href="<%= item.href %>" class="apps-drawer-item" @click="appsOpen = false">
-        <img src="/icons/<%= item.icon %>.svg" alt="" width="18" height="18" />
+        <%- svgIcon(item.icon, 18, 18) %>
         <%= item.label %>
       </a>
       <% } %>
@@ -289,14 +289,14 @@
     <div class="apps-drawer-divider"></div>
     <% adminItems.forEach(function (item) { %>
       <a href="<%= item.href %>" class="apps-drawer-item <%= page === item.page ? 'active' : '' %>" @click="appsOpen = false">
-        <img src="/icons/<%= item.icon %>.svg" alt="" width="18" height="18" />
+        <%- svgIcon(item.icon, 18, 18) %>
         <%= item.label %>
       </a>
     <% }) %>
     <% } %>
 
     <div class="apps-drawer-divider"></div>
-    <a :href="(cloudStatus.url || 'https://katsu.buscamais.org') + '/wiki'" target="_blank" class="apps-drawer-item" @click="appsOpen = false">
+    <a :href="(cloudStatus.url || 'https://kivo.buscamais.org') + '/wiki'" target="_blank" class="apps-drawer-item" @click="appsOpen = false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
       </svg>
@@ -341,13 +341,13 @@
   // ─── Atalhos flutuantes de páginas recentes (preferência deste computador) ───
   // Registra a página atual e mostra balões no canto inferior direito com as últimas
   // páginas visitadas (exceto a home/lançador e a própria página atual). Máx. 3.
-  var STORAGE = 'katsu:recent', ENABLED = 'katsu:recent-enabled', SHOW_MAX = 3, STORE_MAX = 12, APPEAR_DELAY = 3000, STAGGER = 220;
+  var STORAGE = 'kivo:recent', ENABLED = 'kivo:recent-enabled', SHOW_MAX = 3, STORE_MAX = 12, APPEAR_DELAY = 3000, STAGGER = 220;
   function enabled(){ try { return (localStorage.getItem(ENABLED) ?? '1') !== '0'; } catch(e){ return true; } }
   function read(){ try { return JSON.parse(localStorage.getItem(STORAGE) || '[]'); } catch(e){ return []; } }
   function write(l){ try { localStorage.setItem(STORAGE, JSON.stringify(l)); } catch(e){} }
   function here(){ return location.pathname + location.search; }
   function pageLabel(){
-    var t = (document.title || '').replace(/^\s*Katsu\s*[—–-]\s*/i, '').trim();
+    var t = (document.title || '').replace(/^\s*Kivo\s*[—–-]\s*/i, '').trim();
     return t || location.pathname;
   }
   // "não a home dos módulos": pula o lançador (/) e páginas sem sessão.

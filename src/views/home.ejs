@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Katsu</title>
+  <title>Kivo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
   <style>
@@ -144,8 +144,8 @@
     <!-- ─── Overlay de login (quando não autenticado ou ?login=1) ─── -->
     <div class="login-overlay" x-show="showLogin" x-cloak>
       <div class="login-card">
-        <img class="logo" :src="theme === 'dark' ? '/logo_marca_branco.png' : '/katsu_logo.png'" alt="Katsu" />
-        <h1>Entrar no Katsu</h1>
+        <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
+        <h1>Entrar no Kivo</h1>
         <form @submit.prevent="login">
           <label for="login-user">Usuário</label>
           <input id="login-user" type="text" x-model="loginUser" autocomplete="username"
@@ -171,7 +171,7 @@
     </div>
 
     <div class="search-wrap">
-      <img class="search-icon" src="/icons/search.svg" width="18" height="18" alt="" />
+      <span class="search-icon"><%- svgIcon('search', 18, 18) %></span>
       <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
     </div>
 
@@ -181,7 +181,7 @@
            x-show="matches(a.label)"
            :class="[dragId === a.href ? 'dragging' : '', dropOverId === a.href ? 'drop-target' : '']"
            @pointerdown="onCardPointerDown($event, a)">
-          <img class="card-icon" :src="'/icons/' + a.icon + '.svg'" alt="" width="40" height="40" />
+           <span class="card-icon" x-html="iconSvg(a.icon)"></span>
           <span class="card-title" x-text="a.label"></span>
           <span class="card-desc" x-text="a.description"></span>
         </a>
@@ -208,7 +208,7 @@
 
       <% if (adminItems.length) { %>
       <button type="button" class="app-card" @click="showMore = !showMore" x-show="!q">
-        <img class="card-icon" src="/icons/more.svg" alt="" width="40" height="40" />
+        <span class="card-icon"><%- svgIcon('more', 40, 40) %></span>
         <span class="card-title" x-text="showMore ? 'Mostrar menos' : 'Mais'"></span>
         <span class="card-desc">Usuários, cargos, auditoria, backup e configurações.</span>
       </button>
@@ -216,7 +216,7 @@
 
       <% adminItems.forEach(function (item) { %>
           <a class="app-card" href="<%= item.href %>" x-show="(showMore || q) && matches('<%= item.label %>')">
-            <img class="card-icon" src="/icons/<%= item.icon %>.svg" alt="" width="40" height="40" />
+            <span class="card-icon"><%- svgIcon(item.icon, 40, 40) %></span>
             <span class="card-title"><%= item.label %></span>
             <span class="card-desc"><%= item.description %></span>
           </a>
@@ -245,7 +245,7 @@
   <% if (user) { %>
   <div x-data="helpChat()" x-init="init()">
     <button type="button" class="fab" title="Ajuda e suporte" @click="open()">
-      <img src="/icons/chat.svg" width="22" height="22" alt="" />
+      <%- svgIcon('chat', 22, 22) %>
       <span class="fab-unread" x-show="unread > 0" x-text="unread > 9 ? '9+' : unread" x-cloak></span>
     </button>
 
@@ -255,7 +255,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <div style="min-width:0">
-          <h2 x-text="view === 'chat' ? ticket.subject : (view === 'new' ? novoTitulo() : 'Suporte Katsu')"></h2>
+          <h2 x-text="view === 'chat' ? ticket.subject : (view === 'new' ? novoTitulo() : 'Suporte Kivo')"></h2>
           <div class="sub" x-show="view === 'home'">Normalmente respondemos em poucas horas</div>
           <div class="sub" x-show="view === 'chat'" x-text="'Ticket #' + ticket.id + ' · ' + ticket.status"></div>
         </div>
@@ -277,11 +277,11 @@
           </button>
           <button type="button" class="help-chat-contact" @click="newTicket('sugestao')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z"/><line x1="9" y1="22" x2="15" y2="22"/></svg>
-            <span><strong>Sugestões e melhorias</strong><br /><span class="muted text-xs">Sua ideia pode virar recurso do Katsu.</span></span>
+            <span><strong>Sugestões e melhorias</strong><br /><span class="muted text-xs">Sua ideia pode virar recurso do Kivo.</span></span>
           </button>
           <button type="button" class="help-chat-contact" @click="shareWithFriend()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            <span><strong x-text="shared ? 'Link copiado! ✔' : 'Compartilhar com um amigo'"></strong><br /><span class="muted text-xs">Indique o Katsu para quem você gosta.</span></span>
+            <span><strong x-text="shared ? 'Link copiado! ✔' : 'Compartilhar com um amigo'"></strong><br /><span class="muted text-xs">Indique o Kivo para quem você gosta.</span></span>
           </button>
         </div>
 
@@ -352,7 +352,7 @@
             <div class="support-bubble" :class="m.sender === 'cliente' ? 'cliente' : 'suporte'">
               <div x-text="m.body" x-show="m.body"></div>
               <img class="attachment" x-show="m.attachment" :src="m.attachment" alt="Print anexado" @click="window.open(m.attachment, '_blank')">
-              <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Katsu' : (m.sender_name || 'Você')) + ' · ' + String(m.created_at).slice(0, 16).replace('T', ' ')"></div>
+              <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Kivo' : (m.sender_name || 'Você')) + ' · ' + String(m.created_at).slice(0, 16).replace('T', ' ')"></div>
             </div>
           </template>
           <p class="muted text-xs" x-show="!messages.length" style="text-align:center">Carregando conversa…</p>
@@ -393,7 +393,8 @@
   <% } %>
   <script>
     const HOME_APPS_SEED = <%- JSON.stringify(typeof visibleItemsForAlpine !== 'undefined' ? visibleItemsForAlpine : []) %>;
-    const HOME_ORDER_KEY = 'katsu-home-order';
+    const HOME_ORDER_KEY = 'kivo-home-order';
+    const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
 
     function homePage() {
       return {
@@ -411,6 +412,7 @@
         apps: [],
         dragId: null,
         dropOverId: null,
+        iconSvg(name) { return SVG_ICONS[name] || ''; },
 
         loadOrder(items) {
           let saved = [];
@@ -749,7 +751,7 @@
           try {
             const d = await this.api('/share-link');
             await navigator.clipboard.writeText(
-              'Conhece o Katsu? É o sistema que eu uso para PDV, estoque e financeiro — funciona até sem internet. Dá uma olhada: ' + d.url,
+              'Conhece o Kivo? É o sistema que eu uso para PDV, estoque e financeiro — funciona até sem internet. Dá uma olhada: ' + d.url,
             );
             this.shared = true;
             setTimeout(() => { this.shared = false; }, 2500);

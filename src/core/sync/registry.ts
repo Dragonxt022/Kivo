@@ -1,7 +1,7 @@
 import type { RegisteredSyncTable, SyncTableSpec } from './types';
 
 /**
- * Registro central de tabelas sincronizáveis (KATSU_PLANO.md §6).
+ * Registro central de tabelas sincronizáveis (KIVO_PLANO.md §6).
  * Módulos declaram `syncTables` no manifesto; o loader agrega aqui — o Core nunca
  * precisa conhecer as tabelas de um App específico (mesmo padrão de `permissions`/`menu`).
  */

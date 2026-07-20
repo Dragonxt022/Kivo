@@ -58,16 +58,16 @@ const manifest: ModuleManifest = {
     { label: 'Listas de preço', href: '/app/commercial/listas-de-preco', permission: 'commercial.pricelists.view', description: 'Atacado, varejo, faixas por quantidade e listas por cliente.', icon: 'dollar-sign' },
     { label: 'Compras', href: '/app/commercial/compras', permission: 'commercial.purchases.view', description: 'Recebimento de mercadoria e custos.', icon: 'bag' },
   ],
-  // Fase 6a — motor de sincronização (KATSU_PLANO.md §6).
+  // Fase 6a — motor de sincronização (KIVO_PLANO.md §6).
   // stock_qty é derivado do ledger stock_movements — nunca viaja na rede (ver stock.ts/setup.ts).
   // Colunas que referenciam `users` (user_id) ficam fora do payload: usuários não sincronizam
-  // nesta sub-fase (KATSU_PLANO.md, Fase 6a "fora de escopo").
+  // nesta sub-fase (KIVO_PLANO.md, Fase 6a "fora de escopo").
   syncTables: [
     { table: 'categories', foreignKeys: { parent_id: 'categories' } },
     {
       table: 'products', foreignKeys: { category_id: 'categories', parent_product_id: 'products' },
       // image_url: caminho local (/uploads/products/…) ou URL do banco de imagens do
-      // Katsu Cloud — não sincroniza entre máquinas nesta fase (arquivo local só existe
+      // Kivo Cloud — não sincroniza entre máquinas nesta fase (arquivo local só existe
       // na máquina onde a imagem foi definida). Ver src/core/catalog/.
       excludeColumns: ['stock_qty', 'image_url'],
     },

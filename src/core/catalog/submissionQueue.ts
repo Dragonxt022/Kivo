@@ -8,7 +8,7 @@ import type { ImageFormat } from './imageValidation';
 import { validateImageBuffer } from './imageValidation';
 
 /**
- * Banco de imagens do Katsu Cloud (ecossistema descrito em conversa com o usuário):
+ * Banco de imagens do Kivo Cloud (ecossistema descrito em conversa com o usuário):
  * quando um produto ganha uma foto, ela é salva localmente (funciona 100% offline) e,
  * best-effort, entra numa fila para ser enviada ao cloud/ e passar por curadoria manual
  * do admin. Aprovada, vira sugestão de busca para outras empresas cadastrarem produtos
@@ -21,14 +21,14 @@ const MIME_BY_FORMAT: Record<ImageFormat, string> = {
 };
 
 /**
- * Relativo à mesma raiz de dados do banco (`KATSU_DB_PATH`), não a `process.cwd()`:
+ * Relativo à mesma raiz de dados do banco (`KIVO_DB_PATH`), não a `process.cwd()`:
  * em produção o cwd de um app Electron empacotado não é confiável (varia conforme
  * de onde o processo foi lançado) — sem isso, as fotos ficavam fora de
  * `userData`/, então "remover todos os dados" na desinstalação não as alcançava.
  * Mesmo padrão já usado por `fallbackMachineIdPath()` em `core/license/service.ts`.
  */
 export function productImagesDir(): string {
-  const dbPath = process.env.KATSU_DB_PATH ?? path.resolve(process.cwd(), 'database', 'katsu.db');
+  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
   const dataRoot = path.dirname(path.dirname(dbPath));
   const dir = path.join(dataRoot, 'storage', 'product-images');
   fs.mkdirSync(dir, { recursive: true });
@@ -36,7 +36,7 @@ export function productImagesDir(): string {
 }
 
 export function categoryImagesDir(): string {
-  const dbPath = process.env.KATSU_DB_PATH ?? path.resolve(process.cwd(), 'database', 'katsu.db');
+  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
   const dataRoot = path.dirname(path.dirname(dbPath));
   const dir = path.join(dataRoot, 'storage', 'category-images');
   fs.mkdirSync(dir, { recursive: true });
@@ -84,7 +84,7 @@ export function cloudBaseUrl(): string | null {
 export function cloudAuthHeaders(): Record<string, string> | null {
   const { companyUuid, licenseKey } = getLicenseCredentials();
   if (!companyUuid || !licenseKey) return null;
-  return { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey };
+  return { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey };
 }
 
 interface PendingRow {
@@ -126,9 +126,9 @@ export async function trySubmitPending(): Promise<void> {
         headers: {
           ...auth,
           'Content-Type': contentType,
-          'X-Katsu-Product-Name': row.product_name,
-          'X-Katsu-Submission-Uuid': randomUUID(),
-          'X-Katsu-Machine-Id': machineId(),
+          'X-Kivo-Product-Name': row.product_name,
+          'X-Kivo-Submission-Uuid': randomUUID(),
+          'X-Kivo-Machine-Id': machineId(),
         },
         body: buf,
         signal: AbortSignal.timeout(15000),

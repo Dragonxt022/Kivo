@@ -18,12 +18,12 @@ router.get('/', requirePermission('settings.view'), (_req, res) => {
 });
 
 /** Endereços IPv4 desta máquina na rede local — para a tela de Configurações
- * mostrar ao admin como o celular do garçom/tablet da cozinha alcançam o Katsu.
+ * mostrar ao admin como o celular do garçom/tablet da cozinha alcançam o Kivo.
  * O QR de cada endereço é gerado aqui (server-side, lib `qrcode` pura-JS, sem
  * dependência nativa nem CDN) para não precisar vendorizar mais um bundle
  * client-side — mesmo espírito 100% offline do resto do app. */
 router.get('/network-info', requirePermission('settings.view'), async (_req, res) => {
-  const port = Number(process.env.KATSU_PORT ?? 3123);
+  const port = Number(process.env.KIVO_PORT ?? 3123);
   const rawUrls: string[] = [];
   for (const addrs of Object.values(os.networkInterfaces())) {
     for (const addr of addrs ?? []) {

@@ -1,6 +1,6 @@
 /**
  * Esqueleto do auto-updater (Fase 0).
- * O app e cada módulo atualizam separadamente (KATSU_PLANO.md §1.5).
+ * O app e cada módulo atualizam separadamente (KIVO_PLANO.md §1.5).
  * Implementação real virá com o servidor de atualizações (Fase 6).
  */
 export interface UpdateInfo {

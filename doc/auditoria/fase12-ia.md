@@ -2,14 +2,14 @@
 
 ## Escopo
 
-Identificar lugares onde IA gera valor real para o Katsu, sem modismo.
+Identificar lugares onde IA gera valor real para o Kivo, sem modismo.
 
 ---
 
 ## Oportunidades por Prioridade
 
 ### ALTA — OCR de Notas Fiscais
-**Problema real:** Clientes do Katsu (comércio/restaurantes) digitam notas
+**Problema real:** Clientes do Kivo (comércio/restaurantes) digitam notas
 fiscais manualmente para dar entrada em estoque.
 
 **Solução:** Integrar OCR (Tesseract.js ou API Google Vision) para extrair
@@ -56,7 +56,7 @@ vendas. Regra de afinidade simples (contagem de co-ocorrências).
 ### BAIXA — Chatbot Interno
 **Problema real:** Funcionários têm dúvidas sobre o sistema.
 
-**Solução:** Chatbot treinado na documentação do Katsu. Valor médio
+**Solução:** Chatbot treinado na documentação do Kivo. Valor médio
 — help desk humano ainda seria necessário.
 
 **Esforço:** 16-24h (RAG simples com docs).
@@ -74,7 +74,7 @@ Pode ser implementada depois.
 ## Recomendação
 
 Focar em **OCR de notas** e **sugestão de compras** primeiro — são os
-problemas mais reais e dolorosos para o público-alvo do Katsu. O resto
+problemas mais reais e dolorosos para o público-alvo do Kivo. O resto
 pode vir em versões futuras.
 
 **Abordagem sugerida:** Regras determinísticas primeiro, ML depois.

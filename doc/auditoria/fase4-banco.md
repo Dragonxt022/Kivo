@@ -180,7 +180,7 @@ seguro, mas a atomicidade evita estados intermediários inconsistentes.
 
 **Gravidade:** Média
 
-**Impacto:** Dois `npm run dev` contra o mesmo `katsu.db` já causaram
+**Impacto:** Dois `npm run dev` contra o mesmo `kivo.db` já causaram
 corrupção de dados (documentado). WAL mode permite leitura concorrente
 mas não escrita simultânea por processos diferentes.
 
@@ -189,7 +189,7 @@ mas não escrita simultânea por processos diferentes.
 ```typescript
 // connection.ts
 import { mkdirSync, writeFileSync, unlinkSync, existsSync } from 'fs';
-const LOCK_FILE = path.join(path.dirname(DB_PATH), 'katsu.lock');
+const LOCK_FILE = path.join(path.dirname(DB_PATH), 'kivo.lock');
 if (existsSync(LOCK_FILE)) {
   console.error('Outra instância já está usando este banco.');
   process.exit(1);

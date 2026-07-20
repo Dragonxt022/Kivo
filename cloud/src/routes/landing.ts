@@ -2,19 +2,19 @@ import { Router } from 'express';
 import { getPool } from '../db';
 
 /**
- * Landing page pública de venda do Katsu (rota "/").
+ * Landing page pública de venda do Kivo (rota "/").
  *
  * O link de download e a versão exibida vêm da release mais recente do GitHub
  * (releases/latest), consultada com cache em memória — publicar uma nova release
  * atualiza o site sozinho, sem redeploy. Se a API falhar (offline, rate limit),
  * cai no último valor conhecido ou no fallback fixo abaixo.
  *
- * KATSU_DOWNLOAD_URL / KATSU_APP_VERSION no ambiente têm precedência sobre tudo
+ * KIVO_DOWNLOAD_URL / KIVO_APP_VERSION no ambiente têm precedência sobre tudo
  * (útil para apontar para um mirror ou congelar uma versão).
  */
-const GITHUB_LATEST_API = 'https://api.github.com/repos/Dragonxt022/katsu/releases/latest';
+const GITHUB_LATEST_API = 'https://api.github.com/repos/Dragonxt022/kivo/releases/latest';
 const FALLBACK_VERSION = '0.2.5';
-const FALLBACK_URL = `https://github.com/Dragonxt022/katsu/releases/download/v${FALLBACK_VERSION}/Katsu-Setup-${FALLBACK_VERSION}.exe`;
+const FALLBACK_URL = `https://github.com/Dragonxt022/kivo/releases/download/v${FALLBACK_VERSION}/Kivo-Setup-${FALLBACK_VERSION}.exe`;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 type ReleaseInfo = { downloadUrl: string; version: string };
@@ -24,7 +24,7 @@ let cachedAt = 0;
 
 async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
   const res = await fetch(GITHUB_LATEST_API, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'katsu-cloud' },
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'kivo-cloud' },
     signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) return null;
@@ -32,17 +32,17 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
     tag_name?: string;
     assets?: { name: string; browser_download_url: string }[];
   };
-  const asset = (rel.assets ?? []).find((a) => /^Katsu-Setup-.*\.exe$/i.test(a.name));
+  const asset = (rel.assets ?? []).find((a) => /^Kivo-Setup-.*\.exe$/i.test(a.name));
   if (!asset) return null;
   const version = String(rel.tag_name ?? '').replace(/^v/, '') || FALLBACK_VERSION;
   return { downloadUrl: asset.browser_download_url, version };
 }
 
 async function getReleaseInfo(): Promise<ReleaseInfo> {
-  if (process.env.KATSU_DOWNLOAD_URL) {
+  if (process.env.KIVO_DOWNLOAD_URL) {
     return {
-      downloadUrl: process.env.KATSU_DOWNLOAD_URL,
-      version: process.env.KATSU_APP_VERSION ?? FALLBACK_VERSION,
+      downloadUrl: process.env.KIVO_DOWNLOAD_URL,
+      version: process.env.KIVO_APP_VERSION ?? FALLBACK_VERSION,
     };
   }
   if (cached && Date.now() - cachedAt < CACHE_TTL_MS) return cached;

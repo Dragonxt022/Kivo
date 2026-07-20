@@ -1,11 +1,11 @@
 /**
- * Katsu CLI — entry point for all project commands.
+ * kivo CLI — entry point for all project commands.
  *
  * Usage:
- *   node scripts/katsu              list commands
- *   node scripts/katsu <name>       run command
- *   node scripts/katsu test         run all tests
- *   node scripts/katsu test:fase1   run specific test
+ *   node scripts/kivo              list commands
+ *   node scripts/kivo <name>       run command
+ *   node scripts/kivo test         run all tests
+ *   node scripts/kivo test:fase1   run specific test
  */
 
 const { execSync } = require('child_process');
@@ -39,7 +39,7 @@ function listCommands() {
   };
 
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8'));
-  console.log(`Katsu CLI v${pkg.version}\n`);
+  console.log(`kivo CLI v${pkg.version}\n`);
 
   for (const [group, names] of Object.entries(groups)) {
     console.log(`  ${group}:`);
@@ -52,8 +52,8 @@ function listCommands() {
     console.log();
   }
 
-  console.log(`  Dica: node scripts/katsu <comando>`);
-  console.log(`        npm run katsu <comando>\n`);
+  console.log(`  Dica: node scripts/kivo <comando>`);
+  console.log(`        npm run kivo <comando>\n`);
 }
 
 function runTestAll() {
@@ -105,7 +105,7 @@ function main() {
   const cmd = commands[arg];
   if (!cmd) {
     console.error(`Comando desconhecido: "${arg}"`);
-    console.error(`Execute "node scripts/katsu" para listar os comandos disponíveis.`);
+    console.error(`Execute "node scripts/kivo" para listar os comandos disponíveis.`);
     process.exit(1);
   }
 

@@ -15,7 +15,7 @@ export interface CloudCharge {
 const ALERT_WINDOW_MS = 3 * 24 * 3600e3;
 
 /**
- * Histórico de cobranças manuais (KATSU_PLANO.md §9) lido direto do cloud/ — nunca
+ * Histórico de cobranças manuais (KIVO_PLANO.md §9) lido direto do cloud/ — nunca
  * espelhado localmente (sem risco de ficar desatualizado quanto a status de
  * pagamento). Offline ou sem licença configurada: lista vazia, nunca lança.
  */
@@ -25,7 +25,7 @@ export async function fetchCloudCharges(): Promise<CloudCharge[]> {
   if (!companyUuid || !licenseKey || !url) return [];
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/api/billing/charges`, {
-      headers: { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey },
+      headers: { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey },
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];

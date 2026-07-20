@@ -11,7 +11,7 @@ import type { CloudCompanyProfile } from '../core/license/service';
 
 // Aponta o SQLite para um arquivo temporário ANTES de qualquer módulo abrir a conexão —
 // por isso os módulos de runtime abaixo são carregados via require (roda depois desta linha).
-process.env.KATSU_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'license-company-profile.db');
+process.env.KIVO_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'license-company-profile.db');
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { migrateUp } = require('../core/database/migrator');

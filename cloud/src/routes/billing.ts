@@ -5,7 +5,7 @@ import { requireCompanyAuth, type AuthedRequest } from '../auth';
 const router = Router();
 
 /**
- * Histórico de cobranças da própria empresa (Katsu instalado consome isso para
+ * Histórico de cobranças da própria empresa (Kivo instalado consome isso para
  * mostrar "a pagar"/"pagas" e o alerta de vencimento — mesma autenticação por
  * licença já usada em /api/sync e /api/backup).
  */

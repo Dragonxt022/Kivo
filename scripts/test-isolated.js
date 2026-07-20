@@ -2,11 +2,11 @@
  * Roda um teste de integração contra um banco SQLite descartável.
  *
  * Existe porque os testes de integração apagam e recriam o banco que usarem, e o
- * caminho padrão (database/katsu.db) é o MESMO que o `npm run dev` usa — rodar um
+ * caminho padrão (database/kivo.db) é o MESMO que o `npm run dev` usa — rodar um
  * teste direto destruía os dados locais de quem estava desenvolvendo.
  *
  * Não dá para o próprio teste resolver isso setando process.env no topo do arquivo:
- * `import` é hoisted, então core/database/connection.ts lê KATSU_DB_PATH antes de
+ * `import` é hoisted, então core/database/connection.ts lê KIVO_DB_PATH antes de
  * qualquer linha do teste rodar. A variável precisa existir no ambiente ANTES do
  * processo começar — que é o que este runner faz.
  *
@@ -23,7 +23,7 @@ if (!target) {
   process.exit(1);
 }
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'katsu-test-'));
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kivo-test-'));
 const dbPath = path.join(tmpDir, 'test.db');
 
 console.log(`[test-isolated] banco descartável: ${dbPath}`);
@@ -32,7 +32,7 @@ const result = spawnSync('npx', ['tsx', target], {
   cwd: path.resolve(__dirname, '..'),
   stdio: 'inherit',
   shell: true,
-  env: { ...process.env, KATSU_DB_PATH: dbPath },
+  env: { ...process.env, KIVO_DB_PATH: dbPath },
 });
 
 // Limpa o temporário mesmo se o teste quebrou — ninguém quer catar isto depois.

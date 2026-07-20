@@ -1,5 +1,5 @@
 import { contextBridge } from 'electron';
 
-contextBridge.exposeInMainWorld('katsu', {
+contextBridge.exposeInMainWorld('kivo', {
   version: '0.1.0',
 });

@@ -36,11 +36,11 @@ process.on('uncaughtException', (err) => {
   appendErrorLog(`[uncaughtException] ${msg}`);
 });
 
-const PORT = Number(process.env.KATSU_PORT ?? 3123);
+const PORT = Number(process.env.KIVO_PORT ?? 3123);
 
 // Mesmo par light/dark já usado na logo da tela de login (home.ejs) — reaproveitado
 // aqui pro ícone da janela/taskbar acompanhar o tema do Windows em tempo real.
-const ICON_LIGHT = path.resolve(__dirname, '..', 'public', 'katsu_logo.png');
+const ICON_LIGHT = path.resolve(__dirname, '..', 'public', 'kivo_logo.png');
 const ICON_DARK = path.resolve(__dirname, '..', 'public', 'logo_marca_branco.png');
 
 function currentIconPath(): string {
@@ -80,7 +80,7 @@ function reportFatalBootError(err: unknown): void {
     // se nem isso funcionar, ao menos tenta mostrar o diálogo abaixo.
   }
   appendErrorLog(`[boot-error] ${message}`);
-  dialog.showErrorBox('Katsu — falha ao iniciar', message);
+  dialog.showErrorBox('Kivo — falha ao iniciar', message);
   app.quit();
 }
 
@@ -113,7 +113,7 @@ function setupAutoUpdater(): void {
     dialog
       .showMessageBox({
         type: 'info',
-        title: 'Katsu — atualização disponível',
+        title: 'Kivo — atualização disponível',
         message: `Uma nova versão (${info.version}) foi baixada. Reiniciar agora para instalar?`,
         buttons: ['Reiniciar agora', 'Depois'],
         defaultId: 0,

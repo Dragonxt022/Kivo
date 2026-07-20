@@ -223,7 +223,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
   }
 
   if (kpis.total_companies === 0) {
-    alerts.push({ type: 'info', icon: 'plus', title: 'Bem-vindo ao Katsu Cloud!', detail: 'Comece cadastrando sua primeira empresa.' });
+    alerts.push({ type: 'info', icon: 'plus', title: 'Bem-vindo ao Kivo Cloud!', detail: 'Comece cadastrando sua primeira empresa.' });
   }
 
   res.render('dashboard', {
@@ -690,7 +690,7 @@ router.post('/catalog/delete-all', requireAdminAuth, async (req: AdminRequest, r
  * então o formulário no catalog-queue.ejs é 100% orientado a `fetch`, sem <form> nativo.
  */
 router.post('/catalog/manual', rawCatalogImage, requireAdminAuth, async (req: AdminRequest, res) => {
-  const productName = req.header('X-Katsu-Product-Name');
+  const productName = req.header('X-Kivo-Product-Name');
   const body = req.body as Buffer;
 
   if (!productName || !Buffer.isBuffer(body) || !body.length) {

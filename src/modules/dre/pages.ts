@@ -15,7 +15,7 @@ function companyInfo(): CompanyInfo {
     .prepare("SELECT key, value FROM settings WHERE key IN ('empresa.nome', 'empresa.documento', 'empresa.endereco') AND deleted_at IS NULL")
     .all() as { key: string; value: string | null }[];
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return { name: map['empresa.nome'] || 'Katsu', document: map['empresa.documento'] || null, address: map['empresa.endereco'] || null };
+  return { name: map['empresa.nome'] || 'Kivo', document: map['empresa.documento'] || null, address: map['empresa.endereco'] || null };
 }
 
 function page(view: string, permission: string, extra: Record<string, unknown> = {}) {

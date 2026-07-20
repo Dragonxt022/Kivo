@@ -9,8 +9,8 @@ export function getPool(): mysql.Pool {
       host: process.env.CLOUD_DB_HOST ?? '127.0.0.1',
       port: Number(process.env.CLOUD_DB_PORT ?? 3307),
       user: process.env.CLOUD_DB_USER ?? 'root',
-      password: process.env.CLOUD_DB_PASSWORD ?? 'katsu',
-      database: process.env.CLOUD_DB_NAME ?? 'katsu_cloud',
+      password: process.env.CLOUD_DB_PASSWORD ?? 'kivo',
+      database: process.env.CLOUD_DB_NAME ?? 'kivo_cloud',
       waitForConnections: true,
       connectionLimit: 10,
       // Colunas DATETIME/TIMESTAMP como string "YYYY-MM-DD HH:MM:SS[.mmm]", não Date —

@@ -7,7 +7,7 @@ import { getCloudServerUrl } from '../config/cloud';
 import { settingsRepository } from '../repositories/SettingsRepository';
 
 /**
- * Licenciamento (KATSU_PLANO.md §7): Machine ID + Empresa UUID + License Key.
+ * Licenciamento (KIVO_PLANO.md §7): Machine ID + Empresa UUID + License Key.
  * Ativação online obrigatória na primeira vez (ver activationRoutes.ts); depois disso,
  * opera offline com tolerância configurável. Reforços contra uso indevido: trava de
  * máquina (machineId real, não hostname), watermark anti-retrocesso de relógio e
@@ -40,7 +40,7 @@ const MACHINE_ID_VERSION = 2;
  * "pepper" que impede que a assinatura de integridade seja recalculada por quem só
  * edita o SQLite na mão sem também descompilar o app.
  */
-const INTEGRITY_PEPPER = 'katsu-license-integrity-v1-8f2c6a41';
+const INTEGRITY_PEPPER = 'kivo-license-integrity-v1-8f2c6a41';
 
 /** Folga para diferença de fuso/NTP antes de considerar o relógio retrocedido. */
 const CLOCK_TOLERANCE_MS = 5 * 60_000;
@@ -48,7 +48,7 @@ const CLOCK_TOLERANCE_MS = 5 * 60_000;
 let cachedMachineId: string | null = null;
 
 function fallbackMachineIdPath(): string {
-  const dbPath = process.env.KATSU_DB_PATH ?? path.resolve(process.cwd(), 'database', 'katsu.db');
+  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
   return path.join(path.dirname(dbPath), 'machine-id.local');
 }
 
@@ -79,10 +79,10 @@ function fallbackMachineId(): string {
  * ID real da instalação (GUID nativo do SO via `node-machine-id`: MachineGuid do
  * registro no Windows, IOPlatformUUID no mac, /etc/machine-id no Linux) — estável
  * mesmo se o hostname mudar, ao contrário do hash de hostname/CPU usado antes.
- * `KATSU_MACHINE_ID` permite forçar um valor (testes com múltiplas "máquinas").
+ * `KIVO_MACHINE_ID` permite forçar um valor (testes com múltiplas "máquinas").
  */
 export function machineId(): string {
-  if (process.env.KATSU_MACHINE_ID) return process.env.KATSU_MACHINE_ID;
+  if (process.env.KIVO_MACHINE_ID) return process.env.KIVO_MACHINE_ID;
   if (cachedMachineId) return cachedMachineId;
   let raw: string;
   try {
@@ -258,7 +258,7 @@ export function composeAddress(c: CloudCompanyProfile): string {
 }
 
 /**
- * Preenche as configurações da empresa no Katsu local a partir do perfil cadastrado no
+ * Preenche as configurações da empresa no Kivo local a partir do perfil cadastrado no
  * cloud — SÓ os campos que ainda estão vazios, pra nunca sobrescrever o que o lojista
  * editou à mão. Chamado na ativação (e nas revalidações, de forma idempotente).
  */
@@ -303,7 +303,7 @@ export async function activateLicense(companyUuid: string, licenseKey: string): 
   let res: Response;
   try {
     res = await fetch(`${url.replace(/\/$/, '')}/api/license/validate`, {
-      headers: { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey, 'X-Katsu-Machine-Id': machineId() },
+      headers: { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey, 'X-Kivo-Machine-Id': machineId() },
       signal: AbortSignal.timeout(8000),
     });
   } catch {
@@ -363,7 +363,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
   if (!companyUuid || !licenseKey || !url) return;
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/api/license/validate`, {
-      headers: { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey, 'X-Katsu-Machine-Id': machineId() },
+      headers: { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey, 'X-Kivo-Machine-Id': machineId() },
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {

@@ -4,8 +4,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <a href="/admin" class="brand">
-      <img id="brand-logo" src="/favicon.png" alt="Katsu" />
-      Katsu Cloud
+      <img id="brand-logo" src="/logo_kivo-icon.svg" alt="Kivo" />
+      Kivo Cloud
     </a>
   </div>
   <div class="right">
@@ -65,13 +65,13 @@
       var dark = root.getAttribute('data-theme') === 'dark';
       sun.style.display = dark ? 'none' : 'block';
       moon.style.display = dark ? 'block' : 'none';
-      logo.src = dark ? '/favicon_branco.png' : '/favicon.png';
+      logo.src = dark ? '/logo_kivo-icon_branco.svg' : '/logo_kivo-icon.svg';
     }
     applyIcons();
     document.getElementById('theme-toggle').addEventListener('click', function () {
       var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', next);
-      try { localStorage.setItem('katsu-theme', next); } catch (e) {}
+      try { localStorage.setItem('kivo-theme', next); } catch (e) {}
       applyIcons();
     });
 

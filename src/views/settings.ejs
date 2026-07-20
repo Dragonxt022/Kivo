@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Katsu — Configurações</title>
+  <title>Kivo — Configurações</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -236,16 +236,16 @@
     <!-- ═══════ ABA: INTERFACE (preferências deste computador) ═══════ -->
     <div x-show="tab === 'interface'" x-cloak>
       <section class="panel" x-data="{
-        enabled: (function(){ try { return (localStorage.getItem('katsu:recent-enabled') ?? '1') !== '0'; } catch(e){ return true; } })(),
+        enabled: (function(){ try { return (localStorage.getItem('kivo:recent-enabled') ?? '1') !== '0'; } catch(e){ return true; } })(),
         cleared: false,
         toggle() {
           this.enabled = !this.enabled;
-          try { localStorage.setItem('katsu:recent-enabled', this.enabled ? '1' : '0'); } catch(e) {}
+          try { localStorage.setItem('kivo:recent-enabled', this.enabled ? '1' : '0'); } catch(e) {}
           // Some com o balão já visível na hora ao desligar (sem esperar recarregar).
           if (!this.enabled) { var fab = document.querySelector('.recent-fab'); if (fab) fab.remove(); }
         },
         clear() {
-          try { localStorage.removeItem('katsu:recent'); } catch(e) {}
+          try { localStorage.removeItem('kivo:recent'); } catch(e) {}
           this.cleared = true; setTimeout(() => this.cleared = false, 2500);
         }
       }">
@@ -354,7 +354,7 @@
       <section class="panel">
         <h2>Acesso pela rede local (Wi-Fi/cabo)</h2>
         <p class="hint mt-0">
-          Permite abrir o Katsu no navegador de outro aparelho — celular do garçom pra
+          Permite abrir o Kivo no navegador de outro aparelho — celular do garçom pra
           lançar pedidos nas comandas, tablet fixo na cozinha pro painel de produção —
           desde que esteja na mesma rede local (Wi-Fi ou cabo) desta máquina. Nenhum dado
           sai da rede local; não é acesso pela internet.
@@ -364,7 +364,7 @@
             <input type="checkbox" x-model="rede.acessoLocal" />
             Permitir acesso pela rede local
           </label>
-          <p class="hint">Desligado por padrão. <strong>Requer reiniciar o Katsu</strong> depois de salvar para valer.</p>
+          <p class="hint">Desligado por padrão. <strong>Requer reiniciar o Kivo</strong> depois de salvar para valer.</p>
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
@@ -407,7 +407,7 @@
         <h2>Cardápio online</h2>
         <p class="hint mt-0">
           Página pública, sem login, com os produtos que você escolher — pra clientes verem o
-          cardápio pelo celular antes de vir na loja. Fica hospedada na nuvem do Katsu, separada
+          cardápio pelo celular antes de vir na loja. Fica hospedada na nuvem do Kivo, separada
           do app (não depende do computador estar ligado).
         </p>
         <p class="hint">
@@ -498,7 +498,7 @@
         <h2>Servidor de sincronização (cloud)</h2>
         <div class="field">
           <label>URL do servidor</label>
-          <input class="input" type="text" x-model="cloudUrlForm.value" placeholder="https://katsu.buscamais.org (padrão do instalador)">
+          <input class="input" type="text" x-model="cloudUrlForm.value" placeholder="https://kivo.buscamais.org (padrão do instalador)">
           <p class="hint">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</p>
         </div>
         <div class="toolbar">
@@ -822,7 +822,7 @@
             body: JSON.stringify({ value: this.rede.acessoLocal ? '1' : '0' }),
           });
           this.savingRede = false;
-          this.redeSaved = r.ok ? 'Salvo — reinicie o Katsu para aplicar.' : 'Falha ao salvar.';
+          this.redeSaved = r.ok ? 'Salvo — reinicie o Kivo para aplicar.' : 'Falha ao salvar.';
         },
         copyUrl(u) {
           navigator.clipboard?.writeText(u).then(() => {

@@ -41,7 +41,7 @@ const manifest: ModuleManifest = {
     { label: 'Convênios', href: '/app/finance/convenios', permission: 'finance.agreements.view', description: 'Empresas conveniadas, cobranças pendentes e faturas mensais.', icon: 'receipt' },
     { label: 'Reconciliação', href: '/app/finance/reconciliacao', permission: 'finance.reconciliation.view', description: 'Saldos de crédito/fidelidade que ficaram negativos após sincronizar.', icon: 'shield-check' },
   ],
-  // Fase 6a — motor de sincronização (KATSU_PLANO.md §6).
+  // Fase 6a — motor de sincronização (KIVO_PLANO.md §6).
   // opened_by/closed_by/edited_by referenciam `users`, que não sincroniza nesta sub-fase.
   // payment_methods NÃO sincroniza: é configuração por máquina/terminal (cada maquininha
   // pode ter sua própria taxa), seeded independentemente em cada instalação — por isso

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import type { Request, Response, NextFunction } from 'express';
 import { getPool } from './db';
 
-export const ADMIN_SESSION_COOKIE = 'katsu_admin_session';
+export const ADMIN_SESSION_COOKIE = 'kivo_admin_session';
 const SESSION_TTL_MS = 12 * 3600e3; // 12h
 
 interface AdminSession {

@@ -1,4 +1,4 @@
-# Relatório Consolidado — Auditoria Técnica Katsu
+# Relatório Consolidado — Auditoria Técnica Kivo
 
 ## Quadro Geral
 

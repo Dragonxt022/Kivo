@@ -22,8 +22,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'katsu',
-  CLOUD_DB_NAME: 'katsu_cloud',
+  CLOUD_DB_PASSWORD: 'kivo',
+  CLOUD_DB_NAME: 'kivo_cloud',
 };
 
 let failures = 0;
@@ -74,8 +74,8 @@ async function api(base: string, p: string, opts: RequestInit = {}, cookie?: str
 async function loginAs(base: string, u: string, p: string): Promise<string | null> {
   const r = await api(base, '/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/katsu_session=([^;]+)/);
-  return m ? `katsu_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
+  return m ? `kivo_session=${m[1]}` : null;
 }
 
 function provisionCompany(companyUuid: string, licenseKey: string, plan: string, modules: string[]): void {
@@ -103,10 +103,10 @@ function startMachine(port: number, dbPath: string, cloudUrl: string): Machine {
   return {
     base: `http://localhost:${port}`,
     proc: spawnProc('machine', 'src/dev.ts', {
-      KATSU_DB_PATH: dbPath,
-      KATSU_PORT: String(port),
-      KATSU_SYNC_SERVER_URL: cloudUrl,
-      KATSU_MACHINE_ID: 'test-machine-6b',
+      KIVO_DB_PATH: dbPath,
+      KIVO_PORT: String(port),
+      KIVO_SYNC_SERVER_URL: cloudUrl,
+      KIVO_MACHINE_ID: 'test-machine-6b',
     }),
   };
 }

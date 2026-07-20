@@ -3,12 +3,12 @@
 # confere /api/health pelo domínio público. Autenticação via chave SSH (sem senha).
 set -euo pipefail
 
-HOST="${KATSU_VPS_HOST:-187.77.251.231}"
-SSH_USER="${KATSU_VPS_SSH_USER:-root}"
-SITE_USER="${KATSU_VPS_SITE_USER:-buscamais-katsu}"
-APP_DIR="${KATSU_VPS_APP_DIR:-/home/$SITE_USER/htdocs/katsu.buscamais.org/app}"
-KEY="${KATSU_VPS_SSH_KEY:-$HOME/.ssh/katsu_vps_deploy}"
-HEALTH_URL="${KATSU_CLOUD_HEALTH_URL:-https://katsu.buscamais.org/api/health}"
+HOST="${KIVO_VPS_HOST:-187.77.251.231}"
+SSH_USER="${KIVO_VPS_SSH_USER:-root}"
+SITE_USER="${KIVO_VPS_SITE_USER:-buscamais-kivo}"
+APP_DIR="${KIVO_VPS_APP_DIR:-/home/$SITE_USER/htdocs/kivo.buscamais.org/app}"
+KEY="${KIVO_VPS_SSH_KEY:-$HOME/.ssh/kivo_vps_deploy}"
+HEALTH_URL="${KIVO_CLOUD_HEALTH_URL:-https://kivo.buscamais.org/api/health}"
 
 echo "[deploy] conectando em ${SSH_USER}@${HOST}..."
 ssh -i "$KEY" -o BatchMode=yes "${SSH_USER}@${HOST}" "
@@ -22,9 +22,9 @@ ssh -i "$KEY" -o BatchMode=yes "${SSH_USER}@${HOST}" "
     export \$(cat .env | xargs)
     npm run migrate
   '
-  systemctl restart katsu-cloud
+  systemctl restart kivo-cloud
   sleep 2
-  systemctl is-active katsu-cloud
+  systemctl is-active kivo-cloud
 "
 
 echo "[deploy] verificando ${HEALTH_URL}..."

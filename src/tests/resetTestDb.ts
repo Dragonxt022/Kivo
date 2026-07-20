@@ -28,7 +28,7 @@ function unlinkWithRetry(fp: string, retries = 20): void {
 /** Apaga o arquivo DB para que migrateUp() recrie tudo do zero. */
 export function resetTestDb(): void {
   closeDb();
-  const dbPath = process.env.KATSU_DB_PATH ?? path.join(DB_DIR, 'katsu.db');
+  const dbPath = process.env.KIVO_DB_PATH ?? path.join(DB_DIR, 'kivo.db');
   for (const ext of ['', '-wal', '-shm']) {
     const fp = dbPath + ext;
     if (fs.existsSync(fp)) unlinkWithRetry(fp);

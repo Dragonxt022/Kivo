@@ -11,7 +11,7 @@ const router = Router();
 interface CompanyInfo { name: string; document: string | null; address: string | null }
 
 function companyInfo(): CompanyInfo {
-  const name = settingsRepository.get('empresa.nome') || 'Katsu';
+  const name = settingsRepository.get('empresa.nome') || 'Kivo';
   const document = settingsRepository.get('empresa.documento');
   const address = settingsRepository.get('empresa.endereco');
   return { name, document, address };

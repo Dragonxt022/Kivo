@@ -21,8 +21,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'katsu',
-  CLOUD_DB_NAME: 'katsu_cloud',
+  CLOUD_DB_PASSWORD: 'kivo',
+  CLOUD_DB_NAME: 'kivo_cloud',
 };
 
 let failures = 0;
@@ -80,20 +80,20 @@ async function form(base: string, p: string, data: Record<string, string>, cooki
   });
 }
 
-async function loginAsKatsu(base: string, u: string, p: string): Promise<string | null> {
+async function loginAsKivo(base: string, u: string, p: string): Promise<string | null> {
   const r = await fetch(`${base}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: u, password: p }),
   });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/katsu_session=([^;]+)/);
-  return m ? `katsu_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
+  return m ? `kivo_session=${m[1]}` : null;
 }
 
 function extractAdminCookie(res: Response): string | null {
-  const m = (res.headers.get('set-cookie') ?? '').match(/katsu_admin_session=([^;]+)/);
-  return m ? `katsu_admin_session=${m[1]}` : null;
+  const m = (res.headers.get('set-cookie') ?? '').match(/kivo_admin_session=([^;]+)/);
+  return m ? `kivo_admin_session=${m[1]}` : null;
 }
 
 async function main(): Promise<void> {
@@ -145,29 +145,29 @@ async function main(): Promise<void> {
 
     // --- Instalação cliente de verdade: gera atividade real de sync/backup ---
     machineProc = spawnProc('machine', 'src/dev.ts', {
-      KATSU_DB_PATH: path.join(SCRATCH, 'machine.db'),
-      KATSU_PORT: '3641',
-      KATSU_SYNC_SERVER_URL: cloudUrl,
-      KATSU_MACHINE_ID: 'test-machine-6d',
+      KIVO_DB_PATH: path.join(SCRATCH, 'machine.db'),
+      KIVO_PORT: '3641',
+      KIVO_SYNC_SERVER_URL: cloudUrl,
+      KIVO_MACHINE_ID: 'test-machine-6d',
     });
     const machineBase = 'http://localhost:3641';
     await waitForHealth(`${machineBase}/api/health`);
-    const katsuCookie = await loginAsKatsu(machineBase, 'admin', 'admin');
-    check('login na instalação cliente', !!katsuCookie);
+    const kivoCookie = await loginAsKivo(machineBase, 'admin', 'admin');
+    check('login na instalação cliente', !!kivoCookie);
 
     await fetch(`${machineBase}/api/license`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', cookie: katsuCookie! },
+      headers: { 'Content-Type': 'application/json', cookie: kivoCookie! },
       body: JSON.stringify({ companyUuid, licenseKey }),
     });
     await fetch(`${machineBase}/api/commercial/products`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie: katsuCookie! },
+      headers: { 'Content-Type': 'application/json', cookie: kivoCookie! },
       body: JSON.stringify({ name: 'Produto 6d', priceCents: 500 }),
     });
-    const syncRes = await fetch(`${machineBase}/api/sync/run`, { method: 'POST', headers: { cookie: katsuCookie! } });
+    const syncRes = await fetch(`${machineBase}/api/sync/run`, { method: 'POST', headers: { cookie: kivoCookie! } });
     check('sync gera atividade real', syncRes.ok);
-    const backupRes = await fetch(`${machineBase}/api/backup`, { method: 'POST', headers: { cookie: katsuCookie! } });
+    const backupRes = await fetch(`${machineBase}/api/backup`, { method: 'POST', headers: { cookie: kivoCookie! } });
     check('backup manual sobe para a nuvem (licença já configurada)', backupRes.ok);
 
     const detailAfterActivity = await (await api(cloudUrl, `/admin/companies/${companyUuid}`, {}, adminCookie!)).text();
@@ -178,7 +178,7 @@ async function main(): Promise<void> {
     // consome (a mesma usada por refreshLicenseFromCloud) reflete a mudança ---
     await form(cloudUrl, `/admin/companies/${companyUuid}`, { name: 'Loja Teste 6d', plan: 'reduzido', modules: 'commercial' }, adminCookie!);
     const validateRes = await fetch(`${cloudUrl}/api/license/validate`, {
-      headers: { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey },
+      headers: { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey },
     });
     const validateBody = (await validateRes.json()) as { plan: string; modules: string[] };
     check('painel e API batem no mesmo dado após edição', validateBody.plan === 'reduzido' && JSON.stringify(validateBody.modules) === JSON.stringify(['commercial']), JSON.stringify(validateBody));

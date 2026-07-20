@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Katsu Cloud — Configurações</title>
-  <link rel="icon" href="/favicon.png">
+  <title>Kivo Cloud — Configurações</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
 </head>
 <body>
@@ -28,7 +28,7 @@
             <label>Telefone</label>
             <input type="text" name="supportPhone" value="<%= settings.support_phone || '' %>" placeholder="(11) 99999-9999">
             <label>E-mail</label>
-            <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@katsu.com.br">
+            <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@kivo.com.br">
             <div class="modal-actions" style="justify-content: flex-start;">
               <button type="submit" class="btn">Salvar</button>
             </div>

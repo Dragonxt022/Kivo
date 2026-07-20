@@ -14,13 +14,13 @@ export interface AuthedRequest extends Request {
 
 /**
  * Autenticação mínima da 6a: par company_uuid + license_key (o mesmo já guardado
- * localmente em `license` no Katsu). Sessão/JWT de verdade fica para a 6b.
+ * localmente em `license` no Kivo). Sessão/JWT de verdade fica para a 6b.
  */
 export async function requireCompanyAuth(req: AuthedRequest, res: Response, next: NextFunction): Promise<void> {
-  const companyUuid = req.header('X-Katsu-Company');
-  const licenseKey = req.header('X-Katsu-License-Key');
+  const companyUuid = req.header('X-Kivo-Company');
+  const licenseKey = req.header('X-Kivo-License-Key');
   if (!companyUuid || !licenseKey) {
-    res.status(401).json({ error: 'Credenciais ausentes (X-Katsu-Company / X-Katsu-License-Key).' });
+    res.status(401).json({ error: 'Credenciais ausentes (X-Kivo-Company / X-Kivo-License-Key).' });
     return;
   }
   const [rows] = await getPool().query('SELECT license_key_hash, plan FROM companies WHERE company_uuid = ?', [

@@ -15,7 +15,7 @@ process.on('uncaughtException', (err) => {
   console.error('[uncaughtException]', err);
 });
 
-const PORT = Number(process.env.KATSU_PORT ?? 3123);
+const PORT = Number(process.env.KIVO_PORT ?? 3123);
 const smoke = process.argv.includes('--smoke');
 
 async function main() {
@@ -26,7 +26,7 @@ async function main() {
 
   const { app, modules } = await createServer();
   const server = app.listen(PORT, () => {
-    console.log(`[katsu] API local em http://localhost:${PORT} — módulos: ${modules.length}`);
+    console.log(`[kivo] API local em http://localhost:${PORT} — módulos: ${modules.length}`);
   });
 
   if (smoke) {

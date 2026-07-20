@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Katsu Cloud — Suporte</title>
-  <link rel="icon" href="/favicon.png">
+  <title>Kivo Cloud — Suporte</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -20,7 +20,7 @@
           <h1>Suporte</h1>
         </div>
         <p class="field-hint" style="margin-top:0">
-          Tickets abertos pelo chat de suporte dentro do Katsu. A conversa inteira fica registrada —
+          Tickets abertos pelo chat de suporte dentro do Kivo. A conversa inteira fica registrada —
           quem escreveu, quando e o quê. Clique num ticket para responder.
         </p>
 
@@ -60,7 +60,7 @@
                   <td class="text-right"><a class="btn small" :href="'/admin/support/' + t.id">Abrir conversa</a></td>
                 </tr>
               </template>
-              <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum ticket por aqui — quando um cliente abrir um chamado pelo chat do Katsu, ele aparece nesta lista.' }) %></td></tr>
+              <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum ticket por aqui — quando um cliente abrir um chamado pelo chat do Kivo, ele aparece nesta lista.' }) %></td></tr>
             </tbody>
           </table>
         </div>

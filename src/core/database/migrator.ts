@@ -99,8 +99,8 @@ function stripExistingObjects(db: import('better-sqlite3').Database, sql: string
 }
 
 /**
- * Migrator do Katsu.
- * Fontes de migrations (contrato de módulo, KATSU_PLANO.md §4):
+ * Migrator do Kivo.
+ * Fontes de migrations (contrato de módulo, KIVO_PLANO.md §4):
  *   1. drizzle/migrations/NNNN_nome/            → Core
  *   2. src/modules/<id>/migrations/NNNN_nome/   → módulos (Apps)
  * Cada migration é uma pasta com up.sql e down.sql, ordenada globalmente pelo nome.

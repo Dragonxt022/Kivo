@@ -1,13 +1,13 @@
 /**
  * Teste de integração da importação/exportação de produtos (rotas + banco).
  *
- * KATSU_DB_PATH TEM que vir do ambiente, não ser setado aqui dentro:
+ * KIVO_DB_PATH TEM que vir do ambiente, não ser setado aqui dentro:
  *   npx tsx src/tests/products-import-api.ts   ← NÃO faça isso direto
- *   node scripts/katsu test:products-import    ← use o comando (define a env var)
+ *   node scripts/kivo test:products-import    ← use o comando (define a env var)
  *
- * Motivo: `import` é hoisted. Um `process.env.KATSU_DB_PATH = ...` no topo deste
+ * Motivo: `import` é hoisted. Um `process.env.KIVO_DB_PATH = ...` no topo deste
  * arquivo roda DEPOIS de connection.ts já ter lido a variável e fixado o caminho —
- * o teste rodaria contra database/katsu.db, o mesmo banco do `npm run dev`.
+ * o teste rodaria contra database/kivo.db, o mesmo banco do `npm run dev`.
  * A checagem abaixo é a rede de segurança para isso.
  */
 import fs from 'node:fs';
@@ -20,7 +20,7 @@ import { getSqlite, closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KATSU_PORT ?? 3711);
+const PORT = Number(process.env.KIVO_PORT ?? 3711);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -46,16 +46,16 @@ const H_COM_UUID = 'uuid;' + H;
  * É o que impede este teste de recriar o banco de quem está desenvolvendo.
  */
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KATSU_DB_PATH;
+  const alvo = process.env.KIVO_DB_PATH;
   if (!alvo) {
     throw new Error(
-      'KATSU_DB_PATH não definida. Este teste APAGA o banco que usar — rode via `node scripts/katsu test:products-import`, ' +
+      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via `node scripts/kivo test:products-import`, ' +
       'que aponta para um arquivo temporário. Nunca `npx tsx` direto.',
     );
   }
-  const devDb = path.resolve(process.cwd(), 'database', 'katsu.db');
+  const devDb = path.resolve(process.cwd(), 'database', 'kivo.db');
   if (path.resolve(alvo) === devDb) {
-    throw new Error(`Recusado: KATSU_DB_PATH aponta para o banco de dev (${devDb}).`);
+    throw new Error(`Recusado: KIVO_DB_PATH aponta para o banco de dev (${devDb}).`);
   }
   return alvo;
 }
@@ -74,8 +74,8 @@ async function main(): Promise<void> {
 
   try {
     const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin' }) });
-    const m = (r.headers.get('set-cookie') ?? '').match(/katsu_session=([^;]+)/);
-    const cookie = m ? `katsu_session=${m[1]}` : null;
+    const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
+    const cookie = m ? `kivo_session=${m[1]}` : null;
     check('login admin', !!cookie);
     if (!cookie) return;
 

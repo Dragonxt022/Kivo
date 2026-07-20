@@ -22,8 +22,8 @@ function authHeaders(): Record<string, string> | null {
   if (!companyUuid || !licenseKey) return null;
   return {
     'Content-Type': 'application/json',
-    'X-Katsu-Company': companyUuid,
-    'X-Katsu-License-Key': licenseKey,
+    'X-Kivo-Company': companyUuid,
+    'X-Kivo-License-Key': licenseKey,
   };
 }
 

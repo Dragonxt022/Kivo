@@ -1,7 +1,7 @@
 {
-  "name": "katsu-cloud",
+  "name": "kivo-cloud",
   "version": "0.1.0",
-  "description": "Katsu Cloud — motor de sincronização (Fase 6a). Serviço deployável separado (VPS), Node + Express + MySQL.",
+  "description": "Kivo Cloud — motor de sincronização (Fase 6a). Serviço deployável separado (VPS), Node + Express + MySQL.",
   "private": true,
   "main": "dist/server.js",
   "scripts": {

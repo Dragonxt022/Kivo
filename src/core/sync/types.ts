@@ -1,4 +1,4 @@
-/** Contrato de sincronização declarado por cada módulo no seu manifesto (KATSU_PLANO.md §6). */
+/** Contrato de sincronização declarado por cada módulo no seu manifesto (KIVO_PLANO.md §6). */
 
 /** Tabela filha (line item): sincroniza embutida no payload do agregado pai, sem uuid próprio. */
 export interface SyncChildSpec {

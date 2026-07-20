@@ -1,5 +1,5 @@
 /**
- * Planos comerciais do Katsu (espelha src/core/license/plans.ts do app local — são
+ * Planos comerciais do Kivo (espelha src/core/license/plans.ts do app local — são
  * deployables separados, sem pacote compartilhado, por isso a regra é duplicada).
  * Trial e Prata não incluem salvamento em nuvem (sync push/pull, upload de backup).
  */

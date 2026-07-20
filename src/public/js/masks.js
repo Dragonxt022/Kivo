@@ -1,4 +1,4 @@
-/** Máscaras de entrada (Katsu) — funções globais usadas com @input nas views. */
+/** Máscaras de entrada (Kivo) — funções globais usadas com @input nas views. */
 window.maskDoc = function (v) {
   const d = String(v || '').replace(/\D/g, '').slice(0, 14);
   if (d.length <= 11) {

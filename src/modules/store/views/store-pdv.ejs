@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Katsu — PDV</title>
+  <title>Kivo — PDV</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <link rel="stylesheet" href="/css/pdv.css" />
   <script defer src="/vendor/alpine.min.js"></script>
@@ -829,11 +829,11 @@
 
         // ─── Vendas simultâneas + persistência ───
         persistSlots() {
-          try { localStorage.setItem('katsu:pdv:slots', JSON.stringify({ slots: this.slots, activeSlot: this.activeSlot })); } catch (e) {}
+          try { localStorage.setItem('kivo:pdv:slots', JSON.stringify({ slots: this.slots, activeSlot: this.activeSlot })); } catch (e) {}
         },
         restoreSlots() {
           try {
-            const raw = localStorage.getItem('katsu:pdv:slots');
+            const raw = localStorage.getItem('kivo:pdv:slots');
             if (!raw) return;
             const saved = JSON.parse(raw);
             if (Array.isArray(saved?.slots) && saved.slots.length) {

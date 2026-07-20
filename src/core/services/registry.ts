@@ -1,5 +1,5 @@
 /**
- * Registro de serviços do Core (KATSU_PLANO.md §2):
+ * Registro de serviços do Core (KIVO_PLANO.md §2):
  * "Um App não importa de outro App diretamente — comunicação entre Apps
  *  passa por eventos/serviços do Core."
  * Módulos registram serviços no boot (arquivo `setup` do manifesto) e

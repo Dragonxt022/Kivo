@@ -3,7 +3,7 @@ import path from 'node:path';
 import { getPool, closePool } from './db';
 
 /**
- * Migrator do cloud/ — mesmo contrato do Katsu local (pasta NNNN_nome com up.sql/down.sql,
+ * Migrator do cloud/ — mesmo contrato do Kivo local (pasta NNNN_nome com up.sql/down.sql,
  * tabela `_migrations` como controle), adaptado para MySQL/async.
  */
 const MIGRATIONS_DIR = path.resolve(process.cwd(), 'migrations');

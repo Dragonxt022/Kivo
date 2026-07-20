@@ -9,7 +9,7 @@ const router = Router();
 const rawGzip = express.raw({ type: 'application/gzip', limit: '200mb' });
 
 // Relativo ao arquivo (não a process.cwd()): robusto independente de onde o processo é
-// iniciado (ex.: testes automatizados sobem o cloud/ com cwd na raiz do repo Katsu).
+// iniciado (ex.: testes automatizados sobem o cloud/ com cwd na raiz do repo Kivo).
 const STORAGE_DIR = path.resolve(__dirname, '..', '..', 'storage', 'backups');
 
 function sha256(buf: Buffer): string {
@@ -25,12 +25,12 @@ interface CloudBackupRow {
 }
 
 router.post('/upload', rawGzip, requireCompanyAuth, requireCloudSavePlan, async (req: AuthedRequest, res) => {
-  const uuid = req.header('X-Katsu-Backup-Uuid');
-  const checksum = req.header('X-Katsu-Backup-Checksum');
-  const machineId = req.header('X-Katsu-Machine-Id');
+  const uuid = req.header('X-Kivo-Backup-Uuid');
+  const checksum = req.header('X-Kivo-Backup-Checksum');
+  const machineId = req.header('X-Kivo-Machine-Id');
   const body = req.body as Buffer;
   if (!uuid || !checksum || !machineId || !Buffer.isBuffer(body) || !body.length) {
-    res.status(400).json({ error: 'Cabeçalhos obrigatórios: X-Katsu-Backup-Uuid, X-Katsu-Backup-Checksum, X-Katsu-Machine-Id, corpo binário.' });
+    res.status(400).json({ error: 'Cabeçalhos obrigatórios: X-Kivo-Backup-Uuid, X-Kivo-Backup-Checksum, X-Kivo-Machine-Id, corpo binário.' });
     return;
   }
   if (sha256(body) !== checksum) {
@@ -77,7 +77,7 @@ router.get('/:uuid/download', requireCompanyAuth, async (req: AuthedRequest, res
     res.status(404).json({ error: 'Backup não encontrado.' });
     return;
   }
-  res.setHeader('X-Katsu-Backup-Checksum', row.checksum);
+  res.setHeader('X-Kivo-Backup-Checksum', row.checksum);
   res.setHeader('Content-Type', 'application/gzip');
   res.send(fs.readFileSync(row.storage_path));
 });

@@ -1,7 +1,7 @@
 /**
  * Validação leve de imagem de produto no lado local (Electron): checagem barata de
  * formato (assinatura de bytes, não confia em Content-Type) e tamanho, antes de gastar
- * uma tentativa de upload para o Katsu Cloud. A validação "pesada" (dimensões mínimas,
+ * uma tentativa de upload para o Kivo Cloud. A validação "pesada" (dimensões mínimas,
  * segunda opinião de formato) roda no cloud/ antes de cair na fila de curadoria humana —
  * ver cloud/src/catalogValidation.ts.
  */

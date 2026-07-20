@@ -3,7 +3,7 @@
  * duas máquinas offline editam, reconectam (via cloud/ + MySQL) e convergem sem
  * perda nem duplicação — inclusive quando ambas mexem no estoque do mesmo produto.
  *
- * Pré-requisitos (não automatizados aqui, mesmo espírito do KATSU_DB_PATH):
+ * Pré-requisitos (não automatizados aqui, mesmo espírito do KIVO_DB_PATH):
  *   1. docker compose -f cloud/docker-compose.yml up -d
  *   2. npm run cloud:install && npm run cloud:migrate   (com CLOUD_DB_PORT=3307)
  */
@@ -19,8 +19,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'katsu',
-  CLOUD_DB_NAME: 'katsu_cloud',
+  CLOUD_DB_PASSWORD: 'kivo',
+  CLOUD_DB_NAME: 'kivo_cloud',
 };
 
 let failures = 0;
@@ -78,8 +78,8 @@ async function api(base: string, p: string, opts: RequestInit = {}, cookie?: str
 async function loginAs(base: string, u: string, p: string): Promise<string | null> {
   const r = await api(base, '/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/katsu_session=([^;]+)/);
-  return m ? `katsu_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
+  return m ? `kivo_session=${m[1]}` : null;
 }
 
 async function runSync(m: Machine): Promise<{ pushed: number; pulled: number }> {
@@ -128,20 +128,20 @@ async function main(): Promise<void> {
     name: 'A',
     base: `http://localhost:${portA}`,
     proc: spawnProc('machineA', 'src/dev.ts', {
-      KATSU_DB_PATH: path.join(SCRATCH, 'machineA.db'),
-      KATSU_PORT: String(portA),
-      KATSU_SYNC_SERVER_URL: cloudUrl,
-      KATSU_MACHINE_ID: 'test-machine-a',
+      KIVO_DB_PATH: path.join(SCRATCH, 'machineA.db'),
+      KIVO_PORT: String(portA),
+      KIVO_SYNC_SERVER_URL: cloudUrl,
+      KIVO_MACHINE_ID: 'test-machine-a',
     }),
   };
   const b: Machine = {
     name: 'B',
     base: `http://localhost:${portB}`,
     proc: spawnProc('machineB', 'src/dev.ts', {
-      KATSU_DB_PATH: path.join(SCRATCH, 'machineB.db'),
-      KATSU_PORT: String(portB),
-      KATSU_SYNC_SERVER_URL: cloudUrl,
-      KATSU_MACHINE_ID: 'test-machine-b',
+      KIVO_DB_PATH: path.join(SCRATCH, 'machineB.db'),
+      KIVO_PORT: String(portB),
+      KIVO_SYNC_SERVER_URL: cloudUrl,
+      KIVO_MACHINE_ID: 'test-machine-b',
     }),
   };
   await Promise.all([waitForHealth(`${a.base}/api/health`), waitForHealth(`${b.base}/api/health`)]);

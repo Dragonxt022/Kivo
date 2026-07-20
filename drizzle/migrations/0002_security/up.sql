@@ -44,7 +44,7 @@ CREATE TABLE users (
   deleted_at TEXT,
   synced_at TEXT,
   origin_machine TEXT,
-  comment TEXT NOT NULL DEFAULT 'Usuários do sistema com credenciais (hash bcrypt) e cargo. Toda ação no Katsu é feita por um usuário autenticado.'
+  comment TEXT NOT NULL DEFAULT 'Usuários do sistema com credenciais (hash bcrypt) e cargo. Toda ação no Kivo é feita por um usuário autenticado.'
 );
 
 CREATE TABLE sessions (

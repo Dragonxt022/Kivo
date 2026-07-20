@@ -3,12 +3,12 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: katsu
-      MYSQL_DATABASE: katsu_cloud
+      MYSQL_ROOT_PASSWORD: kivo
+      MYSQL_DATABASE: kivo_cloud
     ports:
       - '3307:3306'
     volumes:
-      - katsu_cloud_mysql:/var/lib/mysql
+      - kivo_cloud_mysql:/var/lib/mysql
 
 volumes:
-  katsu_cloud_mysql:
+  kivo_cloud_mysql:

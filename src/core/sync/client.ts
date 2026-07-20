@@ -20,8 +20,8 @@ function authHeaders(): Record<string, string> {
   }
   return {
     'Content-Type': 'application/json',
-    'X-Katsu-Company': companyUuid,
-    'X-Katsu-License-Key': licenseKey,
+    'X-Kivo-Company': companyUuid,
+    'X-Kivo-License-Key': licenseKey,
   };
 }
 

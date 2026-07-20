@@ -1,5 +1,5 @@
 /**
- * Zera o banco do Katsu Cloud para o estado de fábrica: apaga todos os dados de
+ * Zera o banco do Kivo Cloud para o estado de fábrica: apaga todos os dados de
  * negócio (empresas, syncs, cobranças, backups, imagens, dispositivos) e deixa
  * um único admin `admin` / `admin`.
  *
@@ -45,7 +45,7 @@ const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
  */
 function assertLocal(force: boolean): void {
   const host = process.env.CLOUD_DB_HOST ?? '127.0.0.1';
-  const database = process.env.CLOUD_DB_NAME ?? 'katsu_cloud';
+  const database = process.env.CLOUD_DB_NAME ?? 'kivo_cloud';
   if (LOCAL_HOSTS.has(host) || force) return;
   console.error(
     `Recusado: CLOUD_DB_HOST="${host}" não é local (banco "${database}").\n` +
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
 
   assertLocal(force);
 
-  const database = process.env.CLOUD_DB_NAME ?? 'katsu_cloud';
+  const database = process.env.CLOUD_DB_NAME ?? 'kivo_cloud';
   const host = process.env.CLOUD_DB_HOST ?? '127.0.0.1';
   console.log(`Zerando "${database}" em ${host}…`);
 

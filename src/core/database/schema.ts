@@ -1,7 +1,7 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 /**
- * Colunas do contrato de sincronização (KATSU_PLANO.md §6)
+ * Colunas do contrato de sincronização (KIVO_PLANO.md §6)
  * + coluna `comment` obrigatória em toda tabela, descrevendo o objetivo da tabela.
  */
 const syncColumns = {

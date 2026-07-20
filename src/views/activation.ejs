@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Katsu — Ativação</title>
+  <title>Kivo — Ativação</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <style>
     body { display: grid; place-items: center; min-height: 100vh; }
@@ -37,8 +37,8 @@
 </head>
 <body>
   <div class="activation-card" x-data="activationPage()">
-    <img class="logo" :src="theme === 'dark' ? '/logo_marca_branco.png' : '/katsu_logo.png'" alt="Katsu" />
-    <h1>Ativar o Katsu</h1>
+    <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
+    <h1>Ativar o Kivo</h1>
     <p class="subtitle">Informe os dados fornecidos na compra. É preciso estar conectado à internet nesta primeira ativação.</p>
     <form @submit.prevent="activate">
       <label for="act-company">Empresa (UUID)</label>

@@ -12,7 +12,7 @@ import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 
-const PORT = Number(process.env.KATSU_PORT ?? 3299);
+const PORT = Number(process.env.KIVO_PORT ?? 3299);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -31,8 +31,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(username: string, password: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/katsu_session=([^;]+)/);
-  return m ? `katsu_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
+  return m ? `kivo_session=${m[1]}` : null;
 }
 
 async function main() {
@@ -80,7 +80,7 @@ async function main() {
   check('machine ID gerado', /^[a-f0-9]{32}$/.test(lic.machineId));
   const setLic = await api('/api/license', {
     method: 'PUT',
-    body: JSON.stringify({ companyUuid: 'c0ffee00-0000-4000-8000-000000000000', licenseKey: 'KATSU-TESTE', plan: 'pro', validUntil: '2027-01-01' }),
+    body: JSON.stringify({ companyUuid: 'c0ffee00-0000-4000-8000-000000000000', licenseKey: 'KIVO-TESTE', plan: 'pro', validUntil: '2027-01-01' }),
   }, admin!);
   const setLicBody = (await setLic.json()) as { status: string; canSaveToCloud?: boolean; canAutoUpdate?: boolean };
   check('admin configura licença → valida', setLic.status === 200 && setLicBody.status === 'valida');

@@ -5,7 +5,7 @@ import path from 'node:path';
 import * as schema from './schema';
 
 const DB_DIR = path.resolve(process.cwd(), 'database');
-const DB_PATH = process.env.KATSU_DB_PATH ?? path.join(DB_DIR, 'katsu.db');
+const DB_PATH = process.env.KIVO_DB_PATH ?? path.join(DB_DIR, 'kivo.db');
 
 let sqlite: Database.Database | null = null;
 

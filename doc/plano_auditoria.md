@@ -1,8 +1,8 @@
-# Plano Mestre de Auditoria — Katsu
+# Plano Mestre de Auditoria — Kivo
 
 ## Objetivo
 
-Auditar tecnicamente o Katsu em fases, gerando relatórios padronizados com descobertas,
+Auditar tecnicamente o Kivo em fases, gerando relatórios padronizados com descobertas,
 gravidade, prioridade, impacto e recomendações. Cada fase é independente mas segue a
 mesma estrutura, permitindo execução iterativa e rastreável.
 

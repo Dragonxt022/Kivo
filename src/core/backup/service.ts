@@ -9,7 +9,7 @@ import { canSaveToCloud } from '../license/plans';
 import { getCloudServerUrl } from '../config/cloud';
 
 /**
- * Backup local (KATSU_PLANO.md §8):
+ * Backup local (KIVO_PLANO.md §8):
  * compacta o SQLite (gzip), calcula checksum sha256 e registra no histórico.
  * Destino configurável via setting `backup.dir`. Restauração validada por checksum.
  * Fase 6c: se houver licença configurada, o backup também sobe para o cloud/
@@ -63,7 +63,7 @@ export function getBackupSettings(): BackupSettings {
 export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Promise<BackupResult> {
   const db = getSqlite();
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const tmpDb = path.join(backupDir(), `katsu-${stamp}.db`);
+  const tmpDb = path.join(backupDir(), `kivo-${stamp}.db`);
   const finalPath = `${tmpDb}.gz`;
 
   await db.backup(tmpDb); // cópia consistente mesmo com o banco em uso
@@ -193,7 +193,7 @@ function cloudBaseUrl(): string | null {
 function cloudAuthHeaders(): Record<string, string> | null {
   const { companyUuid, licenseKey } = getLicenseCredentials();
   if (!companyUuid || !licenseKey) return null;
-  return { 'X-Katsu-Company': companyUuid, 'X-Katsu-License-Key': licenseKey };
+  return { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey };
 }
 
 /** Envia um backup já gravado localmente para o cloud/. Não faz nada se não houver licença/URL configurados. */
@@ -212,9 +212,9 @@ export async function uploadBackupToCloud(backupId: number): Promise<void> {
     headers: {
       ...auth,
       'Content-Type': 'application/gzip',
-      'X-Katsu-Backup-Uuid': row.uuid,
-      'X-Katsu-Backup-Checksum': row.checksum,
-      'X-Katsu-Machine-Id': machineId(),
+      'X-Kivo-Backup-Uuid': row.uuid,
+      'X-Kivo-Backup-Checksum': row.checksum,
+      'X-Kivo-Machine-Id': machineId(),
     },
     body: fs.readFileSync(row.file_path),
   });
@@ -264,14 +264,14 @@ export async function downloadCloudBackup(cloudUuid: string): Promise<BackupResu
 
   const res = await fetch(`${base}/api/backup/${cloudUuid}/download`, { headers: auth });
   if (!res.ok) throw new Error(`Falha ao baixar backup da nuvem: ${res.status} ${await res.text()}`);
-  const expectedChecksum = res.headers.get('X-Katsu-Backup-Checksum');
+  const expectedChecksum = res.headers.get('X-Kivo-Backup-Checksum');
   const compressed = Buffer.from(await res.arrayBuffer());
   const checksum = sha256(compressed);
   if (expectedChecksum && checksum !== expectedChecksum) {
     throw new Error('Checksum inválido — backup da nuvem corrompido, download rejeitado.');
   }
 
-  const finalPath = path.join(backupDir(), `katsu-nuvem-${cloudUuid}.gz`);
+  const finalPath = path.join(backupDir(), `kivo-nuvem-${cloudUuid}.gz`);
   fs.writeFileSync(finalPath, compressed);
 
   const db = getSqlite();

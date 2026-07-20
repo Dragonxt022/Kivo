@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Katsu Cloud — Banco de imagens</title>
-  <link rel="icon" href="/favicon.png">
+  <title>Kivo Cloud — Banco de imagens</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -340,7 +340,7 @@
           var buf = await pendingFiles[i].arrayBuffer();
           var res = await fetch('/admin/catalog/manual', {
             method: 'POST',
-            headers: { 'Content-Type': pendingFiles[i].type, 'X-Katsu-Product-Name': nameFromFilename(pendingFiles[i].name) },
+            headers: { 'Content-Type': pendingFiles[i].type, 'X-Kivo-Product-Name': nameFromFilename(pendingFiles[i].name) },
             body: buf,
           });
           if (res.ok) {

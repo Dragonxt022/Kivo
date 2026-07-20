@@ -8,7 +8,7 @@ import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 
-const PORT = Number(process.env.KATSU_PORT ?? 3745);
+const PORT = Number(process.env.KIVO_PORT ?? 3745);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -27,8 +27,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/katsu_session=([^;]+)/);
-  return m ? `katsu_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
+  return m ? `kivo_session=${m[1]}` : null;
 }
 
 async function main() {

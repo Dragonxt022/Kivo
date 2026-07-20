@@ -129,7 +129,7 @@ export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
 /**
  * Filtra `app.locals.moduleMenu` (todos os módulos compatíveis, sempre carregados)
  * pelo entitlement ATUAL a cada requisição — troca de plano/módulo aparece no
- * próximo clique, sem precisar reiniciar o Katsu.
+ * próximo clique, sem precisar reiniciar o Kivo.
  */
 export function filterModuleMenu(req: Request, res: Response, next: NextFunction): void {
   const all = (req.app.locals.moduleMenu ?? []) as ModuleMenuItem[];
