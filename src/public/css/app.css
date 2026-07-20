@@ -123,7 +123,7 @@ header.nav {
   box-shadow: var(--shadow-sm), inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent), inset 0 0 0 1px color-mix(in srgb, #fff 8%, transparent);
   z-index: 100;
 }
-header.nav img.logo { width: 25px; height: 25px; }
+header.nav img.logo { width: 150px; height: 25px; }
 header.nav .nav-left {
   justify-self: start;
   display: flex; align-items: center;

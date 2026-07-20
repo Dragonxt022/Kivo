@@ -23,6 +23,11 @@ export function hashPassword(plain: string): string {
   return bcrypt.hashSync(plain, 10);
 }
 
+export async function hasAnyAdmin(): Promise<boolean> {
+  const [rows] = await getPool().query('SELECT COUNT(*) AS total FROM admin_users');
+  return (rows as { total: number }[])[0].total > 0;
+}
+
 export async function verifyAdminCredentials(username: string, password: string): Promise<boolean> {
   const [rows] = await getPool().query('SELECT password_hash FROM admin_users WHERE username = ?', [username]);
   const row = (rows as { password_hash: string }[])[0];

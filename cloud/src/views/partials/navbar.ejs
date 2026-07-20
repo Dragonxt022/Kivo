@@ -4,8 +4,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <a href="/admin" class="brand">
-      <img id="brand-logo" src="/logo_kivo-icon.svg" alt="Kivo" />
-      Kivo Cloud
+      <img id="brand-logo" class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
+      <img id="brand-logo-dark" class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" style="display:none" />
     </a>
   </div>
   <div class="right">
@@ -61,11 +61,13 @@
     var sun = document.getElementById('theme-icon-sun');
     var moon = document.getElementById('theme-icon-moon');
     var logo = document.getElementById('brand-logo');
+    var logoDark = document.getElementById('brand-logo-dark');
     function applyIcons() {
       var dark = root.getAttribute('data-theme') === 'dark';
       sun.style.display = dark ? 'none' : 'block';
       moon.style.display = dark ? 'block' : 'none';
-      logo.src = dark ? '/logo_kivo-icon_branco.svg' : '/logo_kivo-icon.svg';
+      logo.style.display = dark ? 'none' : 'block';
+      logoDark.style.display = dark ? 'block' : 'none';
     }
     applyIcons();
     document.getElementById('theme-toggle').addEventListener('click', function () {

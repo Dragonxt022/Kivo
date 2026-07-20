@@ -8,6 +8,7 @@ import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
 import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } from './catalog';
 import {
+  hasAnyAdmin,
   verifyAdminCredentials,
   createAdminSession,
   destroyAdminSession,
@@ -76,7 +77,11 @@ async function loadCompanyDetail(companyUuid: string) {
 
 // --- Autenticação ---
 
-router.get('/login', (_req, res) => {
+router.get('/login', async (req, res) => {
+  if (!(await hasAnyAdmin())) {
+    res.redirect('/admin/setup');
+    return;
+  }
   res.render('login', { error: null });
 });
 
@@ -84,9 +89,48 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body ?? {};
   const ok = username && password && (await verifyAdminCredentials(String(username), String(password)));
   if (!ok) {
+    if (!(await hasAnyAdmin())) {
+      res.redirect('/admin/setup');
+      return;
+    }
     res.status(401).render('login', { error: 'Usuário ou senha inválidos.' });
     return;
   }
+  const token = createAdminSession(String(username));
+  res.cookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
+  res.redirect('/admin');
+});
+
+router.get('/setup', async (req, res) => {
+  if (await hasAnyAdmin()) {
+    res.redirect('/admin/login');
+    return;
+  }
+  res.render('setup', { error: null });
+});
+
+router.post('/setup', async (req, res) => {
+  if (await hasAnyAdmin()) {
+    res.redirect('/admin/login');
+    return;
+  }
+  const { username, password, password_confirm } = req.body ?? {};
+  if (!username || !password || !password_confirm) {
+    res.status(400).render('setup', { error: 'Preencha todos os campos.' });
+    return;
+  }
+  if (String(password) !== String(password_confirm)) {
+    res.status(400).render('setup', { error: 'As senhas não conferem.' });
+    return;
+  }
+  if (String(password).length < 4) {
+    res.status(400).render('setup', { error: 'A senha deve ter no mínimo 4 caracteres.' });
+    return;
+  }
+  await getPool().query(
+    'INSERT INTO admin_users (username, password_hash) VALUES (?, ?)',
+    [String(username), hashPassword(String(password))],
+  );
   const token = createAdminSession(String(username));
   res.cookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
   res.redirect('/admin');

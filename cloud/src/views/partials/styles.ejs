@@ -7,9 +7,9 @@
     --border-light: #eae8ea;
     --text: #1e1e2a;
     --muted: #8a8a98;
-    --primary: #00c951;
-    --primary-hover: #00b048;
-    --primary-soft: color-mix(in srgb, #00c951 10%, transparent);
+    --primary: #FF8000;
+    --primary-hover: #ff9225;
+    --primary-soft: color-mix(in srgb, #FF8000 10%, transparent);
     --danger: #ef4444;
     --danger-soft: #fce4ec;
     --success: #16a34a;
@@ -49,6 +49,12 @@
     --plan-ouro: #b45309;
     --plan-diamante: #0e7490;
     --plan-none: #8a8a98;
+
+    /* ─── Overlay (backdrop de modais/gavetas) ─── */
+    --overlay: rgba(20, 22, 35, 0.45);
+
+    /* ─── Acentos secundários ─── */
+    --accent-blue: #3b82f6;
   }
   :root[data-theme="dark"] {
     --bg: #14161c;
@@ -58,13 +64,13 @@
     --border-light: #2a2d36;
     --text: #ececf0;
     --muted: #8a8a97;
-    --primary: #00c951;
-    --primary-hover: #1ee066;
-    --primary-soft: color-mix(in srgb, #00c951 18%, transparent);
+    --primary: #FF8000;
+    --primary-hover: #ff9225;
+    --primary-soft: color-mix(in srgb, #FF8000 18%, transparent);
     --danger: #ff6b6b;
     --danger-soft: color-mix(in srgb, #ff6b6b 18%, transparent);
     --success: #4ade80;
-    --success-soft: color-mix(in srgb, #00c951 18%, transparent);
+    --success-soft: color-mix(in srgb, #4ade80 18%, transparent);
     --warning: #fbbf24;
     --warning-soft: color-mix(in srgb, #fbbf24 20%, transparent);
     --shadow-sm: 0 2px 6px rgba(0,0,0,.3);
@@ -95,6 +101,10 @@
     --plan-ouro: #fbbf24;
     --plan-diamante: #22d3ee;
     --plan-none: #8a8a97;
+
+    --accent-blue: #60a5fa;
+
+    --overlay: rgba(0, 0, 0, 0.55);
   }
   * { box-sizing: border-box; }
   body {
@@ -114,7 +124,7 @@
     pointer-events: none;
     background:
       radial-gradient(760px circle at 8% -6%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 62%),
-      radial-gradient(680px circle at 96% 4%, color-mix(in srgb, #3b82f6 12%, transparent), transparent 60%),
+      radial-gradient(680px circle at 96% 4%, color-mix(in srgb, var(--accent-blue) 12%, transparent), transparent 60%),
       radial-gradient(720px circle at 62% 108%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 60%);
   }
   a { color: var(--primary); text-decoration: none; }
@@ -363,7 +373,7 @@
   .btn.secondary { background: var(--surface-hover); color: var(--text); border-color: var(--border); }
   .btn.secondary:hover { background: var(--border-light); }
   .btn.secondary.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .btn.danger { background: var(--surface); color: var(--danger); border-color: #f3c8c8; }
+  .btn.danger { background: var(--surface); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
   .btn.danger:hover { background: var(--danger-soft); }
   .btn.small { padding: 5px 11px; font-size: 0.8rem; }
 
@@ -481,7 +491,7 @@
     color: var(--text);
     box-shadow: var(--shadow-lg);
   }
-  dialog::backdrop { background: rgba(20, 22, 35, 0.45); }
+  dialog::backdrop { background: var(--overlay); }
   dialog .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border-light); }
   dialog .modal-header h2 { margin: 0; font-size: 1.05rem; }
   dialog .modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); line-height: 1; }
@@ -494,7 +504,7 @@
   .stat .label { font-size: 0.8rem; color: var(--muted); }
 
   .error-banner { background: var(--danger-soft); color: var(--danger); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
-  .success-banner { background: var(--primary-soft, #e6f7ed); color: var(--primary-text, #1a7a42); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+  .success-banner { background: var(--primary-soft); color: var(--primary); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
 
   select {
     display: block;
@@ -544,7 +554,7 @@
   .dash-kpi-icon { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; margin-bottom: 4px; }
   .dash-kpi-icon svg { width: 18px; height: 18px; }
   .dash-kpi-icon.green { background: var(--success-soft); color: var(--success); }
-  .dash-kpi-icon.blue { background: color-mix(in srgb, #3b82f6 12%, transparent); color: #3b82f6; }
+  .dash-kpi-icon.blue { background: color-mix(in srgb, var(--accent-blue) 12%, transparent); color: var(--accent-blue); }
   .dash-kpi-icon.amber { background: var(--warning-soft); color: var(--warning); }
   .dash-kpi-icon.red { background: var(--danger-soft); color: var(--danger); }
   .dash-kpi-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
@@ -577,7 +587,7 @@
   .dash-activity-item:last-child { border-bottom: none; }
   .dash-activity-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
   .dash-activity-dot.green { background: var(--success); }
-  .dash-activity-dot.blue { background: #3b82f6; }
+  .dash-activity-dot.blue { background: var(--accent-blue); }
   .dash-activity-dot.amber { background: var(--warning); }
   .dash-activity-dot.red { background: var(--danger); }
   .dash-activity-text { font-size: 0.88rem; line-height: 1.4; }
@@ -848,7 +858,7 @@
     .sidebar-backdrop {
       display: block;
       position: fixed; inset: 0; z-index: 44;
-      background: rgba(12,14,20,.5);
+      background: var(--overlay);
       backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
       opacity: 0; pointer-events: none; transition: opacity .22s;
     }

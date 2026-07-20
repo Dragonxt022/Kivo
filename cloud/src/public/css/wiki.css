@@ -59,7 +59,7 @@
   font-size: 1.05rem; font-weight: 600; margin: 24px 0 8px;
   color: var(--primary); scroll-margin-top: 72px;
 }
-.wiki-section p { margin: 0 0 12px; line-height: 1.65; color: var(--text-secondary, var(--text)); }
+.wiki-section p { margin: 0 0 12px; line-height: 1.65; color: var(--text); }
 .wiki-section ul, .wiki-section ol { margin: 0 0 14px; padding-left: 22px; line-height: 1.7; }
 .wiki-section li { margin-bottom: 4px; }
 
@@ -83,8 +83,8 @@
 
 /* ── Callout (aviso / pré-requisito) ───────────────── */
 .wiki-callout {
-  background: var(--warning-soft, rgba(245, 158, 11, 0.12));
-  border-left: 3px solid var(--warning, #f59e0b);
+  background: var(--warning-soft);
+  border-left: 3px solid var(--warning);
   border-radius: 0 var(--radius) var(--radius) 0;
   padding: 12px 18px; margin: 12px 0 16px;
 }
@@ -98,7 +98,7 @@
 }
 .wiki-objective-icon {
   flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px;
-  background: var(--warning-bg, var(--primary-soft)); color: var(--warning-text, var(--primary));
+  background: var(--primary-soft); color: var(--primary);
   display: grid; place-items: center;
 }
 .wiki-objective-icon svg { width: 18px; height: 18px; }
@@ -164,7 +164,7 @@
   }
   .wiki-sidebar.open { transform: translateX(0); }
   .wiki-sidebar-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 99;
+    display: none; position: fixed; inset: 0; background: var(--overlay); z-index: 99;
   }
   .wiki-sidebar-overlay.open { display: block; }
   .wiki-sidebar-toggle { display: grid; }
