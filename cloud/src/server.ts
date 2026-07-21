@@ -32,6 +32,19 @@ export function createCloudServer() {
   app.use('/api/catalog', catalogRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/admin', adminRoutes);
+
+  // Middleware de erro global: captura falhas de conexão com o banco de dados
+  // e exibe uma página amigável com instruções em português.
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if (err && 'message' in err && /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EHOSTUNREACH/.test(err.message)) {
+      console.error('[DB] Erro de conexão:', err.message);
+      res.status(503).render('db-error');
+      return;
+    }
+    console.error('[SERVER]', err);
+    res.status(500).send('Erro interno do servidor.');
+  });
+
   return app;
 }
 

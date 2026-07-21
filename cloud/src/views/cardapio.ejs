@@ -8,144 +8,46 @@
   <meta name="description" content="<%= company ? `Cardápio digital de ${company.name ?? 'Kivo'}` : 'Cardápio não encontrado' %>">
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
-  <style>
-    <%
-      // Paleta de acento por categoria — determinística (hash simples do nome), pra cada
-      // categoria sempre cair na mesma cor/ícone entre visitas, sem precisar de dado extra.
-      var ACCENTS = [
-        { hue: '#FF8000', bg: 'color-mix(in srgb, #FF8000 12%, transparent)' },
-        { hue: '#f59e0b', bg: 'color-mix(in srgb, #f59e0b 14%, transparent)' },
-        { hue: '#3b82f6', bg: 'color-mix(in srgb, #3b82f6 12%, transparent)' },
-        { hue: '#ec4899', bg: 'color-mix(in srgb, #ec4899 12%, transparent)' },
-        { hue: '#8b5cf6', bg: 'color-mix(in srgb, #8b5cf6 12%, transparent)' },
-        { hue: '#ef4444', bg: 'color-mix(in srgb, #ef4444 12%, transparent)' },
-      ];
-      function accentFor(name) {
-        var h = 0;
-        for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-        return ACCENTS[h % ACCENTS.length];
-      }
-      // Ícone por categoria — reconhece palavras comuns de cardápio em pt-BR; sem match,
-      // cai num garfo-e-faca genérico. Puramente cosmético, não depende de dado novo.
-      function iconFor(name) {
-        var n = name.toLowerCase();
-        if (/bebida|suco|refri|drink|cerveja|chopp|vinho|caf[ée]/.test(n))
-          return '<path d="M8 2h8l-1 7H9L8 2Z"/><path d="M12 9v13"/><path d="M8 22h8"/>';
-        if (/sobremesa|doce|bolo|sorvete|pudim/.test(n))
-          return '<path d="M20 21H4a1 1 0 0 1-1-1v-2a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v2a1 1 0 0 1-1 1Z"/><path d="M12 4a2 2 0 1 0-2-2 2 2 0 0 0 2 2Z"/><path d="M12 14V4"/>';
-        if (/lanche|burger|hamb[uú]rguer|sandu[ií]che/.test(n))
-          return '<path d="M3 11h18v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2Z"/><path d="M4 11a8 4 0 0 1 16 0"/><path d="M3 17h18"/>';
-        if (/pizza/.test(n))
-          return '<path d="m12 2 9.5 8.5L12 22 2.5 10.5Z"/><circle cx="12" cy="10" r="1.2" fill="currentColor" stroke="none"/>';
-        if (/salada|vegetari|vegano|legume/.test(n))
-          return '<path d="M12 3c-4 0-7 3-7 7 0 6 4 10 7 11 3-1 7-5 7-11 0-4-3-7-7-7Z"/><path d="M12 3v18"/>';
-        if (/massa|macarr[aã]o|lasanha|nhoque/.test(n))
-          return '<circle cx="12" cy="12" r="9"/><path d="M8 9c1 2 1 4 0 6M12 8c1 2.5 1 5.5 0 8M16 9c1 2 1 4 0 6"/>';
-        if (/carne|churrasco|grelhado|espeto/.test(n))
-          return '<path d="M8.5 8.5 3 21l4-1.5"/><path d="M14 3a5 5 0 0 1 5 5c0 3-2 4.5-4 6.5s-3.5 4-6.5 4a5 5 0 0 1-5-5c0-3 2-4.5 4-6.5S11 3 14 3Z"/>';
-        return '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>';
-      }
-      var DIACRITICS_RE = new RegExp('\\u0300-\\u036f'.replace(/(.+)/, '[$1]'), 'g');
-      function slug(s) { return String(s).toLowerCase().normalize('NFD').replace(DIACRITICS_RE, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
-    %>
-    .menu-page { max-width: 760px; margin: 0 auto; padding: 0 0 72px; }
-
-    .menu-hero {
-      padding: 48px 20px 28px; text-align: center;
-      background: radial-gradient(120% 140% at 50% -20%, var(--primary-soft), transparent 60%);
+  <link rel="stylesheet" href="/css/cardapio.css">
+  <%
+    // Paleta de acento por categoria — determinística (hash simples do nome), pra cada
+    // categoria sempre cair na mesma cor/ícone entre visitas, sem precisar de dado extra.
+    var ACCENTS = [
+      { hue: '#FF8000', bg: 'color-mix(in srgb, #FF8000 12%, transparent)' },
+      { hue: '#f59e0b', bg: 'color-mix(in srgb, #f59e0b 14%, transparent)' },
+      { hue: '#3b82f6', bg: 'color-mix(in srgb, #3b82f6 12%, transparent)' },
+      { hue: '#ec4899', bg: 'color-mix(in srgb, #ec4899 12%, transparent)' },
+      { hue: '#8b5cf6', bg: 'color-mix(in srgb, #8b5cf6 12%, transparent)' },
+      { hue: '#ef4444', bg: 'color-mix(in srgb, #ef4444 12%, transparent)' },
+    ];
+    function accentFor(name) {
+      var h = 0;
+      for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+      return ACCENTS[h % ACCENTS.length];
     }
-    .menu-hero-badge {
-      display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700;
-      letter-spacing: .06em; text-transform: uppercase; color: var(--primary);
-      background: var(--primary-soft); padding: 5px 12px; border-radius: 999px; margin-bottom: 14px;
+    // Ícone por categoria — reconhece palavras comuns de cardápio em pt-BR; sem match,
+    // cai num garfo-e-faca genérico. Puramente cosmético, não depende de dado novo.
+    function iconFor(name) {
+      var n = name.toLowerCase();
+      if (/bebida|suco|refri|drink|cerveja|chopp|vinho|caf[ée]/.test(n))
+        return '<path d="M8 2h8l-1 7H9L8 2Z"/><path d="M12 9v13"/><path d="M8 22h8"/>';
+      if (/sobremesa|doce|bolo|sorvete|pudim/.test(n))
+        return '<path d="M20 21H4a1 1 0 0 1-1-1v-2a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v2a1 1 0 0 1-1 1Z"/><path d="M12 4a2 2 0 1 0-2-2 2 2 0 0 0 2 2Z"/><path d="M12 14V4"/>';
+      if (/lanche|burger|hamb[uú]rguer|sandu[ií]che/.test(n))
+        return '<path d="M3 11h18v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2Z"/><path d="M4 11a8 4 0 0 1 16 0"/><path d="M3 17h18"/>';
+      if (/pizza/.test(n))
+        return '<path d="m12 2 9.5 8.5L12 22 2.5 10.5Z"/><circle cx="12" cy="10" r="1.2" fill="currentColor" stroke="none"/>';
+      if (/salada|vegetari|vegano|legume/.test(n))
+        return '<path d="M12 3c-4 0-7 3-7 7 0 6 4 10 7 11 3-1 7-5 7-11 0-4-3-7-7-7Z"/><path d="M12 3v18"/>';
+      if (/massa|macarr[aã]o|lasanha|nhoque/.test(n))
+        return '<circle cx="12" cy="12" r="9"/><path d="M8 9c1 2 1 4 0 6M12 8c1 2.5 1 5.5 0 8M16 9c1 2 1 4 0 6"/>';
+      if (/carne|churrasco|grelhado|espeto/.test(n))
+        return '<path d="M8.5 8.5 3 21l4-1.5"/><path d="M14 3a5 5 0 0 1 5 5c0 3-2 4.5-4 6.5s-3.5 4-6.5 4a5 5 0 0 1-5-5c0-3 2-4.5 4-6.5S11 3 14 3Z"/>';
+      return '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>';
     }
-    .menu-hero h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 5vw, 2.1rem); letter-spacing: -.01em; }
-    .menu-hero p { color: var(--muted); margin: 0; font-size: .92rem; }
-
-    .menu-search-wrap { position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 14px 20px 10px; }
-    .menu-search { position: relative; }
-    .menu-search svg {
-      position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none;
-    }
-    .menu-search input {
-      width: 100%; margin: 0; padding: 12px 14px 12px 42px; border-radius: 999px;
-      border: 1.5px solid var(--border-light); background: var(--surface); font-size: .95rem;
-      box-shadow: var(--shadow-sm); transition: border-color .15s, box-shadow .15s;
-    }
-    .menu-search input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
-
-    .menu-nav {
-      display: flex; gap: 8px; overflow-x: auto; padding: 10px 20px 4px; margin-bottom: 4px;
-      scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    }
-    .menu-nav::-webkit-scrollbar { display: none; }
-    .menu-nav a {
-      flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
-      font-size: .82rem; font-weight: 600; color: var(--muted); background: var(--surface);
-      border: 1.5px solid var(--border-light); white-space: nowrap; transition: all .15s;
-    }
-    .menu-nav a svg { width: 14px; height: 14px; }
-    .menu-nav a:hover { text-decoration: none; border-color: var(--primary); color: var(--primary); }
-    .menu-nav a.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-
-    .menu-body { padding: 8px 20px 0; }
-    .menu-category { margin: 34px 0; scroll-margin-top: 116px; }
-    .menu-category-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-    .menu-category-icon {
-      width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0;
-    }
-    .menu-category-icon svg { width: 18px; height: 18px; }
-    .menu-category h2 { font-size: 1.08rem; margin: 0; }
-    .menu-category-count { color: var(--muted); font-size: .8rem; font-weight: 500; }
-
-    .menu-item {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-      padding: 13px 2px; border-bottom: 1px solid var(--border-light);
-      animation: menu-item-in .35s ease backwards;
-    }
-    .menu-item:last-child { border-bottom: none; }
-    .menu-item-main { min-width: 0; }
-    .menu-item-name { font-weight: 600; font-size: .97rem; }
-    .menu-item-desc { color: var(--muted); font-size: .84rem; margin-top: 3px; line-height: 1.45; }
-    .menu-item-leader {
-      flex: 1; border-bottom: 1px dotted var(--border); margin: 0 8px; min-width: 24px;
-      transform: translateY(-4px);
-    }
-    .menu-item-price {
-      font-weight: 700; color: var(--primary); white-space: nowrap; font-size: .95rem; flex-shrink: 0;
-    }
-    @media (max-width: 480px) {
-      .menu-item { flex-wrap: wrap; }
-      .menu-item-leader { display: none; }
-      .menu-item-main { width: 100%; }
-    }
-
-    @keyframes menu-item-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-    .menu-empty, .menu-no-results {
-      text-align: center; color: var(--muted); padding: 64px 20px; display: none;
-    }
-    .menu-empty svg, .menu-no-results svg { color: var(--border); margin-bottom: 10px; }
-    .menu-empty.show, .menu-no-results.show { display: block; }
-
-    .menu-footer {
-      text-align: center; margin-top: 56px; padding: 0 20px; font-size: .78rem; color: var(--muted);
-    }
-    .menu-footer .mark { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; color: var(--text); }
-    .menu-footer .mark svg { color: var(--primary); }
-
-    .menu-top-btn {
-      position: fixed; right: 18px; bottom: 18px; width: 44px; height: 44px; border-radius: 50%;
-      background: var(--surface); border: 1.5px solid var(--border-light); box-shadow: var(--shadow);
-      display: grid; place-items: center; color: var(--text); opacity: 0; pointer-events: none;
-      transform: translateY(8px); transition: opacity .2s, transform .2s;
-    }
-    .menu-top-btn.show { opacity: 1; pointer-events: auto; transform: none; }
-
-    .menu-notfound { max-width: 420px; margin: 96px auto; text-align: center; padding: 0 20px; color: var(--muted); }
-    .menu-notfound svg { color: var(--border); margin-bottom: 14px; }
-    .menu-notfound h1 { font-size: 1.15rem; color: var(--text); margin: 0 0 6px; }
-  </style>
+    var DIACRITICS_RE = new RegExp('\\u0300-\\u036f'.replace(/(.+)/, '[$1]'), 'g');
+    function slug(s) { return String(s).toLowerCase().normalize('NFD').replace(DIACRITICS_RE, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
+  %>
 </head>
 <body>
   <% if (!company) { %>

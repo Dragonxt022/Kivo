@@ -1,0 +1,10 @@
+.chat-thread { display: flex; flex-direction: column; gap: .75rem; padding: 1.25rem; max-height: 55vh; overflow-y: auto; }
+.chat-bubble { max-width: 72%; padding: .7rem 1rem; border-radius: 14px; font-size: .95rem; white-space: pre-wrap; }
+.chat-bubble .meta { font-size: .72rem; color: var(--muted); margin-top: .35rem; }
+.chat-bubble.cliente { align-self: flex-start; background: var(--surface-hover); border: 1px solid var(--border-light); border-bottom-left-radius: 4px; }
+.chat-bubble.suporte { align-self: flex-end; background: var(--primary-soft); border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent); border-bottom-right-radius: 4px; }
+.chat-bubble.suporte .meta { text-align: right; }
+.reply-row { display: flex; gap: .6rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border-light); }
+.reply-row textarea { flex: 1; resize: vertical; min-height: 44px; max-height: 160px; padding: .6rem .8rem; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; font-size: .95rem; }
+.reply-row textarea:focus { outline: none; border-color: var(--primary); }
+.ticket-meta { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; align-items: center; color: var(--muted); font-size: .9rem; }

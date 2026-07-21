@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Erro de conexão</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <link rel="stylesheet" href="/css/db-error.css">
+</head>
+<body>
+  <div class="card error-card">
+    <div class="brand"><img id="brand-logo" src="/logo_kivo-icon.svg" alt=""> Kivo Cloud</div>
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <h1>Banco de dados indisponível</h1>
+    <p class="subtitle">O Kivo Cloud não conseguiu se conectar ao banco de dados.</p>
+
+    <a class="toggle-link" onclick="document.getElementById('details-wrap').classList.toggle('open'); this.style.display='none'">Exibir detalhes</a>
+
+    <div id="details-wrap" class="details-wrap">
+      <div class="details">
+        <strong>Possíveis causas:</strong><br>
+        • O serviço MySQL/MariaDB não está rodando<br>
+        • A porta configurada (<code>3307</code>) está incorreta ou fechada<br>
+        • As credenciais de acesso estão erradas<br>
+        • O servidor de banco está em outro endereço
+      </div>
+
+      <ol class="steps">
+        <li><strong>Verifique se o MySQL está ativo</strong><br>No terminal: <code>net start MySQL</code> (Windows) ou <code>systemctl start mariadb</code> (Linux)</li>
+        <li><strong>Confirme as configurações</strong><br>Revise as variáveis <code>CLOUD_DB_HOST</code>, <code>CLOUD_DB_PORT</code>, <code>CLOUD_DB_USER</code> e <code>CLOUD_DB_PASSWORD</code> no arquivo <code>.env</code> ou nas variáveis de ambiente.</li>
+        <li><strong>Teste a conexão manualmente</strong><br>Use um cliente MySQL para conectar no endereço e porta configurados e validar as credenciais.</li>
+        <li><strong>Reinicie o servidor</strong><br>Após corrigir o problema, reinicie o Kivo Cloud para tentar novamente.</li>
+      </ol>
+
+      <p class="hint">Se o problema persistir, consulte a documentação ou entre em contato com o suporte.</p>
+      <button class="btn" onclick="location.reload()">Tentar novamente</button>
+    </div>
+  </div>
+  <script>
+    if (document.documentElement.getAttribute('data-theme') === 'dark') {
+      document.getElementById('brand-logo').src = '/logo_kivo-icon_branco.svg';
+    }
+  </script>
+</body>
+</html>

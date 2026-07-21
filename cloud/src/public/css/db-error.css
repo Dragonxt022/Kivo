@@ -1,0 +1,21 @@
+body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.error-card { width: 100%; max-width: 500px; }
+.error-card .brand { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 1.2rem; margin-bottom: 24px; }
+.error-card .brand img { width: 28px; height: 28px; border-radius: 8px; }
+.error-card .icon { display: flex; justify-content: center; margin-bottom: 16px; }
+.error-card .icon svg { width: 48px; height: 48px; color: var(--danger); }
+.error-card h1 { font-size: 1.2rem; text-align: center; margin: 0 0 8px; }
+.error-card .subtitle { text-align: center; color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
+.error-card .details { background: var(--surface-hover); border-radius: 8px; padding: 16px; margin-bottom: 20px; font-size: 0.85rem; line-height: 1.6; }
+.error-card .details code { font-family: ui-monospace, "Cascadia Code", monospace; font-size: 0.8rem; background: var(--border-light); padding: 1px 5px; border-radius: 4px; }
+.error-card .details strong { color: var(--text); }
+.error-card .steps { list-style: none; padding: 0; margin: 0 0 20px; }
+.error-card .steps li { padding: 8px 0 8px 24px; position: relative; font-size: 0.88rem; line-height: 1.5; border-bottom: 1px solid var(--border-light); }
+.error-card .steps li:last-child { border-bottom: none; }
+.error-card .steps li::before { content: ""; position: absolute; left: 0; top: 12px; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.error-card .details-wrap { display: none; margin-top: 20px; }
+.error-card .details-wrap.open { display: block; }
+.error-card .toggle-link { display: inline-block; margin-top: 16px; font-size: 0.8rem; color: var(--muted); cursor: pointer; text-align: center; }
+.error-card .toggle-link:hover { color: var(--primary); text-decoration: none; }
+.error-card .hint { font-size: 0.8rem; color: var(--muted); text-align: center; margin-bottom: 16px; }
+.error-card .btn { width: 100%; justify-content: center; }
