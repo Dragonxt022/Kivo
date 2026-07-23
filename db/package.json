@@ -1,0 +1,20 @@
+{
+  "name": "db",
+  "version": "1.0.0",
+  "private": 1,
+  "scripts": {
+    "build": "npm run build:css && npm run build:js && eleventy",
+    "dev": "npm run build:css && npm run build:js && eleventy --serve --watch",
+    "clean": "rimraf dist",
+    "build:css": "tailwindcss -i ./src/styles/input.css -o ./dist/style.css --postcss",
+    "build:js": "cp ./src/scripts/main.js ./dist/bundle.js"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "latest",
+    "rimraf": "latest",
+    "html-minifier-terser": "latest",
+    "tailwindcss": "^3.4.0",
+    "postcss": "latest",
+    "autoprefixer": "latest"
+  }
+}

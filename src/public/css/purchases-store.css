@@ -1,5 +1,20 @@
 /* ─── Purchases Store (compras estilo loja) ─── */
 
+/* ─── Sugestão de preço da última compra ─── */
+.ps-price-suggest {
+  display: flex; align-items: center; gap: .35rem;
+  margin-top: 4px;
+  font-size: .78rem; color: var(--text-muted);
+}
+.ps-price-suggest svg { flex-shrink: 0; color: var(--info); }
+.ps-price-suggest strong { color: var(--text); }
+.ps-price-suggest-clear {
+  background: none; border: 0; cursor: pointer; padding: 0 2px;
+  font-size: 1.1rem; line-height: 1; color: var(--text-muted);
+  border-radius: 4px;
+}
+.ps-price-suggest-clear:hover { color: var(--danger); background: transparent; }
+
 .ps-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: .5rem;
@@ -59,6 +74,16 @@
 }
 .ps-card:hover { border-color: var(--primary); box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 18%, transparent); }
 .ps-card-fav { border-color: var(--primary); }
+
+.ps-card-img {
+  width: 100%; aspect-ratio: 1 / 1;
+  border-radius: 8px; overflow: hidden;
+  background: var(--surface-hover);
+  display: grid; place-items: center;
+  color: var(--border); margin-bottom: .15rem;
+}
+.ps-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.ps-card-img svg { width: 40%; height: 40%; opacity: .5; }
 
 .ps-fav {
   position: absolute; top: 6px; right: 6px; z-index: 2;
@@ -192,7 +217,82 @@
 }
 .ps-cart-total strong { font-size: 1.15rem; color: var(--primary); }
 
+.ps-cart-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: .5rem; }
+.ps-cart-field label { font-size: .78rem; font-weight: 600; color: var(--text-muted); }
+.ps-cart-field select,
+.ps-cart-field input { width: 100%; }
+
+/* ─── View toggle ─── */
+.ps-view-toggle {
+  display: flex; gap: 2px;
+  border: 1.5px solid var(--border-light);
+  border-radius: 8px; overflow: hidden;
+}
+.ps-view-btn {
+  border: 0; background: var(--surface-hover);
+  color: var(--text-muted); cursor: pointer;
+  padding: 4px 8px; display: grid; place-items: center;
+  transition: background var(--transition), color var(--transition);
+}
+.ps-view-btn:hover { background: var(--surface); color: var(--text); }
+.ps-view-btn.active { background: var(--primary-bg); color: var(--primary); }
+.ps-view-btn:not(:last-child) { border-right: 1.5px solid var(--border-light); }
+
+/* ─── List view ─── */
+.ps-list { display: flex; flex-direction: column; gap: 4px; }
+.ps-list-row {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .55rem .75rem;
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255,255,255,.4);
+}
+.ps-list-row:hover { border-color: var(--primary); }
+.ps-list-fav { border-color: var(--primary); }
+.ps-list-img {
+  width: 38px; height: 38px; border-radius: 8px; overflow: hidden;
+  flex-shrink: 0; background: var(--surface-hover);
+  display: grid; place-items: center; color: var(--border);
+}
+.ps-list-img img { width: 100%; height: 100%; object-fit: cover; }
+.ps-list-img svg { width: 55%; height: 55%; opacity: .5; }
+.ps-list-info { flex: 1; min-width: 0; }
+.ps-list-name { font-weight: 600; font-size: .9rem; }
+.ps-list-meta { display: flex; align-items: center; gap: .6rem; font-size: .75rem; color: var(--text-muted); margin-top: 1px; flex-wrap: wrap; }
+.ps-list-meta .ps-stock-low { color: var(--danger); font-weight: 600; }
+.ps-list-price { font-weight: 700; font-size: 1rem; color: var(--primary); white-space: nowrap; }
+.ps-list-fav-btn {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+  border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+  display: grid; place-items: center;
+  transition: color var(--transition), background var(--transition), transform var(--transition);
+}
+.ps-list-fav-btn:hover { background: var(--surface-hover); color: var(--danger); transform: scale(1.1); }
+.ps-list-fav .ps-list-fav-btn { color: var(--danger); }
+.ps-list-add {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: .3rem;
+  padding: .35rem .7rem; border: 1.5px solid var(--primary);
+  background: var(--primary-bg); color: var(--primary);
+  font-weight: 600; font-size: .8rem; border-radius: 8px; cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.ps-list-add:hover { background: var(--primary); color: #fff; }
+.ps-list-add:disabled { opacity: .5; cursor: not-allowed; }
+
 /* ─── Layout fix for the history table ─── */
 .ps-tabs + div .toolbar {
   display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .75rem;
 }
+/* Garante que o dropdown de ações não seja cortado pelas linhas seguintes da tabela.
+   O backdrop-filter nas td cria um contexto de empilhamento próprio que prende o
+   dropdown absolute — removendo o filtro apenas da célula de ação o dropdown pode
+   flutuar livremente sem ser recortado pela linha de baixo. */
+.ps-tabs + div td:last-child {
+  overflow: visible; position: relative;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.ps-tabs + div .dropdown-menu { z-index: 100; }

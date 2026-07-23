@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <title>{{ title or "db" }}</title>
+  <meta name="description" content="{{ description or 'A modern web project built with Eleventy and Tailwind CSS' }}">
+  <meta name="author" content="{{ author or '' }}">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ title or 'db' }}">
+  <meta property="og:description" content="{{ description or 'A modern web project built with Eleventy and Tailwind CSS' }}">
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="{{ title or 'db' }}">
+  <meta property="twitter:description" content="{{ description or 'A modern web project built with Eleventy and Tailwind CSS' }}">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="/style.css">
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="/style.css" as="style">
+  <link rel="preload" href="/bundle.js" as="script">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="flex items-center">
+        <a href="/" class="logo">db</a>
+      </div>
+      
+      <div class="flex items-center">
+        <!-- Desktop Navigation -->
+        <nav class="nav-links">
+          <a href="#home" class="nav-link">Home </a>
+        </nav>
+        
+        <!-- Dark Mode Toggle -->
+        <button class="dark-mode-toggle" id="dark-mode-toggle" title="Toggle dark mode">
+          <svg class="w-5 h-5 hidden dark-icon" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+          </svg>
+          <svg class="w-5 h-5 light-icon" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+          </svg>
+        </button>
+        
+        <!-- Mobile menu button -->
+        <button class="mobile-menu-btn" id="mobile-menu-toggle">
+          <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      {{ content }}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-text">
+        &copy; 2024 db. Built with 
+        <a href="https://npmjs.com/package/kivo" class="footer-link">kivo</a>
+      </div>
+    </footer>
+  </div>
+  
+  <!-- Scripts -->
+  <script type="module" src="/bundle.js"></script>
+</body>
+</html>
