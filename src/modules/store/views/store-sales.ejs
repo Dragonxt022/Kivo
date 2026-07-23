@@ -73,7 +73,7 @@
             <td x-text="s.id"></td>
             <td class="muted" x-text="fmtDateTime(s.created_at)"></td>
             <td class="muted" x-text="s.customer ?? '—'"></td>
-            <td x-text="label(s.payment_method)"></td>
+            <td x-text="label(s)"></td>
             <td x-text="brl(s.total_cents)"></td>
             <td><span class="badge" :class="s.status === 'concluida' ? 'ok' : 'off'" x-text="s.status"></span></td>
             <td class="muted" x-text="s.username"></td>
@@ -111,7 +111,8 @@
       return {
         ...tableToolkit(),
         rows: [], report: {}, day: todayLocal(), error: '', filter: {},
-        labels: { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo' },
+        labels: { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo',
+          credito_loja: 'Crédito Loja', fidelidade: 'Fidelidade', convenio: 'Convênio', outro: 'Outro' },
         sortGetters: {
           id: (s) => s.id, created_at: (s) => s.created_at ?? '', customer: (s) => s.customer ?? '',
           payment_method: (s) => s.payment_method ?? '', total_cents: (s) => s.total_cents, status: (s) => s.status ?? '',
@@ -120,7 +121,13 @@
         get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
         get pageTotal() { return this.displayRows.length; },
         get pageRows() { return this.pagedRows(this.displayRows); },
-        label(k) { return this.labels[k] ?? k; },
+        label(s) {
+          if (typeof s === 'object') {
+            if (s.payment_method === 'multiplo' && s.payment_count > 1) return s.payment_count + ' métodos';
+            return this.labels[s.payment_method] ?? s.payment_method;
+          }
+          return this.labels[s] ?? s;
+        },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         async load() {
           const r = await fetch('/api/store/sales');

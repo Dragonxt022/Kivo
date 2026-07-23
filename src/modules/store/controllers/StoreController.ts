@@ -26,11 +26,12 @@ export const storeController = {
     if (day) params.push(day);
     if (customerId) params.push(customerId);
     const sql = `SELECT s.id, s.status, s.total_cents, s.discount_cents, s.payment_method, s.change_cents,
-                        c.name AS customer, u.username, s.created_at
-                 FROM sales s
-                 LEFT JOIN customers c ON c.id = s.customer_id
-                 LEFT JOIN users u ON u.id = s.user_id
-                 WHERE s.deleted_at IS NULL ${conditions} ORDER BY s.id DESC LIMIT 200`;
+                         c.name AS customer, u.username, s.created_at,
+                         (SELECT COUNT(*) FROM sale_payments sp WHERE sp.sale_id = s.id) AS payment_count
+                  FROM sales s
+                  LEFT JOIN customers c ON c.id = s.customer_id
+                  LEFT JOIN users u ON u.id = s.user_id
+                  WHERE s.deleted_at IS NULL ${conditions} ORDER BY s.id DESC LIMIT 200`;
     res.json(saleRepository.raw(sql, ...params));
   },
 

@@ -67,7 +67,7 @@
         <% } %>
       <% }) %>
     <% } else { %>
-      <tr><td>Pagamento</td><td class="right"><%= { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo' }[sale.payment_method] ?? sale.payment_method %></td></tr>
+      <tr><td>Pagamento</td><td class="right"><%= { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo', credito_loja: 'Crédito Loja', fidelidade: 'Fidelidade', convenio: 'Convênio', outro: 'Outro', multiplo: 'Múltiplos' }[sale.payment_method] ?? sale.payment_method %></td></tr>
       <% if (sale.payment_method === 'dinheiro' && sale.paid_cents != null) { %>
         <tr><td>Recebido</td><td class="right"><%= brl(sale.paid_cents) %></td></tr>
         <tr><td>Troco</td><td class="right"><%= brl(sale.change_cents) %></td></tr>

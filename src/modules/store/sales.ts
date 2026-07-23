@@ -270,16 +270,15 @@ export function createSale(
   if ('error' in paymentsResult) return { ok: false, error: paymentsResult.error };
   const resolved = paymentsResult;
 
-  const hasCash = resolved.some((p) => p.method.type === 'dinheiro');
   const reg = cash.currentRegister();
-  if (hasCash && !reg) return { ok: false, error: 'Abra o caixa antes de vender em dinheiro.' };
+  if (!reg) return { ok: false, error: 'Abra o caixa antes de realizar uma venda.' };
 
   const totalChange = sumCents(...resolved.map((p) => p.changeCents));
   const totalFee = sumCents(...resolved.map((p) => p.feeCents));
   const primaryMethod = resolved.length === 1 ? resolved[0].method.type : 'multiplo';
   const legacyLabel: Record<string, string> = {
     dinheiro: 'dinheiro', debito: 'cartao_debito', credito: 'cartao_credito', pix: 'pix', prazo: 'prazo',
-    outro: 'pix', multiplo: 'pix', credito_loja: 'pix', fidelidade: 'pix', convenio: 'pix',
+    outro: 'outro', multiplo: 'multiplo', credito_loja: 'credito_loja', fidelidade: 'fidelidade', convenio: 'convenio',
   };
 
   let saleId = 0;

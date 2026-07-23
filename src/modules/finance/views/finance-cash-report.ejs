@@ -37,6 +37,9 @@
     return d.toLocaleString('pt-BR', { timeZone: 'America/Porto_Velho', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
   } %>
   <% function brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); } %>
+  <% var PAYMENT_LABELS = { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo',
+    credito_loja: 'Crédito Loja', fidelidade: 'Fidelidade', convenio: 'Convênio', outro: 'Outro', multiplo: 'Múltiplos' }; %>
+  <% function payLabel(k) { return PAYMENT_LABELS[k] ?? k; } %>
 
   <h1 style="margin-top:8px">Relatório de Fechamento de Caixa #<%= register.id %></h1>
 
@@ -108,7 +111,7 @@
     <thead><tr><th>#</th><th>Cliente</th><th>Pagamento</th><th>Hora</th><th class="right">Total</th></tr></thead>
     <tbody>
       <% report.sales.forEach(function (s) { %>
-        <tr><td><%= s.id %></td><td><%= s.customer ?? '—' %></td><td><%= s.payment_method %></td><td><%= fmtDateTime(s.created_at) %></td><td class="right"><%= brl(s.total_cents) %></td></tr>
+        <tr><td><%= s.id %></td><td><%= s.customer ?? '—' %></td><td><%= payLabel(s.payment_method) %></td><td><%= fmtDateTime(s.created_at) %></td><td class="right"><%= brl(s.total_cents) %></td></tr>
       <% }) %>
       <% if (!report.sales.length) { %><tr><td colspan="5" class="muted">Nenhuma venda neste caixa.</td></tr><% } %>
     </tbody>
