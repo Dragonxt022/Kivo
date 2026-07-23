@@ -7,113 +7,332 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <link rel="stylesheet" href="/css/purchases-store.css" />
   <script defer src="/vendor/alpine.min.js"></script>
   <script src="/js/datetime.js"></script>
+  <script src="/js/masks.js"></script>
 </head>
-<body>
+<body x-data="purchasesStore()" x-init="init()" @apply-filter.window="historyFilter=$event.detail; historyPage=1">
   <%- include('partials/nav', { user, page: '/app/commercial/compras' }) %>
-  <%
-    var _pfStatusOpts = [
-      { value: 'rascunho', label: 'Rascunho', color: '#eab308' },
-      { value: 'recebida', label: 'Recebida', color: '#16a34a' },
-      { value: 'cancelada', label: 'Cancelada', color: '#6b7280' }
-    ];
-  %>
-  <main x-data="purchasesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
-    <h1>Compras</h1>
-    <div class="toolbar">
-      <% if (user.permissions.has('commercial.purchases.create')) { %>
-        <button class="btn" @click="openNew()">
+  <main>
+    <div class="ps-header">
+      <h1>Compras</h1>
+      <button class="btn ps-cart-fab" @click="cartOpen = !cartOpen" title="Carrinho">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="21" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="ps-cart-count" x-show="cart.length" x-text="cart.length"></span>
+      </button>
+    </div>
+
+    <div class="tabs ps-tabs">
+      <button :class="{ active: activeTab === 'loja' }" @click="activeTab = 'loja'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Loja
+      </button>
+      <button :class="{ active: activeTab === 'historico' }" @click="activeTab = 'historico'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Histórico
+      </button>
+    </div>
+
+    <!-- ==================== LOJA ==================== -->
+    <div x-show="activeTab === 'loja'">
+      <div class="ps-toolbar">
+        <div class="ps-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ps-search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" placeholder="Buscar produto…" x-model="searchQuery" @input.debounce.200ms="searchQuery = $el.value" class="input-search" />
+        </div>
+        <select class="select input-inline" x-model="selectedCategory">
+          <option value="">Todas as categorias</option>
+          <template x-for="c in categories" :key="c">
+            <option :value="c" x-text="c"></option>
+          </template>
+        </select>
+        <span class="muted text-sm" x-text="filteredProducts.length + ' produto(s)'"></span>
+      </div>
+
+      <div class="ps-grid" x-show="filteredProducts.length">
+        <template x-for="p in filteredProducts" :key="p.id">
+          <div class="ps-card" :class="{ 'ps-card-fav': p.favorite }">
+            <button class="ps-fav" @click="toggleFavorite(p)" :title="p.favorite ? 'Desfavoritar' : 'Favoritar'">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" :fill="p.favorite ? 'currentColor' : 'none'"/>
+              </svg>
+            </button>
+            <div class="ps-card-body">
+              <div class="ps-card-name" x-text="p.name"></div>
+              <div class="ps-card-cat" x-text="p.category || 'Sem categoria'"></div>
+              <div class="ps-card-info">
+                <span class="ps-card-unit">Un: <strong x-text="p.unit"></strong></span>
+                <span class="ps-card-stock" :class="{ 'ps-stock-low': p.track_stock && p.stock_qty <= (p.min_stock || 0) }">
+                  Est: <strong x-text="p.track_stock ? p.stock_qty : '—'"></strong>
+                </span>
+              </div>
+              <div class="ps-card-price" x-text="brl(p.price_cents)"></div>
+            </div>
+            <button class="ps-add-btn" @click="openAddModal(p)" :disabled="!p.active">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar
+            </button>
+          </div>
+        </template>
+      </div>
+      <div class="ps-empty" x-show="!filteredProducts.length && loaded">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <p>Nenhum produto encontrado.</p>
+      </div>
+      <div class="ps-empty" x-show="!loaded">
+        <p>Carregando produtos…</p>
+      </div>
+    </div>
+
+    <!-- ==================== HISTÓRICO ==================== -->
+    <div x-show="activeTab === 'historico'" x-cloak>
+      <div class="toolbar">
+        <button class="btn" @click="historyOpenNew()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nova compra
         </button>
-      <% } %>
-      <%- include('partials/search-filter', { statusOptions: _pfStatusOpts, placeholder: 'Buscar por fornecedor' }) %>
-      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
-      <span class="error" x-text="error"></span>
+        <%- include('partials/search-filter', { statusOptions: [
+          { value: 'rascunho', label: 'Rascunho', color: '#eab308' },
+          { value: 'recebida', label: 'Recebida', color: '#16a34a' },
+          { value: 'cancelada', label: 'Cancelada', color: '#6b7280' }
+        ], placeholder: 'Buscar por fornecedor' }) %>
+        <span class="muted" x-text="historyTotal + ' registro(s)'"></span>
+        <span class="error" x-text="historyError"></span>
+      </div>
+      <table>
+        <thead><tr>
+          <th @click="historySortCycle('id')" class="sortable">#<span class="sort-arrow" x-text="historySortArrow('id')"></span></th>
+          <th @click="historySortCycle('supplier')" class="sortable">Fornecedor<span class="sort-arrow" x-text="historySortArrow('supplier')"></span></th>
+          <th @click="historySortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="historySortArrow('status')"></span></th>
+          <th @click="historySortCycle('total_cents')" class="sortable">Total<span class="sort-arrow" x-text="historySortArrow('total_cents')"></span></th>
+          <th @click="historySortCycle('received_at')" class="sortable">Recebida em<span class="sort-arrow" x-text="historySortArrow('received_at')"></span></th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          <template x-for="p in historyPageRows" :key="p.id">
+            <tr>
+              <td x-text="p.id"></td>
+              <td x-text="p.supplier"></td>
+              <td><span class="badge" :class="p.status === 'recebida' ? 'ok' : (p.status === 'rascunho' ? 'off' : 'neutral')" x-text="p.status"></span></td>
+              <td x-text="brl(p.total_cents)"></td>
+              <td class="muted" x-text="p.received_at ? fmtDateTime(p.received_at) : '—'"></td>
+              <td class="text-right" @click.stop>
+                <div class="dropdown" x-show="p.status !== 'cancelada'">
+                  <button class="icon-btn" @click="historyOpenMenu = historyOpenMenu === p.id ? null : p.id" title="Mais ações">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                    </svg>
+                  </button>
+                  <div class="dropdown-menu" x-show="historyOpenMenu === p.id" x-cloak @click.outside="historyOpenMenu = null">
+                    <% if (user.permissions.has('commercial.purchases.edit')) { %>
+                    <button @click="historyOpenMenu = null; historyEdit(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      Editar
+                    </button>
+                    <% } %>
+                    <% if (user.permissions.has('commercial.purchases.create')) { %>
+                    <button x-show="p.status === 'rascunho'" @click="historyOpenMenu = null; historyReceive(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Receber
+                    </button>
+                    <button @click="historyOpenMenu = null; historyDuplicate(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                      Duplicar
+                    </button>
+                    <% } %>
+                    <% if (user.permissions.has('commercial.purchases.cancel')) { %>
+                    <button class="danger" @click="historyOpenMenu = null; historyCancel(p)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                      Cancelar
+                    </button>
+                    <% } %>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!historyDisplayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma compra registrada ainda.' }) %></td></tr>
+        </tbody>
+      </table>
+      <div class="pager" x-show="historyPageCount(historyTotal) > 1" x-cloak>
+        <button type="button" class="btn secondary small" :disabled="historyPage === 1" @click="historyGoToPage(1, historyTotal)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg> Primeiro</button>
+        <button type="button" class="pager-arrow" :disabled="historyPage === 1" @click="historyGoToPage(historyPage - 1, historyTotal)">‹</button>
+        <template x-for="(p, idx) in historyPageWindow(historyTotal)" :key="idx">
+          <button type="button" class="pager-num" :class="{ active: p === historyPage, ellipsis: p === '…' }" :disabled="p === '…'" @click="p !== '…' && historyGoToPage(p, historyTotal)" x-text="p"></button>
+        </template>
+        <button type="button" class="pager-arrow" :disabled="historyPage === historyPageCount(historyTotal)" @click="historyGoToPage(historyPage + 1, historyTotal)">›</button>
+        <button type="button" class="btn secondary small" :disabled="historyPage === historyPageCount(historyTotal)" @click="historyGoToPage(historyPageCount(historyTotal), historyTotal)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg> Último</button>
+      </div>
     </div>
-    <table>
-      <thead><tr>
-        <th @click="sortCycle('id')" class="sortable">#<span class="sort-arrow" x-text="sortArrow('id')"></span></th>
-        <th @click="sortCycle('supplier')" class="sortable">Fornecedor<span class="sort-arrow" x-text="sortArrow('supplier')"></span></th>
-        <th @click="sortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
-        <th @click="sortCycle('total_cents')" class="sortable">Total<span class="sort-arrow" x-text="sortArrow('total_cents')"></span></th>
-        <th @click="sortCycle('received_at')" class="sortable">Recebida em<span class="sort-arrow" x-text="sortArrow('received_at')"></span></th>
-        <th></th>
-      </tr></thead>
-      <tbody>
-        <template x-for="p in pageRows" :key="p.id">
-          <tr>
-            <td x-text="p.id"></td>
-            <td x-text="p.supplier"></td>
-            <td><span class="badge" :class="p.status === 'recebida' ? 'ok' : (p.status === 'rascunho' ? 'off' : 'neutral')" x-text="p.status"></span></td>
-            <td x-text="brl(p.total_cents)"></td>
-            <td class="muted" x-text="p.received_at ? fmtDateTime(p.received_at) : '—'"></td>
-            <td class="text-right" @click.stop>
-              <div class="dropdown" x-show="p.status !== 'cancelada'">
-                <button class="icon-btn" @click="openMenu = openMenu === p.id ? null : p.id" title="Mais ações">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                  </svg>
-                </button>
-                <div class="dropdown-menu" x-show="openMenu === p.id" x-cloak @click.outside="openMenu = null">
-                  <% if (user.permissions.has('commercial.purchases.edit')) { %>
-                  <button @click="openMenu = null; openEdit(p)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                    Editar
-                  </button>
-                  <% } %>
-                  <% if (user.permissions.has('commercial.purchases.create')) { %>
-                  <button x-show="p.status === 'rascunho'" @click="openMenu = null; receive(p)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                    Receber
-                  </button>
-                  <button @click="openMenu = null; duplicate(p)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                    Duplicar
-                  </button>
-                  <% } %>
-                  <% if (user.permissions.has('commercial.purchases.cancel')) { %>
-                  <button class="danger" @click="openMenu = null; cancelPurchase(p)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
-                    Cancelar
-                  </button>
-                  <% } %>
+
+    <!-- ==================== CART SIDEBAR ==================== -->
+    <div class="ps-cart-overlay" x-show="cartOpen" x-cloak @click="cartOpen = false"></div>
+    <div class="ps-cart" :class="{ open: cartOpen }" x-cloak>
+      <div class="ps-cart-header">
+        <h2>Carrinho <span class="muted text-sm" x-text="'(' + cart.length + ')'"></span></h2>
+        <button class="icon-btn" @click="cartOpen = false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        </button>
+      </div>
+
+      <div class="ps-cart-items" x-show="cart.length">
+        <template x-for="(item, idx) in cart" :key="idx">
+          <div class="ps-cart-line">
+            <div class="ps-cart-line-info">
+              <div class="ps-cart-line-name" x-text="item.name"></div>
+              <div class="ps-cart-line-meta">
+                <span x-text="item.qty + ' ' + item.unit"></span>
+                <span x-text="'× ' + brl(item.unitCostCents)"></span>
+              </div>
+            </div>
+            <div class="ps-cart-line-total" x-text="brl(item.qty * item.unitCostCents)"></div>
+            <button class="ps-cart-remove" @click="cartRemove(idx)" title="Remover">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+        </template>
+      </div>
+      <div class="ps-cart-empty" x-show="!cart.length">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="21" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <p>Carrinho vazio</p>
+      </div>
+
+      <div class="ps-cart-footer" x-show="cart.length">
+        <div class="ps-cart-total">
+          <span>Total</span>
+          <strong x-text="brl(cartTotal())"></strong>
+        </div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>Fornecedor</label>
+          <select x-model="checkoutSupplierId">
+            <option value="">Selecione…</option>
+            <template x-for="s in suppliers" :key="s.id">
+              <option :value="s.id" x-text="s.name"></option>
+            </template>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>Observações (opcional)</label>
+          <input type="text" x-model="checkoutNotes" placeholder="Nº da nota, condição, etc." />
+        </div>
+        <button class="btn btn-full" @click="checkout()" :disabled="!checkoutSupplierId || !cart.length || checkingOut">
+          <template x-if="!checkingOut">
+            <span style="display:inline-flex;align-items:center;gap:.4rem">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Finalizar compra
+            </span>
+          </template>
+          <span x-show="checkingOut">Finalizando…</span>
+        </button>
+        <p class="error" x-text="checkoutError" x-show="checkoutError"></p>
+      </div>
+    </div>
+
+    <!-- ==================== ADD TO CART MODAL ==================== -->
+    <dialog x-ref="addDlg" class="dialog-fixed" style="width:min(480px,calc(100vw - 2rem))">
+      <template x-if="addModalProduct">
+        <div>
+          <h1 x-text="addModalProduct.name"></h1>
+          <div class="dialog-body">
+
+            <!-- Produto com conversão de unidade -->
+            <template x-if="addModalProduct.purchase_unit && addModalProduct.purchase_unit !== addModalProduct.unit">
+              <div>
+                <div class="ps-conversion-banner">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Vendido por <strong x-text="addModalProduct.unit.toUpperCase()"></strong>, comprado por <strong x-text="addModalProduct.purchase_unit.toUpperCase()"></strong></span>
+                </div>
+                <p class="ps-conversion-hint">
+                  Informe abaixo os dados da compra. O sistema vai converter automaticamente para a unidade de venda.
+                </p>
+                <div class="ps-conv-fields">
+                  <div class="field">
+                    <label>Quantidade por <strong x-text="addModalProduct.purchase_unit.toUpperCase()"></strong></label>
+                    <input type="number" step="any" min="0.001" placeholder="Ex.: 12" x-model.number="addForm.qtyPerPurchaseUnit" />
+                    <p class="text-xs muted" style="margin-top:2px">Quantas <span x-text="addModalProduct.unit.toUpperCase()"></span> vêm em cada <span x-text="addModalProduct.purchase_unit.toUpperCase()"></span></p>
+                  </div>
+                  <div class="field">
+                    <label>Quantidade de <strong x-text="addModalProduct.purchase_unit.toUpperCase()"></strong></label>
+                    <input type="number" step="any" min="0.001" placeholder="Ex.: 2" x-model.number="addForm.purchaseQty" />
+                  </div>
+                  <div class="field">
+                    <label>Valor pago por <strong x-text="addModalProduct.unit.toUpperCase()"></strong> (R$)</label>
+                    <input type="text" placeholder="0,00" x-model="addForm.unitCostStr" @input="addForm.unitCostStr = maskMoney(addForm.unitCostStr)" />
+                    <p class="text-xs muted" style="margin-top:2px">Preço unitário na unidade de venda</p>
+                  </div>
+                </div>
+                <div class="ps-conv-summary" x-show="addForm.purchaseQty > 0 && addForm.qtyPerPurchaseUnit > 0 && addForm.unitCostCents > 0">
+                  <div class="ps-conv-summary-row">
+                    <span>Total em estoque:</span>
+                    <strong x-text="(addForm.purchaseQty * addForm.qtyPerPurchaseUnit) + ' ' + addModalProduct.unit.toUpperCase()"></strong>
+                  </div>
+                  <div class="ps-conv-summary-row">
+                    <span>Valor total:</span>
+                    <strong x-text="brl(addForm.purchaseQty * addForm.qtyPerPurchaseUnit * addForm.unitCostCents)"></strong>
+                  </div>
                 </div>
               </div>
-            </td>
-          </tr>
-        </template>
-        <tr x-show="!displayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma compra registrada ainda.' }) %></td></tr>
-      </tbody>
-    </table>
-    <%- include('partials/pager') %>
+            </template>
 
-    <dialog x-ref="dlg" class="dialog-fixed purchase-modal" style="width:min(680px,calc(100vw - 2rem))">
-      <h1 x-text="form.id ? 'Editar compra #' + form.id : 'Nova compra'"></h1>
+            <!-- Produto sem conversão (mesma unidade) -->
+            <template x-if="!addModalProduct.purchase_unit || addModalProduct.purchase_unit === addModalProduct.unit">
+              <div>
+                <div class="ps-unit-banner">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  <span>Unidade: <strong x-text="addModalProduct.unit.toUpperCase()"></strong></span>
+                </div>
+                <p class="ps-unit-hint">
+                  A quantidade e o valor devem corresponder à mesma unidade de venda.
+                </p>
+                <div class="field">
+                  <label>Quantidade (<span x-text="addModalProduct.unit.toUpperCase()"></span>)</label>
+                  <input type="number" step="any" min="0.001" placeholder="0" x-model.number="addForm.qty" x-ref="addQtyInput" />
+                </div>
+                <div class="field">
+                  <label>Valor pago por <strong x-text="addModalProduct.unit.toUpperCase()"></strong> (R$)</label>
+                  <input type="text" placeholder="0,00" x-model="addForm.unitCostStr" @input="addForm.unitCostStr = maskMoney(addForm.unitCostStr)" @keydown.enter.prevent="confirmAddItem()" />
+                </div>
+              </div>
+            </template>
+
+            <div class="error" x-text="addFormError"></div>
+          </div>
+          <div class="actions">
+            <button class="btn secondary" @click="$refs.addDlg.close()">Cancelar</button>
+            <button class="btn" @click="confirmAddItem()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar ao carrinho
+            </button>
+          </div>
+        </div>
+      </template>
+    </dialog>
+
+    <!-- ==================== HISTORY EDIT MODAL (reuse) ==================== -->
+    <dialog x-ref="historyDlg" class="dialog-fixed" style="width:min(680px,calc(100vw - 2rem))">
+      <h1 x-text="historyForm.id ? 'Editar compra #' + historyForm.id : 'Nova compra'"></h1>
       <div class="dialog-body">
         <div class="field">
           <label>Fornecedor</label>
-          <select x-model.number="form.supplierId">
+          <select x-model.number="historyForm.supplierId">
             <option value="">Selecione…</option>
             <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
           </select>
         </div>
-
-        <template x-if="!form.id || form.status === 'rascunho'">
+        <template x-if="!historyForm.id || historyForm.status === 'rascunho'">
           <div>
-            <!-- Card: adicionar item -->
             <div class="purchase-additem">
               <div class="field" style="margin-bottom:.6rem">
                 <label>Adicionar item</label>
                 <div class="combo-wrap">
-                  <input type="text" placeholder="Nome, SKU ou código de barras…" x-model="item.q"
-                         @input.debounce.200ms="searchProducts()" @keydown.enter.prevent="quickAddItem()"
-                         @keydown.down.prevent="comboIdx = Math.min(comboIdx + 1, comboResults.length - 1)"
-                         @keydown.up.prevent="comboIdx = Math.max(comboIdx - 1, 0)" />
-                  <div class="combo-results" x-show="comboResults.length" x-cloak>
-                    <template x-for="(p, idx) in comboResults" :key="p.id">
-                      <button type="button" class="combo-result" :class="{ active: idx === comboIdx }" @click="pickProduct(p)">
+                  <input type="text" placeholder="Nome, SKU ou código de barras…" x-model="historyItem.q"
+                         @input.debounce.200ms="historySearchProducts()" @keydown.enter.prevent="historyQuickAdd()"
+                         @keydown.down.prevent="historyComboIdx = Math.min(historyComboIdx + 1, historyComboResults.length - 1)"
+                         @keydown.up.prevent="historyComboIdx = Math.max(historyComboIdx - 1, 0)" />
+                  <div class="combo-results" x-show="historyComboResults.length" x-cloak>
+                    <template x-for="(p, idx) in historyComboResults" :key="p.id">
+                      <button type="button" class="combo-result" :class="{ active: idx === historyComboIdx }" @click="historyPickProduct(p)">
                         <span x-text="p.name"></span> <span class="muted text-xs" x-text="p.sku || p.barcode || ''"></span>
                       </button>
                     </template>
@@ -123,20 +342,18 @@
               <div class="purchase-additem-row">
                 <div class="field" style="margin:0">
                   <label>Qtd</label>
-                  <input type="number" step="any" min="0.001" placeholder="0" x-model.number="item.qty" x-ref="qtyInput" />
+                  <input type="number" step="any" min="0.001" placeholder="0" x-model.number="historyItem.qty" x-ref="historyQtyInput" />
                 </div>
                 <div class="field" style="margin:0">
                   <label>Custo un. (R$)</label>
-                  <input type="text" placeholder="0,00" x-model="item.cost" @input="item.cost = maskMoney(item.cost)" @keydown.enter.prevent="addItem()" />
+                  <input type="text" placeholder="0,00" x-model="historyItem.cost" @input="historyItem.cost = maskMoney(historyItem.cost)" @keydown.enter.prevent="historyAddItem()" />
                 </div>
-                <button type="button" class="btn" @click="addItem()">
+                <button type="button" class="btn" @click="historyAddItem()">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Adicionar
                 </button>
               </div>
             </div>
-
-            <!-- Tabela de itens -->
             <div class="purchase-items">
               <table>
                 <thead><tr>
@@ -147,20 +364,20 @@
                   <th></th>
                 </tr></thead>
                 <tbody>
-                  <template x-for="(i, idx) in form.items" :key="idx">
+                  <template x-for="(i, idx) in historyForm.items" :key="idx">
                     <tr>
                       <td x-text="i.name"></td>
                       <td class="text-right" x-text="i.qty"></td>
                       <td class="text-right muted" x-text="brl(i.unitCostCents)"></td>
                       <td class="text-right"><strong x-text="brl(Math.round(i.qty * i.unitCostCents))"></strong></td>
                       <td class="text-right">
-                        <button type="button" class="icon-btn" title="Remover item" @click="form.items.splice(idx, 1)">
+                        <button type="button" class="icon-btn" title="Remover item" @click="historyForm.items.splice(idx, 1)">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                         </button>
                       </td>
                     </tr>
                   </template>
-                  <tr x-show="!form.items.length">
+                  <tr x-show="!historyForm.items.length">
                     <td colspan="5">
                       <div class="purchase-empty">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="30" height="30"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
@@ -171,44 +388,40 @@
                 </tbody>
               </table>
             </div>
-
-            <!-- Barra de total -->
             <div class="purchase-total">
               <span>Total da compra</span>
-              <strong x-text="brl(total())"></strong>
+              <strong x-text="brl(historyTotalCalc())"></strong>
             </div>
           </div>
         </template>
-
         <div class="field" style="margin-top:1rem">
           <label>Observações</label>
-          <input type="text" x-model="form.notes" placeholder="Nº da nota, condição de pagamento, etc. (opcional)" />
+          <input type="text" x-model="historyForm.notes" placeholder="Nº da nota, condição de pagamento, etc. (opcional)" />
         </div>
-        <p class="muted text-xs" x-show="form.id && form.status !== 'rascunho'" style="margin-top:.5rem">
-          Compra já recebida — itens não podem mais ser alterados (estoque e custo já foram atualizados).
+        <p class="muted text-xs" x-show="historyForm.id && historyForm.status !== 'rascunho'" style="margin-top:.5rem">
+          Compra já recebida — itens não podem mais ser alterados.
         </p>
-
-        <div class="error" x-text="dlgError"></div>
+        <div class="error" x-text="historyDlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">
+        <button class="btn secondary" @click="$refs.historyDlg.close()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
           Cancelar
         </button>
-        <template x-if="!form.id || form.status === 'rascunho'">
+        <template x-if="!historyForm.id || historyForm.status === 'rascunho'">
           <span style="display:contents">
-            <button class="btn secondary" @click="save(false)">
+            <button class="btn secondary" @click="historySave(false)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
               Salvar rascunho
             </button>
-            <button class="btn" @click="save(true)">
+            <button class="btn" @click="historySave(true)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
               Receber compra
             </button>
           </span>
         </template>
-        <template x-if="form.id && form.status !== 'rascunho'">
-          <button class="btn" @click="save(false)">
+        <template x-if="historyForm.id && historyForm.status !== 'rascunho'">
+          <button class="btn" @click="historySave(false)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             Salvar
           </button>
@@ -216,122 +429,330 @@
       </div>
     </dialog>
   </main>
-  <script src="/js/masks.js"></script>
-  <script src="/js/table-toolkit.js"></script>
-  <script>
-    function purchasesPage() {
-      return {
-        ...tableToolkit(),
-        rows: [], suppliers: [], products: [], form: { items: [] }, item: {},
-        comboResults: [], comboIdx: -1,
-        error: '', dlgError: '', filter: {},
-        sortGetters: {
-          id: (p) => p.id, supplier: (p) => p.supplier ?? '', status: (p) => p.status ?? '',
-          total_cents: (p) => p.total_cents, received_at: (p) => p.received_at ?? '',
-        },
-        get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
-        get pageTotal() { return this.displayRows.length; },
-        get pageRows() { return this.pagedRows(this.displayRows); },
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
-        cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
-        async load() {
-          const r = await fetch('/api/commercial/purchases');
-          if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
-        },
-        async ensureCatalog() {
-          if (!this.suppliers.length) {
-            const s = await fetch('/api/commercial/suppliers'); if (s.ok) this.suppliers = await s.json();
+
+  <%- include('partials/confirm') %>
+
+<script>
+  function purchasesStore() {
+    return {
+      // ─── General ───
+      activeTab: 'loja',
+      loaded: false,
+      products: [],
+      suppliers: [],
+      error: '',
+
+      // ─── Store ───
+      searchQuery: '',
+      selectedCategory: '',
+
+      // ─── Cart ───
+      cartOpen: false,
+      cart: [],
+      checkoutSupplierId: '',
+      checkoutNotes: '',
+      checkoutError: '',
+      checkingOut: false,
+
+      // ─── Add modal ───
+      addModalProduct: null,
+      addForm: { qty: 0, unitCostStr: '', unitCostCents: 0, purchaseQty: 0, qtyPerPurchaseUnit: 0 },
+      addFormError: '',
+
+      // ─── History ───
+      historyRows: [], historyFilter: {}, historyOpenMenu: null,
+      historyPage: 1, historyPageSize: 20,
+      historySortKey: 'id', historySortDir: -1,
+      historyForm: { items: [] }, historyItem: {},
+      historyComboResults: [], historyComboIdx: -1,
+      historyDlgError: '',
+
+      // ─── Computed ───
+      get categories() {
+        const cats = new Set();
+        this.products.forEach(p => { if (p.category) cats.add(p.category); });
+        return [...cats].sort();
+      },
+      get filteredProducts() {
+        let list = this.products.filter(p => p.active && p.parent_product_id === null);
+        if (this.searchQuery) {
+          const q = this.searchQuery.toLowerCase();
+          list = list.filter(p => p.name.toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase() === q);
+        }
+        if (this.selectedCategory) list = list.filter(p => p.category === this.selectedCategory);
+        return list;
+      },
+
+      // ─── History computed ───
+      get historyDisplayRows() { return this.historySortedRows(this.historyFilteredRows()); },
+      get historyTotal() { return this.historyDisplayRows.length; },
+      get historyPageRows() { return this.historyPagedRows(this.historyDisplayRows); },
+
+      historyFilteredRows() {
+        const f = this.historyFilter;
+        return this.historyRows.filter(r => {
+          if (f.q) {
+            const q = f.q.toLowerCase();
+            if (!(r.supplier || '').toLowerCase().includes(q)) return false;
           }
-          if (!this.products.length) {
-            const p = await fetch('/api/commercial/products'); if (p.ok) this.products = await p.json();
+          if (f.status && r.status !== f.status) return false;
+          if (f.from && (r.received_at || '').slice(0, 10) < f.from) return false;
+          if (f.to && (r.received_at || '').slice(0, 10) > f.to) return false;
+          return true;
+        });
+      },
+      historySortedRows(rows) {
+        const getter = this.historySortGetters[this.historySortKey];
+        if (!getter) return rows;
+        return [...rows].sort((a, b) => {
+          const va = getter(a), vb = getter(b);
+          if (va < vb) return -1 * this.historySortDir;
+          if (va > vb) return 1 * this.historySortDir;
+          return 0;
+        });
+      },
+      historySortGetters: {
+        id: p => p.id, supplier: p => p.supplier ?? '', status: p => p.status ?? '',
+        total_cents: p => p.total_cents, received_at: p => p.received_at ?? '',
+      },
+      historySortCycle(key) {
+        if (this.historySortKey === key) this.historySortDir *= -1;
+        else { this.historySortKey = key; this.historySortDir = -1; }
+        this.historyPage = 1;
+      },
+      historySortArrow(key) {
+        if (this.historySortKey !== key) return '';
+        return this.historySortDir === -1 ? ' ▼' : ' ▲';
+      },
+      historyPageCount(total) { return Math.ceil(total / this.historyPageSize) || 1; },
+      historyPagedRows(rows) {
+        const start = (this.historyPage - 1) * this.historyPageSize;
+        return rows.slice(start, start + this.historyPageSize);
+      },
+      historyGoToPage(p, total) { this.historyPage = Math.max(1, Math.min(p, this.historyPageCount(total))); },
+      historyPageWindow(total) {
+        const c = this.historyPageCount(total);
+        if (c <= 7) return Array.from({ length: c }, (_, i) => i + 1);
+        const w = [];
+        if (this.historyPage <= 4) { for (let i = 1; i <= 5; i++) w.push(i); w.push('…', c); }
+        else if (this.historyPage >= c - 3) { w.push(1, '…'); for (let i = c - 4; i <= c; i++) w.push(i); }
+        else { w.push(1, '…', this.historyPage - 1, this.historyPage, this.historyPage + 1, '…', c); }
+        return w;
+      },
+
+      // ─── Helpers ───
+      brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+      cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
+
+
+      // ─── Init ───
+      async init() {
+        this.loaded = false;
+        try {
+          const [prods, supps, hist] = await Promise.all([
+            fetch('/api/commercial/products').then(r => r.json()),
+            fetch('/api/commercial/suppliers').then(r => r.json()),
+            fetch('/api/commercial/purchases').then(r => r.json()),
+          ]);
+          this.products = prods;
+          this.suppliers = supps;
+          this.historyRows = hist;
+        } catch (e) {
+          this.error = 'Erro ao carregar dados.';
+        }
+        this.loaded = true;
+      },
+
+      // ─── Favorite ───
+      async toggleFavorite(p) {
+        const newState = !p.favorite;
+        try {
+          const r = await fetch('/api/commercial/products/' + p.id + '/favorite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ favorite: newState }),
+          });
+          if (r.ok) p.favorite = newState ? 1 : 0;
+        } catch {}
+      },
+
+      // ─── Add to cart modal ───
+      openAddModal(p) {
+        this.addModalProduct = p;
+        this.addForm = { qty: 0, unitCostStr: '', unitCostCents: 0, purchaseQty: 0, qtyPerPurchaseUnit: p.purchase_unit_qty || 0 };
+        this.addFormError = '';
+        this.$nextTick(() => {
+          if (p.purchase_unit && p.purchase_unit !== p.unit) {
+            this.$refs.addDlg.querySelector('[x-model.number="addForm.qtyPerPurchaseUnit"]')?.focus();
+          } else {
+            this.$refs.addDlg.querySelector('[x-model.number="addForm.qty"]')?.focus();
           }
-        },
-        async openNew() {
-          this.form = { items: [], supplierId: '', notes: '', status: 'rascunho' };
-          this.item = {}; this.comboResults = []; this.dlgError = '';
-          await this.ensureCatalog();
-          this.$refs.dlg.showModal();
-        },
-        async openEdit(p) {
-          this.form = { id: p.id, supplierId: p.supplier_id, notes: p.notes ?? '', status: p.status, items: [] };
-          this.item = {}; this.comboResults = []; this.dlgError = '';
-          await this.ensureCatalog();
-          if (p.status === 'rascunho') {
-            const r = await fetch(`/api/commercial/purchases/${p.id}/items`);
-            if (r.ok) {
-              const items = await r.json();
-              this.form.items = items.map((i) => ({ productId: i.product_id, name: i.product_name, qty: i.qty, unitCostCents: i.unit_cost_cents }));
-            }
-          }
-          this.$refs.dlg.showModal();
-        },
-        async cancelPurchase(p) {
-          if (!(await window.confirmDlg(`Cancelar a compra #${p.id}?` + (p.status === 'recebida' ? ' O estoque recebido será estornado.' : '')))) return;
-          const r = await fetch(`/api/commercial/purchases/${p.id}/cancel`, { method: 'POST' });
-          if (r.ok) { this.load(); showToast('Compra cancelada.', 'success'); } else showToast((await r.json()).error, 'error');
-        },
-        async receive(p) {
-          if (!(await window.confirmDlg(`Receber a compra #${p.id}? Isso vai dar entrada no estoque e atualizar o custo dos produtos.`))) return;
-          const r = await fetch(`/api/commercial/purchases/${p.id}/receive`, { method: 'POST' });
-          if (r.ok) { this.load(); showToast('Compra recebida.', 'success'); } else showToast((await r.json()).error, 'error');
-        },
-        async duplicate(p) {
-          const r = await fetch(`/api/commercial/purchases/${p.id}/duplicate`, { method: 'POST' });
-          if (r.ok) { this.load(); showToast('Compra duplicada.', 'success'); } else showToast((await r.json()).error, 'error');
-        },
-        searchProducts() {
-          const q = (this.item.q || '').trim().toLowerCase();
-          if (!q) { this.comboResults = []; this.comboIdx = -1; return; }
-          this.comboResults = this.products.filter((p) =>
-            p.name.toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase() === q,
-          ).slice(0, 8);
-          this.comboIdx = this.comboResults.length ? 0 : -1;
-        },
-        pickProduct(p) {
-          this.item.productId = p.id; this.item.q = p.name;
-          this.comboResults = []; this.comboIdx = -1;
-          this.$nextTick(() => this.$refs.qtyInput?.focus());
-        },
-        quickAddItem() {
-          if (this.comboIdx >= 0 && this.comboResults[this.comboIdx]) { this.pickProduct(this.comboResults[this.comboIdx]); return; }
-          const exact = this.products.find((p) => p.barcode && p.barcode === (this.item.q || '').trim());
-          if (exact) this.pickProduct(exact);
-        },
-        addItem() {
-          const p = this.products.find((x) => x.id === this.item.productId);
-          const cost = this.cents(this.item.cost);
-          if (!p || !(this.item.qty > 0) || cost <= 0) { this.dlgError = 'Busque o produto (selecione da lista) e informe quantidade e custo.'; return; }
-          this.dlgError = '';
-          this.form.items.push({ productId: p.id, name: p.name, qty: this.item.qty, unitCostCents: cost });
-          this.item = {}; this.comboResults = [];
-        },
-        total() { return this.form.items.reduce((a, i) => a + Math.round(i.qty * i.unitCostCents), 0); },
-        async save(receiveAfter) {
-          const itemsPayload = this.form.items.map((i) => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents }));
-          if (this.form.id) {
-            const body = { supplierId: this.form.supplierId, notes: this.form.notes || undefined };
-            if (this.form.status === 'rascunho') body.items = itemsPayload;
-            const r = await fetch(`/api/commercial/purchases/${this.form.id}`, {
-              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-            });
-            if (!r.ok) { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); return; }
-            if (receiveAfter && this.form.status === 'rascunho') {
-              const rr = await fetch(`/api/commercial/purchases/${this.form.id}/receive`, { method: 'POST' });
-              if (!rr.ok) { this.dlgError = (await rr.json()).error; showToast(this.dlgError, 'error'); return; }
-            }
-            this.$refs.dlg.close(); this.load();
+        });
+        this.$refs.addDlg.showModal();
+      },
+
+      confirmAddItem() {
+        const p = this.addModalProduct;
+        if (!p) return;
+        this.addFormError = '';
+
+        if (p.purchase_unit && p.purchase_unit !== p.unit) {
+          const qtyPerBox = Number(this.addForm.qtyPerPurchaseUnit);
+          const boxes = Number(this.addForm.purchaseQty);
+          const unitCost = this.cents(this.addForm.unitCostStr);
+          if (!(qtyPerBox > 0) || !(boxes > 0) || unitCost <= 0) {
+            this.addFormError = 'Preencha todos os campos: quantidade por ' + p.purchase_unit.toUpperCase() + ', quantidade de ' + p.purchase_unit.toUpperCase() + ' e valor por ' + p.unit.toUpperCase() + '.';
             return;
           }
-          if (!this.form.supplierId || !itemsPayload.length) { this.dlgError = 'Fornecedor e ao menos um item.'; return; }
+          const totalQty = qtyPerBox * boxes;
+          this.cart.push({ productId: p.id, name: p.name, unit: p.unit, qty: totalQty, unitCostCents: unitCost });
+        } else {
+          const qty = Number(this.addForm.qty);
+          const unitCost = this.cents(this.addForm.unitCostStr);
+          if (!(qty > 0) || unitCost <= 0) {
+            this.addFormError = 'Informe a quantidade e o valor por ' + p.unit.toUpperCase() + '.';
+            return;
+          }
+          this.cart.push({ productId: p.id, name: p.name, unit: p.unit, qty, unitCostCents: unitCost });
+        }
+
+        this.$refs.addDlg.close();
+        this.cartOpen = true;
+      },
+
+      // ─── Cart ───
+      cartRemove(idx) { this.cart.splice(idx, 1); if (!this.cart.length) this.cartOpen = false; },
+      cartTotal() { return this.cart.reduce((a, i) => a + Math.round(i.qty * i.unitCostCents), 0); },
+
+      // ─── Checkout ───
+      async checkout() {
+        if (!this.checkoutSupplierId || !this.cart.length) return;
+        this.checkingOut = true;
+        this.checkoutError = '';
+        try {
+          const items = this.cart.map(i => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents }));
           const r = await fetch('/api/commercial/purchases', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ supplierId: this.form.supplierId, notes: this.form.notes || undefined,
-              items: itemsPayload, status: receiveAfter ? 'recebida' : 'rascunho' }),
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              supplierId: this.checkoutSupplierId,
+              items,
+              notes: this.checkoutNotes || undefined,
+              status: 'recebida',
+            }),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Compra salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
-        },
-      };
-    }
-  </script>
+          if (r.ok) {
+            const created = await r.json();
+            this.cart = [];
+            this.cartOpen = false;
+            this.checkoutSupplierId = '';
+            this.checkoutNotes = '';
+            // Reload history
+            const hist = await fetch('/api/commercial/purchases').then(r2 => r2.json());
+            this.historyRows = hist;
+            showToast('Compra #' + created.id + ' recebida com sucesso!', 'success');
+          } else {
+            const err = await r.json();
+            this.checkoutError = err.error || 'Erro ao finalizar compra.';
+            showToast(this.checkoutError, 'error');
+          }
+        } catch (e) {
+          this.checkoutError = 'Erro de conexão.';
+        }
+        this.checkingOut = false;
+      },
+
+      // ─── History actions ───
+      async historyLoad() {
+        const r = await fetch('/api/commercial/purchases');
+        if (r.ok) this.historyRows = await r.json();
+      },
+      historySearchProducts() {
+        const q = (this.historyItem.q || '').trim().toLowerCase();
+        if (!q) { this.historyComboResults = []; this.historyComboIdx = -1; return; }
+        this.historyComboResults = (this.products.length ? this.products : []).filter(p =>
+          p.name.toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q) || (p.barcode || '').toLowerCase() === q
+        ).slice(0, 8);
+        this.historyComboIdx = this.historyComboResults.length ? 0 : -1;
+      },
+      historyPickProduct(p) {
+        this.historyItem.productId = p.id; this.historyItem.q = p.name;
+        this.historyComboResults = []; this.historyComboIdx = -1;
+        this.$nextTick(() => this.$refs.historyQtyInput?.focus());
+      },
+      historyQuickAdd() {
+        if (this.historyComboIdx >= 0 && this.historyComboResults[this.historyComboIdx]) { this.historyPickProduct(this.historyComboResults[this.historyComboIdx]); return; }
+        const exact = (this.products.length ? this.products : []).find(p => p.barcode && p.barcode === (this.historyItem.q || '').trim());
+        if (exact) this.historyPickProduct(exact);
+      },
+      historyAddItem() {
+        const p = (this.products.length ? this.products : []).find(x => x.id === this.historyItem.productId);
+        const cost = this.cents(this.historyItem.cost);
+        if (!p || !(this.historyItem.qty > 0) || cost <= 0) { this.historyDlgError = 'Busque o produto e informe quantidade e custo.'; return; }
+        this.historyDlgError = '';
+        this.historyForm.items.push({ productId: p.id, name: p.name, qty: this.historyItem.qty, unitCostCents: cost });
+        this.historyItem = {};
+        this.historyComboResults = [];
+      },
+      historyTotalCalc() { return this.historyForm.items.reduce((a, i) => a + Math.round(i.qty * i.unitCostCents), 0); },
+      async historyOpenNew() {
+        this.historyForm = { items: [], supplierId: '', notes: '', status: 'rascunho' };
+        this.historyItem = {}; this.historyComboResults = []; this.historyDlgError = '';
+        this.$refs.historyDlg.showModal();
+      },
+      async historyEdit(p) {
+        this.historyForm = { id: p.id, supplierId: p.supplier_id, notes: p.notes ?? '', status: p.status, items: [] };
+        this.historyItem = {}; this.historyComboResults = []; this.historyDlgError = '';
+        if (p.status === 'rascunho') {
+          const r = await fetch('/api/commercial/purchases/' + p.id + '/items');
+          if (r.ok) {
+            const items = await r.json();
+            this.historyForm.items = items.map(i => ({ productId: i.product_id, name: i.product_name, qty: i.qty, unitCostCents: i.unit_cost_cents }));
+          }
+        }
+        this.$refs.historyDlg.showModal();
+      },
+      async historyReceive(p) {
+        if (!(await window.confirmDlg('Receber a compra #' + p.id + '? Isso vai dar entrada no estoque e atualizar o custo dos produtos.'))) return;
+        const r = await fetch('/api/commercial/purchases/' + p.id + '/receive', { method: 'POST' });
+        if (r.ok) { this.historyLoad(); showToast('Compra recebida.', 'success'); } else showToast((await r.json()).error, 'error');
+      },
+      async historyDuplicate(p) {
+        const r = await fetch('/api/commercial/purchases/' + p.id + '/duplicate', { method: 'POST' });
+        if (r.ok) { this.historyLoad(); showToast('Compra duplicada.', 'success'); } else showToast((await r.json()).error, 'error');
+      },
+      async historyCancel(p) {
+        if (!(await window.confirmDlg('Cancelar a compra #' + p.id + '?' + (p.status === 'recebida' ? ' O estoque recebido será estornado.' : '')))) return;
+        const r = await fetch('/api/commercial/purchases/' + p.id + '/cancel', { method: 'POST' });
+        if (r.ok) { this.historyLoad(); showToast('Compra cancelada.', 'success'); } else showToast((await r.json()).error, 'error');
+      },
+      async historySave(receiveAfter) {
+        const itemsPayload = this.historyForm.items.map(i => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents }));
+        if (this.historyForm.id) {
+          const body = { supplierId: this.historyForm.supplierId, notes: this.historyForm.notes || undefined };
+          if (this.historyForm.status === 'rascunho') body.items = itemsPayload;
+          const r = await fetch('/api/commercial/purchases/' + this.historyForm.id, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          if (!r.ok) { this.historyDlgError = (await r.json()).error; showToast(this.historyDlgError, 'error'); return; }
+          if (receiveAfter && this.historyForm.status === 'rascunho') {
+            const rr = await fetch('/api/commercial/purchases/' + this.historyForm.id + '/receive', { method: 'POST' });
+            if (!rr.ok) { this.historyDlgError = (await rr.json()).error; showToast(this.historyDlgError, 'error'); return; }
+          }
+          this.$refs.historyDlg.close(); this.historyLoad();
+          return;
+        }
+        if (!this.historyForm.supplierId || !itemsPayload.length) { this.historyDlgError = 'Fornecedor e ao menos um item.'; return; }
+        const r = await fetch('/api/commercial/purchases', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ supplierId: this.historyForm.supplierId, notes: this.historyForm.notes || undefined,
+            items: itemsPayload, status: receiveAfter ? 'recebida' : 'rascunho' }),
+        });
+        if (r.ok) { this.$refs.historyDlg.close(); this.historyLoad(); showToast('Compra salva.', 'success'); }
+        else { this.historyDlgError = (await r.json()).error; showToast(this.historyDlgError, 'error'); }
+      },
+    };
+  }
+</script>
 </body>
 </html>
