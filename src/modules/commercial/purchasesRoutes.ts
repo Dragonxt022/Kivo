@@ -74,6 +74,11 @@ router.get('/:id/items', requirePermission('commercial.purchases.view'), (req, r
   res.json(purchaseItemRepository.listByPurchase(Number(req.params.id)));
 });
 
+router.get('/products/:id/last-price', requirePermission('commercial.purchases.view'), (req, res) => {
+  const cents = purchaseItemRepository.lastUnitCostByProduct(Number(req.params.id));
+  res.json({ unitCostCents: cents });
+});
+
 router.post('/', requirePermission('commercial.purchases.create'), validateBody(createPurchaseSchema), (req, res) => {
   const { supplierId, items, notes, status } = req.body;
   const asDraft = status === 'rascunho';

@@ -69,6 +69,17 @@ export class PurchaseItemRepository extends BaseRepository {
       purchaseId,
     ) as { product_id: number; qty: number }[];
   }
+
+  lastUnitCostByProduct(productId: number): number | null {
+    const row = this.raw(
+      `SELECT pi.unit_cost_cents FROM purchase_items pi
+       JOIN purchases p ON p.id = pi.purchase_id
+       WHERE pi.product_id = ? AND p.status IN ('recebida','parcial')
+       ORDER BY p.received_at DESC, p.id DESC LIMIT 1`,
+      productId,
+    ) as { unit_cost_cents: number }[] | undefined;
+    return row?.[0]?.unit_cost_cents ?? null;
+  }
 }
 
 export const purchaseItemRepository = new PurchaseItemRepository();
