@@ -31,7 +31,7 @@ const router = Router();
 
 const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
   p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active,
-  p.image_url, p.updated_at, p.product_type, p.parent_product_id, p.visivel_cardapio`;
+  p.purchase_unit, p.purchase_unit_qty, p.image_url, p.updated_at, p.product_type, p.parent_product_id, p.visivel_cardapio`;
 
 function autoSkuEnabled(): boolean {
   return settingsRepository.getBool('estoque.auto_sku', true);
@@ -828,6 +828,20 @@ router.put('/price-lists/:id/items', requirePermission('commercial.pricelists.ma
   const after = priceListItemRepository.listByPriceList(id);
   audit(req, 'editar', 'price_list_items', id, null, after);
   res.json({ items: after });
+});
+
+// ---------- Favoritar / desfavoritar produto ----------
+router.post('/products/:id/favorite', requirePermission('commercial.products.edit'), (req, res) => {
+  const id = Number(req.params.id);
+  const product = productRepository.findById(id);
+  if (!product) {
+    res.status(404).json({ error: 'Produto não encontrado.' });
+    return;
+  }
+  const newState = req.body?.favorite === true || req.body?.favorite === 1 ? 1 : 0;
+  productRepository.setFavorite(id, newState === 1);
+  audit(req, newState ? 'favoritar' : 'desfavoritar', 'product', id, null, { favorite: newState });
+  res.json({ id, favorite: newState });
 });
 
 router.post('/pricing/resolve', requirePermission('store.sales.create'), (req, res) => {

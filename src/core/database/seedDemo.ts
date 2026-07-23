@@ -70,42 +70,69 @@ function fakeAdminRequest() {
 
 const CATEGORY_NAMES = ['Materiais de Construção', 'Elétrica', 'Hidráulica', 'Tintas e Acabamento', 'Ferramentas', 'Limpeza'] as const;
 
-const PRODUCTS_DATA: { name: string; category: (typeof CATEGORY_NAMES)[number]; priceCents: number; costCents: number; stock: number }[] = [
-  { name: 'Argamassa 20kg', category: 'Materiais de Construção', priceCents: 3000, costCents: 1800, stock: 200 },
-  { name: 'Cimento CP-II 50kg', category: 'Materiais de Construção', priceCents: 3800, costCents: 2600, stock: 150 },
-  { name: 'Areia Média (m³)', category: 'Materiais de Construção', priceCents: 12000, costCents: 8000, stock: 40 },
-  { name: 'Tijolo Cerâmico (milheiro)', category: 'Materiais de Construção', priceCents: 65000, costCents: 48000, stock: 20 },
-  { name: 'Bloco de Concreto 14x19x39', category: 'Materiais de Construção', priceCents: 350, costCents: 220, stock: 500 },
-  { name: 'Cal Hidratada 20kg', category: 'Materiais de Construção', priceCents: 1500, costCents: 900, stock: 100 },
-  { name: 'Fio Elétrico 2,5mm (rolo 100m)', category: 'Elétrica', priceCents: 22000, costCents: 15000, stock: 60 },
-  { name: 'Disjuntor 20A', category: 'Elétrica', priceCents: 1800, costCents: 1000, stock: 80 },
-  { name: 'Tomada 10A', category: 'Elétrica', priceCents: 900, costCents: 450, stock: 150 },
-  { name: 'Lâmpada LED 9W', category: 'Elétrica', priceCents: 1200, costCents: 600, stock: 200 },
-  { name: 'Fita Isolante', category: 'Elétrica', priceCents: 500, costCents: 200, stock: 300 },
-  { name: 'Quadro de Distribuição 12 disj.', category: 'Elétrica', priceCents: 8500, costCents: 5500, stock: 30 },
-  { name: 'Tubo PVC 100mm (barra 6m)', category: 'Hidráulica', priceCents: 4500, costCents: 2800, stock: 80 },
-  { name: 'Tubo PVC 50mm (barra 6m)', category: 'Hidráulica', priceCents: 2200, costCents: 1300, stock: 100 },
-  { name: 'Joelho PVC 100mm', category: 'Hidráulica', priceCents: 800, costCents: 400, stock: 200 },
-  { name: 'Registro de Gaveta 3/4', category: 'Hidráulica', priceCents: 3200, costCents: 1900, stock: 60 },
-  { name: 'Torneira de Metal', category: 'Hidráulica', priceCents: 4500, costCents: 2600, stock: 50 },
-  { name: "Caixa d'Água 500L", category: 'Hidráulica', priceCents: 35000, costCents: 24000, stock: 15 },
-  { name: 'Tinta Acrílica 18L Branca', category: 'Tintas e Acabamento', priceCents: 18000, costCents: 11000, stock: 40 },
-  { name: 'Tinta Esmalte 3,6L', category: 'Tintas e Acabamento', priceCents: 6500, costCents: 4000, stock: 60 },
-  { name: 'Rolo de Pintura', category: 'Tintas e Acabamento', priceCents: 1500, costCents: 800, stock: 100 },
-  { name: 'Pincel 2"', category: 'Tintas e Acabamento', priceCents: 900, costCents: 400, stock: 150 },
-  { name: 'Piso Cerâmico (m²)', category: 'Tintas e Acabamento', priceCents: 3500, costCents: 2200, stock: 300 },
-  { name: 'Rejunte 1kg', category: 'Tintas e Acabamento', priceCents: 1200, costCents: 700, stock: 150 },
-  { name: 'Furadeira de Impacto', category: 'Ferramentas', priceCents: 25000, costCents: 16000, stock: 20 },
-  { name: 'Martelo Unha', category: 'Ferramentas', priceCents: 3500, costCents: 2000, stock: 40 },
-  { name: 'Trena 5m', category: 'Ferramentas', priceCents: 2200, costCents: 1200, stock: 60 },
-  { name: 'Nível de Bolha', category: 'Ferramentas', priceCents: 1800, costCents: 900, stock: 50 },
-  { name: 'Vassoura', category: 'Limpeza', priceCents: 1200, costCents: 600, stock: 80 },
-  { name: 'Pá de Lixo', category: 'Limpeza', priceCents: 900, costCents: 450, stock: 60 },
+interface ProductSeed {
+  name: string; category: (typeof CATEGORY_NAMES)[number];
+  priceCents: number; costCents: number; stock: number;
+  unit: string; purchaseUnit?: string; purchaseUnitQty?: number;
+}
+
+const PRODUCTS_DATA: ProductSeed[] = [
+  // ─── Materiais de Construção ───
+  { name: 'Argamassa 20kg', category: 'Materiais de Construção', priceCents: 3000, costCents: 1800, stock: 200, unit: 'un', purchaseUnit: 'saco', purchaseUnitQty: 1 },
+  { name: 'Cimento CP-II 50kg', category: 'Materiais de Construção', priceCents: 3800, costCents: 2600, stock: 150, unit: 'un', purchaseUnit: 'saco', purchaseUnitQty: 1 },
+  { name: 'Areia Média (m³)', category: 'Materiais de Construção', priceCents: 12000, costCents: 8000, stock: 40, unit: 'm³' },
+  { name: 'Tijolo Cerâmico (milheiro)', category: 'Materiais de Construção', priceCents: 65000, costCents: 48000, stock: 20, unit: 'mil', purchaseUnit: 'mil', purchaseUnitQty: 1 },
+  { name: 'Bloco de Concreto 14x19x39', category: 'Materiais de Construção', priceCents: 350, costCents: 220, stock: 500, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 50 },
+  { name: 'Cal Hidratada 20kg', category: 'Materiais de Construção', priceCents: 1500, costCents: 900, stock: 100, unit: 'un', purchaseUnit: 'saco' },
+  { name: 'Telha Colonial', category: 'Materiais de Construção', priceCents: 2800, costCents: 1800, stock: 300, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 25 },
+  { name: 'Vergalhão 10mm (barra)', category: 'Materiais de Construção', priceCents: 4500, costCents: 3000, stock: 80, unit: 'barra' },
+  // ─── Elétrica ───
+  { name: 'Fio Elétrico 2,5mm (rolo 100m)', category: 'Elétrica', priceCents: 22000, costCents: 15000, stock: 60, unit: 'rolo' },
+  { name: 'Disjuntor 20A', category: 'Elétrica', priceCents: 1800, costCents: 1000, stock: 80, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 10 },
+  { name: 'Tomada 10A', category: 'Elétrica', priceCents: 900, costCents: 450, stock: 150, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 50 },
+  { name: 'Lâmpada LED 9W', category: 'Elétrica', priceCents: 1200, costCents: 600, stock: 200, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 20 },
+  { name: 'Fita Isolante', category: 'Elétrica', priceCents: 500, costCents: 200, stock: 300, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 100 },
+  { name: 'Quadro de Distribuição 12 disj.', category: 'Elétrica', priceCents: 8500, costCents: 5500, stock: 30, unit: 'un' },
+  { name: 'Interruptor Simples', category: 'Elétrica', priceCents: 700, costCents: 350, stock: 200, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 40 },
+  { name: 'Eletroduto 3/4 (barra 3m)', category: 'Elétrica', priceCents: 1500, costCents: 900, stock: 120, unit: 'barra' },
+  // ─── Hidráulica ───
+  { name: 'Tubo PVC 100mm (barra 6m)', category: 'Hidráulica', priceCents: 4500, costCents: 2800, stock: 80, unit: 'barra' },
+  { name: 'Tubo PVC 50mm (barra 6m)', category: 'Hidráulica', priceCents: 2200, costCents: 1300, stock: 100, unit: 'barra' },
+  { name: 'Joelho PVC 100mm', category: 'Hidráulica', priceCents: 800, costCents: 400, stock: 200, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 25 },
+  { name: 'Registro de Gaveta 3/4', category: 'Hidráulica', priceCents: 3200, costCents: 1900, stock: 60, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 12 },
+  { name: 'Torneira de Metal', category: 'Hidráulica', priceCents: 4500, costCents: 2600, stock: 50, unit: 'un' },
+  { name: "Caixa d'Água 500L", category: 'Hidráulica', priceCents: 35000, costCents: 24000, stock: 15, unit: 'un' },
+  // ─── Tintas e Acabamento ───
+  { name: 'Tinta Acrílica 18L Branca', category: 'Tintas e Acabamento', priceCents: 18000, costCents: 11000, stock: 40, unit: 'lata', purchaseUnit: 'cx', purchaseUnitQty: 4 },
+  { name: 'Tinta Esmalte 3,6L', category: 'Tintas e Acabamento', priceCents: 6500, costCents: 4000, stock: 60, unit: 'lata' },
+  { name: 'Rolo de Pintura', category: 'Tintas e Acabamento', priceCents: 1500, costCents: 800, stock: 100, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 12 },
+  { name: 'Pincel 2"', category: 'Tintas e Acabamento', priceCents: 900, costCents: 400, stock: 150, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 24 },
+  { name: 'Piso Cerâmico (m²)', category: 'Tintas e Acabamento', priceCents: 3500, costCents: 2200, stock: 300, unit: 'm²' },
+  { name: 'Rejunte 1kg', category: 'Tintas e Acabamento', priceCents: 1200, costCents: 700, stock: 150, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 30 },
+  { name: 'Massa Corrida 25kg', category: 'Tintas e Acabamento', priceCents: 5500, costCents: 3500, stock: 50, unit: 'lata' },
+  // ─── Ferramentas ───
+  { name: 'Furadeira de Impacto', category: 'Ferramentas', priceCents: 25000, costCents: 16000, stock: 20, unit: 'un' },
+  { name: 'Martelo Unha', category: 'Ferramentas', priceCents: 3500, costCents: 2000, stock: 40, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 6 },
+  { name: 'Trena 5m', category: 'Ferramentas', priceCents: 2200, costCents: 1200, stock: 60, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 12 },
+  { name: 'Nível de Bolha', category: 'Ferramentas', priceCents: 1800, costCents: 900, stock: 50, unit: 'un' },
+  { name: 'Chave de Fenda', category: 'Ferramentas', priceCents: 600, costCents: 300, stock: 100, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 25 },
+  { name: 'Serrote', category: 'Ferramentas', priceCents: 2800, costCents: 1600, stock: 30, unit: 'un' },
+  // ─── Limpeza ───
+  { name: 'Vassoura', category: 'Limpeza', priceCents: 1200, costCents: 600, stock: 80, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 10 },
+  { name: 'Pá de Lixo', category: 'Limpeza', priceCents: 900, costCents: 450, stock: 60, unit: 'un' },
+  { name: 'Detergente 500ml', category: 'Limpeza', priceCents: 300, costCents: 150, stock: 200, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 48 },
+  { name: 'Desinfetante 2L', category: 'Limpeza', priceCents: 800, costCents: 400, stock: 100, unit: 'un', purchaseUnit: 'cx', purchaseUnitQty: 12 },
+  { name: 'Luvas de Limpeza', category: 'Limpeza', priceCents: 1500, costCents: 800, stock: 50, unit: 'par' },
 ];
 
 const CUSTOMERS = ['Maria Silva', 'João Pereira', 'Construtora XYZ Ltda', 'Carlos Souza', 'Ana Oliveira', 'Pedro Santos', 'Fernanda Lima', 'Roberto Alves'];
 
-const SUPPLIERS = ['Distribuidora ABC', 'Casa do Construtor Atacado', 'Elétrica Distribuidora Ltda', 'Tintas & Cia Distribuição', 'Hidro Materiais Ltda'];
+const SUPPLIERS = [
+  'Distribuidora ABC', 'Casa do Construtor Atacado', 'Elétrica Distribuidora Ltda',
+  'Tintas & Cia Distribuição', 'Hidro Materiais Ltda', 'Aço & Ferro Comércio',
+  'LimpMax Produtos', 'Ferramentas Brafer', 'Acabamento Decor',
+  'Mega Construção Atacado',
+];
 
 const DRE_MANUAL_CATEGORIES = ['Aluguel', 'Energia Elétrica', 'Água', 'Internet/Telefone', 'Salários', 'Marketing'];
 
@@ -118,8 +145,8 @@ function seedMasterData(db: Database.Database) {
 
   const products = PRODUCTS_DATA.map((p) => {
     const info = db.prepare(
-      `INSERT INTO products (name, category_id, price_cents, cost_cents, stock_qty, uuid) VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(p.name, categoryIds[p.category], p.priceCents, p.costCents, p.stock, randomUUID());
+      `INSERT INTO products (name, category_id, unit, price_cents, cost_cents, stock_qty, purchase_unit, purchase_unit_qty, uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(p.name, categoryIds[p.category], p.unit, p.priceCents, p.costCents, p.stock, p.purchaseUnit ?? null, p.purchaseUnitQty ?? null, randomUUID());
     return { id: Number(info.lastInsertRowid), ...p };
   });
   for (const p of products) {
