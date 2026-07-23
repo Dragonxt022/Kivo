@@ -278,7 +278,7 @@ export function createSale(
   const primaryMethod = resolved.length === 1 ? resolved[0].method.type : 'multiplo';
   const legacyLabel: Record<string, string> = {
     dinheiro: 'dinheiro', debito: 'cartao_debito', credito: 'cartao_credito', pix: 'pix', prazo: 'prazo',
-    outro: 'outro', multiplo: 'multiplo', credito_loja: 'credito_loja', fidelidade: 'fidelidade', convenio: 'convenio',
+    outro: 'pix', multiplo: 'pix', credito_loja: 'pix', fidelidade: 'pix', convenio: 'pix',
   };
 
   let saleId = 0;

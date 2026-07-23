@@ -123,7 +123,7 @@
         get pageRows() { return this.pagedRows(this.displayRows); },
         label(s) {
           if (typeof s === 'object') {
-            if (s.payment_method === 'multiplo' && s.payment_count > 1) return s.payment_count + ' métodos';
+            if (s.payment_count > 1) return s.payment_count + ' métodos';
             return this.labels[s.payment_method] ?? s.payment_method;
           }
           return this.labels[s] ?? s;
