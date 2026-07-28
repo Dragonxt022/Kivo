@@ -154,6 +154,11 @@ export const createPurchaseSchema = z.object({
   items: z.array(purchaseItemSchema).min(1, 'Informe ao menos um item.'),
   notes: z.string().optional(),
   status: z.enum(['rascunho', 'recebida']).optional(),
+  paymentMethodId: z.number().int().positive().nullable().optional(),
+  installmentCount: z.number().int().min(1).max(24).nullable().optional(),
+  firstDueDate: z.string().nullable().optional(),
+  lateFeeCents: z.number().int().min(0).nullable().optional(),
+  dailyInterestBps: z.number().int().min(0).max(10000).nullable().optional(),
 });
 
 export const updatePurchaseSchema = z.object({

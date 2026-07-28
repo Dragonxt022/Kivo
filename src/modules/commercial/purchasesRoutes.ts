@@ -80,7 +80,7 @@ router.get('/products/:id/last-price', requirePermission('commercial.purchases.v
 });
 
 router.post('/', requirePermission('commercial.purchases.create'), validateBody(createPurchaseSchema), (req, res) => {
-  const { supplierId, items, notes, status } = req.body;
+  const { supplierId, items, notes, status, paymentMethodId, installmentCount, firstDueDate, lateFeeCents, dailyInterestBps } = req.body;
   const asDraft = status === 'rascunho';
   const supplier = supplierRepository.findById(supplierId);
   if (!supplier) {
@@ -100,6 +100,11 @@ router.post('/', requirePermission('commercial.purchases.create'), validateBody(
         notes: notes ?? null,
         received_at: asDraft ? null : new Date().toISOString(),
         uuid: randomUUID(),
+        payment_method_id: paymentMethodId ?? null,
+        installment_count: installmentCount ?? 1,
+        first_due_date: firstDueDate ?? null,
+        late_fee_cents: lateFeeCents ?? 0,
+        daily_interest_bps: dailyInterestBps ?? 0,
       });
       for (const item of items) {
         purchaseItemRepository.create({ purchase_id: purchaseId, product_id: item.productId, qty: item.qty, unit_cost_cents: Math.round(item.unitCostCents) });
@@ -155,8 +160,8 @@ router.post('/:id/receive', requirePermission('commercial.purchases.create'), (r
 
 router.post('/:id/duplicate', requirePermission('commercial.purchases.create'), (req, res) => {
   const id = Number(req.params.id);
-  const source = purchaseRepository.findByIdWithColumns(id, 'id, supplier_id, notes') as
-    | { id: number; supplier_id: number; notes: string | null } | undefined;
+  const source = purchaseRepository.findByIdWithColumns(id, 'id, supplier_id, notes, payment_method_id, installment_count, first_due_date, late_fee_cents, daily_interest_bps') as
+    | { id: number; supplier_id: number; notes: string | null; payment_method_id: number | null; installment_count: number; first_due_date: string | null; late_fee_cents: number; daily_interest_bps: number } | undefined;
   if (!source) {
     res.status(404).json({ error: 'Compra não encontrada.' });
     return;
@@ -173,14 +178,22 @@ router.post('/:id/duplicate', requirePermission('commercial.purchases.create'), 
       notes: source.notes,
       received_at: null,
       uuid: randomUUID(),
+      payment_method_id: source.payment_method_id,
+      installment_count: source.installment_count,
+      first_due_date: source.first_due_date,
+      late_fee_cents: source.late_fee_cents,
+      daily_interest_bps: source.daily_interest_bps,
     });
     for (const item of items) {
       purchaseItemRepository.create({ purchase_id: purchaseId, product_id: item.productId, qty: item.qty, unit_cost_cents: item.unitCostCents });
     }
   });
   const created = purchaseRepository.rawOne(
-    `SELECT pu.id, pu.supplier_id, s.name AS supplier, pu.status, pu.total_cents, pu.notes, pu.received_at, pu.updated_at
-     FROM purchases pu JOIN suppliers s ON s.id = pu.supplier_id WHERE pu.id = ?`,
+    `SELECT pu.id, pu.supplier_id, s.name AS supplier, pu.status, pu.total_cents, pu.notes, pu.received_at, pu.updated_at,
+            pu.payment_method_id, pu.installment_count, pu.first_due_date,
+            pu.late_fee_cents, pu.daily_interest_bps,
+            pm.name AS payment_method_name
+     FROM purchases pu JOIN suppliers s ON s.id = pu.supplier_id LEFT JOIN payment_methods pm ON pm.id = pu.payment_method_id WHERE pu.id = ?`,
     purchaseId,
   );
   audit(req, 'criar', 'purchase', purchaseId, null, { duplicatedFrom: id });

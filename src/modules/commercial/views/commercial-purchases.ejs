@@ -158,6 +158,7 @@
           <th @click="historySortCycle('supplier')" class="sortable">Fornecedor<span class="sort-arrow" x-text="historySortArrow('supplier')"></span></th>
           <th @click="historySortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="historySortArrow('status')"></span></th>
           <th @click="historySortCycle('total_cents')" class="sortable">Total<span class="sort-arrow" x-text="historySortArrow('total_cents')"></span></th>
+          <th>Pagamento</th>
           <th @click="historySortCycle('received_at')" class="sortable">Recebida em<span class="sort-arrow" x-text="historySortArrow('received_at')"></span></th>
           <th></th>
         </tr></thead>
@@ -168,6 +169,19 @@
               <td x-text="p.supplier"></td>
               <td><span class="badge" :class="p.status === 'recebida' ? 'ok' : (p.status === 'rascunho' ? 'off' : 'neutral')" x-text="p.status"></span></td>
               <td x-text="brl(p.total_cents)"></td>
+              <td class="muted">
+                <template x-if="p.payment_method_name">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <span x-text="p.payment_method_name + (p.installment_count > 1 ? ' ' + p.installment_count + 'x' : '')"></span>
+                    <span class="text-xs" x-show="p.late_fee_cents || p.daily_interest_bps" style="color:var(--text-muted)">
+                      <template x-if="p.late_fee_cents">Multa: <span x-text="brl(p.late_fee_cents)"></span></template>
+                      <template x-if="p.late_fee_cents && p.daily_interest_bps"> · </template>
+                      <template x-if="p.daily_interest_bps">Juros: <span x-text="(p.daily_interest_bps / 100).toFixed(2) + '% a.d.'"></span></template>
+                    </span>
+                  </div>
+                </template>
+                <span x-show="!p.payment_method_name">—</span>
+              </td>
               <td class="muted" x-text="p.received_at ? fmtDateTime(p.received_at) : '—'"></td>
               <td class="text-right" @click.stop>
                 <div class="dropdown" x-show="p.status !== 'cancelada'">
@@ -204,7 +218,7 @@
               </td>
             </tr>
           </template>
-          <tr x-show="!historyDisplayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma compra registrada ainda.' }) %></td></tr>
+          <tr x-show="!historyDisplayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma compra registrada ainda.' }) %></td></tr>
         </tbody>
       </table>
       <div class="pager" x-show="historyPageCount(historyTotal) > 1" x-cloak>
@@ -268,7 +282,7 @@
           <label>Observações (opcional)</label>
           <input type="text" class="input" x-model="checkoutNotes" placeholder="Nº da nota, condição, etc." />
         </div>
-        <button class="btn btn-full" @click="checkout()" :disabled="!checkoutSupplierId || !cart.length || checkingOut">
+        <button class="btn btn-full" @click="openPaymentDlg()" :disabled="!checkoutSupplierId || !cart.length || checkingOut">
           <template x-if="!checkingOut">
             <span style="display:inline-flex;align-items:center;gap:.4rem">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -373,7 +387,7 @@
     </dialog>
 
     <!-- ==================== HISTORY EDIT MODAL (reuse) ==================== -->
-    <dialog x-ref="historyDlg" class="dialog-fixed" style="width:min(680px,calc(100vw - 2rem))">
+    <dialog x-ref="historyDlg" class="dialog-fixed" style="width:min(900px,calc(100vw - 2rem))">
       <h1 x-text="historyForm.id ? 'Editar compra #' + historyForm.id : 'Nova compra'"></h1>
       <div class="dialog-body">
         <div class="field">
@@ -461,6 +475,16 @@
           <label>Observações</label>
           <input type="text" x-model="historyForm.notes" placeholder="Nº da nota, condição de pagamento, etc. (opcional)" />
         </div>
+        <template x-if="historyForm.payment_method_name">
+          <div class="muted text-sm" style="margin-top:.4rem">
+            Pagamento: <strong x-text="historyForm.payment_method_name + (historyForm.installment_count > 1 ? ' ' + historyForm.installment_count + 'x' : '')"></strong>
+            <span x-show="historyForm.late_fee_cents || historyForm.daily_interest_bps" class="text-xs" style="display:block;color:var(--text-muted)">
+              <template x-if="historyForm.late_fee_cents">Multa: <span x-text="brl(historyForm.late_fee_cents)"></span></template>
+              <template x-if="historyForm.late_fee_cents && historyForm.daily_interest_bps"> · </template>
+              <template x-if="historyForm.daily_interest_bps">Juros: <span x-text="(historyForm.daily_interest_bps / 100).toFixed(2) + '% a.d.'"></span></template>
+            </span>
+          </div>
+        </template>
         <p class="muted text-xs" x-show="historyForm.id && historyForm.status !== 'rascunho'" style="margin-top:.5rem">
           Compra já recebida — itens não podem mais ser alterados.
         </p>
@@ -491,6 +515,124 @@
         </template>
       </div>
     </dialog>
+
+    <!-- ==================== PAYMENT MODAL ==================== -->
+    <dialog x-ref="paymentDlg" class="dialog-fixed" style="width:min(480px,calc(100vw - 2rem))">
+      <div>
+        <h1>Finalizar compra</h1>
+        <div class="dialog-body">
+          <div class="field">
+            <label>Forma de pagamento</label>
+            <select x-model="checkoutPayment.methodId">
+              <option :value="null">Selecione…</option>
+              <template x-for="m in paymentMethods" :key="m.id">
+                <option :value="m.id" x-text="m.name"></option>
+              </template>
+            </select>
+          </div>
+
+          <div class="field" x-show="checkoutPayment.methodId">
+            <label>Tipo</label>
+            <div style="display:flex;gap:.5rem">
+              <label class="radio-label" style="flex:1">
+                <input type="radio" name="payType" :value="false" x-model="checkoutPayment.isInstallment" />
+                <span>À vista</span>
+              </label>
+              <label class="radio-label" style="flex:1">
+                <input type="radio" name="payType" :value="true" x-model="checkoutPayment.isInstallment" />
+                <span>A prazo</span>
+              </label>
+            </div>
+          </div>
+
+          <template x-if="checkoutPayment.methodId">
+            <div>
+              <!-- Parcelamento -->
+              <template x-if="checkoutPayment.isInstallment">
+                <div>
+                  <div class="field">
+                    <label>Parcelas</label>
+                    <select x-model.number="checkoutPayment.installmentCount">
+                      <template x-for="n in 12" :key="n">
+                        <option :value="n" x-text="n + 'x'"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Primeiro vencimento</label>
+                    <input type="date" x-model="checkoutPayment.firstDueDate" />
+                  </div>
+
+                  <!-- Tabela de parcelas -->
+                  <template x-if="checkoutPayment.installmentCount > 1 && checkoutPayment.firstDueDate">
+                    <div class="ps-installments">
+                      <label>Valor das parcelas</label>
+                      <table>
+                        <thead><tr>
+                          <th>#</th>
+                          <th>Vencimento</th>
+                          <th class="text-right">Valor</th>
+                        </tr></thead>
+                        <tbody>
+                          <template x-for="(parc, idx) in installmentRows" :key="idx">
+                            <tr>
+                              <td><span x-text="'Parcela ' + (idx + 1)"></span></td>
+                              <td><span x-text="parc.dueDate"></span></td>
+                              <td class="text-right"><strong x-text="brl(parc.amountCents)"></strong></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                      <div class="ps-installments-total">
+                        <span>Total parcelado</span>
+                        <strong x-text="brl(cartTotal())"></strong>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <!-- Multa e juros (mostra para à vista e a prazo) -->
+              <div style="margin-top:.75rem;border-top:1px solid var(--border-light);padding-top:.75rem">
+                <label style="font-weight:500;font-size:.9rem;margin-bottom:.4rem">Encargos por atraso</label>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                  <div class="field" style="flex:1;min-width:140px">
+                    <label class="text-xs">Multa (R$)</label>
+                    <input type="text" placeholder="0,00" x-model="checkoutPayment.lateFeeStr" @input="checkoutPayment.lateFeeStr = maskMoney(checkoutPayment.lateFeeStr)" />
+                  </div>
+                  <div class="field" style="flex:1;min-width:140px">
+                    <label class="text-xs">Juros ao dia (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" placeholder="0,00" x-model.number="checkoutPayment.dailyInterestPct" />
+                  </div>
+                </div>
+                <p class="text-xs muted" style="margin-top:2px">Multa fixa sobre o valor total em caso de atraso. Juros corridos diariamente sobre o saldo devedor.</p>
+              </div>
+            </div>
+          </template>
+
+          <div class="ps-cart-total" style="margin-top:.75rem">
+            <span>Total</span>
+            <strong x-text="brl(cartTotal())"></strong>
+          </div>
+          <div class="ps-cart-field">
+            <label>Observações (opcional)</label>
+            <input type="text" class="input" x-model="checkoutNotes" placeholder="Nº da nota, condição, etc." />
+          </div>
+          <p class="text-xs muted" style="margin-top:.3rem">A compra será criada como rascunho. Vá em <strong>Histórico</strong> para revisar e receber no estoque.</p>
+          <div class="error" x-text="checkoutError" x-show="checkoutError"></div>
+        </div>
+        <div class="actions">
+          <button class="btn secondary" @click="clearPayment(); $refs.paymentDlg.close()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+            Cancelar
+          </button>
+          <button class="btn" @click="confirmPayment()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Confirmar compra
+          </button>
+        </div>
+      </div>
+    </dialog>
   </main>
 
   <%- include('partials/confirm') %>
@@ -509,6 +651,10 @@
       viewMode: localStorage.getItem('ps-view-mode') || 'card',
       searchQuery: '',
       selectedCategory: '',
+
+      // ─── Payment ───
+      paymentMethods: [],
+      checkoutPayment: { methodId: null, isInstallment: false, installmentCount: 1, firstDueDate: '', lateFeeStr: '', lateFeeCents: 0, dailyInterestPct: 0, dailyInterestBps: 0 },
 
       // ─── Cart ───
       cartOpen: false,
@@ -614,14 +760,16 @@
       async init() {
         this.loaded = false;
         try {
-          const [prods, supps, hist] = await Promise.all([
+          const [prods, supps, hist, paym] = await Promise.all([
             fetch('/api/commercial/products').then(r => r.json()),
             fetch('/api/commercial/suppliers').then(r => r.json()),
             fetch('/api/commercial/purchases').then(r => r.json()),
+            fetch('/api/finance/payment-methods/active').then(r => r.json()).catch(() => []),
           ]);
           this.products = prods;
           this.suppliers = supps;
           this.historyRows = hist;
+          this.paymentMethods = paym;
         } catch (e) {
           this.error = 'Erro ao carregar dados.';
         }
@@ -701,6 +849,45 @@
       cartRemove(idx) { this.cart.splice(idx, 1); if (!this.cart.length) this.cartOpen = false; },
       cartTotal() { return this.cart.reduce((a, i) => a + Math.round(i.qty * i.unitCostCents), 0); },
 
+      // ─── Installment rows computed ───
+      get installmentRows() {
+        const total = this.cartTotal();
+        const n = this.checkoutPayment.installmentCount || 1;
+        if (n <= 1 || !this.checkoutPayment.firstDueDate) return [];
+        const base = Math.floor(total / n);
+        const remainder = total - base * n;
+        const rows = [];
+        const firstDate = new Date(this.checkoutPayment.firstDueDate + 'T00:00:00');
+        for (let i = 0; i < n; i++) {
+          const due = new Date(firstDate);
+          due.setMonth(due.getMonth() + i);
+          const y = due.getFullYear();
+          const m = String(due.getMonth() + 1).padStart(2, '0');
+          const d = String(due.getDate()).padStart(2, '0');
+          rows.push({
+            dueDate: y + '-' + m + '-' + d,
+            amountCents: base + (i === n - 1 ? remainder : 0),
+          });
+        }
+        return rows;
+      },
+
+      // ─── Payment modal ───
+      openPaymentDlg() {
+        if (!this.checkoutSupplierId || !this.cart.length) return;
+        this.checkoutPayment = { methodId: null, isInstallment: false, installmentCount: 1, firstDueDate: '', lateFeeStr: '', lateFeeCents: 0, dailyInterestPct: 0, dailyInterestBps: 0 };
+        this.$refs.paymentDlg.showModal();
+      },
+      clearPayment() {
+        this.checkoutPayment = { methodId: null, isInstallment: false, installmentCount: 1, firstDueDate: '', lateFeeStr: '', lateFeeCents: 0, dailyInterestPct: 0, dailyInterestBps: 0 };
+      },
+      confirmPayment() {
+        this.checkoutPayment.lateFeeCents = this.cents(this.checkoutPayment.lateFeeStr || '0');
+        this.checkoutPayment.dailyInterestBps = Math.round((this.checkoutPayment.dailyInterestPct || 0) * 100);
+        this.$refs.paymentDlg.close();
+        this.checkout();
+      },
+
       // ─── Checkout ───
       async checkout() {
         if (!this.checkoutSupplierId || !this.cart.length) return;
@@ -708,15 +895,23 @@
         this.checkoutError = '';
         try {
           const items = this.cart.map(i => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents }));
+          const body = {
+            supplierId: this.checkoutSupplierId,
+            items,
+            notes: this.checkoutNotes || undefined,
+            status: 'rascunho',
+          };
+          if (this.checkoutPayment.methodId) {
+            body.paymentMethodId = this.checkoutPayment.methodId;
+            body.installmentCount = this.checkoutPayment.isInstallment ? (this.checkoutPayment.installmentCount || 1) : 1;
+            body.firstDueDate = this.checkoutPayment.firstDueDate || null;
+            body.lateFeeCents = this.checkoutPayment.lateFeeCents || 0;
+            body.dailyInterestBps = this.checkoutPayment.dailyInterestBps || 0;
+          }
           const r = await fetch('/api/commercial/purchases', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              supplierId: this.checkoutSupplierId,
-              items,
-              notes: this.checkoutNotes || undefined,
-              status: 'rascunho',
-            }),
+            body: JSON.stringify(body),
           });
           if (r.ok) {
             const created = await r.json();
@@ -724,6 +919,7 @@
             this.cartOpen = false;
             this.checkoutSupplierId = '';
             this.checkoutNotes = '';
+            this.checkoutPayment = { methodId: null, isInstallment: false, installmentCount: 1, firstDueDate: '', lateFeeStr: '', lateFeeCents: 0, dailyInterestPct: 0, dailyInterestBps: 0 };
             // Reload history
             const hist = await fetch('/api/commercial/purchases').then(r2 => r2.json());
             this.historyRows = hist;
@@ -778,7 +974,7 @@
         this.$refs.historyDlg.showModal();
       },
       async historyEdit(p) {
-        this.historyForm = { id: p.id, supplierId: p.supplier_id, notes: p.notes ?? '', status: p.status, items: [] };
+        this.historyForm = { id: p.id, supplierId: p.supplier_id, notes: p.notes ?? '', status: p.status, items: [], payment_method_name: p.payment_method_name, installment_count: p.installment_count, late_fee_cents: p.late_fee_cents, daily_interest_bps: p.daily_interest_bps };
         this.historyItem = {}; this.historyComboResults = []; this.historyDlgError = '';
         if (p.status === 'rascunho') {
           const r = await fetch('/api/commercial/purchases/' + p.id + '/items');

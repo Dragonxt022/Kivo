@@ -7,15 +7,22 @@ export class PurchaseRepository extends BaseRepository {
 
   listAll(): Row[] {
     return this.raw(
-      `SELECT pu.id, pu.supplier_id, s.name AS supplier, pu.status, pu.total_cents, pu.notes, pu.received_at, pu.updated_at
-       FROM purchases pu JOIN suppliers s ON s.id = pu.supplier_id
+      `SELECT pu.id, pu.supplier_id, s.name AS supplier, pu.status, pu.total_cents, pu.notes, pu.received_at, pu.updated_at,
+              pu.payment_method_id, pu.installment_count, pu.first_due_date,
+              pu.late_fee_cents, pu.daily_interest_bps,
+              pm.name AS payment_method_name
+       FROM purchases pu
+       JOIN suppliers s ON s.id = pu.supplier_id
+       LEFT JOIN payment_methods pm ON pm.id = pu.payment_method_id
        WHERE pu.deleted_at IS NULL ORDER BY pu.id DESC`,
     );
   }
 
   findDetail(id: number | string): Row | undefined {
     return this.rawOne(
-      `SELECT id, supplier_id, status, total_cents, notes, received_at, updated_at
+      `SELECT id, supplier_id, status, total_cents, notes, received_at, updated_at,
+              payment_method_id, installment_count, first_due_date,
+              late_fee_cents, daily_interest_bps
        FROM purchases WHERE id = ? AND deleted_at IS NULL`,
       id,
     );
