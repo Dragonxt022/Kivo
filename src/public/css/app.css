@@ -739,8 +739,6 @@ td {
   font-size: 0.9rem;
   border-bottom: 1px solid var(--glass-border);
   background: var(--glass-strong);
-  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
 }
 th {
   color: var(--text-muted);
@@ -2391,7 +2389,7 @@ dialog.wizard-dialog {
   display: flex;
   gap: 0.4rem;
   flex: 1;
-  max-width: 360px;
+  max-width: 90%;
 }
 .search-filter input {
   flex: 1;

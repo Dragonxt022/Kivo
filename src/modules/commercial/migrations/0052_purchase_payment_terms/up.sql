@@ -1,0 +1,2 @@
+ALTER TABLE purchases ADD COLUMN late_fee_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE purchases ADD COLUMN daily_interest_bps INTEGER NOT NULL DEFAULT 0;
