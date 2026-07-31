@@ -268,6 +268,59 @@
           <span class="muted" x-show="cleared" x-cloak>Histórico limpo.</span>
         </div>
       </section>
+
+      <section class="panel" x-data="{
+        interfaceMode: document.documentElement.getAttribute('data-interface') || 'cards',
+        setInterfaceMode(v) {
+          if (v === this.interfaceMode) return;
+          this.interfaceMode = v;
+          try { localStorage.setItem('kivo-interface', v); } catch (e) {}
+          location.reload();
+        },
+        colorTheme: document.documentElement.getAttribute('data-color-theme') || 'orange',
+        customColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch(e){ return '#ff8000'; } })(),
+        setColorTheme(id) {
+          this.colorTheme = id;
+          var s = document.documentElement.style;
+          s.removeProperty('--primary'); s.removeProperty('--icon-color');
+          s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
+          document.documentElement.setAttribute('data-color-theme', id);
+          try { localStorage.setItem('kivo-color-theme', id); } catch (e) {}
+        },
+        setCustomColor(hex) {
+          this.customColor = hex; this.colorTheme = 'custom';
+          document.documentElement.setAttribute('data-color-theme', 'custom');
+          window.__kivoApplyCustomColor(hex);
+          try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch (e) {}
+        },
+      }">
+        <h2>Interface e cores</h2>
+        <p class="hint mt-0">Esta preferência vale só neste computador.</p>
+
+        <div class="field">
+          <label>Tela inicial</label>
+          <div class="choice-grid" style="max-width:420px">
+            <button type="button" class="choice-card" :class="interfaceMode === 'cards' ? 'selected' : ''" @click="setInterfaceMode('cards')">
+              <span class="choice-label">Cartões</span>
+              <span class="choice-desc">Tela inicial com ícones</span>
+            </button>
+            <button type="button" class="choice-card" :class="interfaceMode === 'sidebar' ? 'selected' : ''" @click="setInterfaceMode('sidebar')">
+              <span class="choice-label">Menu lateral</span>
+              <span class="choice-desc">Menu fixo à esquerda</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Cor de destaque</label>
+          <div class="color-swatch-row">
+            <template x-for="p in KIVO_COLOR_PRESETS" :key="p.id">
+              <button type="button" class="color-swatch" :class="colorTheme === p.id ? 'selected' : ''" :style="{ background: p.hex }" @click="setColorTheme(p.id)" :title="p.id"></button>
+            </template>
+            <input type="color" class="color-swatch color-swatch-custom" :value="customColor" @input="setCustomColor($event.target.value)" title="Cor personalizada" />
+          </div>
+        </div>
+      </section>
     </div>
 
     <!-- ═══════ ABA: FINANCEIRO ═══════ -->

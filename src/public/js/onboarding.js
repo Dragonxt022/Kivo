@@ -3,8 +3,31 @@ function onboardingWizard() {
     open: false,
     mode: 'first-run', // 'first-run' | 'reopen'
     step: 0,
-    totalSteps: 6,
+    totalSteps: 7,
     answers: { usage: null, businessType: null, activePaymentMethodIds: [] },
+    // Preferências de interface/cor (localStorage, per-máquina) — nunca vão em `answers`
+    // nem no POST de /api/onboarding/provision, que é só pra dados de negócio.
+    uiInterface: (function(){ try { return localStorage.getItem('kivo-interface') || 'cards'; } catch(e){ return 'cards'; } })(),
+    uiColorTheme: (function(){ try { return localStorage.getItem('kivo-color-theme') || 'orange'; } catch(e){ return 'orange'; } })(),
+    uiCustomColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch(e){ return '#ff8000'; } })(),
+    chooseInterface(v) {
+      this.uiInterface = v;
+      try { localStorage.setItem('kivo-interface', v); } catch (e) {}
+    },
+    chooseColorPreset(id) {
+      this.uiColorTheme = id;
+      var s = document.documentElement.style;
+      s.removeProperty('--primary'); s.removeProperty('--icon-color');
+      s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
+      document.documentElement.setAttribute('data-color-theme', id);
+      try { localStorage.setItem('kivo-color-theme', id); } catch (e) {}
+    },
+    chooseCustomColor(hex) {
+      this.uiCustomColor = hex; this.uiColorTheme = 'custom';
+      document.documentElement.setAttribute('data-color-theme', 'custom');
+      window.__kivoApplyCustomColor(hex);
+      try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch (e) {}
+    },
     paymentMethods: [],
     loading: false,
     error: '',

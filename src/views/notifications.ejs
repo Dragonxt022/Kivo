@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Notificações</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'notifications' }) %>
+  <main x-data="notificationsPage()" x-init="init()">
+    <h1>Notificações</h1>
+
+    <div class="tabs product-tabs">
+      <button type="button" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
+        Todas <span class="tab-count" x-text="notifications.length"></span>
+      </button>
+      <template x-for="cat in categories" :key="cat.type">
+        <button type="button" :class="{ active: activeTab === cat.type }" @click="activeTab = cat.type" x-show="countByType(cat.type)">
+          <span x-text="cat.label"></span> <span class="tab-count" x-text="countByType(cat.type)"></span>
+        </button>
+      </template>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:1rem">
+      <button class="btn secondary small" @click="markAllRead()" :disabled="!unreadCount">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Marcar todas como lidas
+      </button>
+      <span class="muted" x-show="notifications.length" x-text="unreadCount + ' não lida(s) de ' + notifications.length"></span>
+    </div>
+
+    <div class="notif-list">
+      <template x-if="loading">
+        <p class="muted">Carregando…</p>
+      </template>
+      <template x-if="!loading && !notifications.length">
+        <p class="muted muted-block">Nenhuma notificação por aqui.</p>
+      </template>
+      <template x-if="!loading && notifications.length && !filteredNotifications.length">
+        <p class="muted muted-block">Nenhuma notificação nesta categoria.</p>
+      </template>
+      <template x-for="n in filteredNotifications" :key="n.id">
+        <div class="notif-row" :class="{ unread: !n.read }">
+          <span class="notif-icon" x-html="notifIconSvg(n.type)"></span>
+          <a :href="n.link" class="notif-msg" @click="markRead(n.id)" x-text="n.message"></a>
+          <div class="notif-actions">
+            <button type="button" @click="markRead(n.id)" x-show="!n.read" title="Marcar como lida" aria-label="Marcar como lida">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+            <button type="button" @click="dismiss(n.id)" title="Excluir" aria-label="Excluir notificação">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </main>
+
+  <script>
+    const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
+
+    function notificationsPage() {
+      return {
+        loading: true,
+        activeTab: 'all',
+        categories: [
+          { type: 'payable', label: 'A pagar' },
+          { type: 'receivable', label: 'A receber' },
+          { type: 'cash', label: 'Caixa' },
+          { type: 'billing', label: 'Cobranças' },
+          { type: 'trial', label: 'Sistema' },
+        ],
+        countByType(type) { return this.notifications.filter((n) => n.type === type).length; },
+        get filteredNotifications() {
+          return this.activeTab === 'all' ? this.notifications : this.notifications.filter((n) => n.type === this.activeTab);
+        },
+        billingAlert: null,
+        licenseStatus: null,
+        cashAlert: null,
+        upcomingBills: null,
+        notifUserKey: <%- JSON.stringify(user ? user.username : '') %>,
+        notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles' },
+        notifRead: [],
+        notifDismissed: [],
+
+        notifIconSvg(type) {
+          const name = this.notifIconMap[type];
+          return (name && SVG_ICONS[name]) || '';
+        },
+        fmtDueDate(raw) {
+          const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ''));
+          return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
+        },
+        notifKey(kind) {
+          return 'kivo-notif-' + kind + ':' + (this.notifUserKey || 'anon');
+        },
+        loadNotifState() {
+          try { this.notifRead = JSON.parse(localStorage.getItem(this.notifKey('read')) || '[]'); } catch (e) { this.notifRead = []; }
+          try { this.notifDismissed = JSON.parse(localStorage.getItem(this.notifKey('dismissed')) || '[]'); } catch (e) { this.notifDismissed = []; }
+        },
+        saveNotifState() {
+          try { localStorage.setItem(this.notifKey('read'), JSON.stringify(this.notifRead)); } catch (e) {}
+          try { localStorage.setItem(this.notifKey('dismissed'), JSON.stringify(this.notifDismissed)); } catch (e) {}
+          window.dispatchEvent(new CustomEvent('kivo-notif-changed'));
+        },
+        rawNotifications() {
+          const list = [];
+          if (this.upcomingBills) {
+            for (const p of this.upcomingBills.payables || []) {
+              list.push({ id: 'p' + p.id, type: 'payable', message: `A pagar: ${p.description} — vence ${this.fmtDueDate(p.due_date)}`, link: '/app/finance/pagar' });
+            }
+            for (const r of this.upcomingBills.receivables || []) {
+              list.push({ id: 'r' + r.id, type: 'receivable', message: `A receber: ${r.description} — vence ${this.fmtDueDate(r.due_date)}`, link: '/app/finance/receber' });
+            }
+          }
+          if (this.cashAlert) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
+          if (this.billingAlert && this.billingAlert.count) {
+            list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
+          }
+          if (this.licenseStatus && this.licenseStatus.plan === 'trial' && this.licenseStatus.status !== 'expirada') {
+            const d = this.licenseStatus.daysRemaining;
+            const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
+            list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
+          }
+          return list;
+        },
+        get notifications() {
+          return this.rawNotifications()
+            .filter((n) => !this.notifDismissed.includes(n.id))
+            .map((n) => ({ ...n, read: this.notifRead.includes(n.id) }));
+        },
+        get unreadCount() {
+          return this.notifications.filter((n) => !n.read).length;
+        },
+        pruneNotifState() {
+          const ids = new Set(this.rawNotifications().map((n) => n.id));
+          const nextRead = this.notifRead.filter((id) => ids.has(id));
+          const nextDismissed = this.notifDismissed.filter((id) => ids.has(id));
+          if (nextRead.length !== this.notifRead.length || nextDismissed.length !== this.notifDismissed.length) {
+            this.notifRead = nextRead;
+            this.notifDismissed = nextDismissed;
+            this.saveNotifState();
+          }
+        },
+        markRead(id) {
+          if (!this.notifRead.includes(id)) { this.notifRead.push(id); this.saveNotifState(); }
+        },
+        markAllRead() {
+          this.notifRead = this.rawNotifications().map((n) => n.id);
+          this.saveNotifState();
+        },
+        dismiss(id) {
+          if (!this.notifDismissed.includes(id)) { this.notifDismissed.push(id); this.saveNotifState(); }
+        },
+
+        async init() {
+          this.loadNotifState();
+          window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
+          const jobs = [];
+          <% if (user.permissions.has('billing.view')) { %>
+          jobs.push(fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.count) this.billingAlert = d; }).catch(() => {}));
+          <% } %>
+          jobs.push(fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((d) => { this.licenseStatus = d; }).catch(() => {}));
+          <% if (user.permissions.has('finance.cash.view')) { %>
+          jobs.push(fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.open && d.openTooLong) this.cashAlert = d; }).catch(() => {}));
+          <% } %>
+          <% if (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view')) { %>
+          jobs.push(fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((d) => { if (d) this.upcomingBills = d; }).catch(() => {}));
+          <% } %>
+          await Promise.all(jobs);
+          this.pruneNotifState();
+          this.loading = false;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

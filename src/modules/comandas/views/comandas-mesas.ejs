@@ -148,8 +148,8 @@
         async load() {
           if (this.dragId !== null) return;
           const r = await fetch('/api/comandas/tables/status');
-          if (r.ok) this.tables = await r.json();
-          else showToast((await r.json()).error ?? 'Erro ao carregar mesas.', 'error');
+          if (r.ok) { this.tables = await r.json(); return; }
+          window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar mesas.');
         },
         onCardPointerDown(e, t) {
           if (!this.canManage || e.pointerType === 'mouse' && e.button !== 0) return;

@@ -170,6 +170,61 @@
       <p>Comida que alimenta, sistema que organiza.</p>
     </div>
 
+    <%
+      var showDashCash = user.permissions.has('finance.cash.view');
+      var showDashBills = user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view');
+      var showDashSales = user.permissions.has('store.reports.view');
+    %>
+    <% if (showDashCash || showDashBills || showDashSales) { %>
+    <div x-data="homeDashboard()" x-init="init()">
+      <div class="home-dashboard">
+        <% if (showDashCash) { %>
+        <a href="/app/finance/caixa" class="stat-tile">
+          <div class="stat-tile-label">Caixa</div>
+          <div class="stat-tile-value" x-text="loading ? '…' : (cash && cash.open ? brl(cash.expectedCents) : brl(0))"></div>
+          <div class="stat-tile-status" :class="cash && cash.open ? 'good' : 'muted'" x-show="!loading" x-text="cash && cash.open ? 'Caixa aberto' : 'Caixa fechado'"></div>
+        </a>
+        <% } %>
+        <% if (showDashBills) { %>
+        <a href="/app/finance/pagar" class="stat-tile">
+          <div class="stat-tile-label">Contas a vencer</div>
+          <div class="stat-tile-value" x-text="loading ? '…' : (bills ? bills.count : 0)"></div>
+          <div class="stat-tile-status" :class="bills && bills.count > 0 ? 'warning' : 'muted'" x-show="!loading">próximos 3 dias</div>
+        </a>
+        <% } %>
+        <% if (showDashSales) { %>
+        <a href="/app/store/vendas" class="stat-tile">
+          <div class="stat-tile-label">Vendas hoje</div>
+          <div class="stat-tile-value" x-text="loading ? '…' : brl(salesToday ? salesToday.total_cents : 0)"></div>
+          <div class="stat-tile-status good" x-show="!loading" x-text="(salesToday ? salesToday.vendas : 0) + ' venda(s)'"></div>
+        </a>
+        <% } %>
+      </div>
+
+      <% if (showDashSales) { %>
+      <div class="dashboard-chart-panel">
+        <div class="dashboard-chart-header">
+          <h2>Evolução do negócio</h2>
+          <div class="period-toggle">
+            <button type="button" :class="{ active: period === 'week' }" @click="setPeriod('week')">Semana</button>
+            <button type="button" :class="{ active: period === 'month' }" @click="setPeriod('month')">Mês</button>
+            <button type="button" :class="{ active: period === 'year' }" @click="setPeriod('year')">Ano</button>
+          </div>
+        </div>
+        <div class="bar-chart">
+          <template x-for="(b, idx) in trend" :key="period + '-' + b.key">
+            <div class="bar-col" @mouseenter="hoverBar = idx" @mouseleave="hoverBar = null">
+              <div class="bar-tooltip" x-show="hoverBar === idx" x-text="b.label + ': ' + brl(b.totalCents)"></div>
+              <div class="bar-fill" :style="{ height: (maxTrend ? (b.totalCents / maxTrend * 100) : 0) + '%' }"></div>
+              <span class="bar-label" x-text="b.label"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
+
     <div class="search-wrap">
       <span class="search-icon"><%- svgIcon('search', 18, 18) %></span>
       <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
@@ -587,6 +642,45 @@
             this.loginUser = '';
             this.loginPass = '';
           }
+        },
+      };
+    }
+
+    function homeDashboard() {
+      return {
+        loading: true,
+        cash: null,
+        bills: null,
+        salesToday: null,
+        period: 'month',
+        trend: [],
+        hoverBar: null,
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        get maxTrend() { return Math.max(1, ...this.trend.map((b) => b.totalCents)); },
+        async loadTrend() {
+          const r = await fetch('/api/store/reports/revenue-trend?period=' + this.period);
+          if (r.ok) this.trend = (await r.json()).buckets;
+        },
+        setPeriod(p) {
+          if (p === this.period) return;
+          this.period = p;
+          this.loadTrend();
+        },
+        async init() {
+          if (document.documentElement.getAttribute('data-interface') !== 'sidebar') { this.loading = false; return; }
+          const jobs = [];
+          <% if (user && user.permissions.has('finance.cash.view')) { %>
+          jobs.push(fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((d) => { this.cash = d; }).catch(() => {}));
+          <% } %>
+          <% if (user && (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view'))) { %>
+          jobs.push(fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((d) => { this.bills = d; }).catch(() => {}));
+          <% } %>
+          <% if (user && user.permissions.has('store.reports.view')) { %>
+          jobs.push(fetch('/api/store/reports/daily').then((r) => r.ok ? r.json() : null).then((d) => { this.salesToday = d ? d.totals : null; }).catch(() => {}));
+          jobs.push(this.loadTrend());
+          <% } %>
+          await Promise.all(jobs);
+          this.loading = false;
         },
       };
     }

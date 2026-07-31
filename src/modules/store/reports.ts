@@ -45,3 +45,73 @@ export function cashRegisterReport(registerId: number): CashRegisterReport {
 
   return { totals, byPayment, topProducts, sales };
 }
+
+export type RevenueTrendPeriod = 'week' | 'month' | 'year';
+export interface RevenueTrendBucket { key: string; label: string; totalCents: number }
+export interface RevenueTrendReport { period: RevenueTrendPeriod; buckets: RevenueTrendBucket[] }
+
+const MONTH_LABELS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+function fmtDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Limites (from/to, formato YYYY-MM-DD) de cada balde do período pedido, do mais
+ * antigo pro mais recente — semana alinhada à segunda-feira, mês e ano de calendário. */
+function buildBuckets(period: RevenueTrendPeriod): { key: string; label: string; from: string; to: string }[] {
+  const now = new Date();
+  const buckets: { key: string; label: string; from: string; to: string }[] = [];
+
+  if (period === 'week') {
+    const dayOfWeek = now.getDay(); // 0 = domingo
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+    for (let i = 7; i >= 0; i--) {
+      const start = new Date(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate() - i * 7);
+      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+      buckets.push({ key: fmtDate(start), label: `${pad2(start.getDate())}/${pad2(start.getMonth() + 1)}`, from: fmtDate(start), to: fmtDate(end) });
+    }
+  } else if (period === 'year') {
+    for (let i = 4; i >= 0; i--) {
+      const y = now.getFullYear() - i;
+      buckets.push({ key: String(y), label: String(y), from: `${y}-01-01`, to: `${y}-12-31` });
+    }
+  } else {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      buckets.push({ key: `${y}-${pad2(m + 1)}`, label: MONTH_LABELS[m], from: `${y}-${pad2(m + 1)}-01`, to: `${y}-${pad2(m + 1)}-${pad2(lastDay)}` });
+    }
+  }
+  return buckets;
+}
+
+/** Evolução do faturamento por semana/mês/ano — soma vendas concluídas por dia no
+ * intervalo total e distribui pros baldes em JS (evita depender do strftime('%W')
+ * do SQLite pra numeração de semana, que não bate com semana começando na segunda). */
+export function revenueTrend(period: RevenueTrendPeriod): RevenueTrendReport {
+  const buckets = buildBuckets(period);
+  const from = buckets[0].from;
+  const to = buckets[buckets.length - 1].to;
+  const rows = saleRepository.raw(
+    `SELECT date(created_at) AS day, COALESCE(SUM(total_cents), 0) AS total_cents
+     FROM sales WHERE status = 'concluida' AND deleted_at IS NULL AND date(created_at) BETWEEN ? AND ?
+     GROUP BY date(created_at)`,
+    from, to,
+  ) as { day: string; total_cents: number }[];
+
+  return {
+    period,
+    buckets: buckets.map((b) => ({
+      key: b.key,
+      label: b.label,
+      totalCents: rows.filter((r) => r.day >= b.from && r.day <= b.to).reduce((s, r) => s + r.total_cents, 0),
+    })),
+  };
+}

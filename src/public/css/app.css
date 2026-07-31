@@ -27,6 +27,8 @@
   --radius-full: 9999px;
   --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
   --header-height: 56px;
+  --sidebar-width: 250px;
+  --sidebar-width-collapsed: 68px;
   /* Categórico fixo (DRE): 1 cor por linha do demonstrativo, sempre na mesma ordem —
      identidade visual, nunca usado como cor de valor/texto (ver dre-relatorio.ejs). */
   --dre-receita: var(--primary);
@@ -75,6 +77,53 @@
   --glass-ring: rgba(0, 0, 0, 0.5);
   --glass-blur: 20px;
   --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 62%);
+}
+
+/* ─── Presets de cor (Configurações → Interface / assistente de boas-vindas) ───
+   'orange' não precisa de bloco: é o valor padrão já hardcoded acima. 'custom' também
+   não tem bloco — é aplicado via inline style em :root por __kivoApplyCustomColor()
+   (ver partials/theme-init.ejs), que tem precedência sobre estas regras. */
+:root[data-color-theme='blue'] {
+  --primary: #2563eb;
+  --icon-color: #2563eb;
+  --primary-hover: #3b82f6;
+  --primary-bg: color-mix(in srgb, #2563eb 8%, transparent);
+}
+:root[data-color-theme='green'] {
+  --primary: #16a34a;
+  --icon-color: #16a34a;
+  --primary-hover: #22c55e;
+  --primary-bg: color-mix(in srgb, #16a34a 8%, transparent);
+}
+:root[data-color-theme='pink'] {
+  --primary: #ec4899;
+  --icon-color: #ec4899;
+  --primary-hover: #f472b6;
+  --primary-bg: color-mix(in srgb, #ec4899 8%, transparent);
+}
+:root[data-color-theme='black'] {
+  --primary: #18181b;
+  --icon-color: #18181b;
+  --primary-hover: #3f3f46;
+  --primary-bg: color-mix(in srgb, #18181b 8%, transparent);
+}
+:root[data-theme='dark'][data-color-theme='blue'] {
+  --primary-bg: color-mix(in srgb, #2563eb 16%, transparent);
+}
+:root[data-theme='dark'][data-color-theme='green'] {
+  --primary-bg: color-mix(in srgb, #16a34a 16%, transparent);
+}
+:root[data-theme='dark'][data-color-theme='pink'] {
+  --primary-bg: color-mix(in srgb, #ec4899 16%, transparent);
+}
+/* #18181b fica praticamente invisível sobre --bg/--surface escuros (ver linhas 49-50) —
+   só esta variante reabre --primary/--icon-color/--primary-hover no escuro, com um
+   cinza mais claro. */
+:root[data-theme='dark'][data-color-theme='black'] {
+  --primary: #71717a;
+  --icon-color: #71717a;
+  --primary-hover: #a1a1aa;
+  --primary-bg: color-mix(in srgb, #71717a 16%, transparent);
 }
 
 :root[data-theme='dark'] header.nav,
@@ -499,6 +548,154 @@ header.nav .btn-link:hover {
 
 /* dark mode adjustments already covered by CSS variables */
 
+/* ─── Sidebar persistente (data-interface='sidebar') ───
+   Fica sempre no DOM (renderizada em partials/nav.ejs) mas só aparece quando o modo de
+   interface é 'sidebar' — evita qualquer flash em modo 'cards' (padrão). */
+.app-sidebar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-width);
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border-light);
+  z-index: 300;
+  transition:
+    width var(--transition),
+    transform var(--transition);
+}
+:root[data-interface='sidebar'] {
+  --sidebar-effective-width: var(--sidebar-width);
+}
+:root[data-interface='sidebar'][data-sidebar-collapsed='1'] {
+  --sidebar-effective-width: var(--sidebar-width-collapsed);
+}
+:root[data-interface='sidebar'] .app-sidebar {
+  display: flex;
+  width: var(--sidebar-effective-width);
+}
+:root[data-interface='sidebar'][data-sidebar-collapsed='1'] .app-sidebar-item-label,
+:root[data-interface='sidebar'][data-sidebar-collapsed='1'] .app-sidebar-group,
+:root[data-interface='sidebar'][data-sidebar-collapsed='1'] .app-sidebar-search {
+  display: none;
+}
+:root[data-interface='sidebar'][data-sidebar-collapsed='1'] .app-sidebar-item {
+  justify-content: center;
+}
+.app-sidebar-search {
+  position: relative;
+  margin: 0.75rem;
+  flex-shrink: 0;
+}
+.app-sidebar-search .search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--icon-color);
+  display: flex;
+  pointer-events: none;
+}
+.app-sidebar-search input {
+  width: 100%;
+  padding: 0.5rem 0.7rem 0.5rem 2rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--surface-hover);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.app-sidebar-search input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.app-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0 0.5rem 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.app-sidebar-list::-webkit-scrollbar {
+  width: 6px;
+}
+.app-sidebar-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-sidebar-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-full);
+}
+.app-sidebar-group {
+  padding: 0.6rem 0.75rem 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.app-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  /* "Início"/"Wiki" são filhos flex diretos de .app-sidebar-list (os itens de módulo
+     ficam num <div> por grupo, que absorve o próprio espaço); overflow:hidden zera o
+     tamanho mínimo automático de um item flex, então sem isso o algoritmo de flex-shrink
+     espremia só esses dois quase a zero quando a lista não cabia — encolhendo só o
+     "Início" (visível pelo fundo ativo ficar menor que o ícone/texto) em vez de rolar. */
+  flex-shrink: 0;
+  transition:
+    color var(--transition),
+    background var(--transition);
+}
+.app-sidebar-item svg {
+  /* Ícones de módulo vêm crus de NAV_SVG_ICONS (x-html) — cada arquivo em
+     public/icons/ tem seu próprio width/height "de fábrica" (32, 60, 64px…),
+     todos com viewBox 0 0 24 24. Força um tamanho único; a escala por viewBox
+     continua correta. */
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.8;
+  color: var(--icon-color);
+}
+.app-sidebar-item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.app-sidebar-item.active {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+.app-sidebar-item.active svg {
+  opacity: 1;
+}
+/* Especificidade igual a "header.nav .btn-icon" (que define display:grid) — precisa
+   bater de igual pra igual e vencer por ordem (esta regra vem depois no arquivo). */
+header.nav .sidebar-collapse-btn {
+  display: none;
+}
+:root[data-interface='sidebar'] header.nav .sidebar-collapse-btn {
+  display: grid;
+}
+:root[data-interface='sidebar'] .apps-toggle-btn {
+  display: none;
+}
+
 /* ─── Main ───
    Mesma largura do header.nav (width: calc(100% - 32px), max-width: 1100px) — as bordas
    do conteúdo ficam alinhadas com a barra flutuante em qualquer resolução. Telas densas
@@ -508,6 +705,205 @@ main {
   width: calc(100% - 32px);
   max-width: 1100px;
   margin: 0 auto;
+}
+
+/* Modo sidebar: o header deixa de ser a pílula flutuante centralizada e o main deixa
+   de ter max-width/centralização — ambos passam a começar depois da sidebar, sem o
+   respiro grande que sobraria se só a sidebar fosse adicionada por cima do layout atual. */
+:root[data-interface='sidebar'] body {
+  padding-top: var(--header-height);
+}
+:root[data-interface='sidebar'] header.nav {
+  top: 0;
+  left: var(--sidebar-effective-width);
+  transform: none;
+  width: calc(100% - var(--sidebar-effective-width));
+  max-width: none;
+  border-radius: 0;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 0 var(--border-light);
+  transition:
+    left var(--transition),
+    width var(--transition);
+}
+:root[data-interface='sidebar'] main {
+  margin: 0;
+  margin-left: var(--sidebar-effective-width);
+  width: calc(100% - var(--sidebar-effective-width));
+  max-width: none;
+  transition:
+    margin-left var(--transition),
+    width var(--transition);
+}
+/* Só a busca do topo some (duplicada pela busca já embutida na sidebar) — os cartões
+   continuam, senão a tela inicial fica vazia embaixo da saudação. */
+/* A navegação já mora na sidebar persistente — repetir os cartões aqui seria
+   redundante, então esta seção mostra só a saudação + o dashboard de KPIs. */
+:root[data-interface='sidebar'] .search-wrap,
+:root[data-interface='sidebar'] .app-grid {
+  display: none;
+}
+
+/* ─── Home dashboard (KPI row — só no modo sidebar, se tiver permissão) ─── */
+.home-dashboard {
+  display: none;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0 1.75rem;
+}
+:root[data-interface='sidebar'] .home-dashboard {
+  display: grid;
+}
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 1rem 1.25rem;
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--text);
+  box-shadow:
+    var(--shadow-xs),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition:
+    transform var(--transition),
+    box-shadow var(--transition),
+    border-color var(--transition);
+}
+.stat-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: var(--primary);
+}
+.stat-tile-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.stat-tile-value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.stat-tile-status {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.stat-tile-status.good {
+  color: var(--success-text);
+}
+.stat-tile-status.warning {
+  color: var(--warning-text);
+}
+.stat-tile-status.muted {
+  color: var(--text-muted);
+}
+
+.dashboard-chart-panel {
+  margin: 1rem 0 1.75rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    var(--shadow-xs),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.dashboard-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.dashboard-chart-header h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.period-toggle {
+  display: flex;
+  gap: 0.2rem;
+  background: var(--surface-hover);
+  border-radius: 8px;
+  padding: 0.2rem;
+}
+.period-toggle button {
+  border: 0;
+  background: transparent;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+.period-toggle button:hover {
+  color: var(--text);
+}
+.period-toggle button.active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ─── Gráfico de barras (reutilizado em commercial-customer-ficha.ejs) ─── */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 160px;
+  padding: 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 0.3rem;
+}
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+.bar-fill {
+  width: 65%;
+  background: var(--primary);
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+  transition: height 0.2s;
+}
+.bar-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+  white-space: nowrap;
+}
+.bar-tooltip {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+  z-index: 5;
 }
 
 /* ─── Home ─── */
@@ -1623,6 +2019,36 @@ dialog.wizard-dialog {
   color: var(--text-muted);
 }
 
+/* ─── Seletor de cor (Configurações → Interface / assistente de boas-vindas) ─── */
+.color-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.color-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--border-light);
+  cursor: pointer;
+  padding: 0;
+  transition: box-shadow var(--transition), border-color var(--transition);
+}
+.color-swatch.selected {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 20%, transparent);
+  border-color: var(--text);
+}
+.color-swatch-custom {
+  overflow: hidden;
+}
+.color-swatch-custom::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.color-swatch-custom::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
 .wizard-payment-list {
   display: flex;
   flex-direction: column;
@@ -2157,6 +2583,132 @@ dialog.wizard-dialog {
   line-height: 1;
 }
 
+/* ─── Notificações (dropdown + página /notificacoes) ─── */
+.notif-dropdown {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.notif-dropdown-header,
+.notif-dropdown-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.notif-dropdown-header {
+  border-bottom: 1px solid var(--border-light);
+  font-weight: 600;
+  color: var(--text);
+}
+.notif-dropdown-footer {
+  border-top: 1px solid var(--border-light);
+  justify-content: center;
+}
+.notif-dropdown-header button,
+.notif-dropdown-footer a {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+.notif-dropdown-header button:hover,
+.notif-dropdown-footer a:hover {
+  text-decoration: underline;
+}
+
+.notif-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  text-decoration: none;
+  color: var(--text);
+  position: relative;
+  transition: background var(--transition);
+}
+.notif-row:hover {
+  background: var(--surface-hover);
+}
+.notif-row .notif-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--primary-bg);
+  color: var(--icon-color);
+}
+.notif-row .notif-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.notif-row .notif-msg {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+.notif-row.unread .notif-msg {
+  font-weight: 600;
+  color: var(--text);
+}
+.notif-row .notif-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+  margin-top: 0.4rem;
+}
+.notif-row .notif-actions {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+.notif-row .notif-actions button {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--transition), color var(--transition);
+}
+.notif-row .notif-actions button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 640px;
+}
+.notif-list .notif-row {
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0.85rem 1rem;
+}
+.notif-list .notif-row.unread {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border-light));
+  background: var(--primary-bg);
+}
+
 /* ─── Badge variant ─── */
 .badge-info {
   background: var(--primary-bg);
@@ -2224,6 +2776,33 @@ dialog.wizard-dialog {
   }
   .search-wrap {
     max-width: 100%;
+  }
+  /* Abaixo de 1080px, a sidebar persistente vira um overlay off-canvas (mesmo
+     appsOpen/.apps-backdrop já usados pela .apps-drawer) em vez de empurrar o
+     conteúdo — evita uma sidebar fixa comendo espaço demais em telas estreitas. */
+  :root[data-interface='sidebar'] .app-sidebar {
+    top: 0;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+  :root[data-interface='sidebar'] .app-sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+  :root[data-interface='sidebar'] header.nav,
+  :root[data-interface='sidebar'] main {
+    left: 0;
+    margin-left: 0;
+    width: calc(100% - 20px);
+  }
+  :root[data-interface='sidebar'] main {
+    width: 100%;
+  }
+  :root[data-interface='sidebar'] .apps-toggle-btn {
+    display: grid;
+  }
+  :root[data-interface='sidebar'] header.nav .sidebar-collapse-btn {
+    display: none;
   }
 }
 

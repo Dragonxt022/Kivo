@@ -380,7 +380,7 @@
         },
         async load() {
           const r = await fetch('/api/comandas/comandas/' + this.comandaId);
-          if (!r.ok) { showToast((await r.json()).error ?? 'Erro ao carregar comanda.', 'error'); return; }
+          if (!r.ok) { window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar comanda.'); return; }
           const data = await r.json();
           this.comanda = data;
           this.items = data.items || [];

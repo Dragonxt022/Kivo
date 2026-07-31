@@ -11,40 +11,97 @@
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ''));
     return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
   },
-  get notifications() {
+  notifUserKey: <%= JSON.stringify(user ? user.username : '') %>,
+  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles' },
+  notifIconSvg(type) {
+    const name = this.notifIconMap[type];
+    return (name && typeof NAV_SVG_ICONS !== 'undefined' && NAV_SVG_ICONS[name]) || '';
+  },
+  notifRead: [],
+  notifDismissed: [],
+  notifKey(kind) {
+    return 'kivo-notif-' + kind + ':' + (this.notifUserKey || 'anon');
+  },
+  loadNotifState() {
+    try { this.notifRead = JSON.parse(localStorage.getItem(this.notifKey('read')) || '[]'); } catch (e) { this.notifRead = []; }
+    try { this.notifDismissed = JSON.parse(localStorage.getItem(this.notifKey('dismissed')) || '[]'); } catch (e) { this.notifDismissed = []; }
+  },
+  saveNotifState() {
+    try { localStorage.setItem(this.notifKey('read'), JSON.stringify(this.notifRead)); } catch (e) {}
+    try { localStorage.setItem(this.notifKey('dismissed'), JSON.stringify(this.notifDismissed)); } catch (e) {}
+    window.dispatchEvent(new CustomEvent('kivo-notif-changed'));
+  },
+  rawNotifications() {
     const list = [];
     if (this.upcomingBills) {
       for (const p of this.upcomingBills.payables || []) {
-        list.push({ id: 'p' + p.id, message: `A pagar: ${p.description} — vence ${this.fmtDueDate(p.due_date)}`, link: '/app/finance/pagar' });
+        list.push({ id: 'p' + p.id, type: 'payable', message: `A pagar: ${p.description} — vence ${this.fmtDueDate(p.due_date)}`, link: '/app/finance/pagar' });
       }
       for (const r of this.upcomingBills.receivables || []) {
-        list.push({ id: 'r' + r.id, message: `A receber: ${r.description} — vence ${this.fmtDueDate(r.due_date)}`, link: '/app/finance/receber' });
+        list.push({ id: 'r' + r.id, type: 'receivable', message: `A receber: ${r.description} — vence ${this.fmtDueDate(r.due_date)}`, link: '/app/finance/receber' });
       }
     }
-    if (this.cashAlert) list.push({ id: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
+    if (this.cashAlert) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
     if (this.billingAlert && this.billingAlert.count) {
-      list.push({ id: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
+      list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
+    }
+    if (this.licenseStatus && this.licenseStatus.plan === 'trial' && this.licenseStatus.status !== 'expirada') {
+      const d = this.licenseStatus.daysRemaining;
+      const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
+      list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
     }
     return list;
+  },
+  get notifications() {
+    return this.rawNotifications()
+      .filter((n) => !this.notifDismissed.includes(n.id))
+      .map((n) => ({ ...n, read: this.notifRead.includes(n.id) }));
+  },
+  get unreadCount() {
+    return this.notifications.filter((n) => !n.read).length;
+  },
+  pruneNotifState() {
+    const ids = new Set(this.rawNotifications().map((n) => n.id));
+    const nextRead = this.notifRead.filter((id) => ids.has(id));
+    const nextDismissed = this.notifDismissed.filter((id) => ids.has(id));
+    if (nextRead.length !== this.notifRead.length || nextDismissed.length !== this.notifDismissed.length) {
+      this.notifRead = nextRead;
+      this.notifDismissed = nextDismissed;
+      this.saveNotifState();
+    }
+  },
+  markNotifRead(id) {
+    if (!this.notifRead.includes(id)) { this.notifRead.push(id); this.saveNotifState(); }
+  },
+  markAllNotifRead() {
+    this.notifRead = this.rawNotifications().map((n) => n.id);
+    this.saveNotifState();
+  },
+  dismissNotif(id) {
+    if (!this.notifDismissed.includes(id)) { this.notifDismissed.push(id); this.saveNotifState(); }
   },
   checkCloudStatus() {
     fetch('/api/sync/status').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.cloudStatus = data; }).catch(() => { this.cloudStatus = { configured: true, online: false }; });
   },
   init() {
     setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Porto_Velho' }); }, 1000);
+    <% if (user) { %>
+    this.loadNotifState();
+    window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
+    <% } %>
     <% if (user && user.permissions.has('billing.view')) { %>
-    fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; }).catch(() => {});
+    fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; this.pruneNotifState(); }).catch(() => {});
     <% } %>
     <% if (user) { %>
-    fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; }).catch(() => {});
+    fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; this.pruneNotifState(); }).catch(() => {});
     this.checkCloudStatus();
     setInterval(() => this.checkCloudStatus(), 25000);
     <% } %>
     <% if (user && user.permissions.has('finance.cash.view')) { %>
-    fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; }).catch(() => {});
+    fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; this.pruneNotifState(); }).catch(() => {});
     <% } %>
     <% if (user && (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view'))) { %>
-    fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; }).catch(() => {});
+    fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; this.pruneNotifState(); }).catch(() => {});
     <% } %>
   },
   theme: document.documentElement.getAttribute('data-theme') || 'light',
@@ -52,21 +109,44 @@
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', this.theme);
     try { localStorage.setItem('kivo-theme', this.theme); } catch (e) {}
+    if (document.documentElement.getAttribute('data-color-theme') === 'custom') {
+      var c = localStorage.getItem('kivo-color-custom');
+      if (c) window.__kivoApplyCustomColor(c);
+    }
+  },
+  currentPath: location.pathname,
+  sidebarQuery: '',
+  sidebarMatches(label) {
+    return !this.sidebarQuery || label.toLowerCase().includes(this.sidebarQuery.toLowerCase());
+  },
+  get sidebarGroups() {
+    return (typeof SIDEBAR_MENU_SEED !== 'undefined' ? SIDEBAR_MENU_SEED : [])
+      .map((g) => ({ group: g.group, items: g.items.filter((it) => this.sidebarMatches(it.label)) }))
+      .filter((g) => g.items.length);
+  },
+  sidebarCollapsed: document.documentElement.getAttribute('data-sidebar-collapsed') === '1',
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    document.documentElement.setAttribute('data-sidebar-collapsed', this.sidebarCollapsed ? '1' : '0');
+    try { localStorage.setItem('kivo-sidebar-collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
   },
 }">
-<% if (user) { %>
-<div x-show="licenseStatus && licenseStatus.plan === 'trial' && licenseStatus.status !== 'expirada'" x-cloak
-     class="muted-block" style="background:var(--warning-bg);color:var(--warning-text);text-align:center;padding:.45rem 1rem;font-size:.85rem;font-weight:600">
-  Período de teste —
-  <span x-text="licenseStatus && licenseStatus.daysRemaining != null ? (licenseStatus.daysRemaining > 0 ? `faltam ${licenseStatus.daysRemaining} dia(s)` : 'expira hoje') : ''"></span>
-</div>
-<% } %>
 <header class="nav">
   <div class="nav-left">
     <svg class="nav-clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
     <span class="nav-clock" x-text="now"></span>
+    <% if (user) { %>
+    <button class="btn-icon sidebar-collapse-btn" @click="toggleSidebar()" title="Recolher/expandir menu" aria-label="Recolher ou expandir menu lateral">
+      <template x-if="!sidebarCollapsed">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg>
+      </template>
+      <template x-if="sidebarCollapsed">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="m13 17 5-5-5-5M6 17l5-5-5-5"/></svg>
+      </template>
+    </button>
+    <% } %>
   </div>
 
   <a href="/" class="brand">
@@ -97,15 +177,28 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-        <span x-show="notifications.length" x-cloak class="notif-badge" x-text="notifications.length"></span>
+        <span x-show="unreadCount > 0" x-cloak class="notif-badge" x-text="unreadCount"></span>
       </button>
-      <div class="dropdown-menu" style="width:320px;max-height:340px;overflow-y:auto" x-show="notifOpen" x-cloak @click.outside="notifOpen = false">
-        <template x-if="!notifications.length">
-          <p class="muted text-xs" style="padding:.6rem">Nenhuma notificação no momento.</p>
-        </template>
-        <template x-for="n in notifications" :key="n.id">
-          <a :href="n.link" class="menu-item" style="display:block;white-space:normal" @click="notifOpen = false" x-text="n.message"></a>
-        </template>
+      <div class="dropdown-menu notif-dropdown" style="width:320px;max-height:400px" x-show="notifOpen" x-cloak @click.outside="notifOpen = false">
+        <div class="notif-dropdown-header">
+          <span>Notificações</span>
+          <button type="button" @click="markAllNotifRead()" x-show="unreadCount > 0">Marcar lidas</button>
+        </div>
+        <div style="max-height:280px;overflow-y:auto">
+          <template x-if="!notifications.length">
+            <p class="muted text-xs" style="padding:.9rem .6rem">Nenhuma notificação no momento.</p>
+          </template>
+          <template x-for="n in notifications" :key="n.id">
+            <a :href="n.link" class="notif-row" :class="{ unread: !n.read }" @click="markNotifRead(n.id); notifOpen = false">
+              <span class="notif-icon" x-html="notifIconSvg(n.type)"></span>
+              <span class="notif-msg" x-text="n.message"></span>
+              <span class="notif-dot" x-show="!n.read"></span>
+            </a>
+          </template>
+        </div>
+        <div class="notif-dropdown-footer">
+          <a href="/notificacoes" @click="notifOpen = false">Ver todas as notificações</a>
+        </div>
       </div>
     </div>
 
@@ -120,7 +213,7 @@
       </svg>
     </button>
 
-    <button class="btn-icon" @click="appsOpen = true" title="Aplicações" aria-label="Aplicações">
+    <button class="btn-icon apps-toggle-btn" @click="appsOpen = true" title="Aplicações" aria-label="Aplicações">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
         <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
@@ -304,6 +397,62 @@
     </a>
   </nav>
 </aside>
+
+<%
+  var sidebarGroupsSeed = [];
+  var sidebarGroupIndex = {};
+  (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) {
+    if (item.permission && !user.permissions.has(item.permission)) return;
+    var full = item.moduleName || '';
+    var group = full.indexOf(' (') !== -1 ? full.slice(0, full.indexOf(' (')) : (full || 'Outros');
+    if (!(group in sidebarGroupIndex)) { sidebarGroupIndex[group] = sidebarGroupsSeed.length; sidebarGroupsSeed.push({ group: group, items: [] }); }
+    sidebarGroupsSeed[sidebarGroupIndex[group]].items.push({ label: item.label, href: item.href, icon: item.icon });
+  });
+  if (adminItems.length) {
+    if (!('Administração' in sidebarGroupIndex)) { sidebarGroupIndex['Administração'] = sidebarGroupsSeed.length; sidebarGroupsSeed.push({ group: 'Administração', items: [] }); }
+    adminItems.forEach(function (item) {
+      sidebarGroupsSeed[sidebarGroupIndex['Administração']].items.push({ label: item.label, href: item.href, icon: item.icon });
+    });
+  }
+%>
+<script>
+  const SIDEBAR_MENU_SEED = <%- JSON.stringify(sidebarGroupsSeed) %>;
+  const NAV_SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
+</script>
+
+<aside class="app-sidebar" :class="{ 'mobile-open': appsOpen }" @keydown.escape.window="appsOpen = false">
+  <div class="app-sidebar-search">
+    <span class="search-icon"><%- svgIcon('search', 15, 15) %></span>
+    <input type="text" placeholder="Buscar aplicativo…" x-model="sidebarQuery" />
+  </div>
+  <nav class="app-sidebar-list">
+    <a href="/" class="app-sidebar-item <%= page === 'home' ? 'active' : '' %>" @click="appsOpen = false" :title="sidebarCollapsed ? 'Início' : null">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
+      </svg>
+      <span class="app-sidebar-item-label">Início</span>
+    </a>
+    <template x-for="g in sidebarGroups" :key="g.group">
+      <div>
+        <div class="app-sidebar-group" x-text="g.group"></div>
+        <template x-for="it in g.items" :key="it.href">
+          <a :href="it.href" class="app-sidebar-item"
+             :class="{ active: currentPath === it.href || currentPath.startsWith(it.href + '/') }"
+             @click="appsOpen = false" :title="sidebarCollapsed ? it.label : null">
+            <span x-html="NAV_SVG_ICONS[it.icon] || ''"></span>
+            <span class="app-sidebar-item-label" x-text="it.label"></span>
+          </a>
+        </template>
+      </div>
+    </template>
+    <a :href="(cloudStatus.url || 'https://kivo.buscamais.org') + '/wiki'" target="_blank" class="app-sidebar-item" @click="appsOpen = false" :title="sidebarCollapsed ? 'Wiki' : null">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      </svg>
+      <span class="app-sidebar-item-label">Wiki</span>
+    </a>
+  </nav>
+</aside>
 <% } %>
 </div>
 <div id="toast-container"></div>
@@ -424,3 +573,6 @@
 <% } %>
 <%- include('confirm') %>
 <%- include('password') %>
+<% if (user) { %>
+<%- include('capability-gate') %>
+<% } %>

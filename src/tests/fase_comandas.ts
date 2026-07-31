@@ -149,13 +149,27 @@ async function main() {
   check('total esperado = 800*2 + 2500*1 + 900*3 = 5800', totalCents === 800 * 2 + 2500 * 1 + 900 * 3);
   const methods = await unwrap<{ id: number; type: string }[]>(await api('/api/store/payment-methods', {}, admin!));
   const pix = methods.find((m) => m.type === 'pix')!;
+
+  // Regressão: fechar comanda tem que exigir caixa aberto igual à venda direta do
+  // PDV (mesma createSale() por baixo) — sem isso a venda passaria sem ficar
+  // contabilizada em nenhum caixa.
+  const closeWithoutCashR = await api(`/api/comandas/comandas/${comanda.id}/close`, {
+    method: 'POST', body: JSON.stringify({ payments: [{ methodId: pix.id, amountCents: totalCents }] }),
+  }, admin!);
+  const closeWithoutCashBody = await closeWithoutCashR.json() as { error?: string };
+  check('fechar comanda SEM caixa aberto é bloqueado', closeWithoutCashR.status === 400 && /caixa/i.test(closeWithoutCashBody.error ?? ''));
+
+  const openRegId = await unwrap<number>(await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 10000 }) }, admin!));
+  check('abre caixa antes de fechar a comanda', openRegId > 0, String(openRegId));
+
   const closeR = await api(`/api/comandas/comandas/${comanda.id}/close`, {
     method: 'POST', body: JSON.stringify({ payments: [{ methodId: pix.id, amountCents: totalCents }] }),
   }, admin!);
   const closed = await unwrap<{ ok: true; saleId: number }>(closeR);
   check('fechamento gera venda', closeR.status === 200 && !!closed.saleId);
 
-  const sale = await unwrap<{ total_cents: number; items: { product_name: string; qty: number; unit_price_cents: number; total_cents: number }[] }>(await api(`/api/store/sales/${closed.saleId}`, {}, admin!));
+  const sale = await unwrap<{ total_cents: number; cash_register_id: number; items: { product_name: string; qty: number; unit_price_cents: number; total_cents: number }[] }>(await api(`/api/store/sales/${closed.saleId}`, {}, admin!));
+  check('venda da comanda fica vinculada ao caixa aberto (contabilizada)', sale.cash_register_id === openRegId);
   check('venda gerada com total correto (5800)', sale.total_cents === totalCents);
   check('venda tem 4 linhas (suco + kit + hamburguer(0) + produzido)', sale.items.length === 4);
   const hamburguerLine = sale.items.find((i) => i.product_name === 'Hamburguer');
