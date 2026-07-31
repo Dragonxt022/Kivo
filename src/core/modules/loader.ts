@@ -123,7 +123,9 @@ function registerPermissions(m: ModuleManifest): void {
  * o módulo dono, para ser filtrado por entitlement a cada requisição (ver
  * `filterModuleMenu`), não travado no que valia no boot. */
 export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
-  return modules.flatMap((m) => (m.manifest.menu ?? []).map((item) => ({ ...item, moduleId: m.manifest.id })));
+  return modules.flatMap((m) =>
+    (m.manifest.menu ?? []).map((item) => ({ ...item, moduleId: m.manifest.id, moduleName: m.manifest.name })),
+  );
 }
 
 /**

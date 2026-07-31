@@ -1,0 +1,69 @@
+<dialog id="capability-gate-dlg" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:380px;max-width:90vw">
+  <div class="dialog-body-center" style="padding:1.25rem">
+    <div class="dialog-icon-sm dialog-icon-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+        <path d="m12 3-1.9 4.1L6 9l4.1 1.9L12 15l1.9-4.1L18 9l-4.1-1.9L12 3Z"/><path d="M5 3v4M3 5h4M19 17v4M17 19h4"/>
+      </svg>
+    </div>
+    <h2 class="dialog-heading-md">Recurso desativado</h2>
+    <p class="dialog-muted-sm" id="capability-gate-msg"></p>
+    <% if (user && user.permissions.has('settings.capabilities.edit')) { %>
+    <div class="actions actions-center">
+      <button class="btn secondary" onclick="__closeCapabilityGate()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Depois
+      </button>
+      <button class="btn" id="capability-gate-activate-btn" onclick="__activateCapability()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Ativar agora
+      </button>
+    </div>
+    <% } else { %>
+    <p class="dialog-text-sm">Peça para um administrador ativar em Configurações → Recursos.</p>
+    <div class="actions actions-center">
+      <button class="btn" onclick="__closeCapabilityGate()">Entendi</button>
+    </div>
+    <% } %>
+  </div>
+</dialog>
+<script>
+var __capabilityGateKey = null;
+var CAPABILITY_LABELS = { 'comandas.mesas': 'o sistema de mesas e comandas' };
+var __capabilityGateDismissed = {};
+function __closeCapabilityGate() {
+  if (__capabilityGateKey) __capabilityGateDismissed[__capabilityGateKey] = true;
+  document.getElementById('capability-gate-dlg').close();
+}
+window.showCapabilityGate = function (key) {
+  // Evita reabrir a cada nova tentativa (ex.: polling de mesas a cada 10s) depois
+  // que o usuário já disse "Depois" nesta navegação, ou enquanto já está aberto.
+  if (__capabilityGateDismissed[key]) return;
+  var dlg = document.getElementById('capability-gate-dlg');
+  if (dlg.open) return;
+  __capabilityGateKey = key;
+  var label = CAPABILITY_LABELS[key] || ('o recurso "' + key + '"');
+  document.getElementById('capability-gate-msg').textContent = 'Você tentou usar um recurso que ainda não está ativado. Deseja ativar ' + label + ' agora?';
+  dlg.showModal();
+};
+function __activateCapability() {
+  if (!__capabilityGateKey) return;
+  var btn = document.getElementById('capability-gate-activate-btn');
+  if (btn) btn.disabled = true;
+  fetch('/api/core/capabilities/' + encodeURIComponent(__capabilityGateKey), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: true }),
+  }).then(function (r) {
+    if (!r.ok) { if (btn) btn.disabled = false; window.showToast('Não foi possível ativar o recurso.', 'error'); return; }
+    location.reload();
+  }).catch(function () {
+    if (btn) btn.disabled = false;
+    window.showToast('Erro de conexão ao ativar o recurso.', 'error');
+  });
+}
+window.handleApiError = function (r, body, fallbackMsg) {
+  var m = /^Recurso desativado: (.+)$/.exec((body && body.error) || '');
+  if (r.status === 403 && m) { window.showCapabilityGate(m[1]); return; }
+  window.showToast((body && body.error) || fallbackMsg, 'error');
+};
+</script>

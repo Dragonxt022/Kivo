@@ -161,6 +161,7 @@ export async function createServer(): Promise<KivoServer> {
 
   // Páginas do Core
   app.get('/', page('home'));
+  app.get('/notificacoes', requireAuth, page('notifications'));
   app.get('/admin/usuarios', requireAuth, page('users', 'users.view'));
   app.get('/admin/cargos', requireAuth, page('roles', 'roles.view'));
   app.get('/admin/auditoria', requireAuth, page('audit', 'audit.view'));

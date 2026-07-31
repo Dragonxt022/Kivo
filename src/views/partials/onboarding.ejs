@@ -20,7 +20,30 @@
         </p>
       </div>
 
-      <!-- 1: onde vai usar -->
+      <!-- 1: interface e cor -->
+      <div class="wizard-step">
+        <h2 class="wizard-title">Como você prefere navegar?</h2>
+        <p class="wizard-subtitle">Você pode mudar isso depois em Configurações → Interface.</p>
+        <div class="choice-grid">
+          <button type="button" class="choice-card" :class="uiInterface === 'cards' ? 'selected' : ''" @click="chooseInterface('cards')">
+            <span class="choice-label">Cartões</span>
+            <span class="choice-desc">Tela inicial com ícones</span>
+          </button>
+          <button type="button" class="choice-card" :class="uiInterface === 'sidebar' ? 'selected' : ''" @click="chooseInterface('sidebar')">
+            <span class="choice-label">Menu lateral</span>
+            <span class="choice-desc">Menu fixo à esquerda</span>
+          </button>
+        </div>
+        <p class="hint" style="margin-top:1rem">Cor de destaque</p>
+        <div class="color-swatch-row">
+          <template x-for="p in KIVO_COLOR_PRESETS" :key="p.id">
+            <button type="button" class="color-swatch" :class="uiColorTheme === p.id ? 'selected' : ''" :style="{ background: p.hex }" @click="chooseColorPreset(p.id)"></button>
+          </template>
+          <input type="color" class="color-swatch color-swatch-custom" :value="uiCustomColor" @input="chooseCustomColor($event.target.value)" />
+        </div>
+      </div>
+
+      <!-- 2: onde vai usar -->
       <div class="wizard-step">
         <h2 class="wizard-title">Onde você vai usar o Kivo?</h2>
         <p class="wizard-subtitle">Isso ajuda a deixar as telas certas em destaque pra você.</p>
@@ -43,7 +66,7 @@
         </div>
       </div>
 
-      <!-- 2: tipo de negocio -->
+      <!-- 3: tipo de negocio -->
       <div class="wizard-step">
         <h2 class="wizard-title">Qual é o seu tipo de negócio?</h2>
         <p class="wizard-subtitle">Com base nisso já deixamos alguns produtos de exemplo prontos pra você testar.</p>
@@ -66,7 +89,7 @@
         </div>
       </div>
 
-      <!-- 3: formas de pagamento -->
+      <!-- 4: formas de pagamento -->
       <div class="wizard-step">
         <h2 class="wizard-title">Formas de pagamento</h2>
         <p class="wizard-subtitle">Marque as que você aceita — dá pra mudar depois em Configurações.</p>
@@ -81,7 +104,7 @@
         </div>
       </div>
 
-      <!-- 4: resumo -->
+      <!-- 5: resumo -->
       <div class="wizard-step">
         <h2 class="wizard-title">Tudo certo?</h2>
         <p class="wizard-subtitle">Confira o que vamos preparar pra você:</p>
@@ -110,7 +133,7 @@
         <div class="error" x-text="error"></div>
       </div>
 
-      <!-- 5: sucesso -->
+      <!-- 6: sucesso -->
       <div class="wizard-step">
         <div class="wizard-icon" style="background:var(--primary);color:#fff">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -134,11 +157,12 @@
       Vamos lá
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
-    <button type="button" class="btn" @click="next()" x-show="step === 3" :disabled="!paymentMethods.length">Continuar</button>
-    <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 4 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
-    <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 4" :disabled="loading">
+    <button type="button" class="btn" @click="next()" x-show="step === 1">Continuar</button>
+    <button type="button" class="btn" @click="next()" x-show="step === 4" :disabled="!paymentMethods.length">Continuar</button>
+    <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 5 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
+    <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 5" :disabled="loading">
       <span x-text="loading ? 'Configurando…' : (mode === 'first-run' ? 'Concluir e configurar' : 'Salvar preferências')"></span>
     </button>
-    <button type="button" class="btn" @click="close()" x-show="step === 5">Ir para o sistema</button>
+    <button type="button" class="btn" @click="close()" x-show="step === 6">Ir para o sistema</button>
   </div>
 </dialog>

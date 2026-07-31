@@ -10,6 +10,9 @@ export interface ModuleMenuItem {
   icon?: string;
   /** Preenchido por collectMenu() — usado para filtrar o menu por entitlement a cada requisição. */
   moduleId?: string;
+  /** Nome do módulo dono (manifest.name), ex.: 'Comercial (cadastros e estoque)' —
+   * usado para agrupar o menu por seção na sidebar persistente. */
+  moduleName?: string;
 }
 
 /** Contrato do module.manifest.ts (KIVO_PLANO.md §4). */

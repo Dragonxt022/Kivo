@@ -3,7 +3,7 @@ import { getService } from '../../../core/services/registry';
 import type { FinancePayMethodsService } from '../../finance/setup';
 import { createSale, cancelSale } from '../sales';
 import { createQuote, convertQuote, cancelQuote, updateQuote } from '../quotes';
-import { cashRegisterReport } from '../reports';
+import { cashRegisterReport, revenueTrend, type RevenueTrendPeriod } from '../reports';
 import { saleRepository, salePaymentRepository } from '../repositories/SaleRepository';
 import { quoteRepository } from '../repositories/QuoteRepository';
 
@@ -136,5 +136,11 @@ export const storeController = {
 
   cashRegisterReportAction(req: Request, res: Response) {
     res.json(cashRegisterReport(Number(req.params.id)));
+  },
+
+  revenueTrendAction(req: Request, res: Response) {
+    const raw = String(req.query.period ?? 'month');
+    const period: RevenueTrendPeriod = raw === 'week' || raw === 'year' ? raw : 'month';
+    res.json(revenueTrend(period));
   },
 };

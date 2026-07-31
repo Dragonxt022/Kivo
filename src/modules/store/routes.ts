@@ -21,5 +21,6 @@ router.post('/quotes/:id/cancel', requirePermission('store.quotes.create'), stor
 
 router.get('/reports/daily', requirePermission('store.reports.view'), storeController.dailyReport);
 router.get('/reports/cash-register/:id', requirePermission('store.reports.view'), storeController.cashRegisterReportAction);
+router.get('/reports/revenue-trend', requirePermission('store.reports.view'), storeController.revenueTrendAction);
 
 export default router;

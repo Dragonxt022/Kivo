@@ -26,3 +26,44 @@
   };
 })();
 </script>
+<script>
+(function () {
+  try {
+    var mode = localStorage.getItem('kivo-interface');
+    document.documentElement.setAttribute('data-interface', mode === 'sidebar' ? 'sidebar' : 'cards');
+
+    var collapsed = localStorage.getItem('kivo-sidebar-collapsed') === '1';
+    document.documentElement.setAttribute('data-sidebar-collapsed', collapsed ? '1' : '0');
+
+    window.KIVO_COLOR_PRESETS = [
+      { id: 'blue', hex: '#2563eb' },
+      { id: 'green', hex: '#16a34a' },
+      { id: 'orange', hex: '#ff8000' },
+      { id: 'pink', hex: '#ec4899' },
+      { id: 'black', hex: '#18181b' },
+    ];
+
+    window.__kivoApplyCustomColor = function (hex) {
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      var s = document.documentElement.style;
+      s.setProperty('--primary', hex);
+      s.setProperty('--icon-color', hex);
+      s.setProperty('--primary-hover', 'color-mix(in srgb, white 15%, ' + hex + ')');
+      s.setProperty('--primary-bg', 'color-mix(in srgb, ' + hex + ' ' + (isDark ? 16 : 8) + '%, transparent)');
+    };
+
+    var colorTheme = localStorage.getItem('kivo-color-theme') || 'orange';
+    if (colorTheme === 'custom') {
+      var custom = localStorage.getItem('kivo-color-custom');
+      if (custom) {
+        document.documentElement.setAttribute('data-color-theme', 'custom');
+        window.__kivoApplyCustomColor(custom);
+      } else {
+        document.documentElement.setAttribute('data-color-theme', 'orange');
+      }
+    } else {
+      document.documentElement.setAttribute('data-color-theme', colorTheme);
+    }
+  } catch (e) {}
+})();
+</script>
