@@ -1,0 +1,15 @@
+<%
+  // Grade de botões visuais com ícone para escolher a forma de pagamento, no
+  // mesmo estilo do PDV. Uso: dentro de um escopo Alpine que já tem
+  // settleMethods/methodIcon (ver paymentMethodsMixin() em payment-methods.js)
+  // e uma variável de modelo em contexto (ex.: dentro de um x-for de linhas).
+  // Passar modelExpr, ex.: 'p.methodId', via include('partials/payment-quick-methods', { modelExpr }).
+%>
+<div class="pay-quick-methods">
+  <template x-for="m in settleMethods" :key="m.id">
+    <button type="button" class="pay-quick-method" :class="{ selected: (<%- modelExpr %>) === m.id }" @click="<%- modelExpr %> = m.id">
+      <span x-html="methodIcon(m.type)"></span>
+      <span x-text="m.name"></span>
+    </button>
+  </template>
+</div>

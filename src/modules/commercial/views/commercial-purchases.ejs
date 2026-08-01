@@ -648,7 +648,7 @@
       error: '',
 
       // ─── Store ───
-      viewMode: localStorage.getItem('ps-view-mode') || 'card',
+      viewMode: localStorage.getItem('ps-view-mode') || 'list',
       searchQuery: '',
       selectedCategory: '',
 
@@ -671,7 +671,7 @@
       lastPriceCents: null,
 
       // ─── History ───
-      historyRows: [], historyFilter: {}, historyOpenMenu: null,
+      historyRows: [], historyFilter: {}, historyOpenMenu: null, historyError: '',
       historyPage: 1, historyPageSize: 20,
       historySortKey: 'id', historySortDir: -1,
       historyForm: { items: [] }, historyItem: {},

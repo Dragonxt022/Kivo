@@ -371,8 +371,6 @@ body:has(.pdv) {
   gap: 0.45rem;
   flex-wrap: wrap;
   margin-top: 0.7rem;
-  max-height: 25vh;
-  overflow-y: auto;
 }
 .pdv-cat-chip {
   display: inline-flex;
@@ -431,6 +429,9 @@ body:has(.pdv) {
 }
 
 .pdv-browse-list {
+  margin-top: 0.75rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius);
   max-height: min(64vh, 680px);
   overflow-y: auto;
 }
@@ -1139,64 +1140,8 @@ dialog.pay-modal[open] {
   margin-top: auto;
 }
 
-.pay-method-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-.pay-method-row select {
-  flex: 1;
-}
-.pay-quick-methods {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-.pay-quick-method {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  background: var(--surface-hover);
-  border: 1.5px solid var(--border-light);
-  border-radius: 10px;
-  padding: 0.6rem 0.3rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  transition:
-    border-color var(--transition),
-    background var(--transition),
-    color var(--transition);
-}
-.pay-quick-method:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-.pay-quick-method.selected {
-  border-color: var(--primary);
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-.pay-quick-method svg {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.pay-quick-method .shortcut {
-  font-size: 0.62rem;
-  color: var(--text-muted);
-  font-weight: 400;
-}
+/* .pay-method-row / .pay-quick-methods* moved to app.css — reused outside the PDV
+   (recebimento de contas) and app.css already loads on every page. */
 
 .pay-summary-card {
   background: var(--surface-hover);

@@ -1590,7 +1590,12 @@ dialog.dialog-fixed > .actions {
 }
 /* Dialog em 2 colunas (ex.: cadastro de produto — formulário + painel de imagem) */
 dialog.product-modal {
-  width: min(1059px, calc(100vw - 2rem));
+  width: min(1180px, calc(100vw - 2rem));
+}
+/* Mais alto que o dialog-fixed padrão — a modal de produto empilha 4 seções na
+   coluna esquerda e sofria muita rolagem com o teto de 600px. */
+dialog.product-modal.dialog-fixed {
+  height: min(90vh, 760px);
 }
 
 /* Category modal: coluna de upload de imagem */
@@ -1709,11 +1714,9 @@ dialog.product-modal > .dialog-body {
 }
 .pm-section-title {
   margin: 0 0 0.75rem;
-  font-size: 0.78rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text);
 }
 .pm-section-head {
   display: flex;
@@ -2039,6 +2042,9 @@ dialog.wizard-dialog {
   border-color: var(--text);
 }
 .color-swatch-custom {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   overflow: hidden;
 }
 .color-swatch-custom::-webkit-color-swatch-wrapper {
@@ -2529,6 +2535,66 @@ dialog.wizard-dialog {
 }
 .dialog-icon-primary {
   background: var(--primary-bg, #eef0fe);
+}
+
+/* ─── Forma de pagamento (seletor visual — PDV + telas de recebimento/pagamento) ─── */
+.pay-method-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.pay-method-row select {
+  flex: 1;
+}
+.pay-quick-methods {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.pay-quick-method {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--surface-hover);
+  border: 1.5px solid var(--border-light);
+  border-radius: 10px;
+  padding: 0.6rem 0.3rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    color var(--transition);
+}
+.pay-quick-method:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.pay-quick-method.selected {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+.pay-quick-method svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pay-quick-method .shortcut {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 /* ─── Label components ─── */
