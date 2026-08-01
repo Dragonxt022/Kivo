@@ -153,9 +153,6 @@
           <label for="login-pass">Senha</label>
           <input id="login-pass" type="password" x-model="loginPass" autocomplete="current-password"
                  @keydown.escape.prevent="handleLoginEsc()" />
-          <label class="remember">
-            <input type="checkbox" x-model="loginRemember" /> Lembrar login
-          </label>
           <button type="submit" x-text="loginLoading ? 'Entrando…' : 'Entrar'"
                   :disabled="loginLoading"></button>
           <div class="error" x-text="loginError"></div>
@@ -461,7 +458,6 @@
         showLogin: false,
         loginUser: '',
         loginPass: '',
-        loginRemember: false,
         loginLoading: false,
         loginError: '',
         apps: [],
@@ -621,7 +617,9 @@
               body: JSON.stringify({
                 username: this.loginUser.trim(),
                 password: this.loginPass,
-                remember: this.loginRemember,
+                // Terminal de uso comercial, não dispositivo pessoal — não faz sentido
+                // pedir pra derrubar a sessão em 12h por padrão. Sempre a de 30 dias.
+                remember: true,
               }),
             });
             if (r.ok) {
@@ -667,7 +665,6 @@
           this.loadTrend();
         },
         async init() {
-          if (document.documentElement.getAttribute('data-interface') !== 'sidebar') { this.loading = false; return; }
           const jobs = [];
           <% if (user && user.permissions.has('finance.cash.view')) { %>
           jobs.push(fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((d) => { this.cash = d; }).catch(() => {}));

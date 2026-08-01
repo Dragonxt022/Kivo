@@ -26,10 +26,12 @@
         <p class="wizard-subtitle">Você pode mudar isso depois em Configurações → Interface.</p>
         <div class="choice-grid">
           <button type="button" class="choice-card" :class="uiInterface === 'cards' ? 'selected' : ''" @click="chooseInterface('cards')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             <span class="choice-label">Cartões</span>
             <span class="choice-desc">Tela inicial com ícones</span>
           </button>
           <button type="button" class="choice-card" :class="uiInterface === 'sidebar' ? 'selected' : ''" @click="chooseInterface('sidebar')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
             <span class="choice-label">Menu lateral</span>
             <span class="choice-desc">Menu fixo à esquerda</span>
           </button>
@@ -106,23 +108,26 @@
 
       <!-- 5: resumo -->
       <div class="wizard-step">
+        <div class="wizard-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
         <h2 class="wizard-title">Tudo certo?</h2>
         <p class="wizard-subtitle">Confira o que vamos preparar pra você:</p>
         <div class="wizard-summary-list">
           <div class="wizard-summary-item" x-show="willCreateTables()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
             <span>10 mesas já cadastradas, prontas pra usar</span>
           </div>
           <div class="wizard-summary-item" x-show="answers.businessType === 'restaurante'">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
             <span>Produtos de exemplo (suco, lanche…) com complementos, prontos pro PDV e pras mesas</span>
           </div>
           <div class="wizard-summary-item" x-show="answers.businessType === 'roupas'">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
             <span>Produtos de exemplo com variações de tamanho e cor</span>
           </div>
           <div class="wizard-summary-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
             <span x-text="answers.activePaymentMethodIds.length + ' forma(s) de pagamento ativa(s)'"></span>
           </div>
         </div>

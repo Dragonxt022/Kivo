@@ -455,33 +455,74 @@
 </aside>
 <% } %>
 </div>
-<div id="toast-container"></div>
+<div id="toast-container" popover="manual"></div>
 <script>
 (function(){
   // Fechamento animado de dialog
   var c=HTMLDialogElement.prototype.close;HTMLDialogElement.prototype.close=function(){if(this.hasAttribute('open')){var d=this;d.style.animation='dialog-out 150ms ease forwards';d.addEventListener('animationend',function h(){d.removeEventListener('animationend',h);d.style.animation='';c.call(d)})}else c.call(this)};
 
-  // Toast global
+  // Toast global — sempre no #toast-container, nunca dentro de um <dialog>. Dialogs
+  // abertos entram na "top layer" do navegador, que nenhum z-index normal supera; por
+  // isso o container também é um popover (mesma top layer), reordenado pro topo dela a
+  // cada toast novo, pra aparecer por cima de qualquer modal já aberta.
   window.showToast = function(msg, type) {
     type = type || 'error';
-    var openDlg = document.querySelector('dialog[open]');
     var container = document.getElementById('toast-container');
-    if (openDlg) {
-      container = openDlg.querySelector('.toast-dlg-container');
-      if (!container) {
-        container = document.createElement('div');
-        container.className = 'toast-dlg-container';
-        openDlg.appendChild(container);
-      }
-    }
     if (!container) return;
     var icons = { error: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>', success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', info: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', warning: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' };
     var el = document.createElement('div');
     el.className = 'toast toast-' + type;
     el.innerHTML = (icons[type] || icons.error) + '<span class="toast-msg">' + String(msg).replace(/</g,'&lt;') + '</span><button class="toast-close" onclick="this.parentElement.remove()">&times;</button>';
     container.appendChild(el);
-    setTimeout(function(){ el.style.opacity = '0'; el.style.transform = 'translateX(100%)'; setTimeout(function(){ if (el.parentElement) el.remove(); }, 250); }, 5000);
+    if (container.showPopover) {
+      try {
+        if (container.matches(':popover-open')) container.hidePopover();
+        container.showPopover();
+      } catch (e) {}
+    }
+    setTimeout(function(){
+      el.style.opacity = '0'; el.style.transform = 'translateX(100%)';
+      setTimeout(function(){
+        if (el.parentElement) el.remove();
+        if (container.showPopover && !container.children.length && container.matches(':popover-open')) container.hidePopover();
+      }, 250);
+    }, 5000);
   };
+
+  // Setas de rolagem em qualquer ".tabs" que não caiba na largura disponível — sem
+  // isso, abas extras (ex.: Configurações com 11 abas) só existiam via scroll
+  // horizontal sem nenhuma pista visual, ficando escondidas na prática.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.tabs').forEach(function (tabs) {
+      var wrap = document.createElement('div');
+      wrap.className = 'tabs-scroll-wrap';
+      tabs.parentNode.insertBefore(wrap, tabs);
+      var prev = document.createElement('button');
+      prev.type = 'button';
+      prev.className = 'tabs-arrow tabs-arrow-prev';
+      prev.setAttribute('aria-label', 'Abas anteriores');
+      prev.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+      var next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'tabs-arrow tabs-arrow-next';
+      next.setAttribute('aria-label', 'Próximas abas');
+      next.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+      wrap.appendChild(prev);
+      wrap.appendChild(tabs);
+      wrap.appendChild(next);
+      prev.addEventListener('click', function () { tabs.scrollBy({ left: -160, behavior: 'smooth' }); });
+      next.addEventListener('click', function () { tabs.scrollBy({ left: 160, behavior: 'smooth' }); });
+      function update() {
+        var overflowing = tabs.scrollWidth > tabs.clientWidth + 1;
+        wrap.classList.toggle('has-overflow', overflowing);
+        prev.disabled = tabs.scrollLeft <= 0;
+        next.disabled = tabs.scrollLeft >= tabs.scrollWidth - tabs.clientWidth - 1;
+      }
+      tabs.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+      update();
+    });
+  });
 })();
 </script>
 <% if (user) { %>

@@ -14,6 +14,7 @@ import { moveStock, type MovementType } from './stock';
 import { resolveMany } from './pricing';
 import { grant as grantStoreCredit } from './storeCredit';
 import { validateImageBuffer } from '../../core/catalog/imageValidation';
+import { runSync } from '../../core/sync/engine';
 import {
   productImagesDir, saveLocalProductImage, queueProductImageSubmission, trySubmitPending,
   cloudBaseUrl, cloudAuthHeaders,
@@ -342,6 +343,10 @@ router.put('/products/:id/cardapio-online', requirePermission('commercial.produc
   const after = productRepository.findDetailed(id);
   audit(req, 'editar', 'product', id, before, after);
   res.json(after);
+  // Publica (ou remove) do cardápio online na hora, sem esperar o lojista lembrar de ir
+  // em Configurações → Sincronizar agora. Best-effort: se a nuvem estiver fora do ar ou o
+  // plano não incluir sync, falha em silêncio — o próximo "Sincronizar agora" cobre.
+  runSync(req).catch((e) => console.error('[cardapio-online] falha ao sincronizar:', (e as Error).message));
 });
 
 router.post('/products/:id/duplicate', requirePermission('commercial.products.create'), (req, res) => {
