@@ -13,7 +13,9 @@
   --pdv-glass-strong: rgba(255, 255, 255, 0.88);
   --pdv-glass-border: rgba(255, 255, 255, 0.75);
   --pdv-glass-ring: rgba(11, 11, 11, 0.07);
-  --pdv-blur: 20px;
+  /* 20px → 10px: custo de blur cresce com o raio; 10px preserva o efeito nas
+     superfícies grandes/estáveis (ver nota acima) gastando bem menos por frame. */
+  --pdv-blur: 10px;
   --pdv-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 62%);
 }
 :root[data-theme='dark'] {
