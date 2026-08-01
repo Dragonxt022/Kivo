@@ -382,22 +382,56 @@ router.post('/companies/:uuid/devices/:id/delete', requireAdminAuth, async (req,
 });
 
 /** Tela global: dispositivos de TODAS as empresas (ativos e removidos), pra suporte não
- * precisar abrir empresa por empresa procurando uma máquina específica. */
+ * precisar abrir empresa por empresa procurando uma máquina específica. Junto vai o
+ * registro de testes grátis já reivindicados — é o que decide se uma máquina consegue
+ * pedir trial de novo, e sem essa lista não havia como o suporte enxergar (nem soltar)
+ * uma marca deixada por uma empresa que já foi excluída. */
 router.get('/devices', requireAdminAuth, async (_req, res) => {
-  const [devices] = await getPool().query(
+  const pool = getPool();
+  const [devices] = await pool.query(
     `SELECT cd.id, cd.company_uuid, cd.machine_id, cd.first_seen_at, cd.last_seen_at, cd.removed_at,
             c.name AS company_name, c.plan AS company_plan
      FROM company_devices cd
      JOIN companies c ON c.company_uuid = cd.company_uuid
      ORDER BY cd.last_seen_at DESC`,
   );
-  res.render('devices', { devices, planLabels: PLAN_LABELS });
+  // LEFT JOIN de propósito: as linhas órfãs (empresa já excluída) são justamente as
+  // que travam a máquina e as que o suporte precisa achar aqui.
+  // `company_exists` sai da chave da empresa, não do nome: `companies.name` é nullable,
+  // então um nome vazio não pode ser confundido com empresa excluída.
+  const [trials] = await pool.query(
+    `SELECT tr.machine_id_hash, tr.company_uuid, tr.claimed_at, c.name AS company_name,
+            c.company_uuid IS NOT NULL AS company_exists
+     FROM trial_registry tr
+     LEFT JOIN companies c ON c.company_uuid = tr.company_uuid
+     ORDER BY tr.claimed_at DESC`,
+  );
+  res.render('devices', { devices, trials, planLabels: PLAN_LABELS });
+});
+
+/** Libera o teste grátis de uma máquina: apaga a marca em `trial_registry` e ela volta
+ * a poder pedir os 15 dias. Decisão de suporte (mesmo espírito de liberar a vaga de um
+ * dispositivo) — o cliente não alcança essa rota. */
+router.post('/trials/:machineId/release', requireAdminAuth, async (req: AdminRequest, res) => {
+  const machineId = String(req.params.machineId);
+  await getPool().query('DELETE FROM trial_registry WHERE machine_id_hash = ?', [machineId]);
+  console.log(`[TRIAL RELEASE] admin=${req.adminUsername} machine=${machineId} at=${new Date().toISOString()}`);
+  res.redirect('/admin/devices');
 });
 
 /**
  * Exclusão definitiva: some com histórico de sincronização, backups (linha + arquivo no
- * disco) e cobranças. Imagens do banco (catalog_images) só perdem o vínculo com a empresa
- * (company_uuid = NULL) — são um acervo compartilhado, não pertencem só a quem enviou.
+ * disco), cobranças, cardápio publicado e chamados de suporte. Imagens do banco
+ * (catalog_images) só perdem o vínculo com a empresa (company_uuid = NULL) — são um
+ * acervo compartilhado, não pertencem só a quem enviou.
+ *
+ * TODA tabela que referencia `companies` precisa aparecer aqui: `menu_items` tem FK e
+ * ficou de fora até a 0.3.1, então excluir uma empresa que já tinha publicado cardápio
+ * estourava a FK e virava um "Erro interno do servidor." genérico na tela.
+ *
+ * `trial_registry` também sai: sem isso a máquina daquela empresa ficava marcada para
+ * sempre como "já usou o teste" mesmo depois da empresa ter sido apagada, e não havia
+ * como liberar (ver `/admin/trials/:machineId/release`).
  */
 router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
@@ -415,6 +449,10 @@ router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
     await conn.query('DELETE FROM sync_records WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM cloud_backups WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM charges WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM menu_items WHERE company_uuid = ?', [uuid]);
+    // support_messages cai junto por ON DELETE CASCADE em fk_support_messages_ticket.
+    await conn.query('DELETE FROM support_tickets WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM trial_registry WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_devices WHERE company_uuid = ?', [uuid]);
     await conn.query('UPDATE catalog_images SET company_uuid = NULL WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM companies WHERE company_uuid = ?', [uuid]);

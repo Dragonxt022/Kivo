@@ -63,6 +63,46 @@
             </tbody>
           </table>
         </div>
+
+        <div class="page-header" style="margin-top: 28px;">
+          <h2>Testes grátis reivindicados</h2>
+        </div>
+        <p class="field-hint" style="margin-top:0">
+          Cada máquina só pode pedir os 15 dias de avaliação uma vez — é esta lista que decide isso. Liberar apaga a
+          marca e a máquina volta a poder solicitar o teste. Linhas com <strong>empresa excluída</strong> são restos de
+          empresas que já foram apagadas: enquanto elas existirem, aquela máquina continua recebendo
+          “Esta máquina já utilizou o período de teste gratuito.”
+        </p>
+
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead><tr>
+              <th>Machine ID</th>
+              <th>Empresa</th>
+              <th>Reivindicado em</th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="t in displayTrials" :key="t.machine_id_hash">
+                <tr>
+                  <td class="muted" :title="t.machine_id_hash" x-text="t.machine_id_hash.slice(0, 16) + '…'"></td>
+                  <td>
+                    <a x-show="t.company_exists" :href="'/admin/companies/' + t.company_uuid" x-text="t.company_name || t.company_uuid"></a>
+                    <span x-show="!t.company_exists" class="badge cancelada">empresa excluída</span>
+                  </td>
+                  <td x-text="t.claimed_at"></td>
+                  <td class="text-right">
+                    <form method="post" :action="'/admin/trials/' + encodeURIComponent(t.machine_id_hash) + '/release'"
+                          @submit.prevent="if (confirm('Liberar o teste grátis desta máquina? Ela poderá solicitar os 15 dias de avaliação novamente.')) $el.submit()">
+                      <button type="submit" class="btn danger small">Liberar teste</button>
+                    </form>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!displayTrials.length"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum teste grátis reivindicado ainda.' }) %></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </main>
   </div>
@@ -73,6 +113,7 @@
       return {
         ...tableToolkit(),
         rows: <%- JSON.stringify(devices) %>,
+        trials: <%- JSON.stringify(trials) %>,
         planLabels: <%- JSON.stringify(planLabels) %>,
         q: '',
         sortGetters: {
@@ -86,6 +127,15 @@
             ? this.rows.filter((d) => (d.company_name || '').toLowerCase().includes(q) || d.machine_id.toLowerCase().includes(q))
             : this.rows;
           return this.sortedRows(filtered, this.sortGetters);
+        },
+        // Mesma caixa de busca das duas tabelas: procurar por um machine ID acha tanto o
+        // dispositivo quanto a marca de teste daquela máquina.
+        get displayTrials() {
+          const q = this.q.trim().toLowerCase();
+          if (!q) return this.trials;
+          return this.trials.filter(
+            (t) => t.machine_id_hash.toLowerCase().includes(q) || (t.company_name || '').toLowerCase().includes(q),
+          );
         },
       };
     }

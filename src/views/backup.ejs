@@ -15,7 +15,10 @@
   <main x-data="backupPage()" x-init="load()">
     <h1>Backup</h1>
     <p class="muted muted-block">
-      Backup automático <strong x-text="scheduleSummary"></strong>. Destino configurável em Configurações (chave <code>backup.dir</code>).
+      Backup automático <strong x-text="scheduleSummary"></strong>. Gravando em
+      <code class="truncate" :title="destination.dir" x-text="destination.dir || '…'"></code>
+      <span x-show="destination.isDefault">(pasta desta instalação — cada máquina tem a sua)</span>.
+      Para usar outra pasta, defina a chave <code>backup.dir</code> em Configurações.
     </p>
     <div class="toolbar">
       <% if (user.permissions.has('backup.run')) { %>
@@ -159,6 +162,7 @@
       const weekdayNames = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
       return {
         backups: [], cloudBackups: [], error: '', cloudError: '', notice: '', running: false, downloadingUuid: null,
+        destination: { dir: '', isDefault: true },
         license: {},
         cfg: { frequencia: 'diario', hora: '23:00', diaSemana: 0, diaMes: 1, retencao: 4 },
         savingConfig: false, configSaved: '',
@@ -170,6 +174,8 @@
         async load() {
           const r = await fetch('/api/backup');
           if (r.ok) this.backups = await r.json();
+          const d = await fetch('/api/backup/destination');
+          if (d.ok) this.destination = await d.json();
           const l = await fetch('/api/license/status');
           if (l.ok) this.license = await l.json();
           <% if (user.permissions.has('backup.view')) { %>
