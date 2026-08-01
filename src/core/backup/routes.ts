@@ -1,12 +1,19 @@
 import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
-import { runBackup, restoreBackup, listBackups, listCloudBackups, downloadCloudBackup, deleteBackup, deleteCloudBackup } from './service';
+import { runBackup, restoreBackup, listBackups, listCloudBackups, downloadCloudBackup, deleteBackup, deleteCloudBackup, backupDir, defaultBackupDir } from './service';
 
 const router = Router();
 
 router.get('/', requirePermission('backup.view'), (_req, res) => {
   res.json(listBackups());
+});
+
+/** Pasta onde os backups desta máquina estão sendo gravados agora. `isDefault` distingue
+ * o padrão derivado desta instalação de uma pasta escolhida à mão em Configurações. */
+router.get('/destination', requirePermission('backup.view'), (_req, res) => {
+  const dir = backupDir();
+  res.json({ dir, isDefault: dir === defaultBackupDir() });
 });
 
 router.get('/cloud', requirePermission('backup.view'), async (_req, res) => {

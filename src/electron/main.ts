@@ -1,6 +1,5 @@
 import { app, BrowserWindow, dialog, Menu, nativeTheme } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { migrateUp } from '../core/database/migrator';
@@ -45,23 +44,6 @@ const ICON_DARK = path.resolve(__dirname, '..', 'public', 'logo_marca_branco.png
 
 function currentIconPath(): string {
   return nativeTheme.shouldUseDarkColors ? ICON_DARK : ICON_LIGHT;
-}
-
-/**
- * Backup local (Fase 1) e nuvem (Fase 6c) precisam de um diretório gravável fora da
- * pasta de instalação (que pode não ter permissão de escrita e é sobrescrita em
- * atualizações). Semeia a setting só se ainda não existir — não sobrescreve escolha
- * do usuário feita depois pela tela de Configurações.
- */
-function seedPackagedBackupDir(): void {
-  if (!app.isPackaged) return;
-  const db = getSqlite();
-  const existing = db.prepare("SELECT 1 FROM settings WHERE key = 'backup.dir' AND deleted_at IS NULL").get();
-  if (existing) return;
-  const dir = path.join(app.getPath('userData'), 'storage', 'backups');
-  db.prepare(
-    `INSERT INTO settings (key, value, uuid, comment) VALUES ('backup.dir', ?, ?, 'Diretório de destino dos backups locais.')`,
-  ).run(dir, randomUUID());
 }
 
 /**
@@ -137,7 +119,9 @@ async function boot() {
 
   migrateUp();
   runSeeds();
-  seedPackagedBackupDir();
+  // O destino dos backups NÃO é semeado no banco: `backupDir()` deriva de `KIVO_DB_PATH`
+  // (userData no app empacotado) a cada uso. Gravar o caminho absoluto aqui fazia ele
+  // viajar junto num banco restaurado em outra máquina/outro perfil do Windows.
   // Antes de carregar os módulos (que decidem o que habilitar a partir do cache
   // local de licença): sem isso, mudar o plano/módulos no painel cloud só entrava em
   // vigor depois de um "Sincronizar agora" manual — reiniciar sozinho não bastava.

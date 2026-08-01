@@ -16,13 +16,46 @@ import { getCloudServerUrl } from '../config/cloud';
  * (best-effort — falha de rede não compromete o backup local, que já aconteceu).
  */
 
-function backupDir(): string {
+/**
+ * Destino padrão desta instalação: `storage/backups` ao lado da MESMA raiz de dados do
+ * banco (`KIVO_DB_PATH`) — em dev a pasta do repositório, no app empacotado o `userData`
+ * do usuário do Windows. Derivado, nunca gravado no banco: assim cada máquina cai no
+ * próprio espaço sozinha, e um banco restaurado de outra máquina/outro perfil não arrasta
+ * junto um caminho absoluto que não existe (ou, pior, que existe e é de outra instalação).
+ *
+ * Não usa `process.cwd()`: num Electron empacotado o cwd é o diretório de onde o processo
+ * foi lançado, não o do app — o fallback antigo podia jogar backup em qualquer lugar (até
+ * numa pasta sem permissão de escrita) se a setting não estivesse presente. Mesmo padrão de
+ * `productImagesDir()` em `core/catalog/submissionQueue.ts` e `fallbackMachineIdPath()` em
+ * `core/license/service.ts`.
+ */
+export function defaultBackupDir(): string {
+  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  return path.join(path.dirname(path.dirname(dbPath)), 'storage', 'backups');
+}
+
+/**
+ * Destino efetivo: a setting `backup.dir` só entra em jogo se o admin tiver escolhido uma
+ * pasta à mão. Se essa pasta não puder ser criada aqui (unidade de rede fora do ar, banco
+ * restaurado de outra máquina, outro perfil de usuário), cai no padrão desta instalação em
+ * vez de derrubar o backup inteiro — perder o backup é pior que gravá-lo no lugar padrão.
+ */
+export function backupDir(): string {
   const row = getSqlite()
     .prepare("SELECT value FROM settings WHERE key = 'backup.dir' AND deleted_at IS NULL")
     .get() as { value: string | null } | undefined;
-  const dir = row?.value || path.resolve(process.cwd(), 'storage', 'backups');
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  const configured = row?.value?.trim();
+  if (configured) {
+    try {
+      fs.mkdirSync(configured, { recursive: true });
+      return configured;
+    } catch (e) {
+      console.error(`[backup] destino configurado indisponível (${configured}) — usando o padrão desta máquina:`, e);
+    }
+  }
+  const fallback = defaultBackupDir();
+  fs.mkdirSync(fallback, { recursive: true });
+  return fallback;
 }
 
 function sha256(buf: Buffer): string {
