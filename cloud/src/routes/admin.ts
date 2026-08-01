@@ -395,17 +395,26 @@ router.get('/devices', requireAdminAuth, async (_req, res) => {
      JOIN companies c ON c.company_uuid = cd.company_uuid
      ORDER BY cd.last_seen_at DESC`,
   );
-  // LEFT JOIN de propósito: as linhas órfãs (empresa já excluída) são justamente as
-  // que travam a máquina e as que o suporte precisa achar aqui.
-  // `company_exists` sai da chave da empresa, não do nome: `companies.name` é nullable,
-  // então um nome vazio não pode ser confundido com empresa excluída.
-  const [trials] = await pool.query(
-    `SELECT tr.machine_id_hash, tr.company_uuid, tr.claimed_at, c.name AS company_name,
-            c.company_uuid IS NOT NULL AS company_exists
-     FROM trial_registry tr
-     LEFT JOIN companies c ON c.company_uuid = tr.company_uuid
-     ORDER BY tr.claimed_at DESC`,
+  // O cruzamento trial → empresa é feito aqui, não em SQL: `trial_registry` nasceu (0015)
+  // com collation diferente do resto do schema, e um JOIN com `companies` estourava
+  // ER_CANT_AGGREGATE_2COLLATIONS em produção. A 0017 alinha as duas, mas esta tela não
+  // pode depender de a migração ter rodado — o deploy reinicia o PM2 mesmo se o
+  // `npm run migrate` falhar, e aí a página cairia inteira por causa de uma lista lateral.
+  // O volume é de uma linha por máquina que já pediu trial: casar em memória sai de graça.
+  const [trialRows] = await pool.query(
+    'SELECT machine_id_hash, company_uuid, claimed_at FROM trial_registry ORDER BY claimed_at DESC',
   );
+  const [companyRows] = await pool.query('SELECT company_uuid, name FROM companies');
+  // Map só das empresas VIVAS: a ausência da chave é o que marca a linha como órfã —
+  // `companies.name` é nullable e não serve para isso (nome vazio ≠ empresa excluída).
+  const companyNames = new Map(
+    (companyRows as { company_uuid: string; name: string | null }[]).map((c) => [c.company_uuid, c.name]),
+  );
+  const trials = (trialRows as { machine_id_hash: string; company_uuid: string; claimed_at: string }[]).map((t) => ({
+    ...t,
+    company_name: companyNames.get(t.company_uuid) ?? null,
+    company_exists: companyNames.has(t.company_uuid),
+  }));
   res.render('devices', { devices, trials, planLabels: PLAN_LABELS });
 });
 
