@@ -1,0 +1,500 @@
+/* ═══════════════════════════════════════════════════════════
+   Site público multipágina — complementa landing.css com os
+   componentes das páginas internas (navegação com submenu,
+   cabeçalho de página, grade de módulos, comparativo de planos).
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Navegação: submenu de recursos + burger no mobile ─── */
+.nav-toggle,
+.nav-burger {
+  display: none;
+}
+.nav a.on {
+  color: var(--primary);
+}
+.nav-drop {
+  position: relative;
+}
+.nav-drop > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.nav-menu {
+  position: absolute;
+  top: calc(100% + 0.65rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  width: 310px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.1rem;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.16s,
+    transform 0.16s;
+  z-index: 60;
+}
+/* Ponte invisível sobre o vão: sem isso o menu some ao mover o mouse até ele. */
+.nav-drop::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 0.7rem;
+}
+.nav-drop:hover .nav-menu,
+.nav-drop:focus-within .nav-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.nav-menu a {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  color: var(--text);
+}
+.nav-menu a strong {
+  display: block;
+  font-size: 0.92rem;
+}
+.nav-menu a span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.nav-menu a:hover {
+  background: var(--surface-hover);
+}
+.nav-menu a.nav-menu-all {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border-light);
+  border-radius: 0;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 900px) {
+  .nav-burger {
+    display: inline-flex;
+    margin-left: auto;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .topbar-in {
+    flex-wrap: wrap;
+    height: auto;
+    padding-top: 0.7rem;
+  }
+  .nav {
+    display: none;
+    width: 100%;
+    margin: 0 0 0.9rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+  }
+  .nav-toggle:checked ~ .nav {
+    display: flex;
+  }
+  /* Sobrepõe o "display:none" do landing.css, que escondia os links no mobile. */
+  .nav a:not(.btn) {
+    display: block;
+    padding: 0.6rem 0.2rem;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .nav-menu {
+    position: static;
+    transform: none;
+    opacity: 1;
+    visibility: visible;
+    width: auto;
+    box-shadow: none;
+    border: none;
+    padding: 0 0 0 0.9rem;
+  }
+  .nav-menu a span {
+    display: none;
+  }
+  .nav-drop > a svg {
+    display: none;
+  }
+  .theme-btn {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+  }
+  .nav .btn {
+    justify-content: center;
+    margin-top: 0.6rem;
+  }
+}
+
+/* ─── Cabeçalho das páginas internas ─── */
+.page-head {
+  padding: 3.25rem 0 1rem;
+  text-align: center;
+}
+.page-head h1 {
+  font-size: clamp(1.9rem, 4.2vw, 2.9rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.9rem;
+}
+.page-head h1 em {
+  color: var(--primary);
+  font-style: normal;
+}
+.page-head > p {
+  color: var(--muted);
+  font-size: clamp(1rem, 1.8vw, 1.18rem);
+  max-width: 44rem;
+  margin: 0 auto;
+}
+.crumb {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.9rem;
+}
+.crumb a {
+  color: var(--muted);
+  font-weight: 600;
+}
+.crumb a:hover {
+  color: var(--primary);
+}
+
+/* ─── Grade de módulos ─── */
+.mod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+}
+.mod-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  padding: 1.6rem;
+  box-shadow: var(--shadow);
+  color: var(--text);
+  transition:
+    transform 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.mod-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+.mod-card .ico {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+.mod-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.12rem;
+}
+.mod-card > p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+.mod-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  flex: 1;
+}
+.mod-card li {
+  font-size: 0.86rem;
+  color: var(--muted);
+  display: flex;
+  gap: 0.45rem;
+}
+.mod-card li svg {
+  color: var(--primary);
+  flex: none;
+  margin-top: 0.2rem;
+}
+.mod-more {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: auto;
+}
+
+/* ─── Faixa de números ─── */
+.stat-band {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-top: 2.5rem;
+}
+.stat-item {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 1.4rem 1.2rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.stat-item .n {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.1;
+}
+.stat-item .l {
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin-top: 0.25rem;
+}
+
+/* ─── Blocos de detalhe (páginas de módulo) ─── */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.6rem 2rem;
+  margin-top: 2.5rem;
+}
+.detail-item h3 {
+  font-size: 1.02rem;
+  margin: 0 0 0.35rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.detail-item h3 svg {
+  color: var(--primary);
+  flex: none;
+}
+.detail-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.93rem;
+}
+
+/* ─── Destaque ─── */
+.pull {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-left: 4px solid var(--primary);
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
+  margin-top: 2.5rem;
+  box-shadow: var(--shadow);
+}
+.pull p {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.pull .who {
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin-top: 0.6rem;
+}
+
+/* ─── Comparativo de planos ─── */
+.cmp-wrap {
+  overflow-x: auto;
+  margin-top: 2.5rem;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+table.cmp {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+}
+table.cmp th,
+table.cmp td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.92rem;
+}
+table.cmp thead th {
+  background: var(--surface-hover);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+table.cmp thead th.hi {
+  color: var(--primary);
+}
+table.cmp td.c,
+table.cmp th.c {
+  text-align: center;
+  width: 116px;
+}
+table.cmp tbody tr:last-child td {
+  border-bottom: none;
+}
+table.cmp tr.grp td {
+  background: var(--surface-hover);
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.ck {
+  color: var(--primary);
+}
+.nk {
+  color: var(--border);
+}
+
+/* ─── Passo a passo ─── */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.75rem;
+  margin-top: 2.5rem;
+  counter-reset: step;
+}
+.step {
+  position: relative;
+  padding-top: 2.9rem;
+}
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+.step h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.02rem;
+}
+.step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.93rem;
+}
+
+/* ─── Utilitários ─── */
+.cta-sub {
+  color: var(--muted);
+  max-width: 38rem;
+  margin: 0 auto 2rem;
+}
+.cta-note {
+  margin-top: 1rem;
+}
+.sec-tight {
+  padding-top: 1rem;
+}
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 3rem;
+  align-items: center;
+}
+.two-col.flip > *:first-child {
+  order: 2;
+}
+@media (max-width: 860px) {
+  .two-col {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .two-col.flip > *:first-child {
+    order: 0;
+  }
+}
+
+/* ─── Rodapé com mapa do site ─── */
+.foot-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 2rem;
+  padding-bottom: 2.25rem;
+}
+@media (max-width: 800px) {
+  .foot-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.75rem;
+  }
+}
+@media (max-width: 460px) {
+  .foot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.foot-grid h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+.foot-grid a {
+  display: block;
+  color: var(--muted);
+  font-size: 0.92rem;
+  padding: 0.22rem 0;
+}
+.foot-grid a:hover {
+  color: var(--primary);
+}
+.foot-brand img {
+  height: 28px;
+}
+.foot-tag {
+  color: var(--muted);
+  font-size: 0.92rem;
+  max-width: 20rem;
+  margin: 0.9rem 0 0;
+}
+.foot-ver {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0.9rem 0 0;
+}

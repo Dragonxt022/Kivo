@@ -1,0 +1,23 @@
+<%
+  /* Bloco de chamada final, repetido no fim de todas as páginas.
+     Espera: downloadUrl, appVersion. `ctaTitle`/`ctaText` são opcionais. */
+  var t = typeof ctaTitle !== 'undefined' ? ctaTitle : 'Baixe agora e venda ainda hoje';
+  var x = typeof ctaText !== 'undefined' ? ctaText : '15 dias grátis com todos os recursos, migração de dados inclusa e a nossa equipe do seu lado no treinamento e no suporte.';
+%>
+<section>
+  <div class="wrap">
+    <div class="cta-final">
+      <div class="kicker">Pronto para começar?</div>
+      <h2><%= t %></h2>
+      <p class="cta-sub"><%= x %></p>
+      <div class="hero-ctas">
+        <a class="btn big" href="<%= downloadUrl %>">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar para Windows
+        </a>
+        <a class="btn big secondary" href="/contato">Falar com um especialista</a>
+      </div>
+      <p class="hero-note cta-note">Versão <%= appVersion %> · Windows 10+ · Sem cartão de crédito</p>
+    </div>
+  </div>
+</section>

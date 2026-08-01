@@ -1,0 +1,16 @@
+<%
+  /* Cabeçalho comum das páginas públicas do site.
+     Espera: title, description. `canonicalPath` é opcional. */
+%>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title><%= title %></title>
+<meta name="description" content="<%= description %>" />
+<meta property="og:title" content="<%= title %>" />
+<meta property="og:description" content="<%= description %>" />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#ff8000" />
+<link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+<%- include('../theme-init') %>
+<link rel="stylesheet" href="/css/landing.css">
+<link rel="stylesheet" href="/css/site.css">

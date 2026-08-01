@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Planos do Kivo — comece grátis por 15 dias, sem cartão',
+    description: 'Compare os planos do Kivo: Teste, Prata, Ouro e Diamante. Todos com migração de dados, treinamento e suporte 24/7 inclusos. Veja o que vem em cada um, recurso por recurso.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'planos', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <span>Planos</span></div>
+      <h1>Comece grátis.<br /><em>Cresça no seu ritmo.</em></h1>
+      <p>
+        15 dias com tudo liberado, sem cartão de crédito. Depois você escolhe o plano
+        que faz sentido — e a migração, o treinamento e o suporte vêm juntos em todos.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <div class="plans">
+        <div class="plan">
+          <h3>Teste</h3>
+          <div class="tag">15 dias grátis — sem cartão</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Todos os módulos liberados</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona offline</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Dados de exemplo para testar</li>
+            <li class="no"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Salvamento em nuvem</li>
+          </ul>
+          <a class="btn secondary" href="<%= downloadUrl %>">Começar grátis</a>
+        </div>
+        <div class="plan">
+          <h3>Prata</h3>
+          <div class="tag">Para começar a operar</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV, estoque e financeiro completos</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> DRE e relatórios</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Migração + treinamento + suporte</li>
+            <li class="no"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Nuvem e atualização automática</li>
+          </ul>
+          <a class="btn secondary" href="/contato">Falar com a gente</a>
+        </div>
+        <div class="plan featured">
+          <h3>Ouro</h3>
+          <div class="tag">O equilíbrio ideal</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Prata</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <strong>Salvamento automático em nuvem</strong></li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Atualizações automáticas</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Cardápio online</li>
+          </ul>
+          <a class="btn" href="/contato">Falar com a gente</a>
+        </div>
+        <div class="plan">
+          <h3>Diamante</h3>
+          <div class="tag">Operação completa</div>
+          <ul>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Ouro</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mesas, garçom e cozinha (KDS)</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Prioridade máxima no suporte</li>
+            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Acesso web (em breve)</li>
+          </ul>
+          <a class="btn secondary" href="/contato">Falar com a gente</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Comparativo</div>
+        <h2>Recurso por recurso, sem letra miúda</h2>
+        <p>Se algo não está aqui, é porque vem em todos os planos — inclusive no teste grátis.</p>
+      </div>
+
+      <div class="cmp-wrap">
+        <table class="cmp">
+          <thead>
+            <tr>
+              <th>Recurso</th>
+              <th class="c">Teste</th>
+              <th class="c">Prata</th>
+              <th class="c hi">Ouro</th>
+              <th class="c">Diamante</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="grp"><td colspan="5">Vendas</td></tr>
+            <tr><td>PDV com atalhos e múltiplas vendas</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Dinheiro, PIX, cartão e venda a prazo</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Pagamento dividido e carnê</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Orçamentos</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+
+            <tr class="grp"><td colspan="5">Catálogo e estoque</td></tr>
+            <tr><td>11 tipos de produto (kit, combo, variantes…)</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Compras com custo médio ponderado</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Importação e exportação por planilha</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Sugestor automático de imagens</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+
+            <tr class="grp"><td colspan="5">Financeiro</td></tr>
+            <tr><td>Caixa com sangria, suprimento e conferência</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Contas a pagar e a receber</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>DRE com CMV e simulação de cenários</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Convênios e faturamento mensal</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+
+            <tr class="grp"><td colspan="5">Nuvem</td></tr>
+            <tr><td>Salvamento automático na nuvem</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Backup do banco de dados</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Atualizações automáticas</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Cardápio online com QR code</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+
+            <tr class="grp"><td colspan="5">Restaurante</td></tr>
+            <tr><td>Mesas e comandas</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Painel de cozinha (KDS) por estação</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Modo garçom</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
+
+            <tr class="grp"><td colspan="5">Serviço</td></tr>
+            <tr><td>Migração dos seus dados</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Treinamento da equipe</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Suporte 24/7</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr><td>Prioridade máxima no atendimento</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pull">
+        <p><strong>Não sabe qual escolher?</strong> Comece pelo teste grátis com tudo ligado. Em 15 dias você descobre o que realmente usa — e a gente ajusta o plano com você, sem empurrar módulo que não faz sentido pro seu negócio.</p>
+        <div class="who"><a href="/contato">Falar com um especialista →</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Dúvidas frequentes</div>
+        <h2>Sobre planos e cobrança</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>Como funciona o teste grátis de 15 dias?</summary>
+          <p>Baixe o instalador, crie sua conta e use com todos os módulos liberados por 15 dias — sem cartão de crédito e sem compromisso. Ao final, você escolhe o plano que faz sentido.</p>
+        </details>
+        <details>
+          <summary>Preciso pagar mensalidade?</summary>
+          <p>Você adquire a licença de uso do Kivo. Quem assina recebe as atualizações gratuitas da linha de versão contratada. Fale com a gente para conhecer as condições atuais.</p>
+        </details>
+        <details>
+          <summary>Posso trocar de plano depois?</summary>
+          <p>Sim. Os módulos são ligados e desligados por licença — a mudança vale assim que o sistema valida a nova chave, sem reinstalar nada.</p>
+        </details>
+        <details>
+          <summary>Quantos computadores posso usar?</summary>
+          <p>Cada licença tem um limite de dispositivos ativos. Trocou de máquina? O suporte libera a vaga da antiga e você ativa a nova.</p>
+        </details>
+        <details>
+          <summary>Meus dados ficam presos no sistema?</summary>
+          <p>Não. Produtos e cadastros podem ser exportados por planilha quando você quiser, e o banco de dados fica no seu computador.</p>
+        </details>
+        <details>
+          <summary>O que acontece se eu ficar sem internet?</summary>
+          <p>Nada. O Kivo funciona offline em qualquer plano — a nuvem é para backup, sincronização entre máquinas e cardápio online.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Comece pelo teste grátis',
+    ctaText: 'Todos os módulos liberados por 15 dias, sem cartão de crédito. Se fizer sentido, a gente conversa sobre o plano depois.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

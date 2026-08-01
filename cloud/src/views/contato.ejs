@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Fale com a gente — Kivo',
+    description: 'Deixe seu contato e nossa equipe chama você no WhatsApp para tirar dúvidas, mostrar o sistema funcionando e cuidar da migração dos seus dados. Sem compromisso.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'contato', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <span>Contato</span></div>
+      <h1>Prefere que a gente<br /><em>te mostre funcionando?</em></h1>
+      <p>
+        Deixe seu contato e nossa equipe chama você no WhatsApp — sem robô, sem
+        formulário que ninguém lê e sem compromisso nenhum.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <div class="contact-grid">
+        <div>
+          <div class="kicker">Como funciona</div>
+          <h2>Uma conversa, não uma abordagem de vendas</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            A ideia é entender o seu negócio e mostrar se o Kivo resolve. Se não
+            resolver, a gente fala isso também.
+          </p>
+          <div class="steps" style="margin-top:2rem">
+            <div class="step">
+              <h3>Você deixa o contato</h3>
+              <p>Só nome e WhatsApp. O resto é opcional.</p>
+            </div>
+            <div class="step">
+              <h3>A gente chama</h3>
+              <p>Respondemos rápido, no seu WhatsApp, em horário comercial.</p>
+            </div>
+            <div class="step">
+              <h3>Demonstração guiada</h3>
+              <p>Se quiser, mostramos o sistema rodando com o cenário do seu negócio.</p>
+            </div>
+            <div class="step">
+              <h3>Migração planejada</h3>
+              <p>Combinamos como trazer seus produtos e clientes do sistema atual.</p>
+            </div>
+          </div>
+
+          <div class="pull">
+            <p><strong>Com pressa?</strong> Não precisa esperar a gente ligar — baixe o Kivo e comece o teste grátis agora. O assistente de boas-vindas configura tudo em minutos.</p>
+            <div class="who"><a href="<%= downloadUrl %>">Baixar para Windows (v<%= appVersion %>) →</a></div>
+          </div>
+        </div>
+
+        <form class="form-card" id="contact-form" novalidate>
+          <div class="form-field">
+            <label for="cf-name">Seu nome <span class="req">*</span></label>
+            <input id="cf-name" name="name" type="text" maxlength="120" required autocomplete="name" placeholder="Como podemos te chamar?" />
+          </div>
+          <div class="form-field">
+            <label for="cf-whatsapp">WhatsApp <span class="req">*</span></label>
+            <input id="cf-whatsapp" name="whatsapp" type="tel" maxlength="40" required autocomplete="tel" placeholder="(00) 90000-0000" />
+          </div>
+          <div class="form-field">
+            <label for="cf-email">E-mail</label>
+            <input id="cf-email" name="email" type="email" maxlength="160" autocomplete="email" placeholder="voce@suaempresa.com.br" />
+          </div>
+          <div class="form-field">
+            <label for="cf-business">Nome do seu negócio</label>
+            <input id="cf-business" name="business" type="text" maxlength="160" placeholder="Ex.: Lanchonete da Maria" />
+          </div>
+          <div class="form-field">
+            <label for="cf-message">Mensagem</label>
+            <textarea id="cf-message" name="message" maxlength="2000" placeholder="Conte um pouco do que você precisa (opcional)"></textarea>
+          </div>
+          <!-- Honeypot anti-bot: humanos não veem este campo -->
+          <div class="hp-field" aria-hidden="true">
+            <label for="cf-website">Website</label>
+            <input id="cf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+          <button type="submit" class="btn big" style="width:100%; justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            Quero ser contatado
+          </button>
+          <div class="form-msg" id="cf-msg"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+
+  <script>
+    (function () {
+      var form = document.getElementById('contact-form');
+      var msg = document.getElementById('cf-msg');
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        msg.className = 'form-msg';
+        var data = Object.fromEntries(new FormData(form).entries());
+        var btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        try {
+          var res = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          var json = await res.json().catch(function () { return {}; });
+          if (res.ok && json.ok) {
+            form.reset();
+            msg.textContent = '✔ Recebemos seu contato! Em breve nossa equipe te chama no WhatsApp.';
+            msg.className = 'form-msg ok';
+          } else {
+            msg.textContent = json.error || 'Não foi possível enviar agora. Tente novamente em instantes.';
+            msg.className = 'form-msg err';
+          }
+        } catch (err) {
+          msg.textContent = 'Sem conexão com o servidor. Tente novamente em instantes.';
+          msg.className = 'form-msg err';
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

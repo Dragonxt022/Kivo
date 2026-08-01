@@ -1,0 +1,10 @@
+<%
+  /* Screenshot do sistema numa moldura de janela, trocando automaticamente entre
+     as versões clara e escura conforme o tema do site.
+     Espera: name (arquivo base, sem extensão e sem "-dark"), alt. */
+%>
+<div class="shot-frame theme-swap">
+  <div class="bar"><i></i><i></i><i></i></div>
+  <img class="shot-light" loading="lazy" src="/img/landing/<%= name %>.png" alt="<%= alt %>" />
+  <img class="shot-dark" loading="lazy" src="/img/landing/<%= name %>-dark.png" alt="<%= alt %>" />
+</div>

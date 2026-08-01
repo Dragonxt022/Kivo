@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Financeiro e DRE no Kivo — caixa, contas, fluxo e lucro real',
+    description: 'Caixa com abertura, sangria, suprimento e conferência no fechamento. Contas a pagar e receber, fluxo de caixa por dia e DRE com CMV calculado pelo custo real das vendas.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'recursos-financeiro', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <a href="/recursos">Recursos</a> <span>›</span> <span>Financeiro &amp; DRE</span></div>
+      <h1>Faturar é fácil.<br /><em>Difícil é saber se sobrou.</em></h1>
+      <p>
+        O Kivo fecha o caixa conferido, controla o que entra e o que sai, e monta o DRE
+        com o custo real de cada venda — sem planilha, sem achismo.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <%- include('partials/site/shot', { name: 'dre', alt: 'DRE do Kivo com receita bruta, CMV, lucro bruto e despesas operacionais' }) %>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">DRE</div>
+          <h2>O lucro que o seu contador levaria um mês pra fechar</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Receita bruta, deduções, CMV, lucro bruto, despesas operacionais e resultado
+            líquido — calculados a partir das vendas e compras que você já lançou. Abre
+            a tela e está pronto.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> CMV pelo custo real</h3>
+              <p>Não é estimativa: é o custo médio ponderado de cada item que saiu na venda.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Coluna projetada</h3>
+              <p>"E se eu subir 8% o preço e cortar 5% do aluguel?" Simule antes de decidir.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Categorias configuráveis</h3>
+              <p>Aluguel, energia, salários, marketing — organize as despesas do seu jeito.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Pronto pra impressão</h3>
+              <p>Uma via limpa pra levar ao contador ou ao sócio, sem exportar nada.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'fluxo', alt: 'Fluxo de caixa do Kivo por dia e forma de pagamento' }) %>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'caixa', alt: 'Relatório de caixa do Kivo com movimentações e histórico de fechamentos' }) %>
+        <div>
+          <div class="kicker">Caixa</div>
+          <h2>Fechamento sem discussão no fim do turno</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Abre com o fundo de troco, registra sangria e suprimento durante o dia, e no
+            fechamento mostra o esperado contra o contado. A diferença aparece na hora —
+            com o nome de quem operou.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Por forma de pagamento</h3>
+              <p>Quanto foi em dinheiro, quanto em cartão, quanto em PIX — separado.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sangria e suprimento</h3>
+              <p>Tirou dinheiro pra pagar o motoboy? Fica registrado com motivo e responsável.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Histórico completo</h3>
+              <p>Todos os fechamentos anteriores, com busca e filtro por período.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Trava por segurança</h3>
+              <p>Sem caixa aberto, não há venda em dinheiro — o valor nunca fica fora da conferência.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Contas</div>
+          <h2>Nada vence sem você saber</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Contas a pagar e a receber com vencimento, parcelamento em carnê, multa e juros
+            por atraso, e baixa com a forma de pagamento certa — que já entra no caixa.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Aviso de vencimento</h3>
+              <p>O painel avisa o que vence nos próximos dias, antes de virar juros.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Recebimento parcial</h3>
+              <p>Cliente pagou metade? O restante rola pra próxima parcela automaticamente.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Convênios</h3>
+              <p>Empresas conveniadas com fatura mensal fechada de uma vez.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Conciliação</h3>
+              <p>Confere o que o sistema diz contra o que caiu de verdade na conta.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'contas', alt: 'Contas a receber do Kivo com vencimentos e situação' }) %>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Descubra seu lucro real desta semana',
+    ctaText: 'Instale, lance suas vendas e abra o DRE. Em 15 dias de teste você já enxerga a margem de verdade do seu negócio — não a que você imagina.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

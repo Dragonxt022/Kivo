@@ -1,0 +1,51 @@
+<%
+  /* Rodapé com mapa do site. Espera: downloadUrl, appVersion. */
+%>
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <div class="brand foot-brand">
+          <img class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
+          <img class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" />
+        </div>
+        <p class="foot-tag">
+          O sistema completo para vender, controlar e crescer.
+          Funciona offline, salva na nuvem.
+        </p>
+      </div>
+      <div>
+        <h4>Recursos</h4>
+        <a href="/recursos/pdv">PDV &amp; Vendas</a>
+        <a href="/recursos/estoque">Estoque &amp; Compras</a>
+        <a href="/recursos/financeiro">Financeiro &amp; DRE</a>
+        <a href="/recursos/restaurante">Mesas &amp; Cozinha</a>
+        <a href="/recursos/cardapio-online">Cardápio online</a>
+      </div>
+      <div>
+        <h4>Empresa</h4>
+        <a href="/recursos">Todos os módulos</a>
+        <a href="/planos">Planos e preços</a>
+        <a href="/wiki">Wiki e tutoriais</a>
+        <a href="/contato">Fale com a gente</a>
+      </div>
+      <div>
+        <h4>Comece agora</h4>
+        <a href="<%= downloadUrl %>">Baixar para Windows</a>
+        <a href="/contato">Agendar demonstração</a>
+        <p class="foot-ver">Versão <%= appVersion %> · Windows 10+</p>
+      </div>
+    </div>
+    <div class="foot-in">
+      <div>© <%= new Date().getFullYear() %> Kivo · PDV · Estoque · Compras · Financeiro · DRE · Mesas · Cardápio online</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function toggleTheme() {
+    var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', cur);
+    try { localStorage.setItem('kivo-theme', cur); } catch (e) {}
+  }
+</script>
