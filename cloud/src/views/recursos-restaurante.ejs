@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Mesas, comandas e cozinha no Kivo — sistema para restaurante e lanchonete',
+    description: 'Mapa de mesas, comandas com transferência e divisão, modo garçom e painel de cozinha (KDS) por estação. O pedido sai da mesa e chega na chapa sem papelzinho.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'recursos-restaurante', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <a href="/recursos">Recursos</a> <span>›</span> <span>Restaurante</span></div>
+      <h1>Do salão para a chapa<br /><em>sem papelzinho e sem gritaria.</em></h1>
+      <p>
+        O garçom lança na mesa, a cozinha recebe na tela e o caixa fecha no PDV.
+        Um pedido só, uma verdade só, do começo ao fim.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <%- include('partials/site/shot', { name: 'mesas', alt: 'Mapa de mesas do Kivo mostrando mesas livres e ocupadas' }) %>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'comanda', alt: 'Detalhe da comanda no Kivo com itens lançados e total' }) %>
+        <div>
+          <div class="kicker">Comandas</div>
+          <h2>A mesa 7 juntou com a 8. E agora?</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Agora é um clique. O Kivo trata o que acontece de verdade no salão:
+            gente que troca de mesa, casal que quer contas separadas e a turma que
+            juntou tudo no fim.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Transferir</h3>
+              <p>Mudou de mesa no meio do jantar? A comanda vai junto, com tudo que já foi lançado.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Dividir</h3>
+              <p>Separe itens em duas comandas para fechar contas individuais.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Juntar</h3>
+              <p>Duas mesas viraram uma turma só: junte as comandas e feche de uma vez.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Observação por item</h3>
+              <p>"Sem cebola", "ao ponto", "pra viagem" — anotado e impresso na cozinha.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Cozinha (KDS)</div>
+          <h2>Cada pedido na estação certa, no tempo certo</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            O item lançado na mesa cai direto no painel da cozinha, já separado por
+            estação — chapa, forno, fritadeira, bar, sobremesa. A equipe vai marcando
+            o que iniciou e o que ficou pronto.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Etapas do ticket</h3>
+              <p>Pendente, em preparo, pronto e entregue — o salão vê quando pode buscar.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Roteamento por produto</h3>
+              <p>Cada produto sabe pra qual estação vai e o tempo estimado de preparo.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Impressão na produção</h3>
+              <p>Prefere papel? Dá pra rotear a impressão por setor também.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tela dedicada</h3>
+              <p>Rode o painel num monitor ou tablet na cozinha, sem mexer no caixa.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'cozinha', alt: 'Painel de cozinha do Kivo com tickets por mesa e estação de preparo' }) %>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Como funciona na prática</div>
+        <h2>Do "boa noite" ao "pode fechar"</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Abre a mesa</h3>
+          <p>O garçom toca na mesa livre e a comanda abre. Dá pra vincular o cliente, se ele for da casa.</p>
+        </div>
+        <div class="step">
+          <h3>Lança o pedido</h3>
+          <p>Busca o produto, escolhe os complementos e anota a observação. A cozinha já recebe.</p>
+        </div>
+        <div class="step">
+          <h3>Cozinha produz</h3>
+          <p>O ticket aparece na estação certa e avança de pendente até pronto, na tela.</p>
+        </div>
+        <div class="step">
+          <h3>Fecha no caixa</h3>
+          <p>A comanda vira venda no PDV, com o preço congelado do pedido. Divide a conta se precisar.</p>
+        </div>
+      </div>
+
+      <div class="pull">
+        <p><strong>E o preço não muda no meio do jantar.</strong> O valor lançado na comanda fica congelado: se você reajustar o cardápio às 20h, quem já estava na mesa continua pagando o preço de quando pediu.</p>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Coloque o seu salão no Kivo',
+    ctaText: 'No teste grátis o assistente já cria 10 mesas e produtos de exemplo com complementos — dá pra simular um serviço inteiro antes de decidir.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

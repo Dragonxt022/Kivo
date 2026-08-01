@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Recursos e módulos do Kivo — PDV, estoque, financeiro, mesas e cardápio',
+    description: 'Conheça todos os módulos do Kivo: PDV, catálogo de produtos, estoque e compras, financeiro com DRE, mesas e cozinha, cardápio online, clientes e fidelidade. Ative só o que o seu negócio precisa.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'recursos', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <span>Recursos</span></div>
+      <h1>Um sistema modular.<br /><em>Você liga só o que precisa.</em></h1>
+      <p>
+        Uma loja de varejo usa PDV, estoque e financeiro. Um restaurante liga também mesas,
+        cozinha e cardápio online. O Kivo se adapta ao seu negócio — não o contrário.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <div class="stat-band">
+        <div class="stat-item"><div class="n">7</div><div class="l">módulos integrados</div></div>
+        <div class="stat-item"><div class="n">100%</div><div class="l">funciona offline</div></div>
+        <div class="stat-item"><div class="n">11</div><div class="l">tipos de produto</div></div>
+        <div class="stat-item"><div class="n">24/7</div><div class="l">suporte e treinamento</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Módulos principais</div>
+        <h2>Clique para ver cada módulo por dentro</h2>
+        <p>Cada módulo tem sua própria página, com telas reais e o detalhe de como funciona no dia a dia.</p>
+      </div>
+
+      <div class="mod-grid">
+        <a class="mod-card" href="/recursos/pdv">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+          <h3>PDV &amp; Vendas</h3>
+          <p>Frente de caixa veloz, com atalhos de teclado e várias vendas abertas ao mesmo tempo.</p>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Dinheiro, PIX, cartão e a prazo</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Pagamento dividido e troco</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Continua vendendo sem internet</li>
+          </ul>
+          <span class="mod-more">Ver o PDV por dentro →</span>
+        </a>
+
+        <a class="mod-card" href="/recursos/estoque">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Estoque &amp; Compras</h3>
+          <p>Catálogo completo, entrada de mercadoria e custo médio ponderado calculado sozinho.</p>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 11 tipos de produto</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Alerta de estoque mínimo</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Importação por planilha</li>
+          </ul>
+          <span class="mod-more">Ver estoque e compras →</span>
+        </a>
+
+        <a class="mod-card" href="/recursos/financeiro">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Financeiro &amp; DRE</h3>
+          <p>Caixa conferido, contas a pagar e receber, fluxo por dia e o lucro real calculado.</p>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sangria, suprimento e fechamento</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> CMV pelo custo real</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Simulação de cenários</li>
+          </ul>
+          <span class="mod-more">Ver o financeiro →</span>
+        </a>
+
+        <a class="mod-card" href="/recursos/restaurante">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
+          <h3>Restaurante</h3>
+          <p>Mapa de mesas, comandas, modo garçom e painel de cozinha — o salão inteiro na tela.</p>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Transferir, dividir e juntar</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Painel de cozinha por estação</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fecha direto no PDV</li>
+          </ul>
+          <span class="mod-more">Ver o módulo restaurante →</span>
+        </a>
+
+        <a class="mod-card" href="/recursos/cardapio-online">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+          <h3>Cardápio online</h3>
+          <p>Seus produtos viram uma página pública com QR code — sem app, sem mensalidade extra.</p>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> QR code pronto pra imprimir</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Você escolhe o que aparece</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Atualiza junto com o sistema</li>
+          </ul>
+          <span class="mod-more">Ver o cardápio online →</span>
+        </a>
+
+        <a class="mod-card" href="/planos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Clientes &amp; Fidelidade</h3>
+          <p>Ficha com histórico, venda a prazo, convênios com empresas e programa de pontos.</p>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Listas de preço por cliente</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Crédito de troca e fiado</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Faturamento de convênios</li>
+          </ul>
+          <span class="mod-more">Ver nos planos →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Tudo conectado</div>
+          <h2>Um lançamento, o sistema inteiro atualizado</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Os módulos não são ilhas. Uma venda no PDV baixa o estoque, entra no caixa,
+            alimenta o CMV do DRE e aparece na ficha do cliente — na mesma hora, sem
+            você digitar nada duas vezes.
+          </p>
+          <div class="detail-grid" style="margin-top:1.75rem">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Venda → Estoque</h3>
+              <p>Cada item vendido sai do estoque na hora, inclusive os insumos de produtos com ficha técnica.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Venda → Caixa</h3>
+              <p>Entrou dinheiro na gaveta? Já está na conferência do fechamento, por forma de pagamento.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Compra → Custo</h3>
+              <p>Recebeu mercadoria mais cara? O custo médio sobe e a margem do DRE reflete na hora.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mesa → PDV</h3>
+              <p>A comanda fechada vira venda normal no PDV, com o preço já congelado do pedido.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'home', alt: 'Tela inicial do Kivo com todos os módulos organizados em cartões' }) %>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">E ainda vem junto</div>
+        <h2>Recursos que ninguém lembra de perguntar — até precisar</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissões por ação</h3>
+          <p>O caixa vende mas não dá desconto. O estoquista movimenta mas não vê o DRE. Cada cargo com seu acesso, ação por ação.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Auditoria completa</h3>
+          <p>Quem cancelou a venda? Quem deu o desconto? Cada ação sensível fica registrada com usuário, data e hora.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+          <h3>Offline primeiro, nuvem sempre</h3>
+          <p>Internet caiu no meio do almoço? Continue vendendo. Quando voltar, tudo sincroniza sozinho.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
+          <h3>Backup e atualização automáticos</h3>
+          <p>Cópia do banco na nuvem e novas versões instaladas sozinhas. Você não precisa lembrar de nada.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+          <h3>Interface do seu jeito</h3>
+          <p>Tema claro ou escuro, cor de destaque personalizada, navegação em cartões ou menu lateral. Cada usuário do jeito que rende mais.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <h3>Wiki com passo a passo</h3>
+          <p>Dúvida no meio do expediente? A <a href="/wiki">wiki do Kivo</a> documenta cada tela com imagem e explicação.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

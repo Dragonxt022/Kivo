@@ -69,6 +69,29 @@ router.get('/', async (_req, res) => {
   res.render('landing', { downloadUrl, appVersion: version });
 });
 
+/**
+ * Páginas institucionais do site. Todas recebem os mesmos dados de release
+ * (link de download e versão), então ficam registradas por uma tabela simples
+ * rota → view em vez de um handler repetido para cada uma.
+ */
+const SITE_PAGES: Record<string, string> = {
+  '/recursos': 'recursos',
+  '/recursos/pdv': 'recursos-pdv',
+  '/recursos/estoque': 'recursos-estoque',
+  '/recursos/financeiro': 'recursos-financeiro',
+  '/recursos/restaurante': 'recursos-restaurante',
+  '/recursos/cardapio-online': 'recursos-cardapio',
+  '/planos': 'planos',
+  '/contato': 'contato',
+};
+
+for (const [path, view] of Object.entries(SITE_PAGES)) {
+  router.get(path, async (_req, res) => {
+    const { downloadUrl, version } = await getReleaseInfo();
+    res.render(view, { downloadUrl, appVersion: version });
+  });
+}
+
 // ─── Formulário de contato (público) ───
 // Leads caem em contact_leads e aparecem no painel admin (/admin/leads).
 

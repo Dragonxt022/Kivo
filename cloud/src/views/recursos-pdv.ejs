@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'PDV do Kivo — frente de caixa rápida, offline e com atalhos',
+    description: 'PDV completo: código de barras, atalhos de teclado, várias vendas simultâneas, pagamento dividido, troco, desconto com permissão e venda a prazo. Funciona mesmo sem internet.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'recursos-pdv', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <a href="/recursos">Recursos</a> <span>›</span> <span>PDV</span></div>
+      <h1>A fila anda.<br /><em>O caixa acompanha.</em></h1>
+      <p>
+        Um PDV pensado para quem atende de pé, com a mão ocupada e o cliente esperando.
+        Tudo no teclado, nada de caçar botão com o mouse.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com carrinho montado, busca de produto e resumo da venda' }) %>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'vendas', alt: 'Histórico de vendas do Kivo com filtros e totais' }) %>
+        <div>
+          <div class="kicker">Velocidade</div>
+          <h2>Bipe, cobre, próximo</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Leitor de código de barras, busca por nome ou SKU e atalhos para tudo que importa.
+            Quem opera decora em um dia e nunca mais tira a mão do teclado.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Atalhos de teclado</h3>
+              <p>F2 finaliza, F4 desconto, F7 acréscimo, F9 limpa, F11 imprime. Sem tirar a mão do balcão.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Várias vendas abertas</h3>
+              <p>Cliente esqueceu a carteira no carro? Abre outra venda e atende o próximo sem perder nada.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Consulta de preço</h3>
+              <p>Uma tela só para conferir preço e estoque, sem bagunçar o carrinho em andamento.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Complementos no carrinho</h3>
+              <p>Adicionais e opcionais aparecem na hora de lançar — bacon extra, sem cebola, tudo junto.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Recebimento</div>
+        <h2>Recebe do jeito que o cliente quiser pagar</h2>
+        <p>Uma venda, várias formas de pagamento na mesma comanda — com troco calculado e taxa por bandeira.</p>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg></div>
+          <h3>Dinheiro com troco</h3>
+          <p>Informe quanto o cliente entregou e o sistema calcula o troco. O valor entra na conferência da gaveta.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="15" y="15" width="5" height="5" rx="1"/></svg></div>
+          <h3>PIX e cartões</h3>
+          <p>Débito, crédito e PIX com taxa configurável por forma — a taxa vira despesa financeira no DRE sozinha.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <h3>Venda a prazo e carnê</h3>
+          <p>Fiado com vencimento, parcelado em carnê e limite por cliente. Vira conta a receber automaticamente.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M21 3 3 21"/><path d="M16 21h5v-5"/></svg></div>
+          <h3>Dividir a conta</h3>
+          <p>Mesa de seis pessoas? Divide igualmente em um clique ou lança quanto cada um pagou, em formas diferentes.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Crédito de loja e pontos</h3>
+          <p>Troca virou crédito na ficha do cliente. Pontos de fidelidade abatem direto no total da venda.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Desconto com PIN</h3>
+          <p>Desconto acima do limite só com autorização. O sistema pede o PIN do gerente e registra quem liberou.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="pull">
+        <p><strong>E se a internet cair no meio do movimento?</strong> O Kivo roda no seu computador, não no navegador de um servidor distante. Sem internet, o PDV continua vendendo, imprimindo e baixando estoque normalmente. Quando a conexão volta, tudo sobe pra nuvem sozinho.</p>
+        <div class="who">Disponível em todos os planos, inclusive no teste grátis.</div>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Teste o PDV no seu balcão hoje',
+    ctaText: 'Baixe, instale e venda em minutos. O assistente de boas-vindas já deixa formas de pagamento e produtos de exemplo prontos pra você experimentar.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

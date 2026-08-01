@@ -1,0 +1,44 @@
+<%
+  /* Barra de navegação do site público.
+     Espera: page (slug da página ativa), downloadUrl.
+     O menu "Recursos" abre no hover/foco em telas grandes e vira lista simples
+     no mobile — sem JS, só CSS, pra não pesar a página. */
+  var nav = typeof page !== 'undefined' ? page : '';
+%>
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="/">
+      <img class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
+      <img class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" />
+    </a>
+
+    <input type="checkbox" id="navtoggle" class="nav-toggle" />
+    <label for="navtoggle" class="nav-burger" aria-label="Abrir menu">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </label>
+
+    <nav class="nav">
+      <div class="nav-drop">
+        <a href="/recursos" class="<%= nav.indexOf('recursos') === 0 ? 'on' : '' %>">Recursos
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </a>
+        <div class="nav-menu">
+          <a href="/recursos/pdv"><strong>PDV &amp; Vendas</strong><span>Frente de caixa, atalhos, pagamentos</span></a>
+          <a href="/recursos/estoque"><strong>Estoque &amp; Compras</strong><span>Custo médio, fornecedores, reposição</span></a>
+          <a href="/recursos/financeiro"><strong>Financeiro &amp; DRE</strong><span>Caixa, contas, fluxo e lucro real</span></a>
+          <a href="/recursos/restaurante"><strong>Restaurante</strong><span>Mesas, comandas, garçom e cozinha</span></a>
+          <a href="/recursos/cardapio-online"><strong>Cardápio online</strong><span>Página pública com QR code</span></a>
+          <a href="/recursos" class="nav-menu-all">Ver todos os módulos →</a>
+        </div>
+      </div>
+      <a href="/planos" class="<%= nav === 'planos' ? 'on' : '' %>">Planos</a>
+      <a href="/wiki">Wiki</a>
+      <a href="/contato" class="<%= nav === 'contato' ? 'on' : '' %>">Contato</a>
+      <button class="theme-btn" onclick="toggleTheme()" title="Alternar tema" aria-label="Alternar tema claro/escuro">◐</button>
+      <a class="btn" href="<%= downloadUrl %>">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Baixar grátis
+      </a>
+    </nav>
+  </div>
+</header>
