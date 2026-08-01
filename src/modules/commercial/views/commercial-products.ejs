@@ -236,30 +236,6 @@
               </div>
             </div>
 
-            <!-- Identificação -->
-            <div class="pm-section">
-              <h2 class="pm-section-title">Identificação</h2>
-              <div class="pm-field">
-                <label>Código de barras</label>
-                <div class="flex-row">
-                  <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
-                  <template x-if="form.id">
-                    <button class="btn secondary small" type="button" @click="genBarcode()">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M6 4v16"/><path d="M10 4v4"/><path d="M10 16v4"/><path d="M14 4v8"/><path d="M14 16v4"/><path d="M18 4v4"/><path d="M18 12v8"/><path d="M22 4v16"/></svg>
-                      Gerar código interno
-                    </button>
-                  </template>
-                </div>
-                <span class="muted text-xs" x-show="barcodeHint" x-text="barcodeHint"></span>
-              </div>
-              <div class="pm-field">
-                <label>SKU</label><input type="text" x-model="form.sku" />
-              </div>
-              <div class="pm-field">
-                <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
-              </div>
-            </div>
-
             <!-- Comercial -->
             <div class="pm-section">
               <h2 class="pm-section-title">Comercial</h2>
@@ -288,6 +264,51 @@
               <% } %>
               <div class="pm-field">
                 <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
+              </div>
+            </div>
+
+            <!-- Estoque -->
+            <div class="pm-section">
+              <h2 class="pm-section-title">Estoque</h2>
+              <div class="pm-field">
+                <label class="toggle-switch" style="display:flex;align-items:center;gap:.5rem">
+                  <input type="checkbox" x-model="form.noStockControl" class="toggle-input" />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Não controla estoque (serviços, digitais, combos com estoque dos componentes)</span>
+                </label>
+              </div>
+              <div class="pm-field" x-show="!form.noStockControl">
+                <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
+              </div>
+              <template x-if="!form.id">
+                <div class="pm-field" x-show="!form.noStockControl">
+                  <label>Estoque inicial (opcional)</label>
+                  <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
+                </div>
+              </template>
+            </div>
+
+            <!-- Identificação -->
+            <div class="pm-section">
+              <h2 class="pm-section-title">Identificação</h2>
+              <div class="pm-field">
+                <label>Código de barras</label>
+                <div class="flex-row">
+                  <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
+                  <template x-if="form.id">
+                    <button class="btn secondary small" type="button" @click="genBarcode()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M6 4v16"/><path d="M10 4v4"/><path d="M10 16v4"/><path d="M14 4v8"/><path d="M14 16v4"/><path d="M18 4v4"/><path d="M18 12v8"/><path d="M22 4v16"/></svg>
+                      Gerar código interno
+                    </button>
+                  </template>
+                </div>
+                <span class="muted text-xs" x-show="barcodeHint" x-text="barcodeHint"></span>
+              </div>
+              <div class="pm-field">
+                <label>SKU</label><input type="text" x-model="form.sku" />
+              </div>
+              <div class="pm-field">
+                <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
               </div>
             </div>
           </div>
@@ -343,27 +364,6 @@
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Seções em largura total abaixo -->
-        <div class="pm-section">
-          <h2 class="pm-section-title">Estoque</h2>
-          <div class="pm-field">
-            <label class="toggle-switch" style="display:flex;align-items:center;gap:.5rem">
-              <input type="checkbox" x-model="form.noStockControl" class="toggle-input" />
-              <span class="toggle-slider"></span>
-              <span class="toggle-label">Não controla estoque (serviços, digitais, combos com estoque dos componentes)</span>
-            </label>
-          </div>
-          <div class="pm-field" x-show="!form.noStockControl">
-            <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
-          </div>
-          <template x-if="!form.id">
-            <div class="pm-field" x-show="!form.noStockControl">
-              <label>Estoque inicial (opcional)</label>
-              <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
-            </div>
-          </template>
         </div>
 
         <template x-if="form.id && form.productType !== 'variante'">

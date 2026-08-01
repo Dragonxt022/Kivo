@@ -151,15 +151,18 @@
 
         <label style="margin-top:.6rem">Formas de pagamento</label>
         <template x-for="(p, idx) in settleForm.payments" :key="idx">
-          <div class="form-grid" style="grid-template-columns:1fr 110px 32px;margin-bottom:.4rem">
-            <select x-model.number="p.methodId">
-              <option value="">Selecione…</option>
-              <template x-for="m in settleMethods" :key="m.id">
-                <option :value="m.id" x-text="m.name"></option>
-              </template>
-            </select>
-            <input type="text" x-model="p.amount" placeholder="0,00" @input="p.amount = maskMoney(p.amount)" />
-            <button type="button" class="btn secondary small" @click="removeSettlePaymentRow(idx)" x-show="settleForm.payments.length > 1">×</button>
+          <div style="margin-bottom:.6rem">
+            <div class="form-grid" style="grid-template-columns:1fr 110px 32px">
+              <select x-model.number="p.methodId">
+                <option value="">Selecione…</option>
+                <template x-for="m in settleMethods" :key="m.id">
+                  <option :value="m.id" x-text="m.name"></option>
+                </template>
+              </select>
+              <input type="text" x-model="p.amount" placeholder="0,00" @input="p.amount = maskMoney(p.amount)" />
+              <button type="button" class="btn secondary small" @click="removeSettlePaymentRow(idx)" x-show="settleForm.payments.length > 1">×</button>
+            </div>
+            <%- include('partials/payment-quick-methods', { modelExpr: 'p.methodId' }) %>
           </div>
         </template>
         <button type="button" class="btn secondary small" @click="addSettlePaymentRow()">
@@ -192,41 +195,21 @@
       </div>
     </dialog>
 
-    <dialog x-ref="noRegisterDlg" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:340px;max-width:90vw">
-      <div class="dialog-body-center" style="padding:1.25rem">
-        <div class="dialog-icon-sm dialog-icon-warning">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-        </div>
-        <h2 class="dialog-heading-md">Nenhum caixa aberto</h2>
-        <p class="dialog-muted-sm">
-          Liquidar em dinheiro exige um caixa aberto, pra esse valor entrar na conferência da
-          gaveta. Abra o caixa e tente de novo.
-        </p>
-        <div class="actions actions-center">
-          <button class="btn secondary" @click="$refs.noRegisterDlg.close()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
-            Cancelar
-          </button>
-          <button class="btn" @click="location.href = '/app/finance/caixa'">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            Abrir caixa
-          </button>
-        </div>
-      </div>
-    </dialog>
+    <%- include('partials/cash-register-inline-open', { retryExpr: 'confirmSettle()' }) %>
   </main>
   <script src="/js/masks.js"></script>
   <script src="/js/table-toolkit.js"></script>
+  <script src="/js/payment-methods.js"></script>
   <script>
     function billsPage(api, hasCategory) {
       return {
         ...tableToolkit(),
+        ...paymentMethodsMixin(),
+        ...cashRegisterInlineOpenMixin(),
         rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
         catQ: '', catResults: [], catIdx: -1,
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
-        settleError: '', settleMethods: [],
+        settleError: '',
         sortGetters: {
           description: (b) => b.description ?? '', party: (b) => b.party ?? '', amount_cents: (b) => b.amount_cents,
           issue_date: (b) => b.issue_date ?? '', due_date: (b) => b.due_date ?? '', status: (b) => b.status ?? '',
@@ -297,10 +280,7 @@
             payments: [{ methodId: '', amount: (owed / 100).toFixed(2).replace('.', ',') }],
           };
           this.settleError = '';
-          if (!this.settleMethods.length) {
-            const r = await fetch('/api/finance/payment-methods/active');
-            if (r.ok) this.settleMethods = await r.json();
-          }
+          await this.loadPaymentMethods();
           if (this.settleMethods.length === 1) this.settleForm.payments[0].methodId = this.settleMethods[0].id;
           this.$refs.settleDlg.showModal();
         },
@@ -322,7 +302,7 @@
           const data = await r.json();
           if (data.code === 'no_register') {
             this.$refs.settleDlg.close();
-            this.$refs.noRegisterDlg.showModal();
+            this.$refs.cashClosedWarnDlg.showModal();
             return;
           }
           this.settleError = data.error;

@@ -267,9 +267,9 @@
         </template>
       </div>
 
-          <div class="pdv-browse-list" style="margin-top:.75rem;border:1.5px solid var(--border-light);border-radius:var(--radius)">
-            <template x-for="p in browseFiltered()" :key="p.id">
-              <div class="pdv-result" @click="add(p).then(() => $refs.browse.close())">
+      <div class="pdv-browse-list">
+        <template x-for="p in browseFiltered()" :key="p.id">
+          <div class="pdv-result" @click="add(p).then(() => $refs.browse.close())">
             <span class="pdv-result-thumb">
               <img x-show="p.image_url" :src="p.image_url" alt="" />
               <template x-if="!p.image_url"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></template>
@@ -701,6 +701,7 @@
 
   <script src="/js/masks.js"></script>
   <script src="/js/datetime.js"></script>
+  <script src="/js/payment-methods.js"></script>
   <script>
     function pdvPage() {
       return {
@@ -816,16 +817,7 @@
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         focusSearch() { this.$nextTick(() => { this.$refs.search?.focus(); }); },
-        methodIcon(type) {
-          const icons = {
-            dinheiro: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>',
-            debito: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
-            credito: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
-            pix: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="15" y="15" width="5" height="5" rx="1"/></svg>',
-            prazo: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-          };
-          return icons[type] ?? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>';
-        },
+        methodIcon: paymentMethodIcon,
 
         // ─── Vendas simultâneas + persistência ───
         persistSlots() {

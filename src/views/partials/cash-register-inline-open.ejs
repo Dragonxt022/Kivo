@@ -1,0 +1,54 @@
+<%
+  // Aviso de "caixa fechado" + abertura de caixa inline, sem perder o
+  // formulário em andamento — mesmo padrão do PDV (cashClosedWarnDlg +
+  // openRegisterDlg). Requer o mixin cashRegisterInlineOpenMixin() espalhado
+  // no x-data e um método cents() disponível (padrão em todas as telas que
+  // usam maskMoney). Passar retryExpr, ex.: 'confirmSettle()', via
+  // include('partials/cash-register-inline-open', { retryExpr }).
+%>
+<% if (user.permissions.has('finance.cash.open')) { %>
+<dialog x-ref="cashClosedWarnDlg" style="width:360px">
+  <div class="dialog-body-center">
+    <div class="dialog-icon dialog-icon-warning">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--warning-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <h2 class="dialog-heading-md">Caixa fechado</h2>
+    <p class="dialog-muted">
+      Liquidar em dinheiro exige um caixa aberto, pra esse valor entrar na conferência da
+      gaveta. Deseja abrir agora?
+    </p>
+    <div class="actions actions-center">
+      <button class="btn secondary" @click="$refs.cashClosedWarnDlg.close()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Não
+      </button>
+      <button class="btn" @click="$refs.cashClosedWarnDlg.close(); openRegisterInline()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Sim
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<dialog x-ref="openRegisterDlg" style="width:360px">
+  <h1>Abrir caixa</h1>
+  <p class="muted muted-sm">O formulário em andamento não será perdido.</p>
+  <label>Valor inicial da gaveta (R$)</label>
+  <input type="text" x-ref="openRegisterInput" x-model="openRegisterForm.opening" placeholder="0,00"
+         @input="openRegisterForm.opening = maskMoney(openRegisterForm.opening)"
+         @keydown.enter.prevent="confirmOpenRegisterInline(() => { <%- retryExpr %> })" />
+  <div class="error" x-text="openRegisterForm.error"></div>
+  <div class="actions">
+    <button class="btn secondary" @click="$refs.openRegisterDlg.close()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+      Cancelar
+    </button>
+    <button class="btn" @click="confirmOpenRegisterInline(() => { <%- retryExpr %> })">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      Abrir caixa
+    </button>
+  </div>
+</dialog>
+<% } %>
