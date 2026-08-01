@@ -173,16 +173,21 @@
               <%- include('partials/plan-picker', { selectedPlan: company.plan }) %>
 
               <div class="form-grid">
-                <div class="field col-6">
+                <div class="field col-4">
                   <label>Validade</label>
                   <input type="date" name="validUntil" value="<%= validUntil || '' %>">
                 </div>
-                <div class="field col-6">
+                <div class="field col-4">
                   <label>Dispositivos</label>
                   <input type="number" name="maxDevices" min="1" value="<%= company.max_devices || 1 %>">
                 </div>
+                <div class="field col-4">
+                  <label>Versão da licença</label>
+                  <input type="text" name="licensedVersion" value="<%= company.licensed_version || '' %>" placeholder="0.3.0">
+                </div>
               </div>
               <p class="field-hint">Quantos computadores podem usar esta chave ao mesmo tempo. Para trocar de máquina além do limite, remova um dispositivo na lista abaixo.</p>
+              <p class="field-hint">Versão até a qual esta licença dá direito a atualização gratuita (ex.: "0.3.0" cobre toda a linha 0.3.x). Deixe em branco se ainda não foi definida.</p>
               <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
             </div>
 

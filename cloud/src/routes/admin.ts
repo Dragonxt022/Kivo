@@ -46,6 +46,7 @@ interface CompanyRow {
   modules: string[] | null;
   valid_until: string | null;
   max_devices: number;
+  licensed_version: string | null;
 }
 
 async function loadCompanyDetail(companyUuid: string) {
@@ -347,15 +348,16 @@ router.post('/companies/:uuid/profile', requireAdminAuth, async (req, res) => {
 
 router.post('/companies/:uuid/license', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  const { plan, modules, validUntil, maxDevices } = req.body ?? {};
+  const { plan, modules, validUntil, maxDevices, licensedVersion } = req.body ?? {};
   const modulesList = parseModules(modules);
   await getPool().query(
-    'UPDATE companies SET plan = ?, modules = CAST(? AS JSON), valid_until = ?, max_devices = ? WHERE company_uuid = ?',
+    'UPDATE companies SET plan = ?, modules = CAST(? AS JSON), valid_until = ?, max_devices = ?, licensed_version = ? WHERE company_uuid = ?',
     [
       plan || null,
       modulesList.length ? JSON.stringify(modulesList) : null,
       resolveValidUntil(plan || null, validUntil),
       maxDevices ? Math.max(1, Number(maxDevices)) : 1,
+      textOrNull(licensedVersion),
       uuid,
     ],
   );
