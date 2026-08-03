@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Notas fiscais</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/datetime.js"></script>
+  <style>
+    .doc-status { font-size:.76rem; font-weight:600; padding:.15rem .5rem; border-radius:var(--radius-full); white-space:nowrap; }
+    .doc-status.autorizada { background:var(--success-bg); color:var(--success-text); }
+    .doc-status.rejeitada { background:var(--danger-bg); color:var(--danger-text); }
+    .doc-status.cancelada { background:var(--danger-bg); color:var(--danger-text); }
+    .doc-status.pendente,
+    .doc-status.enviando,
+    .doc-status.contingencia { background:var(--warning-bg); color:var(--warning-text); }
+    .doc-status.inutilizada { background:var(--border-light); color:var(--text-muted); }
+    .doc-motive { font-size:.82rem; color:var(--text-secondary); }
+    .env-pill { display:inline-flex; align-items:center; gap:.4rem; padding:.5rem .85rem; border-radius:var(--radius);
+      font-size:.86rem; margin-bottom:1rem; }
+    .env-pill.homolog { background:var(--warning-bg); color:var(--warning-text); }
+    .env-pill.producao { background:var(--success-bg); color:var(--success-text); }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'fiscal' }) %>
+  <main x-data="fiscalDocumentsPage()" x-init="load()">
+    <h1>Notas fiscais</h1>
+
+    <div class="env-pill" :class="ambiente === 1 ? 'producao' : 'homolog'" x-cloak x-show="!loading">
+      <span x-text="ambiente === 1 ? 'Emitindo em PRODUÇÃO — as notas têm valor fiscal.' : 'Emitindo em HOMOLOGAÇÃO — as notas são de teste e não têm valor fiscal.'"></span>
+    </div>
+
+    <div class="toolbar">
+      <a class="btn secondary" href="/app/fiscal/configuracao">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configuração
+      </a>
+      <a class="btn secondary" href="/app/fiscal/produtos">Dados fiscais dos produtos</a>
+      <button class="btn secondary" @click="load()">Atualizar</button>
+    </div>
+
+    <p class="hint" x-show="loading">Carregando…</p>
+
+    <template x-if="!loading && !docs.length">
+      <section class="panel">
+        <%- include('partials/empty-state', { message: 'Nenhuma nota emitida ainda.' }) %>
+        <p class="hint text-center">
+          Termine a configuração e emita uma nota de teste para ver o resultado aqui.
+        </p>
+      </section>
+    </template>
+
+    <section class="panel" x-show="!loading && docs.length" x-cloak>
+      <table>
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Emitida em</th>
+            <th>Venda</th>
+            <th class="text-right">Total</th>
+            <th>Situação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="d in docs" :key="d.id">
+            <tr>
+              <td>
+                <strong x-text="d.serie + '/' + d.number"></strong>
+                <div class="muted-sm" x-show="d.key" x-text="d.key"></div>
+              </td>
+              <td x-text="formatDateTime(d.emitted_at)"></td>
+              <td>
+                <template x-if="d.sale_id">
+                  <a :href="'/app/store/vendas'" x-text="'#' + d.sale_id"></a>
+                </template>
+                <span x-show="!d.sale_id" class="muted">—</span>
+              </td>
+              <td class="text-right" x-text="brl(d.total_cents)"></td>
+              <td>
+                <span class="doc-status" :class="d.status" x-text="rotulo(d)"></span>
+                <div class="doc-motive" x-show="d.motive" x-text="d.motive"></div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    function fiscalDocumentsPage() {
+      return {
+        loading: true,
+        docs: [],
+        ambiente: 2,
+
+        async load() {
+          this.loading = true;
+          const [docsRes, cfgRes] = await Promise.all([
+            fetch('/api/fiscal/documentos'),
+            fetch('/api/fiscal/config'),
+          ]);
+          if (!docsRes.ok) {
+            const body = await docsRes.json().catch(() => ({}));
+            window.handleApiError(docsRes, body, 'Não foi possível carregar as notas.');
+            this.loading = false;
+            return;
+          }
+          this.docs = await docsRes.json();
+          if (cfgRes.ok) this.ambiente = (await cfgRes.json()).config?.ambiente ?? 2;
+          this.loading = false;
+        },
+
+        rotulo(d) {
+          const mapa = {
+            pendente: 'Aguardando envio',
+            enviando: 'Enviando…',
+            autorizada: d.is_test ? 'Autorizada (teste)' : 'Autorizada',
+            rejeitada: 'Rejeitada',
+            cancelada: 'Cancelada',
+            contingencia: 'Em contingência',
+            inutilizada: 'Inutilizada',
+          };
+          return mapa[d.status] || d.status;
+        },
+
+        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ','); },
+        formatDateTime(v) { return fmtDateTime(v); },
+      };
+    }
+  </script>
+</body>
+</html>

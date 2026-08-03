@@ -179,6 +179,11 @@ export async function createServer(): Promise<KivoServer> {
   const moduleViews = modules.map((m) => m.viewsDir).filter((v): v is string => !!v);
   app.set('views', [coreViews, ...moduleViews]);
   app.locals.moduleMenu = collectMenu(modules);
+  // id → nome legível do módulo, para telas que agrupam por módulo (ex.: Recursos)
+  // não precisarem exibir o id cru ('commercial') para o lojista.
+  app.locals.moduleNamesJson = JSON.stringify(
+    Object.fromEntries(modules.map((m) => [m.manifest.id, m.manifest.name])),
+  );
 
   // Tabelas sincronizáveis do Core
   registerSyncTables('core', [{ table: 'capabilities' }]);

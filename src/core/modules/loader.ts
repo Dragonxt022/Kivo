@@ -5,6 +5,7 @@ import type { Express, Router, Request, Response, NextFunction } from 'express';
 import { getSqlite } from '../database/connection';
 import { registerSyncTables } from '../sync/registry';
 import { isModuleEntitled } from '../license/service';
+import { hasCapability } from '../capabilities/service';
 import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
 
 export const CORE_VERSION = '0.1.0';
@@ -81,16 +82,19 @@ function registerInDb(m: ModuleManifest, enabled: boolean): void {
     );
 }
 
-/** Upsert das capabilities do manifesto: insere se nova (enabled=0), preserva enabled se já existe. */
+/** Upsert das capabilities do manifesto: insere se nova (enabled=0), preserva enabled se já existe.
+ * `beta` é sempre reescrito a partir do manifesto — é o código que decide o que ainda é beta,
+ * não o banco (assim um recurso sai de beta numa atualização, sem migration). */
 export function registerCapabilities(m: ModuleManifest): void {
   if (!m.capabilities?.length) return;
   const db = getSqlite();
   const upsert = db.prepare(
-    `INSERT INTO capabilities (key, description, module, enabled, uuid) VALUES (?, ?, ?, 0, ?)
-     ON CONFLICT(key) DO UPDATE SET description = excluded.description, module = excluded.module`,
+    `INSERT INTO capabilities (key, description, module, enabled, beta, uuid) VALUES (?, ?, ?, 0, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       description = excluded.description, module = excluded.module, beta = excluded.beta`,
   );
   for (const cap of m.capabilities) {
-    upsert.run(cap.key, cap.description, m.id, randomUUID());
+    upsert.run(cap.key, cap.description, m.id, cap.beta ? 1 : 0, randomUUID());
   }
 }
 
@@ -132,10 +136,17 @@ export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
  * Filtra `app.locals.moduleMenu` (todos os módulos compatíveis, sempre carregados)
  * pelo entitlement ATUAL a cada requisição — troca de plano/módulo aparece no
  * próximo clique, sem precisar reiniciar o Kivo.
+ *
+ * Itens que declaram `capability` também somem enquanto o recurso está desligado: é o
+ * que faz um beta nascer invisível, em vez de aparecer no menu e só barrar no clique.
  */
 export function filterModuleMenu(req: Request, res: Response, next: NextFunction): void {
   const all = (req.app.locals.moduleMenu ?? []) as ModuleMenuItem[];
-  res.locals.moduleMenu = all.filter((item) => !item.moduleId || isModuleEntitled(item.moduleId));
+  res.locals.moduleMenu = all.filter(
+    (item) =>
+      (!item.moduleId || isModuleEntitled(item.moduleId)) &&
+      (!item.capability || hasCapability(item.capability)),
+  );
   next();
 }
 

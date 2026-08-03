@@ -6,6 +6,9 @@ export interface ModuleMenuItem {
   label: string;
   href: string;
   permission?: string;
+  /** Capability que precisa estar ligada para o item aparecer. Sem isso, um recurso
+   * beta desligado ficaria visível no menu (o gate só barraria no clique). */
+  capability?: string;
   description?: string;
   icon?: string;
   /** Preenchido por collectMenu() — usado para filtrar o menu por entitlement a cada requisição. */
@@ -25,8 +28,9 @@ export interface ModuleManifest {
   permissions: { key: string; description: string }[] | string[];
   /** Capacidades finas do módulo: recursos ligáveis/desligáveis por empresa, dentro de um
    * módulo já contratado (ex.: 'variantes', 'kits', 'complementos'). Upsert no boot como
-   * permissões — nunca resetam o `enabled` atual. */
-  capabilities?: { key: string; description: string }[];
+   * permissões — nunca resetam o `enabled` atual.
+   * `beta`: recurso em avaliação — a tela de Recursos avisa antes de ligar. */
+  capabilities?: { key: string; description: string; beta?: boolean }[];
   /** Caminho relativo à pasta do módulo, ou Router direto. Montado em /api/<id>. */
   routes?: string | Router;
   /** Router de páginas (views), montado em /app/<id> com autenticação. */
