@@ -30,9 +30,12 @@ import { settingsRepository } from '../../core/repositories/SettingsRepository';
 
 const router = Router();
 
-const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
-  p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active,
-  p.purchase_unit, p.purchase_unit_qty, p.image_url, p.updated_at, p.product_type, p.parent_product_id, p.visivel_cardapio`;
+// Havia aqui uma cópia morta de PRODUCT_COLS (zero usos): as listagens usam a de
+// `repositories/ProductRepository.ts`. Removida porque é uma armadilha — quem precisa
+// expor uma coluna nova edita esta, e a consulta real continua sem ela.
+
+/** Campos fiscais aceitos na gravação em lote (módulo fiscal). */
+const FISCAL_FIELDS = ['ncm', 'cest', 'csosn', 'cst', 'origem', 'unit_fiscal'] as const;
 
 function autoSkuEnabled(): boolean {
   return settingsRepository.getBool('estoque.auto_sku', true);
@@ -200,6 +203,72 @@ router.post('/products', requirePermission('commercial.products.create'), valida
   res.status(201).json(created);
 });
 
+/**
+ * Gravação em lote dos dados fiscais (NCM, CEST, CSOSN/CST, origem, unidade tributável).
+ *
+ * Existe separado do `PUT /products/:id` porque o caso de uso é outro: um lojista que vai
+ * emitir nota precisa preencher NCM em centenas de produtos de uma vez, e abrir o
+ * formulário completo produto a produto seria inviável. Só os campos fiscais são aceitos —
+ * nome, preço e estoque continuam passando pelo caminho normal, com as validações deles.
+ *
+ * Campo ausente no patch fica como está; string vazia limpa (o lojista precisa conseguir
+ * apagar um CEST posto por engano).
+ */
+router.put('/products/fiscal', requirePermission('commercial.products.edit'), (req, res) => {
+  const bodyIds: unknown[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const ids = [...new Set(bodyIds.map((id) => Number(id)).filter((n) => Number.isInteger(n) && n > 0))];
+  const patch = (req.body?.patch ?? {}) as Record<string, unknown>;
+  if (!ids.length) {
+    res.status(400).json({ error: 'Informe ao menos um produto.' });
+    return;
+  }
+
+  const fields = FISCAL_FIELDS.filter((f) => patch[f] !== undefined);
+  if (!fields.length) {
+    res.status(400).json({ error: 'Nenhum campo fiscal informado.' });
+    return;
+  }
+
+  const ncm = patch.ncm !== undefined ? String(patch.ncm ?? '').replace(/\D/g, '') : null;
+  if (ncm && ncm.length !== 8) {
+    res.status(400).json({ error: 'NCM deve ter 8 dígitos.' });
+    return;
+  }
+  const cest = patch.cest !== undefined ? String(patch.cest ?? '').replace(/\D/g, '') : null;
+  if (cest && cest.length !== 7) {
+    res.status(400).json({ error: 'CEST deve ter 7 dígitos.' });
+    return;
+  }
+
+  const values: Record<string, unknown> = {
+    ncm: ncm || null,
+    cest: cest || null,
+    csosn: patch.csosn !== undefined ? String(patch.csosn ?? '').trim() || null : null,
+    cst: patch.cst !== undefined ? String(patch.cst ?? '').trim() || null : null,
+    origem: patch.origem !== undefined && patch.origem !== '' ? Number(patch.origem) : null,
+    unit_fiscal: patch.unit_fiscal !== undefined ? String(patch.unit_fiscal ?? '').trim() || null : null,
+  };
+
+  const sets = fields.map((f) => `${f} = ?`).join(', ');
+  const params = fields.map((f) => values[f]);
+  let updated = 0;
+  productRepository.transaction(() => {
+    for (const id of ids) {
+      const before = productRepository.findByIdWithColumns(id, 'id, name, ncm, cest, csosn, cst, origem, unit_fiscal');
+      if (!before) continue;
+      productRepository.rawRun(
+        `UPDATE products SET ${sets}, updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL`,
+        ...params,
+        id,
+      );
+      const after = productRepository.findByIdWithColumns(id, 'id, name, ncm, cest, csosn, cst, origem, unit_fiscal');
+      audit(req, 'editar', 'product', id, before, after);
+      updated++;
+    }
+  });
+  res.json({ updated });
+});
+
 router.put('/products/:id', requirePermission('commercial.products.edit'), validateBody(updateProductSchema), (req, res) => {
   assertAuth(req);
   const id = String(req.params.id);
@@ -316,6 +385,7 @@ router.post('/products/bulk-delete', requirePermission('commercial.products.dele
   });
   res.json({ deleted: deletedIds.length, deletedIds, skipped });
 });
+
 
 router.put('/products/:id/favorite', requirePermission('commercial.products.edit'), (req, res) => {
   const id = String(req.params.id);

@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Configurar nota fiscal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+  <script src="/js/masks.js"></script>
+  <style>
+    /* O wizard do projeto foi desenhado para <dialog>; aqui ele vive na página, porque o
+       lojista volta a esta tela para ajustar. Só o enquadramento muda. */
+    .fiscal-wizard { border:1px solid var(--border-light); border-radius:var(--radius-lg); background:var(--surface); overflow:hidden; }
+    .fiscal-wizard .wizard-step { max-height:none; padding:1.75rem; }
+    .fiscal-wizard .wizard-title { text-align:left; }
+    .fiscal-wizard .wizard-subtitle { text-align:left; margin-bottom:1.25rem; }
+
+    .beta-banner { display:flex; gap:.75rem; align-items:flex-start; padding:.85rem 1rem; border-radius:var(--radius);
+      background:var(--warning-bg); color:var(--warning-text); margin-bottom:1.25rem; font-size:.88rem; line-height:1.5; }
+    .beta-banner svg { flex-shrink:0; margin-top:.1rem; }
+
+    .check-row { display:flex; align-items:flex-start; gap:.75rem; padding:.75rem .25rem; border-bottom:1px solid var(--border-light); }
+    .check-row:last-child { border-bottom:none; }
+    .check-mark { flex-shrink:0; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; margin-top:.1rem; }
+    .check-mark.ok { background:var(--success-bg); color:var(--success-text); }
+    .check-mark.warn { background:var(--warning-bg); color:var(--warning-text); }
+    .check-mark.fail { background:var(--danger-bg); color:var(--danger-text); }
+    .check-body { flex:1; min-width:0; }
+    .check-label { font-weight:500; }
+    .check-detail { font-size:.85rem; color:var(--text-secondary); line-height:1.45; }
+
+    .help-toggle { background:none; border:0; padding:0; margin-top:.3rem; color:var(--primary); cursor:pointer;
+      font:inherit; font-size:.82rem; text-decoration:underline; }
+    .help-box { margin-top:.5rem; padding:.75rem .9rem; border-radius:var(--radius); background:var(--surface-hover);
+      font-size:.83rem; line-height:1.55; color:var(--text-secondary); }
+    .help-box ol { margin:.4rem 0 0 1.1rem; display:flex; flex-direction:column; gap:.25rem; }
+
+    .cert-card { display:flex; gap:.9rem; align-items:center; padding:1rem; border-radius:var(--radius);
+      border:1.5px solid var(--border-light); background:var(--surface-hover); }
+    .cert-card .cert-icon { width:42px; height:42px; border-radius:50%; display:grid; place-items:center;
+      background:var(--primary-bg); color:var(--primary); flex-shrink:0; }
+    .cert-name { font-weight:600; }
+    .cert-meta { font-size:.84rem; color:var(--text-secondary); }
+
+    .env-strip { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+      padding:.9rem 1.1rem; border-radius:var(--radius); margin-bottom:1.25rem; }
+    .env-strip.homolog { background:var(--warning-bg); color:var(--warning-text); }
+    .env-strip.producao { background:var(--success-bg); color:var(--success-text); }
+    .env-strip strong { letter-spacing:.03em; }
+    .field-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:0 1rem; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'fiscal' }) %>
+  <main x-data="fiscalConfigPage()" x-init="load()">
+    <h1>Nota fiscal</h1>
+
+    <div class="beta-banner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <div>
+        <strong>Recurso em beta.</strong>
+        A emissão de nota fiscal do Kivo ainda está em avaliação. Confira cada nota emitida e
+        mantenha o seu processo atual até ter certeza de que está tudo certo. Enquanto o teste
+        em homologação não passar, o Kivo não deixa emitir nada com valor fiscal.
+      </div>
+    </div>
+
+    <p class="hint" x-show="loading">Carregando…</p>
+
+    <!-- ═════════ PAINEL (depois de configurado) ═════════ -->
+    <div x-show="!loading && mode === 'painel'" x-cloak>
+      <div class="env-strip" :class="config.ambiente === 1 ? 'producao' : 'homolog'">
+        <span>
+          Ambiente: <strong x-text="config.ambiente === 1 ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO'"></strong>
+          <span x-text="config.ambiente === 1 ? '— as notas têm valor fiscal.' : '— as notas são de teste e não têm valor fiscal.'"></span>
+        </span>
+        <span class="flex-row" style="gap:.5rem">
+          <button class="btn small" x-show="config.ambiente === 2" :disabled="!readiness.podeAtivarProducao || saving" @click="ativarProducao()"
+                  :title="readiness.podeAtivarProducao ? '' : 'Emita uma nota de teste aprovada antes de ativar a produção.'">
+            Ativar produção
+          </button>
+          <button class="btn secondary small" x-show="config.ambiente === 1" @click="voltarHomologacao()">Voltar para teste</button>
+        </span>
+      </div>
+
+      <section class="panel">
+        <h2>O que falta para emitir</h2>
+        <p class="hint mt-0">Resolva os itens em vermelho — sem eles a SEFAZ recusa a nota.</p>
+        <template x-for="c in readiness.checks" :key="c.id">
+          <div class="check-row">
+            <span class="check-mark" :class="c.status">
+              <template x-if="c.status === 'ok'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </template>
+              <template x-if="c.status === 'warn'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 17h.01"/></svg>
+              </template>
+              <template x-if="c.status === 'fail'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 9-6 6M9 9l6 6"/></svg>
+              </template>
+            </span>
+            <div class="check-body">
+              <div class="check-label" x-text="c.label"></div>
+              <div class="check-detail" x-text="c.detail"></div>
+            </div>
+            <template x-if="c.actionLabel">
+              <a class="btn secondary small" :href="c.actionHref || '#'"
+                 @click="if (!c.actionHref) { $event.preventDefault(); abrirPasso(c.step); }" x-text="c.actionLabel"></a>
+            </template>
+          </div>
+        </template>
+      </section>
+
+      <section class="panel">
+        <h2>Emissão de teste</h2>
+        <p class="hint mt-0">
+          Emite uma nota real em homologação para confirmar que certificado, CSC e emissor
+          estão conversando. É o que destrava a produção.
+        </p>
+        <div class="toolbar">
+          <button class="btn" disabled title="Disponível quando o emissor estiver conectado (próxima etapa do módulo).">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Emitir nota de teste
+          </button>
+          <span class="muted">A conexão com o emissor entra na próxima etapa do módulo.</span>
+        </div>
+      </section>
+
+      <div class="toolbar">
+        <button class="btn secondary" @click="mode = 'wizard'; step = 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Revisar configuração passo a passo
+        </button>
+        <a class="btn secondary" href="/app/fiscal/notas">Ver notas emitidas</a>
+      </div>
+    </div>
+
+    <!-- ═════════ ASSISTENTE ═════════ -->
+    <div x-show="!loading && mode === 'wizard'" x-cloak class="fiscal-wizard">
+      <div class="wizard-progress">
+        <template x-for="i in totalSteps" :key="i">
+          <div class="dot" :class="(i - 1) < step ? 'done' : ((i - 1) === step ? 'active' : '')"></div>
+        </template>
+      </div>
+
+      <div class="wizard-viewport">
+        <div class="wizard-track" :style="'transform: translateX(-' + (step * 100) + '%)'">
+
+          <!-- 0 · Boas-vindas -->
+          <div class="wizard-step">
+            <div class="wizard-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+            </div>
+            <h2 class="wizard-title">Vamos configurar a sua nota fiscal</h2>
+            <p class="wizard-subtitle">
+              São cinco passos. Você vai precisar do seu <strong>certificado digital A1</strong>
+              (arquivo .pfx com senha) e do <strong>CSC</strong> gerado no portal da SEFAZ do seu estado.
+              Se não tiver algum agora, tudo bem — dá para parar e voltar depois; nada se perde.
+            </p>
+            <div class="wizard-summary-list">
+              <div class="wizard-summary-item"><span class="wizard-summary-check">1</span><span>Dados fiscais da empresa</span></div>
+              <div class="wizard-summary-item"><span class="wizard-summary-check">2</span><span>Certificado digital A1</span></div>
+              <div class="wizard-summary-item"><span class="wizard-summary-check">3</span><span>CSC e emissor</span></div>
+              <div class="wizard-summary-item"><span class="wizard-summary-check">4</span><span>Como a nota deve sair</span></div>
+              <div class="wizard-summary-item"><span class="wizard-summary-check">5</span><span>Conferência e teste</span></div>
+            </div>
+          </div>
+
+          <!-- 1 · Empresa -->
+          <div class="wizard-step">
+            <h2 class="wizard-title">Dados fiscais da empresa</h2>
+            <p class="wizard-subtitle">
+              É o que vai no campo do emitente da nota. Precisa bater exatamente com o cadastro na SEFAZ.
+            </p>
+
+            <div class="field">
+              <label>Razão social</label>
+              <input class="input" type="text" x-model="empresa.razaoSocial" placeholder="Nome jurídico completo">
+            </div>
+            <div class="field-grid">
+              <div class="field">
+                <label>CNPJ</label>
+                <input class="input" type="text" :value="empresa.cnpj" @input="empresa.cnpj = maskDoc($event.target.value)" placeholder="00.000.000/0000-00">
+                <p class="hint" x-show="empresa.cnpj && !cnpjValido" style="color:var(--danger)">CNPJ inválido.</p>
+              </div>
+              <div class="field">
+                <label>Inscrição estadual</label>
+                <input class="input" type="text" x-model="empresa.ie" placeholder="Só números">
+              </div>
+            </div>
+
+            <p class="hint">Regime tributário</p>
+            <div class="choice-grid" style="margin-bottom:1rem">
+              <button type="button" class="choice-card" :class="config.crt === 1 ? 'selected' : ''" @click="config.crt = 1">
+                <span class="choice-label">Simples Nacional</span>
+                <span class="choice-desc">Usa CSOSN</span>
+              </button>
+              <button type="button" class="choice-card" :class="config.crt === 2 ? 'selected' : ''" @click="config.crt = 2">
+                <span class="choice-label">Simples — excesso de sublimite</span>
+                <span class="choice-desc">Usa CSOSN</span>
+              </button>
+              <button type="button" class="choice-card" :class="config.crt === 3 ? 'selected' : ''" @click="config.crt = 3">
+                <span class="choice-label">Regime Normal</span>
+                <span class="choice-desc">Usa CST</span>
+              </button>
+            </div>
+            <p class="hint" style="margin-top:-.5rem">Na dúvida, confirme com o seu contador — isso muda o cálculo do imposto em toda nota.</p>
+
+            <div class="field-grid">
+              <div class="field">
+                <label>CEP</label>
+                <input class="input" type="text" :value="empresa.cep" @input="empresa.cep = maskCEP($event.target.value)" placeholder="00000-000">
+              </div>
+              <div class="field">
+                <label>Número</label>
+                <input class="input" type="text" x-model="empresa.numero" placeholder="123">
+              </div>
+            </div>
+            <div class="field">
+              <label>Rua / logradouro</label>
+              <input class="input" type="text" x-model="empresa.rua">
+            </div>
+            <div class="field-grid">
+              <div class="field">
+                <label>Complemento</label>
+                <input class="input" type="text" x-model="empresa.complemento" placeholder="Sala, andar…">
+              </div>
+              <div class="field">
+                <label>Bairro</label>
+                <input class="input" type="text" x-model="empresa.bairro">
+              </div>
+            </div>
+            <div class="field-grid">
+              <div class="field">
+                <label>UF</label>
+                <select class="select" x-model="empresa.uf" @change="carregarMunicipios()">
+                  <option value="">Selecione…</option>
+                  <template x-for="uf in UFS" :key="uf"><option :value="uf" x-text="uf"></option></template>
+                </select>
+              </div>
+              <div class="field">
+                <label>Telefone</label>
+                <input class="input" type="text" :value="empresa.telefone" @input="empresa.telefone = maskPhone($event.target.value)" placeholder="(00) 00000-0000">
+              </div>
+            </div>
+            <div class="field">
+              <label>Município</label>
+              <select class="select" x-model="empresa.municipioIbge" :disabled="!municipios.length || municipiosCarregando">
+                <option value="" x-text="municipiosCarregando ? 'Buscando municípios…' : (empresa.uf ? 'Selecione o município…' : 'Selecione a UF primeiro…')"></option>
+                <template x-for="m in municipios" :key="m.code">
+                  <option :value="m.code" x-text="m.name"></option>
+                </template>
+              </select>
+              <p class="hint" x-show="municipiosErro" x-text="municipiosErro" style="color:var(--danger)"></p>
+              <div class="field" x-show="municipiosErro">
+                <label>Código IBGE do município (7 dígitos)</label>
+                <input class="input input-narrow" type="text" x-model="empresa.municipioIbge" placeholder="3550308">
+              </div>
+              <p class="hint" x-show="!municipiosErro">
+                A nota exige o código IBGE do município, não só o nome. A lista vem do próprio IBGE.
+              </p>
+            </div>
+          </div>
+
+          <!-- 2 · Certificado -->
+          <div class="wizard-step">
+            <h2 class="wizard-title">Certificado digital A1</h2>
+            <p class="wizard-subtitle">
+              É o arquivo <strong>.pfx</strong> (ou .p12) que o seu contador ou a autoridade
+              certificadora entregou, junto da senha. Ele fica guardado nesta máquina —
+              não vai para a nuvem nem entra no backup.
+            </p>
+
+            <template x-if="certificado">
+              <div class="cert-card" style="margin-bottom:1rem">
+                <span class="cert-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                </span>
+                <div style="flex:1;min-width:0">
+                  <div class="cert-name" x-text="certificado.titular"></div>
+                  <div class="cert-meta">
+                    <span x-show="certificado.cnpj" x-text="'CNPJ ' + certificado.cnpj"></span>
+                    <span x-show="certificado.cnpj"> · </span>
+                    <span x-text="'válido até ' + certificado.validoAte"></span>
+                    <span :style="certificado.diasRestantes <= 30 ? 'color:var(--danger);font-weight:600' : ''"
+                          x-text="' (' + certificado.diasRestantes + ' dia(s))'"></span>
+                  </div>
+                </div>
+                <button class="btn secondary small" @click="removerCertificado()">Trocar</button>
+              </div>
+            </template>
+
+            <template x-if="!certificado">
+              <div>
+                <div class="field">
+                  <label>Arquivo do certificado</label>
+                  <input type="file" class="input" accept=".pfx,.p12" @change="pegarArquivo($event)">
+                  <p class="hint" x-show="certArquivoNome" x-text="'Selecionado: ' + certArquivoNome"></p>
+                </div>
+                <div class="field">
+                  <label>Senha do certificado</label>
+                  <input class="input" type="password" x-model="certSenha" autocomplete="off" placeholder="A senha que veio junto do arquivo">
+                </div>
+                <div class="toolbar">
+                  <button class="btn" :disabled="!certBase64 || !certSenha || saving" @click="enviarCertificado()">
+                    <span x-text="saving ? 'Verificando…' : 'Enviar e verificar'"></span>
+                  </button>
+                </div>
+                <p class="error" x-text="certErro"></p>
+              </div>
+            </template>
+          </div>
+
+          <!-- 3 · Credenciais -->
+          <div class="wizard-step">
+            <h2 class="wizard-title">CSC e emissor</h2>
+            <p class="wizard-subtitle">
+              O CSC é o código que gera o QR Code da nota; o emissor é quem transmite para a SEFAZ.
+            </p>
+
+            <div class="field-grid">
+              <div class="field">
+                <label>ID do CSC</label>
+                <input class="input" type="text" x-model="idCsc" placeholder="Ex.: 000001">
+              </div>
+              <div class="field">
+                <label>CSC (código)</label>
+                <input class="input" type="password" x-model="csc" autocomplete="off"
+                       :placeholder="temCsc ? 'Já configurado — preencha só para trocar' : 'Cole o código gerado na SEFAZ'">
+              </div>
+            </div>
+            <button type="button" class="help-toggle" @click="ajudaCsc = !ajudaCsc"
+                    x-text="ajudaCsc ? 'Fechar ajuda' : 'Como consigo o CSC?'"></button>
+            <div class="help-box" x-show="ajudaCsc" x-cloak>
+              O CSC (Código de Segurança do Contribuinte) é gerado por você mesmo, no portal
+              da SEFAZ do seu estado, na área de NFC-e:
+              <ol>
+                <li>Entre no portal da SEFAZ do seu estado com o certificado digital.</li>
+                <li>Procure por “NFC-e” → “CSC” ou “Código de Segurança do Contribuinte”.</li>
+                <li>Gere um código para o ambiente que vai usar (comece pelo de homologação).</li>
+                <li>Guarde o <strong>ID</strong> (a sequência curta) e o <strong>código</strong> (a longa) — os dois vão aqui.</li>
+              </ol>
+              O procedimento muda um pouco de estado para estado. Se não achar, seu contador consegue gerar.
+            </div>
+
+            <hr class="hr-sep" />
+
+            <div class="field">
+              <label>Emissor</label>
+              <input class="input" type="text" x-model="provider" placeholder="Nome do serviço emissor">
+              <p class="hint">Quem assina e transmite a nota para a SEFAZ.</p>
+            </div>
+            <div class="field">
+              <label>Token de acesso do emissor</label>
+              <input class="input" type="password" x-model="token" autocomplete="off"
+                     :placeholder="temToken ? 'Já configurado — preencha só para trocar' : 'Cole o token da sua conta'">
+            </div>
+            <div class="toolbar">
+              <button class="btn" :disabled="saving" @click="salvarCredenciais()">
+                <span x-text="saving ? 'Salvando…' : 'Salvar credenciais'"></span>
+              </button>
+              <span class="muted" x-show="credOk">Salvo.</span>
+            </div>
+          </div>
+
+          <!-- 4 · Comportamento -->
+          <div class="wizard-step">
+            <h2 class="wizard-title">Como a nota deve sair</h2>
+            <p class="wizard-subtitle">Dá para mudar tudo isso depois, a qualquer momento.</p>
+
+            <div class="field-grid">
+              <div class="field">
+                <label>Série</label>
+                <input class="input input-narrow" type="number" min="1" max="899" x-model.number="config.serie">
+                <p class="hint">Deixe 1 se você não usa mais de um ponto de emissão.</p>
+              </div>
+              <div class="field">
+                <label>CFOP padrão</label>
+                <input class="input input-narrow" type="text" x-model="config.cfop" placeholder="5102">
+                <p class="hint">5102 é venda de mercadoria dentro do estado.</p>
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field" x-show="config.crt !== 3">
+                <label>CSOSN padrão</label>
+                <input class="input input-narrow" type="text" x-model="config.csosnPadrao" placeholder="102">
+              </div>
+              <div class="field" x-show="config.crt === 3">
+                <label>CST padrão</label>
+                <input class="input input-narrow" type="text" x-model="config.cstPadrao" placeholder="00">
+              </div>
+              <div class="field">
+                <label>Origem padrão da mercadoria</label>
+                <select class="select" x-model.number="config.origemPadrao">
+                  <option :value="0">0 — Nacional</option>
+                  <option :value="1">1 — Estrangeira, importação direta</option>
+                  <option :value="2">2 — Estrangeira, adquirida no mercado interno</option>
+                </select>
+              </div>
+            </div>
+            <p class="hint" style="margin-top:-.25rem">
+              Valem para produtos que não tiverem valor próprio cadastrado.
+            </p>
+
+            <hr class="hr-sep" />
+
+            <div class="field">
+              <label class="label-checkbox">
+                <input type="checkbox" x-model="config.pedirCpf" />
+                Perguntar “CPF na nota?” ao finalizar a venda
+              </label>
+            </div>
+            <div class="field">
+              <label class="label-checkbox">
+                <input type="checkbox" x-model="config.emitirAuto" />
+                Emitir a nota automaticamente ao finalizar a venda
+              </label>
+              <p class="hint">
+                Comece desligado: emita nota a nota pela tela de vendas, confira o resultado,
+                e só ligue o automático quando estiver confiante.
+              </p>
+            </div>
+          </div>
+
+          <!-- 5 · Conferência -->
+          <div class="wizard-step">
+            <h2 class="wizard-title">Conferência</h2>
+            <p class="wizard-subtitle">Situação de tudo que a SEFAZ vai exigir.</p>
+
+            <template x-for="c in readiness.checks" :key="c.id">
+              <div class="check-row">
+                <span class="check-mark" :class="c.status">
+                  <template x-if="c.status === 'ok'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  </template>
+                  <template x-if="c.status === 'warn'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 17h.01"/></svg>
+                  </template>
+                  <template x-if="c.status === 'fail'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 9-6 6M9 9l6 6"/></svg>
+                  </template>
+                </span>
+                <div class="check-body">
+                  <div class="check-label" x-text="c.label"></div>
+                  <div class="check-detail" x-text="c.detail"></div>
+                </div>
+                <template x-if="c.actionLabel">
+                  <a class="btn secondary small" :href="c.actionHref || '#'"
+                     @click="if (!c.actionHref) { $event.preventDefault(); step = c.step; }" x-text="c.actionLabel"></a>
+                </template>
+              </div>
+            </template>
+
+            <p class="hint" style="margin-top:1rem" x-show="readiness.ready">
+              Tudo pronto. O próximo passo é emitir uma nota de teste em homologação — é ela
+              que libera a emissão com valor fiscal.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="wizard-footer">
+        <button type="button" class="btn secondary" @click="voltar()" x-show="step > 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Voltar
+        </button>
+        <button type="button" class="btn secondary" @click="mode = 'painel'" x-show="step === 0">Fechar</button>
+        <div class="spacer"></div>
+        <span class="error" x-text="erro"></span>
+        <button type="button" class="btn" @click="avancar()" :disabled="saving" x-show="step < totalSteps - 1">
+          <span x-text="saving ? 'Salvando…' : (step === 0 ? 'Começar' : 'Continuar')"></span>
+        </button>
+        <button type="button" class="btn" @click="mode = 'painel'" x-show="step === totalSteps - 1">Concluir</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+    function fiscalConfigPage() {
+      return {
+        UFS,
+        loading: true,
+        saving: false,
+        mode: 'painel',
+        step: 0,
+        totalSteps: 6,
+        erro: '',
+
+        config: { crt: 1, serie: 1, ambiente: 2, cfop: '5102', csosnPadrao: '102', cstPadrao: '00', origemPadrao: 0, emitirAuto: false, pedirCpf: true },
+        empresa: {},
+        certificado: null,
+        readiness: { checks: [], ready: false, podeAtivarProducao: false },
+        temCsc: false,
+        temToken: false,
+
+        municipios: [],
+        municipiosErro: '',
+        municipiosCarregando: false,
+        ajudaCsc: false,
+
+        certBase64: '',
+        certArquivoNome: '',
+        certSenha: '',
+        certErro: '',
+
+        csc: '',
+        idCsc: '',
+        provider: '',
+        token: '',
+        credOk: false,
+
+        get cnpjValido() {
+          const d = String(this.empresa.cnpj || '').replace(/\D/g, '');
+          return d.length === 14;
+        },
+
+        async load() {
+          const r = await fetch('/api/fiscal/config');
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            window.handleApiError(r, body, 'Não foi possível carregar a configuração fiscal.');
+            this.loading = false;
+            return;
+          }
+          this.aplicar(await r.json());
+          this.idCsc = this.config.idCsc || '';
+          this.provider = this.config.provider || '';
+          // Nada configurado ainda: abre direto no assistente em vez de num painel vazio.
+          if (!this.certificado && !this.temCsc && !this.temToken) this.mode = 'wizard';
+          if (this.empresa.uf) this.carregarMunicipios();
+          this.loading = false;
+        },
+
+        aplicar(data) {
+          if (data.config) this.config = data.config;
+          if (data.empresa) this.empresa = data.empresa;
+          if ('certificado' in data) this.certificado = data.certificado;
+          if (data.readiness) this.readiness = data.readiness;
+          if ('temCsc' in data) this.temCsc = data.temCsc;
+          if ('temToken' in data) this.temToken = data.temToken;
+        },
+
+        // A primeira busca de uma UF vai ao IBGE e leva alguns segundos; depois fica em
+        // cache no disco. Sem o estado de carregando, o campo parece quebrado nesse intervalo.
+        async carregarMunicipios() {
+          this.municipios = [];
+          this.municipiosErro = '';
+          if (!this.empresa.uf) return;
+          this.municipiosCarregando = true;
+          try {
+            const r = await fetch('/api/fiscal/municipios?uf=' + encodeURIComponent(this.empresa.uf));
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) { this.municipiosErro = body.error || 'Não foi possível carregar os municípios.'; return; }
+            this.municipios = body;
+          } catch {
+            this.municipiosErro = 'Não foi possível carregar os municípios. Informe o código IBGE manualmente.';
+          } finally {
+            this.municipiosCarregando = false;
+          }
+        },
+
+        abrirPasso(step) {
+          this.mode = 'wizard';
+          this.step = step || 1;
+        },
+
+        voltar() { if (this.step > 0) this.step--; },
+
+        // Cada passo salva o que é dele antes de avançar: quem fecha a tela no meio não
+        // perde o que já preencheu.
+        async avancar() {
+          this.erro = '';
+          if (this.step === 1 && !(await this.salvarEmpresa())) return;
+          if (this.step === 3) await this.salvarCredenciais();
+          if (this.step === 4 && !(await this.salvarComportamento())) return;
+          if (this.step === 4) await this.recarregarReadiness();
+          if (this.step < this.totalSteps - 1) this.step++;
+        },
+
+        async salvarEmpresa() {
+          if (this.empresa.cnpj && !this.cnpjValido) { this.erro = 'Confira o CNPJ.'; return false; }
+          this.saving = true;
+          const r = await fetch('/api/fiscal/empresa', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.empresa),
+          });
+          this.saving = false;
+          if (!r.ok) { this.erro = 'Não foi possível salvar os dados da empresa.'; return false; }
+          this.aplicar(await r.json());
+          // O regime tributário fica no passo da empresa, mas pertence à config fiscal.
+          await fetch('/api/fiscal/config', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ crt: this.config.crt }),
+          });
+          return true;
+        },
+
+        async salvarComportamento() {
+          this.saving = true;
+          const r = await fetch('/api/fiscal/config', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              serie: Number(this.config.serie) || 1,
+              cfop: this.config.cfop,
+              csosnPadrao: this.config.csosnPadrao,
+              cstPadrao: this.config.cstPadrao,
+              origemPadrao: Number(this.config.origemPadrao) || 0,
+              emitirAuto: !!this.config.emitirAuto,
+              pedirCpf: !!this.config.pedirCpf,
+            }),
+          });
+          this.saving = false;
+          if (!r.ok) { this.erro = 'Não foi possível salvar as preferências.'; return false; }
+          this.aplicar(await r.json());
+          return true;
+        },
+
+        pegarArquivo(ev) {
+          this.certErro = '';
+          const file = ev.target.files && ev.target.files[0];
+          if (!file) { this.certBase64 = ''; this.certArquivoNome = ''; return; }
+          this.certArquivoNome = file.name;
+          const reader = new FileReader();
+          reader.onload = () => { this.certBase64 = String(reader.result).split(',')[1] || ''; };
+          reader.onerror = () => { this.certErro = 'Não foi possível ler o arquivo.'; };
+          reader.readAsDataURL(file);
+        },
+
+        async enviarCertificado() {
+          this.certErro = '';
+          this.saving = true;
+          const r = await fetch('/api/fiscal/certificado', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pfxBase64: this.certBase64, senha: this.certSenha }),
+          });
+          this.saving = false;
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok) { this.certErro = body.error || 'Não foi possível enviar o certificado.'; return; }
+          this.aplicar(body);
+          // A senha só existe em memória até aqui; daqui pra frente vive no cofre.
+          this.certSenha = '';
+          this.certBase64 = '';
+          this.certArquivoNome = '';
+          window.showToast('Certificado verificado e salvo.', 'success');
+        },
+
+        async removerCertificado() {
+          if (!(await window.confirmDlg('Remover o certificado? Você vai precisar enviá-lo de novo para emitir notas.'))) return;
+          const r = await fetch('/api/fiscal/certificado', { method: 'DELETE' });
+          if (!r.ok) { window.showToast('Não foi possível remover o certificado.', 'error'); return; }
+          this.aplicar(await r.json());
+          this.certificado = null;
+        },
+
+        async salvarCredenciais() {
+          this.saving = true;
+          this.credOk = false;
+          const payload = { idCsc: this.idCsc, provider: this.provider };
+          if (this.csc) payload.csc = this.csc;
+          if (this.token) payload.token = this.token;
+          const r = await fetch('/api/fiscal/credenciais', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+          });
+          this.saving = false;
+          if (!r.ok) { this.erro = 'Não foi possível salvar as credenciais.'; return false; }
+          this.aplicar(await r.json());
+          this.csc = '';
+          this.token = '';
+          this.credOk = true;
+          return true;
+        },
+
+        async recarregarReadiness() {
+          const r = await fetch('/api/fiscal/readiness');
+          if (r.ok) this.readiness = await r.json();
+        },
+
+        async ativarProducao() {
+          const ok = await window.confirmDlg(
+            'A partir de agora as notas emitidas terão VALOR FISCAL e serão enviadas de verdade à SEFAZ. ' +
+            'Confirme com o seu contador antes de continuar. Ativar produção?'
+          );
+          if (!ok) return;
+          this.saving = true;
+          const r = await fetch('/api/fiscal/ambiente', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ambiente: 1 }),
+          });
+          this.saving = false;
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok) { window.showToast(body.error || 'Não foi possível ativar a produção.', 'error'); return; }
+          this.aplicar(body);
+          window.showToast('Produção ativada.', 'success');
+        },
+
+        async voltarHomologacao() {
+          const r = await fetch('/api/fiscal/ambiente', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ambiente: 2 }),
+          });
+          if (!r.ok) { window.showToast('Não foi possível voltar para homologação.', 'error'); return; }
+          this.aplicar(await r.json());
+          window.showToast('Voltou para o modo de teste.', 'info');
+        },
+      };
+    }
+  </script>
+</body>
+</html>

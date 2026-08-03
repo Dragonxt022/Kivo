@@ -9,6 +9,8 @@ export interface CapabilityRow {
   description: string;
   module: string;
   enabled: number;
+  /** 1 = recurso em avaliação; a tela de Recursos avisa antes de ligar. */
+  beta: number;
 }
 
 /**
@@ -28,7 +30,9 @@ export function hasCapability(key: string): boolean {
 /** Lista todas as capabilities, agrupadas por módulo (para a UI). */
 export function listCapabilities(): CapabilityRow[] {
   return getSqlite()
-    .prepare('SELECT key, description, module, enabled FROM capabilities WHERE deleted_at IS NULL ORDER BY module, key')
+    .prepare(
+      'SELECT key, description, module, enabled, beta FROM capabilities WHERE deleted_at IS NULL ORDER BY module, key',
+    )
     .all() as CapabilityRow[];
 }
 

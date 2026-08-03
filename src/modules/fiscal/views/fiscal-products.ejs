@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Dados fiscais dos produtos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .fp-table-wrap { overflow-x:auto; }
+    .fp-table { width:100%; border-collapse:collapse; font-size:.9rem; }
+    .fp-table th { text-align:left; font-weight:600; font-size:.8rem; color:var(--text-muted);
+      padding:.5rem .5rem; border-bottom:1px solid var(--border); white-space:nowrap; }
+    .fp-table td { padding:.4rem .5rem; border-bottom:1px solid var(--border-light); vertical-align:middle; }
+    .fp-table tr:last-child td { border-bottom:none; }
+    .fp-name { min-width:200px; }
+    .fp-input { width:100%; min-width:88px; padding:.35rem .5rem; border:1px solid var(--border);
+      border-radius:8px; background:var(--surface); color:var(--text); font:inherit; font-size:.86rem; }
+    .fp-input.dirty { border-color:var(--primary); background:var(--primary-bg); }
+    .fp-input.invalid { border-color:var(--danger); }
+    .fp-bulk { display:flex; gap:.6rem; align-items:flex-end; flex-wrap:wrap; }
+    .fp-progress { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .fp-bar { flex:1; min-width:160px; height:8px; border-radius:4px; background:var(--border-light); overflow:hidden; }
+    .fp-bar span { display:block; height:100%; background:var(--primary); transition:width .3s; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: 'fiscal' }) %>
+  <main x-data="fiscalProductsPage()" x-init="load()">
+    <h1>Dados fiscais dos produtos</h1>
+    <p class="hint">
+      Todo item que sai numa nota fiscal precisa de <strong>NCM</strong> — o código de 8 dígitos
+      que classifica a mercadoria. Os demais campos herdam o padrão da configuração quando ficam vazios.
+    </p>
+
+    <section class="panel">
+      <div class="fp-progress">
+        <strong x-text="preenchidos + ' de ' + produtos.length + ' produtos com NCM'"></strong>
+        <div class="fp-bar"><span :style="'width:' + (produtos.length ? Math.round(preenchidos / produtos.length * 100) : 0) + '%'"></span></div>
+        <a class="btn secondary small" href="/app/fiscal/configuracao">Voltar à configuração</a>
+      </div>
+
+      <div class="toolbar">
+        <input class="input input-search" type="search" x-model="busca" placeholder="Buscar produto por nome ou SKU…">
+        <label class="label-checkbox">
+          <input type="checkbox" x-model="soPendentes" /> Mostrar só os que faltam
+        </label>
+      </div>
+    </section>
+
+    <section class="panel" x-show="selecionados.length">
+      <h2>Aplicar aos <span x-text="selecionados.length"></span> selecionados</h2>
+      <p class="hint mt-0">Útil quando vários produtos compartilham a mesma classificação (ex.: todos os refrigerantes).</p>
+      <div class="fp-bulk">
+        <div class="field" style="margin:0">
+          <label>NCM</label>
+          <input class="input input-narrow" type="text" x-model="lote.ncm" maxlength="8" placeholder="22021000">
+        </div>
+        <div class="field" style="margin:0">
+          <label>CEST</label>
+          <input class="input input-narrow" type="text" x-model="lote.cest" maxlength="7" placeholder="opcional">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Origem</label>
+          <select class="select input-narrow" x-model="lote.origem">
+            <option value="">manter</option>
+            <option value="0">0 — Nacional</option>
+            <option value="1">1 — Estrangeira (importação direta)</option>
+            <option value="2">2 — Estrangeira (mercado interno)</option>
+          </select>
+        </div>
+        <button class="btn" :disabled="saving || !loteTemAlgo" @click="aplicarLote()">
+          <span x-text="saving ? 'Aplicando…' : 'Aplicar'"></span>
+        </button>
+        <button class="btn secondary" @click="limparSelecao()">Limpar seleção</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <p class="hint" x-show="loading">Carregando produtos…</p>
+      <template x-if="!loading && !visiveis.length">
+        <%- include('partials/empty-state', { message: 'Nenhum produto para mostrar aqui.' }) %>
+      </template>
+
+      <div class="fp-table-wrap" x-show="!loading && visiveis.length" x-cloak>
+        <table class="fp-table">
+          <thead>
+            <tr>
+              <th class="col-checkbox"><input type="checkbox" :checked="todosSelecionados" @change="alternarTodos($event)" /></th>
+              <th class="fp-name">Produto</th>
+              <th>NCM *</th>
+              <th>CEST</th>
+              <th x-text="crt === 3 ? 'CST' : 'CSOSN'"></th>
+              <th>Origem</th>
+              <th>Un. fiscal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="p in visiveis" :key="p.id">
+              <tr>
+                <td><input type="checkbox" :value="p.id" x-model.number="selecionados" /></td>
+                <td class="fp-name">
+                  <div x-text="p.name"></div>
+                  <div class="muted-sm" x-show="p.sku" x-text="p.sku"></div>
+                </td>
+                <td>
+                  <input class="fp-input" :class="classeNcm(p)" type="text" maxlength="8" placeholder="8 dígitos"
+                         :value="p.ncm || ''" @input="editar(p, 'ncm', $event.target.value)" @blur="salvar(p)">
+                </td>
+                <td>
+                  <input class="fp-input" :class="p._dirty?.cest ? 'dirty' : ''" type="text" maxlength="7" placeholder="—"
+                         :value="p.cest || ''" @input="editar(p, 'cest', $event.target.value)" @blur="salvar(p)">
+                </td>
+                <td>
+                  <input class="fp-input" :class="p._dirty?.[campoTributo] ? 'dirty' : ''" type="text" placeholder="padrão"
+                         :value="p[campoTributo] || ''" @input="editar(p, campoTributo, $event.target.value)" @blur="salvar(p)">
+                </td>
+                <td>
+                  <select class="fp-input" :class="p._dirty?.origem ? 'dirty' : ''"
+                          :value="p.origem ?? ''" @change="editar(p, 'origem', $event.target.value); salvar(p)">
+                    <option value="">padrão</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                  </select>
+                </td>
+                <td>
+                  <input class="fp-input" :class="p._dirty?.unit_fiscal ? 'dirty' : ''" type="text" placeholder="UN"
+                         :value="p.unit_fiscal || ''" @input="editar(p, 'unit_fiscal', $event.target.value)" @blur="salvar(p)">
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function fiscalProductsPage() {
+      return {
+        loading: true,
+        saving: false,
+        produtos: [],
+        busca: '',
+        soPendentes: true,
+        selecionados: [],
+        crt: 1,
+        lote: { ncm: '', cest: '', origem: '' },
+
+        get campoTributo() { return this.crt === 3 ? 'cst' : 'csosn'; },
+        get preenchidos() { return this.produtos.filter((p) => (p.ncm || '').trim()).length; },
+        get loteTemAlgo() { return !!(this.lote.ncm || this.lote.cest || this.lote.origem !== ''); },
+
+        get visiveis() {
+          const q = this.busca.trim().toLowerCase();
+          return this.produtos.filter((p) => {
+            if (this.soPendentes && (p.ncm || '').trim()) return false;
+            if (!q) return true;
+            return (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q);
+          });
+        },
+        get todosSelecionados() {
+          return this.visiveis.length > 0 && this.visiveis.every((p) => this.selecionados.includes(p.id));
+        },
+
+        async load() {
+          const [prodRes, cfgRes] = await Promise.all([
+            fetch('/api/commercial/products?limit=5000'),
+            fetch('/api/fiscal/config'),
+          ]);
+          if (cfgRes.ok) {
+            const cfg = await cfgRes.json();
+            this.crt = cfg.config?.crt ?? 1;
+          }
+          if (!prodRes.ok) { window.showToast('Não foi possível carregar os produtos.', 'error'); this.loading = false; return; }
+          const list = await prodRes.json();
+          // `servico` é NFS-e municipal e não sai em NFC-e. Complementos ficam: viram
+          // linha própria na venda, com NCM próprio. Variantes filhas não aparecem na
+          // listagem da API e herdam a classificação do produto pai.
+          this.produtos = (Array.isArray(list) ? list : list.rows || [])
+            .filter((p) => p.product_type !== 'servico')
+            .map((p) => ({ ...p, _dirty: {} }));
+          this.loading = false;
+        },
+
+        classeNcm(p) {
+          const v = (p.ncm || '').replace(/\D/g, '');
+          if (v && v.length !== 8) return 'invalid';
+          return p._dirty?.ncm ? 'dirty' : '';
+        },
+
+        editar(p, campo, valor) {
+          const limpo = (campo === 'ncm' || campo === 'cest') ? String(valor).replace(/\D/g, '') : valor;
+          p[campo] = limpo;
+          p._dirty = { ...(p._dirty || {}), [campo]: true };
+        },
+
+        // Salva ao sair do campo: o lojista percorre a tabela digitando e cada linha vai
+        // sozinha, sem um botão "salvar tudo" que ele pode esquecer de clicar.
+        async salvar(p) {
+          const campos = Object.keys(p._dirty || {});
+          if (!campos.length) return;
+          const ncm = (p.ncm || '').replace(/\D/g, '');
+          if (ncm && ncm.length !== 8) return;
+          const cest = (p.cest || '').replace(/\D/g, '');
+          if (cest && cest.length !== 7) return;
+
+          const patch = {};
+          for (const c of campos) patch[c] = p[c] ?? '';
+          const r = await fetch('/api/commercial/products/fiscal', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: [p.id], patch }),
+          });
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            window.showToast(body.error || 'Não foi possível salvar.', 'error');
+            return;
+          }
+          p._dirty = {};
+        },
+
+        alternarTodos(ev) {
+          const ids = this.visiveis.map((p) => p.id);
+          this.selecionados = ev.target.checked
+            ? [...new Set([...this.selecionados, ...ids])]
+            : this.selecionados.filter((id) => !ids.includes(id));
+        },
+
+        limparSelecao() { this.selecionados = []; },
+
+        async aplicarLote() {
+          const patch = {};
+          if (this.lote.ncm) patch.ncm = this.lote.ncm;
+          if (this.lote.cest) patch.cest = this.lote.cest;
+          if (this.lote.origem !== '') patch.origem = Number(this.lote.origem);
+          this.saving = true;
+          const r = await fetch('/api/commercial/products/fiscal', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: this.selecionados, patch }),
+          });
+          this.saving = false;
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok) { window.showToast(body.error || 'Não foi possível aplicar.', 'error'); return; }
+          for (const p of this.produtos) {
+            if (!this.selecionados.includes(p.id)) continue;
+            Object.assign(p, patch);
+            p._dirty = {};
+          }
+          window.showToast(body.updated + ' produto(s) atualizados.', 'success');
+          this.selecionados = [];
+          this.lote = { ncm: '', cest: '', origem: '' };
+        },
+      };
+    }
+  </script>
+</body>
+</html>

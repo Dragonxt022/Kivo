@@ -26,6 +26,7 @@ export interface ProductRow extends Row {
 const PRODUCT_COLS = `p.id, p.name, p.description, p.sku, p.barcode, p.category_id, c.name AS category,
   p.unit, p.price_cents, p.cost_cents, p.track_stock, p.stock_qty, p.min_stock, p.favorite, p.active,
   p.purchase_unit, p.purchase_unit_qty, p.image_url, p.updated_at, p.product_type, p.parent_product_id, p.visivel_cardapio,
+  p.ncm, p.cest, p.csosn, p.cst, p.origem, p.unit_fiscal,
   c.image_url AS category_image_url,
   (SELECT EXISTS(SELECT 1 FROM complement_group_items cgi WHERE cgi.product_id = p.id AND cgi.deleted_at IS NULL) OR p.product_type = 'complemento') AS is_complement`;
 

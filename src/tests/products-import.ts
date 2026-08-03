@@ -192,6 +192,40 @@ const base = (body: string) =>
     r.ok ? JSON.stringify(r.report.totals) : '');
 }
 
+// ─────────── colunas fiscais (NCM/CEST/CSOSN/CST/origem) ───────────
+{
+  const fiscal = (body: string) =>
+    buildPreview({
+      csv: 'nome;preco_venda;ncm;cest;csosn;cst;origem\r\n' + body,
+      existing, existingCategories: cats, validateBarcode: anyBarcode,
+    });
+
+  const ok = fiscal('Refrigerante;5,00;2202.10.00;28.038.00;102;;0\r\n');
+  check('linha fiscal válida sem erro', ok.ok && ok.report.rows[0].errors.length === 0,
+    ok.ok ? JSON.stringify(ok.report.rows[0].errors) : '');
+  eq('NCM guardado só com dígitos', ok.ok && ok.report.rows[0].data.ncm, '22021000');
+  eq('CEST guardado só com dígitos', ok.ok && ok.report.rows[0].data.cest, '2803800');
+  eq('CSOSN preservado', ok.ok && ok.report.rows[0].data.csosn, '102');
+  eq('origem convertida para número', ok.ok && ok.report.rows[0].data.origem, 0);
+
+  const semFiscal = fiscal('Sem fiscal;5,00;;;;;\r\n');
+  check('campos fiscais em branco viram null (não apagam cadastro no update)',
+    semFiscal.ok && semFiscal.report.rows[0].data.ncm === null && semFiscal.report.rows[0].data.origem === null);
+
+  const ncmCurto = fiscal('NCM curto;5,00;2202;;;;\r\n');
+  check('NCM com menos de 8 dígitos vira erro',
+    ncmCurto.ok && ncmCurto.report.rows[0].errors.some((e) => e.includes('NCM')),
+    ncmCurto.ok ? JSON.stringify(ncmCurto.report.rows[0].errors) : '');
+
+  const cestCurto = fiscal('CEST curto;5,00;22021000;123;;;\r\n');
+  check('CEST com menos de 7 dígitos vira erro',
+    cestCurto.ok && cestCurto.report.rows[0].errors.some((e) => e.includes('CEST')));
+
+  const origemRuim = fiscal('Origem inválida;5,00;22021000;;;;9\r\n');
+  check('origem fora de 0–8 vira erro',
+    origemRuim.ok && origemRuim.report.rows[0].errors.some((e) => e.includes('origem')));
+}
+
 // ─────────── o modelo tem que ser importável por ele mesmo ───────────
 {
   const r = buildPreview({ csv: templateCsv(), existing: [], existingCategories: [], validateBarcode: anyBarcode });

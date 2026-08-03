@@ -59,7 +59,8 @@ router.get('/products/export.csv', requirePermission('commercial.products.view')
   // só neste formato e entram numa fase posterior.
   const rows = productRepository.raw(
     `SELECT p.uuid, p.sku, p.barcode, p.name, p.description, c.name AS category, p.unit,
-            p.price_cents, p.cost_cents, p.min_stock, p.stock_qty
+            p.price_cents, p.cost_cents, p.min_stock, p.stock_qty,
+            p.ncm, p.cest, p.csosn, p.cst, p.origem
      FROM products p LEFT JOIN categories c ON c.id = p.category_id
      WHERE p.deleted_at IS NULL AND p.product_type = 'fisico' AND p.parent_product_id IS NULL
      ORDER BY p.name`,
@@ -67,6 +68,7 @@ router.get('/products/export.csv', requirePermission('commercial.products.view')
     uuid: string; sku: string | null; barcode: string | null; name: string; description: string | null;
     category: string | null; unit: string; price_cents: number; cost_cents: number;
     min_stock: number; stock_qty: number;
+    ncm: string | null; cest: string | null; csosn: string | null; cst: string | null; origem: number | null;
   }[];
 
   const csv = toCsv([
@@ -78,6 +80,8 @@ router.get('/products/export.csv', requirePermission('commercial.products.view')
       p.sku ?? '', p.barcode ?? '', p.name, p.description ?? '', p.category ?? '', p.unit ?? 'un',
       centsToBr(p.price_cents), centsToBr(p.cost_cents), String(p.min_stock ?? 0),
       '', // estoque_inicial: em branco de propósito — só vale para produto novo
+      p.ncm ?? '', p.cest ?? '', p.csosn ?? '', p.cst ?? '',
+      p.origem != null ? String(p.origem) : '',
       String(p.stock_qty ?? 0),
     ]),
   ]);
@@ -201,12 +205,19 @@ router.post('/products/import/commit', requirePermission('commercial.products.cr
 
         if (row.matchedId) {
           // Update não mexe em estoque nem cria produto — só os campos do arquivo.
+          // Campos fiscais usam COALESCE: coluna em branco na planilha PRESERVA o que já
+          // está cadastrado, em vez de apagar. Quem exporta, mexe só no preço e reimporta
+          // não pode perder o NCM que preencheu antes.
           productRepository.rawRun(
             `UPDATE products SET name = ?, description = ?, sku = ?, barcode = ?, category_id = ?,
-               unit = ?, price_cents = ?, cost_cents = ?, min_stock = ?, updated_at = datetime('now')
+               unit = ?, price_cents = ?, cost_cents = ?, min_stock = ?,
+               ncm = COALESCE(?, ncm), cest = COALESCE(?, cest), csosn = COALESCE(?, csosn),
+               cst = COALESCE(?, cst), origem = COALESCE(?, origem),
+               updated_at = datetime('now')
              WHERE id = ?`,
             d.name, d.description, d.sku, d.barcode, categoryId,
-            d.unit, d.priceCents, d.costCents, d.minStock, row.matchedId,
+            d.unit, d.priceCents, d.costCents, d.minStock,
+            d.ncm, d.cest, d.csosn, d.cst, d.origem, row.matchedId,
           );
           updated.push(row.matchedId);
           continue;
@@ -214,10 +225,12 @@ router.post('/products/import/commit', requirePermission('commercial.products.cr
 
         const info = productRepository.rawRun(
           `INSERT INTO products (name, description, sku, barcode, category_id, unit,
-             price_cents, cost_cents, track_stock, min_stock, product_type, uuid)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'fisico', ?)`,
+             price_cents, cost_cents, track_stock, min_stock, product_type, uuid,
+             ncm, cest, csosn, cst, origem)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'fisico', ?, ?, ?, ?, ?, ?)`,
           d.name, d.description, d.sku, d.barcode, categoryId, d.unit,
           d.priceCents, d.costCents, d.minStock, randomUUID(),
+          d.ncm, d.cest, d.csosn, d.cst, d.origem,
         );
         const newId = Number(info.lastInsertRowid);
         created.push(newId);

@@ -11,11 +11,13 @@
   <style>
     .capabilities-section { margin-bottom: 2rem; }
     .capabilities-section h2 { margin-bottom: .75rem; display:flex; align-items:center; gap:.5rem; }
-    .capability-row { display:flex; align-items:center; justify-content:space-between; padding:.5rem .75rem; border-bottom:1px solid var(--border); }
+    .capability-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.7rem .75rem; border-bottom:1px solid var(--border); }
     .capability-row:last-child { border-bottom:none; }
-    .capability-info { display:flex; flex-direction:column; }
-    .capability-key { font-weight:500; }
-    .capability-desc { font-size:.85rem; color:var(--muted); }
+    .capability-info { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
+    .capability-name { font-weight:500; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+    .capability-key { font-size:.78rem; color:var(--text-muted); font-family:'Courier New',monospace; }
+    .badge-beta { background:var(--warning-bg); color:var(--warning-text); font-size:.7rem; font-weight:600;
+      letter-spacing:.04em; padding:.1rem .4rem; border-radius:var(--radius-full); text-transform:uppercase; }
     .toggle { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
     .toggle input { opacity:0; width:0; height:0; }
     .toggle .slider { position:absolute; cursor:pointer; inset:0; background:var(--border); border-radius:12px; transition:.2s; }
@@ -28,23 +30,26 @@
   <%- include('partials/nav', { user, page: 'recursos' }) %>
   <main x-data="recursosPage()" x-init="load()">
     <h1>Recursos</h1>
-    <p class="hint">Ative ou desative capacidades específicas dentro de cada módulo contratado.</p>
+    <p class="hint">Ative ou desative recursos específicos dentro de cada módulo contratado.</p>
 
-    <template x-for="(caps, moduleKey) in grouped" :key="moduleKey">
+    <template x-for="g in grouped" :key="g.module">
       <section class="panel capabilities-section">
         <h2>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span x-text="moduleKey"></span>
+          <span x-text="g.label"></span>
         </h2>
         <div>
-          <template x-for="c in caps" :key="c.key">
+          <template x-for="c in g.items" :key="c.key">
             <div class="capability-row">
               <div class="capability-info">
+                <span class="capability-name">
+                  <span x-text="c.description"></span>
+                  <span class="badge-beta" x-show="c.beta === 1">beta</span>
+                </span>
                 <span class="capability-key" x-text="c.key"></span>
-                <span class="capability-desc" x-text="c.description"></span>
               </div>
               <label class="toggle">
-                <input type="checkbox" :checked="c.enabled === 1" @change="toggle(c.key, $event.target.checked)" />
+                <input type="checkbox" :checked="c.enabled === 1" @change="toggle(c, $event)" />
                 <span class="slider"></span>
               </label>
             </div>
@@ -56,31 +61,47 @@
     <p class="muted" x-show="!hasCaps">Nenhum módulo declarou recursos ainda.</p>
   </main>
   <script>
+    const MODULE_NAMES = <%- typeof moduleNamesJson !== 'undefined' ? moduleNamesJson : '{}' %>;
+
     function recursosPage() {
       return {
         capabilities: [],
         get grouped() {
-          const g = {};
+          const order = [];
+          const byModule = {};
           for (const c of this.capabilities) {
-            if (!g[c.module]) g[c.module] = [];
-            g[c.module].push(c);
+            if (!byModule[c.module]) {
+              byModule[c.module] = { module: c.module, label: MODULE_NAMES[c.module] || c.module, items: [] };
+              order.push(byModule[c.module]);
+            }
+            byModule[c.module].items.push(c);
           }
-          return g;
+          return order;
         },
         get hasCaps() { return this.capabilities.length > 0; },
         async load() {
           const r = await fetch('/api/core/capabilities');
           if (r.ok) this.capabilities = await r.json();
         },
-        async toggle(key, enabled) {
-          const r = await fetch(`/api/core/capabilities/${encodeURIComponent(key)}`, {
+        // Ligar um beta pede confirmação: o lojista precisa saber que está entrando num
+        // recurso em avaliação antes de o menu novo aparecer.
+        async toggle(cap, ev) {
+          const enabled = ev.target.checked;
+          if (enabled && cap.beta === 1) {
+            const ok = await window.confirmDlg(
+              '"' + cap.description + '" é um recurso em avaliação (beta). ' +
+              'Ele pode mudar ou apresentar falhas — não deixe de conferir os resultados. Ativar mesmo assim?'
+            );
+            if (!ok) { ev.target.checked = false; return; }
+          }
+          const r = await fetch('/api/core/capabilities/' + encodeURIComponent(cap.key), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ enabled }),
           });
-          if (!r.ok) {
-            this.load();
-          }
+          if (!r.ok) { window.showToast('Não foi possível alterar o recurso.', 'error'); this.load(); return; }
+          cap.enabled = enabled ? 1 : 0;
+          window.showToast(enabled ? 'Recurso ativado.' : 'Recurso desativado.', 'success');
         },
       };
     }

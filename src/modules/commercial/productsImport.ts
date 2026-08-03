@@ -29,6 +29,15 @@ export const IMPORT_COLUMNS = [
   'preco_custo',
   'estoque_minimo',
   'estoque_inicial',
+  // Dados fiscais (módulo fiscal). Ficam no fim para não mexer na ordem das colunas de
+  // quem já usa a planilha. Um lojista que vai emitir nota fiscal precisa preencher NCM
+  // em centenas de produtos — exportar, preencher no Excel e reimportar é o caminho
+  // prático; a tela de edição em lote cobre o ajuste fino.
+  'ncm',
+  'cest',
+  'csosn',
+  'cst',
+  'origem',
 ] as const;
 
 /** Coluna informativa: sai na exportação, é ignorada na importação. */
@@ -56,6 +65,11 @@ export interface ParsedRow {
     costCents: number;
     minStock: number;
     initialStock: number | null;
+    ncm: string | null;
+    cest: string | null;
+    csosn: string | null;
+    cst: string | null;
+    origem: number | null;
   };
 }
 
@@ -297,6 +311,20 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
       errors.push(`conflito: ${hits.map((h) => `${h.key} é do produto #${h.p.id}`).join(' e ')}`);
     }
 
+    // Campos fiscais: opcionais, mas se vierem preenchidos têm formato fixo — errar o NCM
+    // só apareceria como rejeição da SEFAZ lá na frente, no meio de uma venda.
+    const ncmRaw = cell(raw, 'ncm').replace(/\D/g, '');
+    if (ncmRaw && ncmRaw.length !== 8) errors.push(`NCM deve ter 8 dígitos: "${cell(raw, 'ncm')}"`);
+    const cestRaw = cell(raw, 'cest').replace(/\D/g, '');
+    if (cestRaw && cestRaw.length !== 7) errors.push(`CEST deve ter 7 dígitos: "${cell(raw, 'cest')}"`);
+    const origemRaw = cell(raw, 'origem').trim();
+    let origem: number | null = null;
+    if (origemRaw) {
+      const n = Number(origemRaw);
+      if (!Number.isInteger(n) || n < 0 || n > 8) errors.push(`origem deve ser um número de 0 a 8: "${origemRaw}"`);
+      else origem = n;
+    }
+
     const categoryName = cell(raw, 'categoria') || null;
     if (categoryName && !catByName.has(normCat(categoryName)) && !newCategories.has(normCat(categoryName))) {
       newCategories.set(normCat(categoryName), categoryName);
@@ -323,6 +351,11 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
         costCents: cost.ok ? cost.cents : 0,
         minStock: minStock.ok ? (minStock.value ?? 0) : 0,
         initialStock: initialStock.ok ? initialStock.value : null,
+        ncm: ncmRaw || null,
+        cest: cestRaw || null,
+        csosn: cell(raw, 'csosn').trim() || null,
+        cst: cell(raw, 'cst').trim() || null,
+        origem,
       },
     });
   }

@@ -506,6 +506,19 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
   const err = validateCancellation(sale, saleReceivables, agreementCharge);
   if (err) return { ok: false, error: err };
 
+  // Cancelar a venda sem cancelar a nota deixaria uma NFC-e autorizada apontando para uma
+  // venda que não existe mais — divergência fiscal que só aparece na apuração do contador.
+  // Módulo fiscal ausente ou desligado: `hasService` é falso e a venda cancela normal.
+  if (hasService('fiscal.documents')) {
+    const fiscal = getService<{ hasLiveDocument(saleId: number): boolean }>('fiscal.documents');
+    if (fiscal.hasLiveDocument(saleId)) {
+      return {
+        ok: false,
+        error: 'Esta venda tem nota fiscal emitida. Cancele a nota em Notas Fiscais antes de cancelar a venda.',
+      };
+    }
+  }
+
   const hasCashPayment = payments.some((p) => p.method_type === 'dinheiro') ||
     (payments.length === 0 && sale!.payment_method === 'dinheiro');
   const movements = stockMovementRepository.findMovementQtysByRef('sale', saleId);
