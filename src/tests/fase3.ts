@@ -47,14 +47,14 @@ async function main() {
 
   // usuários de teste: operador (sem permissões) e estoquista com permissões finas
   for (const [u, role] of [['op3', 'operador'], ['estoq', 'estoquista']] as const) {
-    await api('/api/users', { method: 'POST', body: JSON.stringify({ username: u, name: u, password: '123456', roleSlug: role }) }, admin!);
+    await api('/api/users', { method: 'POST', body: JSON.stringify({ username: u, name: u, password: 'Teste1234', roleSlug: role }) }, admin!);
   }
   const roleId = (db.prepare("SELECT id FROM roles WHERE slug = 'estoquista'").get() as { id: number }).id;
   for (const key of ['commercial.products.view', 'commercial.products.edit', 'commercial.stock.view', 'commercial.stock.move']) {
     db.prepare('INSERT INTO role_permissions (role_id, permission_key) VALUES (?, ?) ON CONFLICT DO NOTHING').run(roleId, key);
   }
-  const op = await loginAs('op3', '123456');
-  const estoq = await loginAs('estoq', '123456');
+  const op = await loginAs('op3', 'Teste1234');
+  const estoq = await loginAs('estoq', 'Teste1234');
 
   // ---- Clientes: validação Shared + RBAC ----
   check('operador não lista clientes (403)', (await api(`${C}/customers`, {}, op!)).status === 403);

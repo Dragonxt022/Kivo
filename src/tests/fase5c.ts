@@ -44,23 +44,23 @@ async function main() {
   check('login admin', admin !== null);
 
   // ---------- Troca de senha ----------
-  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'joana', name: 'Joana', password: '123456', roleSlug: 'caixa' }) }, admin!);
-  const s1 = await loginAs('joana', '123456');
-  const s2 = await loginAs('joana', '123456'); // segunda sessão (outro dispositivo)
+  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'joana', name: 'Joana', password: 'Teste1234', roleSlug: 'caixa' }) }, admin!);
+  const s1 = await loginAs('joana', 'Teste1234');
+  const s2 = await loginAs('joana', 'Teste1234'); // segunda sessão (outro dispositivo)
   check('joana com 2 sessões', s1 !== null && s2 !== null);
 
   check('senha atual errada → 400', (await api('/api/auth/change-password', {
     method: 'POST', body: JSON.stringify({ currentPassword: 'errada', newPassword: 'nova12345' }),
   }, s1!)).status === 400);
   check('senha curta → 400', (await api('/api/auth/change-password', {
-    method: 'POST', body: JSON.stringify({ currentPassword: '123456', newPassword: '123' }),
+    method: 'POST', body: JSON.stringify({ currentPassword: 'Teste1234', newPassword: '123' }),
   }, s1!)).status === 400);
   check('troca de senha ok', (await api('/api/auth/change-password', {
-    method: 'POST', body: JSON.stringify({ currentPassword: '123456', newPassword: 'nova12345' }),
+    method: 'POST', body: JSON.stringify({ currentPassword: 'Teste1234', newPassword: 'nova12345' }),
   }, s1!)).status === 200);
   check('sessão atual continua válida', (await api('/api/auth/me', {}, s1!)).status === 200);
   check('outra sessão foi derrubada', (await api('/api/auth/me', {}, s2!)).status === 401);
-  check('senha antiga não loga mais', (await loginAs('joana', '123456')) === null);
+  check('senha antiga não loga mais', (await loginAs('joana', 'Teste1234')) === null);
   check('senha nova loga', (await loginAs('joana', 'nova12345')) !== null);
 
   // ---------- Categorias ----------

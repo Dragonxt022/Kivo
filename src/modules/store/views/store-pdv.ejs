@@ -48,6 +48,17 @@
           <button type="button" class="btn secondary small" @click="cancelComanda()">Cancelar</button>
         </div>
 
+        <!-- Orçamento reaberto: diferente da comanda, a busca de produtos CONTINUA visível —
+             poder acrescentar item ao reabrir é justamente o ponto de montar orçamento no PDV. -->
+        <div class="pdv-quote-banner" x-show="slots[activeSlot].quoteId" x-cloak style="display:flex;align-items:center;gap:.5rem;padding:.6rem .9rem;margin-bottom:.75rem;border-radius:var(--radius);background:var(--warning-bg,#fff8e6);border:1.5px solid var(--warning-text,#b7791f)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+          <span x-text="'Orçamento #' + slots[activeSlot].quoteId + (slots[activeSlot].quoteLabel ? (' — ' + slots[activeSlot].quoteLabel) : '')" style="flex:1;font-weight:600"></span>
+          <% if (user.permissions.has('store.quotes.edit')) { %>
+          <button type="button" class="btn secondary small" @click="openQuoteDlg()" title="Salvar as alterações no orçamento">Salvar alterações</button>
+          <% } %>
+          <button type="button" class="btn secondary small" @click="detachQuote()" title="Voltar a ser uma venda normal">Descartar</button>
+        </div>
+
         <div class="pdv-search" x-show="!slots[activeSlot].comandaId">
           <div class="pdv-search-box">
             <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -182,6 +193,14 @@
               <span class="pdv-action-label">Limpar</span>
               <span class="shortcut">F9</span>
             </button>
+            <% if (user.permissions.has('store.quotes.create')) { %>
+            <button type="button" class="pdv-action" style="--action-color:#8B7CF6" @click="openQuoteDlg()"
+                    :disabled="!cart.length" title="Salvar como orçamento (F6)">
+              <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></span>
+              <span class="pdv-action-label">Orçamento</span>
+              <span class="shortcut">F6</span>
+            </button>
+            <% } %>
             <% if (user.permissions.has('store.sales.discount')) { %>
             <button type="button" class="pdv-action" style="--action-color:#F5C344" @click="openValue('acrescimo')" title="Acréscimo (F7)">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
@@ -220,6 +239,9 @@
         <% if (user.permissions.has('store.sales.discount')) { %>
         <span><kbd>F4</kbd>Desconto</span>
         <span><kbd>F7</kbd>Acréscimo</span>
+        <% } %>
+        <% if (user.permissions.has('store.quotes.create')) { %>
+        <span><kbd>F6</kbd>Orçamento</span>
         <% } %>
         <span><kbd>F9</kbd>Limpar</span>
         <span><kbd>F11</kbd>Imprimir</span>
@@ -576,7 +598,6 @@
       </div>
     </dialog>
 
-    <% if (user.permissions.has('finance.cash.open')) { %>
     <!-- ─── MODAL: Complementos / opcionais ─── -->
     <dialog x-ref="complementDlg" style="width:min(600px,94vw)">
       <h1 x-text="'Complementos — ' + (complementDlg.product?.name || '')"></h1>
@@ -624,6 +645,32 @@
       </div>
     </dialog>
 
+    <% if (user.permissions.has('store.quotes.create')) { %>
+    <!-- ─── MODAL: Salvar carrinho como orçamento ─── -->
+    <dialog x-ref="quoteDlg" style="width:min(460px,94vw)">
+      <h1 x-text="slots[activeSlot].quoteId ? ('Orçamento #' + slots[activeSlot].quoteId) : 'Salvar como orçamento'"></h1>
+      <p class="muted muted-sm">Os preços do carrinho ficam congelados até a validade. O cliente é o selecionado no carrinho.</p>
+      <label>Nome do cliente (se não for cadastrado)</label>
+      <input type="text" x-model="quoteForm.customerName" placeholder="Cliente de balcão" />
+      <label>Válido até</label>
+      <input type="date" x-model="quoteForm.validUntil" />
+      <label>Observações</label>
+      <input type="text" x-model="quoteForm.notes" placeholder="Ex.: prazo de entrega, condições" />
+      <div class="error" x-text="quoteForm.error"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.quoteDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn" @click="saveQuote()" :disabled="quoteForm.saving">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar orçamento
+        </button>
+      </div>
+    </dialog>
+    <% } %>
+
+    <% if (user.permissions.has('finance.cash.open')) { %>
     <!-- ─── MODAL: Aviso de caixa fechado ─── -->
     <dialog x-ref="cashClosedWarnDlg" style="width:360px">
       <div class="dialog-body-center">
@@ -709,7 +756,7 @@
         // Vendas simultâneas (até 4 "guichês" no mesmo PDV — atender outro cliente sem
         // perder o carrinho do anterior) + persistência em localStorage (sobrevive a
         // navegar pra outra tela e voltar, ou recarregar a página sem querer).
-        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null }],
+        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null }],
         justClosedComandaId: null,
         activeSlot: 0,
         q: '', results: [], customers: [], methods: [],
@@ -737,6 +784,7 @@
         cloudOnline: false,
         complementDlg: { product: null, groups: [], selections: {}, mainNotes: '', errors: {} },
         noteDlg: { idx: null, text: '' },
+        quoteForm: { customerName: '', validUntil: '', notes: '', error: '', saving: false },
 
         // ─── Complementos ───
         openComplementDlg(product, groups) {
@@ -836,7 +884,7 @@
         },
         addSlot() {
           if (this.slots.length >= 4) return;
-          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null });
+          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
           this.activeSlot = this.slots.length - 1;
           this.persistSlots();
           this.focusSearch();
@@ -869,7 +917,9 @@
             fetch('/api/store/payment-methods'),
             fetch('/api/settings'),
             fetch('/api/commercial/customers'),
-            fetch('/api/commercial/products'),
+            // scope=sellable inclui as variantes: sem isso, toda linha de produto com grade
+            // era descartada do carrinho restaurado como se o produto não existisse mais.
+            fetch('/api/commercial/products?scope=sellable'),
           ]);
           if (m.ok) { this.methods = await m.json(); if (this.methods.length) this.pay.methodId = this.methods[0].id; }
           if (s.ok) this.appSettings = await s.json();
@@ -882,8 +932,11 @@
             this.slots.forEach((slot) => { slot.cart = slot.cart.filter((i) => validIds.has(i.productId)); });
             this.persistSlots();
           }
-          const comandaIdParam = new URLSearchParams(location.search).get('comandaId');
+          const params = new URLSearchParams(location.search);
+          const comandaIdParam = params.get('comandaId');
           if (comandaIdParam) await this.loadComanda(Number(comandaIdParam));
+          const quoteIdParam = params.get('quoteId');
+          if (quoteIdParam) await this.loadQuote(Number(quoteIdParam));
           if (this.customerId) this.loadCustomerBalances();
           this.focusSearch();
           this.$watch('slots', () => this.persistSlots());
@@ -895,6 +948,9 @@
               switch (e.key) {
                 case 'F2': e.preventDefault(); if (this.cart.length) this.openPay(); return;
                 case 'F4': e.preventDefault(); this.openValue('desconto'); return;
+                <% if (user.permissions.has('store.quotes.create')) { %>
+                case 'F6': e.preventDefault(); if (this.cart.length) this.openQuoteDlg(); return;
+                <% } %>
                 case 'F7': e.preventDefault(); this.openValue('acrescimo'); return;
                 case 'F9': e.preventDefault(); this.clearCart(); return;
                 case 'F11': e.preventDefault(); this.printLast(); return;
@@ -935,7 +991,7 @@
           }));
           const needsNewSlot = this.slots[this.activeSlot].cart.length > 0 || this.slots[this.activeSlot].comandaId;
           if (needsNewSlot) {
-            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null });
+            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
             this.activeSlot = this.slots.length - 1;
           }
           this.slots[this.activeSlot] = {
@@ -943,6 +999,89 @@
             customerId: c.customer_id || '', comandaId: id, tableLabel: c.table_label || null,
           };
           this.persistSlots();
+        },
+        // ─── Orçamento ↔ PDV ───
+        // Reabre o orçamento no carrinho para o operador ajustar e faturar. Os preços vêm
+        // congelados de quote_items — repriceCart() não roda em slot de orçamento.
+        async loadQuote(id) {
+          const r = await fetch(`/api/store/quotes/${id}`);
+          if (!r.ok) { showToast('Orçamento não encontrado.', 'error'); return; }
+          const q = await r.json();
+          if (q.status !== 'aberto') { showToast(`Este orçamento já está "${q.status}".`, 'error'); return; }
+          const cart = (q.items || []).map((i) => ({
+            productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
+            sku: null, image_url: null, lineGroupUuid: i.line_group_uuid || null, notes: i.notes || null,
+          }));
+          const slot = this.slots[this.activeSlot];
+          if (slot.cart.length || slot.comandaId || slot.quoteId) {
+            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
+            this.activeSlot = this.slots.length - 1;
+          }
+          this.slots[this.activeSlot] = {
+            cart, discountCents: q.discount_cents || 0, surchargeCents: q.surcharge_cents || 0,
+            lastSaleId: null, customerId: q.customer_id || '', comandaId: null, tableLabel: null,
+            quoteId: id, quoteLabel: q.customer || q.customer_name || null,
+          };
+          this.quoteForm = {
+            customerName: q.customer_name || '', validUntil: q.valid_until || '',
+            notes: q.notes || '', error: '', saving: false,
+          };
+          this.persistSlots();
+          if (this.customerId) this.loadCustomerBalances();
+        },
+        openQuoteDlg() {
+          if (!this.cart.length) return;
+          this.quoteForm.error = ''; this.quoteForm.saving = false;
+          this.$refs.quoteDlg.showModal();
+        },
+        // unitPriceCents em cada linha é obrigatório: é o que faz o preço cotado valer na
+        // hora de faturar, em vez de o servidor re-resolver o preço de catálogo do dia.
+        quoteItemsPayload() {
+          return this.cart.map((i) => ({
+            productId: i.productId, qty: i.qty, unitPriceCents: i.price_cents,
+            notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined,
+          }));
+        },
+        async saveQuote() {
+          if (this.quoteForm.saving || !this.cart.length) return;
+          this.quoteForm.saving = true; this.quoteForm.error = '';
+          const quoteId = this.slots[this.activeSlot].quoteId;
+          const body = {
+            items: this.quoteItemsPayload(),
+            customerId: this.customerId || (quoteId ? null : undefined),
+            customerName: this.quoteForm.customerName || (quoteId ? null : undefined),
+            validUntil: this.quoteForm.validUntil || (quoteId ? null : undefined),
+            notes: this.quoteForm.notes || (quoteId ? null : undefined),
+            discountCents: this.discountCents || 0,
+            surchargeCents: this.surchargeCents || 0,
+          };
+          const r = quoteId
+            ? await fetch(`/api/store/quotes/${quoteId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            : await fetch('/api/store/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          this.quoteForm.saving = false;
+          if (!r.ok) {
+            this.quoteForm.error = (await r.json()).error ?? 'Erro ao salvar o orçamento.';
+            return;
+          }
+          const d = await r.json();
+          this.$refs.quoteDlg.close();
+          if (quoteId) {
+            showToast(`Orçamento #${quoteId} atualizado.`, 'success');
+          } else {
+            // O carrinho vira o orçamento recém-criado: continuar montando a mesma venda
+            // e salvar de novo criaria um orçamento duplicado.
+            this.slots[this.activeSlot].quoteId = d.id;
+            this.slots[this.activeSlot].quoteLabel = this.quoteForm.customerName || null;
+            this.persistSlots();
+            showToast(`Orçamento #${d.id} salvo.`, 'success');
+          }
+        },
+        detachQuote() {
+          this.slots[this.activeSlot].quoteId = null;
+          this.slots[this.activeSlot].quoteLabel = null;
+          this.persistSlots();
+          this.repriceCart();
+          this.focusSearch();
         },
         onPostSaleClose() {
           if (this.justClosedComandaId) {
@@ -1057,7 +1196,9 @@
         // ─── Tabelas de preço (atacado/varejo/cliente) ───
         async repriceCart() {
           if (!this.cart.length) return;
-          if (this.slots[this.activeSlot].comandaId) return; // preco congelado na comanda — nao re-resolver
+          // Preço congelado: na comanda (congelado no pedido) e no orçamento (o cliente
+          // recebeu um papel com o valor). Re-resolver aqui apagaria o preço cotado.
+          if (this.slots[this.activeSlot].comandaId || this.slots[this.activeSlot].quoteId) return;
           const r = await fetch('/api/commercial/pricing/resolve', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ customerId: this.customerId || null, items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty })) }),
@@ -1154,6 +1295,11 @@
         },
         doClear() {
           this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerBalances = {};
+          // Limpar o carrinho desfaz o vínculo com o orçamento reaberto — o que sobra é um
+          // carrinho vazio, não um orçamento sem itens. O orçamento em si continua aberto.
+          this.slots[this.activeSlot].quoteId = null;
+          this.slots[this.activeSlot].quoteLabel = null;
+          this.quoteForm = { customerName: '', validUntil: '', notes: '', error: '', saving: false };
           this.$refs.clearDlg.close();
           this.focusSearch();
           this.persistSlots();
@@ -1356,6 +1502,7 @@
             return out;
           });
           const comandaId = this.slots[this.activeSlot].comandaId;
+          const quoteId = this.slots[this.activeSlot].quoteId;
           let r;
           const commonBody = {
             payments,
@@ -1363,11 +1510,23 @@
             surchargeCents: this.surchargeCents || undefined,
             customerId: this.customerId || undefined,
             items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
+            clientRequestId: this.pay.clientRequestId || undefined,
           };
           if (comandaId) {
-            r = await fetch(`/api/comandas/comandas/${comandaId}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...commonBody, clientRequestId: this.pay.clientRequestId || undefined }) });
+            r = await fetch(`/api/comandas/comandas/${comandaId}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(commonBody) });
+          } else if (quoteId) {
+            // Faturar o orçamento: os itens vão com o preço cotado (o servidor honra via
+            // allowPriceOverride) e o desconto/acréscimo vêm do próprio orçamento.
+            r = await fetch(`/api/store/quotes/${quoteId}/convert`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                items: this.quoteItemsPayload(),
+                payments, customerId: this.customerId || undefined,
+                clientRequestId: this.pay.clientRequestId || undefined,
+              }),
+            });
           } else {
-            r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...commonBody, clientRequestId: this.pay.clientRequestId || undefined }) });
+            r = await fetch('/api/store/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(commonBody) });
           }
           this.saving = false;
           if (r.ok) {
@@ -1377,6 +1536,11 @@
             this.$refs.pay.close();
             this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerBalances = {};
             if (comandaId) { this.slots[this.activeSlot].comandaId = null; this.justClosedComandaId = comandaId; }
+            if (quoteId) {
+              this.slots[this.activeSlot].quoteId = null;
+              this.slots[this.activeSlot].quoteLabel = null;
+              this.quoteForm = { customerName: '', validUntil: '', notes: '', error: '', saving: false };
+            }
             this.persistSlots();
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
             if (exibir !== '0') this.$refs.postSale.showModal(); else this.onPostSaleClose();

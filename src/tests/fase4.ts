@@ -45,8 +45,8 @@ async function main() {
 
   const admin = await loginAs('admin', 'admin');
   check('login admin', admin !== null);
-  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op4', name: 'op4', password: '123456', roleSlug: 'operador' }) }, admin!);
-  const op = await loginAs('op4', '123456');
+  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op4', name: 'op4', password: 'Teste1234', roleSlug: 'operador' }) }, admin!);
+  const op = await loginAs('op4', 'Teste1234');
 
   // ---- RBAC ----
   check('operador não vê caixa (403)', (await api(`${F}/cash/current`, {}, op!)).status === 403);

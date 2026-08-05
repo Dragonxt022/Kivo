@@ -73,6 +73,21 @@ export class ProductRepository extends BaseRepository<ProductRow> {
     );
   }
 
+  /**
+   * Tudo que pode ir para o carrinho — inclusive as VARIANTES (filhas), que listTopLevel
+   * exclui por filtrar parent_product_id IS NULL. Só o pai variante fica de fora, porque
+   * ele não é vendável. Usado pelo PDV para validar o carrinho restaurado do localStorage:
+   * com listTopLevel, toda linha de variação era descartada como "produto inexistente".
+   */
+  listSellable(): Row[] {
+    return this.raw(
+      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.deleted_at IS NULL
+         AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)
+       ORDER BY p.favorite DESC, p.name`,
+    );
+  }
+
   listAll(): Row[] {
     return this.raw(
       `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id

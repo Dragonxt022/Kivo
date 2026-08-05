@@ -22,11 +22,11 @@
   <main x-data="quotesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
     <h1>Orcamentos</h1>
     <div class="toolbar">
-      <% if (user.permissions.has('store.quotes.create')) { %>
-        <button class="btn" @click="openNew()">
+      <% if (user.permissions.has('store.quotes.create') && user.permissions.has('store.sales.create')) { %>
+        <a class="btn" href="/app/store/pdv">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Novo orcamento
-        </button>
+        </a>
       <% } %>
       <%- include('partials/search-filter', { statusOptions: _qfStatusOpts, placeholder: 'Buscar por cliente' }) %>
       <span class="error" x-text="error"></span>
@@ -62,16 +62,18 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                     Imprimir
                   </button>
+                  <%# Editar e faturar acontecem no PDV: é lá que existem variação, complemento,
+                      tabela de preço e o fluxo de pagamento completo. %>
                   <% if (user.permissions.has('store.sales.create')) { %>
-                  <button x-show="q.status === 'aberto'" @click="openMenu = null; openConvert(q)">
+                  <button x-show="q.status === 'aberto'" @click="openMenu = null; openInPdv(q)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.61"/><path d="M21 3v6h-6"/></svg>
-                    Converter em venda
+                    Faturar no PDV
                   </button>
                   <% } %>
-                  <% if (user.permissions.has('store.quotes.edit')) { %>
-                  <button x-show="q.status === 'aberto'" @click="openMenu = null; openEdit(q)">
+                  <% if (user.permissions.has('store.quotes.edit') && user.permissions.has('store.sales.create')) { %>
+                  <button x-show="q.status === 'aberto'" @click="openMenu = null; openInPdv(q)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                    Editar
+                    Editar no PDV
                   </button>
                   <% } %>
                   <% if (user.permissions.has('store.quotes.create')) { %>
@@ -89,180 +91,25 @@
       </tbody>
     </table>
 
-    <dialog x-ref="dlg" style="width:600px">
-      <h1 x-text="form.id ? 'Editar orçamento #' + form.id : 'Novo orçamento'"></h1>
-      <label>Cliente (cadastrado)</label>
-      <select x-model.number="form.customerId">
-        <option value="">— sem cadastro —</option>
-        <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
-      </select>
-      <label>Ou nome avulso</label><input type="text" x-model="form.customerName" placeholder="Cliente de balcão" />
-
-      <template x-if="!form.id">
-      <label>Adicionar item</label>
-      <div class="form-grid" style="grid-template-columns:1fr 90px 70px">
-        <select x-model.number="item.productId">
-          <option value="">Produto…</option>
-          <template x-for="p in products" :key="p.id"><option :value="p.id" x-text="`${p.name} — ${brl(p.price_cents)}`"></option></template>
-        </select>
-        <input type="number" step="any" min="0.001" placeholder="Qtd" x-model.number="item.qty" />
-        <button class="btn secondary" @click="addItem()">+</button>
-      </div>
-      <div class="scroll-box-sm" style="margin-top:.8rem">
-        <template x-for="(i, idx) in form.items" :key="idx">
-          <div class="form-row">
-            <span x-text="`${i.name} — ${i.qty} × ${brl(i.price_cents)}`"></span>
-            <span><strong x-text="brl(Math.round(i.qty * i.price_cents))"></strong>
-              <button class="btn small" style="margin-left:.5rem" @click="form.items.splice(idx, 1)">×</button></span>
-          </div>
-        </template>
-      </div>
-      <p class="text-right" style="margin-top:.5rem">Total: <strong x-text="brl(total())"></strong></p>
-      </template>
-      <% if (user.permissions.has('store.sales.discount')) { %>
-        <label>Desconto (R$)</label><input type="text" x-model="form.discount" placeholder="0,00" @input="form.discount = maskMoney(form.discount)" />
-      <% } %>
-      <label>Válido até</label><input type="date" x-model="form.validUntil" />
-      <label>Observações</label><input type="text" x-model="form.notes" />
-      <div class="error" x-text="dlgError"></div>
-      <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
-          Cancelar
-        </button>
-        <button class="btn" @click="save()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          Salvar orçamento
-        </button>
-      </div>
-    </dialog>
-
-    <dialog x-ref="conv">
-      <h1>Converter orçamento #<span x-text="converting.id"></span></h1>
-      <p class="muted">Total: <strong x-text="brl(converting.total_cents)"></strong> — preços cotados serão honrados.</p>
-      <label>Forma de pagamento</label>
-      <select x-model="conv.method">
-        <option value="dinheiro">Dinheiro</option>
-        <option value="cartao_debito">Cartão de débito</option>
-        <option value="cartao_credito">Cartão de crédito</option>
-        <option value="pix">PIX</option>
-        <option value="prazo">A prazo (fiado)</option>
-      </select>
-      <template x-if="conv.method === 'dinheiro'">
-        <div><label>Valor recebido (R$)</label><input type="text" x-model="conv.received" placeholder="0,00" @input="conv.received = maskMoney(conv.received)" /></div>
-      </template>
-      <template x-if="conv.method === 'prazo'">
-        <div>
-          <label>Cliente</label>
-          <select x-model.number="conv.customerId">
-            <option value="">Selecione…</option>
-            <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
-          </select>
-          <label>Vencimento</label><input type="date" x-model="conv.dueDate" />
-        </div>
-      </template>
-      <div class="error" x-text="convError"></div>
-      <div class="actions">
-        <button class="btn secondary" @click="$refs.conv.close()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
-          Voltar
-        </button>
-        <button class="btn" @click="convert()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          Confirmar venda
-        </button>
-      </div>
-    </dialog>
   </main>
-  <script src="/js/masks.js"></script>
   <script src="/js/table-toolkit.js"></script>
   <script>
     function quotesPage() {
       return {
         ...tableToolkit(),
-        rows: [], customers: [], products: [], form: { items: [] }, item: {}, converting: {},
-        conv: { method: 'dinheiro', received: '', customerId: '', dueDate: '' },
-        status: 'aberto', error: '', dlgError: '', convError: '', filter: {},
+        rows: [], status: 'aberto', error: '', filter: {},
         sortGetters: {
           id: (q) => q.id, customer: (q) => q.customer ?? q.customer_name ?? '', total_cents: (q) => q.total_cents,
           valid_until: (q) => q.valid_until ?? '', status: (q) => q.status ?? '', username: (q) => q.username ?? '',
         },
         get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
         brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
-        cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const r = await fetch('/api/store/quotes');
           if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
         },
-        async refs() {
-          if (!this.customers.length) {
-            const c = await fetch('/api/commercial/customers'); if (c.ok) this.customers = await c.json();
-            const p = await fetch('/api/commercial/products'); if (p.ok) this.products = await p.json();
-          }
-        },
-        async openNew() {
-          this.form = { items: [], customerId: '', customerName: '', discount: '', validUntil: '', notes: '' };
-          this.item = {}; this.dlgError = '';
-          await this.refs();
-          this.$refs.dlg.showModal();
-        },
-        async openEdit(q) {
-          this.form = { id: q.id, customerId: q.customer_id ?? '', customerName: q.customer_name ?? '',
-            discount: q.discount_cents ? (q.discount_cents / 100).toFixed(2).replace('.', ',') : '',
-            validUntil: q.valid_until ?? '', notes: q.notes ?? '', items: [] };
-          this.dlgError = '';
-          await this.refs();
-          this.$refs.dlg.showModal();
-        },
-        addItem() {
-          const p = this.products.find((x) => x.id === this.item.productId);
-          if (!p || !(this.item.qty > 0)) { this.dlgError = 'Escolha produto e quantidade.'; return; }
-          this.dlgError = '';
-          this.form.items.push({ productId: p.id, name: p.name, qty: this.item.qty, price_cents: p.price_cents });
-          this.item = {};
-        },
-        total() { return Math.max(0, this.form.items.reduce((a, i) => a + Math.round(i.qty * i.price_cents), 0) - this.cents(this.form.discount)); },
-        async save() {
-          const body = {
-            customerId: this.form.customerId || undefined,
-            customerName: this.form.customerName || undefined,
-            discountCents: this.cents(this.form.discount) || undefined,
-            validUntil: this.form.validUntil || undefined,
-            notes: this.form.notes || undefined,
-          };
-          if (this.form.id) {
-            const r = await fetch(`/api/store/quotes/${this.form.id}`, {
-              method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-            });
-            if (r.ok) { this.$refs.dlg.close(); this.load(); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
-            return;
-          }
-          const r = await fetch('/api/store/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...body, items: this.form.items.map((i) => ({ productId: i.productId, qty: i.qty })) }) });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
-        },
-        async openConvert(q) {
-          this.converting = q; this.convError = '';
-          this.conv = { method: 'dinheiro', received: '', customerId: '', dueDate: '' };
-          await this.refs();
-          this.$refs.conv.showModal();
-        },
-        async convert() {
-          const r = await fetch(`/api/store/quotes/${this.converting.id}/convert`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              paymentMethod: this.conv.method,
-              paidCents: this.conv.method === 'dinheiro' ? this.cents(this.conv.received) || undefined : undefined,
-              customerId: this.conv.method === 'prazo' ? this.conv.customerId || undefined : undefined,
-              dueDate: this.conv.method === 'prazo' ? this.conv.dueDate || undefined : undefined,
-            }) });
-          if (r.ok) {
-            const d = await r.json();
-            this.$refs.conv.close();
-            alert(`Venda #${d.id} gerada — ${this.brl(d.totalCents)}` + (d.changeCents ? `\nTroco: ${this.brl(d.changeCents)}` : ''));
-            this.load();
-          } else this.convError = (await r.json()).error;
-        },
+        // Montar e faturar acontecem no PDV — esta tela só lista, imprime e cancela.
+        openInPdv(q) { window.location.href = `/app/store/pdv?quoteId=${q.id}`; },
         async cancel(q) {
           if (!await window.confirmDlg(`Cancelar o orçamento #${q.id}?`)) return;
           const r = await fetch(`/api/store/quotes/${q.id}/cancel`, { method: 'POST' });

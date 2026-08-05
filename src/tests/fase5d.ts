@@ -138,8 +138,8 @@ async function main() {
   check('relatório traz taxas por forma', Array.isArray(report.byPayment) && 'fee_cents' in (report.byPayment[0] ?? {}));
 
   // permissão fina: operador não cadastra forma de pagamento
-  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op6', name: 'op6', password: '123456', roleSlug: 'operador' }) }, admin!);
-  const op = await loginAs('op6', '123456');
+  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op6', name: 'op6', password: 'Teste1234', roleSlug: 'operador' }) }, admin!);
+  const op = await loginAs('op6', 'Teste1234');
   check('operador não cadastra forma de pagamento (403)', (await api('/api/finance/payment-methods', {
     method: 'POST', body: JSON.stringify({ name: 'Y', type: 'pix' }),
   }, op!)).status === 403);

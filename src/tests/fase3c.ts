@@ -63,8 +63,8 @@ async function main() {
     const verifyRight = (await (await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '1234' }) }, admin!)).json()) as { ok: boolean };
     check('PIN correto → ok:true', verifyRight.ok === true);
 
-    await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op3c', name: 'op3c', password: '123456', roleSlug: 'operador' }) }, admin!);
-    const op = await loginAs('op3c', '123456');
+    await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op3c', name: 'op3c', password: 'Teste1234', roleSlug: 'operador' }) }, admin!);
+    const op = await loginAs('op3c', 'Teste1234');
     check('operador sem permissão não define PIN (403)', (await api('/api/security/pin', { method: 'PUT', body: JSON.stringify({ pin: '5555' }) }, op!)).status === 403);
     // qualquer usuário logado pode TENTAR verificar (é ele quem digita o PIN do gerente)
     const verifyAsOp = (await (await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '1234' }) }, op!)).json()) as { ok: boolean };

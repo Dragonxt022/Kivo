@@ -66,7 +66,7 @@ async function main() {
   const mk = (u: string, role: string) =>
     api('/api/users', {
       method: 'POST',
-      body: JSON.stringify({ username: u, name: u, password: '123456', roleSlug: role }),
+      body: JSON.stringify({ username: u, name: u, password: 'Teste1234', roleSlug: role }),
     }, adminCookie);
   const rOp = await mk('operador1', 'operador');
   const rVi = await mk('vitima', 'caixa');
@@ -74,7 +74,7 @@ async function main() {
   const vitima = (await rVi.json()) as { id: number };
 
   // 3. Operador: sem permissão de listar nem excluir
-  const opCookie = await loginAs('operador1', '123456');
+  const opCookie = await loginAs('operador1', 'Teste1234');
   check('login operador funciona', opCookie !== null);
   const rList = await api('/api/users', {}, opCookie!);
   check('operador não lista usuários (403)', rList.status === 403);

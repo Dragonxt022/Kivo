@@ -55,7 +55,11 @@ router.get('/orcamentos/:id/imprimir', (req, res) => {
     req.params.id,
   );
   if (!quote) return res.status(404).send('Orçamento não encontrado.');
-  const items = quoteRepository.raw('SELECT product_name, qty, unit_price_cents, total_cents FROM quote_items WHERE quote_id = ?', req.params.id);
+  const items = quoteRepository.raw(
+    `SELECT product_name, qty, unit_price_cents, total_cents, notes, line_group_uuid
+     FROM quote_items WHERE quote_id = ? ORDER BY id`,
+    req.params.id,
+  );
   res.render('store-quote-print', { quote, items, company: companyInfo() });
 });
 
