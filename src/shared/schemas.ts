@@ -82,27 +82,46 @@ export const createSaleSchema = z.object({
   { message: 'Informe payments[] ou paymentMethod.', path: ['paymentMethod'] },
 );
 
-const quoteItemSchema = z.object({
-  productId: z.number().int().positive('ID do produto inválido.'),
-  qty: z.number().positive('Quantidade deve ser positiva.'),
-});
+// O orçamento é montado no PDV, então o item dele é exatamente o item da venda:
+// complemento (lineGroupUuid), observação e preço cotado (unitPriceCents).
+const quoteItemSchema = saleItemSchema;
 
 export const createQuoteSchema = z.object({
   items: z.array(quoteItemSchema).min(1, 'Orçamento sem itens.'),
   customerId: z.number().int().positive().optional(),
   customerName: z.string().optional(),
   discountCents: z.number().int().min(0).optional().default(0),
+  surchargeCents: z.number().int().min(0).optional().default(0),
   validUntil: z.string().optional(),
   notes: z.string().optional(),
 });
 
+// `null` limpa o campo, ausente preserva. Sem a distinção não havia como desvincular
+// o cliente nem apagar a validade de um orçamento já salvo.
 export const updateQuoteSchema = z.object({
-  customerId: z.number().int().positive().optional(),
-  customerName: z.string().optional(),
-  validUntil: z.string().optional(),
-  notes: z.string().optional(),
+  items: z.array(quoteItemSchema).min(1, 'Orçamento sem itens.').optional(),
+  customerId: z.number().int().positive().nullable().optional(),
+  customerName: z.string().nullable().optional(),
+  validUntil: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
   discountCents: z.number().int().min(0).optional(),
+  surchargeCents: z.number().int().min(0).optional(),
 });
+
+// Conversão em venda: o PDV manda o carrinho atual (o operador pode ter ajustado ao
+// reabrir o orçamento). Sem `items`, valem os itens gravados no orçamento.
+export const convertQuoteSchema = z.object({
+  items: z.array(quoteItemSchema).min(1).optional(),
+  payments: z.array(salePaymentSchema).min(1).optional(),
+  paymentMethod: z.enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo']).optional(),
+  paidCents: z.number().int().optional(),
+  customerId: z.number().int().positive().optional(),
+  dueDate: z.string().optional(),
+  clientRequestId: z.string().optional(),
+}).refine(
+  (data) => data.payments?.length || data.paymentMethod,
+  { message: 'Informe payments[] ou paymentMethod.', path: ['paymentMethod'] },
+);
 
 export const loginSchema = z.object({
   username: z.string().min(1, 'Informe o usuário.'),

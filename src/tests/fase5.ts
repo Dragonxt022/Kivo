@@ -45,8 +45,8 @@ async function main() {
 
   const admin = await loginAs('admin', 'admin');
   check('login admin', admin !== null);
-  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op5', name: 'op5', password: '123456', roleSlug: 'operador' }) }, admin!);
-  const op = await loginAs('op5', '123456');
+  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op5', name: 'op5', password: 'Teste1234', roleSlug: 'operador' }) }, admin!);
+  const op = await loginAs('op5', 'Teste1234');
 
   // Preparação: cliente + produtos com estoque
   const cli = await unwrap<{ id: number }>(await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Fiado' }) }, admin!));
@@ -123,7 +123,7 @@ async function main() {
   // Desconto exige permissão fina
   db.prepare(`INSERT INTO role_permissions (role_id, permission_key)
               SELECT id, 'store.sales.create' FROM roles WHERE slug = 'operador'`).run();
-  const opFresh = await loginAs('op5', '123456');
+  const opFresh = await loginAs('op5', 'Teste1234');
   const vDisc = await api('/api/store/sales', {
     method: 'POST',
     body: JSON.stringify({ items: [{ productId: cimento, qty: 1 }], paymentMethod: 'pix', discountCents: 500 }),

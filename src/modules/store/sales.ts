@@ -233,7 +233,7 @@ function resolveSalePayments(
 export function createSale(
   req: Request,
   input: SaleInput,
-  opts: { allowPriceOverride?: boolean } = {},
+  opts: { allowPriceOverride?: boolean; allowDiscount?: boolean } = {},
 ): SaleResult {
   assertAuth(req);
 
@@ -254,7 +254,10 @@ export function createSale(
   const discount = Math.round(input.discountCents ?? 0);
   const surcharge = Math.round(input.surchargeCents ?? 0);
   if (discount < 0 || surcharge < 0) return { ok: false, error: 'Desconto/acréscimo inválido.' };
-  if ((discount > 0 || surcharge > 0) && !req.user.permissions.has('store.sales.discount')) {
+  // allowDiscount: o desconto já foi autorizado antes desta venda — é o caso do orçamento,
+  // onde createQuote exigiu a permissão de quem cotou. Sem isso, um vendedor sem
+  // store.sales.discount não consegue faturar um orçamento com desconto que ele nem fez.
+  if ((discount > 0 || surcharge > 0) && !opts.allowDiscount && !req.user.permissions.has('store.sales.discount')) {
     return { ok: false, error: 'Permissão negada: store.sales.discount (desconto/acréscimo).' };
   }
 

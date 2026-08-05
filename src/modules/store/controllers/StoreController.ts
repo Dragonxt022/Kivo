@@ -7,6 +7,17 @@ import { cashRegisterReport, revenueTrend, type RevenueTrendPeriod } from '../re
 import { saleRepository, salePaymentRepository } from '../repositories/SaleRepository';
 import { quoteRepository } from '../repositories/QuoteRepository';
 
+/**
+ * Preço cotado só vale como override para quem já pode dar desconto. Sem essa trava,
+ * cotar um produto por R$ 0,01 e converter o orçamento seria um jeito de contornar
+ * store.sales.discount — a conversão honra o preço do orçamento por desenho.
+ * Para o operador comum o unitPriceCents enviado pelo PDV é ignorado e o preço é
+ * re-resolvido pelo pricing service, que é de onde ele veio.
+ */
+function canOverridePrice(req: Request): boolean {
+  return req.user?.permissions.has('store.sales.discount') ?? false;
+}
+
 export const storeController = {
   listPaymentMethods(_req: Request, res: Response) {
     res.json(getService<FinancePayMethodsService>('finance.paymethods').listActive());
@@ -77,24 +88,31 @@ export const storeController = {
       id,
     );
     if (!quote) { res.status(404).json({ error: 'Orçamento não encontrado.' }); return; }
-    const items = quoteRepository.raw('SELECT product_name, qty, unit_price_cents, total_cents FROM quote_items WHERE quote_id = ?', id);
+    // product_id/notes/line_group_uuid vão no retorno porque o PDV remonta o carrinho a
+    // partir daqui ao reabrir o orçamento — sem eles o vínculo com os complementos se perde.
+    const items = quoteRepository.raw(
+      `SELECT id, product_id, product_name, qty, unit_price_cents, total_cents, notes, line_group_uuid
+       FROM quote_items WHERE quote_id = ? ORDER BY id`,
+      id,
+    );
     res.json({ ...quote, items });
   },
 
   createQuoteAction(req: Request, res: Response) {
-    const result = createQuote(req, req.body);
+    const result = createQuote(req, req.body, { allowPriceOverride: canOverridePrice(req) });
     if (!result.ok) { res.status(400).json(result); return; }
     res.status(201).json(result);
   },
 
   updateQuoteAction(req: Request, res: Response) {
-    const result = updateQuote(req, Number(req.params.id), req.body);
+    const result = updateQuote(req, Number(req.params.id), req.body, { allowPriceOverride: canOverridePrice(req) });
     if (!result.ok) { res.status(400).json(result); return; }
     res.json(result);
   },
 
   convertQuoteAction(req: Request, res: Response) {
-    const result = convertQuote(req, Number(req.params.id), req.body ?? {});
+    const { items, ...payment } = req.body ?? {};
+    const result = convertQuote(req, Number(req.params.id), payment, items);
     if (!result.ok) { res.status(400).json(result); return; }
     res.status(201).json(result);
   },

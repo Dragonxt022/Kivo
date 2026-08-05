@@ -63,8 +63,8 @@ async function main() {
   check('admin não é editável', (await api(`/api/roles/${adminRole.id}/permissions`, { method: 'PUT', body: JSON.stringify({ permissions: [] }) }, admin!)).status === 400);
 
   // usuário com o novo cargo herda as permissões
-  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'balcao', name: 'Balcão', password: '123456', roleSlug: 'vendedor-balcao' }) }, admin!);
-  const balcao = await loginAs('balcao', '123456');
+  await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'balcao', name: 'Balcão', password: 'Teste1234', roleSlug: 'vendedor-balcao' }) }, admin!);
+  const balcao = await loginAs('balcao', 'Teste1234');
   check('usuário do novo cargo loga', balcao !== null);
   const me = await unwrap<{ permissions: string[] }>(await api('/api/auth/me', {}, balcao!));
   check('herda permissões do cargo', me.permissions.includes('store.sales.create') && !me.permissions.includes('users.delete'));

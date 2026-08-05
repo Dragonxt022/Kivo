@@ -64,8 +64,8 @@ async function phase1(): Promise<void> {
     const balAfterGrant = await unwrap<{ store_credit_cents: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('saldo = 5000 após concessão', balAfterGrant.store_credit_cents === 5000, String(balAfterGrant.store_credit_cents));
 
-    await api(base, '/api/users', { method: 'POST', body: JSON.stringify({ username: 'op7c', name: 'op7c', password: '123456', roleSlug: 'operador' }) }, admin!);
-    const op = await loginAs(base, 'op7c', '123456');
+    await api(base, '/api/users', { method: 'POST', body: JSON.stringify({ username: 'op7c', name: 'op7c', password: 'Teste1234', roleSlug: 'operador' }) }, admin!);
+    const op = await loginAs(base, 'op7c', 'Teste1234');
     check('operador sem permissão não concede crédito (403)', (await api(base, `/api/commercial/customers/${cust.id}/credit`, { method: 'POST', body: JSON.stringify({ amountCents: 100 }) }, op!)).status === 403);
 
     const creditMethod = await enablePaymentMethod(base, admin!, 'credito_loja');

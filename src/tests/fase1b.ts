@@ -48,9 +48,9 @@ async function main() {
 
   await api('/api/users', {
     method: 'POST',
-    body: JSON.stringify({ username: 'op2', name: 'op2', password: '123456', roleSlug: 'operador' }),
+    body: JSON.stringify({ username: 'op2', name: 'op2', password: 'Teste1234', roleSlug: 'operador' }),
   }, admin!);
-  const op = await loginAs('op2', '123456');
+  const op = await loginAs('op2', 'Teste1234');
 
   // 1. Configurações
   check('operador não vê configurações (403)', (await api('/api/settings', {}, op!)).status === 403);

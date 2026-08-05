@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
-import { createSaleSchema, createQuoteSchema, updateQuoteSchema } from '../../shared/schemas';
+import { createSaleSchema, createQuoteSchema, updateQuoteSchema, convertQuoteSchema } from '../../shared/schemas';
 import { storeController } from './controllers/StoreController';
 
 const router = Router();
@@ -16,7 +16,7 @@ router.get('/quotes', requirePermission('store.quotes.view'), storeController.li
 router.get('/quotes/:id', requirePermission('store.quotes.view'), storeController.getQuote);
 router.post('/quotes', requirePermission('store.quotes.create'), validateBody(createQuoteSchema), storeController.createQuoteAction);
 router.put('/quotes/:id', requirePermission('store.quotes.edit'), validateBody(updateQuoteSchema), storeController.updateQuoteAction);
-router.post('/quotes/:id/convert', requirePermission('store.sales.create'), storeController.convertQuoteAction);
+router.post('/quotes/:id/convert', requirePermission('store.sales.create'), validateBody(convertQuoteSchema), storeController.convertQuoteAction);
 router.post('/quotes/:id/cancel', requirePermission('store.quotes.create'), storeController.cancelQuoteAction);
 
 router.get('/reports/daily', requirePermission('store.reports.view'), storeController.dailyReport);

@@ -14,6 +14,7 @@
     th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
     th { background: #f2f2f2; font-size: 12px; }
     .right { text-align: right; }
+    .complement { padding-left: 22px; color: #444; }
     .total { font-size: 16px; font-weight: bold; }
     @media print { .no-print { display: none; } }
     .no-print { text-align: center; margin-top: 16px; }
@@ -46,9 +47,12 @@
   <table>
     <thead><tr><th>Item</th><th class="right">Qtd</th><th class="right">Preço un.</th><th class="right">Total</th></tr></thead>
     <tbody>
-      <% items.forEach(function (i) { %>
+      <%# Complemento não é uma linha aninhada: é linha irmã com o mesmo line_group_uuid da
+          anterior. Indentar deixa claro no papel a que produto o adicional pertence. %>
+      <% items.forEach(function (i, idx) {
+           const isComplement = i.line_group_uuid && idx > 0 && items[idx - 1].line_group_uuid === i.line_group_uuid; %>
         <tr>
-          <td><%= i.product_name %></td>
+          <td class="<%= isComplement ? 'complement' : '' %>"><%= isComplement ? '+ ' : '' %><%= i.product_name %><% if (i.notes && !isComplement) { %><br /><span class="muted"><%= i.notes %></span><% } %></td>
           <td class="right"><%= i.qty %></td>
           <td class="right"><%= brl(i.unit_price_cents) %></td>
           <td class="right"><%= brl(i.total_cents) %></td>
@@ -59,6 +63,9 @@
       <tr><td colspan="3" class="right">Subtotal</td><td class="right"><%= brl(quote.subtotal_cents) %></td></tr>
       <% if (quote.discount_cents > 0) { %>
         <tr><td colspan="3" class="right">Desconto</td><td class="right">-<%= brl(quote.discount_cents) %></td></tr>
+      <% } %>
+      <% if (quote.surcharge_cents > 0) { %>
+        <tr><td colspan="3" class="right">Acréscimo</td><td class="right">+<%= brl(quote.surcharge_cents) %></td></tr>
       <% } %>
       <tr class="total"><td colspan="3" class="right">TOTAL</td><td class="right"><%= brl(quote.total_cents) %></td></tr>
     </tfoot>

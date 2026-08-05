@@ -81,6 +81,11 @@ function deleteLocalImageIfOwned(imageUrl: string | null | undefined): void {
 router.get('/products', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const includeParents = req.query.includeParents === 'true';
+  // scope=sellable: lista sem busca que INCLUI as variantes filhas (listTopLevel as exclui).
+  if (!q && req.query.scope === 'sellable') {
+    res.json(productRepository.listSellable());
+    return;
+  }
   if (includeParents) {
     if (q) {
       res.json(productRepository.searchAll(q));

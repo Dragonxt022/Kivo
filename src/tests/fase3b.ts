@@ -145,8 +145,8 @@ async function phase1(): Promise<void> {
     check('cliente fica sem lista após exclusão', custAfter[0]?.price_list_id == null, JSON.stringify(custAfter[0]));
 
     // ---- Permissões ----
-    await api(base, '/api/users', { method: 'POST', body: JSON.stringify({ username: 'op3b', name: 'op3b', password: '123456', roleSlug: 'operador' }) }, admin!);
-    const op = await loginAs(base, 'op3b', '123456');
+    await api(base, '/api/users', { method: 'POST', body: JSON.stringify({ username: 'op3b', name: 'op3b', password: 'Teste1234', roleSlug: 'operador' }) }, admin!);
+    const op = await loginAs(base, 'op3b', 'Teste1234');
     check('operador sem permissão não gerencia listas (403)', (await api(base, `${C}/price-lists`, { method: 'POST', body: JSON.stringify({ name: 'X' }) }, op!)).status === 403);
     check('operador sem permissão não vê listas (403)', (await api(base, `${C}/price-lists`, {}, op!)).status === 403);
   } finally {
