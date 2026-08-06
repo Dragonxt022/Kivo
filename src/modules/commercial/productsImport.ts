@@ -1,5 +1,7 @@
 /**
- * Importação/exportação de produtos (v1 — só produto simples, tipo 'fisico').
+ * Importação/exportação de produtos — catálogo inteiro: fisico, variante (pai e
+ * filhas), kit/combo, produzido, complemento, serviço etc., com as relações
+ * (atributos, componentes, ficha técnica, grupos de complemento).
  *
  * Este arquivo é lógica pura: parse, coerção e validação. Não toca no banco nem no
  * Express — quem grava é productsImportRoutes.ts. A separação existe para o parser
@@ -11,6 +13,13 @@
  *  - O arquivo exportado É o modelo de importação — um formato só, ida e volta.
  *  - `estoque_inicial` só vale para produto NOVO, e entra como movimentação de
  *    entrada (nunca escrevendo stock_qty direto — ver stock.ts).
+ *  - Colunas novas são SEMPRE acrescentadas ao fim: quem já usa a planilha não
+ *    perde a posição das colunas que conhece.
+ *  - Referências (produto_pai, componentes, ficha_tecnica) usam SKU, com uuid como
+ *    fallback. A resolução olha primeiro o próprio arquivo (a ordem das linhas não
+ *    importa — o commit grava em duas passagens) e depois o catálogo do banco.
+ *  - As relações das linhas presentes no arquivo SÃO substituídas pelo conteúdo do
+ *    arquivo (DELETE + INSERT no commit). O arquivo é a fonte da verdade.
  */
 
 export const IMPORT_COLUMNS = [
@@ -38,7 +47,37 @@ export const IMPORT_COLUMNS = [
   'csosn',
   'cst',
   'origem',
+  // Tipo e relacionamentos (v2). Também no fim, pela mesma regra de nunca mexer na
+  // ordem das colunas que já existem.
+  'tipo',
+  'produto_pai',
+  'atributos',
+  'componentes',
+  'ficha_tecnica',
+  'grupos_complemento',
+  'controla_estoque',
+  'visivel_cardapio',
 ] as const;
+
+/** Valores aceitos na coluna `tipo` (mesmos do schema products.product_type). */
+export const PRODUCT_TYPES = [
+  'fisico', 'fracionado', 'composto', 'kit', 'combo', 'produzido',
+  'servico', 'variante', 'complemento', 'digital', 'assinatura',
+] as const;
+
+/** Par de atributo da coluna `atributos`: `Tamanho=M` → { name: 'Tamanho', value: 'M' }. */
+export interface AttributePart {
+  name: string;
+  /** null quando a linha só cita o nome (`Tamanho|Cor` — linha do variante mestre). */
+  value: string | null;
+}
+
+/** Referência de produto com quantidade da coluna `componentes`/`ficha_tecnica`. */
+export interface RefItem {
+  /** SKU (ou uuid como fallback) do produto referenciado. */
+  ref: string;
+  qty: number;
+}
 
 /** Coluna informativa: sai na exportação, é ignorada na importação. */
 export const EXPORT_ONLY_COLUMNS = ['estoque_atual'] as const;
@@ -55,6 +94,8 @@ export interface ParsedRow {
   matchedId: number | null;
   matchedBy: 'uuid' | 'codigo_barras' | 'sku' | null;
   data: {
+    /** Identidade vinda do arquivo (preenchida na exportação). Nunca é gravada. */
+    uuid: string | null;
     sku: string | null;
     barcode: string | null;
     name: string;
@@ -70,6 +111,22 @@ export interface ParsedRow {
     csosn: string | null;
     cst: string | null;
     origem: number | null;
+    /** product_type do schema; vazio na planilha → 'fisico'. */
+    productType: string;
+    /** Referência do produto variante mestre (SKU/uuid). Só para tipo 'variante'. */
+    parentRef: string | null;
+    /** Atributos da linha: `Tamanho=M|Cor=Azul` (filha) ou `Tamanho|Cor` (mestre). */
+    attributes: AttributePart[];
+    /** Componentes de kit/combo: `CAF-001*1|PAO-001*2`. */
+    kitItems: RefItem[];
+    /** Insumos de ficha técnica: `FAR-01*0.5|OVO-01*3`. */
+    recipeItems: RefItem[];
+    /** Nomes dos grupos de complemento ligados ao produto: `Bordas|Molhos`. */
+    complementGroups: string[];
+    /** null = usar o padrão do tipo (variante filha 1, mestre/complemento 0, demais 1). */
+    trackStock: boolean | null;
+    /** null = manter o que está no banco (update) ou 0 (novo). */
+    visivelCardapio: boolean | null;
   };
 }
 
@@ -195,6 +252,98 @@ export function normalizeHeader(h: string): string {
     .replace(/\s+/g, '_');
 }
 
+// ─────────────────────── Novos campos (v2) ───────────────────────
+
+/**
+ * `tipo` → product_type. Vazio = 'fisico' (retrocompatível com a planilha v1,
+ * onde todo produto era simples).
+ */
+export function parseTipo(raw: string): { ok: true; value: string } | { ok: false; error: string } {
+  const s = norm(raw).toLowerCase();
+  if (!s) return { ok: true, value: 'fisico' };
+  if (!(PRODUCT_TYPES as readonly string[]).includes(s)) {
+    return { ok: false, error: `tipo inválido: "${raw}" (use ${PRODUCT_TYPES.join(', ')})` };
+  }
+  return { ok: true, value: s };
+}
+
+/**
+ * `atributos` → pares nome/valor. Duas formas, que se misturam no mesmo arquivo:
+ *  - `Tamanho=M|Cor=Azul` (linha da variante filha: grava product_variant_values);
+ *  - `Tamanho|Cor` (linha do variante mestre: só garante que o atributo existe).
+ */
+export function parseAttributes(raw: string): { ok: true; value: AttributePart[] } | { ok: false; error: string } {
+  const s = norm(raw);
+  if (!s) return { ok: true, value: [] };
+  const parts = s.split('|').map((p) => p.trim()).filter((p) => p !== '');
+  const out: AttributePart[] = [];
+  const seenNames = new Set<string>();
+  const seenPairs = new Set<string>();
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    if (eq < 0) {
+      if (seenNames.has(part.toLowerCase())) return { ok: false, error: `atributo "${part}" repetido` };
+      seenNames.add(part.toLowerCase());
+      out.push({ name: part, value: null });
+      continue;
+    }
+    const name = part.slice(0, eq).trim();
+    const value = part.slice(eq + 1).trim();
+    if (!name) return { ok: false, error: `atributo sem nome: "${part}"` };
+    if (!value) return { ok: false, error: `atributo "${name}" sem valor (use ${name}=Valor)` };
+    // O mesmo atributo duas vezes quebraria o UNIQUE(product_id, attribute_id) de
+    // product_variant_values no commit — pega aqui, antes de gravar.
+    if (seenNames.has(name.toLowerCase())) return { ok: false, error: `atributo "${name}" repetido` };
+    seenNames.add(name.toLowerCase());
+    const key = `${name.toLowerCase()}=${value.toLowerCase()}`;
+    if (seenPairs.has(key)) return { ok: false, error: `atributo "${name}=${value}" repetido` };
+    seenPairs.add(key);
+    out.push({ name, value });
+  }
+  return { ok: true, value: out };
+}
+
+/**
+ * `componentes` / `ficha_tecnica` → lista de referências com quantidade.
+ * Formato: `CAF-001*1|PAO-001*2`. Sem `*qtd` a quantidade vale 1.
+ * Quantidade aceita vírgula ou ponto decimal (ficha técnica usa 0,5).
+ */
+export function parseRefList(raw: string, label: string): { ok: true; value: RefItem[] } | { ok: false; error: string } {
+  const s = norm(raw);
+  if (!s) return { ok: true, value: [] };
+  const parts = s.split('|').map((p) => p.trim()).filter((p) => p !== '');
+  const out: RefItem[] = [];
+  for (const part of parts) {
+    const star = part.indexOf('*');
+    const ref = (star < 0 ? part : part.slice(0, star)).trim();
+    if (!ref) return { ok: false, error: `${label}: referência vazia em "${part}"` };
+    let qty = 1;
+    if (star >= 0) {
+      const parsed = parseMoneyToCents(part.slice(star + 1).trim());
+      if (!parsed.ok) return { ok: false, error: `${label}: ${parsed.error}` };
+      qty = parsed.cents / 100;
+      if (qty <= 0) return { ok: false, error: `${label}: quantidade deve ser maior que zero em "${part}"` };
+      if (qty > 99999) return { ok: false, error: `${label}: quantidade fora do limite em "${part}"` };
+    }
+    out.push({ ref, qty });
+  }
+  return { ok: true, value: out };
+}
+
+/** `grupos_complemento` → nomes de grupos (`Bordas|Molhos`). Tolerante a espaços. */
+export function parseGroupList(raw: string): string[] {
+  return norm(raw).split('|').map((g) => g.trim()).filter((g) => g !== '');
+}
+
+/** `controla_estoque` / `visivel_cardapio` → sim/nao (aceita s/n/1/0/true/false). */
+export function parseBoolField(raw: string, label: string): { ok: true; value: boolean | null } | { ok: false; error: string } {
+  const s = norm(raw).toLowerCase();
+  if (!s) return { ok: true, value: null };
+  if (['sim', 's', '1', 'true', 'verdadeiro'].includes(s)) return { ok: true, value: true };
+  if (['nao', 'n', '0', 'false', 'falso'].includes(s)) return { ok: true, value: false };
+  return { ok: false, error: `${label} inválido: "${raw}" (use sim/nao)` };
+}
+
 // ─────────────────────────── Validação ───────────────────────────
 
 export interface ExistingProduct {
@@ -202,6 +351,8 @@ export interface ExistingProduct {
   uuid: string;
   sku: string | null;
   barcode: string | null;
+  /** product_type do banco — usado para validar refs (pai, componentes, insumos). */
+  productType: string | null;
 }
 
 export interface BuildPreviewInput {
@@ -210,6 +361,8 @@ export interface BuildPreviewInput {
   existingCategories: { id: number; name: string }[];
   /** Injetado para reusar a validação de dígito verificador do app (shared/barcode). */
   validateBarcode: (code: string) => boolean;
+  /** Capabilities comercial.variantes e comercial.complementos, lidas pelo chamador. */
+  capabilities: { variantes: boolean; complementos: boolean };
 }
 
 const norm = (v: string | null | undefined): string => String(v ?? '').trim();
@@ -251,6 +404,8 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
   const newCategories = new Map<string, string>();
   const rows: ParsedRow[] = [];
 
+  // Passada A: parse de cada linha. Erros aqui são do próprio campo; os de relação
+  // (referências cruzadas) ficam para a passada B.
   for (let r = 1; r < table.length; r++) {
     const raw = table[r];
     if (isBlankRow(raw)) continue; // pula, mas sem mexer no contador: `line` tem que bater com o Excel
@@ -260,6 +415,7 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
     const name = cell(raw, 'nome');
     if (!name) errors.push('nome é obrigatório');
 
+    const uuidCell = cell(raw, 'uuid') || null;
     const sku = cell(raw, 'sku') || null;
     const barcode = cell(raw, 'codigo_barras') || null;
 
@@ -290,7 +446,6 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
     // Ordem do casamento: uuid (identidade real) → código de barras → SKU.
     // Nome nunca casa: dois produtos podem legitimamente ter o mesmo nome.
     // uuid que não existe aqui (arquivo de outra instalação) cai nas chaves seguintes.
-    const uuidCell = cell(raw, 'uuid');
     const hitUuid = uuidCell ? byUuid.get(uuidCell.toLowerCase()) : undefined;
     const hitBarcode = barcode ? byBarcode.get(barcode) : undefined;
     const hitSku = sku ? bySku.get(sku.toLowerCase()) : undefined;
@@ -325,6 +480,28 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
       else origem = n;
     }
 
+    // ── v2: tipo e relações ──
+    const tipo = parseTipo(cell(raw, 'tipo'));
+    if (!tipo.ok) errors.push(tipo.error);
+    const productType = tipo.ok ? tipo.value : 'fisico';
+    const atributos = parseAttributes(cell(raw, 'atributos'));
+    if (!atributos.ok) errors.push(atributos.error);
+    const componentes = parseRefList(cell(raw, 'componentes'), 'componentes');
+    if (!componentes.ok) errors.push(componentes.error);
+    const ficha = parseRefList(cell(raw, 'ficha_tecnica'), 'ficha técnica');
+    if (!ficha.ok) errors.push(ficha.error);
+    const trackStock = parseBoolField(cell(raw, 'controla_estoque'), 'controla_estoque');
+    if (!trackStock.ok) errors.push(trackStock.error);
+    const visivel = parseBoolField(cell(raw, 'visivel_cardapio'), 'visivel_cardapio');
+    if (!visivel.ok) errors.push(visivel.error);
+
+    if (productType === 'variante' && !input.capabilities.variantes) {
+      errors.push('recursos de variantes desligados (commercial.variantes) — ligue em Configurações › Recursos');
+    }
+    if ((productType === 'complemento' || parseGroupList(cell(raw, 'grupos_complemento')).length > 0) && !input.capabilities.complementos) {
+      errors.push('recursos de complementos desligados (commercial.complementos) — ligue em Configurações › Recursos');
+    }
+
     const categoryName = cell(raw, 'categoria') || null;
     if (categoryName && !catByName.has(normCat(categoryName)) && !newCategories.has(normCat(categoryName))) {
       newCategories.set(normCat(categoryName), categoryName);
@@ -336,11 +513,12 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
 
     rows.push({
       line,
-      status: errors.length ? 'erro' : matchedId ? 'atualizar' : 'novo',
+      status: 'novo', // consolidado na passada B (as referências podem acrescentar erro)
       errors,
       matchedId,
       matchedBy,
       data: {
+        uuid: uuidCell,
         sku,
         barcode,
         name,
@@ -356,11 +534,120 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
         csosn: cell(raw, 'csosn').trim() || null,
         cst: cell(raw, 'cst').trim() || null,
         origem,
+        productType,
+        parentRef: cell(raw, 'produto_pai') || null,
+        attributes: atributos.ok ? atributos.value : [],
+        kitItems: componentes.ok ? componentes.value : [],
+        recipeItems: ficha.ok ? ficha.value : [],
+        complementGroups: parseGroupList(cell(raw, 'grupos_complemento')),
+        trackStock: trackStock.ok ? trackStock.value : null,
+        visivelCardapio: visivel.ok ? visivel.value : null,
       },
     });
   }
 
   if (!rows.length) return { ok: false, error: 'O arquivo só tem cabeçalho — nenhuma linha de produto.' };
+
+  // Índice de referências do PRÓPRIO arquivo: uma linha pode referenciar outra em
+  // qualquer posição (pai, componente, insumo) — a ordem das linhas não importa.
+  const fileBySku = new Map<string, number>();
+  const fileByUuid = new Map<string, number>();
+  rows.forEach((row, i) => {
+    if (row.data.sku) fileBySku.set(norm(row.data.sku).toLowerCase(), i);
+    if (row.data.uuid) fileByUuid.set(norm(row.data.uuid).toLowerCase(), i);
+  });
+
+  // Resolução: arquivo primeiro (o que o arquivo diz vale para esta importação —
+  // inclusive produto que já existe no banco), banco em seguida.
+  const resolveRef = (ref: string, self: number):
+    | { fileRow: number }
+    | { bank: ExistingProduct }
+    | undefined => {
+    const key = ref.toLowerCase();
+    const fi = fileBySku.get(key) ?? fileByUuid.get(key);
+    if (fi != null) return { fileRow: fi };
+    const hit = bySku.get(key) ?? byUuid.get(key);
+    return hit ? { bank: hit } : undefined;
+  };
+  const typeOf = (t: { fileRow: number } | { bank: ExistingProduct }): string =>
+    'fileRow' in t ? rows[t.fileRow].data.productType : (t.bank.productType ?? '');
+
+  // Passada B: referências cruzadas.
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const d = row.data;
+
+    if (d.productType === 'variante') {
+      if (d.parentRef) {
+        const t = resolveRef(d.parentRef, i);
+        if (!t) row.errors.push(`produto_pai "${d.parentRef}" não encontrado (nem no arquivo nem no catálogo)`);
+        else if ('fileRow' in t && t.fileRow === i) row.errors.push('produto não pode ser pai dele mesmo');
+        else if (typeOf(t) !== 'variante') row.errors.push(`produto_pai "${d.parentRef}" não é um produto variante`);
+      }
+      // Sem produto_pai é o variante MESTRE (linha de estrutura, com atributos só
+      // por nome) — legítimo e exportado como tal.
+    } else if (d.parentRef) {
+      row.errors.push('produto_pai só vale para linhas do tipo "variante"');
+    }
+
+    if (d.productType === 'kit' || d.productType === 'combo') {
+      if (!d.kitItems.length) row.errors.push('produto kit/combo precisa de ao menos um componente (coluna componentes)');
+    }
+    for (const item of d.kitItems) {
+      const t = resolveRef(item.ref, i);
+      if (!t) row.errors.push(`componente "${item.ref}" não encontrado (nem no arquivo nem no catálogo)`);
+      else if ('fileRow' in t && t.fileRow === i) row.errors.push('produto não pode ser componente dele mesmo');
+      else if (typeOf(t) === 'kit' || typeOf(t) === 'combo') {
+        row.errors.push(`componente "${item.ref}" é kit/combo — kit dentro de kit não é suportado`);
+      }
+    }
+
+    if (d.productType === 'produzido') {
+      if (!d.recipeItems.length) row.errors.push('produto produzido precisa de ao menos um insumo (coluna ficha_tecnica)');
+    }
+    for (const item of d.recipeItems) {
+      const t = resolveRef(item.ref, i);
+      if (!t) row.errors.push(`insumo "${item.ref}" não encontrado (nem no arquivo nem no catálogo)`);
+      else if ('fileRow' in t && t.fileRow === i) row.errors.push('produto não pode ser insumo dele mesmo');
+      else if (['kit', 'combo', 'produzido'].includes(typeOf(t))) {
+        row.errors.push(`insumo "${item.ref}" não pode ser kit, combo ou produzido (use produtos simples)`);
+      }
+    }
+  }
+
+  // Ciclo em ficha técnica: um produzido que (transitivamente) se consome.
+  // Só os produzidos do arquivo entram no grafo; insumo que vem do banco já foi
+  // validado quando foi gravado lá.
+  const state = new Array<number>(rows.length).fill(0); // 0=novo, 1=em visita, 2=fechado
+  const recipeFileInputs = (i: number): number[] => {
+    const out: number[] = [];
+    for (const item of rows[i].data.recipeItems) {
+      const t = resolveRef(item.ref, i);
+      if (t && 'fileRow' in t) out.push(t.fileRow);
+    }
+    return out;
+  };
+  const visit = (i: number): void => {
+    state[i] = 1;
+    for (const j of recipeFileInputs(i)) {
+      if (state[j] === 1 && rows[j].data.productType === 'produzido') {
+        const label = rows[j].data.name || rows[j].data.sku || `linha ${rows[j].line}`;
+        if (!rows[i].errors.some((e) => e.startsWith('ficha técnica cria um ciclo'))) {
+          rows[i].errors.push(`ficha técnica cria um ciclo com ${label} (linha ${rows[j].line})`);
+        }
+      } else if (state[j] === 0 && rows[j].data.productType === 'produzido') {
+        visit(j);
+      }
+    }
+    state[i] = 2;
+  };
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].data.productType === 'produzido' && state[i] === 0) visit(i);
+  }
+
+  for (const row of rows) {
+    row.status = row.errors.length ? 'erro' : row.matchedId ? 'atualizar' : 'novo';
+  }
 
   return {
     ok: true,
@@ -378,13 +665,20 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
 }
 
 /**
- * Cabeçalho + duas linhas de exemplo, para o cliente ver o formato esperado.
+ * Cabeçalho + exemplos por tipo, para o cliente ver o formato esperado.
  * A coluna uuid fica vazia: produto novo não tem identidade ainda.
+ * As linhas de exemplo formam um catálogo coerente (o kit referencia os produtos
+ * simples; a variante referencia o mestre), então o modelo importa sem erros.
  */
 export function templateCsv(): string {
   return toCsv([
     [...IMPORT_COLUMNS],
-    ['', 'CAF-001', '7891000315507', 'Café Torrado 500g', 'Torra média, moído', 'Mercearia', 'un', '18,90', '12,50', '5', '30'],
-    ['', '', '', 'Pão Francês', 'Vendido por quilo', 'Padaria', 'kg', '14,90', '9,00', '0', ''],
+    //                                uuid  sku      codigo_barras  nome               descricao             categoria    unid preco_venda preco_custo est_min est_inic ncm cest csosn cst origem tipo  prod_pai atributos  componentes  ficha_tecnica  grupos_complemento  controla_est v_cardapio
+    //                                (24 colunas: 16 antigas + 8 novas)
+    ['', 'CAF-001', '7891000315507', 'Café Torrado 500g', 'Torra média, moído', 'Mercearia', 'un', '18,90', '12,50', '5', '30', '', '', '', '', '', 'fisico', '', '', '', '', '', 'sim', 'sim'],
+    ['', 'PAO-001', '', 'Pão Francês', 'Vendido por quilo', 'Padaria', 'kg', '14,90', '9,00', '0', '', '', '', '', '', '', 'fisico', '', '', '', '', '', 'sim', 'sim'],
+    ['', 'KIT-001', '', 'Café da Manhã', 'Café + 2 pães', 'Mercearia', 'un', '25,00', '0', '0', '', '', '', '', '', '', 'kit', '', '', 'CAF-001*1|PAO-001*2', '', '', 'sim', 'sim'],
+    ['', 'CAM-001', '', 'Camisa', 'Variante mestre (não se vende)', 'Vestuário', 'un', '0', '0', '0', '', '', '', '', '', '', 'variante', '', 'Tamanho|Cor', '', '', '', 'nao', 'sim'],
+    ['', 'CAM-001-P', '', 'Camisa P', 'Filha do mestre CAM-001', 'Vestuário', 'un', '29,90', '10,00', '0', '', '', '', '', '', '', 'variante', 'CAM-001', 'Tamanho=P', '', '', '', 'sim', 'sim'],
   ]);
 }

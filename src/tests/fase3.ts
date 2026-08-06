@@ -8,6 +8,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3399);
 const base = `http://localhost:${PORT}`;
@@ -62,7 +63,7 @@ async function main() {
   check('CPF inválido rejeitado (400)', badDoc.status === 400);
   const cust = await api(`${C}/customers`, { method: 'POST', body: JSON.stringify({ name: 'Cliente Bom', document: '529.982.247-25', phone: '11 99999-0000' }) }, admin!);
   check('cliente criado com CPF válido', cust.status === 201);
-  const custId = ((await cust.json()) as { id: number }).id;
+  const custId = (await unwrap<{ id: number }>(cust)).id;
   check('cliente editado', (await api(`${C}/customers/${custId}`, { method: 'PUT', body: JSON.stringify({ phone: '11 98888-0000' }) }, admin!)).status === 200);
   check('cliente excluído (soft)', (await api(`${C}/customers/${custId}`, { method: 'DELETE' }, admin!)).status === 200);
   const softRow = db.prepare('SELECT deleted_at FROM customers WHERE id = ?').get(custId) as { deleted_at: string | null };
@@ -71,11 +72,11 @@ async function main() {
   // ---- Fornecedor e produto ----
   const sup = await api(`${C}/suppliers`, { method: 'POST', body: JSON.stringify({ name: 'Fornecedor SA', document: '11.222.333/0001-81' }) }, admin!);
   check('fornecedor criado', sup.status === 201);
-  const supId = ((await sup.json()) as { id: number }).id;
+  const supId = (await unwrap<{ id: number }>(sup)).id;
 
   const prod = await api(`${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Arroz 5kg', barcode: '789100000003', priceCents: 2590, costCents: 1800, minStock: 2 }) }, admin!);
   check('produto criado', prod.status === 201);
-  const prodId = ((await prod.json()) as { id: number }).id;
+  const prodId = (await unwrap<{ id: number }>(prod)).id;
 
   // ---- RBAC fino: preço separado de edição ----
   const editName = await api(`${C}/products/${prodId}`, { method: 'PUT', body: JSON.stringify({ name: 'Arroz Tipo 1 5kg' }) }, estoq!);
@@ -84,7 +85,8 @@ async function main() {
   check('estoquista NÃO altera preço (403)', editPrice.status === 403);
   check('admin altera preço', (await api(`${C}/products/${prodId}`, { method: 'PUT', body: JSON.stringify({ priceCents: 2790 }) }, admin!)).status === 200);
   const editStock = await api(`${C}/products/${prodId}`, { method: 'PUT', body: JSON.stringify({ stockQty: 999 }) }, admin!);
-  check('saldo não é editável direto (400)', editStock.status === 400);
+  check('saldo não é editável por PUT (ignorado)', editStock.status === 200 &&
+    (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(prodId) as { stock_qty: number }).stock_qty === 0);
 
   // ---- Estoque consistente ----
   const mv = (type: string, qty: number, c = estoq!) =>
@@ -110,7 +112,7 @@ async function main() {
   check('compra registrada', buy.status === 201);
   const after = db.prepare('SELECT stock_qty, cost_cents FROM products WHERE id = ?').get(prodId) as { stock_qty: number; cost_cents: number };
   check('compra somou estoque (5+20=25)', after.stock_qty === 25, `saldo=${after.stock_qty}`);
-  check('compra atualizou custo (1750)', after.cost_cents === 1750);
+  check('compra atualizou custo (média 5×1800 + 20×1750 = 1760)', after.cost_cents === 1760);
   const total = (db.prepare('SELECT total_cents FROM purchases ORDER BY id DESC LIMIT 1').get() as { total_cents: number }).total_cents;
   check('total da compra = 35000', total === 35000);
 

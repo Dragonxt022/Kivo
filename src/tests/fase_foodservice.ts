@@ -46,6 +46,7 @@ async function main() {
 
   const admin = await loginAs('admin', 'admin');
   check('login admin', admin !== null);
+  await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!);
 
   // Capability comeca desligada
   check('foodservice.cozinha comeca desligada',

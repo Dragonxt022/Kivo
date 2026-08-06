@@ -136,21 +136,21 @@ async function main() {
     // ---- Criar payables com categorias ----
     const p1 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Imposto', amountCents: 1500, dueDate: '2026-07-10', dreCategoryId: deducoesCat,
+        description: 'Imposto', amountCents: 1500, dueDate: '2026-08-10', dreCategoryId: deducoesCat,
       }),
     }, admin!));
     check('payable deducoes criada', p1.id > 0);
 
     const p2 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Aluguel', amountCents: 4000, dueDate: '2026-07-15', dreCategoryId: operacionalCat,
+        description: 'Aluguel', amountCents: 4000, dueDate: '2026-08-15', dreCategoryId: operacionalCat,
       }),
     }, admin!));
     check('payable operacional criada', p2.id > 0);
 
     const p3 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Juros bancários', amountCents: 2500, dueDate: '2026-07-20', dreCategoryId: financeiraCat,
+        description: 'Juros bancários', amountCents: 2500, dueDate: '2026-08-20', dreCategoryId: financeiraCat,
       }),
     }, admin!));
     check('payable financeira criada', p3.id > 0);
@@ -158,7 +158,7 @@ async function main() {
     // Payable SEM categoria (deve cair em despesas_operacionais como fallback)
     const p4 = await unwrap<any>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Material escritório', amountCents: 1800, dueDate: '2026-07-12',
+        description: 'Material escritório', amountCents: 1800, dueDate: '2026-08-12',
       }),
     }, admin!));
     check('payable sem categoria criada', p4.id > 0);
@@ -186,7 +186,7 @@ async function main() {
     check('venda 2 (Débito Stone) concluída', s2.id > 0);
 
     // ---- Consultar DRE ----
-    const report = await unwrap<any>(await api(`${DRE}/report?from=2026-07-01&to=2026-07-31`, {}, admin!));
+    const report = await unwrap<any>(await api(`${DRE}/report?from=2026-08-01&to=2026-08-31`, {}, admin!));
 
     // Linhas
     const receita = report.lines.receita_bruta;

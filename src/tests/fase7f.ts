@@ -48,6 +48,7 @@ async function main() {
     const clientRequestId = 'test-request-id-fixo-123';
     const body = JSON.stringify({ items: [{ productId: prod.id, qty: 2 }], paymentMethod: 'pix', clientRequestId });
 
+    await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!);
     const first = await api('/api/store/sales', { method: 'POST', body }, admin!);
     check('primeira tentativa cria a venda (201)', first.status === 201, String(first.status));
     const firstBody = await unwrap<{ id: number; totalCents: number }>(first);
