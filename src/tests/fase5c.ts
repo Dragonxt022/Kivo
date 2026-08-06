@@ -50,18 +50,18 @@ async function main() {
   check('joana com 2 sessões', s1 !== null && s2 !== null);
 
   check('senha atual errada → 400', (await api('/api/auth/change-password', {
-    method: 'POST', body: JSON.stringify({ currentPassword: 'errada', newPassword: 'nova12345' }),
+    method: 'POST', body: JSON.stringify({ currentPassword: 'errada', newPassword: 'Nova12345' }),
   }, s1!)).status === 400);
   check('senha curta → 400', (await api('/api/auth/change-password', {
     method: 'POST', body: JSON.stringify({ currentPassword: 'Teste1234', newPassword: '123' }),
   }, s1!)).status === 400);
   check('troca de senha ok', (await api('/api/auth/change-password', {
-    method: 'POST', body: JSON.stringify({ currentPassword: 'Teste1234', newPassword: 'nova12345' }),
+    method: 'POST', body: JSON.stringify({ currentPassword: 'Teste1234', newPassword: 'Nova12345' }),
   }, s1!)).status === 200);
   check('sessão atual continua válida', (await api('/api/auth/me', {}, s1!)).status === 200);
   check('outra sessão foi derrubada', (await api('/api/auth/me', {}, s2!)).status === 401);
   check('senha antiga não loga mais', (await loginAs('joana', 'Teste1234')) === null);
-  check('senha nova loga', (await loginAs('joana', 'nova12345')) !== null);
+  check('senha nova loga', (await loginAs('joana', 'Nova12345')) !== null);
 
   // ---------- Categorias ----------
   const cat = await api('/api/commercial/categories', { method: 'POST', body: JSON.stringify({ name: 'Hidráulica' }) }, admin!);
@@ -76,6 +76,7 @@ async function main() {
 
   // ---------- Impressão ----------
   await api('/api/settings/empresa.nome', { method: 'PUT', body: JSON.stringify({ value: 'Depósito Kivo' }) }, admin!);
+  await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!);
   const prodId = (db.prepare("SELECT id FROM products WHERE name = 'Cano PVC 25mm'").get() as { id: number }).id;
   await api('/api/commercial/stock/move', { method: 'POST', body: JSON.stringify({ productId: prodId, type: 'entrada', qty: 100 }) }, admin!);
   const sale = await unwrap<{ id: number }>(await api('/api/store/sales', {

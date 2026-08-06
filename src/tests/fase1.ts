@@ -11,6 +11,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3199);
 const base = `http://localhost:${PORT}`;
@@ -71,7 +72,7 @@ async function main() {
   const rOp = await mk('operador1', 'operador');
   const rVi = await mk('vitima', 'caixa');
   check('admin cria usuários (users.create)', rOp.status === 201 && rVi.status === 201);
-  const vitima = (await rVi.json()) as { id: number };
+  const vitima = await unwrap<{ id: number }>(rVi);
 
   // 3. Operador: sem permissão de listar nem excluir
   const opCookie = await loginAs('operador1', 'Teste1234');

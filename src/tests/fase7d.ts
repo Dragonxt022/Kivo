@@ -70,6 +70,7 @@ async function phase1(): Promise<void> {
       await api(base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Fidelidade', priceCents: 5000, initialStock: 10 }) }, admin!));
 
     // Venda de R$50 com fidelidade ativa e 1 ponto/real → ganha 50 pontos
+    await api(base, '/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!);
     const sale1 = await api(base, '/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, paymentMethod: 'pix' }),
     }, admin!);

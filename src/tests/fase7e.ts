@@ -61,6 +61,7 @@ async function main() {
     const prod = await unwrap<{ id: number }>(
       await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Convênio', priceCents: 8000, initialStock: 10 }) }, admin!));
 
+    await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!);
     const semVinculo = await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: custSemConvenio.id, payments: [{ methodId: convenioMethod.id, amountCents: 8000, customerId: custSemConvenio.id }] }),
     }, admin!);

@@ -55,6 +55,7 @@ async function main() {
     const prazoMethod = methods.find((m: { type: string }) => m.type === 'prazo')!;
 
     const firstDue = '2027-01-10';
+    await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 10000 }) }, admin!);
     const sale = await unwrap<{ id: number }>(
       await api('/api/store/sales', {
         method: 'POST',

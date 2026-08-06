@@ -1,6 +1,7 @@
 /**
  * Teste das pendências: cargos & permissões, compras (já com API), orçamentos.
  */
+import { randomUUID } from 'node:crypto';
 import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
@@ -73,6 +74,8 @@ async function main() {
   check('cargo em uso não exclui', (await api(`/api/roles/${roleId}`, { method: 'DELETE' }, admin!)).status === 400);
 
   // ---------- Preparação p/ orçamento ----------
+  // Venda exige caixa aberto (createSale bloqueia sem registro aberto).
+  await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 10000 }) }, admin!);
   const cli = await unwrap<{ id: number }>(await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Construtora ABC' }) }, admin!));
   const prod = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Areia m3', priceCents: 12000, unit: 'm3' }) }, admin!));
   await api('/api/commercial/stock/move', { method: 'POST', body: JSON.stringify({ productId: prod.id, type: 'entrada', qty: 50 }) }, admin!);
@@ -111,6 +114,74 @@ async function main() {
   check('vencido não converte (400)', (await api(`/api/store/quotes/${qOldId}/convert`, { method: 'POST', body: JSON.stringify({ paymentMethod: 'pix' }) }, admin!)).status === 400);
   check('cancela orçamento', (await api(`/api/store/quotes/${qOldId}/cancel`, { method: 'POST' }, admin!)).status === 200);
 
+  // orçamento sem desconto: balcão (sem store.sales.discount) não aplica desconto
+  check('balcão sem desconto não cria orçamento com desconto (400)',
+    (await api('/api/store/quotes', {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], discountCents: 100 }),
+    }, balcao!)).status === 400);
+
+  // desconto dado por quem pode (admin), faturado por quem não pode (balcão) → passa,
+  // o desconto já foi autorizado na criação do orçamento
+  const qDisc = await api('/api/store/quotes', {
+    method: 'POST',
+    body: JSON.stringify({ items: [{ productId: prod.id, qty: 10 }], discountCents: 2000, validUntil: '2027-01-01' }),
+  }, admin!);
+  check('admin cria orçamento com desconto (10×15.000,00 - 2.000,00 = 148.000,00)',
+    qDisc.status === 201 && (await unwrap<{ totalCents: number }>(qDisc)).totalCents === 148000);
+  const qDiscId = (db.prepare('SELECT id FROM quotes ORDER BY id DESC LIMIT 1').get() as { id: number }).id;
+  const convDisc = await api(`/api/store/quotes/${qDiscId}/convert`, {
+    method: 'POST', body: JSON.stringify({ paymentMethod: 'pix' }),
+  }, balcao!);
+  check('balcão fatura orçamento com desconto alheio (allowDiscount)',
+    convDisc.status === 201 && (await unwrap<{ totalCents: number }>(convDisc)).totalCents === 148000);
+
+  // ---------- Orçamento com complemento: vínculo e preço cotado ----------
+  const main = await unwrap<{ id: number }>(await api('/api/commercial/products', {
+    method: 'POST', body: JSON.stringify({ name: 'X-Burger', priceCents: 2500, unit: 'un' }),
+  }, admin!));
+  const opt = await unwrap<{ id: number }>(await api('/api/commercial/products', {
+    method: 'POST', body: JSON.stringify({ name: 'Molho barbecue', priceCents: 300, unit: 'un', trackStock: false }),
+  }, admin!));
+  const grpId = Number(db.prepare(
+    'INSERT INTO complement_groups (name, min_select, max_select, uuid) VALUES (?, ?, ?, ?)',
+  ).run('Molhos', 0, 3, randomUUID()).lastInsertRowid);
+  db.prepare('INSERT INTO complement_group_items (group_id, product_id, price_override_cents, sort_order, uuid) VALUES (?, ?, ?, ?, ?)')
+    .run(grpId, opt.id, null, 1, randomUUID());
+  db.prepare('INSERT INTO product_complement_groups (product_id, group_id, sort_order, uuid) VALUES (?, ?, ?, ?)')
+    .run(main.id, grpId, 1, randomUUID());
+
+  const lg = randomUUID();
+  const qComp = await api('/api/store/quotes', {
+    method: 'POST',
+    body: JSON.stringify({ items: [
+      { productId: main.id, qty: 2, lineGroupUuid: lg, notes: 'sem cebola' },
+      { productId: opt.id, qty: 1, lineGroupUuid: lg },
+    ] }),
+  }, balcao!);
+  check('balcão cria orçamento com complemento (2×2.500 + 300 = 5.300)',
+    qComp.status === 201 && (await unwrap<{ totalCents: number }>(qComp)).totalCents === 5300);
+
+  // preço muda no catálogo — a conversão tem que honrar o preço cotado nas duas linhas
+  await api(`/api/commercial/products/${main.id}`, { method: 'PUT', body: JSON.stringify({ priceCents: 3500 }) }, admin!);
+  await api(`/api/commercial/products/${opt.id}`, { method: 'PUT', body: JSON.stringify({ priceCents: 600 }) }, admin!);
+  const qCompId = (db.prepare('SELECT id FROM quotes ORDER BY id DESC LIMIT 1').get() as { id: number }).id;
+  const convComp = await api(`/api/store/quotes/${qCompId}/convert`, {
+    method: 'POST', body: JSON.stringify({ paymentMethod: 'pix' }),
+  }, balcao!);
+  const convCompData = await unwrap<{ id: number; totalCents: number }>(convComp);
+  check('converte orçamento com complemento', convComp.status === 201);
+  const saleItems = db.prepare('SELECT product_id, unit_price_cents, line_group_uuid, notes FROM sale_items WHERE sale_id = ? ORDER BY id')
+    .all(convCompData.id) as { product_id: number; unit_price_cents: number; line_group_uuid: string | null; notes: string | null }[];
+  const compMain = saleItems.find((i) => i.product_id === main.id);
+  const compOpt = saleItems.find((i) => i.product_id === opt.id);
+  check('principal preserva line_group_uuid', compMain?.line_group_uuid === lg);
+  check('complemento é linha irmã com o mesmo line_group_uuid', compOpt?.line_group_uuid === compMain?.line_group_uuid && compOpt?.line_group_uuid != null);
+  check('preço cotado do principal (2.500, não 3.500)', compMain?.unit_price_cents === 2500);
+  check('preço cotado do complemento (300, não 600)', compOpt?.unit_price_cents === 300);
+  check('observação do item preservada', compMain?.notes === 'sem cebola');
+  check('total da venda com complemento (5.300)', convCompData.totalCents === 5300);
+
   // balcão não vê caixa nem usuários (RBAC do cargo custom)
   check('balcão não vê caixa (403)', (await api('/api/finance/cash/current', {}, balcao!)).status === 403);
   check('balcão não vê usuários (403)', (await api('/api/users', {}, balcao!)).status === 403);
@@ -120,8 +191,8 @@ async function main() {
   const buy = await api('/api/commercial/purchases', {
     method: 'POST', body: JSON.stringify({ supplierId: sup.id, items: [{ productId: prod.id, qty: 30, unitCostCents: 8000 }] }),
   }, admin!);
-  check('compra recebida soma estoque (40+30=70)', buy.status === 201 &&
-    (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(prod.id) as { stock_qty: number }).stock_qty === 70);
+  check('compra recebida soma estoque (30+30=60)', buy.status === 201 &&
+    (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(prod.id) as { stock_qty: number }).stock_qty === 60);
 
   // auditoria cobre role e quote
   const entities = new Set((db.prepare('SELECT DISTINCT entity FROM audit_logs').all() as { entity: string }[]).map((a) => a.entity));

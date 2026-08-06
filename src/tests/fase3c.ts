@@ -7,6 +7,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3745);
 const base = `http://localhost:${PORT}`;
@@ -45,7 +46,7 @@ async function main() {
     check('login admin', admin !== null);
 
     // ---------- PIN de administrador ----------
-    const statusBefore = (await (await api('/api/security/pin/status', {}, admin!)).json()) as { configured: boolean };
+    const statusBefore = await unwrap<{ configured: boolean }>(await api('/api/security/pin/status', {}, admin!));
     check('PIN não configurado inicialmente', statusBefore.configured === false);
 
     const badPin = await api('/api/security/pin', { method: 'PUT', body: JSON.stringify({ pin: 'abcd' }) }, admin!);
@@ -54,33 +55,30 @@ async function main() {
     const setPin = await api('/api/security/pin', { method: 'PUT', body: JSON.stringify({ pin: '1234' }) }, admin!);
     check('PIN configurado', setPin.status === 200, String(setPin.status));
 
-    const statusAfter = (await (await api('/api/security/pin/status', {}, admin!)).json()) as { configured: boolean };
+    const statusAfter = await unwrap<{ configured: boolean }>(await api('/api/security/pin/status', {}, admin!));
     check('PIN configurado agora aparece no status', statusAfter.configured === true);
 
-    const verifyWrong = (await (await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '0000' }) }, admin!)).json()) as { ok: boolean };
-    check('PIN errado → ok:false', verifyWrong.ok === false);
+    // respostas de verificação: `{ok:true}` vira {success:true} sem data; `{ok:false}` fica em data.ok
+    const verifyWrong = (await (await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '0000' }) }, admin!)).json()) as { success: boolean; data?: { ok: boolean } };
+    check('PIN errado → ok:false', verifyWrong.success === true && verifyWrong.data?.ok === false);
 
-    const verifyRight = (await (await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '1234' }) }, admin!)).json()) as { ok: boolean };
-    check('PIN correto → ok:true', verifyRight.ok === true);
+    const verifyRight = await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '1234' }) }, admin!);
+    check('PIN correto → ok:true', verifyRight.status === 200 && (await verifyRight.json() as { success: boolean }).success === true);
 
     await api('/api/users', { method: 'POST', body: JSON.stringify({ username: 'op3c', name: 'op3c', password: 'Teste1234', roleSlug: 'operador' }) }, admin!);
     const op = await loginAs('op3c', 'Teste1234');
     check('operador sem permissão não define PIN (403)', (await api('/api/security/pin', { method: 'PUT', body: JSON.stringify({ pin: '5555' }) }, op!)).status === 403);
     // qualquer usuário logado pode TENTAR verificar (é ele quem digita o PIN do gerente)
-    const verifyAsOp = (await (await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '1234' }) }, op!)).json()) as { ok: boolean };
-    check('operador pode tentar verificar o PIN (correto → true)', verifyAsOp.ok === true);
+    const verifyAsOp = await api('/api/security/pin/verify', { method: 'POST', body: JSON.stringify({ pin: '1234' }) }, op!);
+    check('operador pode tentar verificar o PIN (correto → true)', verifyAsOp.status === 200 && (await verifyAsOp.json() as { success: boolean }).success === true);
 
     // ---------- Relatório completo de fechamento de caixa ----------
-    const prod = (await (
-      await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Caixa', priceCents: 2000, initialStock: 50 }) }, admin!)
-    ).json()) as { id: number };
-    const cust = (await (
-      await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Caixa' }) }, admin!)
-    ).json()) as { id: number };
+    const prod = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Caixa', priceCents: 2000 }) }, admin!));
+    const cust = await unwrap<{ id: number }>(await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Caixa' }) }, admin!));
 
     const openReg = await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 5000 }) }, admin!);
     check('caixa aberto', openReg.status === 201, String(openReg.status));
-    const openBody = (await openReg.json()) as { id: number };
+    const openBodyId = await unwrap<number>(openReg);
 
     const saleDinheiro = await api('/api/store/sales', {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 2 }], paymentMethod: 'dinheiro', customerId: cust.id }),
@@ -94,20 +92,20 @@ async function main() {
 
     const closeReg = await api('/api/finance/cash/close', { method: 'POST', body: JSON.stringify({ countedCents: 15000 }) }, admin!);
     check('caixa fechado', closeReg.status === 200, String(closeReg.status));
-    const closeBody = (await closeReg.json()) as { id: number };
-    check('resposta do fechamento inclui o id do caixa', closeBody.id === openBody.id, JSON.stringify(closeBody));
+    const closeBody = await unwrap<{ id: number }>(closeReg);
+    check('resposta do fechamento inclui o id do caixa', closeBody.id === openBodyId, JSON.stringify(closeBody));
 
-    const report = (await (await api(`/api/store/reports/cash-register/${openBody.id}`, {}, admin!)).json()) as {
+    const report = await unwrap<{
       totals: { vendas: number; total_cents: number };
       byPayment: { payment_method: string; total_cents: number }[];
       sales: { id: number }[];
-    };
+    }>(await api(`/api/store/reports/cash-register/${openBodyId}`, {}, admin!));
     check('relatório: 2 vendas', report.totals.vendas === 2, String(report.totals.vendas));
     check('relatório: total 10000 centavos (4000+6000)', report.totals.total_cents === 10000, String(report.totals.total_cents));
     check('relatório: 2 formas de pagamento distintas', report.byPayment.length === 2, JSON.stringify(report.byPayment));
     check('relatório: lista as 2 vendas individualmente', report.sales.length === 2, String(report.sales.length));
 
-    const printPage = await api(`/app/finance/caixa/${openBody.id}/relatorio`, {}, admin!);
+    const printPage = await api(`/app/finance/caixa/${openBodyId}/relatorio`, {}, admin!);
     const printHtml = await printPage.text();
     check('página de impressão do relatório renderiza (200)', printPage.status === 200, String(printPage.status));
     check('relatório impresso menciona o total e o cliente', printHtml.includes('Cliente Caixa') && printHtml.includes('100,00'));

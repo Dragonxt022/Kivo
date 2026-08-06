@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { assertAuth } from '../../shared/auth';
+import { hasCapability } from '../../core/capabilities/service';
 
 /** Páginas do módulo commercial (montadas em /app/commercial, já autenticadas). */
 const router = Router();
@@ -8,7 +9,18 @@ function page(view: string, permission: string) {
   return (req: Request, res: Response) => {
     assertAuth(req);
     if (!req.user.permissions.has(permission)) return res.redirect('/');
-    res.render(view, { user: req.user });
+    res.render(view, { user: req.user, caps: capabilitiesForView() });
+  };
+}
+
+/** Flags de recursos opcionais para a UI esconder/desabilitar elementos. */
+export function capabilitiesForView() {
+  return {
+    variantes: hasCapability('commercial.variantes'),
+    complementos: hasCapability('commercial.complementos'),
+    kits: hasCapability('commercial.kits'),
+    producao: hasCapability('commercial.producao'),
+    cardapioOnline: hasCapability('commercial.cardapio_online'),
   };
 }
 

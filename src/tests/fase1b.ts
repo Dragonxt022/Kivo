@@ -11,6 +11,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
+import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3299);
 const base = `http://localhost:${PORT}`;
@@ -56,14 +57,14 @@ async function main() {
   check('operador não vê configurações (403)', (await api('/api/settings', {}, op!)).status === 403);
   const put = await api('/api/settings/empresa.nome', { method: 'PUT', body: JSON.stringify({ value: 'Taiksu' }) }, admin!);
   check('admin edita configuração', put.status === 200);
-  const list = (await (await api('/api/settings', {}, admin!)).json()) as { key: string; value: string }[];
+  const list = await unwrap<{ key: string; value: string }[]>(await api('/api/settings', {}, admin!));
   check('configuração persistida', list.some((s) => s.key === 'empresa.nome' && s.value === 'Taiksu'));
 
   // 2. Backup
   check('operador não executa backup (403)', (await api('/api/backup', { method: 'POST' }, op!)).status === 403);
   const bk = await api('/api/backup', { method: 'POST' }, admin!);
   check('admin executa backup', bk.status === 201);
-  const backup = (await bk.json()) as { id: number; filePath: string; checksum: string };
+  const backup = await unwrap<{ id: number; filePath: string; checksum: string }>(bk);
   check('arquivo .gz existe', fs.existsSync(backup.filePath));
   check('checksum registrado (64 hex)', /^[a-f0-9]{64}$/.test(backup.checksum));
 
@@ -75,14 +76,14 @@ async function main() {
   check('arquivo corrompido é rejeitado (400)', bad.status === 400);
 
   // 4. Licença
-  const lic = (await (await api('/api/license', {}, admin!)).json()) as { status: string; machineId: string };
+  const lic = await unwrap<{ status: string; machineId: string }>(await api('/api/license', {}, admin!));
   check('sem licença → status sem_licenca', lic.status === 'sem_licenca');
   check('machine ID gerado', /^[a-f0-9]{32}$/.test(lic.machineId));
   const setLic = await api('/api/license', {
     method: 'PUT',
     body: JSON.stringify({ companyUuid: 'c0ffee00-0000-4000-8000-000000000000', licenseKey: 'KIVO-TESTE', plan: 'pro', validUntil: '2027-01-01' }),
   }, admin!);
-  const setLicBody = (await setLic.json()) as { status: string; canSaveToCloud?: boolean; canAutoUpdate?: boolean };
+  const setLicBody = await unwrap<{ status: string; canSaveToCloud?: boolean; canAutoUpdate?: boolean }>(setLic);
   check('admin configura licença → valida', setLic.status === 200 && setLicBody.status === 'valida');
   // Regressão: PUT precisa devolver o mesmo formato do GET (canSaveToCloud/canAutoUpdate) —
   // sem isso, o botão "Sincronizar agora" ficava desabilitado até a página recarregar.
