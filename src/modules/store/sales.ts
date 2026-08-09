@@ -93,10 +93,18 @@ function resolveSaleItems(
   const items: ResolvedItem[] = [];
   for (const item of input.items) {
     const p = productRepository.rawOne(
-      'SELECT id, name, price_cents, cost_cents, product_type, active FROM products WHERE id = ? AND deleted_at IS NULL',
+      'SELECT id, name, price_cents, cost_cents, product_type, parent_product_id, active FROM products WHERE id = ? AND deleted_at IS NULL',
       item.productId,
-    ) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; active: number } | undefined;
+    ) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; parent_product_id: number | null; active: number } | undefined;
     if (!p || !p.active) return { error: `Produto ${item.productId} não encontrado ou inativo.` };
+    // Variante mestre (tipo 'variante' sem pai) é linha de estrutura, não mercadoria: ela
+    // agrupa as filhas e não tem grade, preço nem estoque próprios que façam sentido numa
+    // venda. As telas já não a oferecem, mas quem fecha a venda é aqui — carrinho antigo
+    // no localStorage, comanda lançada antes de o produto virar mestre ou chamada direta na
+    // API chegariam com ela e gerariam item vendido que ninguém consegue entregar.
+    if (p.product_type === 'variante' && p.parent_product_id === null) {
+      return { error: `"${p.name}" é um produto com variações — escolha a variação (tamanho, cor etc.) que será vendida.` };
+    }
     if (!(item.qty > 0)) return { error: `Quantidade inválida para "${p.name}".` };
     const unitCents =
       opts.allowPriceOverride && item.unitPriceCents != null

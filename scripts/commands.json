@@ -83,6 +83,10 @@
     "description": "Testes: importação/exportação de produtos (parser + rotas)",
     "run": "tsx src/tests/products-import.ts && node scripts/test-isolated.js src/tests/products-import-api.ts"
   },
+  "test:pdv-tipos": {
+    "description": "Testes: PDV lê e vende todos os tipos de produto",
+    "run": "node scripts/test-isolated.js src/tests/pdv-tipos-produto.ts"
+  },
   "test:shared": {
     "description": "Testes de utilitários compartilhados",
     "run": "tsx src/tests/shared.ts"
