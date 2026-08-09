@@ -15,9 +15,13 @@
  *    entrada (nunca escrevendo stock_qty direto — ver stock.ts).
  *  - Colunas novas são SEMPRE acrescentadas ao fim: quem já usa a planilha não
  *    perde a posição das colunas que conhece.
- *  - Referências (produto_pai, componentes, ficha_tecnica) usam SKU, com uuid como
- *    fallback. A resolução olha primeiro o próprio arquivo (a ordem das linhas não
- *    importa — o commit grava em duas passagens) e depois o catálogo do banco.
+ *  - Referências (produto_pai, componentes, ficha_tecnica) usam SKU, com uuid e
+ *    NOME como fallback, nessa ordem. A resolução olha primeiro o próprio arquivo
+ *    (a ordem das linhas não importa — o commit grava em duas passagens) e depois
+ *    o catálogo do banco. O nome entra porque planilha montada à mão quase nunca
+ *    tem SKU: quem digita escreve "Poltrona (1 Lugar)" na coluna produto_pai, não
+ *    um código. Nome repetido não resolve — vira erro de ambiguidade, para nunca
+ *    ligar a variante ao produto errado em silêncio.
  *  - As relações das linhas presentes no arquivo SÃO substituídas pelo conteúdo do
  *    arquivo (DELETE + INSERT no commit). O arquivo é a fonte da verdade.
  */
@@ -351,6 +355,8 @@ export interface ExistingProduct {
   uuid: string;
   sku: string | null;
   barcode: string | null;
+  /** Nome do produto — último recurso na resolução de referências (ver cabeçalho). */
+  name?: string | null;
   /** product_type do banco — usado para validar refs (pai, componentes, insumos). */
   productType: string | null;
 }
@@ -367,6 +373,25 @@ export interface BuildPreviewInput {
 
 const norm = (v: string | null | undefined): string => String(v ?? '').trim();
 const normCat = (v: string): string => norm(v).toLowerCase();
+
+/** Alvo de uma referência: outra linha do arquivo ou um produto já no catálogo. */
+type RefTarget = { fileRow: number } | { bank: ExistingProduct };
+
+type RefLookup =
+  | { found: true; target: RefTarget }
+  | { found: false; reason: 'ausente' }
+  | { found: false; reason: 'ambiguo'; where: string; count: number };
+
+/**
+ * Mensagem de referência não resolvida. Diz o que preencher, não só o que faltou —
+ * é a diferença entre a pessoa corrigir a planilha e desistir da importação.
+ */
+function refError(label: string, ref: string, r: Extract<RefLookup, { found: false }>): string {
+  if (r.reason === 'ambiguo') {
+    return `${label} "${ref}": ${r.count} produtos com esse nome no ${r.where} — preencha o SKU para dizer qual`;
+  }
+  return `${label} "${ref}" não encontrado — use o SKU, o uuid ou o nome exato de um produto deste arquivo ou do catálogo`;
+}
 
 export function buildPreview(input: BuildPreviewInput): { ok: true; report: PreviewReport } | { ok: false; error: string } {
   const table = parseCsv(input.csv);
@@ -387,10 +412,18 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
   const byUuid = new Map<string, ExistingProduct>();
   const byBarcode = new Map<string, ExistingProduct>();
   const bySku = new Map<string, ExistingProduct>();
+  // Nome é multivalorado de propósito: dois produtos podem ter o mesmo nome, e a
+  // resolução por nome só vale quando a lista tem exatamente um elemento.
+  const byName = new Map<string, ExistingProduct[]>();
   for (const p of input.existing) {
     if (p.uuid) byUuid.set(norm(p.uuid).toLowerCase(), p);
     if (p.barcode) byBarcode.set(norm(p.barcode), p);
     if (p.sku) bySku.set(norm(p.sku).toLowerCase(), p);
+    if (p.name) {
+      const key = norm(p.name).toLowerCase();
+      const list = byName.get(key);
+      if (list) list.push(p); else byName.set(key, [p]);
+    }
   }
   const catByName = new Map<string, { id: number; name: string }>();
   for (const c of input.existingCategories) catByName.set(normCat(c.name), c);
@@ -552,24 +585,40 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
   // qualquer posição (pai, componente, insumo) — a ordem das linhas não importa.
   const fileBySku = new Map<string, number>();
   const fileByUuid = new Map<string, number>();
+  const fileByName = new Map<string, number[]>();
   rows.forEach((row, i) => {
     if (row.data.sku) fileBySku.set(norm(row.data.sku).toLowerCase(), i);
     if (row.data.uuid) fileByUuid.set(norm(row.data.uuid).toLowerCase(), i);
+    if (row.data.name) {
+      const key = norm(row.data.name).toLowerCase();
+      const list = fileByName.get(key);
+      if (list) list.push(i); else fileByName.set(key, [i]);
+    }
   });
 
   // Resolução: arquivo primeiro (o que o arquivo diz vale para esta importação —
-  // inclusive produto que já existe no banco), banco em seguida.
-  const resolveRef = (ref: string, self: number):
-    | { fileRow: number }
-    | { bank: ExistingProduct }
-    | undefined => {
-    const key = ref.toLowerCase();
+  // inclusive produto que já existe no banco), banco em seguida. Dentro de cada um,
+  // SKU → uuid → nome. O nome é o último recurso justamente porque é o único que
+  // pode ser ambíguo: quando é, a linha vira erro em vez de escolher um dos dois.
+  const resolveRef = (ref: string): RefLookup => {
+    const key = norm(ref).toLowerCase();
     const fi = fileBySku.get(key) ?? fileByUuid.get(key);
-    if (fi != null) return { fileRow: fi };
+    if (fi != null) return { found: true, target: { fileRow: fi } };
     const hit = bySku.get(key) ?? byUuid.get(key);
-    return hit ? { bank: hit } : undefined;
+    if (hit) return { found: true, target: { bank: hit } };
+    const fn = fileByName.get(key);
+    if (fn) {
+      if (fn.length === 1) return { found: true, target: { fileRow: fn[0] } };
+      return { found: false, reason: 'ambiguo', where: 'arquivo', count: fn.length };
+    }
+    const bn = byName.get(key);
+    if (bn) {
+      if (bn.length === 1) return { found: true, target: { bank: bn[0] } };
+      return { found: false, reason: 'ambiguo', where: 'catálogo', count: bn.length };
+    }
+    return { found: false, reason: 'ausente' };
   };
-  const typeOf = (t: { fileRow: number } | { bank: ExistingProduct }): string =>
+  const typeOf = (t: RefTarget): string =>
     'fileRow' in t ? rows[t.fileRow].data.productType : (t.bank.productType ?? '');
 
   // Passada B: referências cruzadas.
@@ -579,10 +628,10 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
 
     if (d.productType === 'variante') {
       if (d.parentRef) {
-        const t = resolveRef(d.parentRef, i);
-        if (!t) row.errors.push(`produto_pai "${d.parentRef}" não encontrado (nem no arquivo nem no catálogo)`);
-        else if ('fileRow' in t && t.fileRow === i) row.errors.push('produto não pode ser pai dele mesmo');
-        else if (typeOf(t) !== 'variante') row.errors.push(`produto_pai "${d.parentRef}" não é um produto variante`);
+        const t = resolveRef(d.parentRef);
+        if (!t.found) row.errors.push(refError('produto_pai', d.parentRef, t));
+        else if ('fileRow' in t.target && t.target.fileRow === i) row.errors.push('produto não pode ser pai dele mesmo');
+        else if (typeOf(t.target) !== 'variante') row.errors.push(`produto_pai "${d.parentRef}" não é um produto variante — a linha dele precisa ter tipo "variante"`);
       }
       // Sem produto_pai é o variante MESTRE (linha de estrutura, com atributos só
       // por nome) — legítimo e exportado como tal.
@@ -594,10 +643,10 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
       if (!d.kitItems.length) row.errors.push('produto kit/combo precisa de ao menos um componente (coluna componentes)');
     }
     for (const item of d.kitItems) {
-      const t = resolveRef(item.ref, i);
-      if (!t) row.errors.push(`componente "${item.ref}" não encontrado (nem no arquivo nem no catálogo)`);
-      else if ('fileRow' in t && t.fileRow === i) row.errors.push('produto não pode ser componente dele mesmo');
-      else if (typeOf(t) === 'kit' || typeOf(t) === 'combo') {
+      const t = resolveRef(item.ref);
+      if (!t.found) row.errors.push(refError('componente', item.ref, t));
+      else if ('fileRow' in t.target && t.target.fileRow === i) row.errors.push('produto não pode ser componente dele mesmo');
+      else if (typeOf(t.target) === 'kit' || typeOf(t.target) === 'combo') {
         row.errors.push(`componente "${item.ref}" é kit/combo — kit dentro de kit não é suportado`);
       }
     }
@@ -606,10 +655,10 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
       if (!d.recipeItems.length) row.errors.push('produto produzido precisa de ao menos um insumo (coluna ficha_tecnica)');
     }
     for (const item of d.recipeItems) {
-      const t = resolveRef(item.ref, i);
-      if (!t) row.errors.push(`insumo "${item.ref}" não encontrado (nem no arquivo nem no catálogo)`);
-      else if ('fileRow' in t && t.fileRow === i) row.errors.push('produto não pode ser insumo dele mesmo');
-      else if (['kit', 'combo', 'produzido'].includes(typeOf(t))) {
+      const t = resolveRef(item.ref);
+      if (!t.found) row.errors.push(refError('insumo', item.ref, t));
+      else if ('fileRow' in t.target && t.target.fileRow === i) row.errors.push('produto não pode ser insumo dele mesmo');
+      else if (['kit', 'combo', 'produzido'].includes(typeOf(t.target))) {
         row.errors.push(`insumo "${item.ref}" não pode ser kit, combo ou produzido (use produtos simples)`);
       }
     }
@@ -622,8 +671,8 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
   const recipeFileInputs = (i: number): number[] => {
     const out: number[] = [];
     for (const item of rows[i].data.recipeItems) {
-      const t = resolveRef(item.ref, i);
-      if (t && 'fileRow' in t) out.push(t.fileRow);
+      const t = resolveRef(item.ref);
+      if (t.found && 'fileRow' in t.target) out.push(t.target.fileRow);
     }
     return out;
   };

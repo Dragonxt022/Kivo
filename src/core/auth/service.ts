@@ -23,6 +23,59 @@ export function verifyPassword(plain: string, hash: string): boolean {
   return bcrypt.compareSync(plain, hash);
 }
 
+/** Credenciais de fábrica criadas por `runSeeds` quando o banco nasce sem nenhum usuário. */
+const FACTORY_USERNAME = 'admin';
+const FACTORY_PASSWORD = 'admin';
+
+/**
+ * Instalação recém-ativada que ninguém personalizou ainda: só existe o usuário de fábrica
+ * e a senha dele continua sendo a de fábrica.
+ *
+ * Quem acabou de aceitar o teste cai numa tela de login sem ter recebido credencial
+ * nenhuma — não há como adivinhar admin/admin. Enquanto esta função devolver true, a home
+ * troca o formulário de login pela criação do acesso do dono (ver POST /api/auth/first-run).
+ *
+ * A verificação é feita no estado real do banco, não numa flag: instalações antigas que
+ * nunca trocaram a senha também são cobertas, e no instante em que a senha muda a tela
+ * de primeiro acesso desaparece sozinha.
+ */
+export function isFirstRunSetupPending(): boolean {
+  const rows = userRepository.raw(
+    'SELECT username, password_hash FROM users WHERE deleted_at IS NULL',
+  ) as unknown as { username: string; password_hash: string }[];
+  if (rows.length !== 1) return false;
+  const only = rows[0];
+  return only.username === FACTORY_USERNAME && verifyPassword(FACTORY_PASSWORD, only.password_hash);
+}
+
+/**
+ * Substitui as credenciais de fábrica pelas do dono da loja, no primeiro acesso.
+ * Rota pública por necessidade (não existe sessão ainda), então a guarda é o próprio
+ * estado de fábrica: com a senha já trocada, a operação passa a ser negada.
+ */
+export function completeFirstRunSetup(
+  input: { name: string; username: string; password: string },
+): { ok: true; userId: number } | { ok: false; error: string } {
+  if (!isFirstRunSetupPending()) {
+    return { ok: false, error: 'O acesso deste sistema já foi configurado. Entre com seu usuário e senha.' };
+  }
+  const admin = userRepository.rawOne(
+    'SELECT id FROM users WHERE username = ? AND deleted_at IS NULL',
+    FACTORY_USERNAME,
+  ) as { id: number } | undefined;
+  if (!admin) return { ok: false, error: 'Usuário inicial não encontrado.' };
+
+  const username = input.username.trim().toLowerCase();
+  userRepository.rawRun(
+    `UPDATE users SET username = ?, name = ?, password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+    username, input.name.trim(), hashPassword(input.password), admin.id,
+  );
+  // Nenhuma sessão deveria existir ainda, mas se alguém entrou com admin/admin antes de
+  // chegar aqui, essa sessão não pode sobreviver à troca de dono do usuário.
+  userRepository.rawRun('DELETE FROM sessions WHERE user_id = ?', admin.id);
+  return { ok: true, userId: admin.id };
+}
+
 export interface LoginResult {
   token: string;
   expiresAt: string;

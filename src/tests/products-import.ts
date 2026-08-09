@@ -67,8 +67,12 @@ check('toCsv começa com BOM (Excel abre com acento certo)', toCsv([['ç']]).cha
 
 // ─────────── preview ───────────
 const existing: ExistingProduct[] = [
-  { id: 1, uuid: 'uuid-cafe-1', sku: 'CAF-001', barcode: '7891000315507', productType: 'fisico' },
-  { id: 2, uuid: 'uuid-pao-2', sku: 'PAO-001', barcode: null, productType: 'fisico' },
+  { id: 1, uuid: 'uuid-cafe-1', sku: 'CAF-001', barcode: '7891000315507', name: 'Café Torrado', productType: 'fisico' },
+  { id: 2, uuid: 'uuid-pao-2', sku: 'PAO-001', barcode: null, name: 'Pão Francês', productType: 'fisico' },
+  // Dois produtos com o mesmo nome, de propósito: é o que faz a resolução por nome
+  // recusar em vez de escolher um deles.
+  { id: 3, uuid: 'uuid-agua-3', sku: 'AGU-500', barcode: null, name: 'Água', productType: 'fisico' },
+  { id: 4, uuid: 'uuid-agua-4', sku: 'AGU-1500', barcode: null, name: 'Água', productType: 'fisico' },
 ];
 const cats = [{ id: 10, name: 'Mercearia' }];
 // Aceita qualquer código: o dígito verificador tem teste próprio no shared/barcode.
@@ -333,6 +337,52 @@ const v2 = (rows: (string | number)[][]) =>
   ]);
   check('kit dentro de kit vira erro', r.ok && r.report.rows[0].errors.some((e) => e.includes('kit dentro de kit')),
     r.ok ? JSON.stringify(r.report.rows[0].errors) : '');
+}
+{
+  // Planilha montada à mão quase nunca tem SKU: quem digita escreve o NOME do pai.
+  // Sem a resolução por nome, um arquivo assim vinha inteiro vermelho.
+  const r = v2([
+    ['', 'Poltrona (1 Lugar)', 'variante', '', 'Nível de Sujeira'],
+    ['', 'Poltrona (1 Lugar) - Leve', 'variante', 'Poltrona (1 Lugar)', 'Nível de Sujeira=Leve'],
+    ['', 'Poltrona (1 Lugar) - Pesada', 'variante', 'Poltrona (1 Lugar)', 'Nível de Sujeira=Pesada'],
+  ]);
+  check('produto_pai por NOME resolve dentro do arquivo (sem SKU)', r.ok && r.report.totals.erros === 0,
+    r.ok ? JSON.stringify(r.report.rows.map((x) => x.errors)) : '');
+}
+{
+  // Nome vale também contra o catálogo já cadastrado, não só contra o arquivo.
+  const r = v2([['KIT-01', 'Kit Café', 'kit', '', '', 'Café Torrado*1|Pão Francês*2']]);
+  check('componentes por NOME resolvem contra o catálogo', r.ok && r.report.totals.erros === 0,
+    r.ok ? JSON.stringify(r.report.rows.map((x) => x.errors)) : '');
+}
+{
+  // Dois produtos "Água" no catálogo: escolher um seria ligar o kit ao errado em silêncio.
+  const r = v2([['KIT-01', 'Kit', 'kit', '', '', 'Água*1']]);
+  check('nome ambíguo no catálogo vira erro, não escolhe sozinho',
+    r.ok && r.report.rows[0].errors.some((e) => e.includes('produtos com esse nome')),
+    r.ok ? JSON.stringify(r.report.rows[0].errors) : '');
+}
+{
+  // Ambiguidade dentro do próprio arquivo segue a mesma regra.
+  const r = v2([
+    ['A-1', 'Refrigerante', 'fisico'],
+    ['A-2', 'Refrigerante', 'fisico'],
+    ['KIT-01', 'Kit', 'kit', '', '', 'Refrigerante*1'],
+  ]);
+  check('nome ambíguo dentro do arquivo vira erro',
+    r.ok && r.report.rows[2].errors.some((e) => e.includes('produtos com esse nome')),
+    r.ok ? JSON.stringify(r.report.rows[2].errors) : '');
+}
+{
+  // SKU tem precedência sobre nome: um produto chamado "CAF-001" não pode sequestrar
+  // a referência que aponta para o SKU CAF-001.
+  const r = v2([
+    ['ZZZ-9', 'CAF-001', 'fisico'],
+    ['KIT-01', 'Kit', 'kit', '', '', 'CAF-001*1'],
+  ]);
+  const kitRef = r.ok ? r.report.rows[1].data.kitItems[0].ref : '';
+  check('SKU tem precedência sobre nome na referência', r.ok && r.report.totals.erros === 0 && kitRef === 'CAF-001',
+    r.ok ? JSON.stringify(r.report.rows.map((x) => x.errors)) : '');
 }
 {
   // Kit referenciando produto que não existe em lugar nenhum.

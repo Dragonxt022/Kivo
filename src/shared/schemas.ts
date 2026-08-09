@@ -73,6 +73,9 @@ export const createSaleSchema = z.object({
   paymentMethod: z.enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo']).optional(),
   paidCents: z.number().int().optional(),
   customerId: z.number().int().positive().optional(),
+  // Cliente não cadastrado: identifica a venda no histórico sem obrigar o cadastro no
+  // meio do atendimento. Ignorado quando vem customerId — aí o nome sai do cadastro.
+  customerName: z.string().max(120, 'Nome do cliente muito longo.').optional(),
   dueDate: z.string().optional(),
   discountCents: z.number().int().min(0).optional().default(0),
   surchargeCents: z.number().int().min(0).optional().default(0),
@@ -89,7 +92,7 @@ const quoteItemSchema = saleItemSchema;
 export const createQuoteSchema = z.object({
   items: z.array(quoteItemSchema).min(1, 'Orçamento sem itens.'),
   customerId: z.number().int().positive().optional(),
-  customerName: z.string().optional(),
+  customerName: z.string().max(120, 'Nome do cliente muito longo.').optional(),
   discountCents: z.number().int().min(0).optional().default(0),
   surchargeCents: z.number().int().min(0).optional().default(0),
   validUntil: z.string().optional(),
@@ -101,7 +104,7 @@ export const createQuoteSchema = z.object({
 export const updateQuoteSchema = z.object({
   items: z.array(quoteItemSchema).min(1, 'Orçamento sem itens.').optional(),
   customerId: z.number().int().positive().nullable().optional(),
-  customerName: z.string().nullable().optional(),
+  customerName: z.string().max(120, 'Nome do cliente muito longo.').nullable().optional(),
   validUntil: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   discountCents: z.number().int().min(0).optional(),
@@ -116,6 +119,7 @@ export const convertQuoteSchema = z.object({
   paymentMethod: z.enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo']).optional(),
   paidCents: z.number().int().optional(),
   customerId: z.number().int().positive().optional(),
+  customerName: z.string().max(120, 'Nome do cliente muito longo.').optional(),
   dueDate: z.string().optional(),
   clientRequestId: z.string().optional(),
 }).refine(
@@ -127,6 +131,27 @@ export const loginSchema = z.object({
   username: z.string().min(1, 'Informe o usuário.'),
   password: z.string().min(1, 'Informe a senha.'),
   remember: z.boolean().optional().default(false),
+});
+
+/**
+ * Primeiro acesso: o dono cria a própria credencial no lugar do admin/admin de fábrica.
+ * As regras de senha são as mesmas da troca de senha — o acesso nasce já no padrão
+ * exigido do resto do sistema, sem uma senha fraca herdada.
+ */
+export const firstRunSetupSchema = z.object({
+  name: z.string().trim().min(2, 'Informe seu nome.').max(80, 'Nome muito longo.'),
+  username: z
+    .string()
+    .trim()
+    .min(3, 'O usuário deve ter no mínimo 3 caracteres.')
+    .max(32, 'Usuário muito longo.')
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Use apenas letras, números, ponto, hífen ou sublinhado.'),
+  password: z
+    .string()
+    .min(8, 'A senha deve ter no mínimo 8 caracteres.')
+    .regex(/[A-Z]/, 'A senha deve conter pelo menos 1 letra maiúscula.')
+    .regex(/[a-z]/, 'A senha deve conter pelo menos 1 letra minúscula.')
+    .regex(/[0-9]/, 'A senha deve conter pelo menos 1 dígito.'),
 });
 
 export const changePasswordSchema = z.object({

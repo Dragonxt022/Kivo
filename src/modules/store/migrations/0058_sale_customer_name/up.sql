@@ -1,0 +1,13 @@
+-- 0058_sale_customer_name — nome do cliente na venda, sem exigir cadastro.
+--
+-- Até aqui a venda só sabia quem era o cliente pelo FK `customer_id`. Duas consequências:
+--  1. Orçamento fechado para "cliente de balcão" (quotes.customer_name, texto livre) virava
+--     venda sem cliente nenhum — o nome se perdia na conversão e a listagem mostrava "—".
+--  2. Não havia como identificar o comprador sem antes cadastrá-lo, atrito no meio da venda.
+--
+-- A coluna é um SNAPSHOT, na mesma linha de sale_items.product_name: guarda o nome como
+-- estava no momento da venda, seja o texto digitado no PDV, seja o nome do cliente
+-- cadastrado. Renomear o cliente depois não reescreve o histórico. Por isso as telas leem
+-- COALESCE(s.customer_name, c.name): o congelado manda, e o JOIN só cobre vendas
+-- anteriores a esta migration, que não têm snapshot.
+ALTER TABLE sales ADD COLUMN customer_name TEXT;

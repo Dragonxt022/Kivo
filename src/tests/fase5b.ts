@@ -104,6 +104,8 @@ async function main() {
   const qRow = db.prepare('SELECT status, sale_id FROM quotes WHERE id = ?').get(quoteId) as { status: string; sale_id: number };
   check('orçamento marcado convertido com venda vinculada', qRow.status === 'convertido' && qRow.sale_id === convData.id);
   check('converter de novo → 400', (await api(`/api/store/quotes/${quoteId}/convert`, { method: 'POST', body: JSON.stringify({ paymentMethod: 'pix' }) }, balcao!)).status === 400);
+  check('venda de orçamento com cliente cadastrado congela o nome',
+    (db.prepare('SELECT customer_name FROM sales WHERE id = ?').get(convData.id) as { customer_name: string | null }).customer_name === 'Construtora ABC');
 
   // orçamento vencido não converte
   const qOld = await api('/api/store/quotes', {
@@ -193,6 +195,40 @@ async function main() {
   }, admin!);
   check('compra recebida soma estoque (30+30=60)', buy.status === 201 &&
     (db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(prod.id) as { stock_qty: number }).stock_qty === 60);
+
+  // ---------- Cliente sem cadastro: nome livre atravessa orçamento → venda ----------
+  // O atrito que isso remove: antes, fechar um orçamento de balcão exigia cadastrar o
+  // cliente, e sem cadastro a venda ficava sem identificação nenhuma no histórico.
+  // Fica no fim do arquivo de propósito: estas vendas baixam estoque de `prod` e
+  // quebrariam as conferências absolutas de estoque acima se rodassem antes.
+  const qBalcao = await api('/api/store/quotes', {
+    method: 'POST',
+    body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerName: 'Seu Zé da Obra' }),
+  }, balcao!);
+  check('orçamento aceita nome livre sem cadastro', qBalcao.status === 201);
+  const qBalcaoId = (db.prepare('SELECT id FROM quotes ORDER BY id DESC LIMIT 1').get() as { id: number }).id;
+  const convBalcao = await api(`/api/store/quotes/${qBalcaoId}/convert`, {
+    method: 'POST', body: JSON.stringify({ paymentMethod: 'pix' }),
+  }, balcao!);
+  const convBalcaoData = await unwrap<{ id: number }>(convBalcao);
+  const saleBalcao = db.prepare('SELECT customer_id, customer_name FROM sales WHERE id = ?').get(convBalcaoData.id) as
+    { customer_id: number | null; customer_name: string | null };
+  check('conversão leva o nome de balcão para a venda',
+    convBalcao.status === 201 && saleBalcao.customer_id === null && saleBalcao.customer_name === 'Seu Zé da Obra',
+    `customer_name=${saleBalcao.customer_name}`);
+  const listedBalcao = (await unwrap<{ id: number; customer: string | null }[]>(await api('/api/store/sales', {}, balcao!)))
+    .find((s) => s.id === convBalcaoData.id);
+  check('listagem de vendas mostra o nome do cliente não cadastrado', listedBalcao?.customer === 'Seu Zé da Obra');
+
+  // venda direta (sem orçamento) também aceita nome livre
+  const vendaDireta = await api('/api/store/sales', {
+    method: 'POST',
+    body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], paymentMethod: 'pix', customerName: '  Dona Maria  ' }),
+  }, balcao!);
+  const vendaDiretaData = await unwrap<{ id: number }>(vendaDireta);
+  check('venda direta grava o nome livre já sem espaços',
+    vendaDireta.status === 201 &&
+    (db.prepare('SELECT customer_name FROM sales WHERE id = ?').get(vendaDiretaData.id) as { customer_name: string }).customer_name === 'Dona Maria');
 
   // auditoria cobre role e quote
   const entities = new Set((db.prepare('SELECT DISTINCT entity FROM audit_logs').all() as { entity: string }[]).map((a) => a.entity));

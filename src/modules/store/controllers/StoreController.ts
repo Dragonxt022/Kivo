@@ -36,8 +36,10 @@ export const storeController = {
     const params: unknown[] = [];
     if (day) params.push(day);
     if (customerId) params.push(customerId);
+    // COALESCE: o nome congelado na venda manda; o JOIN só cobre vendas anteriores à
+    // migration 0058, que não têm snapshot. Ver o comentário da migration.
     const sql = `SELECT s.id, s.status, s.total_cents, s.discount_cents, s.payment_method, s.change_cents,
-                         c.name AS customer, u.username, s.created_at,
+                         COALESCE(s.customer_name, c.name) AS customer, u.username, s.created_at,
                          (SELECT COUNT(*) FROM sale_payments sp WHERE sp.sale_id = s.id) AS payment_count
                   FROM sales s
                   LEFT JOIN customers c ON c.id = s.customer_id
@@ -49,7 +51,7 @@ export const storeController = {
   getSale(req: Request, res: Response) {
     const id = String(req.params.id);
     const sale = saleRepository.rawOne(
-      `SELECT s.*, c.name AS customer, u.username FROM sales s
+      `SELECT s.*, COALESCE(s.customer_name, c.name) AS customer, u.username FROM sales s
        LEFT JOIN customers c ON c.id = s.customer_id
        LEFT JOIN users u ON u.id = s.user_id
        WHERE s.id = ? AND s.deleted_at IS NULL`,

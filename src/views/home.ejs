@@ -49,6 +49,13 @@
     .login-card button[type="submit"]:active { transform: scale(.98); }
     .login-card .error { color: var(--danger); font-size: .85rem; margin-top: .75rem; min-height: 1.2em; }
     .login-card .version { color: var(--text-muted); font-size: .72rem; margin-top: 1.25rem; }
+    .login-card .setup-intro { font-size: .84rem; color: var(--text-muted); text-align: left; margin-bottom: 1.1rem; line-height: 1.45; }
+    .login-card .setup-hint { font-size: .76rem; color: var(--text-muted); text-align: left; margin: -.4rem 0 .9rem; }
+    .login-card .link-btn {
+      background: none; border: 0; color: var(--text-muted); font-family: inherit;
+      font-size: .82rem; cursor: pointer; margin-top: .9rem; text-decoration: underline;
+    }
+    .login-card .link-btn:hover { color: var(--primary); }
 
     .help-chat-contacts { display: flex; flex-direction: column; gap: .5rem; margin: .25rem 0 1.25rem; }
     .help-chat-contact {
@@ -145,18 +152,50 @@
     <div class="login-overlay" x-show="showLogin" x-cloak>
       <div class="login-card">
         <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
-        <h1>Entrar no Kivo</h1>
-        <form @submit.prevent="login">
-          <label for="login-user">Usuário</label>
-          <input id="login-user" type="text" x-model="loginUser" autocomplete="username"
-                 x-ref="loginUser" @keydown.escape.prevent="handleLoginEsc()" />
-          <label for="login-pass">Senha</label>
-          <input id="login-pass" type="password" x-model="loginPass" autocomplete="current-password"
-                 @keydown.escape.prevent="handleLoginEsc()" />
-          <button type="submit" x-text="loginLoading ? 'Entrando…' : 'Entrar'"
-                  :disabled="loginLoading"></button>
-          <div class="error" x-text="loginError"></div>
-        </form>
+
+        <!-- Primeiro acesso: instalação recém-ativada, ainda com o admin/admin de fábrica.
+             Pedir login aqui é pedir uma senha que o lojista nunca recebeu — então em vez
+             de perguntar, o sistema deixa ele criar o próprio acesso na hora. -->
+        <template x-if="firstRun">
+          <div>
+            <h1>Crie seu acesso</h1>
+            <p class="setup-intro">Este é o primeiro acesso deste computador. Escolha seu usuário e senha — é com eles que você vai entrar daqui pra frente.</p>
+            <form @submit.prevent="completeFirstRun">
+              <label for="setup-name">Seu nome</label>
+              <input id="setup-name" type="text" x-model="setupName" autocomplete="name" x-ref="setupName" maxlength="80" />
+              <label for="setup-user">Usuário (para entrar)</label>
+              <input id="setup-user" type="text" x-model="setupUser" autocomplete="username" maxlength="32"
+                     placeholder="ex.: maria" />
+              <label for="setup-pass">Senha</label>
+              <input id="setup-pass" type="password" x-model="setupPass" autocomplete="new-password" />
+              <label for="setup-pass2">Repita a senha</label>
+              <input id="setup-pass2" type="password" x-model="setupPass2" autocomplete="new-password" />
+              <p class="setup-hint">Mínimo de 8 caracteres, com maiúscula, minúscula e número.</p>
+              <button type="submit" x-text="setupLoading ? 'Criando…' : 'Criar acesso e entrar'"
+                      :disabled="setupLoading"></button>
+              <div class="error" x-text="setupError"></div>
+            </form>
+            <button type="button" class="link-btn" @click="firstRun = false">Já tenho um usuário</button>
+          </div>
+        </template>
+
+        <template x-if="!firstRun">
+          <div>
+            <h1>Entrar no Kivo</h1>
+            <form @submit.prevent="login">
+              <label for="login-user">Usuário</label>
+              <input id="login-user" type="text" x-model="loginUser" autocomplete="username"
+                     x-ref="loginUser" @keydown.escape.prevent="handleLoginEsc()" />
+              <label for="login-pass">Senha</label>
+              <input id="login-pass" type="password" x-model="loginPass" autocomplete="current-password"
+                     @keydown.escape.prevent="handleLoginEsc()" />
+              <button type="submit" x-text="loginLoading ? 'Entrando…' : 'Entrar'"
+                      :disabled="loginLoading"></button>
+              <div class="error" x-text="loginError"></div>
+            </form>
+          </div>
+        </template>
+
         <p class="version">Versão <%= appVersion %></p>
       </div>
     </div>
@@ -460,6 +499,13 @@
         loginPass: '',
         loginLoading: false,
         loginError: '',
+        firstRun: false,
+        setupName: '',
+        setupUser: '',
+        setupPass: '',
+        setupPass2: '',
+        setupLoading: false,
+        setupError: '',
         apps: [],
         dragId: null,
         dropOverId: null,
@@ -589,10 +635,58 @@
           this.showLogin = !isAuthed || hasLoginParam;
 
           if (this.showLogin) {
+            // Sem sessão, o card pode ser de login ou de primeiro acesso — só o servidor
+            // sabe se este computador ainda está com as credenciais de fábrica.
+            if (!isAuthed) this.checkFirstRun();
             this.$nextTick(() => {
               const el = this.$refs.loginUser;
               if (el) el.focus();
             });
+          }
+        },
+
+        async checkFirstRun() {
+          try {
+            const r = await fetch('/api/auth/first-run');
+            if (!r.ok) return;
+            const d = await r.json();
+            this.firstRun = !!(d.pending ?? d.data?.pending);
+            if (this.firstRun) this.$nextTick(() => { if (this.$refs.setupName) this.$refs.setupName.focus(); });
+          } catch (e) { /* offline: segue com o login normal */ }
+        },
+
+        async completeFirstRun() {
+          if (this.setupLoading) return;
+          this.setupError = '';
+          if (!this.setupName.trim() || !this.setupUser.trim()) {
+            this.setupError = 'Informe seu nome e o usuário.';
+            return;
+          }
+          if (this.setupPass !== this.setupPass2) {
+            this.setupError = 'As senhas não conferem.';
+            return;
+          }
+          this.setupLoading = true;
+          try {
+            const r = await fetch('/api/auth/first-run', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: this.setupName.trim(),
+                username: this.setupUser.trim(),
+                password: this.setupPass,
+              }),
+            });
+            if (r.ok) {
+              window.location.href = '/';
+            } else {
+              const data = await r.json();
+              this.setupError = data.error || 'Não foi possível criar o acesso.';
+            }
+          } catch (e) {
+            this.setupError = 'Erro de conexão.';
+          } finally {
+            this.setupLoading = false;
           }
         },
 

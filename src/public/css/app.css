@@ -3848,6 +3848,72 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
 }
 
 /* ─────────── Importação de produtos ─────────── */
+
+/* O diálogo é largo porque a conferência tem 10 colunas — em 980px a coluna de
+   problema virava um cordão de 4 linhas por erro. */
+dialog.import-dialog {
+  width: min(1140px, 96vw);
+}
+dialog.import-dialog.dialog-fixed {
+  height: min(90vh, 740px);
+}
+/* Quem rola é a tabela de conferência, não o corpo do diálogo: assim o cabeçalho
+   (contadores + resumo de erros) e o rodapé (Confirmar) ficam sempre à vista. */
+dialog.import-dialog > .dialog-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.import-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.import-pane.has-table {
+  overflow: hidden;
+}
+
+/* Área de soltar arquivo: o alvo de arrastar-e-soltar é o mesmo botão de escolher,
+   então não há dois caminhos para aprender. */
+.import-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-align: center;
+  padding: 1.6rem 1rem;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.import-drop:hover,
+.import-drop.over {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--text);
+}
+.import-drop strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.import-drop code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+}
+.import-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.7rem 0 0.4rem;
+}
+
 .import-steps {
   display: flex;
   align-items: center;
@@ -3896,6 +3962,26 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   background: var(--danger-bg);
   color: var(--danger-text);
 }
+/* Contador que também filtra a lista. O selecionado ganha anel na própria cor —
+   não muda de cor, senão perderia o vínculo com a situação que representa. */
+.import-chip.filtro {
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.6;
+  box-shadow: inset 0 0 0 1px transparent;
+}
+.import-chip.filtro:not(.novo):not(.atualizar):not(.erro) {
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+.import-chip.filtro:hover {
+  opacity: 0.85;
+}
+.import-chip.filtro.on {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
 
 .import-alert {
   padding: 0.6rem 0.85rem;
@@ -3914,10 +4000,54 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   border: 1px solid var(--border);
 }
 
-/* Altura fixa: a lista pode ter centenas de linhas e não pode empurrar as ações
-   do diálogo para fora da tela. */
+.import-alert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Erros agrupados por formato: uma entrada por problema, com contagem, linhas
+   afetadas e o que fazer na planilha. É o que substitui ler 24 linhas vermelhas
+   iguais numa coluna estreita. */
+.import-problems {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  max-height: 10rem;
+  overflow-y: auto;
+}
+.import-problems li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  line-height: 1.4;
+}
+.import-problem-count {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 2.2rem;
+  text-align: right;
+}
+.import-fix {
+  display: block;
+  font-style: normal;
+  opacity: 0.85;
+  font-size: 0.8rem;
+}
+.import-fix::before {
+  content: '→ ';
+}
+
+/* A tabela ocupa o que sobra do diálogo e rola por dentro: o resumo em cima e as
+   ações no rodapé ficam fixos, mesmo com centenas de linhas. */
 .import-table-wrap {
-  max-height: 46vh;
+  flex: 1;
+  min-height: 140px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -3965,6 +4095,25 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   color: var(--danger-text);
   font-size: 0.76rem;
   line-height: 1.35;
+  min-width: 210px;
+}
+/* Um erro por item: com " · " entre eles, três problemas na mesma linha viravam
+   um parágrafo só e ninguém achava onde um terminava e o outro começava. */
+.import-table .import-erros ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+.import-table .import-erros li::before {
+  content: '• ';
+}
+.import-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+.import-table tr.row-erro:hover {
+  background: var(--danger-bg);
 }
 
 /* A linha com erro salta aos olhos: fundo + barra na lateral, não só o texto. */

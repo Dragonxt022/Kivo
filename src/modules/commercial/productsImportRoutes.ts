@@ -59,7 +59,7 @@ function readCapabilities(): { variantes: boolean; complementos: boolean } {
 
 function loadExisting(): ExistingProduct[] {
   return productRepository.raw(
-    'SELECT id, uuid, sku, barcode, product_type AS productType FROM products WHERE deleted_at IS NULL',
+    'SELECT id, uuid, sku, barcode, name, product_type AS productType FROM products WHERE deleted_at IS NULL',
   ) as unknown as ExistingProduct[];
 }
 
@@ -69,13 +69,31 @@ function loadCategories(): { id: number; name: string }[] {
   ) as { id: number; name: string }[];
 }
 
-/** Resolve SKU/uuid de produto no banco — usado pelas opções de complemento. */
-function resolveProductRef(ref: string): { productId: number } | undefined {
-  const hit = productRepository.rawOne(
-    'SELECT id FROM products WHERE deleted_at IS NULL AND (sku = ? OR uuid = ?)',
-    ref, ref,
-  );
-  return hit ? { productId: hit.id as number } : undefined;
+/**
+ * Resolvedor de `opcao_sku` (complementos): SKU → uuid → nome, a mesma ordem da
+ * planilha de produtos. Índice montado de uma vez em vez de uma consulta por linha,
+ * e nome só resolve quando há um único produto com aquele nome.
+ */
+function makeProductResolver(): (ref: string) => { productId: number } | undefined {
+  const bySku = new Map<string, number>();
+  const byUuid = new Map<string, number>();
+  const byName = new Map<string, number[]>();
+  for (const p of loadExisting()) {
+    if (p.sku) bySku.set(normKey(p.sku), p.id);
+    if (p.uuid) byUuid.set(normKey(p.uuid), p.id);
+    if (p.name) {
+      const key = normKey(p.name);
+      const list = byName.get(key);
+      if (list) list.push(p.id); else byName.set(key, [p.id]);
+    }
+  }
+  return (ref: string) => {
+    const key = normKey(ref);
+    const id = bySku.get(key) ?? byUuid.get(key);
+    if (id != null) return { productId: id };
+    const names = byName.get(key);
+    return names?.length === 1 ? { productId: names[0] } : undefined;
+  };
 }
 
 function loadComplementGroups(): ExistingComplementGroup[] {
@@ -328,16 +346,37 @@ router.post('/products/import/commit', requirePermission('commercial.products.cr
         return id;
       };
 
-      // Referências (produto_pai, componentes, insumos) resolvidas por sku|uuid →
-      // id. Começa com o catálogo do banco e ganha cada linha do arquivo na
-      // passagem 1 — assim a ordem das linhas não importa.
+      // Referências (produto_pai, componentes, insumos) resolvidas por sku → uuid →
+      // nome, exatamente na ordem do preview (productsImport.buildPreview). Começa
+      // com o catálogo do banco e ganha cada linha do arquivo na passagem 1 — assim
+      // a ordem das linhas no arquivo não importa.
       const idByRef = new Map<string, number>();
+      // Nome guarda LISTA: só resolve quando há um único candidato. O preview já
+      // rejeita nome ambíguo, então aqui isso é a mesma regra escrita duas vezes de
+      // propósito — o commit não pode depender de o preview ter rodado.
+      const bankIdsByName = new Map<string, number[]>();
+      const fileIdsByName = new Map<string, number[]>();
+      const pushName = (map: Map<string, number[]>, name: string | null | undefined, id: number): void => {
+        if (!name) return;
+        const key = normKey(name);
+        const list = map.get(key);
+        if (list) { if (!list.includes(id)) list.push(id); } else map.set(key, [id]);
+      };
       for (const p of loadExisting()) {
         if (p.sku) idByRef.set(`sku:${normKey(p.sku)}`, p.id);
         if (p.uuid) idByRef.set(`uuid:${normKey(p.uuid)}`, p.id);
+        pushName(bankIdsByName, p.name, p.id);
       }
-      const resolveRefId = (ref: string): number | undefined =>
-        idByRef.get(`sku:${normKey(ref)}`) ?? idByRef.get(`uuid:${normKey(ref)}`);
+      const resolveRefId = (ref: string): number | undefined => {
+        const key = normKey(ref);
+        const direct = idByRef.get(`sku:${key}`) ?? idByRef.get(`uuid:${key}`);
+        if (direct != null) return direct;
+        const fromFile = fileIdsByName.get(key);
+        if (fromFile?.length === 1) return fromFile[0];
+        if (fromFile) return undefined; // ambíguo dentro do arquivo
+        const fromBank = bankIdsByName.get(key);
+        return fromBank?.length === 1 ? fromBank[0] : undefined;
+      };
 
       const getAttrId = (name: string): number => {
         const hit = productRepository.rawOne(
@@ -437,6 +476,7 @@ router.post('/products/import/commit', requirePermission('commercial.products.cr
         // Registra as chaves desta linha para as referências da passagem 2.
         if (d.sku) idByRef.set(`sku:${normKey(d.sku)}`, rowId.get(row)!);
         if (d.uuid) idByRef.set(`uuid:${normKey(d.uuid)}`, rowId.get(row)!);
+        pushName(fileIdsByName, d.name, rowId.get(row)!);
       }
 
       // ── Passagem 2: relações (substituídas só para produtos do arquivo) ──
@@ -601,7 +641,7 @@ router.post(
     const result = buildComplementsPreview({
       csv,
       existingGroups: loadComplementGroups(),
-      resolveProduct: resolveProductRef,
+      resolveProduct: makeProductResolver(),
       pendingSkus: pendingSkusFrom(readBodyString(req.body, 'productsCsv')),
     });
     if (!result.ok) {
@@ -637,7 +677,7 @@ router.post(
     const result = buildComplementsPreview({
       csv,
       existingGroups: loadComplementGroups(),
-      resolveProduct: resolveProductRef,
+      resolveProduct: makeProductResolver(),
       pendingSkus: pendingSkusFrom(readBodyString(req.body, 'productsCsv')),
     });
     if (!result.ok) {

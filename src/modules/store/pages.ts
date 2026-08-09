@@ -33,7 +33,7 @@ router.get('/vendas/:id/cupom', (req, res) => {
   assertAuth(req);
   if (!req.user.permissions.has('store.sales.view')) return res.redirect('/');
   const sale = saleRepository.rawOne(
-    `SELECT s.*, c.name AS customer, u.username FROM sales s
+    `SELECT s.*, COALESCE(s.customer_name, c.name) AS customer, u.username FROM sales s
      LEFT JOIN customers c ON c.id = s.customer_id
      LEFT JOIN users u ON u.id = s.user_id
      WHERE s.id = ? AND s.deleted_at IS NULL`,
@@ -67,7 +67,7 @@ router.get('/vendas/:id/carne', (req, res) => {
   assertAuth(req);
   if (!req.user.permissions.has('store.sales.view')) return res.redirect('/');
   const sale = saleRepository.rawOne(
-    `SELECT s.*, c.name AS customer FROM sales s
+    `SELECT s.*, COALESCE(s.customer_name, c.name) AS customer FROM sales s
      LEFT JOIN customers c ON c.id = s.customer_id
      WHERE s.id = ? AND s.deleted_at IS NULL`,
     req.params.id,

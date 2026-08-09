@@ -172,7 +172,7 @@ export function merge(req: Request, targetComandaId: number, sourceComandaId: nu
 export function closeComanda(
   req: Request, comandaId: number,
   input: {
-    payments: any[]; discountCents?: number; surchargeCents?: number; customerId?: number;
+    payments: any[]; discountCents?: number; surchargeCents?: number; customerId?: number; customerName?: string;
     items?: { productId: number; qty: number; notes?: string; lineGroupUuid?: string; unitPriceCents?: number }[];
     clientRequestId?: string;
   },
@@ -201,6 +201,7 @@ export function closeComanda(
     discountCents: input.discountCents,
     surchargeCents: input.surchargeCents,
     customerId: input.customerId ?? comanda.customer_id ?? undefined,
+    customerName: input.customerName,
     clientRequestId: input.clientRequestId,
   };
   const storeSales = getService<StoreSalesService>('store.sales');
