@@ -39,14 +39,24 @@ export interface Readiness {
 /**
  * Conta produtos que virariam item de nota sem NCM.
  *
+ * O conjunto é definido por uma pergunta só: este produto pode virar uma linha de
+ * `sale_items`? É de lá que a nota tira o item, e é no `product_id` daquela linha que
+ * o NCM é buscado.
+ *
  * Fora da conta:
  * - `servico` — serviço é NFS-e municipal, não sai em NFC-e;
- * - variantes filhas (`parent_product_id` preenchido) — "camiseta azul M" tem a mesma
- *   classificação fiscal da camiseta, então herdam o NCM do pai. Cobrar NCM de cada
- *   variante multiplicaria o trabalho do lojista sem mudar o resultado da nota.
+ * - o produto com variações (tipo `variante` SEM pai) — é linha de estrutura, agrupa as
+ *   filhas e nunca é vendido; a venda registra a variação escolhida.
  *
- * Complementos ENTRAM na conta: viram uma linha própria em `sale_items`, com product_id
- * próprio, então precisam do próprio NCM.
+ * Dentro da conta, por venderem direto:
+ * - as variantes FILHAS — "camiseta azul M" é o que sai na nota, então é ela que precisa
+ *   do NCM. Elas são muitas por natureza, e é para isso que a tela de dados fiscais tem
+ *   preenchimento em lote: seleciona a grade inteira e aplica o mesmo NCM de uma vez;
+ * - complementos, kits e seus componentes — todos viram linha própria em `sale_items`.
+ *
+ * Este SELECT tem que casar com o que a tela `/app/fiscal/produtos` lista (ela pede
+ * `scope=sellable`). Divergir aqui é o que produzia o beco sem saída: o painel cobrava
+ * NCM de N produtos e o botão "Resolver" abria uma tela vazia.
  */
 function countProductsMissingNcm(): { missing: number; total: number } {
   const row = getSqlite()
@@ -57,7 +67,7 @@ function countProductsMissingNcm(): { missing: number; total: number } {
        FROM products
        WHERE deleted_at IS NULL AND active = 1
          AND product_type <> 'servico'
-         AND parent_product_id IS NULL`,
+         AND NOT (product_type = 'variante' AND parent_product_id IS NULL)`,
     )
     .get() as { total: number; missing: number | null };
   return { missing: row.missing ?? 0, total: row.total };

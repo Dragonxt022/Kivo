@@ -202,7 +202,10 @@ async function main() {
   db.prepare("INSERT INTO products (name, uuid, product_type) VALUES ('Serviço', 'p-ncm-3', 'servico')").run();
   // Complemento vira linha própria na venda → precisa de NCM próprio, entra na conta.
   db.prepare("INSERT INTO products (name, uuid, product_type) VALUES ('Bacon extra', 'p-ncm-4', 'complemento')").run();
-  // Variante filha herda a classificação do pai → fica fora da conta.
+  // O produto com variações é linha de estrutura: nunca é vendido, então nunca vira item
+  // de nota — fora da conta mesmo tendo NCM. Quem sai na nota é a variação escolhida, e é
+  // ela que precisa do NCM próprio. Contar o pai em vez da filha era o que produzia o beco
+  // sem saída: o painel cobrava NCM de N produtos e a tela de resolver abria vazia.
   const paiId = Number(
     db.prepare("INSERT INTO products (name, uuid, product_type, ncm) VALUES ('Camiseta', 'p-ncm-5', 'variante', '61091000')").run().lastInsertRowid,
   );
@@ -211,15 +214,28 @@ async function main() {
   ).run(paiId);
 
   const comProdutos = readiness.checkReadiness();
-  check('conta produtos sem NCM', comProdutos.produtosSemNcm === 2, String(comProdutos.produtosSemNcm));
+  // Conta: 'Com NCM' (ok) + 'Sem NCM' + 'Bacon extra' + 'Camiseta azul M' = 4, sendo 3 sem NCM.
+  check('conta produtos sem NCM', comProdutos.produtosSemNcm === 3, String(comProdutos.produtosSemNcm));
   check(
-    'serviço fora e complemento dentro da conta',
+    'serviço e produto com variações fora; complemento e variação dentro',
     comProdutos.produtosTotal === 4,
     String(comProdutos.produtosTotal),
   );
   check(
     'pendência de NCM aparece com ação',
     comProdutos.checks.some((c) => c.id === 'ncm' && c.status === 'fail' && !!c.actionHref),
+  );
+
+  // O botão "Resolver" leva a /app/fiscal/produtos, que se abastece de scope=sellable.
+  // Se esta contagem divergir da de cima, o lojista é mandado para uma tela onde o
+  // produto cobrado não está — foi exatamente o bug do catálogo todo em grade.
+  const paraPreencher = (await unwrap<{ product_type: string; active: number }[]>(
+    await api('/api/commercial/products?scope=sellable', {}, admin!),
+  )).filter((p) => p.product_type !== 'servico' && p.active);
+  check(
+    'a tela de dados fiscais lista exatamente os produtos cobrados',
+    paraPreencher.length === comProdutos.produtosTotal,
+    `tela=${paraPreencher.length} cobrados=${comProdutos.produtosTotal}`,
   );
 
   // ── 9. Gravação em lote dos dados fiscais do produto ─────────────────────────
@@ -238,7 +254,7 @@ async function main() {
   };
   check('NCM gravado só com dígitos', gravado.ncm === '22021000', String(gravado.ncm));
   check('origem gravada', gravado.origem === 0, String(gravado.origem));
-  check('prontidão reflete a gravação', readiness.checkReadiness().produtosSemNcm === 1);
+  check('prontidão reflete a gravação', readiness.checkReadiness().produtosSemNcm === 2);
 
   const ncmInvalido = await api(
     '/api/commercial/products/fiscal',

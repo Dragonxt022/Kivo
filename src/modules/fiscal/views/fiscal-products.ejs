@@ -33,6 +33,8 @@
     <p class="hint">
       Todo item que sai numa nota fiscal precisa de <strong>NCM</strong> — o código de 8 dígitos
       que classifica a mercadoria. Os demais campos herdam o padrão da configuração quando ficam vazios.
+      Produtos com variações aparecem <strong>uma linha por variação</strong>, porque é a variação
+      que sai na nota; marque as que compartilham a mesma classificação e preencha todas de uma vez.
     </p>
 
     <section class="panel">
@@ -168,7 +170,12 @@
 
         async load() {
           const [prodRes, cfgRes] = await Promise.all([
-            fetch('/api/commercial/products?limit=5000'),
+            // scope=sellable = exatamente o que pode virar linha de sale_items, que é de
+            // onde a nota tira o item. O padrão da rota (listTopLevel) descarta as
+            // variantes filhas — num catálogo em grade esta tela abria VAZIA enquanto o
+            // painel fiscal mandava resolver o NCM aqui. O mesmo critério está em
+            // readiness.ts (countProductsMissingNcm): os dois têm que contar o mesmo.
+            fetch('/api/commercial/products?scope=sellable'),
             fetch('/api/fiscal/config'),
           ]);
           if (cfgRes.ok) {
@@ -177,11 +184,12 @@
           }
           if (!prodRes.ok) { window.showToast('Não foi possível carregar os produtos.', 'error'); this.loading = false; return; }
           const list = await prodRes.json();
-          // `servico` é NFS-e municipal e não sai em NFC-e. Complementos ficam: viram
-          // linha própria na venda, com NCM próprio. Variantes filhas não aparecem na
-          // listagem da API e herdam a classificação do produto pai.
+          // `servico` é NFS-e municipal e não sai em NFC-e. `active` porque produto
+          // inativo não é vendido, logo não vira nota — e é assim que readiness.ts
+          // conta. Complementos e variantes filhas FICAM: cada um vira linha própria
+          // na venda, com product_id próprio, então precisa do próprio NCM.
           this.produtos = (Array.isArray(list) ? list : list.rows || [])
-            .filter((p) => p.product_type !== 'servico')
+            .filter((p) => p.product_type !== 'servico' && p.active)
             .map((p) => ({ ...p, _dirty: {} }));
           this.loading = false;
         },
