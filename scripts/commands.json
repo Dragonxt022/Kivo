@@ -83,6 +83,10 @@
     "description": "Testes: importação/exportação de produtos (parser + rotas)",
     "run": "tsx src/tests/products-import.ts && node scripts/test-isolated.js src/tests/products-import-api.ts"
   },
+  "test:onboarding": {
+    "description": "Testes: cargos prontos, cadastros padrao e recursos do assistente",
+    "run": "node scripts/test-isolated.js src/tests/onboarding-permissoes.ts"
+  },
   "test:pdv-tipos": {
     "description": "Testes: PDV lê e vende todos os tipos de produto",
     "run": "node scripts/test-isolated.js src/tests/pdv-tipos-produto.ts"

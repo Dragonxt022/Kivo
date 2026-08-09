@@ -91,7 +91,32 @@
         </div>
       </div>
 
-      <!-- 4: formas de pagamento -->
+      <!-- 4: recursos -->
+      <div class="wizard-step">
+        <h2 class="wizard-title">O que você vai usar?</h2>
+        <p class="wizard-subtitle">
+          Já marcamos o que combina com suas respostas. O que ficar desmarcado some do menu —
+          e dá pra ligar de volta a qualquer momento em Configurações → Recursos.
+        </p>
+        <div class="wizard-feature-list">
+          <template x-for="f in features" :key="f.key">
+            <label class="wizard-feature-item" :class="featureKeys.includes(f.key) ? 'selected' : ''">
+              <input type="checkbox" :checked="featureKeys.includes(f.key)" @change="toggleFeature(f.key)" />
+              <span class="wizard-feature-text">
+                <span class="wizard-feature-label">
+                  <span x-text="f.label"></span>
+                  <span class="wizard-feature-tag" x-show="featureRecommended(f)">recomendado</span>
+                  <span class="wizard-feature-tag off" x-show="f.enabled && !featureKeys.includes(f.key)">vai desligar</span>
+                </span>
+                <span class="wizard-feature-hint" x-text="f.hint"></span>
+              </span>
+            </label>
+          </template>
+          <p class="hint" x-show="!features.length">Nenhum recurso opcional disponível no seu plano.</p>
+        </div>
+      </div>
+
+      <!-- 5: formas de pagamento -->
       <div class="wizard-step">
         <h2 class="wizard-title">Formas de pagamento</h2>
         <p class="wizard-subtitle">Marque as que você aceita — dá pra mudar depois em Configurações.</p>
@@ -106,7 +131,7 @@
         </div>
       </div>
 
-      <!-- 5: resumo -->
+      <!-- 6: resumo -->
       <div class="wizard-step">
         <div class="wizard-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -120,11 +145,23 @@
           </div>
           <div class="wizard-summary-item" x-show="answers.businessType === 'restaurante'">
             <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-            <span>Produtos de exemplo (suco, lanche…) com complementos, prontos pro PDV e pras mesas</span>
+            <!-- Sem o recurso de complementos, os produtos de exemplo saem sem os grupos
+                 de adicionais: prometer "com complementos" aqui seria mentira. -->
+            <span x-text="featureKeys.includes('commercial.complementos')
+              ? 'Produtos de exemplo (suco, lanche…) com complementos, prontos pro PDV'
+              : 'Produtos de exemplo (suco, lanche…) prontos pro PDV'"></span>
           </div>
-          <div class="wizard-summary-item" x-show="answers.businessType === 'roupas'">
+          <div class="wizard-summary-item" x-show="willCreateVariantProducts()">
             <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
             <span>Produtos de exemplo com variações de tamanho e cor</span>
+          </div>
+          <div class="wizard-summary-item" x-show="selectedFeatureLabels().length">
+            <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span x-text="'Recursos ativos: ' + selectedFeatureLabels().join(', ')"></span>
+          </div>
+          <div class="wizard-summary-item warn" x-show="featuresToTurnOff().length">
+            <span class="wizard-summary-check off"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+            <span x-text="'Vamos desligar: ' + featuresToTurnOff().join(', ')"></span>
           </div>
           <div class="wizard-summary-item">
             <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
@@ -138,7 +175,7 @@
         <div class="error" x-text="error"></div>
       </div>
 
-      <!-- 6: sucesso -->
+      <!-- 7: sucesso -->
       <div class="wizard-step">
         <div class="wizard-icon" style="background:var(--primary);color:#fff">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -163,11 +200,12 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
     <button type="button" class="btn" @click="next()" x-show="step === 1">Continuar</button>
-    <button type="button" class="btn" @click="next()" x-show="step === 4" :disabled="!paymentMethods.length">Continuar</button>
-    <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 5 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
-    <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 5" :disabled="loading">
+    <button type="button" class="btn" @click="next()" x-show="step === 4">Continuar</button>
+    <button type="button" class="btn" @click="next()" x-show="step === 5" :disabled="!paymentMethods.length">Continuar</button>
+    <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 6 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
+    <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 6" :disabled="loading">
       <span x-text="loading ? 'Configurando…' : (mode === 'first-run' ? 'Concluir e configurar' : 'Salvar preferências')"></span>
     </button>
-    <button type="button" class="btn" @click="close()" x-show="step === 6">Ir para o sistema</button>
+    <button type="button" class="btn" @click="close()" x-show="step === 7">Ir para o sistema</button>
   </div>
 </dialog>

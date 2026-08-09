@@ -3,7 +3,7 @@ function onboardingWizard() {
     open: false,
     mode: 'first-run', // 'first-run' | 'reopen'
     step: 0,
-    totalSteps: 7,
+    totalSteps: 8,
     answers: { usage: null, businessType: null, activePaymentMethodIds: [] },
     // Preferências de interface/cor (localStorage, per-máquina) — nunca vão em `answers`
     // nem no POST de /api/onboarding/provision, que é só pra dados de negócio.
@@ -29,6 +29,14 @@ function onboardingWizard() {
       try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch (e) {}
     },
     paymentMethods: [],
+    // Recursos que o assistente liga/desliga. `features` é o catálogo vindo do servidor
+    // (só o que existe e está no plano); `featureKeys` é o que ficará ligado no fim.
+    features: [],
+    featureKeys: [],
+    // Enquanto for false, entrar no passo de recursos reaplica a recomendação — assim
+    // voltar e trocar "balcão" por "mesas" atualiza a sugestão. Ao primeiro clique numa
+    // chave o lojista assume o controle e a recomendação para de sobrescrever a escolha.
+    featuresTouched: false,
     loading: false,
     error: '',
     result: null,
@@ -57,6 +65,8 @@ function onboardingWizard() {
       this.error = '';
       this.result = null;
       this.answers = { usage: null, businessType: null, activePaymentMethodIds: [] };
+      this.featureKeys = [];
+      this.featuresTouched = false;
       this.open = true;
       this.$nextTick(() => {
         this.$refs.onboardingDlg?.showModal();
@@ -75,6 +85,13 @@ function onboardingWizard() {
       } catch (e) {
         // segue sem a lista — o passo de pagamento só fica vazio
       }
+      try {
+        const rf = await fetch('/api/onboarding/features');
+        if (rf.ok) this.features = await rf.json();
+      } catch (e) {
+        // sem catálogo de recursos: o passo fica vazio e o provision cai na recomendação
+        // do servidor, que é o mesmo que o assistente sugeriria aqui.
+      }
     },
     close() {
       this.open = false;
@@ -85,8 +102,42 @@ function onboardingWizard() {
       const vp = this.$refs.onboardingDlg?.querySelector('.wizard-viewport');
       if (vp) vp.scrollLeft = 0;
     },
-    next() { if (this.step < this.totalSteps - 1) { this.step++; this.$nextTick(() => this.resetScroll()); } },
+    next() {
+      if (this.step >= this.totalSteps - 1) return;
+      this.step++;
+      if (this.step === this.STEP_FEATURES && !this.featuresTouched) this.applyRecommendedFeatures();
+      this.$nextTick(() => this.resetScroll());
+    },
     back() { if (this.step > 0) { this.step--; this.$nextTick(() => this.resetScroll()); } },
+
+    // Passo dos recursos — nomeado porque `next()` e a view precisam dele e um número
+    // solto aqui vira bug silencioso na próxima vez que um passo for inserido no meio.
+    STEP_FEATURES: 4,
+
+    /** Espelha isRecommended() de core/onboarding/service.ts — mesma regra, mesmo dado. */
+    featureRecommended(f) {
+      const r = f.recommend;
+      if (!r || (!r.usage && !r.businessType)) return false;
+      if (r.usage && r.usage.indexOf(this.answers.usage) === -1) return false;
+      if (r.businessType && r.businessType.indexOf(this.answers.businessType) === -1) return false;
+      return true;
+    },
+    applyRecommendedFeatures() {
+      this.featureKeys = this.features.filter((f) => this.featureRecommended(f)).map((f) => f.key);
+    },
+    toggleFeature(key) {
+      this.featuresTouched = true;
+      const idx = this.featureKeys.indexOf(key);
+      if (idx === -1) this.featureKeys.push(key);
+      else this.featureKeys.splice(idx, 1);
+    },
+    selectedFeatureLabels() {
+      return this.features.filter((f) => this.featureKeys.indexOf(f.key) !== -1).map((f) => f.label);
+    },
+    /** Recursos hoje ligados que o assistente vai DESLIGAR — o resumo avisa antes. */
+    featuresToTurnOff() {
+      return this.features.filter((f) => f.enabled && this.featureKeys.indexOf(f.key) === -1).map((f) => f.label);
+    },
 
     chooseUsage(v) {
       this.answers.usage = v;
@@ -102,8 +153,14 @@ function onboardingWizard() {
       else this.answers.activePaymentMethodIds.splice(idx, 1);
     },
 
+    // Espelha a condição do provision(): as mesas de exemplo acompanham o recurso de
+    // mesas, não a resposta crua — desmarcar "Mesas e comandas" no passo anterior também
+    // tira as 10 mesas do resumo.
     willCreateTables() {
-      return (this.answers.usage === 'mesas' || this.answers.usage === 'ambos') && this.answers.businessType !== 'roupas';
+      return this.featureKeys.indexOf('comandas.mesas') !== -1;
+    },
+    willCreateVariantProducts() {
+      return this.answers.businessType === 'roupas' && this.featureKeys.indexOf('commercial.variantes') !== -1;
     },
 
     async skipWizard() {
@@ -126,6 +183,7 @@ function onboardingWizard() {
             usage: this.answers.usage,
             businessType: this.answers.businessType,
             activePaymentMethodIds: this.answers.activePaymentMethodIds,
+            activeFeatureKeys: this.featureKeys,
             createDemoData,
             resetDemoData,
           }),
@@ -150,10 +208,16 @@ function onboardingWizard() {
       if (this.result.tablesCreated) parts.push(`${this.result.tablesCreated} mesas`);
       if (this.result.productsCreated) parts.push(`${this.result.productsCreated} produtos de exemplo`);
       const criado = parts.length ? `Criamos ${parts.join(' e ')}. ` : '';
+      const ligados = this.result.featuresEnabled?.length
+        ? `Ativamos: ${this.result.featuresEnabled.join(', ')}. `
+        : '';
+      const desligados = this.result.featuresDisabled?.length
+        ? `Desativamos: ${this.result.featuresDisabled.join(', ')}. `
+        : '';
       const pagamentos = this.result.paymentMethodsActive?.length
         ? `Formas de pagamento ativas: ${this.result.paymentMethodsActive.join(', ')}.`
         : '';
-      return `${criado}${pagamentos} Já é só usar.`;
+      return `${criado}${ligados}${desligados}${pagamentos} Já é só usar.`;
     },
   };
 }

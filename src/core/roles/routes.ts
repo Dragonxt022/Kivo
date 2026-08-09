@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { getSqlite } from '../database/connection';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
+import { ROLE_PRESETS } from './presets';
 
 const router = Router();
 const db = () => getSqlite();
@@ -10,6 +11,15 @@ const db = () => getSqlite();
 /** Catálogo de permissões agrupado por módulo (para a matriz da tela). */
 router.get('/permissions', requirePermission('roles.view'), (_req, res) => {
   res.json(db().prepare('SELECT key, description, module FROM permissions ORDER BY module, key').all());
+});
+
+/**
+ * Modelos de cargo — os mesmos que as seeds usam para criar os cargos de fábrica.
+ * A tela consome isto para descrever cada cargo em linguagem de lojista e para o botão
+ * "aplicar modelo", em vez de manter uma segunda cópia da lista no JavaScript da view.
+ */
+router.get('/presets', requirePermission('roles.view'), (_req, res) => {
+  res.json(ROLE_PRESETS);
 });
 
 router.get('/', requirePermission('roles.view'), (_req, res) => {

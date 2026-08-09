@@ -10,10 +10,16 @@ import { loginSchema, changePasswordSchema, firstRunSetupSchema } from '../../sh
 
 const router = Router();
 
+/**
+ * Freio contra força bruta no login. A janela é curta de propósito: quem erra a senha
+ * aqui é quase sempre o próprio operador no meio do expediente, e travar o caixa por um
+ * minuto inteiro custa mais que os poucos segundos que o atacante ganha — 5 tentativas a
+ * cada 30s ainda derruba qualquer varredura automatizada.
+ */
 const loginLimiter = rateLimit({
-  windowMs: 60 * 1000,
+  windowMs: 30 * 1000,
   max: 5,
-  message: { error: 'Muitas tentativas. Aguarde 1 minuto.' },
+  message: { error: 'Muitas tentativas. Aguarde 30 segundos.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
