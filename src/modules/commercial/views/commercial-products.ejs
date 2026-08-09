@@ -28,18 +28,18 @@
              class="input-search" style="min-width:280px" />
       <% } %>
       <% if (user.permissions.has('commercial.products.create')) { %>
-        <button class="btn secondary" @click="openImport()" alt="Importar produtos em massa">
+        <button class="btn secondary" @click="openImport()" title="Importar produtos em massa">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           
         </button>
       <% } %>
       <% if (user.permissions.has('commercial.products.view')) { %>
-        <a class="btn secondary" href="/api/commercial/products/export.csv"  download alt="Exportar produtos">
+        <a class="btn secondary" href="/api/commercial/products/export.csv" download title="Exportar produtos">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           
         </a>
         <% if (caps.complementos) { %>
-        <a class="btn secondary" href="/api/commercial/products/complements-export.csv"  download alt="Exportar complementos">
+        <a class="btn secondary" href="/api/commercial/products/complements-export.csv" download title="Exportar complementos">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           
         </a>
@@ -574,33 +574,55 @@
     </dialog>
 
     <!-- Importação de produtos: escolher arquivo → conferir → gravar.
-         O passo de conferência é obrigatório: nada é gravado antes do preview. -->
-    <dialog x-ref="importDlg" class="dialog-fixed" style="min-width:min(980px,95vw)">
-      <h1>Importar produtos</h1>
+         O passo de conferência é obrigatório: nada é gravado antes do preview.
+         O conteúdo fica dentro de .dialog-body porque dialog-fixed depende disso para
+         prender o rodapé: sem o wrapper, a lista de conferência empurrava os botões
+         "Trocar arquivo"/"Confirmar" para fora da altura do diálogo, e quem tinha
+         erro no arquivo não alcançava nenhuma saída a não ser Esc. -->
+    <dialog x-ref="importDlg" class="dialog-fixed import-dialog">
+      <h1 x-text="importStep2 ? 'Importar complementos' : 'Importar produtos'"></h1>
+      <div class="dialog-body">
 
       <!-- Passo 1: arquivo -->
       <template x-if="!importReport && !importStep2">
-        <div>
+        <div class="import-pane">
           <p class="muted" style="margin-top:0">
-            Planilha em CSV, no formato do modelo. O arquivo cobre o catálogo completo: tipos
-            (físico, kit, variante, produzido, combo), variantes, componentes de kit, ficha
-            técnica e grupos de complemento. Depois de conferir, dá para importar também o
-            arquivo de complementos.
+            Planilha em CSV cobrindo o catálogo completo: produto simples, kit, combo, variante
+            (pai e filhas), produzido com ficha técnica, serviço e complemento. Depois de conferir,
+            dá para importar também o arquivo de grupos de complemento.
           </p>
-          <div class="import-steps">
-            <a class="btn secondary" href="/api/commercial/products/import-template.csv" download>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              1. Baixar modelo
+
+          <label class="import-drop" :class="{ over: importDragging }"
+                 @dragover.prevent="importDragging = true"
+                 @dragleave.prevent="importDragging = false"
+                 @drop.prevent="importDragging = false; readImportFile($event.dataTransfer.files && $event.dataTransfer.files[0])">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <strong>Arraste a planilha aqui</strong>
+            <span class="muted">ou clique para escolher — arquivo <code>.csv</code> salvo como “CSV UTF-8”</span>
+            <input type="file" accept=".csv,text/csv"
+                   @change="readImportFile($event.target.files && $event.target.files[0]); $event.target.value = ''"
+                   style="display:none" />
+          </label>
+
+          <div class="import-links">
+            <a class="btn secondary small" href="/api/commercial/products/import-template.csv" download>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Baixar modelo
             </a>
-            <span class="muted">2. Preencher no Excel</span>
-            <label class="btn">
-              3. Escolher arquivo
-              <input type="file" accept=".csv,text/csv" @change="pickImportFile($event)" style="display:none" />
-            </label>
+            <% if (user.permissions.has('commercial.products.view')) { %>
+            <a class="btn secondary small" href="/api/commercial/products/export.csv" download>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Exportar catálogo atual
+            </a>
+            <% } %>
           </div>
+
           <p class="muted import-hint">
-            Já tem produtos cadastrados? Use <strong>Exportar</strong>, edite a planilha e importe de volta —
-            os produtos existentes são atualizados, não duplicados.
+            Já tem produtos cadastrados? Exporte, edite a planilha e importe de volta — os produtos
+            existentes são <strong>atualizados, não duplicados</strong>. Nas colunas de referência
+            (<code>produto_pai</code>, <code>componentes</code>, <code>ficha_tecnica</code>) vale o
+            SKU, o uuid ou o <strong>nome exato</strong> do produto, inclusive de outra linha do
+            mesmo arquivo.
           </p>
           <div class="error" x-text="importError"></div>
           <div class="muted" x-show="importLoading">Conferindo o arquivo…</div>
@@ -609,17 +631,43 @@
 
       <!-- Passo 1b: conferência -->
       <template x-if="importReport && !importStep2">
-        <div>
+        <div class="import-pane has-table">
+          <!-- Os contadores são o filtro: com 24 erros em 32 linhas, o que se quer é ver
+               só as 24. Clicar no chip filtra a lista abaixo. -->
           <div class="import-summary">
-            <span class="import-chip novo" x-text="importReport.totals.novos + ' novo(s)'"></span>
-            <span class="import-chip atualizar" x-text="importReport.totals.atualizar + ' para atualizar'"></span>
-            <span class="import-chip erro" x-show="importReport.totals.erros > 0" x-text="importReport.totals.erros + ' com erro'"></span>
+            <button type="button" class="import-chip filtro" :class="{ on: importFilter === 'todos' }"
+                    @click="importFilter = 'todos'" x-text="importReport.totals.total + ' linha(s)'"></button>
+            <button type="button" class="import-chip novo filtro" :class="{ on: importFilter === 'novo' }"
+                    x-show="importReport.totals.novos" @click="importFilter = 'novo'"
+                    x-text="importReport.totals.novos + ' novo(s)'"></button>
+            <button type="button" class="import-chip atualizar filtro" :class="{ on: importFilter === 'atualizar' }"
+                    x-show="importReport.totals.atualizar" @click="importFilter = 'atualizar'"
+                    x-text="importReport.totals.atualizar + ' para atualizar'"></button>
+            <button type="button" class="import-chip erro filtro" :class="{ on: importFilter === 'erro' }"
+                    x-show="importReport.totals.erros" @click="importFilter = 'erro'"
+                    x-text="importReport.totals.erros + ' com erro'"></button>
             <span class="muted" x-text="importFileName"></span>
           </div>
 
+          <!-- Erros agrupados por formato: 24 linhas com o mesmo problema viram uma
+               entrada com a contagem e o que fazer, em vez de 24 mensagens iguais. -->
           <div class="import-alert erro" x-show="importReport.totals.erros > 0">
-            <strong x-text="importReport.totals.erros + ' linha(s) com erro.'"></strong>
-            Corrija na planilha e importe de novo — <strong>nada é gravado enquanto houver erro</strong>.
+            <div class="import-alert-head">
+              <strong x-text="importReport.totals.erros + ' linha(s) com erro — nada é gravado enquanto houver erro.'"></strong>
+              <button type="button" class="btn secondary small" @click="copyErrors(importReport)">Copiar erros</button>
+            </div>
+            <ul class="import-problems">
+              <template x-for="p in problemsOf(importReport)" :key="p.key">
+                <li>
+                  <span class="import-problem-count" x-text="p.count + '×'"></span>
+                  <span>
+                    <span x-text="p.label"></span>
+                    <span class="muted" x-text="' — linha(s) ' + p.lines"></span>
+                    <em class="import-fix" x-show="p.fix" x-text="p.fix"></em>
+                  </span>
+                </li>
+              </template>
+            </ul>
           </div>
           <div class="import-alert info" x-show="importReport.newCategories.length">
             Vai criar <strong x-text="importReport.newCategories.length"></strong> categoria(s):
@@ -635,7 +683,7 @@
                 </tr>
               </thead>
               <tbody>
-                <template x-for="r in importReport.rows" :key="r.line">
+                <template x-for="r in filterRowsBy(importReport, importFilter)" :key="r.line">
                   <tr :class="r.status === 'erro' ? 'row-erro' : ''">
                     <td class="num" x-text="r.line"></td>
                     <td>
@@ -651,9 +699,19 @@
                     <td class="num" x-text="brl(r.data.priceCents)"></td>
                     <td class="num" x-text="brl(r.data.costCents)"></td>
                     <td class="num" x-text="r.data.initialStock ?? '—'"></td>
-                    <td class="import-erros" x-text="r.errors.join(' · ') || '—'"></td>
+                    <td class="import-erros">
+                      <template x-if="!r.errors.length"><span class="muted">—</span></template>
+                      <ul x-show="r.errors.length">
+                        <template x-for="(e, i) in r.errors" :key="i"><li x-text="e"></li></template>
+                      </ul>
+                    </td>
                   </tr>
                 </template>
+                <tr x-show="!filterRowsBy(importReport, importFilter).length">
+                  <td colspan="10" class="muted" style="text-align:center;padding:1.2rem">
+                    Nenhuma linha nesta situação.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -662,96 +720,140 @@
       </template>
 
       <!-- Passo 2: complementos (opcional) — depois de confirmar os produtos. -->
-      <template x-if="importStep2">
-        <div>
-          <template x-if="!compReport">
-            <div>
-              <p class="muted" style="margin-top:0">
-                Produtos gravados. Quer também importar grupos de complemento? Cada linha é uma
-                opção (sabor, borda, tamanho…) com preço e ordem no grupo. Grupos que não estiverem
-                no arquivo não são alterados.
-              </p>
-              <div class="import-steps">
-                <a class="btn secondary" href="/api/commercial/products/complements-template.csv" download>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  1. Baixar modelo
-                </a>
-                <span class="muted">2. Preencher no Excel</span>
-                <label class="btn">
-                  3. Escolher arquivo
-                  <input type="file" accept=".csv,text/csv" @change="pickCompFile($event)" style="display:none" />
-                </label>
-              </div>
-              <p class="muted import-hint">
-                Já tem grupos cadastrados? Use <strong>Exportar complementos</strong>, edite e importe
-                de volta — as opções existentes são atualizadas, não duplicadas.
-              </p>
-              <div class="error" x-text="compError"></div>
-              <div class="muted" x-show="compLoading">Conferindo o arquivo…</div>
-            </div>
-          </template>
+      <template x-if="importStep2 && !compReport">
+        <div class="import-pane">
+          <p class="muted" style="margin-top:0">
+            Produtos gravados. Quer também importar grupos de complemento? Cada linha é uma
+            opção (sabor, borda, tamanho…) com preço e ordem no grupo. Grupos que não estiverem
+            no arquivo não são alterados.
+          </p>
 
-          <template x-if="compReport">
-            <div>
-              <div class="import-summary">
-                <span class="import-chip novo" x-text="compReport.totals.novos + ' nova(s)'"></span>
-                <span class="import-chip atualizar" x-text="compReport.totals.atualizar + ' para atualizar'"></span>
-                <span class="import-chip erro" x-show="compReport.totals.erros > 0" x-text="compReport.totals.erros + ' com erro'"></span>
-                <span class="muted" x-text="compFileName"></span>
-              </div>
+          <label class="import-drop" :class="{ over: compDragging }"
+                 @dragover.prevent="compDragging = true"
+                 @dragleave.prevent="compDragging = false"
+                 @drop.prevent="compDragging = false; readCompFile($event.dataTransfer.files && $event.dataTransfer.files[0])">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <strong>Arraste o arquivo de complementos aqui</strong>
+            <span class="muted">ou clique para escolher</span>
+            <input type="file" accept=".csv,text/csv"
+                   @change="readCompFile($event.target.files && $event.target.files[0]); $event.target.value = ''"
+                   style="display:none" />
+          </label>
 
-              <div class="import-alert erro" x-show="compReport.totals.erros > 0">
-                <strong x-text="compReport.totals.erros + ' linha(s) com erro.'"></strong>
-                Corrija na planilha e importe de novo — <strong>nada é gravado enquanto houver erro</strong>.
-              </div>
-              <div class="import-alert info" x-show="compReport.groups.some(g => g.novo)">
-                Vai criar <strong x-text="compReport.groups.filter(g => g.novo).length"></strong> grupo(s):
-                <span x-text="compReport.groups.filter(g => g.novo).map(g => g.name).join(', ')"></span>
-              </div>
+          <div class="import-links">
+            <a class="btn secondary small" href="/api/commercial/products/complements-template.csv" download>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Baixar modelo
+            </a>
+            <% if (user.permissions.has('commercial.products.view') && caps.complementos) { %>
+            <a class="btn secondary small" href="/api/commercial/products/complements-export.csv" download>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Exportar complementos atuais
+            </a>
+            <% } %>
+          </div>
 
-              <div class="import-table-wrap">
-                <table class="import-table">
-                  <thead>
-                    <tr>
-                      <th>Linha</th><th>Situação</th><th>Grupo</th><th class="num">Mín</th><th class="num">Máx</th>
-                      <th>Opção (SKU)</th><th class="num">Preço</th><th>Problema</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="r in compReport.rows" :key="r.line">
-                      <tr :class="r.status === 'erro' ? 'row-erro' : ''">
-                        <td class="num" x-text="r.line"></td>
-                        <td>
-                          <span class="import-chip" :class="r.status"
-                                x-text="r.status === 'novo' ? 'novo' : r.status === 'atualizar' ? 'atualizar' : 'erro'"></span>
-                        </td>
-                        <td x-text="r.data.groupName || '—'"></td>
-                        <td class="num" x-text="r.data.minSelect ?? '—'"></td>
-                        <td class="num" x-text="r.data.maxSelect ?? '—'"></td>
-                        <td class="mono" x-text="r.data.optionSku || '—'"></td>
-                        <td class="num" x-text="r.data.priceOverrideCents != null ? brl(r.data.priceOverrideCents) : '—'"></td>
-                        <td class="import-erros" x-text="r.errors.join(' · ') || '—'"></td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-              <div class="error" x-text="compError"></div>
-            </div>
-          </template>
+          <p class="muted import-hint">
+            A coluna <code>opcao_sku</code> aceita SKU, uuid ou o nome exato do produto —
+            inclusive de um produto que você acabou de criar na etapa anterior.
+          </p>
+          <div class="error" x-text="compError"></div>
+          <div class="muted" x-show="compLoading">Conferindo o arquivo…</div>
         </div>
       </template>
 
+      <template x-if="importStep2 && compReport">
+        <div class="import-pane has-table">
+          <div class="import-summary">
+            <button type="button" class="import-chip filtro" :class="{ on: compFilter === 'todos' }"
+                    @click="compFilter = 'todos'" x-text="compReport.totals.total + ' linha(s)'"></button>
+            <button type="button" class="import-chip novo filtro" :class="{ on: compFilter === 'novo' }"
+                    x-show="compReport.totals.novos" @click="compFilter = 'novo'"
+                    x-text="compReport.totals.novos + ' nova(s)'"></button>
+            <button type="button" class="import-chip atualizar filtro" :class="{ on: compFilter === 'atualizar' }"
+                    x-show="compReport.totals.atualizar" @click="compFilter = 'atualizar'"
+                    x-text="compReport.totals.atualizar + ' para atualizar'"></button>
+            <button type="button" class="import-chip erro filtro" :class="{ on: compFilter === 'erro' }"
+                    x-show="compReport.totals.erros" @click="compFilter = 'erro'"
+                    x-text="compReport.totals.erros + ' com erro'"></button>
+            <span class="muted" x-text="compFileName"></span>
+          </div>
+
+          <div class="import-alert erro" x-show="compReport.totals.erros > 0">
+            <div class="import-alert-head">
+              <strong x-text="compReport.totals.erros + ' linha(s) com erro — nada é gravado enquanto houver erro.'"></strong>
+              <button type="button" class="btn secondary small" @click="copyErrors(compReport)">Copiar erros</button>
+            </div>
+            <ul class="import-problems">
+              <template x-for="p in problemsOf(compReport)" :key="p.key">
+                <li>
+                  <span class="import-problem-count" x-text="p.count + '×'"></span>
+                  <span>
+                    <span x-text="p.label"></span>
+                    <span class="muted" x-text="' — linha(s) ' + p.lines"></span>
+                    <em class="import-fix" x-show="p.fix" x-text="p.fix"></em>
+                  </span>
+                </li>
+              </template>
+            </ul>
+          </div>
+          <div class="import-alert info" x-show="compReport.groups.some(g => g.novo)">
+            Vai criar <strong x-text="compReport.groups.filter(g => g.novo).length"></strong> grupo(s):
+            <span x-text="compReport.groups.filter(g => g.novo).map(g => g.name).join(', ')"></span>
+          </div>
+
+          <div class="import-table-wrap">
+            <table class="import-table">
+              <thead>
+                <tr>
+                  <th>Linha</th><th>Situação</th><th>Grupo</th><th class="num">Mín</th><th class="num">Máx</th>
+                  <th>Opção (SKU)</th><th class="num">Preço</th><th>Problema</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="r in filterRowsBy(compReport, compFilter)" :key="r.line">
+                  <tr :class="r.status === 'erro' ? 'row-erro' : ''">
+                    <td class="num" x-text="r.line"></td>
+                    <td>
+                      <span class="import-chip" :class="r.status"
+                            x-text="r.status === 'novo' ? 'novo' : r.status === 'atualizar' ? 'atualizar' : 'erro'"></span>
+                    </td>
+                    <td x-text="r.data.groupName || '—'"></td>
+                    <td class="num" x-text="r.data.minSelect ?? '—'"></td>
+                    <td class="num" x-text="r.data.maxSelect ?? '—'"></td>
+                    <td class="mono" x-text="r.data.optionSku || '—'"></td>
+                    <td class="num" x-text="r.data.priceOverrideCents != null ? brl(r.data.priceOverrideCents) : '—'"></td>
+                    <td class="import-erros">
+                      <template x-if="!r.errors.length"><span class="muted">—</span></template>
+                      <ul x-show="r.errors.length">
+                        <template x-for="(e, i) in r.errors" :key="i"><li x-text="e"></li></template>
+                      </ul>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="!filterRowsBy(compReport, compFilter).length">
+                  <td colspan="8" class="muted" style="text-align:center;padding:1.2rem">
+                    Nenhuma linha nesta situação.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="error" x-text="compError"></div>
+        </div>
+      </template>
+
+      </div>
+
       <div class="actions">
-        <button class="btn secondary" @click="closeImport()">Cancelar</button>
+        <button class="btn secondary" @click="closeImport()" x-text="importStep2 ? 'Pular complementos' : 'Cancelar'"></button>
         <button class="btn secondary" x-show="importReport && !importStep2" @click="resetImport()">Trocar arquivo</button>
         <button class="btn" x-show="importReport && !importStep2"
                 :disabled="importReport && (importReport.totals.erros > 0 || importSaving)"
                 @click="confirmImport()"
                 x-text="importSaving ? 'Gravando…' : 'Confirmar produtos'"></button>
-        <button class="btn secondary" x-show="importStep2" @click="closeImport()">Pular</button>
         <button class="btn secondary" x-show="importStep2 && compReport" @click="resetCompImport()">Trocar arquivo</button>
-        <button class="btn" x-show="importStep2 && caps.complementos"
+        <button class="btn" x-show="importStep2 && compReport && caps.complementos"
                 :disabled="compReport && (compReport.totals.erros > 0 || compSaving)"
                 @click="confirmCompImport()"
                 x-text="compSaving ? 'Gravando…' : 'Confirmar complementos'"></button>
@@ -1266,8 +1368,9 @@
         // Importação
         caps: { complementos: <%= caps.complementos %> },
         importCsv: '', importFileName: '', importReport: null, importError: '', importLoading: false, importSaving: false,
-        importStep2: false,
+        importStep2: false, importFilter: 'todos', importDragging: false,
         compCsv: '', compFileName: '', compReport: null, compError: '', compLoading: false, compSaving: false,
+        compFilter: 'todos', compDragging: false,
         rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
@@ -1335,7 +1438,7 @@
         resetImport() {
           this.importCsv = ''; this.importFileName = ''; this.importReport = null;
           this.importError = ''; this.importLoading = false; this.importSaving = false;
-          this.importStep2 = false;
+          this.importStep2 = false; this.importFilter = 'todos'; this.importDragging = false;
         },
         closeImport() {
           this.$refs.importDlg.close();
@@ -1345,6 +1448,68 @@
         resetCompImport() {
           this.compCsv = ''; this.compFileName = ''; this.compReport = null;
           this.compError = ''; this.compLoading = false; this.compSaving = false;
+          this.compFilter = 'todos'; this.compDragging = false;
+        },
+        // ─── Conferência: filtro e leitura dos erros (serve aos dois arquivos) ───
+        filterRowsBy(report, filter) {
+          const rows = (report && report.rows) || [];
+          return filter === 'todos' ? rows : rows.filter(r => r.status === filter);
+        },
+        /**
+         * Agrupa os erros por FORMATO da mensagem. Trocar o trecho entre aspas por "…"
+         * faz "produto_pai 'A' não encontrado" e "produto_pai 'B' não encontrado"
+         * caírem no mesmo balde: o usuário lê um problema com contagem, não 24
+         * mensagens iguais numa coluna estreita.
+         */
+        problemsOf(report) {
+          const groups = new Map();
+          for (const r of (report && report.rows) || []) {
+            for (const e of r.errors) {
+              const key = String(e).replace(/"[^"]*"/g, '"…"');
+              let g = groups.get(key);
+              if (!g) { g = { key, label: key, count: 0, lines: [], fix: this.fixHint(key) }; groups.set(key, g); }
+              g.count++;
+              if (g.lines.length < 8) g.lines.push(r.line);
+              else if (g.lines.length === 8) g.lines.push('…');
+            }
+          }
+          return [...groups.values()]
+            .sort((a, b) => b.count - a.count)
+            .map(g => ({ ...g, lines: g.lines.join(', ') }));
+        },
+        /** O que fazer na planilha para o erro sumir. Sem isto, "não encontrado" é um beco sem saída. */
+        fixHint(msg) {
+          const m = String(msg).toLowerCase();
+          if (m.includes('não encontrado')) return 'Vale o SKU, o uuid ou o nome exato do produto — inclusive de outra linha deste mesmo arquivo. Confira a grafia.';
+          if (m.includes('produtos com esse nome')) return 'Preencha a coluna sku no produto referenciado e use esse SKU aqui.';
+          if (m.includes('não é um produto variante')) return 'A linha do produto pai precisa ter tipo "variante" e a coluna produto_pai vazia.';
+          if (m.includes('código de barras inválido')) return 'Confira o dígito verificador (EAN-8/EAN-13). Sem código, deixe a coluna em branco.';
+          if (m.includes('repetido')) return 'Duas linhas com a mesma chave. Apague a duplicata ou diferencie o valor.';
+          if (m.includes('conflito')) return 'As colunas de identificação apontam para produtos diferentes. Deixe preenchida só a chave certa.';
+          if (m.includes('valor inválido') || m.includes('preço')) return 'Use vírgula como decimal: 18,90. Sem texto e sem símbolo além de R$.';
+          if (m.includes('ncm')) return 'NCM tem 8 dígitos, sem ponto (ex.: 09011110).';
+          if (m.includes('cest')) return 'CEST tem 7 dígitos.';
+          if (m.includes('origem')) return 'Origem é um número de 0 a 8 (0 = nacional).';
+          if (m.includes('estoque inicial só vale')) return 'Deixe estoque_inicial em branco: em produto que já existe o saldo muda por movimentação de estoque.';
+          if (m.includes('tipo inválido')) return 'Escreva o tipo em minúsculas, exatamente como na mensagem.';
+          if (m.includes('kit dentro de kit')) return 'Troque o componente por produtos simples.';
+          if (m.includes('desligados')) return 'Ligue o recurso em Configurações › Recursos e importe de novo.';
+          if (m.includes('kit/combo precisa')) return 'Preencha componentes com SKU*quantidade, separados por | (ex.: CAF-001*1|PAO-001*2).';
+          if (m.includes('produzido precisa')) return 'Preencha ficha_tecnica com SKU*quantidade, separados por | (ex.: FAR-01*0,5).';
+          if (m.includes('ciclo')) return 'Um produzido não pode consumir a si mesmo, nem direta nem indiretamente.';
+          if (m.includes('atributo')) return 'Use Nome=Valor separados por | (ex.: Tamanho=M|Cor=Azul), sem repetir o mesmo atributo.';
+          if (m.includes('nome é obrigatório')) return 'Toda linha precisa da coluna nome preenchida.';
+          return '';
+        },
+        copyErrors(report) {
+          const txt = ((report && report.rows) || [])
+            .filter(r => r.errors.length)
+            .map(r => `linha ${r.line}: ${r.errors.join(' · ')}`)
+            .join('\n');
+          if (!txt) return;
+          navigator.clipboard.writeText(txt)
+            .then(() => showToast('Erros copiados para a área de transferência.', 'success'))
+            .catch(() => showToast('Não consegui copiar.', 'error'));
         },
         relLabel(r) {
           const d = r.data || {};
@@ -1359,10 +1524,14 @@
           if ((d.complementGroups || []).length) parts.push('compl: ' + d.complementGroups.join(', '));
           return parts.join(' · ') || '—';
         },
-        async pickImportFile(e) {
-          const file = e.target.files?.[0];
-          e.target.value = ''; // permite reescolher o mesmo arquivo depois
+        // Um caminho só para clicar e para arrastar-e-soltar — quem arrasta a planilha
+        // do Explorer tem que cair na mesma conferência de quem usa o seletor.
+        async readImportFile(file) {
           if (!file) return;
+          if (!/\.csv$/i.test(file.name)) {
+            this.importError = `"${file.name}" não é um .csv. No Excel, use "Salvar como → CSV UTF-8".`;
+            return;
+          }
           this.importError = '';
           this.importLoading = true;
           try {
@@ -1382,6 +1551,8 @@
             const data = await r.json();
             if (!r.ok) { this.importError = data.error ?? 'Não consegui ler o arquivo.'; return; }
             this.importReport = data;
+            // Havendo erro, a lista já abre filtrada nele: é o que a pessoa veio ver.
+            this.importFilter = data.totals.erros > 0 ? 'erro' : 'todos';
           } catch (err) {
             this.importError = String(err);
           } finally {
@@ -1416,10 +1587,12 @@
             this.importSaving = false;
           }
         },
-        async pickCompFile(e) {
-          const file = e.target.files?.[0];
-          e.target.value = ''; // permite reescolher o mesmo arquivo depois
+        async readCompFile(file) {
           if (!file) return;
+          if (!/\.csv$/i.test(file.name)) {
+            this.compError = `"${file.name}" não é um .csv. No Excel, use "Salvar como → CSV UTF-8".`;
+            return;
+          }
           this.compError = '';
           this.compLoading = true;
           try {
@@ -1437,6 +1610,7 @@
             const data = await r.json();
             if (!r.ok) { this.compError = data.error ?? 'Não consegui ler o arquivo.'; return; }
             this.compReport = data;
+            this.compFilter = data.totals.erros > 0 ? 'erro' : 'todos';
           } catch (err) {
             this.compError = String(err);
           } finally {

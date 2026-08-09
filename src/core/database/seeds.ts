@@ -85,7 +85,10 @@ export function runSeeds(): void {
     db.prepare(
       `INSERT INTO users (username, name, password_hash, role_id, uuid) VALUES (?, ?, ?, ?, ?)`,
     ).run('admin', 'Administrador', bcrypt.hashSync('admin', 10), roleId, randomUUID());
-    console.warn('[seeds] usuário inicial criado: admin / admin — TROQUE A SENHA no primeiro acesso.');
+    // Credencial de fábrica: ninguém precisa conhecê-la. Enquanto ela estiver intacta, a
+    // home mostra a tela de primeiro acesso, onde o dono cria o próprio usuário e senha
+    // (ver isFirstRunSetupPending em core/auth/service.ts).
+    console.warn('[seeds] usuário inicial de fábrica criado (admin/admin) — a tela de primeiro acesso substitui essa credencial.');
   }
 
   // Configurações padrão do sistema — inseridas apenas se ainda não existirem,

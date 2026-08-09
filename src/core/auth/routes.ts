@@ -1,12 +1,12 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
-import { login, logout, verifyPassword, hashPassword } from './service';
+import { login, logout, verifyPassword, hashPassword, isFirstRunSetupPending, completeFirstRunSetup } from './service';
 import { SESSION_COOKIE } from './middleware';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
 import { assertAuth } from '../../shared/auth';
 import { validateBody } from '../../shared/validateBody';
-import { loginSchema, changePasswordSchema } from '../../shared/schemas';
+import { loginSchema, changePasswordSchema, firstRunSetupSchema } from '../../shared/schemas';
 
 const router = Router();
 
@@ -18,6 +18,35 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const firstRunLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Muitas tentativas. Aguarde 1 minuto.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+type Session = NonNullable<ReturnType<typeof login>>;
+
+function startSession(req: Request, res: Response, result: Session): void {
+  res.cookie(SESSION_COOKIE, result.token, {
+    httpOnly: true,
+    sameSite: 'strict',
+    expires: new Date(result.expiresAt),
+  });
+  req.user = result.user;
+}
+
+function publicUser(user: Session['user']) {
+  return {
+    id: user.id,
+    name: user.name,
+    username: user.username,
+    role: user.roleSlug,
+    permissions: [...user.permissions],
+  };
+}
+
 router.post('/login', loginLimiter, validateBody(loginSchema), (req, res) => {
   const { username, password, remember } = req.body;
   const result = login(username, password, remember, req.ip);
@@ -26,22 +55,39 @@ router.post('/login', loginLimiter, validateBody(loginSchema), (req, res) => {
     res.status(401).json({ error: 'Usuário ou senha inválidos.' });
     return;
   }
-  res.cookie(SESSION_COOKIE, result.token, {
-    httpOnly: true,
-    sameSite: 'strict',
-    expires: new Date(result.expiresAt),
-  });
-  req.user = result.user;
+  startSession(req, res, result);
   audit(req, 'login', 'user', result.user.id);
-  res.json({
-    user: {
-      id: result.user.id,
-      name: result.user.name,
-      username: result.user.username,
-      role: result.user.roleSlug,
-      permissions: [...result.user.permissions],
-    },
-  });
+  res.json({ user: publicUser(result.user) });
+});
+
+/**
+ * Primeiro acesso — rotas PÚBLICAS por necessidade: quem acabou de aceitar o teste não
+ * tem sessão e nunca recebeu credencial nenhuma, então não há como exigir autenticação
+ * aqui. A guarda é o estado de fábrica (ver isFirstRunSetupPending): enquanto a senha
+ * ainda for admin/admin, qualquer um que alcance o app já entraria com ela — esta tela
+ * não abre porta nova, fecha a que estava aberta. Trocada a senha, o GET passa a devolver
+ * false e o POST é recusado.
+ */
+router.get('/first-run', (_req, res) => {
+  res.json({ pending: isFirstRunSetupPending() });
+});
+
+router.post('/first-run', firstRunLimiter, validateBody(firstRunSetupSchema), (req, res) => {
+  const { name, username, password } = req.body;
+  const setup = completeFirstRunSetup({ name, username, password });
+  if (!setup.ok) {
+    res.status(409).json({ error: setup.error });
+    return;
+  }
+  const result = login(String(username).trim().toLowerCase(), password, true, req.ip);
+  if (!result) {
+    // Credencial acabou de ser gravada; se o login falhar aqui é bug, não senha errada.
+    res.status(500).json({ error: 'Acesso criado, mas não foi possível entrar. Recarregue a página e faça login.' });
+    return;
+  }
+  startSession(req, res, result);
+  audit(req, 'primeiro_acesso', 'user', result.user.id, null, { username: result.user.username });
+  res.json({ user: publicUser(result.user) });
 });
 
 router.post('/logout', (req, res) => {

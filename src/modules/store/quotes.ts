@@ -149,7 +149,7 @@ export function createQuote(
 export function convertQuote(
   req: Request,
   quoteId: number,
-  payment: Pick<SaleInput, 'paymentMethod' | 'paidCents' | 'payments' | 'customerId' | 'dueDate' | 'clientRequestId'>,
+  payment: Pick<SaleInput, 'paymentMethod' | 'paidCents' | 'payments' | 'customerId' | 'customerName' | 'dueDate' | 'clientRequestId'>,
   items?: QuoteItemInput[],
 ): ReturnType<typeof createSale> {
   // Garante atomicidade: a leitura do orçamento, a venda e a marcação como convertido
@@ -161,7 +161,7 @@ export function convertQuote(
         'SELECT * FROM quotes WHERE id = ? AND deleted_at IS NULL',
         quoteId,
       ) as
-        | { id: number; status: string; customer_id: number | null; discount_cents: number; surcharge_cents: number; valid_until: string | null }
+        | { id: number; status: string; customer_id: number | null; customer_name: string | null; discount_cents: number; surcharge_cents: number; valid_until: string | null }
         | undefined;
       if (!quote) throw new Error('Orçamento não encontrado.');
       if (quote.status !== 'aberto') throw new Error(`Orçamento já está "${quote.status}".`);
@@ -197,6 +197,9 @@ export function convertQuote(
         discountCents: quote.discount_cents,
         surchargeCents: quote.surcharge_cents,
         customerId: payment.customerId ?? quote.customer_id ?? undefined,
+        // O nome de balcão do orçamento tem que atravessar a conversão: sem isto a venda
+        // nasce sem cliente nenhum e o histórico perde o "para quem foi" da cotação.
+        customerName: payment.customerName ?? quote.customer_name ?? undefined,
         dueDate: payment.dueDate,
         clientRequestId: payment.clientRequestId,
       }, { allowPriceOverride: true, allowDiscount: true });

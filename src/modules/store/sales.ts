@@ -44,6 +44,8 @@ export interface SaleInput {
   discountCents?: number;
   surchargeCents?: number;
   customerId?: number;
+  /** Nome livre de quem comprou, para quem não está (ou não quer estar) cadastrado. */
+  customerName?: string;
   dueDate?: string;
   clientRequestId?: string;
 }
@@ -150,6 +152,29 @@ function resolveSaleItems(
     }
   }
   return items;
+}
+
+/**
+ * Nome do comprador congelado na venda, mesma ideia de sale_items.product_name: o histórico
+ * mostra quem comprou naquele dia, não quem o cadastro virou depois.
+ *
+ * Cliente cadastrado tem o nome copiado do cadastro — é a identidade autoritativa e o que
+ * a listagem mostra. Sem cadastro, vale o texto que o operador digitou (venda de balcão,
+ * orçamento fechado no nome de quem passou na loja). Sem nenhum dos dois, fica null e a
+ * tela mostra "—", como antes.
+ */
+function resolveCustomerName(input: SaleInput): string | null {
+  if (input.customerId) {
+    const c = customerRepository.rawOne(
+      'SELECT name FROM customers WHERE id = ? AND deleted_at IS NULL',
+      input.customerId,
+    ) as { name: string } | undefined;
+    if (c?.name) return c.name;
+  }
+  // typeof: nem toda rota que chega aqui passa por zod (o fechamento de comanda lê o
+  // corpo cru), então o campo pode vir com qualquer coisa dentro.
+  const typed = typeof input.customerName === 'string' ? input.customerName.trim() : '';
+  return typed ? typed.slice(0, 120) : null;
 }
 
 function resolveSalePayments(
@@ -276,6 +301,8 @@ export function createSale(
   const reg = cash.currentRegister();
   if (!reg) return { ok: false, error: 'Abra o caixa antes de realizar uma venda.' };
 
+  const customerName = resolveCustomerName(input);
+
   const totalChange = sumCents(...resolved.map((p) => p.changeCents));
   const totalFee = sumCents(...resolved.map((p) => p.feeCents));
   const primaryMethod = resolved.length === 1 ? resolved[0].method.type : 'multiplo';
@@ -292,6 +319,7 @@ export function createSale(
     saleRepository.transaction(() => {
       saleId = saleRepository.create({
         customer_id: input.customerId ?? null,
+        customer_name: customerName,
         subtotal_cents: subtotal,
         discount_cents: discount,
         surcharge_cents: surcharge,

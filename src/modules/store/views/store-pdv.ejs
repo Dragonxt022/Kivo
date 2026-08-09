@@ -98,10 +98,23 @@
 
         <div class="cart-header">
           <h2>Carrinho <span class="count" x-text="'(' + cart.length + ')'"></span></h2>
-          <select x-model.number="customerId" @change="repriceCart(); loadCustomerBalances()" class="select">
-            <option value="">Cliente (preço normal)</option>
-            <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
-          </select>
+          <%# Cliente não é obrigatório e não exige cadastro: digitar um nome qualquer já
+              identifica a venda no histórico. Se o nome digitado bater com um cliente
+              cadastrado, o vínculo (customerId) é feito sozinho e volta a valer tabela de
+              preço, crédito de loja, fidelidade e convênio. %>
+          <div class="cart-customer" :class="customerId ? 'linked' : ''">
+            <span class="cart-customer-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <input type="text" list="pdv-customer-list" x-model="customerName" @input="onCustomerNameInput()"
+                   maxlength="120" autocomplete="off" spellcheck="false"
+                   placeholder="Cliente (opcional)" title="Selecione um cliente cadastrado ou digite um nome" />
+            <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
+                    @click="customerName = ''; onCustomerNameInput()" title="Limpar cliente">×</button>
+            <datalist id="pdv-customer-list">
+              <template x-for="c in customers" :key="c.id"><option :value="c.name"></option></template>
+            </datalist>
+          </div>
         </div>
 
         <div class="cart-items">
@@ -649,9 +662,14 @@
     <!-- ─── MODAL: Salvar carrinho como orçamento ─── -->
     <dialog x-ref="quoteDlg" style="width:min(460px,94vw)">
       <h1 x-text="slots[activeSlot].quoteId ? ('Orçamento #' + slots[activeSlot].quoteId) : 'Salvar como orçamento'"></h1>
-      <p class="muted muted-sm">Os preços do carrinho ficam congelados até a validade. O cliente é o selecionado no carrinho.</p>
-      <label>Nome do cliente (se não for cadastrado)</label>
-      <input type="text" x-model="quoteForm.customerName" placeholder="Cliente de balcão" />
+      <p class="muted muted-sm">Os preços do carrinho ficam congelados até a validade.</p>
+      <%# O cliente vem do campo do carrinho — um lugar só, cadastrado ou não. Dois campos
+          de nome (aqui e no carrinho) já causaram orçamento salvo no nome errado. %>
+      <p class="muted muted-sm" style="margin-bottom:.75rem">
+        <strong>Cliente:</strong>
+        <span x-show="customerName" x-text="customerName + (customerId ? ' (cadastrado)' : '')"></span>
+        <span x-show="!customerName">nenhum — informe um nome no carrinho para identificar o orçamento.</span>
+      </p>
       <label>Válido até</label>
       <input type="date" x-model="quoteForm.validUntil" />
       <label>Observações</label>
@@ -756,7 +774,7 @@
         // Vendas simultâneas (até 4 "guichês" no mesmo PDV — atender outro cliente sem
         // perder o carrinho do anterior) + persistência em localStorage (sobrevive a
         // navegar pra outra tela e voltar, ou recarregar a página sem querer).
-        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null }],
+        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null }],
         justClosedComandaId: null,
         activeSlot: 0,
         q: '', results: [], customers: [], methods: [],
@@ -771,6 +789,8 @@
         set lastSaleId(v) { this.slots[this.activeSlot].lastSaleId = v; },
         get customerId() { return this.slots[this.activeSlot].customerId ?? ''; },
         set customerId(v) { this.slots[this.activeSlot].customerId = v; },
+        get customerName() { return this.slots[this.activeSlot].customerName ?? ''; },
+        set customerName(v) { this.slots[this.activeSlot].customerName = v; },
         valueDlg: { kind: 'desconto', amount: '', mode: 'valor', error: '' },
         pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, clientRequestId: '' },
         showSplit: false, showCashReceived: false,
@@ -784,7 +804,7 @@
         cloudOnline: false,
         complementDlg: { product: null, groups: [], selections: {}, mainNotes: '', errors: {} },
         noteDlg: { idx: null, text: '' },
-        quoteForm: { customerName: '', validUntil: '', notes: '', error: '', saving: false },
+        quoteForm: { validUntil: '', notes: '', error: '', saving: false },
 
         // ─── Complementos ───
         openComplementDlg(product, groups) {
@@ -884,7 +904,7 @@
         },
         addSlot() {
           if (this.slots.length >= 4) return;
-          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
+          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
           this.activeSlot = this.slots.length - 1;
           this.persistSlots();
           this.focusSearch();
@@ -923,7 +943,16 @@
           ]);
           if (m.ok) { this.methods = await m.json(); if (this.methods.length) this.pay.methodId = this.methods[0].id; }
           if (s.ok) this.appSettings = await s.json();
-          if (c.ok) this.customers = await c.json();
+          if (c.ok) {
+            this.customers = await c.json();
+            // Carrinho salvo antes do campo de nome existir só tem o customerId: sem este
+            // preenchimento o campo apareceria vazio com um cliente ainda vinculado.
+            this.slots.forEach((slot) => {
+              if (!slot.customerId || slot.customerName) return;
+              const known = this.customers.find((cust) => cust.id === slot.customerId);
+              if (known) slot.customerName = known.name;
+            });
+          }
           if (p.ok) {
             // Carrinho persistido em localStorage pode referenciar produto excluído/inativado
             // desde a última sessão — sem essa limpeza, o item fica "fantasma" no carrinho e
@@ -991,13 +1020,19 @@
           }));
           const needsNewSlot = this.slots[this.activeSlot].cart.length > 0 || this.slots[this.activeSlot].comandaId;
           if (needsNewSlot) {
-            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
+            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
             this.activeSlot = this.slots.length - 1;
           }
           this.slots[this.activeSlot] = {
             cart, discountCents: 0, surchargeCents: 0, lastSaleId: null,
-            customerId: c.customer_id || '', comandaId: id, tableLabel: c.table_label || null,
+            customerId: c.customer_id || '', customerName: c.customer_name || '',
+            comandaId: id, tableLabel: c.table_label || null,
           };
+          // A comanda só guarda o FK; o nome do cadastro vem da lista já carregada.
+          if (this.customerId && !this.customerName) {
+            const known = this.customers.find((cust) => cust.id === this.customerId);
+            if (known) this.customerName = known.name;
+          }
           this.persistSlots();
         },
         // ─── Orçamento ↔ PDV ───
@@ -1014,17 +1049,20 @@
           }));
           const slot = this.slots[this.activeSlot];
           if (slot.cart.length || slot.comandaId || slot.quoteId) {
-            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
+            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
             this.activeSlot = this.slots.length - 1;
           }
           this.slots[this.activeSlot] = {
             cart, discountCents: q.discount_cents || 0, surchargeCents: q.surcharge_cents || 0,
-            lastSaleId: null, customerId: q.customer_id || '', comandaId: null, tableLabel: null,
+            lastSaleId: null, customerId: q.customer_id || '',
+            // Cliente cadastrado devolve o nome pelo JOIN (q.customer); orçamento de balcão
+            // só tem o texto livre. Os dois preenchem o mesmo campo do carrinho.
+            customerName: q.customer || q.customer_name || '',
+            comandaId: null, tableLabel: null,
             quoteId: id, quoteLabel: q.customer || q.customer_name || null,
           };
           this.quoteForm = {
-            customerName: q.customer_name || '', validUntil: q.valid_until || '',
-            notes: q.notes || '', error: '', saving: false,
+            validUntil: q.valid_until || '', notes: q.notes || '', error: '', saving: false,
           };
           this.persistSlots();
           if (this.customerId) this.loadCustomerBalances();
@@ -1046,10 +1084,13 @@
           if (this.quoteForm.saving || !this.cart.length) return;
           this.quoteForm.saving = true; this.quoteForm.error = '';
           const quoteId = this.slots[this.activeSlot].quoteId;
+          // Cliente cadastrado já é identificado pelo customerId — gravar o nome de novo
+          // em customer_name só criaria uma cópia que envelhece se o cadastro for renomeado.
+          const freeName = this.customerId ? '' : (this.customerName || '').trim();
           const body = {
             items: this.quoteItemsPayload(),
             customerId: this.customerId || (quoteId ? null : undefined),
-            customerName: this.quoteForm.customerName || (quoteId ? null : undefined),
+            customerName: freeName || (quoteId ? null : undefined),
             validUntil: this.quoteForm.validUntil || (quoteId ? null : undefined),
             notes: this.quoteForm.notes || (quoteId ? null : undefined),
             discountCents: this.discountCents || 0,
@@ -1071,7 +1112,7 @@
             // O carrinho vira o orçamento recém-criado: continuar montando a mesma venda
             // e salvar de novo criaria um orçamento duplicado.
             this.slots[this.activeSlot].quoteId = d.id;
-            this.slots[this.activeSlot].quoteLabel = this.quoteForm.customerName || null;
+            this.slots[this.activeSlot].quoteLabel = this.customerName || null;
             this.persistSlots();
             showToast(`Orçamento #${d.id} salvo.`, 'success');
           }
@@ -1294,12 +1335,12 @@
           this.$nextTick(() => this.$refs.clearConfirm.focus());
         },
         doClear() {
-          this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerBalances = {};
+          this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
           // Limpar o carrinho desfaz o vínculo com o orçamento reaberto — o que sobra é um
           // carrinho vazio, não um orçamento sem itens. O orçamento em si continua aberto.
           this.slots[this.activeSlot].quoteId = null;
           this.slots[this.activeSlot].quoteLabel = null;
-          this.quoteForm = { customerName: '', validUntil: '', notes: '', error: '', saving: false };
+          this.quoteForm = { validUntil: '', notes: '', error: '', saving: false };
           this.$refs.clearDlg.close();
           this.focusSearch();
           this.persistSlots();
@@ -1331,6 +1372,21 @@
           if (m.type === 'prazo') { this.openPrazoDlg(); return; }
           if (m.type === 'fidelidade') { this.openFidelidadeDlg(); return; }
           this.pay.methodId = m.id;
+        },
+        // O campo de cliente é um só: o nome digitado vira vínculo com o cadastro quando
+        // bate exatamente com um cliente existente (foi o que a datalist ofereceu), e
+        // continua sendo só um nome quando não bate. Reprecificar e recarregar saldos
+        // custa uma volta no servidor, então só roda quando o vínculo realmente mudou —
+        // não a cada tecla digitada.
+        // O texto em si já é persistido pelo $watch('slots') montado no init().
+        onCustomerNameInput() {
+          const typed = (this.customerName || '').trim().toLowerCase();
+          const match = typed ? this.customers.find((c) => (c.name || '').trim().toLowerCase() === typed) : null;
+          const nextId = match ? match.id : '';
+          if (nextId === this.customerId) return;
+          this.customerId = nextId;
+          this.repriceCart();
+          this.loadCustomerBalances();
         },
         async loadCustomerBalances() {
           if (!this.customerId) { this.customerBalances = {}; return; }
@@ -1504,11 +1560,14 @@
           const comandaId = this.slots[this.activeSlot].comandaId;
           const quoteId = this.slots[this.activeSlot].quoteId;
           let r;
+          // Só vai o nome livre: com cliente cadastrado o servidor copia o nome do cadastro.
+          const freeName = this.customerId ? undefined : ((this.customerName || '').trim() || undefined);
           const commonBody = {
             payments,
             discountCents: this.discountCents || undefined,
             surchargeCents: this.surchargeCents || undefined,
             customerId: this.customerId || undefined,
+            customerName: freeName,
             items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
             clientRequestId: this.pay.clientRequestId || undefined,
           };
@@ -1522,6 +1581,7 @@
               body: JSON.stringify({
                 items: this.quoteItemsPayload(),
                 payments, customerId: this.customerId || undefined,
+                customerName: freeName,
                 clientRequestId: this.pay.clientRequestId || undefined,
               }),
             });
@@ -1534,12 +1594,12 @@
             this.lastSaleId = comandaId ? d.saleId : d.id;
             this.lastSaleHasCarne = hasCarne;
             this.$refs.pay.close();
-            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerBalances = {};
+            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
             if (comandaId) { this.slots[this.activeSlot].comandaId = null; this.justClosedComandaId = comandaId; }
             if (quoteId) {
               this.slots[this.activeSlot].quoteId = null;
               this.slots[this.activeSlot].quoteLabel = null;
-              this.quoteForm = { customerName: '', validUntil: '', notes: '', error: '', saving: false };
+              this.quoteForm = { validUntil: '', notes: '', error: '', saving: false };
             }
             this.persistSlots();
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;

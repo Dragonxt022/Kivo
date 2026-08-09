@@ -36,7 +36,7 @@ export function cashRegisterReport(registerId: number): CashRegisterReport {
   ) as CashRegisterReport['topProducts'];
 
   const sales = saleRepository.raw(
-    `SELECT s.id, c.name AS customer, s.total_cents, s.payment_method, s.created_at
+    `SELECT s.id, COALESCE(s.customer_name, c.name) AS customer, s.total_cents, s.payment_method, s.created_at
      FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
      WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND s.cash_register_id = ?
      ORDER BY s.id`,
