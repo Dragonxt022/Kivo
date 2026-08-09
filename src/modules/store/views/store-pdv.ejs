@@ -1166,7 +1166,15 @@
           this.searchBrowse();
         },
         async searchBrowse() {
-          const r = await fetch('/api/commercial/products' + (this.browseQ.trim() ? '?q=' + encodeURIComponent(this.browseQ.trim()) : ''));
+          // scope=sellable é obrigatório na listagem sem busca: o padrão da rota é
+          // listTopLevel(), que só devolve produtos SEM pai — ou seja, descarta toda
+          // variante filha, justamente a que se vende. Num catálogo inteiro em grade
+          // (sofá P/M/G etc.) esta tela mostrava "Nenhum produto encontrado" com o
+          // catálogo cheio. Com busca não é preciso: search() já inclui as filhas.
+          const qs = this.browseQ.trim()
+            ? '?q=' + encodeURIComponent(this.browseQ.trim())
+            : '?scope=sellable';
+          const r = await fetch('/api/commercial/products' + qs);
           if (r.ok) this.browseResults = await r.json();
         },
         browseFiltered() {

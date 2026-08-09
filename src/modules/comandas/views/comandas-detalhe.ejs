@@ -409,7 +409,13 @@
           this.searchBrowse();
         },
         async searchBrowse() {
-          const r = await fetch('/api/commercial/products' + (this.browseQ.trim() ? '?q=' + encodeURIComponent(this.browseQ.trim()) : ''));
+          // scope=sellable: sem isto a listagem sem busca cai em listTopLevel(), que
+          // descarta as variantes filhas — a comanda não conseguia lançar nenhum item
+          // de produto com grade. Ver a mesma correção no PDV.
+          const qs = this.browseQ.trim()
+            ? '?q=' + encodeURIComponent(this.browseQ.trim())
+            : '?scope=sellable';
+          const r = await fetch('/api/commercial/products' + qs);
           if (r.ok) this.browseResults = await r.json();
         },
         browseFiltered() {
