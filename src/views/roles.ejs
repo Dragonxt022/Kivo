@@ -13,77 +13,113 @@
   <%- include('partials/nav', { user, page: 'roles' }) %>
   <main x-data="rolesPage()" x-init="load()">
     <h1>Cargos e permissões</h1>
+    <p class="hint">
+      Cada cargo é um conjunto de permissões. Ao criar um usuário você escolhe o cargo dele —
+      e é o cargo que decide quais telas ele abre.
+    </p>
     <div class="toolbar">
       <% if (user.permissions.has('roles.edit')) { %>
         <button class="btn" @click="openNew()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo cargo</button>
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
-    <table>
-      <thead><tr>
-        <th @click="sortCycle('name')" class="sortable">Cargo<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
-        <th @click="sortCycle('users')" class="sortable">Usuários<span class="sort-arrow" x-text="sortArrow('users')"></span></th>
-        <th>Permissões</th>
-        <th></th>
-      </tr></thead>
-      <tbody>
-        <template x-for="r in displayRows" :key="r.id">
-          <tr>
-            <td><span x-text="r.name"></span>
-              <span class="badge ok" x-show="r.is_system" style="margin-left:.4rem">sistema</span></td>
-            <td x-text="r.users"></td>
-            <td class="muted" x-text="r.slug === 'administrador' ? 'todas' : r.permissions.length"></td>
-            <td class="text-right" @click.stop>
-              <% if (user.permissions.has('roles.edit')) { %>
-              <div class="dropdown" x-show="r.slug !== 'administrador' || !r.is_system">
-                <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                  </svg>
-                </button>
-                <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
-                  <button x-show="r.slug !== 'administrador'" @click="openMenu = null; openEdit(r)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                    Permissões
-                  </button>
-                  <button class="danger" x-show="!r.is_system" @click="openMenu = null; remove(r)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                    Excluir
-                  </button>
-                </div>
-              </div>
-              <% } %>
-            </td>
-          </tr>
-        </template>
-        <tr x-show="!displayRows.length"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum cargo cadastrado ainda.' }) %></td></tr>
-      </tbody>
-    </table>
 
-    <dialog x-ref="dlg" style="width:560px;max-height:80vh" class="scroll-box">
-      <h1 x-text="'Permissões — ' + (editing.name ?? '')"></h1>
-      <div class="flex-wrap" style="margin:.6rem 0 .8rem">
-        <span class="muted text-xs" style="align-self:center">Modelos:</span>
-        <template x-for="(keys, name) in presets" :key="name">
-          <button class="btn secondary small" type="button" @click="applyPreset(name)" x-text="name"></button>
-        </template>
-        <button class="btn secondary small" type="button" @click="selected = []"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Limpar</button>
-        <button class="btn secondary small" type="button" @click="selected = perms.map(p => p.key)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo</button>
-      </div>
-      <template x-for="mod in modules" :key="mod">
-        <div style="margin-bottom:.8rem">
-          <h2 class="muted" style="font-size:.9rem;margin:.6rem 0 .3rem;text-transform:uppercase;letter-spacing:.03em" x-text="mod"></h2>
-          <template x-for="p in byModule[mod]" :key="p.key">
-            <label class="label-checkbox" style="padding:.25rem 0;font-size:.9rem">
-              <input type="checkbox" :value="p.key" x-model="selected" />
-              <span x-text="p.description"></span>
-              <span class="muted text-xs" style="font-size:.75rem" x-text="p.key"></span>
-            </label>
-          </template>
-        </div>
+    <div class="role-grid">
+      <template x-for="r in displayRows" :key="r.id">
+        <article class="role-card" :class="r.slug === 'administrador' ? 'is-admin' : ''">
+          <header class="role-card-head">
+            <span class="role-card-icon" x-html="iconSvg(r)"></span>
+            <div class="role-card-title">
+              <span class="role-card-name" x-text="r.name"></span>
+              <span class="role-card-meta">
+                <span x-text="r.users === 1 ? '1 usuário' : r.users + ' usuários'"></span>
+                <span aria-hidden="true">·</span>
+                <span x-text="permLabel(r)"></span>
+              </span>
+            </div>
+          </header>
+
+          <p class="role-card-desc" x-text="describe(r)"></p>
+
+          <div class="role-card-mods">
+            <template x-for="m in moduleChips(r)" :key="m.label">
+              <span class="badge module" x-text="m.label + ' ' + m.count"></span>
+            </template>
+            <span class="role-card-empty" x-show="!r.permissions.length && r.slug !== 'administrador'">
+              Sem nenhuma permissão
+            </span>
+          </div>
+
+          <% if (user.permissions.has('roles.edit')) { %>
+          <!-- O Administrador não tem ação nenhuma (não se edita nem se exclui): sem o
+               x-show sobraria uma barra vazia com borda no rodapé do cartão dele. -->
+          <footer class="role-card-actions" x-show="r.slug !== 'administrador'">
+            <button class="btn secondary small" x-show="r.slug !== 'administrador'" @click="openEdit(r)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              Permissões
+            </button>
+            <button class="btn secondary small" x-show="canQuickApply(r)" @click="quickApply(r)" :disabled="busy === r.id">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 4.1L6 9l4.1 1.9L12 15l1.9-4.1L18 9l-4.1-1.9L12 3Z"/></svg>
+              Usar modelo pronto
+            </button>
+            <span class="spacer"></span>
+            <button class="icon-btn danger" x-show="!r.is_system" @click="remove(r)" title="Excluir cargo" aria-label="Excluir cargo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
+          </footer>
+          <% } %>
+        </article>
       </template>
+      <div x-show="!displayRows.length"><%- include('partials/empty-state', { message: 'Nenhum cargo cadastrado ainda.' }) %></div>
+    </div>
+
+    <!-- sem .scroll-box: quem rola aqui é só o .perm-body, para busca e Salvar ficarem fixos -->
+    <dialog x-ref="dlg" class="perm-dialog">
+      <h1 x-text="'Permissões — ' + (editing.name ?? '')"></h1>
+      <p class="hint" x-text="describe(editing)"></p>
+
+      <div class="perm-tools">
+        <input type="search" class="perm-search" placeholder="Buscar permissão (ex.: caixa, preço, venda)…" x-model="filter" />
+        <div class="perm-tool-row">
+          <span class="muted text-xs">Modelos:</span>
+          <template x-for="p in modelPresets" :key="p.slug">
+            <button class="btn secondary small" type="button" @click="applyPreset(p)" x-text="p.name"></button>
+          </template>
+          <span class="spacer"></span>
+          <button class="btn secondary small" type="button" @click="selected = perms.map(p => p.key)">Marcar tudo</button>
+          <button class="btn secondary small" type="button" @click="selected = []">Limpar</button>
+        </div>
+      </div>
+
+      <div class="perm-body">
+        <template x-for="mod in visibleModules" :key="mod">
+          <section class="perm-module">
+            <label class="perm-module-head">
+              <!-- `indeterminate` só existe como propriedade do elemento, não como atributo:
+                   x-bind escreveria indeterminate="true" no HTML e o traço nunca apareceria.
+                   x-effect grava a propriedade e reexecuta a cada mudança em `selected`. -->
+              <input type="checkbox" :checked="moduleAllChecked(mod)"
+                     x-effect="$el.indeterminate = moduleSomeChecked(mod)"
+                     @change="toggleModule(mod)" />
+              <span class="perm-module-name" x-text="moduleLabel(mod)"></span>
+              <span class="perm-module-count" x-text="moduleCheckedCount(mod) + '/' + byModule[mod].length"></span>
+            </label>
+            <template x-for="p in visiblePerms(mod)" :key="p.key">
+              <label class="perm-item" :class="selected.includes(p.key) ? 'on' : ''">
+                <input type="checkbox" :value="p.key" x-model="selected" />
+                <span class="perm-item-desc" x-text="p.description"></span>
+                <span class="perm-item-key" x-text="p.key"></span>
+              </label>
+            </template>
+          </section>
+        </template>
+        <p class="muted" x-show="!visibleModules.length">Nenhuma permissão corresponde a "<span x-text="filter"></span>".</p>
+      </div>
+
       <div class="error" x-text="dlgError"></div>
-      <div class="actions">
+      <div class="actions perm-actions">
+        <span class="muted text-xs" x-text="selected.length + ' de ' + perms.length + ' permissões marcadas'"></span>
+        <span class="spacer"></span>
         <button class="btn secondary" @click="$refs.dlg.close()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Cancelar</button>
         <button class="btn" @click="save()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Salvar</button>
       </div>
@@ -92,6 +128,7 @@
     <dialog x-ref="novo">
       <h1>Novo cargo</h1>
       <label>Nome</label><input type="text" x-model="newName" />
+      <p class="hint">O cargo nasce sem permissão nenhuma. Depois de criar, abra "Permissões" e use um modelo pronto como ponto de partida.</p>
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.novo.close()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg> Cancelar</button>
@@ -101,37 +138,120 @@
   </main>
   <script src="/js/table-toolkit.js"></script>
   <script>
+    const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
+    const MODULE_NAMES = <%- typeof moduleNamesJson !== 'undefined' ? moduleNamesJson : '{}' %>;
+
     function rolesPage() {
       return {
         ...tableToolkit(),
         roles: [], perms: [], byModule: {}, modules: [], selected: [], editing: {}, newName: '',
+        // Modelos vindos de /api/roles/presets — os MESMOS que as seeds usam para criar os
+        // cargos de fábrica. Manter a lista aqui no JavaScript, como era antes, garantia
+        // que um dia ela divergisse do que o sistema realmente cria.
+        presets: [], filter: '', busy: null,
         error: '', dlgError: '',
         sortGetters: { name: (r) => r.name, users: (r) => r.users ?? 0 },
         get displayRows() { return this.sortedRows(this.roles, this.sortGetters); },
-        // Modelos prontos: um clique marca as permissões típicas do papel
-        presets: {
-          'Vendedor': ['store.sales.create', 'store.sales.view', 'store.quotes.view', 'store.quotes.create',
-            'commercial.products.view', 'commercial.customers.view', 'commercial.customers.create', 'commercial.customers.edit'],
-          'Caixa': ['store.sales.create', 'store.sales.view', 'finance.cash.view', 'finance.cash.open',
-            'finance.cash.close', 'finance.cash.move', 'commercial.products.view', 'commercial.customers.view'],
-          'Estoquista': ['commercial.products.view', 'commercial.products.create', 'commercial.products.edit',
-            'commercial.stock.view', 'commercial.stock.move', 'commercial.purchases.view', 'commercial.purchases.create',
-            'commercial.suppliers.view'],
-          'Gerente': ['users.view', 'users.create', 'users.edit', 'roles.view', 'audit.view', 'settings.view',
-            'backup.view', 'backup.run', 'finance.cash.view', 'finance.cash.open', 'finance.cash.close', 'finance.cash.move',
-            'finance.payables.view', 'finance.payables.create', 'finance.payables.pay', 'finance.receivables.view',
-            'finance.receivables.create', 'finance.receivables.receive', 'finance.reports.view', 'finance.paymethods.view',
-            'commercial.customers.view', 'commercial.customers.create', 'commercial.customers.edit',
-            'commercial.suppliers.view', 'commercial.suppliers.create', 'commercial.suppliers.edit',
-            'commercial.products.view', 'commercial.products.create', 'commercial.products.edit', 'commercial.products.price',
-            'commercial.stock.view', 'commercial.stock.move', 'commercial.purchases.view', 'commercial.purchases.create',
-            'store.sales.view', 'store.sales.create', 'store.sales.discount', 'store.sales.cancel',
-            'store.quotes.view', 'store.quotes.create', 'store.reports.view'],
+
+        presetFor(r) { return this.presets.find((p) => p.slug === (r && r.slug)) ?? null; },
+        /** Modelos aplicáveis com um clique — o do Administrador ('*') não é um deles. */
+        get modelPresets() { return this.presets.filter((p) => p.permissions !== '*'); },
+        iconSvg(r) {
+          const preset = this.presetFor(r);
+          return SVG_ICONS[(preset && preset.icon) || 'key-round'] || SVG_ICONS['user-cog'] || '';
         },
-        applyPreset(name) {
+        describe(r) {
+          const preset = this.presetFor(r);
+          if (preset) return preset.description;
+          if (!r || !r.id) return '';
+          return 'Cargo criado por você. Abra "Permissões" para definir o que ele pode fazer.';
+        },
+        permLabel(r) {
+          if (r.slug === 'administrador') return 'todas as permissões';
+          const n = r.permissions.length;
+          return n === 1 ? '1 permissão' : n + ' permissões';
+        },
+        /**
+         * Resumo por módulo: mostra onde o cargo mexe sem listar 40 chaves no cartão.
+         * O módulo vem do catálogo de permissões, NÃO do prefixo da chave — as do Core
+         * têm prefixos diferentes entre si (users., roles., audit., backup., settings.…)
+         * e agrupar por prefixo rendia nove chips de "1" no cartão do Gerente.
+         */
+        get moduleOfKey() {
+          const map = {};
+          for (const p of this.perms) map[p.key] = p.module;
+          return map;
+        },
+        moduleChips(r) {
+          if (r.slug === 'administrador') return [];
+          const owner = this.moduleOfKey;
+          const byMod = {};
+          for (const key of r.permissions) {
+            // Permissão concedida mas ainda não registrada (módulo fora do plano): cai
+            // no prefixo, que é o melhor palpite disponível.
+            const mod = owner[key] ?? key.split('.')[0];
+            byMod[mod] = (byMod[mod] ?? 0) + 1;
+          }
+          return Object.keys(byMod)
+            .map((m) => ({ label: this.moduleLabel(m), count: byMod[m] }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+        },
+        // 'core' não está no mapa (só módulos entram lá) e os nomes de manifesto trazem
+        // um parêntese explicativo — "Comercial (cadastros e estoque)" não cabe num chip.
+        moduleLabel(m) {
+          if (m === 'core') return 'Sistema';
+          const name = MODULE_NAMES[m] || (m.charAt(0).toUpperCase() + m.slice(1));
+          return name.replace(/\s*\(.*\)\s*$/, '');
+        },
+        /** Só faz sentido oferecer o atalho quando há modelo E o cargo está zerado. */
+        canQuickApply(r) {
+          const preset = this.presetFor(r);
+          return !!preset && preset.permissions !== '*' && preset.permissions.length > 0 && !r.permissions.length;
+        },
+        async quickApply(r) {
+          const preset = this.presetFor(r);
+          if (!preset) return;
+          this.busy = r.id;
           const valid = new Set(this.perms.map((p) => p.key));
-          this.selected = (this.presets[name] ?? []).filter((k) => valid.has(k));
+          const ok = await this.persist(r.id, preset.permissions.filter((k) => valid.has(k)));
+          this.busy = null;
+          if (ok) showToast(`Modelo "${preset.name}" aplicado.`, 'success');
         },
+
+        applyPreset(preset) {
+          const valid = new Set(this.perms.map((p) => p.key));
+          const keys = preset.permissions === '*' ? this.perms.map((p) => p.key) : preset.permissions;
+          this.selected = keys.filter((k) => valid.has(k));
+        },
+
+        // ---- filtro e seleção em massa dentro do diálogo ----
+        get visibleModules() { return this.modules.filter((m) => this.visiblePerms(m).length); },
+        visiblePerms(mod) {
+          const q = this.filter.trim().toLowerCase();
+          const list = this.byModule[mod] ?? [];
+          if (!q) return list;
+          return list.filter((p) => p.description.toLowerCase().includes(q) || p.key.toLowerCase().includes(q));
+        },
+        moduleCheckedCount(mod) {
+          return (this.byModule[mod] ?? []).filter((p) => this.selected.includes(p.key)).length;
+        },
+        moduleAllChecked(mod) {
+          const list = this.byModule[mod] ?? [];
+          return list.length > 0 && this.moduleCheckedCount(mod) === list.length;
+        },
+        moduleSomeChecked(mod) {
+          const n = this.moduleCheckedCount(mod);
+          return n > 0 && n < (this.byModule[mod] ?? []).length;
+        },
+        toggleModule(mod) {
+          const keys = (this.byModule[mod] ?? []).map((p) => p.key);
+          if (this.moduleAllChecked(mod)) {
+            this.selected = this.selected.filter((k) => !keys.includes(k));
+          } else {
+            this.selected = [...new Set([...this.selected, ...keys])];
+          }
+        },
+
         async load() {
           const r = await fetch('/api/roles');
           if (r.ok) this.roles = await r.json();
@@ -144,14 +264,37 @@
             }
             this.modules = Object.keys(this.byModule).sort();
           }
+          // Guarda TODOS, inclusive o do administrador: `describe()`/`iconSvg()` procuram
+          // aqui e sem ele o cartão do Administrador cairia no texto de cargo avulso
+          // ("Cargo criado por você…"). Quem filtra o '*' é a lista de botões de modelo,
+          // onde "aplicar todas as permissões" não é uma opção que se ofereça num clique.
+          const pr = await fetch('/api/roles/presets');
+          if (pr.ok) this.presets = await pr.json();
         },
-        openEdit(r) { this.editing = r; this.selected = [...r.permissions]; this.dlgError = ''; this.$refs.dlg.showModal(); },
-        async save() {
-          const r = await fetch(`/api/roles/${this.editing.id}/permissions`, {
+        openEdit(r) {
+          this.editing = r; this.selected = [...r.permissions];
+          this.filter = ''; this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        /** Grava e recarrega. Devolve false com o erro já exibido, para quem chamou decidir. */
+        async persist(roleId, permissions) {
+          const r = await fetch(`/api/roles/${roleId}/permissions`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ permissions: this.selected }),
+            body: JSON.stringify({ permissions }),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Permissões salvas.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
+          if (!r.ok) {
+            this.dlgError = (await r.json()).error;
+            showToast(this.dlgError, 'error');
+            return false;
+          }
+          await this.load();
+          return true;
+        },
+        async save() {
+          if (await this.persist(this.editing.id, this.selected)) {
+            this.$refs.dlg.close();
+            showToast('Permissões salvas.', 'success');
+          }
         },
         openNew() { this.newName = ''; this.dlgError = ''; this.$refs.novo.showModal(); },
         async create() {

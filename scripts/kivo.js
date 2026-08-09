@@ -33,7 +33,7 @@ function listCommands() {
     Desenvolvimento: ['dev', 'dev:electron', 'build', 'rebuild:electron', 'verify:native', 'dist:win', 'release:win'],
     Qualidade: ['lint', 'format'],
     Banco: ['db:migrate', 'db:rollback', 'db:reset', 'db:seed:demo', 'db:status'],
-    Testes: ['test', 'test:shared', 'test:fase1', 'test:fase1b', 'test:fase3', 'test:fase3b', 'test:fase3c', 'test:fase4', 'test:fase5', 'test:fase5b', 'test:fase5c', 'test:fase5d', 'test:fase6a', 'test:fase6b', 'test:fase6c', 'test:fase6d', 'test:fase7a', 'test:fase7b', 'test:fase7c', 'test:fase7d', 'test:fase7e', 'test:fase7f', 'test:fase8', 'test:fase8b', 'test:capabilities', 'test:variants', 'test:complementos', 'test:kits', 'test:producao', 'test:foodservice', 'test:comandas', 'test:pdv-tipos', 'test:products-import'],
+    Testes: ['test', 'test:shared', 'test:fase1', 'test:fase1b', 'test:fase3', 'test:fase3b', 'test:fase3c', 'test:fase4', 'test:fase5', 'test:fase5b', 'test:fase5c', 'test:fase5d', 'test:fase6a', 'test:fase6b', 'test:fase6c', 'test:fase6d', 'test:fase7a', 'test:fase7b', 'test:fase7c', 'test:fase7d', 'test:fase7e', 'test:fase7f', 'test:fase8', 'test:fase8b', 'test:capabilities', 'test:variants', 'test:complementos', 'test:kits', 'test:producao', 'test:foodservice', 'test:comandas', 'test:pdv-tipos', 'test:onboarding', 'test:products-import'],
     Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
     Utilitário: ['smoke', 'postinstall'],
   };
@@ -62,7 +62,7 @@ function listCommands() {
  * arquivo descartável antes do processo começar — `tsx` direto aqui só produziria
  * falha de trava de segurança, não resultado de teste.
  */
-const ISOLATED_TESTS = new Set(['products-import-api.ts', 'pdv-tipos-produto.ts']);
+const ISOLATED_TESTS = new Set(['products-import-api.ts', 'pdv-tipos-produto.ts', 'onboarding-permissoes.ts']);
 
 function runTestAll() {
   const testsDir = join(ROOT, 'src', 'tests');

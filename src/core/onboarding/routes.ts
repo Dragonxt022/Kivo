@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/status', onboardingController.status);
 router.get('/payment-methods', requirePermission('settings.edit'), onboardingController.paymentMethods);
+router.get('/features', requirePermission('settings.edit'), onboardingController.features);
 router.post('/skip', onboardingController.skip);
 router.post('/provision', requirePermission('settings.edit'), onboardingController.provisionAction);
 

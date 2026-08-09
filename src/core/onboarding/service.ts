@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { settingsRepository } from '../repositories/SettingsRepository';
-import { setCapabilityEnabled } from '../capabilities/service';
+import { listCapabilities, setCapabilityEnabled } from '../capabilities/service';
+import { isModuleEntitled } from '../license/service';
 import { storeTableRepository } from '../../modules/comandas/repositories/StoreTableRepository';
 import { productRepository } from '../../modules/commercial/repositories/ProductRepository';
 import { categoryRepository } from '../../modules/commercial/repositories/CategoryRepository';
@@ -23,12 +24,144 @@ export interface ProvisionInput {
   activePaymentMethodIds: number[];
   createDemoData: boolean;
   resetDemoData?: boolean;
+  /**
+   * Recursos que devem ficar ligados ao final. `undefined` (cliente antigo, chamada
+   * direta na API) cai na recomendação derivada das respostas — nunca em "nada ligado".
+   */
+  activeFeatureKeys?: string[];
 }
 
 export interface ProvisionResult {
   tablesCreated: number;
   productsCreated: number;
   paymentMethodsActive: string[];
+  featuresEnabled: string[];
+  featuresDisabled: string[];
+}
+
+/**
+ * Recursos que o assistente de boas-vindas controla, com o texto que o lojista lê e a
+ * regra que decide se vêm marcados.
+ *
+ * A lista é curada de propósito, e não "todas as capabilities": o assistente LIGA E
+ * DESLIGA o que está aqui, então só pode conter recurso cuja decisão caiba nas três
+ * perguntas que ele faz. Fiscal (NFC-e) e cardápio online ficam de fora porque dependem
+ * de certificado/nuvem configurados — desligá-los sem querer, num passo sobre mesas e
+ * complementos, quebraria uma loja que já emite nota.
+ *
+ * `recommend` vazio ou ausente significa "aparece, mas desmarcado": o recurso existe e o
+ * lojista pode querer, só não dá para inferir isso das respostas.
+ */
+export interface WizardFeature {
+  key: string;
+  label: string;
+  hint: string;
+  recommend?: { usage?: OnboardingUsage[]; businessType?: OnboardingBusinessType[] };
+}
+
+const WIZARD_FEATURES: WizardFeature[] = [
+  {
+    key: 'comandas.mesas',
+    label: 'Mesas e comandas',
+    hint: 'Abre uma comanda por mesa e só vira venda no fechamento.',
+    recommend: { usage: ['mesas', 'ambos'] },
+  },
+  {
+    key: 'foodservice.cozinha',
+    label: 'Painel da cozinha (KDS)',
+    hint: 'Manda o pedido para uma tela na cozinha em vez de papel.',
+    recommend: { usage: ['mesas', 'ambos'], businessType: ['restaurante'] },
+  },
+  {
+    key: 'commercial.complementos',
+    label: 'Complementos e opcionais',
+    hint: 'Bacon extra, escolha do sabor, ponto da carne — perguntado na hora da venda.',
+    recommend: { businessType: ['restaurante'] },
+  },
+  {
+    key: 'commercial.variantes',
+    label: 'Grade de variações',
+    hint: 'Um produto com tamanho e cor, cada combinação com seu preço e estoque.',
+    recommend: { businessType: ['roupas'] },
+  },
+  {
+    key: 'commercial.kits',
+    label: 'Kits e combos',
+    hint: 'Vende vários produtos como um item só, baixando o estoque de cada um.',
+    recommend: { businessType: ['restaurante'] },
+  },
+  {
+    key: 'commercial.producao',
+    label: 'Ficha técnica',
+    hint: 'O que é produzido consome os insumos do estoque automaticamente na venda.',
+  },
+];
+
+/** Uma feature é recomendada quando TODAS as regras declaradas batem com as respostas. */
+function isRecommended(f: WizardFeature, usage: OnboardingUsage, businessType: OnboardingBusinessType): boolean {
+  const rules = f.recommend;
+  if (!rules || (!rules.usage && !rules.businessType)) return false;
+  if (rules.usage && !rules.usage.includes(usage)) return false;
+  if (rules.businessType && !rules.businessType.includes(businessType)) return false;
+  return true;
+}
+
+export interface WizardFeatureView extends WizardFeature {
+  /** Estado atual no banco — o assistente reaberto mostra o que está ligado hoje. */
+  enabled: boolean;
+}
+
+/**
+ * Só o que existe de fato: capability registrada por um módulo carregado E cujo módulo
+ * está no plano contratado. Oferecer um recurso fora do plano seria prometer uma tela
+ * que o `requireModuleEntitlement` devolve 403 depois.
+ */
+export function listFeaturesForWizard(): WizardFeatureView[] {
+  const existing = new Map(listCapabilities().map((c) => [c.key, c]));
+  return WIZARD_FEATURES.flatMap((f) => {
+    const cap = existing.get(f.key);
+    if (!cap || !isModuleEntitled(cap.module)) return [];
+    return [{ ...f, enabled: cap.enabled === 1 }];
+  });
+}
+
+/**
+ * Liga e DESLIGA os recursos do assistente de uma vez.
+ *
+ * Desligar é tão importante quanto ligar: quem responde "só balcão, loja de roupas" não
+ * deve encontrar mesas e complementos ocupando o menu. Como o conjunto tocado é fechado
+ * (WIZARD_FEATURES), nenhum recurso fora dele é mexido.
+ */
+function applyFeatures(
+  req: Request,
+  selected: string[] | undefined,
+  usage: OnboardingUsage,
+  businessType: OnboardingBusinessType,
+): { enabled: string[]; disabled: string[]; active: Set<string> } {
+  const available = listFeaturesForWizard();
+  const wanted = new Set(
+    selected ?? available.filter((f) => isRecommended(f, usage, businessType)).map((f) => f.key),
+  );
+
+  const enabled: string[] = [];
+  const disabled: string[] = [];
+  const active = new Set<string>();
+  for (const f of available) {
+    const shouldBeOn = wanted.has(f.key);
+    if (shouldBeOn === f.enabled) {
+      if (shouldBeOn) active.add(f.key);
+      continue;
+    }
+    try {
+      setCapabilityEnabled(req, f.key, shouldBeOn);
+      (shouldBeOn ? enabled : disabled).push(f.label);
+      if (shouldBeOn) active.add(f.key);
+    } catch (e) {
+      console.error(`[onboarding] não deu pra ${shouldBeOn ? 'ligar' : 'desligar'} a capability ${f.key}:`, e);
+      if (f.enabled) active.add(f.key);
+    }
+  }
+  return { enabled, disabled, active };
 }
 
 export function getOnboardingStatus(): { completed: boolean; demoDataCreated: boolean } {
@@ -101,7 +234,7 @@ function getOrCreateCategory(name: string): number {
   return categoryRepository.create({ name, parent_id: null, uuid: randomUUID() });
 }
 
-function createRestauranteDemoProducts(): number {
+function createRestauranteDemoProducts(withComplements: boolean): number {
   let count = 0;
 
   // Criar/obter categorias
@@ -110,21 +243,27 @@ function createRestauranteDemoProducts(): number {
   const catAcompanhamentos = getOrCreateCategory('Acompanhamentos');
 
   const suco = createSimpleProduct('Suco Natural', 800, 'un', catBebidas);
-  attachComplementGroup(suco, 'Sabor do suco', 1, 1, [
-    { name: 'Laranja', priceCents: 0 },
-    { name: 'Abacaxi', priceCents: 0 },
-    { name: 'Morango', priceCents: 100 },
-  ]);
-  count += 4; // suco + 3 sabores
+  count += 1;
+  if (withComplements) {
+    attachComplementGroup(suco, 'Sabor do suco', 1, 1, [
+      { name: 'Laranja', priceCents: 0 },
+      { name: 'Abacaxi', priceCents: 0 },
+      { name: 'Morango', priceCents: 100 },
+    ]);
+    count += 3;
+  }
 
   const lanche = createSimpleProduct('Lanche Completo (X-Burger)', 1800, 'un', catHamburgueres);
-  attachComplementGroup(lanche, 'Adicionais', 0, 4, [
-    { name: 'Bacon extra', priceCents: 300 },
-    { name: 'Queijo extra', priceCents: 200 },
-    { name: 'Ovo', priceCents: 200 },
-    { name: 'Salada extra', priceCents: 0 },
-  ]);
-  count += 5; // lanche + 4 adicionais
+  count += 1;
+  if (withComplements) {
+    attachComplementGroup(lanche, 'Adicionais', 0, 4, [
+      { name: 'Bacon extra', priceCents: 300 },
+      { name: 'Queijo extra', priceCents: 200 },
+      { name: 'Ovo', priceCents: 200 },
+      { name: 'Salada extra', priceCents: 0 },
+    ]);
+    count += 4;
+  }
 
   createSimpleProduct('Refrigerante Lata', 600, 'un', catBebidas);
   createSimpleProduct('Batata Frita', 1200, 'un', catAcompanhamentos);
@@ -201,17 +340,20 @@ function createDemoCategories(): number {
   return count;
 }
 
-function tryEnableCapability(req: Request, key: string): void {
-  try { setCapabilityEnabled(req, key, true); } catch (e) {
-    console.error(`[onboarding] não deu pra ligar a capability ${key}:`, e);
-  }
-}
-
 export function provision(req: Request, input: ProvisionInput): ProvisionResult {
   settingsRepository.set(USAGE_KEY, input.usage);
   settingsRepository.set(BUSINESS_TYPE_KEY, input.businessType);
 
   const paymentMethodsActive = applyPaymentMethods(input.activePaymentMethodIds);
+
+  /**
+   * Fora do bloco de dados de exemplo, de propósito. Antes os recursos só eram ligados
+   * junto com os produtos de demonstração — quem dispensava a demonstração (ou reabria o
+   * assistente depois, quando o `demo_data_created` já estava marcado) terminava o
+   * assistente com mesas e complementos desligados, mesmo tendo respondido que atende em
+   * mesas. Responder é o que configura; a demonstração é só brinde.
+   */
+  const features = applyFeatures(req, input.activeFeatureKeys, input.usage, input.businessType);
 
   let tablesCreated = 0;
   let productsCreated = 0;
@@ -224,16 +366,13 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
   const shouldCreateDemo = input.createDemoData && (input.resetDemoData || !settingsRepository.getBool(DEMO_DATA_KEY, false));
 
   if (shouldCreateDemo) {
-    const wantsTables = (input.usage === 'mesas' || input.usage === 'ambos') && input.businessType !== 'roupas';
-    if (wantsTables) {
-      tryEnableCapability(req, 'comandas.mesas');
-      tablesCreated = createTables(10);
-    }
+    // A demonstração segue os recursos que ficaram LIGADOS, não as respostas cruas: sem
+    // isso, quem desmarcasse "Complementos" ainda receberia sucos com grupo de sabor que
+    // o PDV não mostraria, e as 10 mesas apareceriam num sistema sem o módulo de mesas.
+    if (features.active.has('comandas.mesas')) tablesCreated = createTables(10);
     if (input.businessType === 'restaurante') {
-      tryEnableCapability(req, 'commercial.complementos');
-      productsCreated = createRestauranteDemoProducts();
-    } else if (input.businessType === 'roupas') {
-      tryEnableCapability(req, 'commercial.variantes');
+      productsCreated = createRestauranteDemoProducts(features.active.has('commercial.complementos'));
+    } else if (input.businessType === 'roupas' && features.active.has('commercial.variantes')) {
       productsCreated = createRoupasDemoProducts();
     }
     // Criar categorias de exemplo com imagens
@@ -243,5 +382,11 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
 
   markOnboardingCompleted();
 
-  return { tablesCreated, productsCreated, paymentMethodsActive };
+  return {
+    tablesCreated,
+    productsCreated,
+    paymentMethodsActive,
+    featuresEnabled: features.enabled,
+    featuresDisabled: features.disabled,
+  };
 }

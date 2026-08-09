@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { getSqlite } from './connection';
+import { ROLE_PRESETS } from '../roles/presets';
 
 /** Permissões do Core. Módulos adicionam as suas via manifesto. */
 export const CORE_PERMISSIONS: { key: string; description: string }[] = [
@@ -25,28 +26,13 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'security.pin.manage', description: 'Definir/alterar o PIN de administrador' },
 ];
 
-const DEFAULT_ROLES: { slug: string; name: string; permissions: string[] | '*' }[] = [
-  { slug: 'administrador', name: 'Administrador', permissions: '*' },
-  {
-    slug: 'gerente',
-    name: 'Gerente',
-    permissions: ['users.view', 'users.create', 'users.edit', 'roles.view', 'audit.view', 'settings.view', 'backup.view', 'backup.run', 'sync.run', 'billing.view'],
-  },
-  { slug: 'operador', name: 'Operador', permissions: [] },
-  { slug: 'caixa', name: 'Caixa', permissions: [] },
-  { slug: 'entregador', name: 'Entregador', permissions: [] },
-  { slug: 'estoquista', name: 'Estoquista', permissions: [] },
-  /**
-   * Papéis restritos pensados para acesso pela rede local (celular do garçom,
-   * tablet fixo na cozinha) — não enxergam financeiro/caixa/configurações.
-   * Referenciam permissões dos módulos comandas/foodservice diretamente: seguro
-   * porque `role_permissions.permission_key` não tem FK para `permissions` (só
-   * fica "pendente" até o módulo carregar e popular o catálogo, o que sempre
-   * acontece antes de qualquer request real).
-   */
-  { slug: 'garcom', name: 'Garçom', permissions: ['comandas.view', 'comandas.manage', 'commercial.products.search'] },
-  { slug: 'cozinha', name: 'Cozinha (KDS)', permissions: ['foodservice.kitchen.view', 'foodservice.kitchen.manage'] },
-];
+/**
+ * Marca de que o preenchimento retroativo (abaixo) já rodou. Instalações anteriores à
+ * versão 1.0.1 criaram Caixa/Estoquista/Entregador sem permissão nenhuma — sem esta
+ * flag elas ficariam para sempre com os cargos inúteis, porque o `INSERT ... DO NOTHING`
+ * do bloco de criação só age em cargo novo.
+ */
+const ROLE_BACKFILL_KEY = 'seeds.role_presets_backfill';
 
 /** Idempotente: roda em todo boot sem duplicar nada. */
 export function runSeeds(): void {
@@ -67,14 +53,48 @@ export function runSeeds(): void {
      ON CONFLICT(role_id, permission_key) DO NOTHING`,
   );
 
-  for (const role of DEFAULT_ROLES) {
-    insertRole.run(role.slug, role.name, randomUUID());
+  /**
+   * Preenchimento retroativo, uma única vez: os cargos de fábrica que já existem
+   * recebem o modelo correspondente.
+   *
+   * É uma UNIÃO, nunca uma substituição — o `grant` é ON CONFLICT DO NOTHING e nada é
+   * apagado. Por isso a passagem é segura mesmo em loja rodando há meses: o que o dono
+   * acrescentou continua lá, e o Gerente (que nascia só com as permissões do Core, sem
+   * conseguir vender nem ver estoque) ganha o resto sem perder nada.
+   *
+   * Depois desta passagem a flag é gravada e só cargo NOVO recebe modelo. É o que
+   * garante que remover uma permissão do Caixa na tela seja definitivo, em vez de ela
+   * voltar no próximo boot — que é o que aconteceria se as seeds regravassem sempre.
+   */
+  const backfillDone = db.prepare('SELECT value FROM settings WHERE key = ?').get(ROLE_BACKFILL_KEY) as
+    | { value: string }
+    | undefined;
+
+  for (const role of ROLE_PRESETS) {
+    const created = insertRole.run(role.slug, role.name, randomUUID()).changes === 1;
     const { id } = db.prepare('SELECT id FROM roles WHERE slug = ?').get(role.slug) as {
       id: number;
     };
-    const keys =
-      role.permissions === '*' ? CORE_PERMISSIONS.map((p) => p.key) : role.permissions;
-    for (const key of keys) grant.run(id, key);
+    // Administrador é reconciliado sempre: `registerPermissions` (core/modules/loader.ts)
+    // já lhe concede toda permissão nova de módulo a cada boot, então manter as do Core
+    // em dia aqui é a mesma política, não uma reescrita do que o dono configurou — a
+    // tela de cargos nem deixa editar esse cargo.
+    if (role.permissions === '*') {
+      for (const p of CORE_PERMISSIONS) grant.run(id, p.key);
+      continue;
+    }
+    if (!created && backfillDone) continue;
+    for (const key of role.permissions) grant.run(id, key);
+  }
+
+  if (!backfillDone) {
+    db.prepare(
+      `INSERT OR IGNORE INTO settings (key, value, uuid, comment) VALUES (?, '1', ?, ?)`,
+    ).run(
+      ROLE_BACKFILL_KEY,
+      randomUUID(),
+      'Marca que os cargos de fábrica já receberam o conjunto de permissões padrão. Impede que as seeds regravem permissões que o administrador removeu de propósito.',
+    );
   }
 
   const hasAdmin = db.prepare('SELECT id FROM users LIMIT 1').get();

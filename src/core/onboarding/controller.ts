@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { audit } from '../audit/service';
 import { assertAuth } from '../../shared/auth';
-import { getOnboardingStatus, listPaymentMethodsForWizard, markOnboardingCompleted, provision, resetDemoData, type OnboardingBusinessType, type OnboardingUsage } from './service';
+import { getOnboardingStatus, listFeaturesForWizard, listPaymentMethodsForWizard, markOnboardingCompleted, provision, resetDemoData, type OnboardingBusinessType, type OnboardingUsage } from './service';
 
 const USAGE_VALUES = new Set(['balcao', 'mesas', 'ambos']);
 const BUSINESS_TYPE_VALUES = new Set(['restaurante', 'roupas', 'outro']);
@@ -15,6 +15,10 @@ export const onboardingController = {
     res.json(listPaymentMethodsForWizard());
   },
 
+  features(_req: Request, res: Response) {
+    res.json(listFeaturesForWizard());
+  },
+
   skip(req: Request, res: Response) {
     markOnboardingCompleted();
     audit(req, 'onboarding_pular', 'onboarding', 'skip');
@@ -23,7 +27,7 @@ export const onboardingController = {
 
   provisionAction(req: Request, res: Response) {
     assertAuth(req);
-    const { usage, businessType, activePaymentMethodIds, createDemoData, resetDemoData } = req.body ?? {};
+    const { usage, businessType, activePaymentMethodIds, createDemoData, resetDemoData, activeFeatureKeys } = req.body ?? {};
     if (!USAGE_VALUES.has(usage)) {
       res.status(400).json({ error: 'Campo usage inválido (balcao, mesas ou ambos).' });
       return;
@@ -33,12 +37,18 @@ export const onboardingController = {
       return;
     }
     const ids = Array.isArray(activePaymentMethodIds) ? activePaymentMethodIds.map(Number).filter((n) => !Number.isNaN(n)) : [];
+    // Ausente (cliente antigo) ≠ lista vazia (o lojista desmarcou tudo): o primeiro caso
+    // cai na recomendação lá no service, o segundo desliga mesmo. Por isso não há `?? []`.
+    const featureKeys = Array.isArray(activeFeatureKeys)
+      ? activeFeatureKeys.map(String)
+      : undefined;
     const result = provision(req, {
       usage: usage as OnboardingUsage,
       businessType: businessType as OnboardingBusinessType,
       activePaymentMethodIds: ids,
       createDemoData: !!createDemoData,
       resetDemoData: !!resetDemoData,
+      activeFeatureKeys: featureKeys,
     });
     audit(req, 'onboarding_concluir', 'onboarding', 'provision', null, result);
     res.json(result);

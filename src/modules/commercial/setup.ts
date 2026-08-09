@@ -4,6 +4,7 @@ import { moveStock, moveStockRaw, listMovements, recomputeStockForProducts } fro
 import { resolvePrice, resolveMany } from './pricing';
 import * as storeCredit from './storeCredit';
 import * as loyalty from './loyalty';
+import { seedCommercialDefaults } from './defaults';
 
 /** Serviços que o módulo commercial oferece aos outros Apps (via Core). */
 export interface CommercialStockService {
@@ -54,6 +55,10 @@ export default function setup(): void {
     accrueRaw: loyalty.accrue, redeemRaw: loyalty.redeem, reverseRaw: loyalty.reverse, reverseGrantRaw: loyalty.reverseGrant,
     balance: loyalty.getBalance, listMovements: loyalty.listLoyaltyMovements,
   } satisfies CommercialLoyaltyService);
+  // Roda aqui e não em runSeeds() porque `customers`/`suppliers` são tabelas DESTE módulo:
+  // o Core não pode assumir que elas existem. O boot é migrations → seeds → setup dos
+  // módulos, então a essa altura as migrations do commercial já criaram as duas.
+  seedCommercialDefaults();
   registerRecomputeHook('stock_movements', recomputeStockForProducts);
   registerRecomputeHook('customer_credit_movements', storeCredit.recomputeStoreCreditForCustomers);
   registerRecomputeHook('loyalty_point_movements', loyalty.recomputeLoyaltyForCustomers);
