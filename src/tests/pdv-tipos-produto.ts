@@ -139,6 +139,20 @@ async function main(): Promise<void> {
     for (const id of [fisico, comp1, comp2, farinha, varLeve, varPesada]) await estoqueInicial(id, 100);
     await estoqueInicial(fracionado, 10);
 
+    // ── Cadastro de serviço pela rota que o formulário usa ────────────────────────
+    // O tipo "Serviço" não existia no seletor da tela: só dava para criar serviço por
+    // importação CSV, ou como "Simples" com a chave de estoque desligada — que grava
+    // product_type 'fisico' e faz o produto ser cobrado de NCM na NFC-e, sendo que
+    // serviço é NFS-e municipal. Este check trava as duas pontas do que a tela manda.
+    const criado = await unwrap<{ id: number; product_type: string; track_stock: number }>(
+      await api('/api/commercial/products', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Higienização de Sofá', productType: 'servico', trackStock: false, priceCents: 18000 }),
+      }),
+    );
+    check('cadastra serviço pela API do formulário', criado.product_type === 'servico', `tipo=${criado.product_type}`);
+    check('serviço nasce sem controle de estoque', criado.track_stock === 0, `track_stock=${criado.track_stock}`);
+
     // ── LEITURA 1: a listagem do "Consultar produtos" (modal do PDV) ───────────────
     const sellable = await unwrap<ApiProduct[]>(await api('/api/commercial/products?scope=sellable'));
     const idsSellable = new Set(sellable.map((p) => p.id));
