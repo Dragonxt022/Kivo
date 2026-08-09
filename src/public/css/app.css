@@ -1286,6 +1286,13 @@ tr:last-child td:last-child {
   gap: 0.75rem;
   margin-bottom: 1rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+/* Empurra o que vier depois para a direita: com a barra cheia (novo, buscar, bipar,
+   importar, exportar), a contagem de registros ficava colada nos botões e parecia
+   mais um deles. */
+.toolbar-spacer {
+  flex: 1 1 auto;
 }
 
 /* ─── Seleção em massa (checkbox de linha + barra de ações) ─── */
@@ -1705,11 +1712,33 @@ dialog.product-modal > .dialog-body {
   gap: 1.5rem;
   align-items: start;
 }
+/* As seções do formulário lado a lado, não empilhadas. Em coluna única, "Estoque" e
+   "Identificação" caíam abaixo da dobra e a modal virava um rolo — enquanto a coluna
+   da foto, à direita, ficava com dois terços de espaço vazio. Em tela cheia cabem as
+   três seções curtas numa linha só e o cadastro inteiro entra sem rolagem; auto-fit
+   reduz para duas e depois para uma conforme a largura some, sem media query. */
 .pm-top-form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
   gap: 1rem;
+  align-content: start;
   min-width: 0;
+}
+/* Ocupa a linha inteira: a descrição precisa de largura e o seletor de tipo tem 7
+   botões — espremidos em meia largura, quebravam em três fileiras. */
+.pm-section-wide {
+  grid-column: 1 / -1;
+}
+/* Abaixo de 900px a coluna da foto sai de cena e o formulário herda a largura inteira
+   do diálogo — quase a mesma que ele tem em tela grande, então o auto-fit continuaria
+   entregando 3 colunas numa janela estreita e espremeria o select de categoria a ponto
+   de cortar o nome. Duas é o teto honesto aqui.
+   Precisa vir DEPOIS da regra base: mesma especificidade, quem ganha é a última. É o
+   mesmo motivo do !important em .pm-top-row lá em cima. */
+@media (max-width: 900px) {
+  .pm-top-form {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
 }
 .pm-image-column {
   /* sem position: sticky, sem largura fixa automática — a grid define */
@@ -1745,6 +1774,62 @@ dialog.product-modal > .dialog-body {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-secondary);
+}
+/* Pares de campo curto (preço|custo, SKU|unidade, estoque mín|inicial). Empilhar
+   valores de 6 caracteres em largura total era o que fazia a modal rolar tanto: o
+   formulário ficava com o dobro da altura necessária e o olho perdia a relação
+   entre os dois campos que só se leem juntos. auto-fit + minmax volta a uma coluna
+   sozinho quando não cabe, sem media query. */
+.pm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 0.65rem;
+}
+/* Ancora o campo no rodapé da célula. Numa dupla lado a lado, basta um rótulo quebrar
+   em duas linhas ("Estoque inicial" vs "Estoque mínimo") para os dois inputs saírem de
+   altura — o desalinhamento que faz o formulário parecer torto. Como as células da
+   linha têm sempre a mesma altura, alinhar por baixo mantém os inputs na mesma linha
+   independentemente de quantas linhas o rótulo ocupe. */
+.pm-grid > .pm-field {
+  justify-content: flex-end;
+}
+.pm-grid + .pm-field,
+.pm-field + .pm-grid,
+.pm-grid + .pm-grid {
+  margin-top: 0.65rem;
+}
+/* A grade zera o margin-top que .pm-field + .pm-field aplicaria entre irmãos. */
+.pm-grid .pm-field + .pm-field {
+  margin-top: 0;
+}
+.pm-margin {
+  display: block;
+  margin-top: 0.4rem;
+}
+/* Miniatura + select + engrenagem numa linha. O min-width:0 é o que importa: item flex
+   tem min-width:auto por padrão e se recusa a encolher abaixo do próprio conteúdo — em
+   coluna estreita o select estourava a caixa e cortava o nome da categoria no meio. */
+.pm-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pm-cat-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pm-cat-row > .category-image-preview,
+.pm-cat-row > .icon-btn {
+  flex: none;
+}
+/* Chave travada: o cinza sozinho parece "desabilitado por engano". O cursor
+   not-allowed junto ao texto de motivo abaixo diz que é intencional. */
+.toggle-switch.locked {
+  cursor: not-allowed;
+}
+.toggle-switch.locked .toggle-slider,
+.toggle-switch.locked .toggle-label {
+  opacity: 0.6;
 }
 .pm-field input,
 .pm-field textarea,
@@ -3876,6 +3961,84 @@ dialog.import-dialog > .dialog-body {
   overflow: hidden;
 }
 
+/* Trilho de etapas. Fica FORA de .dialog-body de propósito: o corpo rola (a tabela de
+   conferência é longa) e a etapa atual precisa continuar visível o tempo todo. */
+.import-steps {
+  display: flex;
+  flex: none; /* o diálogo é flex-column e .dialog-body tem flex:1 — sem isto o trilho encolhe */
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0 0 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+.import-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.import-steps li.on {
+  color: var(--text);
+  font-weight: 600;
+}
+.import-step-num {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.import-steps li.on .import-step-num {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+.import-steps li.done .import-step-num {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.import-steps em {
+  font-style: normal;
+}
+
+.import-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+.spinner-inline {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spinner-inline-spin 0.7s linear infinite;
+}
+@keyframes spinner-inline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Respeita quem pediu menos movimento no sistema: o giro vira um pulso suave. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner-inline {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 /* Área de soltar arquivo: o alvo de arrastar-e-soltar é o mesmo botão de escolher,
    então não há dois caminhos para aprender. */
 .import-drop {
@@ -3892,6 +4055,14 @@ dialog.import-dialog > .dialog-body {
   color: var(--text-muted);
   cursor: pointer;
   transition: border-color var(--transition), background var(--transition);
+}
+/* Cresce até ocupar a altura livre do diálogo. A modal tem altura fixa (o rodapé
+   precisa ficar preso), então na etapa 1 sobravam ~250px de nada embaixo do texto de
+   ajuda enquanto o alvo de arrastar era uma faixa fina. Ocupando a sobra, o alvo fica
+   difícil de errar — que é o ponto de existir arrastar-e-soltar. */
+.import-pane > .import-drop {
+  flex: 1 1 auto;
+  min-height: 150px;
 }
 .import-drop:hover,
 .import-drop.over {

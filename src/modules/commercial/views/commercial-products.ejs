@@ -27,24 +27,28 @@
              @keydown.enter.prevent="scanLookup($event.target.value); $event.target.value = ''"
              class="input-search" style="min-width:280px" />
       <% } %>
+      <!-- Importar/Exportar ficavam sem rótulo: três setas quase idênticas em sequência,
+           só distinguíveis pelo title (que exige parar o mouse em cima para descobrir).
+           Rotulados, e a exportação agrupada num só menu — são ações do mesmo assunto. -->
       <% if (user.permissions.has('commercial.products.create')) { %>
-        <button class="btn secondary" @click="openImport()" title="Importar produtos em massa">
+        <button class="btn secondary" @click="openImport()" title="Importar produtos em massa de uma planilha CSV">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          
+          Importar
         </button>
       <% } %>
       <% if (user.permissions.has('commercial.products.view')) { %>
-        <a class="btn secondary" href="/api/commercial/products/export.csv" download title="Exportar produtos">
+        <a class="btn secondary" href="/api/commercial/products/export.csv" download title="Baixar o catálogo em CSV — a mesma planilha serve para reimportar">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          
+          Exportar
         </a>
         <% if (caps.complementos) { %>
-        <a class="btn secondary" href="/api/commercial/products/complements-export.csv" download title="Exportar complementos">
+        <a class="btn secondary" href="/api/commercial/products/complements-export.csv" download title="Baixar os grupos de complemento em CSV">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          
+          Exportar complementos
         </a>
         <% } %>
       <% } %>
+      <span class="toolbar-spacer"></span>
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
@@ -189,7 +193,7 @@
         <div class="pm-top-row">
           <div class="pm-top-form">
             <!-- Informações básicas -->
-            <div class="pm-section">
+            <div class="pm-section pm-section-wide">
               <h2 class="pm-section-title">Informações básicas</h2>
               <div class="pm-field">
                 <label>Nome</label>
@@ -203,37 +207,43 @@
                 <label>Tipo de produto</label>
                 <div class="product-type-picker">
                   <button class="product-type-btn" :class="{ active: form.productType === 'fisico' }"
-                          @click="form.productType = 'fisico'" :disabled="!!form.id"
+                          @click="setProductType('fisico')" :disabled="!!form.id"
                           title="Produto simples — item físico comum com estoque próprio">
                     <span class="type-icon" style="color:#8a8a98"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></span>
                     <span>Simples</span>
                   </button>
+                  <button class="product-type-btn" :class="{ active: form.productType === 'servico' }"
+                          @click="setProductType('servico')" :disabled="!!form.id"
+                          title="Serviço — mão de obra, instalação, higienização. Não tem estoque e fica fora da NFC-e (serviço é NFS-e municipal).">
+                    <span class="type-icon" style="color:#0ea5e9"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+                    <span>Serviço</span>
+                  </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'complemento' }"
-                          @click="form.productType = 'complemento'" :disabled="!!form.id"
+                          @click="setProductType('complemento')" :disabled="!!form.id"
                           title="Complemento — usado como adicional/opcional dentro de outros produtos">
                     <span class="type-icon" style="color:#7c5cff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
                     <span>Complemento</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'variante' }"
-                          @click="form.productType = 'variante'" :disabled="!!form.id"
+                          @click="setProductType('variante')" :disabled="!!form.id"
                           title="Produto com variantes — tamanhos, cores, sabores etc.">
                     <span class="type-icon" style="color:#7c5cff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/></svg></span>
                     <span>Variantes</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'kit' }"
-                          @click="form.productType = 'kit'" :disabled="!!form.id"
+                          @click="setProductType('kit')" :disabled="!!form.id"
                           title="Kit — conjunto de produtos vendidos juntos como um só item">
                     <span class="type-icon" style="color:#00a37a"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg></span>
                     <span>Kit</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'combo' }"
-                          @click="form.productType = 'combo'" :disabled="!!form.id"
+                          @click="setProductType('combo')" :disabled="!!form.id"
                           title="Combo — combinação promocional com preço especial">
                     <span class="type-icon" style="color:#f5872e"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></span>
                     <span>Combo</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'produzido' }"
-                          @click="form.productType = 'produzido'" :disabled="!!form.id"
+                          @click="setProductType('produzido')" :disabled="!!form.id"
                           title="Produzido — fabricado internamente com ficha técnica (consome insumos do estoque)">
                     <span class="type-icon" style="color:#e5484d"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 11h.01"/><path d="M11 15h.01"/><path d="M16 16h.01"/><path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"/><path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"/></svg></span>
                     <span>Produzido</span>
@@ -247,14 +257,14 @@
               <h2 class="pm-section-title">Comercial</h2>
               <div class="pm-field">
                 <label>Categoria</label>
-                <div class="flex-row" style="align-items:center;gap:.5rem">
+                <div class="pm-cat-row">
                   <div class="category-image-preview" style="width:36px;height:36px;border-radius:50%;background:var(--surface-hover);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
                     <img x-show="selectedCategoryImage" :src="selectedCategoryImage" alt="" style="width:100%;height:100%;object-fit:cover" />
                     <template x-if="!selectedCategoryImage">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
                     </template>
                   </div>
-                  <select x-model.number="form.categoryId" @change="updateCategoryImage()" style="flex:1">
+                  <select x-model.number="form.categoryId" @change="updateCategoryImage()">
                     <option value="">— sem categoria —</option>
                     <template x-for="c in categories" :key="c.id"><option :value="c.id" :data-image="c.image_url" x-text="c.name"></option></template>
                   </select>
@@ -263,35 +273,53 @@
                   </button>
                 </div>
               </div>
-              <% if (user.permissions.has('commercial.products.price')) { %>
-              <div class="pm-field">
-                <label>Preço (R$)</label><input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
+              <!-- Preço e custo lado a lado: são dois valores curtos que se leem em par
+                   (a margem só faz sentido comparando os dois). Empilhados em largura
+                   total, empurravam o resto do formulário para fora da tela. -->
+              <div class="pm-grid">
+                <% if (user.permissions.has('commercial.products.price')) { %>
+                <div class="pm-field">
+                  <label title="Preço cobrado do cliente">Preço (R$)</label>
+                  <input type="text" x-model="form.price" placeholder="0,00" @input="form.price = maskMoney(form.price)" />
+                </div>
+                <% } %>
+                <div class="pm-field">
+                  <label>Custo (R$)</label>
+                  <input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
+                </div>
               </div>
-              <% } %>
-              <div class="pm-field">
-                <label>Custo (R$)</label><input type="text" x-model="form.cost" placeholder="0,00" @input="form.cost = maskMoney(form.cost)" />
-              </div>
+              <span class="pm-margin muted text-xs" x-show="margemLabel" x-text="margemLabel"></span>
             </div>
 
             <!-- Estoque -->
             <div class="pm-section">
               <h2 class="pm-section-title">Estoque</h2>
               <div class="pm-field">
-                <label class="toggle-switch" style="display:flex;align-items:center;gap:.5rem">
-                  <input type="checkbox" x-model="form.noStockControl" class="toggle-input" />
+                <label class="toggle-switch" :class="{ locked: stockLocked }"
+                       style="display:flex;align-items:center;gap:.5rem">
+                  <input type="checkbox" x-model="form.noStockControl" class="toggle-input" :disabled="stockLocked" />
                   <span class="toggle-slider"></span>
-                  <span class="toggle-label">Não controla estoque (serviços, digitais, combos com estoque dos componentes)</span>
+                  <span class="toggle-label">Não controla estoque</span>
                 </label>
+                <!-- Serviço, complemento e produto-pai de variações não têm saldo próprio, e
+                     o servidor ignora a escolha nesses casos. Travar a chave em vez de deixá-la
+                     clicável evita prometer um controle de estoque que nunca vai existir. -->
+                <span class="muted text-xs" x-show="stockLocked" x-text="stockLockedReason"></span>
+                <span class="muted text-xs" x-show="!stockLocked && form.noStockControl">
+                  Vende sem baixar saldo — use para digitais e para kits cujo estoque está nos componentes.
+                </span>
               </div>
-              <div class="pm-field" x-show="!form.noStockControl">
-                <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
-              </div>
-              <template x-if="!form.id">
-                <div class="pm-field" x-show="!form.noStockControl">
-                  <label>Estoque inicial (opcional)</label>
-                  <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
+              <div class="pm-grid" x-show="!form.noStockControl">
+                <div class="pm-field">
+                  <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
                 </div>
-              </template>
+                <template x-if="!form.id">
+                  <div class="pm-field">
+                    <label title="Opcional — entra como movimentação de entrada">Estoque inicial</label>
+                    <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
+                  </div>
+                </template>
+              </div>
             </div>
 
             <!-- Identificação -->
@@ -310,11 +338,13 @@
                 </div>
                 <span class="muted text-xs" x-show="barcodeHint" x-text="barcodeHint"></span>
               </div>
-              <div class="pm-field">
-                <label>SKU</label><input type="text" x-model="form.sku" />
-              </div>
-              <div class="pm-field">
-                <label>Unidade (un, kg, l…)</label><input type="text" x-model="form.unit" />
+              <div class="pm-grid">
+                <div class="pm-field">
+                  <label>SKU</label><input type="text" x-model="form.sku" />
+                </div>
+                <div class="pm-field">
+                  <label title="un, kg, l, cx…">Unidade</label><input type="text" x-model="form.unit" placeholder="un" />
+                </div>
               </div>
             </div>
           </div>
@@ -581,6 +611,24 @@
          erro no arquivo não alcançava nenhuma saída a não ser Esc. -->
     <dialog x-ref="importDlg" class="dialog-fixed import-dialog">
       <h1 x-text="importStep2 ? 'Importar complementos' : 'Importar produtos'"></h1>
+      <!-- A importação sempre teve 3 etapas, mas nada na tela dizia isso: quem confirmava
+           os produtos era jogado numa segunda tela de arrastar arquivo sem entender por
+           quê, e quem estava na conferência não sabia se já tinha gravado. O trilho torna
+           o caminho (e o "onde estou") explícito, e marca com ✓ o que já passou. -->
+      <ol class="import-steps" aria-label="Etapas da importação">
+        <li :class="{ on: importCurrentStep === 1, done: importCurrentStep > 1 }">
+          <span class="import-step-num" x-text="importCurrentStep > 1 ? '✓' : '1'"></span>
+          <span>Escolher planilha</span>
+        </li>
+        <li :class="{ on: importCurrentStep === 2, done: importCurrentStep > 2 }">
+          <span class="import-step-num" x-text="importCurrentStep > 2 ? '✓' : '2'"></span>
+          <span>Conferir antes de gravar</span>
+        </li>
+        <li :class="{ on: importCurrentStep === 3 }">
+          <span class="import-step-num">3</span>
+          <span>Complementos <em class="muted">(opcional)</em></span>
+        </li>
+      </ol>
       <div class="dialog-body">
 
       <!-- Passo 1: arquivo -->
@@ -625,7 +673,10 @@
             mesmo arquivo.
           </p>
           <div class="error" x-text="importError"></div>
-          <div class="muted" x-show="importLoading">Conferindo o arquivo…</div>
+          <div class="import-loading" x-show="importLoading">
+            <span class="spinner-inline"></span>
+            <span x-text="importFileName ? ('Conferindo ' + importFileName + '…') : 'Conferindo o arquivo…'"></span>
+          </div>
         </div>
       </template>
 
@@ -1524,6 +1575,11 @@
           if ((d.complementGroups || []).length) parts.push('compl: ' + d.complementGroups.join(', '));
           return parts.join(' · ') || '—';
         },
+        /** Etapa atual do trilho: 1 escolher arquivo, 2 conferir, 3 complementos. */
+        get importCurrentStep() {
+          if (this.importStep2) return 3;
+          return this.importReport ? 2 : 1;
+        },
         // Um caminho só para clicar e para arrastar-e-soltar — quem arrasta a planilha
         // do Explorer tem que cair na mesma conferência de quem usa o seletor.
         async readImportFile(file) {
@@ -1753,6 +1809,40 @@
             this.imgSearching = false;
           }
         },
+        /**
+         * Tipos sem saldo próprio. Para variante e complemento o servidor já ignora o que
+         * o formulário mandar (grava track_stock = 0); serviço entra pela definição — não
+         * há o que estocar de mão de obra. Manter a chave clicável nesses casos prometia
+         * um controle de estoque que nunca ia existir.
+         */
+        stockLessTypes: {
+          servico: 'Serviço não tem estoque: o que se vende é a execução, não um item guardado.',
+          complemento: 'Complemento não tem saldo próprio — quem baixa estoque é o produto ao qual ele é vinculado.',
+          variante: 'O produto com variações é só o agrupador. Quem tem preço e estoque é cada variação.',
+        },
+        get stockLocked() { return !!this.stockLessTypes[this.form.productType]; },
+        get stockLockedReason() { return this.stockLessTypes[this.form.productType] ?? ''; },
+
+        /**
+         * Trocar o tipo reposiciona o estoque junto: escolher "Serviço" e ainda ter que
+         * lembrar de desligar a chave de estoque é a etapa que todo mundo esquece — e o
+         * produto nasce como mercadoria, cobrando NCM e baixando saldo que não existe.
+         */
+        setProductType(t) {
+          this.form.productType = t;
+          if (this.stockLessTypes[t]) this.form.noStockControl = true;
+        },
+
+        /** Margem sobre o preço — o par preço/custo só diz alguma coisa junto. */
+        get margemLabel() {
+          const n = (v) => Number(String(v ?? '').replace(/\./g, '').replace(',', '.')) || 0;
+          const preco = n(this.form.price), custo = n(this.form.cost);
+          if (!(preco > 0) || !(custo > 0)) return '';
+          const lucro = preco - custo;
+          const pct = Math.round((lucro / preco) * 1000) / 10;
+          return `Margem: ${this.brl(Math.round(lucro * 100))} (${String(pct).replace('.', ',')}% do preço)`;
+        },
+
         openNew() {
           this.form = { unit: 'un', productType: 'fisico', noStockControl: false }; this.dlgError = ''; this.resetImageState();
           this.selectedCategoryImage = '';
@@ -1772,6 +1862,10 @@
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
             minStock: p.min_stock, productType: p.product_type ?? 'fisico', noStockControl: !p.track_stock,
             description: p.description ?? '' };
+          // Produto antigo pode ter sido gravado como serviço COM controle de estoque (o
+          // tipo não existia no formulário). Normalizar na abertura evita a chave aparecer
+          // desligada e travada ao mesmo tempo — e salvar já acerta o dado.
+          if (this.stockLessTypes[this.form.productType]) this.form.noStockControl = true;
           this.dlgError = ''; this.barcodeHint = ''; this.resetImageState();
           this.form.imageUrl = p.image_url ?? null;
           this.selectedCategoryImage = p.category_image_url ?? '';
