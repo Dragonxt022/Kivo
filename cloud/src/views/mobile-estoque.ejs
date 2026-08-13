@@ -1,0 +1,36 @@
+<%- include('partials/mobile-head', { titulo: 'Estoque', grant, fresh }) %>
+
+<form class="m-search" method="get" action="/m/estoque">
+  <input type="search" name="q" value="<%= q %>" placeholder="Buscar por nome ou SKU" autocomplete="off">
+  <button type="submit" aria-label="Buscar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+  </button>
+</form>
+
+<% if (abaixoMinimo > 0) { %>
+  <p class="m-note m-note-warn">
+    <strong><%= abaixoMinimo %></strong> produto(s) no mínimo ou abaixo.
+  </p>
+<% } %>
+
+<%# O saldo é refeito somando o ledger de movimentações (products.stock_qty é derivado e não
+    viaja no sync). Ajuste de inventário DEFINE o saldo — ver stockBalances em mobileData.ts. %>
+<% if (!produtos.length) { %>
+  <p class="m-empty"><%= q ? 'Nenhum produto encontrado.' : 'Nenhum produto com controle de estoque sincronizado.' %></p>
+<% } else { %>
+  <ul class="m-list">
+    <% produtos.forEach(function (p) { %>
+      <li>
+        <div class="m-list-static">
+          <span class="m-list-main"><%= p.name %></span>
+          <span class="m-list-meta"><%= p.sku || 'sem SKU' %> · R$ <%= brl(p.price_cents) %></span>
+          <strong class="m-list-value <%= p.saldo <= p.min_stock ? 'm-danger' : '' %>">
+            <%= Number.isInteger(p.saldo) ? p.saldo : p.saldo.toFixed(3) %>
+          </strong>
+        </div>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>
+
+<%- include('partials/mobile-foot', { grant, ativo: 'estoque' }) %>

@@ -20,6 +20,16 @@ export function canSaveToCloud(plan: string | null | undefined): boolean {
   return !plan || !RESTRICTED_PLANS.has(plan.toLowerCase());
 }
 
+/**
+ * Kivo Web (painel e orçamento pelo celular) é exclusivo do Diamante. Ao contrário de
+ * `canSaveToCloud`, que libera tudo que não for trial/prata, aqui só o Diamante explícito
+ * entra — é recurso novo, sem base antiga para proteger com fail-open.
+ * Espelha `canUseWebApp` de src/core/license/plans.ts.
+ */
+export function canUseWebApp(plan: string | null | undefined): boolean {
+  return (plan ?? '').toLowerCase() === 'diamante';
+}
+
 /** Validade padrão de uma licença trial: 15 dias a partir de agora. */
 export function trialValidUntil(): string {
   const d = new Date(Date.now() + 15 * 24 * 3600e3);

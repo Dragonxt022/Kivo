@@ -348,9 +348,44 @@ export async function requestTrial(): Promise<TrialResult> {
   return { ok: true, info: validateLicense() };
 }
 
-export async function activateLicense(companyUuid: string, licenseKey: string): Promise<ActivateResult> {
+/**
+ * Descobre o UUID da empresa a partir da chave de licença, para a tela de ativação pedir só
+ * a chave. O UUID nunca foi um segredo — era só o endereço onde conferir a chave —, então
+ * digitá-lo à mão só criava erro de transcrição na hora da venda.
+ *
+ * Devolve `null` quando a nuvem não sabe responder (chave desconhecida, servidor antigo sem
+ * a rota, sem internet): quem chama cai de volta no par UUID + chave informado à mão.
+ */
+async function resolveCompanyUuid(url: string, licenseKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${url.replace(/\/$/, '')}/api/license/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licenseKey }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { companyUuid?: string };
+    return body.companyUuid ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function activateLicense(companyUuid: string | null, licenseKey: string): Promise<ActivateResult> {
   const url = getCloudServerUrl();
   if (!url) return { ok: false, error: 'Servidor de licenciamento não configurado.', reason: 'not_configured' };
+
+  if (!companyUuid) {
+    companyUuid = await resolveCompanyUuid(url, licenseKey);
+    if (!companyUuid) {
+      return {
+        ok: false,
+        reason: 'invalid_credentials',
+        error: 'Chave de licença não encontrada. Confira a chave ou informe o UUID da empresa manualmente.',
+      };
+    }
+  }
 
   let res: Response;
   try {

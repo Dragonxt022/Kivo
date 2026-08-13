@@ -40,6 +40,7 @@
     .activation-card .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
     .activation-card .btn-ghost { background: transparent; color: var(--text-muted); font-size: .85rem; }
     .activation-card .btn-ghost:hover { color: var(--primary); }
+    .activation-card .manual-uuid-toggle { margin: -.35rem 0 .6rem; font-size: .78rem; }
     .activation-card .error { color: var(--danger); font-size: .85rem; margin-top: .75rem; min-height: 1.2em; }
     .activation-card .trial-features { text-align: left; margin: 1rem 0; font-size: .85rem; color: var(--text-muted); }
     .activation-card .trial-features li { padding: .25rem 0; display: flex; align-items: center; gap: .4rem; }
@@ -84,12 +85,22 @@
 
     <template x-if="mode === 'key'">
       <div>
-        <p class="subtitle">Informe os dados fornecidos na compra. É preciso estar conectado à internet nesta primeira ativação.</p>
+        <p class="subtitle">Informe a chave recebida na compra. É preciso estar conectado à internet nesta primeira ativação.</p>
         <form @submit.prevent="activate">
-          <label for="act-company">Empresa (UUID)</label>
-          <input id="act-company" type="text" x-model="companyUuid" placeholder="uuid fornecido na ativação" autocomplete="off" />
           <label for="act-key">Chave de licença</label>
           <input id="act-key" type="text" x-model="licenseKey" placeholder="chave fornecida na ativação" autocomplete="off" />
+          <%# O UUID da empresa deixou de ser obrigatório: o servidor descobre a empresa pela
+              própria chave. Fica aqui recolhido para licença antiga e para o caso de a
+              nuvem não conseguir resolver (chave repetida, servidor desatualizado). %>
+          <button type="button" class="btn btn-ghost manual-uuid-toggle" @click="showUuid = !showUuid">
+            <span x-text="showUuid ? 'Ocultar UUID da empresa' : 'Informar UUID da empresa manualmente'"></span>
+          </button>
+          <template x-if="showUuid">
+            <div>
+              <label for="act-company">Empresa (UUID)</label>
+              <input id="act-company" type="text" x-model="companyUuid" placeholder="uuid fornecido na ativação" autocomplete="off" />
+            </div>
+          </template>
           <button class="btn btn-primary" type="submit" :disabled="loading">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5"/></svg>
             <span x-text="loading ? 'Ativando…' : 'Ativar'"></span>
@@ -121,7 +132,7 @@
       return {
         theme: document.documentElement.getAttribute('data-theme') || 'light',
         mode: 'choice',
-        companyUuid: '', licenseKey: '', loading: false, error: '',
+        companyUuid: '', licenseKey: '', showUuid: false, loading: false, error: '',
         async startTrial() {
           this.loading = true; this.error = '';
           try {
@@ -136,15 +147,16 @@
           }
         },
         async activate() {
-          if (!this.companyUuid.trim() || !this.licenseKey.trim()) {
-            this.error = 'Preencha empresa e chave de licença.';
+          if (!this.licenseKey.trim()) {
+            this.error = 'Informe a chave de licença.';
             return;
           }
           this.loading = true; this.error = '';
           try {
             const r = await fetch('/api/activation/activate', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ companyUuid: this.companyUuid.trim(), licenseKey: this.licenseKey.trim() }),
+              // UUID em branco = o servidor descobre a empresa pela chave.
+              body: JSON.stringify({ companyUuid: this.companyUuid.trim() || undefined, licenseKey: this.licenseKey.trim() }),
             });
             if (r.ok) { window.location.href = '/'; return; }
             const data = await r.json();

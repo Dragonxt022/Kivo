@@ -238,6 +238,53 @@
 
     <!-- ═══════ ABA: INTERFACE (preferências deste computador) ═══════ -->
     <div x-show="tab === 'interface'" x-cloak>
+      <%# Vale só nesta máquina (machine-prefs.json ao lado do banco), não na tabela
+          `settings` — que sincroniza e levaria o modo leve do PC fraco do balcão para todas
+          as outras máquinas da empresa. %>
+      <section class="panel" x-data="{
+        modoLeve: document.documentElement.getAttribute('data-lite') === '1',
+        saving: false, erro: '',
+        async toggleLeve() {
+          this.saving = true; this.erro = '';
+          const alvo = !this.modoLeve;
+          try {
+            const r = await fetch('/api/settings/machine-prefs', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ modoLeve: alvo }),
+            });
+            if (!r.ok) { this.erro = ((await r.json()) || {}).error || 'Não foi possível salvar.'; return; }
+            this.modoLeve = alvo;
+            location.reload();
+          } catch (e) {
+            this.erro = 'Erro de conexão ao salvar.';
+          } finally {
+            this.saving = false;
+          }
+        }
+      }">
+        <h2>Modo leve</h2>
+        <p class="hint mt-0">
+          Para computadores mais fracos ou sem driver de vídeo atualizado: remove o efeito de vidro
+          fosco, as sombras, os gradientes e as animações, e desliga a aceleração de vídeo. A
+          interface fica mais simples e responde bem mais rápido. Vale só neste computador — as
+          outras máquinas da empresa não são afetadas.
+        </p>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" :checked="modoLeve" :disabled="saving" @change="toggleLeve()" />
+            Ativar modo leve neste computador
+          </label>
+        </div>
+        <p class="hint" x-show="modoLeve" x-cloak>
+          A aceleração de vídeo só é desligada de fato no <strong>próximo início</strong> do Kivo.
+        </p>
+        <p class="hint">
+          O Kivo liga isto sozinho na primeira execução quando detecta pouca memória, poucos núcleos
+          ou vídeo sem aceleração. Depois que você escolhe aqui, a detecção não mexe mais.
+        </p>
+        <p class="error" x-show="erro" x-cloak x-text="erro"></p>
+      </section>
+
       <section class="panel" x-data="{
         enabled: (function(){ try { return (localStorage.getItem('kivo:recent-enabled') ?? '1') !== '0'; } catch(e){ return true; } })(),
         cleared: false,
@@ -452,6 +499,38 @@
           administrador nesses aparelhos — veja <a href="/admin/usuarios">Usuários</a> e
           <a href="/admin/cargos">Cargos</a>.
         </p>
+      </section>
+
+      <%# O ciclo automático é o que mantém o painel do Kivo Web atual — sem ele o celular
+          mostra o que sobrou do último clique em "Sincronizar agora". %>
+      <section class="panel">
+        <h2>Sincronização automática com a nuvem</h2>
+        <p class="hint mt-0">
+          De quanto em quanto tempo o Kivo envia o movimento desta máquina para a nuvem e busca o
+          que veio das outras. É isto que mantém atualizado o acompanhamento pelo celular
+          (<strong>Kivo Web</strong>) e o backup do dia. Fechar uma venda também dispara um envio
+          alguns segundos depois, sem esperar o ciclo.
+        </p>
+        <div class="field">
+          <label>Intervalo</label>
+          <select x-model.number="rede.syncIntervalo">
+            <option :value="0">Desligado (só manual)</option>
+            <option :value="1">A cada 1 minuto</option>
+            <option :value="3">A cada 3 minutos (recomendado)</option>
+            <option :value="10">A cada 10 minutos</option>
+            <option :value="30">A cada 30 minutos</option>
+          </select>
+          <p class="hint">Exige plano com sincronização em nuvem. <strong>Requer reiniciar o Kivo</strong> para valer.</p>
+        </div>
+        <% if (user.permissions.has('settings.edit')) { %>
+        <div class="toolbar">
+          <button class="btn" @click="saveSyncIntervalo()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingSync ? 'Salvando…' : 'Salvar'"></span>
+          </button>
+          <span class="muted" x-show="syncSaved" x-text="syncSaved"></span>
+        </div>
+        <% } %>
       </section>
     </div>
     <% } %>
@@ -680,7 +759,8 @@
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
         fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
-        rede: { acessoLocal: false }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null }, copiedUrl: '',
+        rede: { acessoLocal: false, syncIntervalo: 3 }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null }, copiedUrl: '',
+        savingSync: false, syncSaved: '',
         cardapio: { url: '', qr: '', loading: true, copied: false },
 
         async load() {
@@ -737,6 +817,8 @@
           this.empresa.telefone = this.settings.find(s => s.key === 'empresa.telefone')?.value ?? '';
           this.empresa.endereco = this.settings.find(s => s.key === 'empresa.endereco')?.value ?? '';
           this.rede.acessoLocal = this.settings.find(s => s.key === 'rede.acesso_local')?.value === '1';
+          const iv = this.settings.find(s => s.key === 'sync.intervalo_minutos')?.value;
+          this.rede.syncIntervalo = iv == null || iv === '' ? 3 : Number(iv);
         },
         openLicenseDlg() {
           this.licenseForm = { companyUuid: '', licenseKey: '' };
@@ -879,6 +961,15 @@
           });
           this.savingRede = false;
           this.redeSaved = r.ok ? 'Salvo — reinicie o Kivo para aplicar.' : 'Falha ao salvar.';
+        },
+        async saveSyncIntervalo() {
+          this.savingSync = true; this.syncSaved = '';
+          const r = await fetch('/api/settings/sync.intervalo_minutos', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: String(this.rede.syncIntervalo) }),
+          });
+          this.savingSync = false;
+          this.syncSaved = r.ok ? 'Salvo — reinicie o Kivo para aplicar.' : 'Falha ao salvar.';
         },
         copyUrl(u) {
           navigator.clipboard?.writeText(u).then(() => {

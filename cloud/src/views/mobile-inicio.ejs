@@ -1,0 +1,48 @@
+<%- include('partials/mobile-head', { titulo: 'Início', grant, fresh }) %>
+
+<div class="m-cards">
+  <div class="m-card m-card-hero">
+    <span class="m-card-label">Vendas de hoje</span>
+    <strong class="m-card-value">R$ <%= brl(totalDia) %></strong>
+    <span class="m-card-sub"><%= qtdDia %> <%= qtdDia === 1 ? 'venda' : 'vendas' %></span>
+  </div>
+  <div class="m-card">
+    <span class="m-card-label">Ticket médio</span>
+    <strong class="m-card-value">R$ <%= brl(ticketMedio) %></strong>
+  </div>
+  <div class="m-card">
+    <span class="m-card-label">Caixa</span>
+    <% if (caixa) { %>
+      <strong class="m-card-value m-ok">Aberto</strong>
+      <span class="m-card-sub">Abertura R$ <%= brl(caixa.opening_cents || 0) %></span>
+    <% } else { %>
+      <strong class="m-card-value m-muted">Fechado</strong>
+    <% } %>
+  </div>
+</div>
+
+<% if (grant.permissions.includes('store.sales.view')) { %>
+<section class="m-section">
+  <div class="m-section-head">
+    <h2>Últimas vendas de hoje</h2>
+    <a href="/m/vendas">ver todas</a>
+  </div>
+  <% if (!ultimas.length) { %>
+    <p class="m-empty">Nenhuma venda registrada hoje ainda.</p>
+  <% } else { %>
+    <ul class="m-list">
+      <% ultimas.forEach(function (s) { %>
+        <li>
+          <a href="/m/vendas/<%= s.uuid %>">
+            <span class="m-list-main"><%= s.payload.customer_name || 'Consumidor' %></span>
+            <span class="m-list-meta"><%= (s.payload.created_at || '').slice(11, 16) %> · <%= s.payload.payment_method %></span>
+            <strong class="m-list-value">R$ <%= brl(s.payload.total_cents) %></strong>
+          </a>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+<% } %>
+
+<%- include('partials/mobile-foot', { grant, ativo: 'inicio' }) %>

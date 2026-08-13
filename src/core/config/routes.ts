@@ -6,6 +6,7 @@ import { getSqlite } from '../database/connection';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
 import { getCloudServerUrl } from './cloud';
+import { getMachinePrefs, setMachinePrefs } from './machinePrefs';
 import { getLicenseCredentials } from '../license/service';
 
 const router = Router();
@@ -49,6 +50,34 @@ router.get('/cardapio-info', requirePermission('settings.view'), async (_req, re
   const url = `${cloudUrl.replace(/\/$/, '')}/cardapio/${companyUuid}`;
   const qr = await QRCode.toDataURL(url, { margin: 1, width: 200 });
   res.json({ url, qr });
+});
+
+/**
+ * Preferências desta máquina (modo leve). Ficam fora da tabela `settings` porque ela
+ * sincroniza para as outras máquinas da empresa — ver core/config/machinePrefs.ts.
+ *
+ * Precisam vir ANTES do `PUT /:key` abaixo, que é curinga e engoliria `/machine-prefs`.
+ * Leitura exige só `settings.view`; escrita, `settings.edit` — mesma régua das demais.
+ */
+router.get('/machine-prefs', requirePermission('settings.view'), (_req, res) => {
+  res.json(getMachinePrefs());
+});
+
+router.put('/machine-prefs', requirePermission('settings.edit'), (req, res) => {
+  const { modoLeve } = req.body ?? {};
+  if (typeof modoLeve !== 'boolean') {
+    res.status(400).json({ error: 'Informe modoLeve (true/false).' });
+    return;
+  }
+  const before = getMachinePrefs();
+  // `modoLeveDetectado` fecha a porta da detecção automática: depois de uma escolha manual,
+  // o app nunca mais reverte o que o usuário decidiu.
+  const after = setMachinePrefs({ modoLeve, modoLeveDetectado: true });
+  // As views leem `modoLeve` de app.locals para estampar `data-lite` no <html> já no primeiro
+  // byte da resposta (sem piscar). Sem atualizar aqui, só valeria depois de reiniciar.
+  req.app.locals.modoLeve = after.modoLeve;
+  audit(req, 'editar', 'machine-prefs', 'modoLeve', before, after);
+  res.json(after);
 });
 
 router.put('/:key', requirePermission('settings.edit'), (req, res) => {

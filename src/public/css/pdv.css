@@ -990,6 +990,28 @@ dialog.pay-modal[open] {
   display: block;
   margin: 0 0 0.4rem;
 }
+/* O mesmo campo de cliente do carrinho, repetido dentro do modal de pagamento — lá ele é
+   estreito ao lado do título "Carrinho"; aqui ocupa a coluna inteira. */
+.cart-customer.pay-customer {
+  max-width: none;
+  margin-bottom: 0.35rem;
+}
+.pay-customer-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  font-size: 0.78rem;
+  color: var(--primary);
+  margin: 0 0 1rem;
+}
+.pay-customer-hint.muted {
+  color: var(--text-muted);
+}
+.pay-customer-hint > span + span::before {
+  content: '·';
+  margin-right: 0.5rem;
+  color: var(--text-muted);
+}
 .pay-value-box {
   background: var(--surface-hover);
   border: 1.5px solid var(--border-light);
@@ -1619,4 +1641,23 @@ body:has(.pdv) dialog {
   dialog {
     animation: none;
   }
+}
+
+/* Modo leve quer exatamente o mesmo: `transform` em hover força uma camada de composição
+   por elemento, e numa lista de produtos isso multiplica. Repetido em vez de agrupado com
+   a media query acima porque `@media` e seletor não se combinam numa lista só. */
+:root[data-lite='1'] .pdv-action:hover,
+:root[data-lite='1'] .btn-finalize:hover,
+:root[data-lite='1'] .sale-tab:active,
+:root[data-lite='1'] .pdv-cat-chip:active,
+:root[data-lite='1'] .pay-quick-method:active,
+:root[data-lite='1'] .pay-helper-chip:active {
+  transform: none;
+}
+:root[data-lite='1'] .pdv-result:hover {
+  padding-left: 0.9rem;
+}
+/* Os blobs coloridos pintados no body só existem para o blur do vidro ter o que capturar. */
+:root[data-lite='1'] body:has(.pdv) {
+  background-image: none;
 }

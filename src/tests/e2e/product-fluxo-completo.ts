@@ -260,8 +260,11 @@ async function testProdutoVariantes(page: Page) {
   await fillModel(page, 'form.price', '89,90');
   await fillModel(page, 'form.unit', 'un');
 
-  // Selecionar tipo "Produto com variantes"
-  await page.locator('[x-model="form.productType"]').selectOption('variante');
+  // Selecionar tipo "Produto com variantes". O seletor era um <select x-model="form.productType">
+  // e virou uma fileira de botões `.product-type-btn` — o teste continuou apontando para o
+  // <select> inexistente, então esta perna inteira parou de exercitar o fluxo real (foi assim
+  // que a regressão de "Gerar variantes" passou despercebida).
+  await page.locator('.product-type-btn:has-text("Variantes")').click();
   await wait(page, 300);
 
   await snap(page, 'criar-produto-variante');
@@ -276,53 +279,74 @@ async function testProdutoVariantes(page: Page) {
 
   // O painel de variantes deve aparecer (form.productType === 'variante' e form.id existe)
   const variantSection = page.locator('h2:has-text("Variantes")');
-  if (await variantSection.isVisible()) {
-    // Gerenciar Atributos
-    await page.locator('button:has-text("Atributos")').click();
-    await wait(page, 500);
-    await snap(page, 'gerenciar-atributos');
-
-    // Criar atributo Tamanho
-    await page.locator('[x-model="newAttrName"]').fill('Tamanho');
-    await page.locator('button:has-text("Adicionar")').first().click();
-    await wait(page, 500);
-
-    // Adicionar valores ao atributo Tamanho
-    // Encontra a primeira seção de atributo
-    const attrSection = page.locator('dialog[x-ref="attrDlg"] > div > div').first();
-    // O campo de input para novo valor aparece ao clicar no "+"
-    const addValueBtns = page.locator('button.icon-btn[title*="Adicionar valor"]');
-    if (await addValueBtns.count() > 0) {
-      await addValueBtns.first().click();
-      await wait(page, 200);
-      // Digitar valor
-      const valInput = page.locator('[x-model="addAttrValName"]');
-      if (await valInput.isVisible()) {
-        await valInput.fill('P');
-        await page.locator('button:has-text("Adicionar")').last().click();
-        await wait(page, 300);
-      }
-    }
-
-    // Fechar gerenciador de atributos
-    await page.locator('dialog[x-ref="attrDlg"] .actions button:has-text("Fechar")').click();
-    await wait(page, 300);
-
-    // Abrir gerar variantes
-    await page.locator('button:has-text("Gerar variantes")').click();
-    await wait(page, 500);
-    await snap(page, 'gerar-variantes');
-
-    // Fechar gerar variantes
-    if (await page.locator('dialog[x-ref="genVarDlg"] .actions button:has-text("Cancelar")').isVisible()) {
-      await page.locator('dialog[x-ref="genVarDlg"] .actions button:has-text("Cancelar")').click();
-    } else {
-      await page.locator('button:has-text("Cancelar")').first().click();
-    }
-    await wait(page, 300);
-  } else {
+  if (!(await variantSection.isVisible())) {
     check('Painel de variantes visível', false, 'Seção de variantes não encontrada');
+    await page.locator('dialog[class*="product-modal"] .actions button.btn.secondary:has-text("Cancelar")').click();
+    return;
   }
+
+  // Pai recém-criado não tem filhas: o aviso de que ele não aparece no PDV precisa estar visível.
+  check('avisa que o produto-pai ainda não aparece no PDV',
+    await page.locator('text=Nenhuma variação gerada ainda').isVisible());
+
+  // Gerenciar Atributos
+  await page.locator('button:has-text("Atributos")').click();
+  await wait(page, 500);
+  await snap(page, 'gerenciar-atributos');
+
+  // Criar atributo Tamanho
+  await page.locator('[x-model="newAttrName"]').fill('Tamanho');
+  await page.locator('dialog[x-ref="attrDlg"] button:has-text("Adicionar")').first().click();
+  await wait(page, 500);
+  check('atributo "Tamanho" criado',
+    await page.locator('dialog[x-ref="attrDlg"] strong:has-text("Tamanho")').isVisible());
+
+  // Adicionar dois valores. O primeiro sai pelo botão ✓ e o segundo por blur (clicando fora):
+  // gravar só no Enter era o defeito que deixava o atributo vazio e travava a geração.
+  await page.locator('dialog[x-ref="attrDlg"] button:has-text("+ valor")').first().click();
+  await wait(page, 200);
+  const valInput = page.locator('dialog[x-ref="attrDlg"] .attr-val-input').first();
+  check('campo de valor abre ao clicar em "+ valor"', await valInput.isVisible());
+
+  await valInput.fill('P');
+  await page.locator('dialog[x-ref="attrDlg"] button[title="Salvar valor"]').first().click();
+  await wait(page, 400);
+
+  await valInput.fill('M');
+  await page.locator('dialog[x-ref="attrDlg"] h1').click(); // tira o foco → @blur grava
+  await wait(page, 400);
+
+  const valoresVisiveis = await page.locator('dialog[x-ref="attrDlg"] span:has-text("P")').count();
+  check('valores gravados pelo ✓ e pelo blur (sem Enter)',
+    valoresVisiveis > 0 && (await page.locator('dialog[x-ref="attrDlg"]').innerText()).includes('M'));
+
+  await page.locator('dialog[x-ref="attrDlg"] .actions button:has-text("Fechar")').click();
+  await wait(page, 300);
+
+  // Gerar variantes: com valores cadastrados, o estado vazio NÃO pode aparecer.
+  await page.locator('button:has-text("Gerar variantes")').click();
+  await wait(page, 600);
+  await snap(page, 'gerar-variantes');
+
+  const genText = await page.locator('dialog[x-ref="genVarDlg"]').innerText();
+  check('não mostra "Cadastre um atributo primeiro" com atributo válido',
+    !genText.includes('Cadastre um atributo primeiro'));
+  check('não mostra "Falta cadastrar os valores" com valores cadastrados',
+    !genText.includes('Falta cadastrar os valores'));
+
+  const checkboxes = page.locator('dialog[x-ref="genVarDlg"] input[type="checkbox"]');
+  check('valores aparecem como opções para combinar', (await checkboxes.count()) === 2);
+
+  await checkboxes.nth(0).check();
+  await checkboxes.nth(1).check();
+  await wait(page, 200);
+  await page.locator('dialog[x-ref="genVarDlg"] .actions button:has-text("Gerar")').click();
+  await wait(page, 1000);
+
+  const linhas = await page.locator('table tbody tr:has-text("Camiseta Básica -")').count();
+  check('2 variantes geradas e listadas', linhas === 2, `${linhas} linha(s)`);
+  check('aviso de "sem variação" sumiu depois de gerar',
+    !(await page.locator('text=Nenhuma variação gerada ainda').isVisible()));
 
   // Fechar dialog do produto
   await page.locator('dialog[class*="product-modal"] .actions button.btn.secondary:has-text("Cancelar")').click();

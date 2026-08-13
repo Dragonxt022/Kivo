@@ -9,8 +9,14 @@ import { validateCatalogImage, normalizeKeywords, sha256, type ImageFormat } fro
  * Banco de imagens do Kivo Cloud: qualquer empresa pode contribuir uma foto de produto
  * (POST /submit) — best-effort, sem custo de storage relevante, cresce o catálogo pra
  * todo mundo. Só entra no catálogo pesquisável depois de aprovada por um admin em
- * /admin/catalog (ver routes/admin.ts). A busca (GET /search) é um benefício de plano
- * pago, como sync/backup — mesmo gate de `requireCloudSavePlan`.
+ * /admin/catalog (ver routes/admin.ts).
+ *
+ * A busca (GET /search) JÁ FOI um benefício de plano pago (gate `requireCloudSavePlan`,
+ * como sync/backup). Foi liberada para todos os planos, inclusive trial, porque o catálogo
+ * vive de contribuição: quem está avaliando o sistema é justamente quem cadastra produto em
+ * volume, e bloquear a busca para esse público reduzia as fotos que entram sem proteger
+ * receita nenhuma — POST /submit nunca teve gate de plano. Continua exigindo empresa
+ * autenticada (`requireCompanyAuth`), então não é um endpoint aberto.
  */
 
 const router = Router();
@@ -73,7 +79,7 @@ router.post('/submit', rawImage, requireCompanyAuth, async (req: AuthedRequest, 
   res.status(201).json({ status: 'pendente', catalogImageId });
 });
 
-router.get('/search', requireCompanyAuth, requireCloudSavePlan, async (req: AuthedRequest, res) => {
+router.get('/search', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const q = String(req.query.q ?? '').trim();
   if (q.length < 3) {
     res.status(400).json({ error: 'Informe ao menos 3 caracteres para buscar.' });

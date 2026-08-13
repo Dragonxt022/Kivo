@@ -35,6 +35,11 @@
     var collapsed = localStorage.getItem('kivo-sidebar-collapsed') === '1';
     document.documentElement.setAttribute('data-sidebar-collapsed', collapsed ? '1' : '0');
 
+    // Modo leve: desliga blur, sombra e animação (ver :root[data-lite] em app.css). Vem do
+    // servidor (app.locals.modoLeve → machine-prefs.json), e não do localStorage, porque o
+    // processo principal do Electron precisa do mesmo valor para desligar a GPU no boot.
+    document.documentElement.setAttribute('data-lite', '<%= typeof modoLeve !== "undefined" && modoLeve ? "1" : "0" %>');
+
     window.KIVO_COLOR_PRESETS = [
       { id: 'blue', hex: '#2563eb' },
       { id: 'green', hex: '#16a34a' },

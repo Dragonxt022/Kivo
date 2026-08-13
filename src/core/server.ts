@@ -10,9 +10,11 @@ import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
 import authRoutes from './auth/routes';
 import usersRoutes from './users/routes';
+import remoteRoutes from './remote/routes';
 import rolesRoutes from './roles/routes';
 import auditRoutes from './audit/routes';
 import settingsRoutes from './config/routes';
+import { getMachinePrefs } from './config/machinePrefs';
 import backupRoutes from './backup/routes';
 import licenseRoutes from './license/routes';
 import syncRoutes from './sync/routes';
@@ -23,6 +25,8 @@ import { validateLicense, isActivated, refreshLicenseFromCloud } from './license
 import activationRoutes from './license/activationRoutes';
 import { productImagesDir, categoryImagesDir, trySubmitPending } from './catalog/submissionQueue';
 import { registerSyncTables } from './sync/registry';
+import { startSyncScheduler } from './sync/scheduler';
+import { startEventChannel } from './sync/events';
 import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
 import supportRoutes from './support/routes';
@@ -81,6 +85,11 @@ export async function createServer(): Promise<KivoServer> {
   // número de versão hardcoded e divergente em cada tela que precisa exibi-lo.
   const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
   app.locals.appVersion = pkg.version;
+
+  // Modo leve é por máquina (machinePrefs), não por empresa. Entra em app.locals para o
+  // partial `theme-init` estampar `data-lite` no <html> junto com tema e layout — antes de
+  // qualquer CSS pintar, sem piscar a interface pesada primeiro.
+  app.locals.modoLeve = getMachinePrefs().modoLeve;
 
   // Helper EJS: retorna o SVG inline para icones — as views usam currentColor
   const iconsDir = path.resolve(__dirname, '..', 'public', 'icons');
@@ -147,6 +156,9 @@ export async function createServer(): Promise<KivoServer> {
 
   // API do Core (auth + RBAC por rota)
   app.use('/api/users', requireAuth, usersRoutes);
+  // Acesso pelo celular (Kivo Web): concessão/revogação por usuário. Fora de `usersRoutes`
+  // porque conversa com a nuvem e tem permissão própria (`users.remote.manage`).
+  app.use('/api/remote', requireAuth, remoteRoutes);
   app.use('/api/roles', requireAuth, rolesRoutes);
   app.use('/api/audit', requireAuth, auditRoutes);
   app.use('/api/settings', requireAuth, settingsRoutes);
@@ -193,6 +205,12 @@ export async function createServer(): Promise<KivoServer> {
   console.log(`[license] ${lic.status}: ${lic.message}`);
   startBackupScheduler();
   startLicenseRevalidationScheduler();
+  // Sync periódico: o painel do Kivo Web lê o que a nuvem tem, então parar de depender do
+  // clique manual em "Sincronizar agora" é pré-requisito para o dado no celular ser atual.
+  startSyncScheduler();
+  // Canal de eventos: encurta de minutos para segundos a confirmação de um orçamento feito
+  // no celular. O ciclo acima continua sendo a rede de segurança se o canal cair.
+  startEventChannel();
   // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
   trySubmitPending().catch((e) => console.error('[submit] erro ao enviar fotos pendentes:', e));
 

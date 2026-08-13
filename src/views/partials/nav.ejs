@@ -12,7 +12,7 @@
     return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
   },
   notifUserKey: <%= JSON.stringify(user ? user.username : '') %>,
-  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles' },
+  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles' },
   notifIconSvg(type) {
     const name = this.notifIconMap[type];
     return (name && typeof NAV_SVG_ICONS !== 'undefined' && NAV_SVG_ICONS[name]) || '';
@@ -50,6 +50,14 @@
       const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
       list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
     }
+    // Anúncio de produto (ver partials/novidade.ejs). Diferente dos demais itens, não vem de
+    // nenhuma API: é conteúdo fixo desta versão, e o id versionado faz o "dispensar" valer só
+    // para este anúncio. O link reabre a modal ignorando o "já vi".
+    list.push({
+      id: 'novidade-web-v1', type: 'novidade',
+      message: 'Kivo Web: acompanhe a loja e faça orçamento pelo celular',
+      link: '/?novidade=web-v1',
+    });
     return list;
   },
   get notifications() {
@@ -84,7 +92,11 @@
     fetch('/api/sync/status').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.cloudStatus = data; }).catch(() => { this.cloudStatus = { configured: true, online: false }; });
   },
   init() {
-    setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Porto_Velho' }); }, 1000);
+    // Modo leve espaça o que roda em toda página o dia inteiro: o relógio passa de 1s para
+    // 10s (o minuto continua certo, é o que se lê) e a sondagem de nuvem de 25s para 2min.
+    // Num PC fraco, cada acordar destes é repintura de header que compete com o PDV.
+    var leve = document.documentElement.getAttribute('data-lite') === '1';
+    setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Porto_Velho' }); }, leve ? 10000 : 1000);
     <% if (user) { %>
     this.loadNotifState();
     window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
@@ -95,7 +107,7 @@
     <% if (user) { %>
     fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; this.pruneNotifState(); }).catch(() => {});
     this.checkCloudStatus();
-    setInterval(() => this.checkCloudStatus(), 25000);
+    setInterval(() => this.checkCloudStatus(), leve ? 120000 : 25000);
     <% } %>
     <% if (user && user.permissions.has('finance.cash.view')) { %>
     fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; this.pruneNotifState(); }).catch(() => {});
@@ -575,6 +587,10 @@
   }
 
   if (!enabled()) return;
+  // Modo leve: o histórico continua sendo registrado acima (nada se perde ao desligar o
+  // modo), mas os balões não são construídos — são nós extras + entrada escalonada em cada
+  // carregamento de página, puro enfeite.
+  if (document.documentElement.getAttribute('data-lite') === '1') return;
 
   // 2) Monta os balões: as páginas mais recentes, exceto a atual.
   var recents = read().filter(function(e){ return e && e.href && e.href !== here(); }).slice(0, SHOW_MAX);

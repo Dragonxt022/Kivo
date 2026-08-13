@@ -253,6 +253,30 @@ O `package.json` contém apenas os atalhos mais usados; a lista completa está e
 
 ---
 
-## 9. Próximo passo
+## 9. Próximo passo — Kivo Web (celular/tablet)
 
-Publicar **v0.2.0** com todas as refatorações concluídas (repository + controller + cancelSale).
+Anunciado no app (`src/views/partials/novidade.ejs` + item no sino), **ainda não construído**.
+
+O que já existe e encurta o caminho:
+
+- O app **já é** Express + EJS servido por HTTP — não há SPA a escrever, só um cliente enxuto.
+- `rede.acesso_local` já expõe o servidor na LAN (`src/electron/main.ts`), então celular na
+  mesma rede já alcança o Kivo hoje. O que falta é acesso **fora** da loja.
+- `src/core/license/plans.ts` já reserva a capability `app.online` exatamente para isto.
+- `cloud/` já autentica empresa por `X-Kivo-Company` + `X-Kivo-License-Key` e já sincroniza
+  tabelas via `core/sync`.
+
+Desenho proposto: cliente leve hospedado em `cloud/`, autenticando contra as mesmas tabelas
+`users`/`sessions`/`roles` (`src/core/auth/service.ts`) replicadas pelo motor de sync, com
+gate `plan === 'diamante'` + capability `app.online`.
+
+**Duas perguntas a fechar antes de codificar:**
+
+1. Como a sessão na nuvem vira um usuário local **sem** mandar hash de senha para fora da
+   máquina? (Opções: sync de `users` só com um verificador derivado; ou autenticação
+   delegada, com o desktop validando e emitindo um token curto para a nuvem.)
+2. Venda criada na nuvem **desce pelo `sync`** (LWW, consistente com o resto) ou bate direto
+   no desktop? A primeira é coerente com a arquitetura; a segunda exige o desktop alcançável.
+
+Em paralelo: publicar **v0.2.0** com as refatorações concluídas (repository + controller +
+cancelSale).

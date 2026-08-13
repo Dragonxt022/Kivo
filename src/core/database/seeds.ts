@@ -9,6 +9,7 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'users.create', description: 'Criar usuários' },
   { key: 'users.edit', description: 'Editar usuários' },
   { key: 'users.delete', description: 'Excluir usuários' },
+  { key: 'users.remote.manage', description: 'Conceder e revogar acesso pelo celular (Kivo Web)' },
   { key: 'roles.view', description: 'Visualizar cargos e permissões' },
   { key: 'roles.edit', description: 'Editar cargos e permissões' },
   { key: 'audit.view', description: 'Visualizar log de auditoria' },
@@ -121,5 +122,15 @@ export function runSeeds(): void {
     '1',
     randomUUID(),
     'Permite realizar vendas mesmo quando o estoque do produto está zerado. "1" = permitir (padrão); "0" = bloquear.',
+  );
+
+  db.prepare(
+    `INSERT OR IGNORE INTO settings (key, value, uuid, comment)
+     VALUES (?, ?, ?, ?)`,
+  ).run(
+    'sync.intervalo_minutos',
+    '3',
+    randomUUID(),
+    'Intervalo em minutos do ciclo automático de sincronização com a nuvem. "0" desliga (só sincroniza no clique manual). É o que mantém atual o acompanhamento pelo celular (Kivo Web).',
   );
 }

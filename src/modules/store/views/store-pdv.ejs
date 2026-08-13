@@ -425,6 +425,41 @@
           <span x-text="cart.length + (cart.length === 1 ? ' item' : ' itens')"></span>
         </div>
 
+        <%# O campo de cliente do carrinho fica atrás deste modal: quem já chegou ao pagamento
+            não conseguia mais vincular ninguém, e só a venda a prazo — que tem diálogo próprio
+            com seletor — acabava saindo com cliente. Sem vínculo não há pontos de fidelidade,
+            convênio nem crédito de loja, mesmo à vista. É o mesmo estado do carrinho, não uma
+            cópia: mexer aqui reprecifica e recarrega saldos exatamente como lá. %>
+        <span class="pay-label">Cliente (opcional)</span>
+        <div class="cart-customer pay-customer" :class="customerId ? 'linked' : ''">
+          <span class="cart-customer-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <input type="text" list="pay-customer-list" x-model="customerName" @input="onCustomerNameInput()"
+                 maxlength="120" autocomplete="off" spellcheck="false"
+                 placeholder="Buscar cliente ou digitar um nome"
+                 title="Escolha um cliente cadastrado para usar pontos, convênio e crédito de loja" />
+          <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
+                  @click="customerName = ''; onCustomerNameInput()" title="Limpar cliente">×</button>
+          <%# Datalist próprio, dentro do <dialog>: o do carrinho fica na parte inerte da
+              página enquanto o modal está aberto, e não dá para depender de o navegador
+              resolver a lista a partir de lá. %>
+          <datalist id="pay-customer-list">
+            <template x-for="c in customers" :key="'pc' + c.id"><option :value="c.name"></option></template>
+          </datalist>
+        </div>
+        <p class="pay-customer-hint" x-show="customerId" x-cloak>
+          <span x-show="(customerBalances.loyaltyPoints || 0) > 0" x-text="customerBalances.loyaltyPoints + ' pontos'"></span>
+          <span x-show="(customerBalances.storeCreditCents || 0) > 0" x-text="'crédito ' + brl(customerBalances.storeCreditCents)"></span>
+          <span x-show="customerBalances.hasAgreement">convênio ativo</span>
+          <span x-show="!(customerBalances.loyaltyPoints || 0) && !(customerBalances.storeCreditCents || 0) && !customerBalances.hasAgreement">
+            cliente vinculado — esta venda vai acumular pontos
+          </span>
+        </p>
+        <p class="pay-customer-hint muted" x-show="!customerId && customerName.trim()" x-cloak>
+          Nome livre: identifica a venda, mas não usa pontos nem convênio. Escolha um cliente da lista para isso.
+        </p>
+
         <span class="pay-label">Valor do pagamento</span>
         <div class="pay-value-box">
           <span class="prefix">R$</span>
@@ -435,9 +470,12 @@
 
         <span class="pay-label">Forma de pagamento</span>
         <div class="pay-method-row">
+          <%# Mesma regra dos botões: sem cliente vinculado (ou sem saldo), a opção fica
+              desabilitada em vez de ser oferecida e falhar no servidor ao confirmar. %>
           <select x-model.number="pay.methodId">
             <template x-for="m in methods" :key="m.id">
-              <option :value="m.id" x-text="m.name + (m.fee_bps ? ` (taxa ${(m.fee_bps/100).toFixed(2).replace('.', ',')}%)` : '')"></option>
+              <option :value="m.id" :disabled="!!quickMethodBlock(m)"
+                      x-text="m.name + (quickMethodBlock(m) ? ` — ${quickMethodBlock(m)}` : '') + (m.fee_bps ? ` (taxa ${(m.fee_bps/100).toFixed(2).replace('.', ',')}%)` : '')"></option>
             </template>
           </select>
           <button class="btn secondary" @click="addPayment()">
@@ -447,10 +485,15 @@
 
         <div class="pay-quick-methods">
           <template x-for="(m, idx) in visibleQuickMethods()" :key="'q' + m.id">
-            <button type="button" class="pay-quick-method" :class="{ selected: pay.methodId === m.id }" @click="selectQuickMethod(m)">
+            <button type="button" class="pay-quick-method"
+                    :class="{ selected: pay.methodId === m.id, blocked: !!quickMethodBlock(m) }"
+                    :disabled="!!quickMethodBlock(m)"
+                    :title="quickMethodBlock(m) ? m.name + ' — ' + quickMethodBlock(m) : m.name"
+                    @click="selectQuickMethod(m)">
               <span x-html="methodIcon(m.type)"></span>
               <span x-text="m.name"></span>
-              <span class="shortcut" x-show="idx < 9" x-text="'F' + (idx + 1)"></span>
+              <span class="shortcut" x-show="idx < 9 && !quickMethodBlock(m)" x-text="'F' + (idx + 1)"></span>
+              <span class="shortcut" x-show="!!quickMethodBlock(m)" x-text="quickMethodBlock(m)"></span>
             </button>
           </template>
         </div>
@@ -551,7 +594,7 @@
       <h1>Venda a prazo</h1>
       <div class="dialog-body">
         <label>Cliente</label>
-        <select x-model.number="prazoForm.customerId">
+        <select x-model.number="prazoForm.customerId" @change="onPrazoCustomerChange()">
           <option value="">Selecione…</option>
           <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
         </select>
@@ -988,8 +1031,10 @@
             if (this.$refs.pay && this.$refs.pay.open) {
               const fMatch = /^F([1-9])$/.exec(e.key);
               if (fMatch) {
+                // Pelo mesmo caminho do clique: o atalho de "a prazo" abre o diálogo do cliente
+                // e o de fidelidade o de pontos, em vez de só marcar a forma e travar depois.
                 const m = this.methods[Number(fMatch[1]) - 1];
-                if (m) { e.preventDefault(); this.pay.methodId = m.id; }
+                if (m) { e.preventDefault(); this.selectQuickMethod(m); }
                 return;
               }
               const inField = e.target.matches('input, select, textarea');
@@ -1368,15 +1413,24 @@
         paidSum() { return this.pay.list.reduce((a, p) => a + p.amountCents, 0); },
         remaining() { return this.total() - this.paidSum(); },
         needsCashReceived() { return this.pay.list.some((p) => this.methodType(p.methodId) === 'dinheiro'); },
+        // Fidelidade, convênio e crédito de loja sumiam da tela quando não havia cliente
+        // vinculado. O operador não descobria que existiam e ficava com a impressão de que só a
+        // venda a prazo dá benefício — era o pedido. Agora aparecem sempre, desabilitados e
+        // dizendo o que falta. De quebra, a lista volta a ser exatamente `methods`: o atalho
+        // F1..F9 sempre indexou `methods` cru (init(), keydown), então enquanto a lista era
+        // filtrada o "F3" impresso no botão podia acionar outra forma de pagamento.
         visibleQuickMethods() {
-          return this.methods.filter((m) => {
-            if (m.type === 'credito_loja') return (this.customerBalances.storeCreditCents || 0) > 0;
-            if (m.type === 'fidelidade') return (this.customerBalances.loyaltyPoints || 0) > 0;
-            if (m.type === 'convenio') return !!this.customerBalances.hasAgreement;
-            return true;
-          });
+          return this.methods;
+        },
+        quickMethodBlock(m) {
+          if (m.type !== 'credito_loja' && m.type !== 'fidelidade' && m.type !== 'convenio') return '';
+          if (!this.customerId) return 'Selecione o cliente';
+          if (m.type === 'credito_loja') return (this.customerBalances.storeCreditCents || 0) > 0 ? '' : 'Sem crédito';
+          if (m.type === 'fidelidade') return (this.customerBalances.loyaltyPoints || 0) > 0 ? '' : 'Sem pontos';
+          return this.customerBalances.hasAgreement ? '' : 'Sem convênio';
         },
         selectQuickMethod(m) {
+          if (this.quickMethodBlock(m)) return;
           if (m.type === 'prazo') { this.openPrazoDlg(); return; }
           if (m.type === 'fidelidade') { this.openFidelidadeDlg(); return; }
           this.pay.methodId = m.id;
@@ -1480,6 +1534,20 @@
           this.prazoError = '';
           this.$refs.prazoDlg.showModal();
         },
+        // O vínculo acontece na ESCOLHA, não no confirmar, porque vincular reprecifica o
+        // carrinho (tabela de preço do cliente) e o servidor re-resolve os mesmos preços ao
+        // fechar. Se o vínculo fosse feito só no fim, o total mudaria depois dos pagamentos
+        // prontos e a venda seria recusada por "pagamentos não fecham o total".
+        async onPrazoCustomerChange() {
+          const c = this.customers.find((x) => x.id === this.prazoForm.customerId);
+          if (!c || this.customerId === c.id) return;
+          this.customerId = c.id;
+          this.customerName = c.name;
+          await this.repriceCart();
+          await this.loadCustomerBalances();
+          const rest = this.remaining();
+          this.prazoForm.amountCents = rest > 0 ? rest : this.total();
+        },
         prazoPreview() {
           const count = this.prazoForm.mode === 'parcelado' ? Math.max(2, Number(this.prazoForm.installments) || 2) : 1;
           const amt = this.prazoForm.amountCents || 0;
@@ -1506,6 +1574,15 @@
             customerId: this.prazoForm.customerId, dueDate: this.prazoForm.firstDueDate,
             installments: count > 1 ? { count, firstDueDate: this.prazoForm.firstDueDate } : undefined,
           });
+          // Rede de segurança: se por algum caminho o vínculo não foi feito na escolha
+          // (onPrazoCustomerChange), faz aqui — sem ele `sales.customer_id` sai NULL e a venda
+          // a prazo não pontua fidelidade. Sem reprecificar: os valores já foram fechados.
+          const prazoCustomer = this.customers.find((c) => c.id === this.prazoForm.customerId);
+          if (prazoCustomer && this.customerId !== prazoCustomer.id) {
+            this.customerId = prazoCustomer.id;
+            this.customerName = prazoCustomer.name;
+            this.loadCustomerBalances();
+          }
           const rest = this.remaining();
           this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
           this.$refs.prazoDlg.close();
