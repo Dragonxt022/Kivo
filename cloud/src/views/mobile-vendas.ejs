@@ -1,0 +1,26 @@
+<%- include('partials/mobile-head', { titulo: 'Vendas', grant, fresh }) %>
+
+<% if (!sales.length) { %>
+  <p class="m-empty">Nenhuma venda sincronizada ainda.</p>
+<% } else { %>
+  <ul class="m-list">
+    <% sales.forEach(function (s) { %>
+      <li>
+        <a href="/m/vendas/<%= s.uuid %>">
+          <span class="m-list-main">
+            <%= s.payload.customer_name || 'Consumidor' %>
+            <% if (s.payload.status !== 'concluida') { %>
+              <span class="m-badge m-badge-off"><%= s.payload.status %></span>
+            <% } %>
+          </span>
+          <span class="m-list-meta">
+            <%= (s.payload.created_at || '').slice(0, 16).replace('T', ' ') %> · <%= s.payload.payment_method %>
+          </span>
+          <strong class="m-list-value">R$ <%= brl(s.payload.total_cents) %></strong>
+        </a>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>
+
+<%- include('partials/mobile-foot', { grant, ativo: 'vendas' }) %>

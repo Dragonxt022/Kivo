@@ -153,9 +153,6 @@
     var(--shadow-xs),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
-:root[data-theme='dark'] body::before {
-  background-image: url('/fundo_branco.png');
-}
 
 /* Sem suporte a backdrop-filter, o vidro vira superfície opaca — continua legível. */
 @supports not (backdrop-filter: blur(4px)) {
@@ -201,15 +198,11 @@ body {
   min-height: 100vh;
   padding-top: calc(var(--header-height) + 24px);
 }
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: url('/fundo.png') center / cover no-repeat;
-  opacity: 0.04;
-  pointer-events: none;
-  z-index: -1;
-}
+/* Havia aqui um `body::before` de tela cheia com `url('/fundo.png')` (e `/fundo_branco.png`
+   no tema escuro) a 4% de opacidade. Nenhuma das duas imagens existe em src/public — eram
+   dois 404 em cada carregamento de página, mais uma camada fixa de viewport inteiro para o
+   compositor, em troca de nada visível. Removido. Para trazer a textura de volta, basta
+   recriar a regra junto com os arquivos. */
 
 /* ─── Floating Header (liquid glass) ─── */
 header.nav {
@@ -2779,6 +2772,20 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   color: var(--text-muted);
   font-weight: 400;
 }
+/* Formas que dependem de cliente vinculado (fidelidade, convênio, crédito de loja) ficam
+   visíveis e apagadas em vez de sumirem — escondê-las era o que fazia parecer que só a
+   venda a prazo dá benefício. O rótulo do atalho é substituído pelo motivo. */
+.pay-quick-method.blocked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pay-quick-method.blocked:hover {
+  border-color: var(--border-light);
+  color: inherit;
+}
+.pay-quick-method.blocked:active {
+  transform: none;
+}
 
 /* ─── Label components ─── */
 .label-checkbox {
@@ -3545,6 +3552,11 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   .recent-fab-pill.show {
     transform: none;
   }
+}
+/* Modo leve: as pílulas entram escalonadas por JS (partials/nav.ejs) em toda página. */
+:root[data-lite='1'] .recent-fab-pill,
+:root[data-lite='1'] .recent-fab-pill.show {
+  transform: none;
 }
 /* Bloco quadrado clicável: vazio = clique abre o seletor de arquivo (ícone de upload
    aparece no hover); preenchido = mostra a foto (ícone de lixeira aparece no hover,
@@ -4556,4 +4568,112 @@ dialog.import-dialog > .dialog-body {
   .perm-item-key {
     display: none;
   }
+}
+
+/* ═══ Modo leve ═══════════════════════════════════════════════════════════════
+   Ligado por máquina (machine-prefs.json → app.locals.modoLeve → data-lite no <html>,
+   ver partials/theme-init.ejs), automaticamente quando o Electron detecta hardware fraco
+   ou manualmente em Configurações › Interface.
+
+   Alvo: PC de balcão sem driver de vídeo, onde o compositor cai para software. Nesse
+   cenário `backdrop-filter` é de longe o item mais caro — cada superfície de vidro é uma
+   camada recomposta a cada frame, e `.panel`/`.card` são vidro, então o custo cresce com a
+   quantidade de conteúdo na página.
+
+   A regra com `*` cobre pdv.css e purchases-store.css sem duplicar nada lá: são mais 28
+   `backdrop-filter` que precisariam da mesma exceção arquivo a arquivo. `!important` aqui
+   é proposital — precisa vencer qualquer declaração posterior, inclusive as de dentro de
+   media queries. */
+:root[data-lite='1'] {
+  /* Mesmos valores opacos do fallback `@supports not (backdrop-filter)`: com o blur em zero,
+     um fundo translúcido ficaria lavado em vez de leve. */
+  --glass: var(--surface);
+  --glass-strong: var(--surface);
+  --glass-blur: 0px;
+  --glass-sheen: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-lg: none;
+  --transition: 0s;
+}
+:root[data-lite='1'] *,
+:root[data-lite='1'] *::before,
+:root[data-lite='1'] *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+/* Os gradientes de fundo do body são três `radial-gradient` de ~800px com
+   `background-attachment: fixed` — repintados a cada scroll sem GPU. */
+:root[data-lite='1'] body {
+  background-image: none;
+}
+/* A borda de vidro só faz sentido com o blur atrás dela. */
+:root[data-lite='1'] .glass,
+:root[data-lite='1'] .glass-strong,
+:root[data-lite='1'] .panel,
+:root[data-lite='1'] .card,
+:root[data-lite='1'] dialog {
+  border-color: var(--border-light);
+}
+
+/* ─── Modal de novidade (partials/novidade.ejs) ───
+   Anúncio de produto: aparece uma vez por máquina, depois do assistente de boas-vindas. */
+.novidade-dlg {
+  max-width: 30rem;
+}
+.novidade-head {
+  padding: 1.25rem 1.25rem 0;
+}
+.novidade-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--primary-bg);
+  border-radius: var(--radius-full);
+  padding: 0.2rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.novidade-head h1 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+}
+.novidade-lead {
+  font-size: 0.9rem;
+  margin: 0 0 0.9rem;
+}
+.novidade-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.novidade-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+.novidade-list svg {
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--primary);
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+}
+.novidade-foot {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-light);
+  padding-top: 0.7rem;
+  margin: 0;
 }

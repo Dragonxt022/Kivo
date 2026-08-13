@@ -11,6 +11,9 @@ import wikiRoutes from './routes/wiki';
 import landingRoutes from './routes/landing';
 import supportRoutes from './routes/support';
 import menuRoutes from './routes/menu';
+import mobileGrantsRoutes from './routes/mobileGrants';
+import { mobileSide as mobileCommandsRoutes, desktopSide as desktopCommandsRoutes } from './routes/mobileCommands';
+import mobileAppRoutes from './routes/mobileApp';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -30,6 +33,12 @@ export function createCloudServer() {
   app.use('/api/backup', backupRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/catalog', catalogRoutes);
+  // Kivo Web. As concessões e a fila vista pelo celular vivem em /api/mobile (cookie de
+  // acesso); o lado do desktop fica em /api/commands (credenciais de licença).
+  app.use('/api/mobile', mobileGrantsRoutes);
+  app.use('/api/mobile', mobileCommandsRoutes);
+  app.use('/api/commands', desktopCommandsRoutes);
+  app.use('/m', mobileAppRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/admin', adminRoutes);
 

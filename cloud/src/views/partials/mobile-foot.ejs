@@ -1,0 +1,41 @@
+<%#
+  Barra de navegação fixa embaixo — alcance do polegar. Cada item só aparece se o usuário
+  tiver a permissão correspondente, usando exatamente as mesmas chaves do desktop
+  (`store.sales.view`, `finance.receivables.view`…), que vieram na concessão do acesso.
+
+  Espera nos locals: `grant`, `ativo`.
+-%>
+  </main>
+
+  <nav class="m-nav">
+    <a href="/m" class="<%= ativo === 'inicio' ? 'on' : '' %>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Início</span>
+    </a>
+    <% if (grant.permissions.includes('store.sales.view')) { %>
+    <a href="/m/vendas" class="<%= ativo === 'vendas' ? 'on' : '' %>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span>Vendas</span>
+    </a>
+    <% } %>
+    <% if (grant.permissions.includes('store.quotes.view')) { %>
+    <a href="/m/orcamentos" class="<%= ativo === 'orcamentos' ? 'on' : '' %>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+      <span>Orçam.</span>
+    </a>
+    <% } %>
+    <% if (grant.permissions.includes('commercial.products.view')) { %>
+    <a href="/m/estoque" class="<%= ativo === 'estoque' ? 'on' : '' %>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+      <span>Estoque</span>
+    </a>
+    <% } %>
+    <% if (grant.permissions.includes('finance.payables.view') || grant.permissions.includes('finance.receivables.view')) { %>
+    <a href="/m/financeiro" class="<%= ativo === 'financeiro' ? 'on' : '' %>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>
+      <span>Financeiro</span>
+    </a>
+    <% } %>
+  </nav>
+</body>
+</html>

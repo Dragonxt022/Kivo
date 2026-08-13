@@ -1,0 +1,88 @@
+<%#
+  Anúncio de novidade do produto. Hoje: o Kivo no celular (Diamante).
+
+  Sequenciamento: NÃO usa `showModal()` enquanto o assistente de boas-vindas não estiver
+  concluído. Os dois são <dialog> nativos e só um pode ocupar a camada superior por vez —
+  quem chega primeiro tranca o outro fora da tela. Por isso a checagem em
+  `GET /api/onboarding/status`: assistente pendente, este espera a próxima sessão.
+
+  "Já vi" fica em localStorage (por máquina, como o estado de leitura das notificações em
+  partials/nav.ejs), com a chave versionada — trocar NOVIDADE_ID no futuro reabre o aviso
+  para todo mundo sem precisar de migration.
+-%>
+<dialog x-ref="novidadeDlg" class="dialog-fixed novidade-dlg" @close="marcarVista()">
+  <div class="novidade-head">
+    <span class="novidade-badge">Novidade</span>
+    <h1>O Kivo agora vai no seu celular</h1>
+  </div>
+  <div class="dialog-body">
+    <p class="novidade-lead">
+      O <strong>Kivo Web</strong> está no ar: acompanhe o movimento da loja e monte orçamento
+      pelo celular, de onde você estiver.
+    </p>
+    <ul class="novidade-list">
+      <li>
+        <%- svgIcon('users', 16, 16) %>
+        <span>Libere por usuário em <strong>Usuários → Acesso pelo celular</strong>: aponte a câmera para o QR e pronto, <strong>sem senha nova</strong>.</span>
+      </li>
+      <li>
+        <%- svgIcon('chart', 16, 16) %>
+        <span>Acompanhe vendas do dia, caixa, estoque e contas a pagar/receber fora da loja.</span>
+      </li>
+      <li>
+        <%- svgIcon('cart', 16, 16) %>
+        <span>Monte orçamento pelo celular — o preço final é calculado aqui, com a tabela do cliente.</span>
+      </li>
+      <li>
+        <%- svgIcon('trophy', 16, 16) %>
+        <span>Faz parte do plano <strong>Diamante</strong>, sem custo adicional para quem já é assinante.</span>
+      </li>
+    </ul>
+    <p class="novidade-foot">
+      Cada pessoa vê no celular exatamente o que o cargo dela permite aqui. O acesso é revogável
+      a qualquer momento, na mesma tela onde foi criado. Fechar venda pelo celular vem a seguir.
+    </p>
+  </div>
+  <div class="actions">
+    <button class="btn secondary" @click="$refs.novidadeDlg.close()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+      Entendi
+    </button>
+    <button class="btn" @click="$refs.novidadeDlg.close(); window.location.href = '/admin/usuarios'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+      Liberar meu acesso
+    </button>
+  </div>
+</dialog>
+<script>
+  // Identidade do anúncio atual. Trocar aqui = reabrir para todos.
+  window.KIVO_NOVIDADE_ID = 'web-v1';
+  function novidadeAviso() {
+    return {
+      vista: false,
+      async init() {
+        const forcado = new URLSearchParams(location.search).get('novidade') === window.KIVO_NOVIDADE_ID;
+        if (!forcado && this.jaVista()) return;
+        // Assistente de boas-vindas pendente tem precedência: dois <dialog> modais brigam
+        // pela camada superior, e o primeiro acesso é para configurar, não para ler aviso.
+        if (!forcado) {
+          try {
+            const r = await fetch('/api/onboarding/status');
+            if (!r.ok) return;
+            const st = await r.json();
+            if (!st.completed) return;
+          } catch (e) { return; }
+        }
+        this.$refs.novidadeDlg.showModal();
+      },
+      jaVista() {
+        try { return localStorage.getItem('kivo-novidade-seen') === window.KIVO_NOVIDADE_ID; } catch (e) { return false; }
+      },
+      marcarVista() {
+        try { localStorage.setItem('kivo-novidade-seen', window.KIVO_NOVIDADE_ID); } catch (e) {}
+        // O sino lê o mesmo estado; sem o evento o contador só mudaria ao recarregar.
+        window.dispatchEvent(new CustomEvent('kivo-notif-changed'));
+      },
+    };
+  }
+</script>

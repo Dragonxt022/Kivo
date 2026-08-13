@@ -1,0 +1,74 @@
+<%- include('partials/mobile-head', { titulo: 'Financeiro', grant, fresh }) %>
+
+<%
+  // Vencido é o que já passou de hoje: destaque em vermelho para o dono ver de longe.
+  function venceu(due) { return due && due < hoje; }
+  function totalDe(rows) { return rows.reduce(function (a, r) { return a + (r.payload.amount_cents || 0); }, 0); }
+%>
+
+<div class="m-cards">
+  <% if (podePagar) { %>
+  <div class="m-card">
+    <span class="m-card-label">A pagar em aberto</span>
+    <strong class="m-card-value m-danger">R$ <%= brl(totalDe(payables)) %></strong>
+    <span class="m-card-sub"><%= payables.length %> conta(s)</span>
+  </div>
+  <% } %>
+  <% if (podeReceber) { %>
+  <div class="m-card">
+    <span class="m-card-label">A receber em aberto</span>
+    <strong class="m-card-value m-ok">R$ <%= brl(totalDe(receivables)) %></strong>
+    <span class="m-card-sub"><%= receivables.length %> conta(s)</span>
+  </div>
+  <% } %>
+</div>
+
+<% if (podePagar) { %>
+<section class="m-section">
+  <div class="m-section-head"><h2>A pagar</h2></div>
+  <% if (!payables.length) { %>
+    <p class="m-empty">Nada em aberto.</p>
+  <% } else { %>
+    <ul class="m-list">
+      <% payables.forEach(function (b) { %>
+        <li>
+          <div class="m-list-static">
+            <span class="m-list-main"><%= b.payload.description %></span>
+            <span class="m-list-meta <%= venceu(b.payload.due_date) ? 'm-danger' : '' %>">
+              vence <%= (b.payload.due_date || '').split('-').reverse().join('/') %>
+              <%= venceu(b.payload.due_date) ? '· vencida' : '' %>
+            </span>
+            <strong class="m-list-value">R$ <%= brl(b.payload.amount_cents) %></strong>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+<% } %>
+
+<% if (podeReceber) { %>
+<section class="m-section">
+  <div class="m-section-head"><h2>A receber</h2></div>
+  <% if (!receivables.length) { %>
+    <p class="m-empty">Nada em aberto.</p>
+  <% } else { %>
+    <ul class="m-list">
+      <% receivables.forEach(function (b) { %>
+        <li>
+          <div class="m-list-static">
+            <span class="m-list-main"><%= b.payload.description %></span>
+            <span class="m-list-meta <%= venceu(b.payload.due_date) ? 'm-danger' : '' %>">
+              vence <%= (b.payload.due_date || '').split('-').reverse().join('/') %>
+              <%= venceu(b.payload.due_date) ? '· vencida' : '' %>
+            </span>
+            <strong class="m-list-value">R$ <%= brl(b.payload.amount_cents) %></strong>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+<% } %>
+
+<%- include('partials/mobile-foot', { grant, ativo: 'financeiro' }) %>

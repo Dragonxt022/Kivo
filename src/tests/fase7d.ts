@@ -11,6 +11,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
 let failures = 0;
@@ -56,6 +57,10 @@ async function phase1(): Promise<void> {
   const base = `http://localhost:${PORT}`;
   migrateUp();
   runSeeds();
+  // Sem licença ativada, `requireActivation` (core/server.ts) responde antes de qualquer
+  // rota — inclusive /api/auth/login. Faltava aqui, e a parte 1 inteira falhava logo no
+  // login em qualquer banco novo; só passava em máquina cujo kivo.db já estivesse ativado.
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
 
@@ -114,6 +119,32 @@ async function phase1(): Promise<void> {
     check('cancelamento ok', cancel.status === 200, String(cancel.status));
     const balAfterCancel = await unwrap<{ loyalty_points: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
     check('saldo volta a 100 após cancelar (resgate estornado, ganho revertido)', balAfterCancel.loyalty_points === 100, String(balAfterCancel.loyalty_points));
+
+    // ── Venda a prazo com o cliente informado SÓ no pagamento ────────────────────────
+    // Era o buraco: o PDV só coleta o cliente dentro do diálogo "Venda a prazo", então
+    // chegava `payments[].customerId` sem `customerId` no corpo. `sales.customer_id` saía
+    // NULL — a venda não aparecia na ficha do cliente e não pontuava. Ou seja, justamente a
+    // venda a prazo, a única com cliente obrigatório, era a que não dava benefício.
+    const prazoMethod = (await unwrap<{ id: number; type: string }[]>(await api(base, '/api/finance/payment-methods', {}, admin!)))
+      .find((m) => m.type === 'prazo')!;
+    const balAntesPrazo = await unwrap<{ loyalty_points: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
+    const salePrazo = await api(base, '/api/store/sales', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ productId: prod.id, qty: 1 }],
+        payments: [{ methodId: prazoMethod.id, amountCents: 5000, customerId: cust.id, dueDate: '2099-01-01' }],
+      }),
+    }, admin!);
+    check('venda a prazo sem customerId no corpo é aceita', salePrazo.status === 201, String(salePrazo.status));
+    const salePrazoBody = await unwrap<{ id: number; customer_id: number | null }>(salePrazo);
+    const salePrazoRow = await unwrap<{ customer_id: number | null }>(
+      await api(base, `/api/store/sales/${salePrazoBody.id}`, {}, admin!));
+    check('venda a prazo grava sales.customer_id a partir do pagamento',
+      salePrazoRow.customer_id === cust.id, String(salePrazoRow.customer_id));
+    const balDepoisPrazo = await unwrap<{ loyalty_points: number }>(await api(base, `/api/commercial/customers/${cust.id}`, {}, admin!));
+    check('venda a prazo acumula pontos (R$50 → +50)',
+      balDepoisPrazo.loyalty_points === balAntesPrazo.loyalty_points + 50,
+      `${balAntesPrazo.loyalty_points} → ${balDepoisPrazo.loyalty_points}`);
   } finally {
     server.close();
     closeDb();

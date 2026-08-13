@@ -224,9 +224,13 @@
                     <span class="type-icon" style="color:#7c5cff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
                     <span>Complemento</span>
                   </button>
+                  <%# Com a capability desligada o botão continua visível (produto já criado
+                      precisa mostrar seu tipo), mas clicar abre o diálogo "Ativar agora" em vez de
+                      deixar cadastrar um produto que as telas seguintes não conseguem completar. %>
                   <button class="product-type-btn" :class="{ active: form.productType === 'variante' }"
-                          @click="setProductType('variante')" :disabled="!!form.id"
-                          title="Produto com variantes — tamanhos, cores, sabores etc.">
+                          @click="caps.variantes ? setProductType('variante') : window.showCapabilityGate('commercial.variantes')"
+                          :disabled="!!form.id"
+                          :title="caps.variantes ? 'Produto com variantes — tamanhos, cores, sabores etc.' : 'Variações estão desativadas — clique para ativar em Configurações › Recursos'">
                     <span class="type-icon" style="color:#7c5cff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/></svg></span>
                     <span>Variantes</span>
                   </button>
@@ -386,7 +390,7 @@
               <div class="pm-image-suggestions">
                 <h4 class="pm-image-suggestions-title">Sugestões automáticas</h4>
                 <p class="muted text-xs" x-show="!form.name || form.name.trim().length < 3">Digite o nome do produto para ver sugestões.</p>
-                <p class="muted text-xs" x-show="imgSearchOffline">Banco de imagens indisponível agora.</p>
+                <p class="muted text-xs" x-show="imgSearchOffline" x-text="imgSearchError || 'Banco de imagens indisponível agora.'"></p>
                 <p class="muted text-xs" x-show="imgSearching">Buscando…</p>
                 <p class="muted text-xs" x-show="!imgSearching && form.name && form.name.trim().length >= 3 && !imgSearchResults.length && !imgSearchOffline">Nenhuma sugestão encontrada.</p>
                 <div class="product-image-suggestions" x-show="imgSearchResults.length">
@@ -462,6 +466,13 @@
                   Gerar variantes
                 </button>
               </div>
+            </div>
+            <%# Produto-pai com zero filhas é invisível no PDV por desenho (ProductRepository
+                exclui `variante` sem parent) e é recusado no fechamento da venda. Sem este aviso
+                o cadastro parece concluído e o produto simplesmente "não existe" no caixa. %>
+            <div x-show="!variants.length" x-cloak class="variant-guide" style="margin:0 0 .6rem">
+              <p style="margin:0 0 .35rem"><strong>Nenhuma variação gerada ainda — este produto não aparece no PDV.</strong></p>
+              <p class="muted text-xs" style="margin:0">Quem se vende é a variação (P, M, G…), não o produto-pai. Cadastre os <strong>atributos</strong> com seus valores e clique em <strong>Gerar variantes</strong>.</p>
             </div>
             <div style="max-height:400px;overflow-y:auto;border:1.5px solid var(--border-light);border-radius:var(--radius)">
               <table style="width:100%">
@@ -1044,13 +1055,20 @@
     <dialog x-ref="attrDlg" class="dialog-fixed">
       <h1>Gerenciar atributos</h1>
       <div class="dialog-body">
-        <div class="flex-row" style="gap:.5rem;margin-bottom:.75rem">
+        <div class="flex-row" style="gap:.5rem;margin-bottom:.35rem">
           <input type="text" x-model="newAttrName" placeholder="Novo atributo…" style="flex:1" @keydown.enter="addAttribute()" />
           <button class="btn secondary small" type="button" @click="addAttribute()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Adicionar
           </button>
         </div>
+        <%# A confusão nasce aqui: é comum cadastrar "P, M, G" como três atributos em vez de
+            três valores de um atributo "Tamanho" — e aí não há o que combinar. %>
+        <p class="muted text-xs" style="margin:0 0 .75rem">
+          O <strong>atributo</strong> é a característica (ex.: <em>Tamanho</em>); os
+          <strong>valores</strong> são as opções dele (<em>P, M, G</em>). Cadastre o atributo e
+          depois use <strong>+ valor</strong> — só atributos com valores geram variantes.
+        </p>
         <template x-for="attr in attributes" :key="attr.id">
           <div style="margin-bottom:.75rem;padding:.5rem;border:1px solid var(--border);border-radius:6px">
             <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:.35rem">
@@ -1073,7 +1091,6 @@
                 </template>
                 <button class="icon-btn" @click="deleteAttribute(attr)" title="Excluir">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                  </button>
                 </button>
               </div>
             </div>
@@ -1094,13 +1111,25 @@
                   </button>
                 </span>
               </template>
-              <button class="btn-reset text-xs" style="color:var(--primary);padding:.15rem .4rem" @click="addAttrValId = attr.id; $nextTick(() => $refs['newAttrVal-' + attr.id]?.focus())">
+              <button class="btn-reset text-xs" style="color:var(--primary);padding:.15rem .4rem"
+                      @click="addAttrValId = attr.id; $nextTick(() => $el.parentElement.querySelector('.attr-val-input')?.focus())">
                 + valor
               </button>
-              <input type="text" x-show="addAttrValId === attr.id" x-cloak :ref="'newAttrVal-' + attr.id"
-                     style="width:70px;font-size:.85rem" placeholder="Valor…"
-                     @keydown.enter="addAttrValue(attr.id, $event.target.value); $event.target.value = ''"
-                     @keydown.escape="addAttrValId = null" />
+              <%# Antes o foco era pedido por `:ref` (que o Alpine não registra em $refs, só `x-ref`)
+                  e a única forma de gravar era Enter: quem digitava e clicava fora perdia o valor
+                  em silêncio, e o atributo ficava vazio — que é justamente o estado que trava a
+                  geração de variantes. Agora grava no Enter, no ✓ e ao sair do campo. %>
+              <span x-show="addAttrValId === attr.id" x-cloak style="display:inline-flex;align-items:center;gap:.25rem">
+                <input type="text" class="attr-val-input" style="width:80px;font-size:.85rem" placeholder="Valor…"
+                       @keydown.enter.prevent="addAttrValue(attr.id, $event.target)"
+                       @keydown.escape="$event.target.value = ''; addAttrValId = null"
+                       @blur="addAttrValue(attr.id, $event.target)" />
+                <button class="icon-btn" style="width:18px;height:18px" title="Salvar valor"
+                        @mousedown.prevent
+                        @click="addAttrValue(attr.id, $el.parentElement.querySelector('.attr-val-input'))">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+              </span>
             </div>
           </div>
         </template>
@@ -1118,7 +1147,10 @@
       <h1>Gerar variantes</h1>
       <p class="muted">Selecione os valores de atributo para gerar as combinações.</p>
       <div class="dialog-body">
-        <template x-if="!genGroups.length">
+        <%# Dois estados vazios diferentes: "nenhum atributo" e "atributos sem valor". Antes os
+            dois mostravam "Cadastre um atributo primeiro", o que é falso no segundo caso — o
+            atributo existe, falta valor — e deixava o usuário sem saber o que fazer. %>
+        <template x-if="!genGroups.length && !attributes.length">
           <div class="variant-guide" style="margin:0">
             <p style="margin:0 0 .5rem"><strong>Cadastre um atributo primeiro.</strong></p>
             <p class="muted text-xs" style="margin:0 0 .6rem">Um atributo é uma característica que varia — ex.: <strong>Tamanho</strong> com valores P, M, G, ou <strong>Cor</strong> com valores Preto, Branco. As variantes são as combinações desses valores.</p>
@@ -1127,6 +1159,31 @@
               Cadastrar atributos
             </button>
           </div>
+        </template>
+        <template x-if="!genGroups.length && attributes.length">
+          <div class="variant-guide" style="margin:0">
+            <p style="margin:0 0 .5rem">
+              <strong>Falta cadastrar os valores.</strong>
+            </p>
+            <p class="muted text-xs" style="margin:0 0 .5rem">
+              <span x-text="attrsSemValor.length === 1 ? 'O atributo' : 'Os atributos'"></span>
+              <strong x-text="attrsSemValor.join(', ')"></strong>
+              <span x-text="attrsSemValor.length === 1 ? 'ainda não tem valores.' : 'ainda não têm valores.'"></span>
+            </p>
+            <p class="muted text-xs" style="margin:0 0 .6rem">O atributo é a característica (ex.: <strong>Tamanho</strong>); os valores são as opções dele (<strong>P, M, G</strong>). A variante é a combinação dos valores — sem valor não há o que combinar.</p>
+            <button class="btn small" type="button" @click="$refs.genVarDlg.close(); openAttrMgr()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar valores
+            </button>
+          </div>
+        </template>
+        <template x-if="genGroups.length && attrsSemValor.length">
+          <p class="muted text-xs" style="margin:0 0 .75rem">
+            Sem valores, fora da lista:
+            <strong x-text="attrsSemValor.join(', ')"></strong>.
+            <button class="btn-reset text-xs" style="color:var(--primary)" type="button"
+                    @click="$refs.genVarDlg.close(); openAttrMgr()">Adicionar valores</button>
+          </p>
         </template>
         <template x-for="(group, gi) in genGroups" :key="gi">
           <div style="margin-bottom:.75rem">
@@ -1417,18 +1474,19 @@
       return {
         ...tableToolkit(),
         // Importação
-        caps: { complementos: <%= caps.complementos %> },
+        caps: { complementos: <%= caps.complementos %>, variantes: <%= caps.variantes %> },
         importCsv: '', importFileName: '', importReport: null, importError: '', importLoading: false, importSaving: false,
         importStep2: false, importFilter: 'todos', importDragging: false,
         compCsv: '', compFileName: '', compReport: null, compError: '', compLoading: false, compSaving: false,
         compFilter: 'todos', compDragging: false,
         rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
-        imgSearchResults: [], imgSearching: false, imgSearchOffline: false,
+        imgSearchResults: [], imgSearching: false, imgSearchOffline: false, imgSearchError: '',
         selectedCategoryImage: '',
         // Variantes
         variants: [], attributes: [], attrValues: {}, attrEditId: null, attrEditName: '', attrValEditId: null, attrValEditName: '',
-        attrDlgError: '', newAttrName: '', addAttrValId: null, genGroups: [], genSelectedValues: [],
+        attrDlgError: '', newAttrName: '', addAttrValId: null, genGroups: [], genSelectedValues: [], attrsSemValor: [],
+        savingAttrVal: false,
         // Kits
         kitComponents: [], complementGroups: [], kitDlgError: '', addCompSearch: '', addCompResults: [],
         // Complement group manager
@@ -1750,7 +1808,7 @@
           this.form.imageUrl = null; this.form.newImagePreview = null;
           this.form.pendingImageBase64 = null; this.form.pendingImageUrl = null;
           this.form.removeImage = false; this.form.submitToCatalog = true;
-          this.imgSearchResults = []; this.imgSearchOffline = false;
+          this.imgSearchResults = []; this.imgSearchOffline = false; this.imgSearchError = '';
         },
         onImageFile(e) {
           const file = e.target.files[0];
@@ -1781,6 +1839,9 @@
             const data = r.ok ? await r.json() : { results: [] };
             this.imgSearchResults = data.results || [];
             this.imgSearchOffline = !!data.offline;
+            // A rota agora distingue queda de rede de recusa do servidor (plano, credencial):
+            // sem isso os dois casos apareciam como "indisponível agora" e ninguém sabia o motivo.
+            this.imgSearchError = data.error || '';
           } finally {
             this.imgSearching = false;
           }
@@ -2235,21 +2296,31 @@
         },
         async openAttrMgr() {
           this.attrDlgError = ''; this.newAttrName = ''; this.attrEditId = null; this.addAttrValId = null;
-          await this.loadAttributes();
+          if (!(await this.loadAttributes())) return;
           this.$refs.attrDlg.showModal();
         },
+        // Devolve false quando a API falhou. Antes não havia `else` em nenhum dos dois fetch: um
+        // 403 de capability desligada virava "nenhum atributo" e o usuário via "Cadastre um
+        // atributo primeiro" sem nenhuma pista do motivo real. handleApiError já reconhece
+        // "Recurso desativado: <key>" e abre o diálogo de ativação (partials/capability-gate).
         async loadAttributes() {
           const r = await fetch('/api/commercial/attributes');
-          if (r.ok) {
-            this.attributes = await r.json();
-            const vals = {};
-            for (const attr of this.attributes) {
-              const vr = await fetch(`/api/commercial/attributes/${attr.id}/values`);
-              if (vr.ok) vals[attr.id] = await vr.json();
-              else vals[attr.id] = [];
-            }
-            this.attrValues = vals;
+          if (!r.ok) {
+            window.handleApiError(r, await r.json().catch(() => ({})), 'Falha ao carregar atributos.');
+            return false;
           }
+          this.attributes = await r.json();
+          const vals = {};
+          for (const attr of this.attributes) {
+            const vr = await fetch(`/api/commercial/attributes/${attr.id}/values`);
+            if (!vr.ok) {
+              window.handleApiError(vr, await vr.json().catch(() => ({})), `Falha ao carregar os valores de "${attr.name}".`);
+              return false;
+            }
+            vals[attr.id] = await vr.json();
+          }
+          this.attrValues = vals;
+          return true;
         },
         async addAttribute() {
           if (!this.newAttrName.trim()) return;
@@ -2275,14 +2346,30 @@
           if (r.ok) await this.loadAttributes();
           else this.attrDlgError = (await r.json()).error;
         },
-        async addAttrValue(attrId, value) {
-          if (!value || !String(value).trim()) return;
-          const r = await fetch(`/api/commercial/attributes/${attrId}/values`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: String(value).trim() }),
-          });
-          if (r.ok) { this.addAttrValId = null; await this.loadAttributes(); }
-          else this.attrDlgError = (await r.json()).error;
+        // Recebe o próprio <input> (não o texto) porque os três gatilhos — Enter, ✓ e blur —
+        // precisam limpar o campo depois de gravar. `savingAttrVal` evita a gravação dupla
+        // quando o blur dispara enquanto o POST do Enter ainda está no ar.
+        async addAttrValue(attrId, inputEl) {
+          const value = (inputEl?.value ?? '').trim();
+          if (!value) { this.addAttrValId = null; return; }
+          if (this.savingAttrVal) return;
+          this.savingAttrVal = true;
+          try {
+            const r = await fetch(`/api/commercial/attributes/${attrId}/values`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value }),
+            });
+            if (r.ok) {
+              if (inputEl) inputEl.value = '';
+              this.attrDlgError = '';
+              await this.loadAttributes();
+              // Continua aberto no mesmo atributo: cadastrar P, M e G em sequência é o caso comum.
+              this.addAttrValId = attrId;
+              this.$nextTick(() => inputEl?.focus());
+            } else this.attrDlgError = (await r.json()).error;
+          } finally {
+            this.savingAttrVal = false;
+          }
         },
         async renameAttrValue(attrId, valId) {
           if (!this.attrValEditName.trim()) return;
@@ -2302,13 +2389,17 @@
         async openGenVariants() {
           // previewCombos é um getter (computado) — não se atribui a ele; limpar a seleção já zera a prévia.
           this.attrDlgError = ''; this.genSelectedValues = [];
-          await this.loadAttributes();
-          // Montar grupos de valores por atributo
-          this.genGroups = this.attributes.map(a => ({
+          if (!(await this.loadAttributes())) return;
+          // Montar grupos de valores por atributo. Atributo sem valor não pode entrar na
+          // combinação, mas some da tela — por isso os nomes são guardados à parte, para o
+          // estado vazio poder dizer exatamente qual atributo está faltando valor.
+          const todos = this.attributes.map(a => ({
             attribute_id: a.id,
             attribute_name: a.name,
             values: (this.attrValues[a.id] || []).filter(v => !v.deleted_at),
-          })).filter(g => g.values.length > 0);
+          }));
+          this.genGroups = todos.filter(g => g.values.length > 0);
+          this.attrsSemValor = todos.filter(g => !g.values.length).map(g => g.attribute_name);
           this.$refs.genVarDlg.showModal();
         },
         async confirmGenerateVariants() {

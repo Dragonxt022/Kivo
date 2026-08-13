@@ -102,6 +102,61 @@ router.post('/request-trial', async (req, res) => {
 });
 
 /**
+ * Descobre a empresa a partir da própria chave de licença, para o cliente não precisar
+ * digitar o UUID na ativação — a chave já é o segredo, o UUID só dizia *onde* conferi-la.
+ *
+ * Não devolve nada além do UUID e não autentica ninguém: quem tem o UUID ainda precisa da
+ * chave para passar por `requireCompanyAuth` em qualquer outra rota. Ainda assim é uma
+ * consulta indexada por segredo, então tem freio por IP — sem `express-rate-limit`, que não
+ * é dependência da nuvem; o mesmo padrão de mapa em memória já usado nas sessões do admin.
+ *
+ * `license_key_hash` não tem UNIQUE (migration 0001), então duas empresas com a mesma chave
+ * são possíveis na teoria. Nesse caso devolve 409 em vez de escolher uma ao acaso.
+ */
+const resolveHits = new Map<string, { count: number; resetAt: number }>();
+const RESOLVE_WINDOW_MS = 10 * 60_000;
+const RESOLVE_MAX = 20;
+
+function resolveThrottled(ip: string): boolean {
+  const now = Date.now();
+  const hit = resolveHits.get(ip);
+  if (!hit || now > hit.resetAt) {
+    resolveHits.set(ip, { count: 1, resetAt: now + RESOLVE_WINDOW_MS });
+    if (resolveHits.size > 5000) {
+      for (const [k, v] of resolveHits) if (now > v.resetAt) resolveHits.delete(k);
+    }
+    return false;
+  }
+  hit.count += 1;
+  return hit.count > RESOLVE_MAX;
+}
+
+router.post('/resolve', async (req, res) => {
+  if (resolveThrottled(req.ip ?? 'desconhecido')) {
+    res.status(429).json({ error: 'Muitas tentativas. Aguarde alguns minutos e tente de novo.' });
+    return;
+  }
+  const licenseKey = String(req.body?.licenseKey ?? '').trim();
+  if (!licenseKey) {
+    res.status(400).json({ error: 'Informe a chave de licença.' });
+    return;
+  }
+  const [rows] = await getPool().query('SELECT company_uuid FROM companies WHERE license_key_hash = ?', [
+    hashLicenseKey(licenseKey),
+  ]);
+  const found = rows as { company_uuid: string }[];
+  if (found.length === 0) {
+    res.status(404).json({ error: 'Chave de licença não encontrada.' });
+    return;
+  }
+  if (found.length > 1) {
+    res.status(409).json({ error: 'Esta chave está em mais de uma empresa. Contate o suporte.' });
+    return;
+  }
+  res.json({ companyUuid: found[0].company_uuid });
+});
+
+/**
  * Serve tanto a ativação inicial quanto a revalidação periódica (Kivo local). Registra
  * o dispositivo (machine_id) na primeira vez que o vê, dentro do limite `max_devices`
  * da empresa; uma máquina já conhecida nunca é recontada contra o limite — só uma

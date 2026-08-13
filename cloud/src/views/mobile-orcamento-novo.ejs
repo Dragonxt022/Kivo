@@ -1,0 +1,199 @@
+<%- include('partials/mobile-head', { titulo: 'Novo orçamento', grant, fresh }) %>
+
+<div id="form-area" class="m-form">
+  <label for="cliente">Cliente (opcional)</label>
+  <select id="cliente">
+    <option value="">Sem cliente cadastrado</option>
+    <% clientes.forEach(function (c) { %>
+      <option value="<%= c.uuid %>"><%= c.name %></option>
+    <% }) %>
+  </select>
+
+  <label for="nomeLivre">…ou um nome livre</label>
+  <input type="text" id="nomeLivre" maxlength="120" placeholder="Ex.: João da esquina">
+
+  <label for="busca">Produtos</label>
+  <input type="search" id="busca" placeholder="Buscar produto" autocomplete="off">
+  <div id="resultados"></div>
+
+  <ul class="m-list" id="itens" style="margin-bottom:1rem"></ul>
+  <p class="m-note" id="aviso-preco" hidden>
+    Os valores acima são os de catálogo. O <strong>preço final</strong> é calculado pelo
+    computador da loja, que aplica a tabela de preço do cliente.
+  </p>
+
+  <label for="validade">Validade</label>
+  <input type="date" id="validade">
+
+  <label for="obs">Observação</label>
+  <textarea id="obs" rows="2" maxlength="500"></textarea>
+
+  <p class="m-note m-note-warn" id="aviso-offline" hidden></p>
+  <p class="m-note" id="erro" hidden style="color:var(--danger)"></p>
+
+  <button class="m-btn" id="enviar" type="button" disabled>Enviar para a loja</button>
+  <p style="text-align:center;margin-top:.75rem">
+    <a href="/m/orcamentos" style="color:var(--text-muted);font-size:.85rem">Cancelar</a>
+  </p>
+</div>
+
+<%# Enquanto o desktop não confirma, a tela fica no estado de espera. A transição chega pelo
+    SSE (~1s); o polling é a rede de segurança se o canal estiver bloqueado por proxy. %>
+<div id="status-area" class="m-status" hidden>
+  <div class="m-status-spinner" id="spinner"></div>
+  <h2 id="status-titulo">Enviando para o computador da loja…</h2>
+  <p id="status-texto" class="m-card-sub"></p>
+  <p style="margin-top:1.5rem"><a class="m-btn m-btn-sec" href="/m/orcamentos" style="display:inline-block;width:auto;padding:.7rem 1.5rem;text-decoration:none">Voltar aos orçamentos</a></p>
+</div>
+
+<script>
+  (function () {
+    var PRODUTOS = <%- JSON.stringify(produtos) %>;
+    var itens = [];
+    var el = function (id) { return document.getElementById(id); };
+    var brl = function (c) { return (c / 100).toFixed(2).replace('.', ','); };
+
+    function renderResultados() {
+      var termo = el('busca').value.trim().toLowerCase();
+      var box = el('resultados');
+      if (termo.length < 2) { box.innerHTML = ''; return; }
+      var achados = PRODUTOS.filter(function (p) {
+        return p.name.toLowerCase().indexOf(termo) !== -1 || (p.sku || '').toLowerCase().indexOf(termo) !== -1;
+      }).slice(0, 8);
+      box.innerHTML = achados.length
+        ? '<ul class="m-list">' + achados.map(function (p) {
+            return '<li><button type="button" class="m-list-static" data-uuid="' + p.uuid + '" style="width:100%;border:0;background:none;text-align:left;cursor:pointer">'
+              + '<span class="m-list-main">' + esc(p.name) + '</span>'
+              + '<span class="m-list-meta">' + esc(p.sku || 'sem SKU') + '</span>'
+              + '<strong class="m-list-value">R$ ' + brl(p.price_cents) + '</strong></button></li>';
+          }).join('') + '</ul>'
+        : '<p class="m-empty">Nenhum produto encontrado.</p>';
+      Array.prototype.forEach.call(box.querySelectorAll('button[data-uuid]'), function (b) {
+        b.addEventListener('click', function () { adicionar(b.getAttribute('data-uuid')); });
+      });
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+
+    function adicionar(uuid) {
+      var p = PRODUTOS.find(function (x) { return x.uuid === uuid; });
+      if (!p) return;
+      var existente = itens.find(function (i) { return i.uuid === uuid; });
+      if (existente) existente.qty += 1;
+      else itens.push({ uuid: uuid, name: p.name, price_cents: p.price_cents, qty: 1 });
+      el('busca').value = '';
+      el('resultados').innerHTML = '';
+      renderItens();
+    }
+
+    function renderItens() {
+      var ul = el('itens');
+      ul.innerHTML = itens.map(function (i, idx) {
+        return '<li><div class="m-item-row">'
+          + '<span class="m-item-name">' + esc(i.name) + '<br><span class="m-list-meta">R$ ' + brl(i.price_cents) + '</span></span>'
+          + '<input class="m-item-qty" type="number" min="0" step="any" value="' + i.qty + '" data-idx="' + idx + '">'
+          + '<button type="button" data-remove="' + idx + '" style="border:0;background:none;color:var(--danger);font-size:1.3rem;cursor:pointer">&times;</button>'
+          + '</div></li>';
+      }).join('');
+      Array.prototype.forEach.call(ul.querySelectorAll('input[data-idx]'), function (inp) {
+        inp.addEventListener('change', function () {
+          var i = Number(inp.getAttribute('data-idx'));
+          itens[i].qty = Number(inp.value) || 0;
+          if (itens[i].qty <= 0) itens.splice(i, 1);
+          renderItens();
+        });
+      });
+      Array.prototype.forEach.call(ul.querySelectorAll('button[data-remove]'), function (b) {
+        b.addEventListener('click', function () {
+          itens.splice(Number(b.getAttribute('data-remove')), 1);
+          renderItens();
+        });
+      });
+      el('enviar').disabled = itens.length === 0;
+      el('aviso-preco').hidden = itens.length === 0;
+    }
+
+    el('busca').addEventListener('input', renderResultados);
+
+    // Se o computador da loja não sincroniza há muito, avisar ANTES de enviar: o orçamento
+    // ficaria parado na fila até ele voltar, e é melhor a pessoa saber disso agora.
+    var minutos = <%= fresh.minutesAgo === null ? 'null' : fresh.minutesAgo %>;
+    if (minutos === null || minutos > 30) {
+      var av = el('aviso-offline');
+      av.hidden = false;
+      av.textContent = 'O computador da loja não está sincronizando. O orçamento vai ficar na fila e só será criado quando ele voltar.';
+    }
+
+    function acompanhar(id) {
+      var pronto = false;
+      function checar() {
+        if (pronto) return;
+        fetch('/api/mobile/commands/' + id).then(function (r) { return r.json(); }).then(function (d) {
+          if (!d || d.status === 'pendente') return;
+          pronto = true;
+          el('spinner').hidden = true;
+          if (d.status === 'aplicado') {
+            el('status-titulo').textContent = 'Orçamento criado!';
+            el('status-texto').textContent = 'Número ' + (d.result && d.result.quoteId ? '#' + d.result.quoteId : '') +
+              (d.result && d.result.totalCents != null ? ' · Total R$ ' + brl(d.result.totalCents) : '');
+          } else {
+            el('status-titulo').textContent = 'Não foi possível criar';
+            el('status-texto').textContent = (d.result && d.result.error) || 'O computador da loja recusou o pedido.';
+          }
+        }).catch(function () {});
+      }
+      // EventSource é nativo do navegador: a confirmação chega no instante em que o desktop
+      // responde, sem esperar o próximo intervalo do polling abaixo.
+      try {
+        var es = new EventSource('/api/mobile/events');
+        es.addEventListener('command-done', function () { checar(); });
+      } catch (e) { /* navegador sem SSE: o polling cobre */ }
+      var t = setInterval(function () { if (pronto) clearInterval(t); else checar(); }, 4000);
+      checar();
+    }
+
+    el('enviar').addEventListener('click', function () {
+      el('enviar').disabled = true;
+      el('erro').hidden = true;
+      fetch('/api/mobile/commands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'store.quote.create',
+          payload: {
+            items: itens.map(function (i) { return { productUuid: i.uuid, qty: i.qty }; }),
+            customerUuid: el('cliente').value || null,
+            customerName: el('cliente').value ? null : (el('nomeLivre').value.trim() || null),
+            validUntil: el('validade').value || null,
+            notes: el('obs').value.trim() || null,
+          },
+        }),
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      }).then(function (res) {
+        if (!res.ok) {
+          el('erro').hidden = false;
+          el('erro').textContent = res.d.error || 'Falha ao enviar.';
+          el('enviar').disabled = false;
+          return;
+        }
+        el('form-area').hidden = true;
+        el('status-area').hidden = false;
+        el('status-texto').textContent = res.d.desktopOnline
+          ? 'O computador da loja está conectado — deve levar poucos segundos.'
+          : 'O computador da loja não está conectado agora. Assim que ligar, o orçamento é criado.';
+        acompanhar(res.d.id);
+      }).catch(function () {
+        el('erro').hidden = false;
+        el('erro').textContent = 'Sem conexão. Tente de novo.';
+        el('enviar').disabled = false;
+      });
+    });
+  })();
+</script>
+
+<%- include('partials/mobile-foot', { grant, ativo: 'orcamentos' }) %>

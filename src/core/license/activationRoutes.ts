@@ -17,11 +17,15 @@ router.get('/ativacao', (_req, res) => {
 
 router.post('/api/activation/activate', async (req, res) => {
   const { companyUuid, licenseKey } = req.body ?? {};
-  if (!companyUuid || !licenseKey) {
-    res.status(400).json({ error: 'Informe empresa e chave de licença.' });
+  if (!licenseKey) {
+    res.status(400).json({ error: 'Informe a chave de licença.' });
     return;
   }
-  const result = await activateLicense(String(companyUuid).trim(), String(licenseKey).trim());
+  // UUID opcional: sem ele, `activateLicense` pergunta à nuvem a qual empresa a chave
+  // pertence. O campo continua existindo na tela (recolhido) para licença antiga e para
+  // quando a nuvem não conseguir resolver.
+  const uuid = companyUuid ? String(companyUuid).trim() : '';
+  const result = await activateLicense(uuid || null, String(licenseKey).trim());
   if (!result.ok) {
     const statusCode = result.reason === 'offline' ? 503 : result.reason === 'invalid_credentials' ? 401 : 403;
     res.status(statusCode).json({ error: result.error, reason: result.reason });

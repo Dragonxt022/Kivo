@@ -83,6 +83,10 @@
     "description": "Testes: importação/exportação de produtos (parser + rotas)",
     "run": "tsx src/tests/products-import.ts && node scripts/test-isolated.js src/tests/products-import-api.ts"
   },
+  "test:variantes-api": {
+    "description": "Testes: variantes pelo fluxo de rotas (capability, atributos, geração, PDV)",
+    "run": "node scripts/test-isolated.js src/tests/variantes-api.ts"
+  },
   "test:onboarding": {
     "description": "Testes: cargos prontos, cadastros padrao e recursos do assistente",
     "run": "node scripts/test-isolated.js src/tests/onboarding-permissoes.ts"
@@ -164,8 +168,8 @@
     "run": "tsx src/tests/fase7c.ts"
   },
   "test:fase7d": {
-    "description": "Testes: financeiro (complementar)",
-    "run": "tsx src/tests/fase7d.ts"
+    "description": "Testes: fidelidade/convênio + sync entre máquinas (parte 2 exige Docker + cloud)",
+    "run": "node scripts/test-isolated.js src/tests/fase7d.ts"
   },
   "test:fase7e": {
     "description": "Testes: financeiro (complementar)",

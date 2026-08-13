@@ -73,6 +73,7 @@
           { type: 'cash', label: 'Caixa' },
           { type: 'billing', label: 'Cobranças' },
           { type: 'trial', label: 'Sistema' },
+          { type: 'novidade', label: 'Novidades' },
         ],
         countByType(type) { return this.notifications.filter((n) => n.type === type).length; },
         get filteredNotifications() {
@@ -83,7 +84,7 @@
         cashAlert: null,
         upcomingBills: null,
         notifUserKey: <%- JSON.stringify(user ? user.username : '') %>,
-        notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles' },
+        notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles' },
         notifRead: [],
         notifDismissed: [],
 
@@ -126,6 +127,13 @@
             const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
             list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
           }
+          // Espelha o item do sino (partials/nav.ejs): anúncio fixo desta versão, com id
+          // versionado para o "dispensar" valer só para ele. Manter os dois em sincronia.
+          list.push({
+            id: 'novidade-web-v1', type: 'novidade',
+            message: 'Kivo Web: acompanhe a loja e faça orçamento pelo celular',
+            link: '/?novidade=web-v1',
+          });
           return list;
         },
         get notifications() {

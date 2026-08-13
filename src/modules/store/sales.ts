@@ -17,6 +17,7 @@ import { receivableRepository } from '../finance/repositories/BillRepository';
 import { agreementChargeRepository } from '../finance/repositories/AgreementRepository';
 import { stockMovementRepository } from '../commercial/repositories/StockMovementRepository';
 import { loyaltyPointMovementRepository } from '../commercial/repositories/StockMovementRepository';
+import { scheduleSyncSoon } from '../../core/sync/scheduler';
 
 export interface SaleItemInput {
   productId: number;
@@ -171,11 +172,11 @@ function resolveSaleItems(
  * orçamento fechado no nome de quem passou na loja). Sem nenhum dos dois, fica null e a
  * tela mostra "—", como antes.
  */
-function resolveCustomerName(input: SaleInput): string | null {
-  if (input.customerId) {
+function resolveCustomerName(input: SaleInput, customerId: number | null): string | null {
+  if (customerId) {
     const c = customerRepository.rawOne(
       'SELECT name FROM customers WHERE id = ? AND deleted_at IS NULL',
-      input.customerId,
+      customerId,
     ) as { name: string } | undefined;
     if (c?.name) return c.name;
   }
@@ -183,6 +184,23 @@ function resolveCustomerName(input: SaleInput): string | null {
   // corpo cru), então o campo pode vir com qualquer coisa dentro.
   const typed = typeof input.customerName === 'string' ? input.customerName.trim() : '';
   return typed ? typed.slice(0, 120) : null;
+}
+
+/**
+ * Cliente da venda. Normalmente é `input.customerId`, mas formas de pagamento que exigem
+ * cliente (a prazo, convênio, crédito de loja, fidelidade) o carregam por pagamento — e o
+ * PDV mandava só ali. O resultado era uma venda a prazo com `sales.customer_id` NULL: não
+ * aparecia na ficha do cliente, não acumulava pontos, e o estorno no cancelamento (que se
+ * guia por `sale.customer_id`) não tinha o que reverter.
+ *
+ * Só adota o cliente do pagamento quando todos os pagamentos que informam um apontam para o
+ * mesmo — com dois clientes diferentes na mesma venda não há resposta certa, e aí fica NULL
+ * como antes.
+ */
+function resolveSaleCustomerId(input: SaleInput, resolved: { customerId?: number | null }[]): number | null {
+  if (input.customerId) return input.customerId;
+  const ids = new Set(resolved.map((p) => p.customerId).filter((id): id is number => !!id));
+  return ids.size === 1 ? [...ids][0] : null;
 }
 
 function resolveSalePayments(
@@ -309,7 +327,8 @@ export function createSale(
   const reg = cash.currentRegister();
   if (!reg) return { ok: false, error: 'Abra o caixa antes de realizar uma venda.' };
 
-  const customerName = resolveCustomerName(input);
+  const saleCustomerId = resolveSaleCustomerId(input, resolved);
+  const customerName = resolveCustomerName(input, saleCustomerId);
 
   const totalChange = sumCents(...resolved.map((p) => p.changeCents));
   const totalFee = sumCents(...resolved.map((p) => p.feeCents));
@@ -326,7 +345,7 @@ export function createSale(
   try {
     saleRepository.transaction(() => {
       saleId = saleRepository.create({
-        customer_id: input.customerId ?? null,
+        customer_id: saleCustomerId,
         customer_name: customerName,
         subtotal_cents: subtotal,
         discount_cents: discount,
@@ -418,9 +437,9 @@ export function createSale(
       }
       if (receivableId) saleRepository.updateReceivable(saleId, receivableId);
 
-      if (input.customerId && loyalty.enabled() && loyaltyEarnBaseCents > 0) {
+      if (saleCustomerId && loyalty.enabled() && loyaltyEarnBaseCents > 0) {
         const points = loyalty.pointsForSaleCents(loyaltyEarnBaseCents);
-        if (points > 0) loyalty.accrueRaw(req, input.customerId, points, `Venda #${saleId}`, 'sale', saleId);
+        if (points > 0) loyalty.accrueRaw(req, saleCustomerId, points, `Venda #${saleId}`, 'sale', saleId);
       }
     });
   } catch (e) {
@@ -439,6 +458,9 @@ export function createSale(
       });
     }
   } catch (e) { console.error('[kitchen] falha ao notificar:', e); }
+  // Empurra a venda para a nuvem em segundos, não no próximo ciclo: é o que faz o painel do
+  // Kivo Web mostrar o movimento de hoje. Agrupado e sem `await` — o caixa não espera a rede.
+  scheduleSyncSoon();
   return { ok: true, id: saleId, totalCents: total, changeCents: totalChange, feeCents: totalFee, receivableId };
 }
 

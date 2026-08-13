@@ -28,7 +28,13 @@
 </dialog>
 <script>
 var __capabilityGateKey = null;
-var CAPABILITY_LABELS = { 'comandas.mesas': 'o sistema de mesas e comandas' };
+var CAPABILITY_LABELS = {
+  'comandas.mesas': 'o sistema de mesas e comandas',
+  'commercial.variantes': 'as variações de produto (tamanho, cor, sabor…)',
+  'commercial.complementos': 'os complementos/adicionais de produto',
+  'commercial.kits': 'os kits e combos',
+  'commercial.producao': 'a produção com ficha técnica',
+};
 var __capabilityGateDismissed = {};
 function __closeCapabilityGate() {
   if (__capabilityGateKey) __capabilityGateDismissed[__capabilityGateKey] = true;

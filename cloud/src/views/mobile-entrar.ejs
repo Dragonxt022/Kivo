@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ff8000">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Web</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <link rel="stylesheet" href="/css/mobile.css">
+</head>
+<body class="m-body m-body-entrar">
+  <div class="m-entrar-card">
+    <img src="/logo_kivo-icon.svg" alt="Kivo" width="56" height="56">
+    <h1>Kivo Web</h1>
+    <%# Não há formulário de login por desenho: o acesso é pelo link/QR gerado no computador
+        da loja, e a senha do PDV nunca sai daquela máquina. %>
+    <% if (typeof erro !== 'undefined' && erro) { %>
+      <p class="m-entrar-error"><%= erro %></p>
+    <% } %>
+    <p>
+      O acesso pelo celular é liberado no <strong>computador da loja</strong>, em
+      <strong>Usuários → Acesso pelo celular</strong>. Abra o link (ou leia o QR) que aparece lá.
+    </p>
+    <p class="m-entrar-hint">
+      Não há senha para digitar aqui: o link já é a sua credencial. Se ele parou de funcionar,
+      peça para gerar outro — o antigo pode ter sido revogado.
+    </p>
+  </div>
+</body>
+</html>

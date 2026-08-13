@@ -8,6 +8,20 @@ import { createServer } from '../core/server';
 import { getSqlite } from '../core/database/connection';
 import { refreshLicenseFromCloud, validateLicense } from '../core/license/service';
 import { canAutoUpdate } from '../core/license/plans';
+import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/machinePrefs';
+
+/**
+ * Modo leve desliga a aceleração de vídeo, e `disableHardwareAcceleration()` só vale se for
+ * chamado ANTES de `app.whenReady()` — por isso está aqui no topo do módulo, e por isso a
+ * preferência mora num JSON (machine-prefs.json) e não no SQLite: neste ponto as migrations
+ * ainda não rodaram (`boot()` as executa) e o banco pode nem existir.
+ *
+ * Sem driver de vídeo o Chromium já cai para renderização por software, mas continua pagando
+ * a tentativa de compositar na GPU; desligar explicitamente evita esse caminho.
+ */
+if (getMachinePrefs().modoLeve) {
+  app.disableHardwareAcceleration();
+}
 
 function errorLogPath(): string {
   if (app.isPackaged) {
@@ -157,7 +171,50 @@ async function boot() {
   // no build é fixo; isto troca o ícone da janela/taskbar enquanto o app está aberto).
   nativeTheme.on('updated', () => win.setIcon(currentIconPath()));
 
+  detectarModoLeve(win, api);
+
   setupAutoUpdater();
+}
+
+/**
+ * Liga o modo leve sozinho, uma única vez, quando a máquina é fraca.
+ *
+ * Roda depois de a janela aparecer para não atrasar o boot, e só se `modoLeveDetectado`
+ * ainda for falso — depois de qualquer escolha (automática ou manual em Configurações) o
+ * app nunca mais mexe nisso, senão desligar o modo leve numa máquina fraca seria impossível.
+ *
+ * `getGPUFeatureStatus()` exige o app pronto, daí não dar para consultá-lo lá em cima junto
+ * de `disableHardwareAcceleration()`. Consequência aceita: na primeira execução a interface
+ * fica leve imediatamente (o reload aplica o CSS), mas a GPU só é desligada no próximo
+ * início — o aviso na tela diz isso.
+ */
+function detectarModoLeve(win: BrowserWindow, api: { locals: Record<string, unknown> }): void {
+  if (getMachinePrefs().modoLeveDetectado) return;
+
+  let gpuPorSoftware = false;
+  try {
+    const status = app.getGPUFeatureStatus() as unknown as Record<string, string>;
+    // "disabled_software" / "unavailable_software": o Chromium desistiu da GPU e está
+    // desenhando na CPU — exatamente o PC sem driver de vídeo que motivou o modo leve.
+    gpuPorSoftware = ['gpu_compositing', '2d_canvas'].some((k) => (status?.[k] ?? '').includes('software'));
+  } catch {
+    // Plataforma que não expõe o status: decide só pelos sinais de CPU/RAM.
+  }
+
+  const leve = gpuPorSoftware || hardwareFraco();
+  setMachinePrefs({ modoLeve: leve, modoLeveDetectado: true });
+  if (!leve) return;
+
+  api.locals.modoLeve = true;
+  appendErrorLog(`[modo-leve] ativado automaticamente (gpuPorSoftware=${gpuPorSoftware})`);
+  win.reload();
+  win.webContents.once('did-finish-load', () => {
+    win.webContents.executeJavaScript(
+      `window.showToast && window.showToast('Modo leve ativado: detectamos um computador com pouca folga. Ajuste em Configurações › Interface. A aceleração de vídeo desliga no próximo início.', 'info')`,
+    ).catch(() => {
+      // Página sem showToast (tela de ativação/login): o ajuste continua valendo.
+    });
+  });
 }
 
 app.whenReady().then(boot).catch(reportFatalBootError);

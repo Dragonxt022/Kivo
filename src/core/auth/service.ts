@@ -124,7 +124,12 @@ export function userFromToken(token: string): AuthUser | null {
   return session ? loadAuthUser(session.user_id) : null;
 }
 
-function loadAuthUser(userId: number): AuthUser | null {
+/**
+ * Exportada (além do uso interno da sessão) para `core/auth/systemContext.ts`: a fila de
+ * comandos do Kivo Web precisa executar no nome do usuário que pediu a ação, com o mesmo
+ * conjunto de permissões que ele teria logado no desktop.
+ */
+export function loadAuthUser(userId: number): AuthUser | null {
   const u = userRepository.rawOne(
     `SELECT u.id, u.username, u.name, u.role_id, r.slug AS role_slug
      FROM users u JOIN roles r ON r.id = u.role_id

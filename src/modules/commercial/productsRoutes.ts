@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Router } from 'express';
 import { requirePermission, requireAnyPermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
+import { hasCapability } from '../../core/capabilities/service';
 import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
 import { validateBarcode, generateInternalBarcode } from '../../shared/barcode';
@@ -39,6 +40,21 @@ const FISCAL_FIELDS = ['ncm', 'cest', 'csosn', 'cst', 'origem', 'unit_fiscal'] a
 
 function autoSkuEnabled(): boolean {
   return settingsRepository.getBool('estoque.auto_sku', true);
+}
+
+/**
+ * Um produto `variante` só é vendável depois que as filhas são geradas, e todo o caminho da
+ * geração (atributos, valores, generate-variants) está atrás de `commercial.variantes`. Sem
+ * esta checagem dava para criar o produto-pai com o recurso desligado e ficar preso: o
+ * cadastro salva, mas cada tela seguinte responde 403 e o produto nunca chega ao PDV.
+ *
+ * Fica no handler, e não em `requireCapability`, porque a rota é a mesma do produto simples —
+ * é o tipo que exige o recurso, não o endpoint. A mensagem segue o formato que
+ * `handleApiError` (partials/capability-gate.ejs) reconhece para oferecer "Ativar agora".
+ */
+function variantCapabilityError(productType: unknown): string | null {
+  if (String(productType) !== 'variante' || hasCapability('commercial.variantes')) return null;
+  return 'Recurso desativado: commercial.variantes';
 }
 
 function friendlyUniqueError(e: unknown): string | null {
@@ -118,7 +134,11 @@ router.get('/products/image-search', requirePermission('commercial.products.view
       headers: auth, signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) {
-      res.json({ results: [], offline: true });
+      // Antes qualquer falha virava `offline: true` e a tela dizia "banco de imagens
+      // indisponível agora" — indistinguível de queda de rede. Um 403 de plano ou um 401 de
+      // credencial precisam chegar ao usuário com o motivo, senão ninguém sabe o que corrigir.
+      const body = (await r.json().catch(() => ({}))) as { error?: string };
+      res.json({ results: [], offline: true, error: body.error ?? `Banco de imagens respondeu ${r.status}.` });
       return;
     }
     const results = (await r.json()) as { id: number; name: string; url: string }[];
@@ -168,6 +188,11 @@ router.post('/products', requirePermission('commercial.products.create'), valida
     return;
   }
   const productType = String(b.productType ?? 'fisico');
+  const capError = variantCapabilityError(productType);
+  if (capError) {
+    res.status(403).json({ error: capError });
+    return;
+  }
   const trackStock = (productType === 'variante' || productType === 'complemento') ? 0 : (b.trackStock === false ? 0 : 1);
   let info: { lastInsertRowid: number | bigint };
   try {
@@ -302,6 +327,13 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
     return;
   }
   const finalImageUrl = img.imageUrl !== undefined ? img.imageUrl : before.image_url;
+  // Só barra quem está *mudando* o tipo para variante: um produto que já é variante continua
+  // editável mesmo com o recurso desligado depois (senão o dado existente fica inacessível).
+  const capErrorUpdate = variantCapabilityError(b.productType);
+  if (capErrorUpdate) {
+    res.status(403).json({ error: capErrorUpdate });
+    return;
+  }
   const productType = b.productType ?? (before as unknown as Record<string, unknown>).product_type ?? 'fisico';
   const trackStock = (productType === 'variante' || productType === 'complemento') ? 0 : (b.trackStock != null ? (b.trackStock ? 1 : 0) : null);
   try {
@@ -620,6 +652,30 @@ router.delete('/recipe-items/:id', requirePermission('commercial.products.recipe
   res.json({ ok: true });
 });
 
+/**
+ * SKU da variante gerada a partir do SKU do pai: `CAM-001` + valores `P`/`Preto` → `CAM-001-P-PRETO`.
+ * É a mesma convenção do modelo de importação (productsImport.ts), e sem ela a variante só era
+ * encontrada no PDV digitando o nome — o campo de busca também aceita SKU e código de barras.
+ *
+ * Devolve `null` (SKU em branco, editável na tabela de variantes) quando o pai não tem SKU ou
+ * quando o candidato já existe: o índice único parcial de `products.sku` derrubaria o INSERT, e
+ * perder a geração inteira por causa de um SKU é pior do que gerar sem ele.
+ */
+function deriveVariantSku(parentSku: string | null, values: string[]): string | null {
+  if (!parentSku) return null;
+  // NFD separa o acento da letra ("Ó" → "O" + combinante) e o filtro [^A-Z0-9] descarta o
+  // combinante junto com espaço e pontuação — daí "Não Lácteo" virar "NAOLACTEO".
+  const slug = (s: string) => s.normalize('NFD').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  const parts = values.map(slug).filter(Boolean);
+  if (!parts.length) return null;
+  const candidate = `${parentSku}-${parts.join('-')}`;
+  const taken = productRepository.rawOne(
+    'SELECT 1 AS x FROM products WHERE sku = ? AND deleted_at IS NULL',
+    candidate,
+  );
+  return taken ? null : candidate;
+}
+
 // ---------- Variantes de produto ----------
 router.get('/products/:id/variants', requirePermission('commercial.products.view'), requireCapability('commercial.variantes'), (req, res) => {
   res.json(productRepository.findVariants(Number(req.params.id)));
@@ -628,7 +684,7 @@ router.get('/products/:id/variants', requirePermission('commercial.products.view
 router.post('/products/:id/attributes/generate-variants', requirePermission('commercial.products.variants.manage'), requireCapability('commercial.variantes'), (req, res) => {
   const parentId = Number(req.params.id);
   const parent = productRepository.findDetailed(parentId) as
-    | { product_type: string; name: string; price_cents: number; cost_cents: number }
+    | { product_type: string; name: string; sku: string | null; price_cents: number; cost_cents: number }
     | undefined;
   if (!parent) {
     res.status(404).json({ error: 'Produto não encontrado.' });
@@ -669,10 +725,11 @@ router.post('/products/:id/attributes/generate-variants', requirePermission('com
       }
       const suffix = combo.map((c) => c.value).join(', ');
       const variantName = `${parent.name} - ${suffix}`;
+      const variantSku = deriveVariantSku(parent.sku, combo.map((c) => c.value));
       const info = productRepository.rawRun(
-        `INSERT INTO products (name, parent_product_id, product_type, category_id, unit, price_cents, cost_cents, track_stock, min_stock, active, uuid)
-         VALUES (?, ?, 'variante', (SELECT category_id FROM products WHERE id = ?), (SELECT unit FROM products WHERE id = ?), ?, ?, 1, 0, 1, ?)`,
-        variantName, parentId, parentId, parentId, parent.price_cents, parent.cost_cents, randomUUID(),
+        `INSERT INTO products (name, sku, parent_product_id, product_type, category_id, unit, price_cents, cost_cents, track_stock, min_stock, active, uuid)
+         VALUES (?, ?, ?, 'variante', (SELECT category_id FROM products WHERE id = ?), (SELECT unit FROM products WHERE id = ?), ?, ?, 1, 0, 1, ?)`,
+        variantName, variantSku, parentId, parentId, parentId, parent.price_cents, parent.cost_cents, randomUUID(),
       );
       const newId = Number(info.lastInsertRowid);
       for (const c of combo) {

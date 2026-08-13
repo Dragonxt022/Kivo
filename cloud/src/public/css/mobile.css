@@ -1,0 +1,435 @@
+/* Kivo Web — folha própria do app de celular.
+   Não reaproveita app.css/site.css da nuvem de propósito: aquelas são feitas para telas
+   largas (sidebar, tabelas densas) e trazem peso que não serve num 4G de loja. Aqui é
+   uma coluna só, alvos grandes e navegação no alcance do polegar.
+   As variáveis de cor vêm de partials/styles.ejs, que já é compartilhado. */
+
+.m-body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  /* Altura da barra inferior + área segura do iPhone: sem isso o último item da lista
+     fica escondido atrás da navegação. */
+  padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ─── Cabeçalho ─── */
+.m-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: calc(0.9rem + env(safe-area-inset-top)) 1rem 0.9rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-light);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.m-header-text {
+  min-width: 0;
+}
+.m-header-company {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-header-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0.1rem 0 0;
+}
+.m-header-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: none;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-light);
+}
+
+/* ─── Aviso de dados velhos ─── */
+.m-stale {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--surface-hover);
+  text-align: center;
+}
+.m-stale-hard {
+  color: var(--warning-text);
+  background: var(--warning-bg);
+  font-weight: 600;
+}
+
+.m-main {
+  padding: 1rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ─── Cartões de resumo ─── */
+.m-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+.m-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 0.85rem;
+}
+.m-card-hero {
+  grid-column: 1 / -1;
+}
+.m-card-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.m-card-value {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-top: 0.2rem;
+  line-height: 1.2;
+}
+.m-card-hero .m-card-value {
+  font-size: 1.9rem;
+}
+.m-card-sub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+.m-ok {
+  color: var(--primary);
+}
+.m-danger {
+  color: var(--danger);
+}
+.m-muted {
+  color: var(--text-muted);
+}
+
+/* ─── Seções e listas ─── */
+.m-section {
+  margin-bottom: 1.5rem;
+}
+.m-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.m-section-head h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+.m-section-head a {
+  font-size: 0.8rem;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.m-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.m-list li + li {
+  border-top: 1px solid var(--border-light);
+}
+.m-list a,
+.m-list-static {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.75rem;
+  /* 0.85rem vertical dá ~48px de alvo: o mínimo confortável para o dedo. */
+  padding: 0.85rem 1rem;
+  text-decoration: none;
+  color: inherit;
+}
+.m-list-main {
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+.m-list-meta {
+  grid-column: 1;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.m-list-value {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.m-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+.m-badge-off {
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+
+.m-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  padding: 1.5rem 1rem;
+  border: 1px dashed var(--border-light);
+  border-radius: 14px;
+}
+.m-note {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  margin: 0 0 1rem;
+}
+.m-note-warn {
+  color: var(--warning-text);
+  background: var(--warning-bg);
+  border-color: transparent;
+}
+.m-back {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+.m-back a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* ─── Busca ─── */
+.m-search {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.m-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  /* 16px evita o zoom automático do Safari ao focar um campo. */
+  font-size: 16px;
+}
+.m-search button {
+  flex: none;
+  width: 46px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.m-search button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ─── Navegação inferior ─── */
+.m-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  background: var(--surface);
+  border-top: 1px solid var(--border-light);
+  padding: 0.4rem 0 calc(0.4rem + env(safe-area-inset-bottom));
+  z-index: 20;
+}
+.m-nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.3rem 0.2rem;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.m-nav a svg {
+  width: 21px;
+  height: 21px;
+}
+.m-nav a.on {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ─── Tela de entrada ─── */
+.m-body-entrar {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+.m-entrar-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  padding: 2rem 1.5rem;
+  max-width: 24rem;
+  text-align: center;
+}
+.m-entrar-card h1 {
+  font-size: 1.25rem;
+  margin: 0.75rem 0 1rem;
+}
+.m-entrar-card p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+.m-entrar-hint {
+  font-size: 0.8rem !important;
+  border-top: 1px solid var(--border-light);
+  padding-top: 0.75rem;
+  margin-bottom: 0 !important;
+}
+.m-entrar-error {
+  color: var(--danger) !important;
+  font-weight: 600;
+}
+
+/* ─── Formulário de orçamento ─── */
+.m-form label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 0.3rem;
+}
+.m-form input,
+.m-form select,
+.m-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+  margin-bottom: 0.9rem;
+}
+.m-btn {
+  width: 100%;
+  padding: 0.85rem;
+  border: 0;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.m-btn:disabled {
+  opacity: 0.6;
+}
+.m-btn-sec {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-light);
+}
+.m-fab {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.8rem 1.1rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  z-index: 15;
+}
+.m-item-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.m-item-row .m-item-name {
+  font-size: 0.9rem;
+}
+.m-item-row .m-item-qty {
+  width: 4.5rem;
+  margin: 0;
+}
+.m-status {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+.m-status-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  animation: m-spin 0.9s linear infinite;
+}
+@keyframes m-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .m-status-spinner {
+    animation-duration: 2.5s;
+  }
+}

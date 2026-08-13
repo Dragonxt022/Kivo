@@ -72,6 +72,12 @@
                     Editar
                   </button>
                   <% } %>
+                  <% if (user.permissions.has('users.remote.manage')) { %>
+                  <button @click="openMenu = null; openRemote(u)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+                    Acesso pelo celular
+                  </button>
+                  <% } %>
                   <% if (user.permissions.has('users.delete')) { %>
                   <button class="danger" @click="openMenu = null; remove(u)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -111,6 +117,79 @@
         <button class="btn" @click="save()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Salvar</button>
       </div>
     </dialog>
+
+    <%# O link mostrado aqui É a credencial: ele não fica guardado em lugar nenhum (o banco
+        só tem o sha256). Fechou o diálogo, para reaver é preciso gerar outro — o que também
+        invalida o anterior. É por isso que o aviso é explícito. %>
+    <dialog x-ref="remoteDlg" class="dialog-fixed">
+      <h1>Acesso pelo celular</h1>
+      <div class="dialog-body">
+        <p class="hint mt-0">
+          Usuário: <strong x-text="remote.user?.name"></strong>
+          (<span x-text="remote.user?.username"></span>)
+        </p>
+
+        <template x-if="!remote.available">
+          <div class="variant-guide" style="margin:.5rem 0">
+            <p style="margin:0 0 .35rem"><strong>Disponível no plano Diamante.</strong></p>
+            <p class="muted text-xs" style="margin:0">
+              O Kivo Web deixa acompanhar a loja e montar orçamento pelo celular. Seu plano atual:
+              <span x-text="remote.plan ?? '—'"></span>.
+            </p>
+          </div>
+        </template>
+
+        <template x-if="remote.available && !remote.url">
+          <div>
+            <p class="hint">
+              Gera um link exclusivo deste usuário. Quem abrir o link entra no Kivo Web com o
+              <strong>cargo e as permissões que ele já tem</strong> aqui — sem senha nova.
+            </p>
+            <template x-if="remote.existing">
+              <p class="hint" style="color:var(--warning-text)">
+                Este usuário já tem um acesso ativo (criado em <span x-text="remote.existing.created_at"></span>,
+                último uso: <span x-text="remote.existing.last_used_at ?? 'nunca'"></span>).
+                Gerar um novo <strong>invalida o anterior</strong>.
+              </p>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="remote.url">
+          <div style="text-align:center">
+            <img :src="remote.qr" alt="QR code do acesso" width="240" height="240"
+                 style="border-radius:8px;background:#fff;padding:8px" />
+            <p class="hint" style="margin:.6rem 0 .3rem">Aponte a câmera do celular para o QR, ou copie o link:</p>
+            <div class="flex-row" style="align-items:center;gap:.5rem;justify-content:center">
+              <code x-text="remote.url" style="font-size:.75rem;padding:.3rem .5rem;background:var(--surface-hover);border-radius:6px;word-break:break-all"></code>
+              <button type="button" class="btn secondary small" @click="copyRemote()" x-text="remote.copied ? 'Copiado!' : 'Copiar'"></button>
+            </div>
+            <p class="hint" style="color:var(--danger);margin-top:.75rem">
+              <strong>Guarde como se fosse uma senha.</strong> Quem tiver este link entra na conta.
+              Ele não será mostrado de novo — se precisar, gere outro (o atual deixa de valer).
+            </p>
+          </div>
+        </template>
+
+        <div class="error" x-text="remote.error"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.remoteDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Fechar
+        </button>
+        <button class="btn danger" x-show="remote.existing && !remote.url" x-cloak
+                :disabled="remote.saving" @click="revokeRemote()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          Revogar acesso
+        </button>
+        <button class="btn" x-show="remote.available && !remote.url" x-cloak
+                :disabled="remote.saving" @click="generateRemote()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+          <span x-text="remote.saving ? 'Gerando…' : (remote.existing ? 'Gerar novo link' : 'Gerar link')"></span>
+        </button>
+      </div>
+    </dialog>
   </main>
   <script src="/js/table-toolkit.js"></script>
   <script>
@@ -119,6 +198,7 @@
         ...tableToolkit(),
         users: [], roles: ['administrador','gerente','operador','caixa','entregador','estoquista'],
         form: {}, q: '', error: '', dlgError: '',
+        remote: { user: null, available: false, plan: null, existing: null, url: '', qr: '', error: '', saving: false, copied: false },
         sortGetters: {
           name: (u) => u.name, username: (u) => u.username, role: (u) => u.role ?? '',
           active: (u) => (u.active ? 1 : 0), last_login_at: (u) => u.last_login_at ?? '',
@@ -137,6 +217,40 @@
           if (r.ok) { this.users = await r.json(); this.pruneSelection(this.users); } else showToast((await r.json()).error, 'error');
           const roles = await fetch('/api/users/roles');
           if (roles.ok) this.roles = (await roles.json()).map((x) => x.slug);
+        },
+        // ─── Acesso pelo celular (Kivo Web) ───
+        async openRemote(u) {
+          this.remote = { user: u, available: false, plan: null, existing: null, url: '', qr: '', error: '', saving: false, copied: false };
+          this.$refs.remoteDlg.showModal();
+          const r = await fetch('/api/remote/status');
+          if (!r.ok) { this.remote.error = ((await r.json()) || {}).error ?? 'Falha ao consultar o status.'; return; }
+          const st = await r.json();
+          this.remote.available = st.available;
+          this.remote.plan = st.plan;
+          this.remote.existing = (st.accesses || []).find((a) => a.user_id === u.id && !a.revoked_at) ?? null;
+        },
+        async generateRemote() {
+          this.remote.saving = true; this.remote.error = '';
+          const r = await fetch(`/api/remote/users/${this.remote.user.id}/grant`, { method: 'POST' });
+          this.remote.saving = false;
+          if (!r.ok) { this.remote.error = ((await r.json()) || {}).error ?? 'Falha ao gerar o acesso.'; return; }
+          const d = await r.json();
+          this.remote.url = d.url; this.remote.qr = d.qr;
+        },
+        async revokeRemote() {
+          if (!await window.confirmDlg('Revogar o acesso pelo celular deste usuário? O link atual deixa de funcionar.')) return;
+          this.remote.saving = true; this.remote.error = '';
+          const r = await fetch(`/api/remote/users/${this.remote.user.id}/grant`, { method: 'DELETE' });
+          this.remote.saving = false;
+          if (!r.ok) { this.remote.error = ((await r.json()) || {}).error ?? 'Falha ao revogar.'; return; }
+          this.remote.existing = null;
+          showToast('Acesso revogado.', 'success');
+        },
+        copyRemote() {
+          navigator.clipboard?.writeText(this.remote.url).then(() => {
+            this.remote.copied = true;
+            setTimeout(() => { this.remote.copied = false; }, 1500);
+          });
         },
         onBulkDeleted(data) {
           this.load();

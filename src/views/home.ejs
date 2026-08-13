@@ -333,6 +333,14 @@
   </div>
   <% } %>
 
+  <%# Depois do assistente de propósito: o próprio componente só abre quando o onboarding
+      está concluído, para os dois <dialog> nunca disputarem a camada superior. %>
+  <% if (user) { %>
+  <div x-data="novidadeAviso()">
+    <%- include('partials/novidade') %>
+  </div>
+  <% } %>
+
   <% if (user) { %>
   <div x-data="helpChat()" x-init="init()">
     <button type="button" class="fab" title="Ajuda e suporte" @click="open()">
@@ -802,10 +810,12 @@
         async init() {
           // Badge de não-lidas no botão flutuante; silencioso se offline/sem licença.
           try { await this.refreshTickets(); } catch (e) {}
-          // Atualiza o badge a cada 30s mesmo com o chat fechado.
+          // Atualiza o badge a cada 30s mesmo com o chat fechado (2min no modo leve: é um
+          // badge, não uma conversa aberta — a resposta do suporte não fica menos visível).
+          const leve = document.documentElement.getAttribute('data-lite') === '1';
           this.bgTimer = setInterval(() => {
             this.refreshTickets().catch(() => {});
-          }, 30000);
+          }, leve ? 120000 : 30000);
         },
         async refreshTickets() {
           const d = await this.api('/tickets');
