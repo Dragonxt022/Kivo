@@ -24,6 +24,8 @@ import { startBackupScheduler } from './backup/service';
 import { validateLicense, isActivated, refreshLicenseFromCloud } from './license/service';
 import activationRoutes from './license/activationRoutes';
 import { productImagesDir, categoryImagesDir, trySubmitPending } from './catalog/submissionQueue';
+import { companyLogoDir, LOGO_SETTING_KEY } from './config/companyLogo';
+import { getSqlite } from './database/connection';
 import { registerSyncTables } from './sync/registry';
 import { startSyncScheduler } from './sync/scheduler';
 import { startEventChannel } from './sync/events';
@@ -90,7 +92,9 @@ export async function createServer(): Promise<KivoServer> {
 
   // Disponível em toda view (app.locals é mesclado automaticamente pelo EJS) — evita
   // número de versão hardcoded e divergente em cada tela que precisa exibi-lo.
-  const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')) as { version: string };
+  const pkg = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8'),
+  ) as { version: string };
   app.locals.appVersion = pkg.version;
 
   // Modo leve é por máquina (machinePrefs), não por empresa. Entra em app.locals para o
@@ -98,13 +102,22 @@ export async function createServer(): Promise<KivoServer> {
   // qualquer CSS pintar, sem piscar a interface pesada primeiro.
   app.locals.modoLeve = getMachinePrefs().modoLeve;
 
+  // Logo do lojista no cabeçalho. Em app.locals (lido do banco no boot e reescrito pela
+  // rota que faz o upload) para o nav não precisar de um fetch por página só para saber
+  // qual marca desenhar — o que faria a logo aparecer piscando depois do carregamento.
+  app.locals.empresaLogoUrl = null;
+
   // Helper EJS: retorna o SVG inline para icones — as views usam currentColor
   const iconsDir = path.resolve(__dirname, '..', 'public', 'icons');
   function svgIcon(name: string, width = 24, height = 24): string {
     try {
       const file = path.join(iconsDir, name + '.svg');
-      return fs.readFileSync(file, 'utf8').replace(/<svg\b/, `<svg width="${width}" height="${height}"`);
-    } catch { return ''; }
+      return fs
+        .readFileSync(file, 'utf8')
+        .replace(/<svg\b/, `<svg width="${width}" height="${height}"`);
+    } catch {
+      return '';
+    }
   }
   app.locals.svgIcon = svgIcon;
 
@@ -119,7 +132,9 @@ export async function createServer(): Promise<KivoServer> {
         const svg = fs.readFileSync(path.join(iconsDir, f), 'utf8');
         map[name] = svg;
       }
-    } catch { /* sem icones */ }
+    } catch {
+      /* sem icones */
+    }
     return map;
   })();
   app.locals.svgIconMapJson = JSON.stringify(svgMap);
@@ -128,10 +143,12 @@ export async function createServer(): Promise<KivoServer> {
   app.use(morgan('dev'));
 
   // Security headers (Helmet) — CSP desligado para compatibilidade com Alpine.js CDN
-  app.use(helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
 
   // Limite maior que o padrão (100kb): fotos de produto viajam como base64 no corpo JSON
   // (ver modules/commercial/routes.ts) — servidor local/Electron, não exposto à internet.
@@ -210,6 +227,17 @@ export async function createServer(): Promise<KivoServer> {
 
   // Tabelas sincronizáveis do Core
   registerSyncTables('core', [{ table: 'capabilities' }]);
+
+  // Depois das migrations (o banco já existe aqui) — antes disso a tabela `settings`
+  // pode nem ter sido criada, numa instalação nova.
+  try {
+    const linha = getSqlite()
+      .prepare('SELECT value FROM settings WHERE key = ? AND deleted_at IS NULL')
+      .get(LOGO_SETTING_KEY) as { value: string | null } | undefined;
+    app.locals.empresaLogoUrl = linha?.value || null;
+  } catch (e) {
+    console.error('[config] não foi possível ler a logo da empresa:', e);
+  }
 
   // Licença (não trava o boot) e backup diário às 23:00
   const lic = validateLicense();

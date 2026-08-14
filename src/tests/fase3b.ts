@@ -60,6 +60,15 @@ async function phase1(): Promise<void> {
 
     // ---- Barcode: unicidade + checksum ----
     const validEan = '4006381333931'; // GTIN de teste conhecido, checksum correto
+    // Sobras de execuções anteriores (o teste soft-deleta no final, mas a 0060
+    // pode ter preservado um produto antigo) violariam a unicidade logo no 1º create.
+    for (const code of [validEan, 'ABC-123-XYZ']) {
+      const leftover = await api(base, `${C}/products/by-barcode/${code}`, {}, admin!);
+      if (leftover.status === 200) {
+        const row = await unwrap<{ id: number }>(leftover);
+        await api(base, `${C}/products/${row.id}`, { method: 'DELETE' }, admin!);
+      }
+    }
     const p1 = await api(base, `${C}/products`, { method: 'POST', body: JSON.stringify({ name: 'Produto A', barcode: validEan }) }, admin!);
     check('produto criado com EAN-13 válido', p1.status === 201, String(p1.status));
     const p1Body = await unwrap<{ id: number }>(p1);
@@ -89,8 +98,14 @@ async function phase1(): Promise<void> {
     check('código interno começa com prefixo 2 e tem 13 dígitos', /^2\d{12}$/.test(gen2Body.barcode), gen2Body.barcode);
 
     const dupProd = await api(base, `${C}/products/${p1Body.id}/duplicate`, { method: 'POST' }, admin!);
-    const dupProdBody = await unwrap<{ barcode: string | null; sku: string | null }>(dupProd);
+    const dupProdBody = await unwrap<{ id: number; barcode: string | null; sku: string | null }>(dupProd);
     check('duplicar produto não copia barcode/sku', dupProdBody.barcode === null && dupProdBody.sku === null);
+
+    // Limpeza: soft-delete dos produtos com barcode para a unicidade (índice parcial
+    // ignora linhas com deleted_at) não quebrar a próxima execução do teste no mesmo banco.
+    await api(base, `${C}/products/${p1Body.id}`, { method: 'DELETE' }, admin!);
+    await api(base, `${C}/products/${p2Body.id}`, { method: 'DELETE' }, admin!);
+    await api(base, `${C}/products/${dupProdBody.id}`, { method: 'DELETE' }, admin!);
 
     // ---- Listas de preço ----
     const prodPreco = await unwrap<{ id: number }>(
@@ -224,6 +239,13 @@ async function phase2(): Promise<void> {
 
   const cloudProc = spawnProc('cloud', 'cloud/src/server.ts', { ...CLOUD_ENV, CLOUD_PORT: String(cloudPort) });
   await waitForHealth(`${cloudUrl}/api/health`);
+
+  // O gate `requireActivation` barra o login até o banco estar ativado. A ativação
+  // precisa existir antes do boot de cada máquina (sem credenciais de licença — o
+  // teste configura via PUT /api/license depois).
+  for (const db of [path.join(SCRATCH, 'machineA.db'), path.join(SCRATCH, 'machineB.db')]) {
+    execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', db], { cwd: ROOT, stdio: 'pipe' });
+  }
 
   const a: Machine = { name: 'A', base: `http://localhost:${portA}`, proc: spawnProc('machineA', 'src/dev.ts', {
     KIVO_DB_PATH: path.join(SCRATCH, 'machineA.db'), KIVO_PORT: String(portA), KIVO_SYNC_SERVER_URL: cloudUrl, KIVO_MACHINE_ID: 'test-machine-a-3b',

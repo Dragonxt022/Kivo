@@ -14,6 +14,7 @@ import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { unwrap } from './testUtils';
 
 const ROOT = process.cwd();
 const TSX = require.resolve('tsx/cli');
@@ -128,6 +129,11 @@ async function main(): Promise<void> {
   const cloudProc = spawnProc('cloud', 'cloud/src/server.ts', { ...CLOUD_ENV, CLOUD_PORT: String(cloudPort) });
   await waitForHealth(`${cloudUrl}/api/health`);
 
+  // Ativa o banco (sem credenciais de licença) antes do boot da máquina: o gate
+  // `requireActivation` barra o login até `activated_at` existir, e este teste
+  // precisa validar justamente o comportamento "sem licença configurada" (modo dev).
+  execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', dbPath], { cwd: ROOT, stdio: 'pipe' });
+
   let m = startMachine(machinePort, dbPath, cloudUrl);
   await waitForHealth(`${m.base}/api/health`);
 
@@ -145,7 +151,7 @@ async function main(): Promise<void> {
     const syncRes = await api(m.base, '/api/sync/run', { method: 'POST' }, m.cookie);
     check('sync/run (dispara refresh de licença)', syncRes.ok);
 
-    const licenseInfo = (await (await api(m.base, '/api/license', {}, m.cookie)).json()) as { modules: string[] | null };
+    const licenseInfo = await unwrap<{ modules: string[] | null }>(await api(m.base, '/api/license', {}, m.cookie));
     check('cache local reflete módulos do plano', JSON.stringify(licenseInfo.modules) === JSON.stringify(['commercial', 'finance']), JSON.stringify(licenseInfo.modules));
 
     // --- Fase 6f: efeito imediato, SEM reiniciar — o sync/run acima já deve bastar ---

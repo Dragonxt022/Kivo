@@ -9,7 +9,7 @@
  */
 
 const { execSync } = require('child_process');
-const { readFileSync, readdirSync } = require('fs');
+const { readFileSync } = require('fs');
 const { join } = require('path');
 
 const ROOT = join(__dirname, '..');
@@ -30,10 +30,53 @@ function run(cmd, label) {
 
 function listCommands() {
   const groups = {
-    Desenvolvimento: ['dev', 'dev:electron', 'build', 'rebuild:electron', 'verify:native', 'dist:win', 'release:win'],
+    Desenvolvimento: [
+      'dev',
+      'dev:electron',
+      'build',
+      'rebuild:electron',
+      'verify:native',
+      'dist:win',
+      'release:win',
+    ],
     Qualidade: ['lint', 'format'],
     Banco: ['db:migrate', 'db:rollback', 'db:reset', 'db:seed:demo', 'db:status'],
-    Testes: ['test', 'test:shared', 'test:fase1', 'test:fase1b', 'test:fase3', 'test:fase3b', 'test:fase3c', 'test:fase4', 'test:fase5', 'test:fase5b', 'test:fase5c', 'test:fase5d', 'test:fase6a', 'test:fase6b', 'test:fase6c', 'test:fase6d', 'test:fase7a', 'test:fase7b', 'test:fase7c', 'test:fase7d', 'test:fase7e', 'test:fase7f', 'test:fase8', 'test:fase8b', 'test:capabilities', 'test:variants', 'test:complementos', 'test:kits', 'test:producao', 'test:foodservice', 'test:comandas', 'test:pdv-tipos', 'test:onboarding', 'test:products-import'],
+    Testes: [
+      'test',
+      'test:shared',
+      'test:fase1',
+      'test:fase1b',
+      'test:fase3',
+      'test:fase3b',
+      'test:fase3c',
+      'test:fase4',
+      'test:fase5',
+      'test:fase5b',
+      'test:fase5c',
+      'test:fase5d',
+      'test:fase6a',
+      'test:fase6b',
+      'test:fase6c',
+      'test:fase6d',
+      'test:fase7a',
+      'test:fase7b',
+      'test:fase7c',
+      'test:fase7d',
+      'test:fase7e',
+      'test:fase7f',
+      'test:fase8',
+      'test:fase8b',
+      'test:capabilities',
+      'test:variants',
+      'test:complementos',
+      'test:kits',
+      'test:producao',
+      'test:foodservice',
+      'test:comandas',
+      'test:pdv-tipos',
+      'test:onboarding',
+      'test:products-import',
+    ],
     Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
     Utilitário: ['smoke', 'postinstall'],
   };
@@ -56,58 +99,11 @@ function listCommands() {
   console.log(`        npm run kivo <comando>\n`);
 }
 
-/**
- * Testes puros (sem banco): rodam direto, sem o custo de criar um SQLite descartável.
- * Todo o resto passa pelo `test-isolated.js`.
- *
- * Antes era o contrário — uma lista fixa de 3 arquivos isolados e todos os demais rodando
- * `tsx` direto contra `database/kivo.db`, o MESMO banco do `npm run dev`. Consequências:
- * cada teste apagava e recriava o banco do anterior, o resultado variava entre execuções
- * (o mesmo teste passava sozinho e falhava no conjunto), e quem estivesse desenvolvendo
- * perdia os dados locais ao rodar a suíte. Manter a lista atualizada à mão também garantia
- * que todo teste novo com banco nasceria fora dela.
- */
-const PURE_TESTS = new Set(['shared.ts', 'testUtils.ts', 'products-import.ts']);
-
 function runTestAll() {
-  const testsDir = join(ROOT, 'src', 'tests');
-  const files = readdirSync(testsDir)
-    .filter((f) => f.endsWith('.ts') && f !== 'resetTestDb.ts' && !f.startsWith('e2e'))
-    .sort();
-
-  let passed = 0;
-  let failed = 0;
-
-  for (const file of files) {
-    const label = file.replace('.ts', '');
-    console.log(`\n━━━ ${'='.repeat(60)}`);
-    console.log(`  ${label}`);
-    console.log(`━━━ ${'='.repeat(60)}\n`);
-    try {
-      run(
-        PURE_TESTS.has(file)
-          ? `tsx src/tests/${file}`
-          : `node scripts/test-isolated.js src/tests/${file}`,
-        label,
-      );
-      console.log(`\n  ✓ ${label} PASS\n`);
-      passed++;
-    } catch {
-      console.log(`\n  ✗ ${label} FAIL\n`);
-      failed++;
-    }
-  }
-
-  const total = passed + failed;
-  console.log(`\n${'─'.repeat(40)}`);
-  console.log(`  ${passed}/${total} passed`);
-  if (failed > 0) {
-    console.log(`  ${failed} test(s) FAILED`);
-    process.exit(1);
-  }
+  return require('./test-runner').runAll();
 }
 
-function main() {
+async function main() {
   const arg = process.argv[2];
 
   if (!arg) {
@@ -116,7 +112,7 @@ function main() {
   }
 
   if (arg === 'test') {
-    runTestAll();
+    process.exit(await runTestAll());
     return;
   }
 

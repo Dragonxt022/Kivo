@@ -14,6 +14,7 @@ import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { unwrap } from './testUtils';
 
 const ROOT = process.cwd();
 const TSX = require.resolve('tsx/cli');
@@ -119,6 +120,13 @@ async function main(): Promise<void> {
   const cloudProc = spawnProc('cloud', 'cloud/src/server.ts', { ...CLOUD_ENV, CLOUD_PORT: String(cloudPort) });
   await waitForHealth(`${cloudUrl}/api/health`);
 
+  // Ativa os bancos (sem credenciais de licença) antes do boot das máquinas — o gate
+  // `requireActivation` barra o login até `activated_at` existir, e este teste
+  // precisa validar justamente o comportamento "sem licença" (backup só local).
+  for (const db of [path.join(SCRATCH, 'machine1.db'), path.join(SCRATCH, 'machine2.db')]) {
+    execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', db], { cwd: ROOT, stdio: 'pipe' });
+  }
+
   const m1 = startMachine(3631, path.join(SCRATCH, 'machine1.db'), cloudUrl, 'test-machine-6c-1');
   await waitForHealth(`${m1.base}/api/health`);
 
@@ -130,8 +138,8 @@ async function main(): Promise<void> {
     check('login admin em m1', !!m1.cookie);
 
     // --- Sem licença: backup local roda, mas não sobe para a nuvem ---
-    const backup1 = await (await api(m1.base, '/api/backup', { method: 'POST' }, m1.cookie)).json() as { id: number };
-    const listBefore = (await (await api(m1.base, '/api/backup', {}, m1.cookie)).json()) as { id: number; uploaded_at: string | null }[];
+    const backup1 = await unwrap<{ id: number }>(await api(m1.base, '/api/backup', { method: 'POST' }, m1.cookie));
+    const listBefore = await unwrap<{ id: number; uploaded_at: string | null }[]>(await api(m1.base, '/api/backup', {}, m1.cookie));
     const row1 = listBefore.find((b) => b.id === backup1.id);
     check('sem licença: backup local não sobe para a nuvem', row1?.uploaded_at == null);
 
@@ -142,17 +150,17 @@ async function main(): Promise<void> {
     const putLicense = await api(m1.base, '/api/license', { method: 'PUT', body: JSON.stringify({ companyUuid, licenseKey }) }, m1.cookie);
     check('licença configurada em m1', putLicense.ok);
 
-    const marker = await (
-      await api(m1.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Recuperado', priceCents: 1234 }) }, m1.cookie)
-    ).json() as { id: number };
+    const marker = await unwrap<{ id: number }>(
+      await api(m1.base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Recuperado', priceCents: 1234 }) }, m1.cookie),
+    );
     check('produto marcador criado em m1', !!marker.id);
 
-    const backup2 = await (await api(m1.base, '/api/backup', { method: 'POST' }, m1.cookie)).json() as { id: number };
-    const listAfter = (await (await api(m1.base, '/api/backup', {}, m1.cookie)).json()) as { id: number; uploaded_at: string | null }[];
+    const backup2 = await unwrap<{ id: number }>(await api(m1.base, '/api/backup', { method: 'POST' }, m1.cookie));
+    const listAfter = await unwrap<{ id: number; uploaded_at: string | null }[]>(await api(m1.base, '/api/backup', {}, m1.cookie));
     const row2 = listAfter.find((b) => b.id === backup2.id);
     check('com licença: backup manual sobe para a nuvem automaticamente', row2?.uploaded_at != null, String(row2?.uploaded_at));
 
-    const cloudList = (await (await api(m1.base, '/api/backup/cloud', {}, m1.cookie)).json()) as { uuid: string }[];
+    const cloudList = await unwrap<{ uuid: string }[]>(await api(m1.base, '/api/backup/cloud', {}, m1.cookie));
     check('backup aparece na listagem da nuvem', cloudList.length >= 1);
     const cloudUuid = cloudList[0].uuid;
 
@@ -161,12 +169,12 @@ async function main(): Promise<void> {
     check('login admin em m2 (antes da restauração)', !!m2.cookie);
     await api(m2.base, '/api/license', { method: 'PUT', body: JSON.stringify({ companyUuid, licenseKey }) }, m2.cookie);
 
-    const cloudListFromM2 = (await (await api(m2.base, '/api/backup/cloud', {}, m2.cookie)).json()) as { uuid: string }[];
+    const cloudListFromM2 = await unwrap<{ uuid: string }[]>(await api(m2.base, '/api/backup/cloud', {}, m2.cookie));
     check('m2 enxerga o backup de m1 na nuvem', cloudListFromM2.some((b) => b.uuid === cloudUuid));
 
-    const downloaded = await (
-      await api(m2.base, `/api/backup/cloud/${cloudUuid}/download`, { method: 'POST' }, m2.cookie)
-    ).json() as { id: number };
+    const downloaded = await unwrap<{ id: number }>(
+      await api(m2.base, `/api/backup/cloud/${cloudUuid}/download`, { method: 'POST' }, m2.cookie),
+    );
     check('download do backup da nuvem em m2', !!downloaded.id);
 
     const restoreRes = await api(m2.base, `/api/backup/${downloaded.id}/restore`, { method: 'POST' }, m2.cookie);
@@ -177,7 +185,7 @@ async function main(): Promise<void> {
     const m2CookieAfter = await loginAs(m2.base, 'admin', 'admin');
     check('login com credenciais de m1 funciona em m2 após restaurar', !!m2CookieAfter);
 
-    const productsOnM2 = (await (await api(m2.base, '/api/commercial/products?q=Produto Recuperado', {}, m2CookieAfter!)).json()) as { name: string }[];
+    const productsOnM2 = await unwrap<{ name: string }[]>(await api(m2.base, '/api/commercial/products?q=Produto Recuperado', {}, m2CookieAfter!));
     check('produto marcador de m1 existe em m2 após restauração', productsOnM2.length === 1, JSON.stringify(productsOnM2));
 
     // --- Corrompe o arquivo na nuvem: download deve recusar por checksum inválido ---

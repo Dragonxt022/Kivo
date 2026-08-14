@@ -11,6 +11,7 @@ import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { unwrap } from './testUtils';
 
 const ROOT = process.cwd();
 const TSX = require.resolve('tsx/cli');
@@ -85,7 +86,7 @@ async function loginAs(base: string, u: string, p: string): Promise<string | nul
 async function runSync(m: Machine): Promise<{ pushed: number; pulled: number }> {
   const r = await api(m.base, '/api/sync/run', { method: 'POST' }, m.cookie);
   if (!r.ok) throw new Error(`sync/run falhou em ${m.name}: ${r.status} ${await r.text()}`);
-  return r.json() as Promise<{ pushed: number; pulled: number }>;
+  return unwrap<{ pushed: number; pulled: number }>(r);
 }
 
 async function syncBothTwice(a: Machine, b: Machine): Promise<void> {
@@ -96,10 +97,7 @@ async function syncBothTwice(a: Machine, b: Machine): Promise<void> {
 }
 
 async function findProduct(m: Machine, name: string): Promise<{ id: number; stock_qty: number; uuid?: string } | undefined> {
-  const rows = (await (await api(m.base, `/api/commercial/products?q=${encodeURIComponent(name)}`, {}, m.cookie)).json()) as {
-    id: number;
-    stock_qty: number;
-  }[];
+  const rows = await unwrap<{ id: number; stock_qty: number }[]>(await api(m.base, `/api/commercial/products?q=${encodeURIComponent(name)}`, {}, m.cookie));
   return rows[0];
 }
 
@@ -123,6 +121,13 @@ async function main(): Promise<void> {
 
   const cloudProc = spawnProc('cloud', 'cloud/src/server.ts', { ...CLOUD_ENV, CLOUD_PORT: String(cloudPort) });
   await waitForHealth(`${cloudUrl}/api/health`);
+
+  // O gate `requireActivation` barra o login até o banco estar ativado. A ativação
+  // precisa existir antes do boot de cada máquina (sem credenciais de licença — o
+  // teste configura via PUT /api/license depois).
+  for (const db of [path.join(SCRATCH, 'machineA.db'), path.join(SCRATCH, 'machineB.db')]) {
+    execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', db], { cwd: ROOT, stdio: 'pipe' });
+  }
 
   const a: Machine = {
     name: 'A',
@@ -161,12 +166,12 @@ async function main(): Promise<void> {
     }
 
     // A cria o produto com estoque inicial e sincroniza para B conhecer o mesmo produto (mesmo uuid).
-    const prodCreate = await (
+    const prodCreate = await unwrap<{ id: number; stock_qty: number }>(
       await api(a.base, '/api/commercial/products', {
         method: 'POST',
         body: JSON.stringify({ name: 'Cimento 50kg', priceCents: 4500, initialStock: 20 }),
-      }, a.cookie)
-    ).json() as { id: number; stock_qty: number };
+      }, a.cookie),
+    );
     check('produto criado em A com estoque 20', prodCreate.stock_qty === 20, `stock_qty=${prodCreate.stock_qty}`);
 
     await syncBothTwice(a, b);
@@ -194,9 +199,9 @@ async function main(): Promise<void> {
     check('venda em B (qty 3)', saleB.status === 201, String(saleB.status));
 
     // B também cadastra um cliente offline (entidade simples, sem conflito).
-    const custB = await (
-      await api(b.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente da Loja B' }) }, b.cookie)
-    ).json() as { id: number; uuid: string };
+    const custB = await unwrap<{ id: number; uuid: string }>(
+      await api(b.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente da Loja B' }) }, b.cookie),
+    );
 
     // --- "Reconectam": duas rodadas de sync em cada máquina para convergência plena ---
     await syncBothTwice(a, b);
@@ -206,16 +211,13 @@ async function main(): Promise<void> {
     check('estoque converge em A sem perda (20-5-3=12)', prodA2?.stock_qty === 12, `stock_qty=${prodA2?.stock_qty}`);
     check('estoque converge em B sem perda (20-5-3=12)', prodB2?.stock_qty === 12, `stock_qty=${prodB2?.stock_qty}`);
 
-    const custOnA = (await (await api(a.base, '/api/commercial/customers?q=Cliente da Loja B', {}, a.cookie)).json()) as { id: number }[];
+    const custOnA = await unwrap<{ id: number }[]>(await api(a.base, '/api/commercial/customers?q=Cliente da Loja B', {}, a.cookie));
     check('cliente criado em B aparece em A', custOnA.length === 1);
 
-    const salesOnA = (await (await api(a.base, '/api/store/sales?limit=50', {}, a.cookie)).json().catch(() => [])) as unknown;
-    // fallback: histórico pode não ter endpoint de listagem paginada — valida via relatório diário.
-    const reportA = (await (await api(a.base, '/api/store/reports/daily', {}, a.cookie)).json()) as {
-      totals: { total_cents: number };
-    };
+    const reportA = await unwrap<{ totals: { total_cents: number } }>(
+      await api(a.base, '/api/store/reports/daily', {}, a.cookie),
+    );
     check('relatório de A soma as duas vendas (dois clientes)', reportA.totals.total_cents > 0, `total=${reportA.totals.total_cents}`);
-    void salesOnA;
 
     // --- Idempotência: rodar sync de novo não duplica nada ---
     await syncBothTwice(a, b);
@@ -237,8 +239,8 @@ async function main(): Promise<void> {
 
     await syncBothTwice(a, b);
 
-    const custFinalA = (await (await api(a.base, `/api/commercial/customers?q=Cliente Editado`, {}, a.cookie)).json()) as { name: string }[];
-    const custFinalB = (await (await api(b.base, `/api/commercial/customers?q=Cliente Editado`, {}, b.cookie)).json()) as { name: string }[];
+    const custFinalA = await unwrap<{ name: string }[]>(await api(a.base, `/api/commercial/customers?q=Cliente Editado`, {}, a.cookie));
+    const custFinalB = await unwrap<{ name: string }[]>(await api(b.base, `/api/commercial/customers?q=Cliente Editado`, {}, b.cookie));
     check(
       'conflito converge para a edição mais recente em A',
       custFinalA[0]?.name === 'Cliente Editado em B (mais recente)',
@@ -250,7 +252,7 @@ async function main(): Promise<void> {
       custFinalB[0]?.name,
     );
 
-    const auditA = (await (await api(a.base, '/api/audit?limit=200', {}, a.cookie)).json()) as { action: string }[];
+    const auditA = await unwrap<{ action: string }[]>(await api(a.base, '/api/audit?limit=200', {}, a.cookie));
     check('conflito registrado em audit_logs', auditA.some((r) => r.action === 'sync.conflict'));
   } finally {
     for (const m of [a, b]) m.proc.kill();

@@ -1009,7 +1009,9 @@ router.put('/price-lists/:id/items', requirePermission('commercial.pricelists.ma
       for (const item of items) {
         priceListItemRepository.create({ price_list_id: id, product_id: Number(item.productId), min_qty: Number(item.minQty ?? 1), unit_price_cents: Math.round(item.unitPriceCents) });
       }
-      priceListRepository.update(id, {} as Record<string, unknown>);
+      // Itens não têm updated_at próprio — tocar a lista pai (e zerar synced_at) é o
+      // que faz o sync enxergar a mudança e replicar os filhos.
+      priceListRepository.rawRun("UPDATE price_lists SET updated_at = datetime('now'), synced_at = NULL WHERE id = ?", id);
     });
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : String(e) });

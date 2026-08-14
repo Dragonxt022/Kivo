@@ -1,8 +1,8 @@
-import { randomUUID } from 'node:crypto';
-import type { Request } from 'express';
+import { type Request } from 'express';
 import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
 import { isModuleEntitled } from '../license/service';
+import { stableUuid } from '../../shared/uuid';
 
 export interface CapabilityRow {
   key: string;
@@ -45,7 +45,7 @@ export function setCapabilityEnabled(req: Request, key: string, enabled: boolean
   if (!before) throw new Error(`Capability não encontrada: ${key}`);
   db.prepare(
     `UPDATE capabilities SET enabled = ?, updated_at = datetime('now'), uuid = ? WHERE key = ?`,
-  ).run(enabled ? 1 : 0, randomUUID(), key);
+  ).run(enabled ? 1 : 0, stableUuid(`capability:${key}`), key);
   const after = db.prepare('SELECT key, enabled FROM capabilities WHERE key = ?').get(key);
   audit(req, 'editar', 'capability', key, before, after);
 }
