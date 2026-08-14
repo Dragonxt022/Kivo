@@ -1046,13 +1046,22 @@ button.app-card {
 .app-card .card-icon svg {
   width: 40px;
   height: 40px;
+  /* Cede espaço no lugar do texto quando o card aperta. */
+  max-height: 100%;
 }
+/* `flex-shrink: 0` no texto é o que impede a última linha de aparecer FATIADA ao meio.
+   Num flex column, o padrão encolhe os filhos abaixo do próprio conteúdo quando falta
+   altura; a caixa do texto então fica menor que as 2 linhas que o `line-clamp` reservou,
+   e o `overflow: hidden` dela corta a segunda linha na horizontal — sem reticências,
+   porque tecnicamente nada "transbordou". Quem cede altura é o ícone (abaixo), não a
+   palavra que o lojista precisa ler. */
 .app-card .card-title {
   font-size: 0.95rem;
   font-weight: 600;
   text-align: center;
   line-height: 1.3;
   color: var(--text-secondary);
+  flex: 0 0 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1062,6 +1071,7 @@ button.app-card {
   color: var(--text-muted);
   text-align: center;
   line-height: 1.35;
+  flex: 0 0 auto;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -4735,10 +4745,16 @@ dialog.import-dialog > .dialog-body {
   .app-grid {
     gap: 0.8rem;
   }
-  /* 4/3 em vez de quadrado: o ícone e os dois textos cabem folgados, e a fileira
-     inteira sobe ~25% na tela. */
+  /* Sem \`aspect-ratio\` aqui, e esta é a parte que importa: proporção fixa define a
+     altura ANTES de saber o que vai dentro, e com \`overflow: hidden\` o excedente é
+     cortado no meio da palavra — foi exatamente o que aconteceu ao apertar o card em
+     4/3 e a descrição de duas linhas deixar de caber.
+
+     Com \`min-height\`, o número é um PISO: o card encolhe até ele e cresce sozinho se
+     o texto pedir. O grid iguala a altura da fileira, então nada fica desalinhado. */
   .app-card {
-    aspect-ratio: 4 / 3;
+    aspect-ratio: auto;
+    min-height: 7.5rem;
     padding: 0.9rem;
     gap: 0.45rem;
   }
@@ -4784,7 +4800,8 @@ dialog.import-dialog > .dialog-body {
     gap: 0.65rem;
   }
   .app-card {
-    aspect-ratio: 3 / 2;
+    aspect-ratio: auto;
+    min-height: 5.25rem;
     padding: 0.7rem;
     gap: 0.3rem;
   }
