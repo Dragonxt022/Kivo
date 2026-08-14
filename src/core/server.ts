@@ -51,6 +51,33 @@ function startLicenseRevalidationScheduler(): NodeJS.Timeout {
   return timer;
 }
 
+/**
+ * Deixa a logo do lojista disponível para o `nav` em toda página renderizada.
+ *
+ * Lido a cada requisição de página, e não cacheado em `app.locals` no boot: `settings`
+ * SINCRONIZA entre as máquinas da loja, então a logo pode mudar sem que este processo
+ * tenha feito nada — com cache de boot, o segundo computador só descobriria a troca no
+ * próximo reinício. É um SELECT por chave única, e só em requisição que vira HTML (o
+ * filtro abaixo tira /api e /uploads, que são a maioria do volume).
+ */
+function logoDaEmpresa(req: Request, res: Response, next: NextFunction): void {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+    next();
+    return;
+  }
+  try {
+    const linha = getSqlite()
+      .prepare('SELECT value FROM settings WHERE key = ? AND deleted_at IS NULL')
+      .get(LOGO_SETTING_KEY) as { value: string | null } | undefined;
+    res.locals.empresaLogoUrl = linha?.value || null;
+  } catch {
+    // Banco ainda sem a tabela (instalação nova, antes das migrations): sem logo, e a
+    // página renderiza com a marca do Kivo em vez de estourar.
+    res.locals.empresaLogoUrl = null;
+  }
+  next();
+}
+
 /** Ativação obrigatória: sem isso, nenhuma rota (exceto a própria tela de ativação) responde. */
 function requireActivation(req: Request, res: Response, next: NextFunction): void {
   if (isActivated()) {
@@ -102,9 +129,7 @@ export async function createServer(): Promise<KivoServer> {
   // qualquer CSS pintar, sem piscar a interface pesada primeiro.
   app.locals.modoLeve = getMachinePrefs().modoLeve;
 
-  // Logo do lojista no cabeçalho. Em app.locals (lido do banco no boot e reescrito pela
-  // rota que faz o upload) para o nav não precisar de um fetch por página só para saber
-  // qual marca desenhar — o que faria a logo aparecer piscando depois do carregamento.
+  // Logo do lojista no cabeçalho — ver o middleware `logoDaEmpresa` mais abaixo.
   app.locals.empresaLogoUrl = null;
 
   // Helper EJS: retorna o SVG inline para icones — as views usam currentColor
@@ -172,6 +197,7 @@ export async function createServer(): Promise<KivoServer> {
 
   app.use(attachUser);
   app.use(filterModuleMenu);
+  app.use(logoDaEmpresa);
 
   // Rotas públicas
   app.use('/api/auth', authRoutes);
@@ -228,16 +254,6 @@ export async function createServer(): Promise<KivoServer> {
   // Tabelas sincronizáveis do Core
   registerSyncTables('core', [{ table: 'capabilities' }]);
 
-  // Depois das migrations (o banco já existe aqui) — antes disso a tabela `settings`
-  // pode nem ter sido criada, numa instalação nova.
-  try {
-    const linha = getSqlite()
-      .prepare('SELECT value FROM settings WHERE key = ? AND deleted_at IS NULL')
-      .get(LOGO_SETTING_KEY) as { value: string | null } | undefined;
-    app.locals.empresaLogoUrl = linha?.value || null;
-  } catch (e) {
-    console.error('[config] não foi possível ler a logo da empresa:', e);
-  }
 
   // Licença (não trava o boot) e backup diário às 23:00
   const lic = validateLicense();

@@ -169,7 +169,15 @@
   </div>
 
   <a href="/" class="brand">
-    <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
+    <%# Logo do lojista quando ele enviou uma; a nossa quando não. O `onerror` cobre o caso
+        do segundo computador da loja: a URL chega pelo sync, o arquivo não, e sem isso
+        apareceria o ícone de imagem quebrada no cabeçalho de todas as telas. %>
+    <% if (typeof empresaLogoUrl !== 'undefined' && empresaLogoUrl) { %>
+      <img class="logo logo-empresa" src="<%= empresaLogoUrl %>" alt="<%= (typeof empresaNome !== 'undefined' && empresaNome) ? empresaNome : 'Logo da empresa' %>"
+           onerror="this.onerror=null;this.classList.remove('logo-empresa');this.src=document.documentElement.getAttribute('data-theme')==='dark'?'/logo_kivo-horizontal_branco.svg':'/logo_kivo-horizontal.svg';" />
+    <% } else { %>
+      <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
+    <% } %>
   </a>
 
   <% if (user) { %>
