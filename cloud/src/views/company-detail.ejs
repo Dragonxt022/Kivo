@@ -207,6 +207,49 @@
             <button type="button" class="btn danger" onclick="document.getElementById('modal-rotate-key').showModal()">Gerar nova chave de licença</button>
           </div>
 
+          <%# Resgate de senha do Kivo local. O lojista liga, dita o código que aparece na
+              tela dele, e o atendente devolve a resposta gerada aqui. O segredo da empresa
+              nunca é exibido — só o código derivado, que vale para UM desafio só. %>
+          <div class="card" id="resgate-senha">
+            <h2>Resgate de senha do cliente</h2>
+            <p class="field-hint" style="margin-top:0">
+              Use quando o cliente perdeu a senha do Kivo e <strong>não tem outro
+              administrador</strong> para redefini-la. Ele clica em "Esqueci minha senha"
+              na tela de login, dita o código que aparecer, e você devolve a resposta abaixo.
+              <br>
+              <strong>Confirme antes quem está do outro lado da linha.</strong> Este código
+              troca a senha de um usuário do sistema dele — o Kivo registra a troca na
+              auditoria, mas quem valida a identidade de quem ligou é você.
+            </p>
+            <% if (!company.recovery_secret) { %>
+              <p class="field-hint" style="color: var(--danger)">
+                Esta empresa ainda não tem segredo de resgate. Ele é criado sozinho na
+                próxima vez que o Kivo do cliente validar a licença (até 4h, ou na próxima
+                abertura do programa). Peça para ele abrir o Kivo conectado à internet.
+              </p>
+            <% } else { %>
+            <form method="post" action="/admin/companies/<%= company.company_uuid %>/recovery-code">
+              <div class="field">
+                <label for="rec-challenge">Código ditado pelo cliente</label>
+                <input type="text" id="rec-challenge" name="challenge" required
+                       autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX"
+                       value="<%= typeof recoveryChallenge !== 'undefined' && recoveryChallenge ? recoveryChallenge : '' %>">
+              </div>
+              <button type="submit" class="btn">Gerar resposta</button>
+            </form>
+            <% if (typeof recoveryCode !== 'undefined' && recoveryCode) { %>
+              <div class="key-reveal" style="margin-top:1rem">
+                <strong>Dite esta resposta para o cliente:</strong><br>
+                <code><%= recoveryCode %></code>
+                <p class="field-hint" style="margin:.4rem 0 0">
+                  Vale só para o código que ele mostrou, expira em 30 minutos e permite
+                  5 tentativas. Se ele errar demais, peça para gerar um código novo.
+                </p>
+              </div>
+            <% } %>
+            <% } %>
+          </div>
+
           <div class="card">
             <div class="card-header">
               <h2>Dispositivos ativados</h2>

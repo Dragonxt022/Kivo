@@ -114,6 +114,20 @@ Lembre que DDL no MySQL faz **commit implícito** — a transação do `migrate.
 `CREATE TABLE`. Escreva migration idempotente (`IF NOT EXISTS`, checagem em
 `information_schema`) para que o retry consiga continuar de onde parou.
 
+### ⚠ Ao escrever migration nova no `cloud/`: nenhum `;` fora do fim de statement
+
+`migrate.ts` separa os comandos cortando em **cada ponto e vírgula**, sem entender comentário
+nem string ([`splitStatements`](../cloud/src/migrate.ts)). Um `;` dentro de um comentário `--`
+parte o texto no meio, e o pedaço solto é enviado ao MySQL como se fosse SQL:
+
+```
+ER_PARSE_ERROR: You have an error in your SQL syntax ... near 'este segredo
+-- destrava só as máquinas desta empresa...'
+```
+
+Nos comentários, troque `;` por ponto final. Vale também para qualquer string literal
+(`COMMENT '...'`, `DEFAULT '...'`).
+
 ### ⚠️ Uma vez só: liberar SSE no proxy reverso (Kivo Web)
 
 O Kivo Web usa **Server-Sent Events** (`GET /api/commands/events`) para o computador da loja
@@ -222,6 +236,7 @@ Quem já tem o app instalado recebe o aviso de atualização sozinho no próximo
   | `test:fase7f` | Idempotência de venda (clientRequestId) |
   | **`test:fase8`** | **DRE (demonstrativo + categorias)** |
   | **`test:fase8b`** | **Unitários: lateFees, recomputeStock, recomputeLedger** |
+  | **`test:recuperacao-senha`** | **Resgate de senha por código do suporte + guarda de `x-data` nas views** |
 
 - [ ] Mudei algo em `cloud/`? → commit + push + `npm run cloud:deploy`
 - [ ] Mudei algo no app desktop? → subir versão em `package.json`

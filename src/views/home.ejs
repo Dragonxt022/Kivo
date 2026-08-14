@@ -21,6 +21,9 @@
       box-shadow: var(--shadow-lg); padding: 2.5rem 2rem;
       width: 340px; text-align: center;
     }
+    /* O resgate tem texto explicativo e um código para ler ao telefone; 340px espremeria
+       o código em duas linhas, que é justamente onde a pessoa erra ao ditar. */
+    .login-card.wide { width: min(420px, 92vw); max-height: 90vh; overflow-y: auto; }
     .login-card img.logo { width: 80px; margin-bottom: .75rem; }
     .login-card h1 { font-size: 1.2rem; font-weight: 600; margin-bottom: 1.25rem; }
     .login-card label { display: block; text-align: left; font-size: .82rem; color: var(--text-muted); margin-bottom: .25rem; }
@@ -56,6 +59,66 @@
       font-size: .82rem; cursor: pointer; margin-top: .9rem; text-decoration: underline;
     }
     .login-card .link-btn:hover { color: var(--primary); }
+
+    /* ─── Resgate de senha ─── */
+    .recovery { text-align: left; }
+    .recovery h1 { text-align: center; }
+    .recovery-primary {
+      border: 1.5px solid var(--border-light); border-radius: 12px;
+      background: var(--surface-hover); padding: .85rem .9rem; margin-bottom: .3rem;
+    }
+    .recovery-primary strong { font-size: .9rem; }
+    .recovery-primary p { font-size: .82rem; color: var(--text-muted); line-height: 1.45; margin: .35rem 0 0; }
+    .recovery-count { font-size: .78rem !important; }
+    .recovery-count.alone { color: var(--warning) !important; font-weight: 600; }
+    .recovery-sep {
+      display: flex; align-items: center; gap: .6rem; margin: 1rem 0 .85rem;
+      color: var(--text-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .recovery-sep::before, .recovery-sep::after {
+      content: ''; flex: 1; height: 1px; background: var(--border-light);
+    }
+    .btn-secondary-full {
+      width: 100%; padding: .7rem; border-radius: 10px; cursor: pointer;
+      border: 1.5px solid var(--primary); background: transparent; color: var(--primary);
+      font-family: inherit; font-size: .92rem; font-weight: 600;
+    }
+    .btn-secondary-full:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+    .recovery-warn {
+      font-size: .82rem; line-height: 1.45; color: var(--text-muted);
+      border: 1.5px solid var(--warning); border-radius: 10px;
+      background: var(--warning-soft); padding: .7rem .8rem;
+    }
+    .recovery-support {
+      display: flex; flex-direction: column; gap: .15rem;
+      margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--border-light);
+      font-size: .78rem; color: var(--text-muted); text-align: center;
+    }
+    .recovery-challenge {
+      display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+      border: 1.5px dashed var(--primary); border-radius: 12px;
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+      padding: .7rem .8rem; margin-bottom: .5rem;
+    }
+    .recovery-challenge .recovery-label {
+      width: 100%; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted);
+    }
+    /* O código é lido em voz alta ao telefone: monoespaçado e largo para não confundir
+       caractere, e `user-select: all` para o clique único selecionar tudo. */
+    .recovery-challenge code {
+      flex: 1; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 1.02rem; font-weight: 700; letter-spacing: .08em; color: var(--text);
+      user-select: all;
+    }
+    .recovery-copy {
+      background: none; border: 0; color: var(--primary); font-family: inherit;
+      font-size: .78rem; font-weight: 600; cursor: pointer; padding: .1rem .2rem;
+    }
+    .login-card input.recovery-code-input {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      letter-spacing: .1em; text-transform: uppercase;
+    }
+    .recovery-ok { color: var(--success); font-weight: 600; text-align: center; margin-bottom: .5rem; }
 
     .help-chat-contacts { display: flex; flex-direction: column; gap: .5rem; margin: .25rem 0 1.25rem; }
     .help-chat-contact {
@@ -150,7 +213,7 @@
   <main x-data="homePage()" x-init="init()">
     <!-- ─── Overlay de login (quando não autenticado ou ?login=1) ─── -->
     <div class="login-overlay" x-show="showLogin" x-cloak>
-      <div class="login-card">
+      <div class="login-card" :class="recovery.open ? 'wide' : ''">
         <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
 
         <!-- Primeiro acesso: instalação recém-ativada, ainda com o admin/admin de fábrica.
@@ -179,7 +242,7 @@
           </div>
         </template>
 
-        <template x-if="!firstRun">
+        <template x-if="!firstRun && !recovery.open">
           <div>
             <h1>Entrar no Kivo</h1>
             <form @submit.prevent="login">
@@ -193,6 +256,128 @@
                       :disabled="loginLoading"></button>
               <div class="error" x-text="loginError"></div>
             </form>
+            <button type="button" class="link-btn" @click="openRecovery()">Esqueci minha senha</button>
+          </div>
+        </template>
+
+        <%# Resgate de senha. Ocupa o card inteiro em vez de abrir um <dialog>: a tela de
+            login já é um overlay modal, e dois modais empilhados no mesmo canto viram
+            confusão justamente com quem está nervoso por não conseguir entrar. %>
+        <template x-if="recovery.open">
+          <div class="recovery">
+            <h1>Esqueci minha senha</h1>
+
+            <!-- Passo 1: o caminho que resolve sem ligar para ninguém. -->
+            <template x-if="recovery.step === 'inicio'">
+              <div>
+                <div class="recovery-primary">
+                  <strong>Peça a outro administrador</strong>
+                  <p>
+                    Quem tem acesso de administrador entra no Kivo, abre
+                    <strong>Usuários</strong>, clica no seu nome e define uma senha nova.
+                    É o caminho mais rápido e não depende de internet nem do suporte.
+                  </p>
+                  <p class="recovery-count" x-show="recovery.status"
+                     x-text="recovery.status && recovery.status.administradores > 1
+                       ? 'Neste computador há ' + recovery.status.administradores + ' pessoas que podem fazer isso.'
+                       : 'Atenção: neste computador só existe UM acesso capaz de redefinir senhas.'"
+                     :class="recovery.status && recovery.status.administradores <= 1 ? 'alone' : ''"></p>
+                </div>
+
+                <div class="recovery-sep"><span>ou, se você é o único administrador</span></div>
+
+                <template x-if="recovery.status && recovery.status.disponivel">
+                  <div>
+                    <p class="setup-intro" style="margin-bottom:.8rem">
+                      O suporte gera um código de liberação para este computador. Funciona
+                      mesmo sem internet — é só uma ligação.
+                    </p>
+                    <button type="button" class="btn-secondary-full" @click="recovery.step = 'usuario'">
+                      Resgatar com o suporte
+                    </button>
+                  </div>
+                </template>
+
+                <template x-if="recovery.status && !recovery.status.disponivel">
+                  <p class="recovery-warn">
+                    O resgate por código ainda não está disponível neste computador: ele
+                    precisa se conectar à internet uma vez para receber o código de
+                    segurança da sua licença. Deixe o Kivo aberto e conectado por alguns
+                    minutos e volte aqui.
+                  </p>
+                </template>
+
+                <div class="recovery-support" x-show="recovery.status && (recovery.status.supportPhone || recovery.status.supportEmail)">
+                  <span x-show="recovery.status && recovery.status.supportPhone"
+                        x-text="'Suporte: ' + (recovery.status ? recovery.status.supportPhone : '')"></span>
+                  <span x-show="recovery.status && recovery.status.supportEmail"
+                        x-text="recovery.status ? recovery.status.supportEmail : ''"></span>
+                </div>
+              </div>
+            </template>
+
+            <!-- Passo 2: de quem é a senha a trocar. Digitado, não escolhido numa lista —
+                 listar os usuários entregaria a equipe da loja a quem só alcançou esta
+                 tela pela rede. -->
+            <template x-if="recovery.step === 'usuario'">
+              <form @submit.prevent="startRecovery()">
+                <p class="setup-intro">De qual usuário é a senha que você precisa trocar?</p>
+                <label for="rec-user">Usuário</label>
+                <input id="rec-user" type="text" x-model="recovery.username" x-ref="recUser"
+                       autocomplete="username" placeholder="ex.: maria" />
+                <button type="submit" :disabled="recovery.loading"
+                        x-text="recovery.loading ? 'Gerando…' : 'Gerar código'"></button>
+                <div class="error" x-text="recovery.error"></div>
+              </form>
+            </template>
+
+            <!-- Passo 3: ditar o desafio, digitar a resposta e a senha nova de uma vez. -->
+            <template x-if="recovery.step === 'codigo'">
+              <form @submit.prevent="finishRecovery()">
+                <p class="setup-intro">
+                  Ligue para o suporte e leia o código abaixo. Diga também que a instalação é
+                  a <strong x-text="recovery.instalacao"></strong>.
+                </p>
+
+                <div class="recovery-challenge">
+                  <span class="recovery-label">Código deste computador</span>
+                  <code x-text="recovery.challenge"></code>
+                  <button type="button" class="recovery-copy" @click="copyChallenge()"
+                          x-text="recovery.copied ? 'Copiado!' : 'Copiar'"></button>
+                </div>
+                <p class="setup-hint" x-text="'Trocando a senha de ' + recovery.userLabel + '. Vale por ' + recovery.expiraEm + ' minutos.'"></p>
+
+                <label for="rec-code">Código de liberação (o suporte dita)</label>
+                <input id="rec-code" type="text" x-model="recovery.response" x-ref="recCode"
+                       class="recovery-code-input" placeholder="XXXXX-XXXXX" autocomplete="off"
+                       spellcheck="false" />
+
+                <label for="rec-pass">Senha nova</label>
+                <input id="rec-pass" type="password" x-model="recovery.pass" autocomplete="new-password" />
+                <label for="rec-pass2">Repita a senha nova</label>
+                <input id="rec-pass2" type="password" x-model="recovery.pass2" autocomplete="new-password" />
+                <p class="setup-hint">Mínimo de 8 caracteres, com maiúscula, minúscula e número.</p>
+
+                <button type="submit" :disabled="recovery.loading"
+                        x-text="recovery.loading ? 'Trocando…' : 'Trocar a senha'"></button>
+                <div class="error" x-text="recovery.error"></div>
+              </form>
+            </template>
+
+            <!-- Passo 4 -->
+            <template x-if="recovery.step === 'pronto'">
+              <div>
+                <p class="recovery-ok">Senha trocada.</p>
+                <p class="setup-intro">
+                  Agora entre com o usuário <strong x-text="recovery.userLabel"></strong> e a
+                  senha que você acabou de definir.
+                </p>
+                <button type="button" @click="closeRecovery(recovery.username)">Ir para o login</button>
+              </div>
+            </template>
+
+            <button type="button" class="link-btn" @click="recovery.step === 'inicio' || recovery.step === 'pronto' ? closeRecovery() : (recovery.step = 'inicio', recovery.error = '')"
+                    x-text="recovery.step === 'inicio' || recovery.step === 'pronto' ? 'Voltar para o login' : 'Voltar'"></button>
           </div>
         </template>
 
@@ -742,6 +927,142 @@
             this.loginUser = '';
             this.loginPass = '';
           }
+        },
+
+        // ─── Resgate de senha ───
+        // Um objeto só (e não 12 propriedades soltas no componente) porque isto é um
+        // fluxo com estado próprio, usado por poucas pessoas e raramente: agrupado, dá
+        // para resetar tudo numa linha ao fechar.
+        recovery: {
+          open: false,
+          step: 'inicio',
+          status: null,
+          username: '',
+          userLabel: '',
+          challenge: '',
+          instalacao: '',
+          expiraEm: 30,
+          response: '',
+          pass: '',
+          pass2: '',
+          loading: false,
+          error: '',
+          copied: false,
+        },
+
+        /** Tira o envelope { success, data } da API; aceita resposta crua também. */
+        unwrap(body) {
+          return body && typeof body === 'object' && 'success' in body ? (body.data ?? {}) : body;
+        },
+
+        async openRecovery() {
+          this.recovery.open = true;
+          this.recovery.step = 'inicio';
+          this.recovery.error = '';
+          // O usuário já digitado no login costuma ser o certo — poupa redigitar.
+          this.recovery.username = this.loginUser.trim();
+          try {
+            const r = await fetch('/api/recovery/status');
+            // A API embrulha tudo em { success, data } (shared/responseEnvelope.ts).
+            if (r.ok) this.recovery.status = this.unwrap(await r.json());
+          } catch (e) {
+            // Sem status a tela ainda serve: o caminho do outro administrador aparece,
+            // e o de código só some. Nunca deixar a tela vazia por causa disso.
+            this.recovery.status = { disponivel: false, administradores: 0, supportPhone: null, supportEmail: null };
+          }
+        },
+
+        closeRecovery(prefillUser) {
+          const u = prefillUser || '';
+          this.recovery = {
+            open: false, step: 'inicio', status: null, username: '', userLabel: '',
+            challenge: '', instalacao: '', expiraEm: 30, response: '', pass: '', pass2: '',
+            loading: false, error: '', copied: false,
+          };
+          if (u) {
+            this.loginUser = u;
+            this.loginPass = '';
+          }
+          this.$nextTick(() => { if (this.$refs.loginUser) this.$refs.loginUser.focus(); });
+        },
+
+        async startRecovery() {
+          if (this.recovery.loading) return;
+          this.recovery.error = '';
+          if (!this.recovery.username.trim()) {
+            this.recovery.error = 'Informe o usuário.';
+            return;
+          }
+          this.recovery.loading = true;
+          try {
+            const r = await fetch('/api/recovery/iniciar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: this.recovery.username.trim() }),
+            });
+            const raw = await r.json();
+            if (!r.ok) {
+              this.recovery.error = raw.error || 'Não foi possível gerar o código.';
+              return;
+            }
+            const d = this.unwrap(raw);
+            this.recovery.challenge = d.challenge;
+            this.recovery.userLabel = d.user.name || d.user.username;
+            this.recovery.username = d.user.username;
+            this.recovery.instalacao = d.instalacao;
+            this.recovery.expiraEm = d.expiraEm;
+            this.recovery.step = 'codigo';
+            this.$nextTick(() => { if (this.$refs.recCode) this.$refs.recCode.focus(); });
+          } catch (e) {
+            this.recovery.error = 'Erro de conexão.';
+          } finally {
+            this.recovery.loading = false;
+          }
+        },
+
+        async finishRecovery() {
+          if (this.recovery.loading) return;
+          this.recovery.error = '';
+          if (!this.recovery.response.trim()) {
+            this.recovery.error = 'Digite o código que o suporte passou.';
+            return;
+          }
+          if (this.recovery.pass !== this.recovery.pass2) {
+            this.recovery.error = 'As senhas não conferem.';
+            return;
+          }
+          this.recovery.loading = true;
+          try {
+            const r = await fetch('/api/recovery/concluir', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                challenge: this.recovery.challenge,
+                response: this.recovery.response.trim(),
+                newPassword: this.recovery.pass,
+              }),
+            });
+            const d = await r.json();
+            if (!r.ok) {
+              // A contagem de tentativas restantes já vem dentro da mensagem — em erro o
+              // envelope da API descarta qualquer campo além de `error`.
+              this.recovery.error = d.error || 'Não foi possível trocar a senha.';
+              return;
+            }
+            this.recovery.step = 'pronto';
+          } catch (e) {
+            this.recovery.error = 'Erro de conexão.';
+          } finally {
+            this.recovery.loading = false;
+          }
+        },
+
+        async copyChallenge() {
+          try {
+            await navigator.clipboard.writeText(this.recovery.challenge);
+            this.recovery.copied = true;
+            setTimeout(() => { this.recovery.copied = false; }, 2000);
+          } catch (e) { /* sem clipboard: o código está na tela para ler mesmo assim */ }
         },
       };
     }

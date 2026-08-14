@@ -57,6 +57,29 @@ function variantCapabilityError(productType: unknown): string | null {
   return 'Recurso desativado: commercial.variantes';
 }
 
+/**
+ * Monta o patch de `qty`/`sort_order` só com o que veio no corpo — e devolve `null` se não
+ * veio nada, para quem chama responder 400 em vez de rodar um UPDATE vazio.
+ *
+ * Existe porque `BaseRepository.update` grava TODA chave que recebe, inclusive `null`
+ * (ver `src/core/database/repository.ts`). Montar o patch com os dois campos sempre e
+ * completar com `null` o que faltou parece inofensivo, mas `qty` e `sort_order` são
+ * NOT NULL em `kit_items` e `product_recipe_items`: como as telas mandam só `{ qty }`,
+ * TODA alteração de quantidade estourava SQLITE_CONSTRAINT_NOTNULL. O mesmo defeito estava
+ * em `PUT /attributes/:attrId/values/:id` — lá o sintoma que o lojista via era "não
+ * consigo editar o valor, só apagar e criar de novo".
+ *
+ * Regra geral para updates parciais no Kivo: campo ausente é campo NÃO TOCADO. Só mande
+ * `null` quando a intenção for realmente apagar o valor da coluna.
+ */
+function qtyAndOrderPatch(body: unknown): Record<string, unknown> | null {
+  const { qty, sortOrder } = (body ?? {}) as { qty?: unknown; sortOrder?: unknown };
+  const patch: Record<string, unknown> = {};
+  if (qty !== undefined && qty !== null) patch.qty = Number(qty);
+  if (sortOrder !== undefined && sortOrder !== null) patch.sort_order = Math.round(Number(sortOrder));
+  return Object.keys(patch).length ? patch : null;
+}
+
 function friendlyUniqueError(e: unknown): string | null {
   const msg = e instanceof Error ? e.message : String(e);
   if (!msg.includes('UNIQUE constraint failed')) return null;
@@ -557,8 +580,12 @@ router.put('/kit-items/:id', requirePermission('commercial.products.kits.manage'
     res.status(404).json({ error: 'Item de kit não encontrado.' });
     return;
   }
-  const { qty, sortOrder } = req.body ?? {};
-  kitItemRepository.update(id, { qty: qty != null ? Number(qty) : null, sort_order: sortOrder != null ? Math.round(Number(sortOrder)) : null } as Record<string, unknown>);
+  const patch = qtyAndOrderPatch(req.body);
+  if (!patch) {
+    res.status(400).json({ error: 'Informe ao menos qty ou sortOrder.' });
+    return;
+  }
+  kitItemRepository.update(id, patch);
   const after = kitItemRepository.findDetailed(id);
   audit(req, 'editar', 'kit_item', id, before, after);
   res.json(after);
@@ -633,8 +660,12 @@ router.put('/recipe-items/:id', requirePermission('commercial.products.recipe.ma
     res.status(404).json({ error: 'Item de ficha técnica não encontrado.' });
     return;
   }
-  const { qty, sortOrder } = req.body ?? {};
-  recipeItemRepository.update(id, { qty: qty != null ? Number(qty) : null, sort_order: sortOrder != null ? Math.round(Number(sortOrder)) : null } as Record<string, unknown>);
+  const patch = qtyAndOrderPatch(req.body);
+  if (!patch) {
+    res.status(400).json({ error: 'Informe ao menos qty ou sortOrder.' });
+    return;
+  }
+  recipeItemRepository.update(id, patch);
   const after = recipeItemRepository.findDetailed(id);
   audit(req, 'editar', 'product_recipe_item', id, before, after);
   res.json(after);
@@ -826,8 +857,30 @@ router.put('/attributes/:attrId/values/:id', requirePermission('commercial.produ
     res.status(404).json({ error: 'Valor de atributo não encontrado.' });
     return;
   }
+  /**
+   * Só entra no UPDATE o que veio no corpo.
+   *
+   * Antes o patch era montado com os dois campos sempre, virando `null` o que o cliente
+   * não mandou — e `BaseRepository.update` grava tudo que recebe, inclusive null
+   * (repository.ts). Como a tela só manda `value`, todo rename escrevia
+   * `sort_order = NULL` numa coluna NOT NULL: 500 em 100% das tentativas. O sintoma para o
+   * lojista era "não dá para editar o valor, só apagar e criar de novo".
+   */
   const { value, sortOrder } = req.body ?? {};
-  productAttributeValueRepository.update(id, { value: value ? String(value).trim() : null, sort_order: sortOrder != null ? Number(sortOrder) : null } as Record<string, unknown>);
+  const patch: Record<string, unknown> = {};
+  if (value !== undefined) {
+    if (!String(value).trim()) {
+      res.status(400).json({ error: 'O valor não pode ficar em branco.' });
+      return;
+    }
+    patch.value = String(value).trim();
+  }
+  if (sortOrder !== undefined && sortOrder !== null) patch.sort_order = Number(sortOrder);
+  if (!Object.keys(patch).length) {
+    res.status(400).json({ error: 'Informe ao menos value ou sortOrder.' });
+    return;
+  }
+  productAttributeValueRepository.update(id, patch as Record<string, unknown>);
   const after = productAttributeValueRepository.findById(id);
   audit(req, 'editar', 'product_attribute_value', id, before, after);
   res.json(after);
