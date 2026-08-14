@@ -47,12 +47,24 @@ if [ ! -f "$KEY" ]; then
 fi
 
 echo "[deploy] conectando em ${SSH_USER}@${HOST}..."
+# `set -e` DENTRO do bloco remoto: sem ele, uma migration que falha não interrompe nada — o
+# script seguia para o `pm2 restart`, o ssh devolvia o código do último comando (o `grep`, que
+# tem sucesso) e o deploy terminava com "OK". Resultado: servidor reiniciado com código novo
+# contra um banco sem as tabelas, e a falha só aparecendo no meio do log.
 ssh -i "$KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${SSH_USER}@${HOST}" "
+  set -euo pipefail
   cd ${CLOUD_DIR}
   git pull origin main
   npm install
   npm run build
-  export \$(cat .env | xargs)
+
+  # \`export \\\$(cat .env | xargs)\` quebrava em linha de comentário ('export: #: not a valid
+  # identifier') e corromperia qualquer valor com espaço. \`set -a\` + source exporta tudo o
+  # que o arquivo define, respeitando comentários e aspas.
+  set -a
+  . ./.env
+  set +a
+
   npm run migrate
   pm2 restart ${PM2_NAME}
   sleep 2

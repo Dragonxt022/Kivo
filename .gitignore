@@ -3,6 +3,12 @@ dist/
 dist-installer/
 database/*.db
 database/*.db-*
+# Arquivos que valem só para ESTA instalação, gerados ao lado do banco.
+# Versioná-los faz a preferência de uma máquina viajar para todas as outras no `git pull`:
+# machine-prefs.json carrega o modo leve (o PC fraco do balcão arrastaria o resto junto) e
+# machine-id.local é a identidade da instalação para o licenciamento.
+database/machine-prefs.json
+database/machine-id.local
 storage/
 temp/
 uploads/
