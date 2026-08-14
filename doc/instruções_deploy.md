@@ -82,6 +82,38 @@ O que `npm run cloud:deploy` faz sozinho (script `scripts/deploy-cloud.sh`):
 
 Não precisa fazer nada manual na VPS — é só isso.
 
+### ⚠️ Ao escrever migration nova no `cloud/`: nunca declare `DEFAULT CHARSET`
+
+`companies` (migration 0001) foi criada **sem** charset explícito, então herda o do **banco** —
+que na VPS é `utf8mb4_general_ci`. Declarar `DEFAULT CHARSET=utf8mb4` sem `COLLATE` junto faz o
+MySQL usar o default do **servidor** (`utf8mb4_0900_ai_ci` no MySQL 8). Uma FK entre duas
+colunas `CHAR` com collations diferentes é recusada:
+
+```
+ER_FK_INCOMPATIBLE_COLUMNS: Referencing column 'company_uuid' and referenced column
+'company_uuid' in foreign key constraint '...' are incompatible.
+```
+
+**Em docker isso não aparece**, porque banco e servidor usam o mesmo default — o erro só surge
+no deploy. Já aconteceu duas vezes (migrations 0017 e 0019).
+
+Regra: crie a tabela **sem** cláusula de charset e, se houver FK para `companies`, alinhe antes
+lendo o collation real dela (ver `cloud/migrations/0019_kivo_web/up.sql`).
+
+**Para testar como produção antes de subir**, use um banco com o collation da VPS:
+
+```bash
+docker exec cloud-mysql-1 mysql -uroot -pkivo -e \
+  "CREATE DATABASE kivo_prodlike CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+cd cloud && CLOUD_DB_PORT=3307 CLOUD_DB_NAME=kivo_prodlike npx tsx -r dotenv/config src/migrate.ts up
+# e o fluxo inteiro do Kivo Web contra ele:
+CLOUD_DB_NAME=kivo_prodlike node scripts/test-isolated.js src/tests/kivo-web-e2e.ts
+```
+
+Lembre que DDL no MySQL faz **commit implícito** — a transação do `migrate.ts` não desfaz um
+`CREATE TABLE`. Escreva migration idempotente (`IF NOT EXISTS`, checagem em
+`information_schema`) para que o retry consiga continuar de onde parou.
+
 ### ⚠️ Uma vez só: liberar SSE no proxy reverso (Kivo Web)
 
 O Kivo Web usa **Server-Sent Events** (`GET /api/commands/events`) para o computador da loja

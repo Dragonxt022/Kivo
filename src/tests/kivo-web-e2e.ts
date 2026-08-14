@@ -31,9 +31,13 @@ const DESK_PORT = 3798;
 const CLOUD = `http://127.0.0.1:${CLOUD_PORT}`;
 const DESK = `http://127.0.0.1:${DESK_PORT}`;
 const SCRATCH = path.resolve(ROOT, 'storage', 'temp', 'kivo-web-e2e');
+// CLOUD_DB_NAME sai do ambiente quando informado: é assim que se roda este mesmo teste
+// contra um banco com o collation da VPS (utf8mb4_general_ci), diferente do default do
+// servidor MySQL — a divergência que derrubou a migration 0019 no primeiro deploy.
 const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1', CLOUD_DB_PORT: '3307', CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo', CLOUD_DB_NAME: 'kivo_cloud', CLOUD_PORT: String(CLOUD_PORT),
+  CLOUD_DB_PASSWORD: 'kivo', CLOUD_DB_NAME: process.env.CLOUD_DB_NAME ?? 'kivo_cloud',
+  CLOUD_PORT: String(CLOUD_PORT),
 };
 
 function spawnProc(nome: string, script: string, env: Record<string, string>): ChildProcess {
