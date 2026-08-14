@@ -120,6 +120,35 @@
     <!-- ═══════ ABA: EMPRESA ═══════ -->
     <div x-show="tab === 'empresa'" x-cloak>
       <section class="panel">
+        <h2>Logo da empresa</h2>
+        <p class="hint mt-0">
+          Substitui a marca do Kivo no topo do sistema. PNG com fundo transparente fica melhor.
+          Máximo 2MB.
+        </p>
+        <div class="logo-uploader">
+          <div class="logo-preview" :class="logo.url ? '' : 'vazio'">
+            <img x-show="logo.url" :src="logo.url" alt="Logo da empresa" />
+            <span x-show="!logo.url" class="hint">Nenhuma logo enviada</span>
+          </div>
+          <div class="logo-acoes">
+            <input type="file" accept="image/png,image/jpeg,image/webp" x-ref="logoFile"
+                   style="display:none" @change="enviarLogo($event)">
+            <button type="button" class="btn secondary" @click="$refs.logoFile.click()" :disabled="logo.enviando">
+              <span x-text="logo.enviando ? 'Enviando…' : (logo.url ? 'Trocar logo' : 'Escolher logo')"></span>
+            </button>
+            <button type="button" class="btn danger" x-show="logo.url" @click="removerLogo()" :disabled="logo.enviando">
+              Remover
+            </button>
+            <p class="hint" style="margin:.5rem 0 0">
+              A logo fica gravada <strong>neste computador</strong>. Se a loja tem mais de um
+              terminal, envie em cada um.
+            </p>
+            <p class="error" x-text="logo.erro"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
         <h2>Dados da empresa</h2>
         <p class="hint mt-0">Usados no cabeçalho dos cupons de venda e orçamentos impressos.</p>
         <div class="field">
@@ -755,6 +784,7 @@
         financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
         savingFinanceiro: false, financeiroSaved: '',
         empresa: { nome: '', razaoSocial: '', documento: '', ie: '', email: '', telefone: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
+        logo: { url: '', enviando: false, erro: '' },
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
@@ -816,10 +846,70 @@
           this.empresa.email = this.settings.find(s => s.key === 'empresa.email')?.value ?? '';
           this.empresa.telefone = this.settings.find(s => s.key === 'empresa.telefone')?.value ?? '';
           this.empresa.endereco = this.settings.find(s => s.key === 'empresa.endereco')?.value ?? '';
+          this.logo.url = this.settings.find(s => s.key === 'empresa.logo_url')?.value ?? '';
           this.rede.acessoLocal = this.settings.find(s => s.key === 'rede.acesso_local')?.value === '1';
           const iv = this.settings.find(s => s.key === 'sync.intervalo_minutos')?.value;
           this.rede.syncIntervalo = iv == null || iv === '' ? 3 : Number(iv);
         },
+        // ─── Logo da empresa ───
+        // O arquivo vira base64 aqui porque o resto do app já manda imagem assim (fotos de
+        // produto e de categoria), e o servidor aceita data URI — não vale introduzir
+        // multipart só para esta tela.
+        async enviarLogo(event) {
+          const file = event.target.files && event.target.files[0];
+          event.target.value = '';
+          if (!file) return;
+          this.logo.erro = '';
+          if (file.size > 2 * 1024 * 1024) {
+            this.logo.erro = 'Logo muito grande (máximo 2MB).';
+            return;
+          }
+          this.logo.enviando = true;
+          try {
+            const base64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+              reader.readAsDataURL(file);
+            });
+            const r = await fetch('/api/settings/company-logo', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageBase64: base64 }),
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              this.logo.erro = body.error || 'Não foi possível enviar a logo.';
+              return;
+            }
+            const dados = body.data !== undefined ? body.data : body;
+            // O cabeçalho é renderizado pelo servidor (app.locals): só um reload mostra a
+            // logo nova lá em cima. A prévia abaixo já muda na hora.
+            this.logo.url = typeof dados === 'string' ? dados : dados.url;
+            showToast('Logo atualizada.', 'success');
+            setTimeout(() => location.reload(), 700);
+          } catch (e) {
+            this.logo.erro = e.message || 'Erro ao enviar.';
+          } finally {
+            this.logo.enviando = false;
+          }
+        },
+        async removerLogo() {
+          if (!await window.confirmDlg('Remover a logo e voltar a exibir a marca do Kivo?')) return;
+          this.logo.enviando = true;
+          this.logo.erro = '';
+          try {
+            const r = await fetch('/api/settings/company-logo', { method: 'DELETE' });
+            if (!r.ok) {
+              this.logo.erro = ((await r.json().catch(() => ({}))) || {}).error ?? 'Não foi possível remover.';
+              return;
+            }
+            this.logo.url = '';
+            setTimeout(() => location.reload(), 500);
+          } finally {
+            this.logo.enviando = false;
+          }
+        },
+
         openLicenseDlg() {
           this.licenseForm = { companyUuid: '', licenseKey: '' };
           this.licenseError = '';

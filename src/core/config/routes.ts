@@ -108,7 +108,6 @@ router.put('/company-logo', requirePermission('settings.edit'), (req, res) => {
   // Só depois de a nova estar gravada: se a escrita acima falhasse, apagar antes deixaria
   // a loja sem logo nenhuma.
   deleteCompanyLogoFile(before?.value);
-  req.app.locals.empresaLogoUrl = saved.url;
   audit(req, 'editar', 'setting', LOGO_SETTING_KEY, before ?? null, { key: LOGO_SETTING_KEY, value: saved.url });
   res.json({ url: saved.url });
 });
@@ -120,7 +119,6 @@ router.delete('/company-logo', requirePermission('settings.edit'), (req, res) =>
     | undefined;
   db.prepare(`UPDATE settings SET value = NULL, updated_at = datetime('now') WHERE key = ?`).run(LOGO_SETTING_KEY);
   deleteCompanyLogoFile(before?.value);
-  req.app.locals.empresaLogoUrl = null;
   audit(req, 'excluir', 'setting', LOGO_SETTING_KEY, before ?? null, null);
   res.json({ ok: true });
 });
