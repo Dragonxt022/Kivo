@@ -8,6 +8,7 @@ import {
   type SalePayload, type ProductPayload, type BillPayload, type CashRegisterPayload,
   type QuotePayload, type CustomerPayload,
 } from '../mobileData';
+import { calcular, PERIODOS, type Periodo } from '../mobileAnalytics';
 
 /**
  * Kivo Web — o app que o lojista abre no celular. Montado em `/m`.
@@ -25,6 +26,20 @@ function hojeISO(): string {
 
 function brl(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/**
+ * Endereço público desta instalação, para montar o link que o cliente vai abrir.
+ *
+ * Vem dos cabeçalhos do proxy reverso (`X-Forwarded-*`) e não de uma constante: em
+ * desenvolvimento isto roda em `http://localhost:4000` e em produção atrás do HTTPS de
+ * `kivo.buscamais.org`. Fixar o domínio faria o link do celular apontar para o lugar
+ * errado em um dos dois.
+ */
+function baseUrl(req: MobileRequest): string {
+  const proto = String(req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '').split(',')[0].trim();
+  return `${proto}://${host}`;
 }
 
 async function baseLocals(req: MobileRequest) {
@@ -162,16 +177,67 @@ router.get('/orcamentos/novo', async (req: MobileRequest, res) => {
     listEntity<ProductPayload>(company, 'commercial.products', { limit: 5000 }),
     listEntity<CustomerPayload>(company, 'commercial.customers', { limit: 2000 }),
   ]);
+  // Validade em 15 dias: é o padrão do comércio e poupa um toque no calendário do
+  // celular, que é o campo mais chato de preencher com o dedo.
+  const validade = new Date(Date.now() - 4 * 3600e3 + 15 * 86400e3).toISOString().slice(0, 10);
   res.render('mobile-orcamento-novo', {
     ...(await baseLocals(req)),
+    validadeSugerida: validade,
+    // Mesma permissão que o desktop exige em `createQuote`. Esconder o campo de quem não
+    // pode é usabilidade; quem forçar o valor recebe a recusa do serviço lá.
+    podeDesconto: req.grant!.permissions.includes('store.sales.discount'),
     produtos: produtos
       .filter((p) => p.payload.active === 1)
       .filter((p) => !(p.payload.product_type === 'variante' && !p.payload.parent_product_id))
-      .map((p) => ({ uuid: p.uuid, name: p.payload.name, sku: p.payload.sku, price_cents: p.payload.price_cents }))
+      .map((p) => ({
+        uuid: p.uuid, name: p.payload.name, sku: p.payload.sku,
+        barcode: p.payload.barcode, price_cents: p.payload.price_cents,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     clientes: clientes
-      .map((c) => ({ uuid: c.uuid, name: c.payload.name }))
+      .filter((c) => c.payload.active !== 0)
+      .map((c) => ({ uuid: c.uuid, name: c.payload.name, phone: c.payload.phone, document: c.payload.document }))
       .sort((a, b) => a.name.localeCompare(b.name)),
+  });
+});
+
+/**
+ * Detalhe do orçamento — a tela de onde ele é enviado ao cliente.
+ *
+ * Precisa vir DEPOIS de `/orcamentos/novo`: `:uuid` é curinga e engoliria "novo".
+ */
+router.get('/orcamentos/:uuid', async (req: MobileRequest, res) => {
+  if (!req.grant!.permissions.includes('store.quotes.view')) return res.redirect('/m');
+  const company = req.grant!.companyUuid;
+  const quote = await findEntity<QuotePayload>(company, 'store.quotes', String(req.params.uuid));
+  if (!quote) return res.redirect('/m/orcamentos');
+  const produtos = await listEntity<ProductPayload>(company, 'commercial.products', { limit: 5000 });
+  const nomePorUuid = new Map(produtos.map((p) => [p.uuid, p.payload.name]));
+  res.render('mobile-orcamento', {
+    ...(await baseLocals(req)),
+    quote,
+    nomePorUuid,
+    // O link que vai para o cliente é absoluto: ele abre no WhatsApp, fora do app.
+    linkPublico: `${baseUrl(req)}/orcamento/${company}/${quote.uuid}`,
+  });
+});
+
+router.get('/analiticos', async (req: MobileRequest, res) => {
+  // Sem permissão de ver vendas não há analítico que faça sentido — o faturamento é a
+  // espinha da tela inteira.
+  if (!req.grant!.permissions.includes('store.reports.view') && !req.grant!.permissions.includes('store.sales.view')) {
+    return res.redirect('/m');
+  }
+  const periodo = String(req.query.p ?? 'semana') as Periodo;
+  const escolhido = PERIODOS.some((p) => p.chave === periodo) ? periodo : 'semana';
+  const dados = await calcular(req.grant!.companyUuid, escolhido);
+  res.render('mobile-analiticos', {
+    ...(await baseLocals(req)),
+    a: dados,
+    periodos: PERIODOS,
+    verFinanceiro: req.grant!.permissions.includes('finance.receivables.view')
+      || req.grant!.permissions.includes('finance.payables.view'),
+    verEstoque: req.grant!.permissions.includes('commercial.products.view'),
   });
 });
 

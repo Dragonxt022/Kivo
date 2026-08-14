@@ -1,0 +1,285 @@
+<%
+  var q = quote.payload;
+  var itens = q.quote_items || [];
+  var subtotal = q.subtotal_cents != null ? q.subtotal_cents : q.total_cents;
+  var acrescimo = q.surcharge_cents || 0;
+  var hoje = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  var venceu = q.valid_until && q.valid_until < hoje;
+  var dataBR = function (iso) {
+    if (!iso) return '';
+    return iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
+  };
+  var endereco = [
+    [empresa.street, empresa.number].filter(Boolean).join(', '),
+    empresa.district,
+    [empresa.city, empresa.state].filter(Boolean).join(' — '),
+  ].filter(Boolean).join(' · ');
+%>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ff8000">
+  <title>Orçamento — <%= empresa.name || 'Kivo' %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%# Página do CLIENTE, não do lojista: folha própria e enxuta, sem a casca do app.
+      Ela é aberta num link de WhatsApp, às vezes em 3G, e muitas vezes vai direto para
+      a impressão — então tudo que ela precisa está aqui, sem outro arquivo para baixar. %>
+  <style>
+    :root {
+      --tinta: #1a1a1f;
+      --fraco: #6b6b76;
+      --linha: #e4e4ea;
+      --marca: #ff8000;
+      --fundo: #f5f5f7;
+      --papel: #fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--fundo);
+      color: var(--tinta);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-text-size-adjust: 100%;
+      line-height: 1.5;
+    }
+    .folha {
+      max-width: 640px;
+      margin: 0 auto;
+      background: var(--papel);
+      min-height: 100vh;
+    }
+    .topo {
+      padding: 1.5rem 1.25rem 1.25rem;
+      border-bottom: 3px solid var(--marca);
+    }
+    .empresa-nome {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    .empresa-info {
+      font-size: 0.78rem;
+      color: var(--fraco);
+      margin: 0.35rem 0 0;
+    }
+    .faixa {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      background: #fafafb;
+      border-bottom: 1px solid var(--linha);
+    }
+    .faixa h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--fraco);
+    }
+    .faixa .para {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 0.15rem 0 0;
+    }
+    .validade {
+      flex: none;
+      text-align: right;
+      font-size: 0.78rem;
+      color: var(--fraco);
+    }
+    .validade strong { display: block; color: var(--tinta); font-size: 0.92rem; }
+    .vencido {
+      background: #fff4e5;
+      color: #92400e;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin: 0;
+    }
+    .itens { padding: 0.5rem 1.25rem; }
+    .item {
+      display: flex;
+      gap: 0.9rem;
+      align-items: flex-start;
+      padding: 0.8rem 0;
+      border-bottom: 1px solid var(--linha);
+    }
+    .item:last-child { border-bottom: 0; }
+    .item-corpo { flex: 1; min-width: 0; }
+    .item-nome { font-weight: 600; font-size: 0.95rem; }
+    .item-calc { font-size: 0.8rem; color: var(--fraco); margin-top: 0.15rem; }
+    .item-obs { font-size: 0.8rem; color: var(--fraco); margin-top: 0.25rem; font-style: italic; }
+    .item-valor {
+      flex: none;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .totais { padding: 1rem 1.25rem 1.5rem; border-top: 2px solid var(--linha); }
+    .t-linha {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 0.9rem;
+      color: var(--fraco);
+      padding: 0.22rem 0;
+    }
+    .t-linha strong { color: var(--tinta); font-variant-numeric: tabular-nums; }
+    .t-linha.desconto strong { color: #c92a2a; }
+    .t-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      margin-top: 0.7rem;
+      padding-top: 0.7rem;
+      border-top: 1px solid var(--linha);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .t-total span:last-child {
+      font-size: 1.6rem;
+      color: var(--marca);
+      font-variant-numeric: tabular-nums;
+    }
+    .obs {
+      margin: 0 1.25rem 1.25rem;
+      padding: 0.9rem 1rem;
+      background: #fafafb;
+      border-left: 3px solid var(--linha);
+      border-radius: 0 8px 8px 0;
+      font-size: 0.88rem;
+      white-space: pre-wrap;
+    }
+    .obs b { display: block; font-size: 0.72rem; text-transform: uppercase; color: var(--fraco); margin-bottom: 0.3rem; letter-spacing: 0.04em; }
+    .acoes {
+      display: flex;
+      gap: 0.6rem;
+      padding: 0 1.25rem 1.5rem;
+    }
+    .acoes button, .acoes a {
+      flex: 1;
+      min-height: 48px;
+      border: 1.5px solid var(--linha);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--tinta);
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      text-decoration: none;
+    }
+    .acoes .principal { background: var(--marca); border-color: var(--marca); color: #fff; }
+    .rodape {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--fraco);
+      padding: 0 1.25rem 2rem;
+    }
+    .rodape a { color: var(--fraco); }
+
+    /* Impressão / "Salvar em PDF" do celular. É o caminho que o cliente usa para guardar
+       a proposta, então a página tem que sair limpa: sem botões, sem sombra, sem fundo
+       cinza gastando tinta, e sem cortar um item ao meio na quebra de página. */
+    @media print {
+      body { background: #fff; }
+      .folha { max-width: none; }
+      .acoes, .rodape { display: none !important; }
+      .faixa, .obs { background: #fff; }
+      .item { break-inside: avoid; }
+      .totais { break-inside: avoid; }
+      @page { margin: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="folha">
+    <header class="topo">
+      <h1 class="empresa-nome"><%= empresa.name || 'Orçamento' %></h1>
+      <p class="empresa-info">
+        <% if (empresa.document) { %><%= empresa.document %><% } %>
+        <% if (endereco) { %><%= empresa.document ? ' · ' : '' %><%= endereco %><% } %>
+        <% if (empresa.phone) { %><br><%= empresa.phone %><% } %>
+        <% if (empresa.email) { %><%= empresa.phone ? ' · ' : '' %><%= empresa.email %><% } %>
+      </p>
+    </header>
+
+    <div class="faixa">
+      <div>
+        <h2>Orçamento</h2>
+        <p class="para"><%= q.customer_name || 'Consumidor' %></p>
+      </div>
+      <div class="validade">
+        Emitido em
+        <strong><%= dataBR((q.created_at || '').slice(0, 10)) %></strong>
+        <% if (q.valid_until) { %>
+          válido até <strong><%= dataBR(q.valid_until) %></strong>
+        <% } %>
+      </div>
+    </div>
+
+    <% if (venceu) { %>
+      <p class="vencido">⚠ Este orçamento passou da validade. Fale com a loja para confirmar os valores.</p>
+    <% } else if (q.status === 'cancelado') { %>
+      <p class="vencido">Este orçamento foi cancelado pela loja.</p>
+    <% } %>
+
+    <div class="itens">
+      <% itens.forEach(function (it) { %>
+        <div class="item">
+          <div class="item-corpo">
+            <div class="item-nome"><%= it.product_name || nomePorUuid.get(it.product_id) || 'Item' %></div>
+            <div class="item-calc">
+              <%= Number(Number(it.qty).toFixed(3)) %> × R$ <%= brl(it.unit_price_cents) %>
+            </div>
+            <% if (it.notes) { %><div class="item-obs"><%= it.notes %></div><% } %>
+          </div>
+          <div class="item-valor">
+            R$ <%= brl(it.total_cents != null ? it.total_cents : Math.round(it.qty * it.unit_price_cents)) %>
+          </div>
+        </div>
+      <% }) %>
+      <% if (!itens.length) { %>
+        <p style="color:var(--fraco);text-align:center;padding:1.5rem 0">Sem itens neste orçamento.</p>
+      <% } %>
+    </div>
+
+    <div class="totais">
+      <div class="t-linha"><span>Subtotal</span><strong>R$ <%= brl(subtotal) %></strong></div>
+      <% if (q.discount_cents > 0) { %>
+        <div class="t-linha desconto"><span>Desconto</span><strong>− R$ <%= brl(q.discount_cents) %></strong></div>
+      <% } %>
+      <% if (acrescimo > 0) { %>
+        <div class="t-linha"><span>Acréscimo</span><strong>R$ <%= brl(acrescimo) %></strong></div>
+      <% } %>
+      <div class="t-total"><span>Total</span><span>R$ <%= brl(q.total_cents) %></span></div>
+    </div>
+
+    <% if (q.notes) { %>
+      <div class="obs"><b>Observações</b><%= q.notes %></div>
+    <% } %>
+
+    <div class="acoes">
+      <button type="button" class="principal" onclick="window.print()">Salvar em PDF</button>
+      <% if (empresa.phone) { %>
+        <a href="https://wa.me/55<%= String(empresa.phone).replace(/\D/g, '') %>" target="_blank" rel="noopener">Falar com a loja</a>
+      <% } %>
+    </div>
+
+    <p class="rodape">
+      Orçamento gerado pelo <a href="/" target="_blank" rel="noopener">Kivo</a>.
+      Os valores podem mudar após a data de validade.
+    </p>
+  </div>
+</body>
+</html>

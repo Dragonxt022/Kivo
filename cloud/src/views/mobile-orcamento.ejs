@@ -1,0 +1,127 @@
+<%- include('partials/mobile-head', { titulo: 'Orçamento', grant, fresh }) %>
+
+<%
+  var q = quote.payload;
+  var itens = q.quote_items || [];
+  var subtotal = q.subtotal_cents != null ? q.subtotal_cents : q.total_cents;
+  var acrescimo = q.surcharge_cents || 0;
+  var venceu = q.valid_until && q.valid_until < new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  var rotuloStatus = q.status === 'convertido' ? 'Virou venda' : (q.status === 'cancelado' ? 'Cancelado' : (venceu ? 'Vencido' : 'Aberto'));
+  var classeStatus = q.status === 'convertido' ? 'm-badge-ok' : (q.status === 'cancelado' ? 'm-badge-off' : (venceu ? 'm-badge-warn' : ''));
+%>
+
+<section class="m-panel">
+  <div class="m-panel-head">
+    <h2><%= q.customer_name || 'Consumidor' %></h2>
+    <span class="m-badge <%= classeStatus %>"><%= rotuloStatus %></span>
+  </div>
+  <p class="m-card-sub" style="margin:0">
+    Criado em <%= (q.created_at || '').slice(8, 10) %>/<%= (q.created_at || '').slice(5, 7) %>/<%= (q.created_at || '').slice(0, 4) %>
+    <% if (q.valid_until) { %>
+      · válido até <%= q.valid_until.slice(8, 10) %>/<%= q.valid_until.slice(5, 7) %>/<%= q.valid_until.slice(0, 4) %>
+    <% } %>
+  </p>
+</section>
+
+<section class="m-panel">
+  <div class="m-panel-head">
+    <h2><%= itens.length %> <%= itens.length === 1 ? 'item' : 'itens' %></h2>
+  </div>
+  <% if (!itens.length) { %>
+    <p class="m-empty">Este orçamento não tem itens sincronizados.</p>
+  <% } %>
+  <% itens.forEach(function (it) { %>
+    <div class="m-cart-item">
+      <div class="m-cart-top">
+        <span class="m-cart-name">
+          <%= it.product_name || nomePorUuid.get(it.product_id) || 'Produto' %>
+          <span class="m-cart-unit"><%= Number(Number(it.qty).toFixed(3)) %> × R$ <%= brl(it.unit_price_cents) %></span>
+        </span>
+        <span class="m-cart-total">R$ <%= brl(it.total_cents != null ? it.total_cents : Math.round(it.qty * it.unit_price_cents)) %></span>
+      </div>
+      <% if (it.notes) { %>
+        <p class="m-card-sub" style="margin:.4rem 0 0">↳ <%= it.notes %></p>
+      <% } %>
+    </div>
+  <% }) %>
+
+  <div class="m-totals">
+    <div class="m-total-row"><span>Subtotal</span><strong>R$ <%= brl(subtotal) %></strong></div>
+    <% if (q.discount_cents > 0) { %>
+      <div class="m-total-row desc"><span>Desconto</span><strong>−R$ <%= brl(q.discount_cents) %></strong></div>
+    <% } %>
+    <% if (acrescimo > 0) { %>
+      <div class="m-total-row"><span>Acréscimo</span><strong>R$ <%= brl(acrescimo) %></strong></div>
+    <% } %>
+    <div class="m-total-row grande"><span>Total</span><strong>R$ <%= brl(q.total_cents) %></strong></div>
+  </div>
+</section>
+
+<% if (q.notes) { %>
+<section class="m-panel">
+  <div class="m-panel-head"><h2>Observação</h2></div>
+  <p style="margin:0;white-space:pre-wrap;font-size:.9rem"><%= q.notes %></p>
+</section>
+<% } %>
+
+<section class="m-panel">
+  <div class="m-panel-head"><h2>Enviar ao cliente</h2></div>
+  <p class="m-field-hint" style="margin:0 0 .75rem">
+    O cliente abre uma página com a marca da loja, e pode salvar em PDF pelo próprio
+    celular. O link reflete sempre o orçamento atual.
+  </p>
+  <div class="m-chip-row" style="margin:0">
+    <a class="m-chip-btn on" id="btn-whats" href="#" target="_blank" rel="noopener" style="flex:1">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38c1.45.79 3.08 1.21 4.79 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2m0 18.15c-1.53 0-3.03-.41-4.34-1.19l-.31-.19-3.12.82.83-3.04-.2-.32a8.2 8.2 0 0 1-1.26-4.36c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.54-3.7 8.27-8.07 8.27m4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.98-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.13-.15.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.11-.22-.17-.47-.29"/></svg>
+      WhatsApp
+    </a>
+    <button type="button" class="m-chip-btn" id="btn-copiar" style="flex:1">Copiar link</button>
+    <a class="m-chip-btn" href="<%= linkPublico %>" target="_blank" rel="noopener" style="flex:1">Ver como o cliente vê</a>
+  </div>
+</section>
+
+<%# Sem barra de ação fixa aqui, de propósito: esta é tela de LEITURA, o total já aparece
+    no bloco de totais, e a barra brigaria com a navegação inferior pelo mesmo lugar —
+    foi assim que o botão "Enviar" sumiu na tela de montar orçamento. %>
+
+<script>
+  (function () {
+    var LINK = <%- JSON.stringify(linkPublico) %>;
+    var EMPRESA = <%- JSON.stringify(grant.companyName || 'nossa loja') %>;
+    var CLIENTE = <%- JSON.stringify(quote.payload.customer_name || '') %>;
+    var TOTAL = <%- JSON.stringify(brl(quote.payload.total_cents)) %>;
+
+    // `wa.me` é o esquema oficial do WhatsApp e funciona no app instalado e no Web —
+    // sem número, ele abre o seletor de contato, que é o que o vendedor quer.
+    var texto = (CLIENTE ? 'Olá, ' + CLIENTE + '! ' : 'Olá! ')
+      + 'Segue o orçamento da ' + EMPRESA + ' no valor de R$ ' + TOTAL + ':\n' + LINK;
+    document.getElementById('btn-whats').href = 'https://wa.me/?text=' + encodeURIComponent(texto);
+
+    document.getElementById('btn-copiar').addEventListener('click', function () {
+      var btn = this;
+      function ok() {
+        btn.textContent = 'Link copiado!';
+        setTimeout(function () { btn.textContent = 'Copiar link'; }, 2000);
+      }
+      // `navigator.clipboard` exige contexto seguro (HTTPS). Em rede local sem TLS ele
+      // não existe, e sem o fallback o botão simplesmente não faria nada.
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(LINK).then(ok).catch(caiFora);
+      } else {
+        caiFora();
+      }
+      function caiFora() {
+        var t = document.createElement('textarea');
+        t.value = LINK;
+        t.style.position = 'fixed';
+        t.style.opacity = '0';
+        document.body.appendChild(t);
+        t.select();
+        try { document.execCommand('copy'); ok(); } catch (e) { window.prompt('Copie o link:', LINK); }
+        document.body.removeChild(t);
+      }
+    });
+  })();
+</script>
+
+<%- include('partials/mobile-foot', { grant, ativo: 'orcamentos' }) %>

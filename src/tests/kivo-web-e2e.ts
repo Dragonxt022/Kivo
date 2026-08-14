@@ -185,7 +185,15 @@ async function main(): Promise<void> {
       method: 'POST',
       body: JSON.stringify({
         kind: 'store.quote.create',
-        payload: { items: [{ productUuid: uuidProduto, qty: 3 }], customerName: 'Cliente do Celular', notes: 'via e2e' },
+        payload: {
+          items: [{ productUuid: uuidProduto, qty: 3, notes: 'cor a definir' }],
+          customerName: 'Cliente do Celular',
+          notes: 'via e2e',
+          // Desconto e acréscimo passam pela mesma porta da tela (createQuote exige
+          // `store.sales.discount`). O admin do teste tem a permissão.
+          discountCents: 5000,
+          surchargeCents: 1500,
+        },
       }),
     });
     const cmd = (await enfileira.json()) as { id: number; desktopOnline: boolean; error?: string };
@@ -195,7 +203,7 @@ async function main(): Promise<void> {
 
     const aplicado = await eventually(async () => {
       const st = (await (await cel(`/api/mobile/commands/${cmd.id}`)).json()) as
-        { status: string; result: { quoteId?: number; error?: string } };
+        { status: string; result: { quoteId?: number; quoteUuid?: string; error?: string } };
       return st.status === 'pendente' ? null : st;
     }, 45000);
     check('desktop aplicou o comando sem ninguém clicar em nada', aplicado?.status === 'aplicado',
@@ -205,12 +213,67 @@ async function main(): Promise<void> {
       const quoteId = aplicado.result.quoteId!;
       const quote = (await (await dk(`/api/store/quotes/${quoteId}`)).json()) as
         { data?: Record<string, unknown> } & Record<string, unknown>;
-      const q = (quote.data ?? quote) as { id: number; total_cents: number; customer_name: string | null };
+      const q = (quote.data ?? quote) as {
+        id: number; total_cents: number; subtotal_cents: number; discount_cents: number;
+        surcharge_cents: number; customer_name: string | null;
+        items?: { notes: string | null }[];
+      };
       check('orçamento existe no desktop', !!q && q.id === quoteId);
-      // 3 × R$150,00 resolvido no desktop — o celular mandou só produto e quantidade.
-      check('preço foi resolvido pelo desktop, não pelo celular', q.total_cents === 45000, String(q.total_cents));
+      // 3 × R$150,00 = 45000 de subtotal, resolvido no desktop — o celular mandou só
+      // produto e quantidade.
+      check('preço foi resolvido pelo desktop, não pelo celular', q.subtotal_cents === 45000, String(q.subtotal_cents));
+      check('desconto do celular chegou', q.discount_cents === 5000, String(q.discount_cents));
+      check('acréscimo do celular chegou', q.surcharge_cents === 1500, String(q.surcharge_cents));
+      // 45000 − 5000 + 1500. Se o desconto fosse ignorado, o total seria 46500.
+      check('total aplica desconto e acréscimo', q.total_cents === 41500, String(q.total_cents));
       check('nome livre do cliente preservado', q.customer_name === 'Cliente do Celular', String(q.customer_name));
+      check('observação por item preservada',
+        (q.items ?? []).some((i) => i.notes === 'cor a definir'), JSON.stringify(q.items?.map((i) => i.notes)));
+
+      // ── Telas novas do celular ──────────────────────────────────────────────
+      const quoteUuid = aplicado.result.quoteUuid ?? '';
+      check('handler devolve o uuid para o celular abrir o orçamento', quoteUuid.length > 30, quoteUuid);
+
+      // O sync tem que rodar de novo: o orçamento nasceu no desktop DEPOIS do último push,
+      // então sem isto a nuvem não o conhece.
+      await dk('/api/sync/run', { method: 'POST' });
+
+      const det = await cel(`/m/orcamentos/${quoteUuid}`);
+      const detHtml = await det.text();
+      check('detalhe do orçamento abre no celular', det.status === 200, String(det.status));
+      check('detalhe mostra o total já com desconto', detHtml.includes('415,00'));
+      check('detalhe traz o botão de WhatsApp', detHtml.includes('wa.me') || detHtml.includes('btn-whats'));
+
+      // ── Página pública: o que o cliente abre pelo link ──────────────────────
+      const publico = `${CLOUD}/orcamento/${companyUuid}/${quoteUuid}`;
+      // SEM cookie de propósito: o cliente da loja não tem acesso ao Kivo Web.
+      const pub = await fetch(publico);
+      const pubHtml = await pub.text();
+      check('página pública abre sem autenticação', pub.status === 200, String(pub.status));
+      check('página pública mostra o cliente', pubHtml.includes('Cliente do Celular'));
+      check('página pública mostra o total', pubHtml.includes('415,00'));
+      check('página pública mostra a observação do item', pubHtml.includes('cor a definir'));
+      check('página pública oferece salvar em PDF', pubHtml.includes('window.print()'));
+      // Nada de custo/margem/estoque escapa para o cliente.
+      check('página pública não vaza custo nem estoque',
+        !/cost_cents|stock_qty|custo/i.test(pubHtml));
+
+      const inexistente = await fetch(`${CLOUD}/orcamento/${companyUuid}/00000000-0000-4000-8000-000000000000`);
+      check('uuid inexistente → 404 sem revelar nada', inexistente.status === 404, String(inexistente.status));
+      const lixo = await fetch(`${CLOUD}/orcamento/nao-e-uuid/tambem-nao`);
+      check('endereço malformado → 404', lixo.status === 404, String(lixo.status));
     }
+
+    // ── Analíticos ────────────────────────────────────────────────────────────
+    const analiticos = await cel('/m/analiticos');
+    const anHtml = await analiticos.text();
+    check('analíticos abre', analiticos.status === 200, String(analiticos.status));
+    check('analíticos traz o seletor de período', anHtml.includes('7 dias') && anHtml.includes('30 dias'));
+    check('analíticos calcula faturamento', anHtml.includes('Faturamento'));
+    check('analíticos lista estoque crítico ou diz que está tudo certo',
+      anHtml.includes('Estoque crítico'));
+    const an30 = await cel('/m/analiticos?p=mes');
+    check('trocar o período recalcula', an30.status === 200 && (await an30.text()).includes('30 dias'));
 
     // ── Revogação derruba o celular na requisição seguinte ────────────────────
     const rev = await dk(`/api/remote/users/${adminId}/grant`, { method: 'DELETE' });

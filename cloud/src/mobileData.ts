@@ -154,11 +154,23 @@ export interface CashRegisterPayload {
 
 export interface QuotePayload {
   status: string;
+  subtotal_cents: number;
+  discount_cents: number;
+  /** Existe desde a migration 0057 do desktop; instalação antiga pode não ter mandado. */
+  surcharge_cents?: number;
   total_cents: number;
   customer_name: string | null;
   valid_until: string | null;
+  notes: string | null;
   created_at: string;
-  quote_items?: { product_id: string | null; qty: number; unit_price_cents: number }[];
+  quote_items?: {
+    product_id: string | null;
+    product_name?: string | null;
+    qty: number;
+    unit_price_cents: number;
+    total_cents?: number;
+    notes?: string | null;
+  }[];
 }
 
 export interface CustomerPayload {

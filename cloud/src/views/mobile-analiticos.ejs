@@ -1,0 +1,179 @@
+<%- include('partials/mobile-head', { titulo: 'Analíticos', grant, fresh }) %>
+
+<%# O período troca por navegação (link), não por JS: recalcular no servidor mantém uma
+    única fonte de verdade e a tela funciona com o histórico do navegador — o botão
+    "voltar" leva ao período anterior, que é o que a pessoa espera. %>
+<nav class="m-seg">
+  <% periodos.forEach(function (p) { %>
+    <a href="/m/analiticos?p=<%= p.chave %>" class="<%= a.periodo === p.chave ? 'on' : '' %>"><%= p.rotulo %></a>
+  <% }) %>
+</nav>
+
+<div class="m-kpi-grid">
+  <div class="m-kpi m-kpi-wide">
+    <span class="m-kpi-label">Faturamento · <%= a.rotuloPeriodo %></span>
+    <strong class="m-kpi-value">R$ <%= brl(a.faturamentoCents) %></strong>
+    <% if (a.variacao === null) { %>
+      <span class="m-delta m-delta-flat">sem período anterior para comparar</span>
+    <% } else { %>
+      <span class="m-delta <%= a.variacao > 0 ? 'm-delta-up' : (a.variacao < 0 ? 'm-delta-down' : 'm-delta-flat') %>">
+        <%= a.variacao > 0 ? '▲' : (a.variacao < 0 ? '▼' : '=') %>
+        <%= Math.abs(a.variacao) %>% vs. período anterior
+      </span>
+    <% } %>
+    <span class="m-kpi-sub">Antes: R$ <%= brl(a.variacaoAnterior) %></span>
+  </div>
+
+  <div class="m-kpi">
+    <span class="m-kpi-label">Vendas</span>
+    <strong class="m-kpi-value"><%= a.vendas %></strong>
+  </div>
+  <div class="m-kpi">
+    <span class="m-kpi-label">Ticket médio</span>
+    <strong class="m-kpi-value">R$ <%= brl(a.ticketMedioCents) %></strong>
+  </div>
+</div>
+
+<%# Gráfico. A altura de cada barra é proporcional ao maior valor da série, calculado
+    aqui na view — o servidor manda os valores crus para o número exibido e o desenho
+    virem exatamente da mesma fonte. %>
+<%
+  var maiorSerie = a.serie.reduce(function (m, s) { return Math.max(m, s.valorCents); }, 0);
+%>
+<section class="m-panel">
+  <div class="m-panel-head">
+    <h2>Por dia</h2>
+    <span>maior: R$ <%= brl(maiorSerie) %></span>
+  </div>
+  <% if (!maiorSerie) { %>
+    <p class="m-empty">Nenhuma venda concluída neste período.</p>
+  <% } else { %>
+    <div class="m-chart">
+      <% a.serie.forEach(function (s) { %>
+        <div class="m-chart-col" title="R$ <%= brl(s.valorCents) %>">
+          <span class="m-chart-bar <%= s.valorCents === 0 ? 'fraca' : '' %>"
+                style="height: <%= Math.max(2, Math.round((s.valorCents / maiorSerie) * 100)) %>%"></span>
+          <span class="m-chart-label"><%= s.rotulo %></span>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<section class="m-panel">
+  <div class="m-panel-head">
+    <h2>Formas de pagamento</h2>
+  </div>
+  <% if (!a.pagamentos.length) { %>
+    <p class="m-empty">Sem pagamentos no período.</p>
+  <% } else { %>
+    <%
+      var totalPag = a.pagamentos.reduce(function (s, p) { return s + p.valorCents; }, 0) || 1;
+    %>
+    <div class="m-split">
+      <% a.pagamentos.forEach(function (p) { %>
+        <span style="width: <%= (p.valorCents / totalPag) * 100 %>%; background: <%= p.cor %>"></span>
+      <% }) %>
+    </div>
+    <div class="m-legend">
+      <% a.pagamentos.forEach(function (p) { %>
+        <span><i style="background: <%= p.cor %>"></i><%= p.rotulo %> — R$ <%= brl(p.valorCents) %>
+          (<%= Math.round((p.valorCents / totalPag) * 100) %>%)</span>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<section class="m-panel">
+  <div class="m-panel-head">
+    <h2>Mais vendidos</h2>
+    <span>por valor</span>
+  </div>
+  <% if (!a.topProdutos.length) { %>
+    <p class="m-empty">Sem itens vendidos no período.</p>
+  <% } else { %>
+    <%
+      var maiorProd = a.topProdutos[0].valorCents || 1;
+    %>
+    <ol class="m-rank">
+      <% a.topProdutos.forEach(function (p, i) { %>
+        <li>
+          <span class="m-rank-pos"><%= i + 1 %></span>
+          <span class="m-rank-body">
+            <span class="m-rank-name"><%= p.nome %></span>
+            <span class="m-rank-meta"><%= Number(p.qtd.toFixed(3)) %> un</span>
+            <span class="m-rank-bar" style="width: <%= Math.max(4, Math.round((p.valorCents / maiorProd) * 100)) %>%"></span>
+          </span>
+          <span class="m-rank-val">R$ <%= brl(p.valorCents) %></span>
+        </li>
+      <% }) %>
+    </ol>
+  <% } %>
+</section>
+
+<% if (a.descontoCents > 0) { %>
+<section class="m-panel">
+  <div class="m-panel-head"><h2>Descontos concedidos</h2></div>
+  <strong class="m-kpi-value" style="color:var(--danger)">R$ <%= brl(a.descontoCents) %></strong>
+  <span class="m-kpi-sub">
+    <%= Math.round((a.descontoCents / (a.faturamentoCents + a.descontoCents || 1)) * 100) %>% do que seria faturado sem desconto
+  </span>
+</section>
+<% } %>
+
+<% if (verFinanceiro) { %>
+<section class="m-panel">
+  <div class="m-panel-head">
+    <h2>Financeiro em aberto</h2>
+    <a href="/m/financeiro">ver contas</a>
+  </div>
+  <div class="m-kpi-grid" style="margin:0">
+    <div class="m-kpi" style="border:0;padding:0">
+      <span class="m-kpi-label">A receber</span>
+      <strong class="m-kpi-value" style="font-size:1.15rem">R$ <%= brl(a.aReceberCents) %></strong>
+      <% if (a.aReceberVencidoCents > 0) { %>
+        <span class="m-delta m-delta-down">R$ <%= brl(a.aReceberVencidoCents) %> vencido</span>
+      <% } %>
+    </div>
+    <div class="m-kpi" style="border:0;padding:0">
+      <span class="m-kpi-label">A pagar</span>
+      <strong class="m-kpi-value" style="font-size:1.15rem">R$ <%= brl(a.aPagarCents) %></strong>
+      <% if (a.aPagarVencidoCents > 0) { %>
+        <span class="m-delta m-delta-down">R$ <%= brl(a.aPagarVencidoCents) %> vencido</span>
+      <% } %>
+    </div>
+  </div>
+</section>
+<% } %>
+
+<% if (verEstoque) { %>
+<section class="m-panel">
+  <div class="m-panel-head">
+    <h2>Estoque crítico</h2>
+    <a href="/m/estoque">ver estoque</a>
+  </div>
+  <% if (!a.estoqueCritico.length) { %>
+    <p class="m-empty">Nenhum produto abaixo do mínimo. 👍</p>
+  <% } else { %>
+    <ul class="m-rank">
+      <% a.estoqueCritico.forEach(function (p) { %>
+        <li>
+          <span class="m-rank-body">
+            <span class="m-rank-name"><%= p.nome %></span>
+            <span class="m-rank-meta">mínimo <%= Number(p.minimo.toFixed(3)) %></span>
+          </span>
+          <span class="m-badge <%= p.saldo <= 0 ? 'm-badge-off' : 'm-badge-warn' %>">
+            <%= p.saldo <= 0 ? 'zerado' : Number(p.saldo.toFixed(3)) + ' un' %>
+          </span>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+<% } %>
+
+<p class="m-note" style="margin-top:1rem">
+  Só vendas concluídas entram na conta. Canceladas e orçamentos não somam no faturamento.
+</p>
+
+<%- include('partials/mobile-foot', { grant, ativo: 'analiticos' }) %>

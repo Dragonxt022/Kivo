@@ -15,8 +15,13 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('styles') %>
   <link rel="stylesheet" href="/css/mobile.css">
+  <%# Camada de componentes (KPI, folha inferior, stepper, barra de ação). Arquivo à
+      parte e não dentro de mobile.css para deixar claro o que é casca e o que é
+      componente — e para o diff de um ajuste de layout não se misturar com o da casca. %>
+  <link rel="stylesheet" href="/css/mobile-pro.css">
 </head>
-<body class="m-body">
+<%# `bodyClass` deixa a tela pedir espaço extra embaixo quando tem barra de ação fixa. %>
+<body class="m-body <%= typeof bodyClass !== 'undefined' ? bodyClass : '' %>">
   <header class="m-header">
     <div class="m-header-text">
       <span class="m-header-company"><%= grant.companyName || 'Minha loja' %></span>
