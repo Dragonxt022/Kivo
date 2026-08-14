@@ -197,6 +197,13 @@ async function phase2(): Promise<void> {
   const cloudProc = spawnProc('cloud', 'cloud/src/server.ts', { ...CLOUD_ENV, CLOUD_PORT: String(cloudPort) });
   await waitForHealth(`${cloudUrl}/api/health`);
 
+  // O gate `requireActivation` barra o login até o banco estar ativado. A ativação
+  // precisa existir antes do boot de cada máquina (sem credenciais de licença — o
+  // teste configura via PUT /api/license depois).
+  for (const db of [path.join(SCRATCH, 'machineA.db'), path.join(SCRATCH, 'machineB.db')]) {
+    execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', db], { cwd: ROOT, stdio: 'pipe' });
+  }
+
   const a: Machine = { name: 'A', base: `http://localhost:${portA}`, proc: spawnProc('machineA', 'src/dev.ts', {
     KIVO_DB_PATH: path.join(SCRATCH, 'machineA.db'), KIVO_PORT: String(portA), KIVO_SYNC_SERVER_URL: cloudUrl, KIVO_MACHINE_ID: 'test-machine-a-7d',
   }) };
@@ -226,7 +233,12 @@ async function phase2(): Promise<void> {
     const prodOnB = await unwrap<{ id: number }[]>(await api(b.base, '/api/commercial/products?q=Produto Pontos', {}, b.cookie));
 
     // A vende R$100 (ganha 100 pontos) offline; B ainda não sabe
-    await api(a.base, '/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, paymentMethod: 'pix' }) }, a.cookie);
+    for (const m of [a, b]) {
+      const open = await api(m.base, '/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 10000 }) }, m.cookie);
+      check(`caixa aberto em ${m.name}`, open.ok);
+    }
+    const saleA = await api(a.base, '/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], customerId: cust.id, paymentMethod: 'pix' }) }, a.cookie);
+    check('venda de R$100 em A concluída (ganho de pontos)', saleA.status === 201, String(saleA.status));
     // B, sem saber do ganho de A, tenta resgatar 100 pontos (saldo local = 0) — deve falhar localmente em B
     const fidMethodB = await enablePaymentMethod(b.base, b.cookie!, 'fidelidade');
     const redeemBeforeSync = await api(b.base, '/api/store/sales', {

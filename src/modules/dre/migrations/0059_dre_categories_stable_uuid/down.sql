@@ -1,0 +1,3 @@
+-- Não há como "desfazer" a correção sem voltar a quebrar o sync entre máquinas:
+-- os uuids aleatórios antigos não podem ser recuperados. A migration é idempotente
+-- e reexecutá-la (rollback + up) apenas reafirma os mesmos valores determinísticos.

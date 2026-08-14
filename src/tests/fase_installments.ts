@@ -137,7 +137,8 @@ async function main() {
     const settlePays = db.prepare('SELECT payment_method_id, amount_cents FROM bill_settlement_payments WHERE entity = ? AND bill_id = ?').all('payable', other.id) as { payment_method_id: number; amount_cents: number }[];
     check('2 linhas em bill_settlement_payments', settlePays.length === 2, String(settlePays.length));
 
-    const movement = db.prepare("SELECT amount_cents FROM cash_movements WHERE ref_entity = 'payable' AND ref_id = ?").get(other.id) as { amount_cents: number } | undefined;
+    // ref_id é TEXT (append-only) — binder sempre string, como o resto do código faz
+    const movement = db.prepare("SELECT amount_cents FROM cash_movements WHERE ref_entity = 'payable' AND ref_id = ?").get(String(other.id)) as { amount_cents: number } | undefined;
     check('só a parte em dinheiro (150000) entrou no movimento de caixa', movement?.amount_cents === 150000, String(movement?.amount_cents));
 
     // -------- 6. Multa/juros configurados --------

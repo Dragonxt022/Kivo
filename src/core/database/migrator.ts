@@ -11,6 +11,10 @@ function columnExists(db: import('better-sqlite3').Database, table: string, colu
   return cols.some((c) => c.name === column);
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function objectExists(db: import('better-sqlite3').Database, type: string, name: string): boolean {
   const row = db.prepare("SELECT 1 FROM sqlite_master WHERE type=? AND name=?").get(type, name);
   return !!row;
@@ -86,6 +90,18 @@ function stripExistingObjects(db: import('better-sqlite3').Database, sql: string
   sql = commentOutExistingStatements(sql, CREATE_INDEX_RE, (match) => {
     const name = match[2].replace(/[\[\]`"']/g, '');
     if (!objectExists(db, 'index', name)) return false;
+    // Rebuilds (DROP TABLE + CREATE TABLE + RENAME, usados para alterar CHECK no
+    // SQLite) derrubam o índice junto com a tabela dona. Se a própria migration
+    // derruba a tabela, NÃO comentar o CREATE INDEX — senão ele nunca roda e o
+    // índice some de vez (o strip olha o estado ANTES da execução, quando o
+    // índice ainda existe).
+    const indexRow = db.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name=?").get(name) as
+      | { sql: string }
+      | undefined;
+    const owner = indexRow?.sql?.match(/\bON\s+([^\s(]+)/i)?.[1]?.replace(/[\[\]`"']/g, '');
+    if (owner && new RegExp(`DROP\\s+TABLE\\b[^;]*\\b${escapeRegExp(owner)}\\b`, 'i').test(sql)) {
+      return false;
+    }
     console.warn(`[migrator] índice ${name} já existe, ignorando`);
     return true;
   });

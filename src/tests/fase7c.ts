@@ -159,6 +159,13 @@ async function phase2(): Promise<void> {
   const cloudProc = spawnProc('cloud', 'cloud/src/server.ts', { ...CLOUD_ENV, CLOUD_PORT: String(cloudPort) });
   await waitForHealth(`${cloudUrl}/api/health`);
 
+  // O gate `requireActivation` barra o login até o banco estar ativado. A ativação
+  // precisa existir antes do boot de cada máquina (sem credenciais de licença — o
+  // teste configura via PUT /api/license depois).
+  for (const db of [path.join(SCRATCH, 'machineA.db'), path.join(SCRATCH, 'machineB.db')]) {
+    execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', db], { cwd: ROOT, stdio: 'pipe' });
+  }
+
   const a: Machine = { name: 'A', base: `http://localhost:${portA}`, proc: spawnProc('machineA', 'src/dev.ts', {
     KIVO_DB_PATH: path.join(SCRATCH, 'machineA.db'), KIVO_PORT: String(portA), KIVO_SYNC_SERVER_URL: cloudUrl, KIVO_MACHINE_ID: 'test-machine-a-7c',
   }) };
@@ -188,6 +195,10 @@ async function phase2(): Promise<void> {
 
     // Ambas offline resgatam 700 do mesmo saldo de 1000 (cada uma vê localmente saldo suficiente) —
     // resgate acontece através de uma venda com pagamento "crédito de loja".
+    for (const m of [a, b]) {
+      const open = await api(m.base, '/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 10000 }) }, m.cookie);
+      check(`caixa aberto em ${m.name}`, open.ok);
+    }
     const creditMethodA = (await enablePaymentMethod(a.base, a.cookie!, 'credito_loja'));
     const creditMethodB = (await enablePaymentMethod(b.base, b.cookie!, 'credito_loja'));
     const prodA = await unwrap<{ id: number }>(

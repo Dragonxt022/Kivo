@@ -20,12 +20,16 @@ CREATE TABLE dre_categories (
   comment TEXT NOT NULL DEFAULT 'Categorias do DRE: linhas automáticas (receita/CMV/taxas de cartão, calculadas de vendas) e categorias manuais (associadas a contas a pagar). Cada categoria tem um ajuste percentual opcional (padrão 0) usado só como simulação no relatório, nunca altera o lançamento real. Categorias system=1 não podem ser excluídas nem trocar de linha/origem.'
 );
 
+-- As categorias de sistema são linhas replicadas pelo sync entre máquinas: o uuid
+-- precisa ser o MESMO em toda instalação (stableUuid('dre:'+key) em src/shared/uuid.ts),
+-- senão cada máquina semeia um uuid diferente e o sync estoura o UNIQUE de `key`.
+-- A migration 0059_dre_categories_stable_uuid corrige instalações já existentes.
 INSERT INTO dre_categories (key, label, dre_line, source, system, sort, uuid) VALUES
-  ('receita_bruta_vendas', 'Receita Bruta de Vendas', 'receita_bruta', 'sales_revenue', 1, 1, lower(hex(randomblob(16)))),
-  ('impostos_sobre_vendas', 'Impostos sobre Vendas', 'deducoes', 'manual', 1, 1, lower(hex(randomblob(16)))),
-  ('cmv', 'CMV (Custo da Mercadoria Vendida)', 'cmv', 'cogs', 1, 1, lower(hex(randomblob(16)))),
-  ('outras_despesas_operacionais', 'Outras Despesas Operacionais', 'despesas_operacionais', 'manual', 1, 99, lower(hex(randomblob(16)))),
-  ('taxas_cartao', 'Taxas de Cartão', 'despesas_financeiras', 'card_fees', 1, 1, lower(hex(randomblob(16)))),
-  ('outras_despesas_financeiras', 'Outras Despesas Financeiras', 'despesas_financeiras', 'manual', 1, 99, lower(hex(randomblob(16))));
+  ('receita_bruta_vendas', 'Receita Bruta de Vendas', 'receita_bruta', 'sales_revenue', 1, 1, '20bc7a6f-ccb7-5a7c-b10f-00aa97b53c95'),
+  ('impostos_sobre_vendas', 'Impostos sobre Vendas', 'deducoes', 'manual', 1, 1, '07d7f74f-58c2-550c-be9c-b96dd59cc34f'),
+  ('cmv', 'CMV (Custo da Mercadoria Vendida)', 'cmv', 'cogs', 1, 1, '23f832fc-cfca-55b7-93e9-95fb6e51c677'),
+  ('outras_despesas_operacionais', 'Outras Despesas Operacionais', 'despesas_operacionais', 'manual', 1, 99, '5d7d6451-9413-5e5d-8303-721c884c01a0'),
+  ('taxas_cartao', 'Taxas de Cartão', 'despesas_financeiras', 'card_fees', 1, 1, '6c4e265d-bd6a-5022-9b57-778b1028f416'),
+  ('outras_despesas_financeiras', 'Outras Despesas Financeiras', 'despesas_financeiras', 'manual', 1, 99, 'ae94f8ae-2a92-5c8a-8e30-f84d63001a66');
 
 ALTER TABLE payables ADD COLUMN dre_category_id INTEGER REFERENCES dre_categories(id);

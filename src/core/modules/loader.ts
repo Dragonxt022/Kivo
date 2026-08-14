@@ -6,6 +6,7 @@ import { getSqlite } from '../database/connection';
 import { registerSyncTables } from '../sync/registry';
 import { isModuleEntitled } from '../license/service';
 import { hasCapability } from '../capabilities/service';
+import { stableUuid } from '../../shared/uuid';
 import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
 
 export const CORE_VERSION = '0.1.0';
@@ -88,13 +89,18 @@ function registerInDb(m: ModuleManifest, enabled: boolean): void {
 export function registerCapabilities(m: ModuleManifest): void {
   if (!m.capabilities?.length) return;
   const db = getSqlite();
+  // `capabilities` é replicada pelo sync entre máquinas: o uuid tem de ser o mesmo em
+  // toda instalação (identidade estável por key), senão cada máquina gera um uuid
+  // diferente e o sync estoura o UNIQUE de `key`. Reconciliado a cada boot, inclusive
+  // em instalações criadas antes desta regra (uuid aleatório → determinístico).
   const upsert = db.prepare(
     `INSERT INTO capabilities (key, description, module, enabled, beta, uuid) VALUES (?, ?, ?, 0, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
-       description = excluded.description, module = excluded.module, beta = excluded.beta`,
+       description = excluded.description, module = excluded.module, beta = excluded.beta,
+       uuid = excluded.uuid`,
   );
   for (const cap of m.capabilities) {
-    upsert.run(cap.key, cap.description, m.id, cap.beta ? 1 : 0, randomUUID());
+    upsert.run(cap.key, cap.description, m.id, cap.beta ? 1 : 0, stableUuid(`capability:${cap.key}`));
   }
 }
 
