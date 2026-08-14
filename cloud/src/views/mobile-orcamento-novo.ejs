@@ -1,131 +1,407 @@
-<%- include('partials/mobile-head', { titulo: 'Novo orçamento', grant, fresh }) %>
+<%- include('partials/mobile-head', { titulo: 'Novo orçamento', grant, fresh, bodyClass: 'm-body-actionbar m-body-foco' }) %>
 
-<div id="form-area" class="m-form">
-  <label for="cliente">Cliente (opcional)</label>
-  <select id="cliente">
-    <option value="">Sem cliente cadastrado</option>
-    <% clientes.forEach(function (c) { %>
-      <option value="<%= c.uuid %>"><%= c.name %></option>
-    <% }) %>
-  </select>
+<div id="form-area">
+  <%# Cliente primeiro, e como BOTÃO que abre uma folha com busca — não um <select> com
+      dois mil nomes, onde o vendedor rola procurando "Silva" enquanto o cliente espera. %>
+  <div class="m-field">
+    <label>Cliente</label>
+    <button type="button" class="m-selected" id="btn-cliente">
+      <span class="m-ini" id="cliente-ini">—</span>
+      <span class="m-selected-body">
+        <span class="m-selected-name" id="cliente-nome">Sem cliente</span>
+        <span class="m-selected-meta" id="cliente-meta">Toque para escolher ou digitar um nome</span>
+      </span>
+      <svg class="m-selected-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <p class="m-field-hint">O preço final usa a tabela do cliente, aplicada pelo computador da loja.</p>
+  </div>
 
-  <label for="nomeLivre">…ou um nome livre</label>
-  <input type="text" id="nomeLivre" maxlength="120" placeholder="Ex.: João da esquina">
+  <button type="button" class="m-btn m-btn-sec" id="btn-add" style="margin-bottom:1rem">
+    + Adicionar produto
+  </button>
 
-  <label for="busca">Produtos</label>
-  <input type="search" id="busca" placeholder="Buscar produto" autocomplete="off">
-  <div id="resultados"></div>
+  <div id="vazio" class="m-empty" style="padding:2rem 1rem">
+    Nenhum item ainda.<br>Toque em <strong>Adicionar produto</strong> para começar.
+  </div>
 
-  <ul class="m-list" id="itens" style="margin-bottom:1rem"></ul>
-  <p class="m-note" id="aviso-preco" hidden>
-    Os valores acima são os de catálogo. O <strong>preço final</strong> é calculado pelo
-    computador da loja, que aplica a tabela de preço do cliente.
-  </p>
+  <div id="itens"></div>
 
-  <label for="validade">Validade</label>
-  <input type="date" id="validade">
+  <div class="m-totals" id="totais" hidden>
+    <div class="m-total-row"><span>Subtotal</span><strong id="t-subtotal">R$ 0,00</strong></div>
+    <div class="m-total-row desc" id="linha-desconto" hidden><span>Desconto</span><strong id="t-desconto">−R$ 0,00</strong></div>
+    <div class="m-total-row" id="linha-acrescimo" hidden><span>Acréscimo</span><strong id="t-acrescimo">R$ 0,00</strong></div>
+    <div class="m-total-row grande"><span>Total</span><strong id="t-total">R$ 0,00</strong></div>
+  </div>
 
-  <label for="obs">Observação</label>
-  <textarea id="obs" rows="2" maxlength="500"></textarea>
+  <% if (podeDesconto) { %>
+  <div class="m-chip-row" style="margin-top:1rem">
+    <button type="button" class="m-chip-btn" id="btn-ajuste">Desconto / acréscimo</button>
+  </div>
+  <div id="ajuste-box" hidden>
+    <div class="m-field-2">
+      <div class="m-field">
+        <label for="desconto">Desconto (R$)</label>
+        <input type="text" inputmode="numeric" id="desconto" placeholder="0,00">
+      </div>
+      <div class="m-field">
+        <label for="acrescimo">Acréscimo (R$)</label>
+        <input type="text" inputmode="numeric" id="acrescimo" placeholder="0,00">
+      </div>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="m-field-2" style="margin-top:.5rem">
+    <div class="m-field">
+      <label for="validade">Validade</label>
+      <input type="date" id="validade" value="<%= validadeSugerida %>">
+    </div>
+    <div class="m-field">
+      <label for="vendedor">Vendedor</label>
+      <input type="text" id="vendedor" value="<%= (grant.name || grant.username) %>" readonly>
+    </div>
+  </div>
+
+  <div class="m-field">
+    <label for="obs">Observação do orçamento</label>
+    <textarea id="obs" rows="3" maxlength="500" placeholder="Prazo de entrega, condições, o que combinaram…"></textarea>
+  </div>
 
   <p class="m-note m-note-warn" id="aviso-offline" hidden></p>
   <p class="m-note" id="erro" hidden style="color:var(--danger)"></p>
 
-  <button class="m-btn" id="enviar" type="button" disabled>Enviar para a loja</button>
-  <p style="text-align:center;margin-top:.75rem">
-    <a href="/m/orcamentos" style="color:var(--text-muted);font-size:.85rem">Cancelar</a>
+  <%# A navegação inferior sai nesta tela (ver .m-body-foco), então a saída precisa
+      existir aqui — sem isto, quem desiste no meio fica sem caminho de volta visível. %>
+  <p style="text-align:center;margin:1.25rem 0 0">
+    <a href="/m/orcamentos" style="color:var(--text-muted);font-size:.88rem">Cancelar e voltar</a>
   </p>
 </div>
 
-<%# Enquanto o desktop não confirma, a tela fica no estado de espera. A transição chega pelo
-    SSE (~1s); o polling é a rede de segurança se o canal estiver bloqueado por proxy. %>
+<%# Enquanto o desktop não confirma, a tela troca para o estado de espera. A transição
+    chega pelo SSE (~1s); o polling é a rede de segurança se um proxy bloquear o canal. %>
 <div id="status-area" class="m-status" hidden>
   <div class="m-status-spinner" id="spinner"></div>
   <h2 id="status-titulo">Enviando para o computador da loja…</h2>
   <p id="status-texto" class="m-card-sub"></p>
-  <p style="margin-top:1.5rem"><a class="m-btn m-btn-sec" href="/m/orcamentos" style="display:inline-block;width:auto;padding:.7rem 1.5rem;text-decoration:none">Voltar aos orçamentos</a></p>
+  <div id="status-acoes" hidden style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.6rem">
+    <a class="m-btn" id="link-ver" href="#">Ver orçamento</a>
+    <a class="m-btn m-btn-sec" href="/m/orcamentos/novo">Fazer outro</a>
+    <a class="m-btn m-btn-sec" href="/m/orcamentos">Voltar à lista</a>
+  </div>
+</div>
+
+<div class="m-actionbar" id="barra">
+  <div class="m-actionbar-info">
+    <span class="m-actionbar-label" id="barra-label">Nenhum item</span>
+    <span class="m-actionbar-value" id="barra-total">R$ 0,00</span>
+  </div>
+  <button class="m-btn" id="enviar" type="button" disabled>Enviar</button>
+</div>
+
+<%# ── Folha: escolher produto ── %>
+<div class="m-sheet" id="sheet-produto" hidden>
+  <div class="m-sheet-box">
+    <div class="m-sheet-head">
+      <h2>Adicionar produto</h2>
+      <button type="button" class="m-sheet-close" data-fechar="sheet-produto">&times;</button>
+    </div>
+    <div class="m-sheet-body">
+      <div class="m-search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="busca-produto" placeholder="Nome ou código do produto" autocomplete="off">
+      </div>
+      <div id="lista-produto"></div>
+    </div>
+  </div>
+</div>
+
+<%# ── Folha: escolher cliente ── %>
+<div class="m-sheet" id="sheet-cliente" hidden>
+  <div class="m-sheet-box">
+    <div class="m-sheet-head">
+      <h2>Cliente</h2>
+      <button type="button" class="m-sheet-close" data-fechar="sheet-cliente">&times;</button>
+    </div>
+    <div class="m-sheet-body">
+      <div class="m-search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="busca-cliente" placeholder="Nome, telefone ou documento" autocomplete="off">
+      </div>
+      <div id="lista-cliente"></div>
+    </div>
+  </div>
 </div>
 
 <script>
   (function () {
     var PRODUTOS = <%- JSON.stringify(produtos) %>;
-    var itens = [];
-    var el = function (id) { return document.getElementById(id); };
-    var brl = function (c) { return (c / 100).toFixed(2).replace('.', ','); };
+    var CLIENTES = <%- JSON.stringify(clientes) %>;
+    var PODE_DESCONTO = <%= podeDesconto ? 'true' : 'false' %>;
 
-    function renderResultados() {
-      var termo = el('busca').value.trim().toLowerCase();
-      var box = el('resultados');
-      if (termo.length < 2) { box.innerHTML = ''; return; }
-      var achados = PRODUTOS.filter(function (p) {
-        return p.name.toLowerCase().indexOf(termo) !== -1 || (p.sku || '').toLowerCase().indexOf(termo) !== -1;
-      }).slice(0, 8);
-      box.innerHTML = achados.length
-        ? '<ul class="m-list">' + achados.map(function (p) {
-            return '<li><button type="button" class="m-list-static" data-uuid="' + p.uuid + '" style="width:100%;border:0;background:none;text-align:left;cursor:pointer">'
-              + '<span class="m-list-main">' + esc(p.name) + '</span>'
-              + '<span class="m-list-meta">' + esc(p.sku || 'sem SKU') + '</span>'
-              + '<strong class="m-list-value">R$ ' + brl(p.price_cents) + '</strong></button></li>';
-          }).join('') + '</ul>'
-        : '<p class="m-empty">Nenhum produto encontrado.</p>';
-      Array.prototype.forEach.call(box.querySelectorAll('button[data-uuid]'), function (b) {
+    var itens = [];
+    var cliente = null;      // { uuid, name } vindo do cadastro
+    var clienteLivre = '';   // nome digitado quando não há cadastro
+
+    var el = function (id) { return document.getElementById(id); };
+    var brl = function (c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+    // Dígitos entram como centavos — a mesma digitação do caixa no desktop (maskMoney).
+    function mascaraDinheiro(v) {
+      var d = String(v || '').replace(/\D/g, '');
+      if (!d) return '';
+      return (parseInt(d, 10) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    function paraCentavos(s) {
+      var d = String(s || '').replace(/\D/g, '');
+      return d ? parseInt(d, 10) : 0;
+    }
+    function inicial(nome) {
+      return (String(nome || '?').trim()[0] || '?').toUpperCase();
+    }
+
+    // ─── Folhas ───
+    function abrir(id) {
+      el(id).hidden = false;
+      // O foco só depois de a folha aparecer; no iOS, focar um campo escondido não abre
+      // o teclado e a busca fica parecendo travada.
+      var campo = el(id).querySelector('input[type=search]');
+      if (campo) setTimeout(function () { campo.focus(); }, 60);
+    }
+    function fechar(id) { el(id).hidden = true; }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fechar]'), function (b) {
+      b.addEventListener('click', function () { fechar(b.getAttribute('data-fechar')); });
+    });
+    // Tocar fora fecha — é o gesto que todo mundo espera de uma folha inferior.
+    Array.prototype.forEach.call(document.querySelectorAll('.m-sheet'), function (s) {
+      s.addEventListener('click', function (e) { if (e.target === s) s.hidden = true; });
+    });
+
+    // ─── Produtos ───
+    function renderListaProduto() {
+      var termo = el('busca-produto').value.trim().toLowerCase();
+      var base = termo.length
+        ? PRODUTOS.filter(function (p) {
+            return p.name.toLowerCase().indexOf(termo) !== -1
+              || (p.sku || '').toLowerCase().indexOf(termo) !== -1
+              || (p.barcode || '').toLowerCase().indexOf(termo) !== -1;
+          })
+        // Sem busca, mostra os primeiros do catálogo em vez de tela vazia: numa loja
+        // pequena isso já é a lista inteira, e o vendedor toca direto.
+        : PRODUTOS;
+      var achados = base.slice(0, 40);
+      if (!achados.length) {
+        el('lista-produto').innerHTML = '<p class="m-empty">Nenhum produto encontrado.</p>';
+        return;
+      }
+      el('lista-produto').innerHTML = achados.map(function (p) {
+        var noCarrinho = itens.filter(function (i) { return i.uuid === p.uuid; })[0];
+        return '<button type="button" class="m-pick" data-uuid="' + esc(p.uuid) + '">'
+          + '<span class="m-pick-body">'
+          + '<span class="m-pick-name">' + esc(p.name) + '</span>'
+          + '<span class="m-pick-meta">' + esc(p.sku || 'sem código') + '</span>'
+          + '</span>'
+          + '<span class="m-pick-val">' + brl(p.price_cents) + '</span>'
+          + (noCarrinho
+              ? '<span class="m-pick-qtd">' + noCarrinho.qty + '</span>'
+              : '<span class="m-pick-add">+</span>')
+          + '</button>';
+      }).join('');
+      Array.prototype.forEach.call(el('lista-produto').querySelectorAll('[data-uuid]'), function (b) {
         b.addEventListener('click', function () { adicionar(b.getAttribute('data-uuid')); });
       });
     }
 
-    function esc(s) {
-      return String(s).replace(/[&<>"]/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-      });
-    }
-
     function adicionar(uuid) {
-      var p = PRODUTOS.find(function (x) { return x.uuid === uuid; });
+      var p = PRODUTOS.filter(function (x) { return x.uuid === uuid; })[0];
       if (!p) return;
-      var existente = itens.find(function (i) { return i.uuid === uuid; });
+      var existente = itens.filter(function (i) { return i.uuid === uuid; })[0];
       if (existente) existente.qty += 1;
-      else itens.push({ uuid: uuid, name: p.name, price_cents: p.price_cents, qty: 1 });
-      el('busca').value = '';
-      el('resultados').innerHTML = '';
+      else itens.push({ uuid: uuid, name: p.name, price_cents: p.price_cents, qty: 1, note: '' });
+      // A folha CONTINUA aberta: montar orçamento é adicionar vários itens seguidos, e
+      // fechar a cada toque obrigaria a reabrir e rebuscar. O contador na linha mostra
+      // o que já entrou.
+      renderListaProduto();
       renderItens();
     }
 
-    function renderItens() {
-      var ul = el('itens');
-      ul.innerHTML = itens.map(function (i, idx) {
-        return '<li><div class="m-item-row">'
-          + '<span class="m-item-name">' + esc(i.name) + '<br><span class="m-list-meta">R$ ' + brl(i.price_cents) + '</span></span>'
-          + '<input class="m-item-qty" type="number" min="0" step="any" value="' + i.qty + '" data-idx="' + idx + '">'
-          + '<button type="button" data-remove="' + idx + '" style="border:0;background:none;color:var(--danger);font-size:1.3rem;cursor:pointer">&times;</button>'
-          + '</div></li>';
+    // ─── Clientes ───
+    function renderListaCliente() {
+      var termo = el('busca-cliente').value.trim().toLowerCase();
+      var achados = (termo.length
+        ? CLIENTES.filter(function (c) {
+            return c.name.toLowerCase().indexOf(termo) !== -1
+              || (c.phone || '').toLowerCase().indexOf(termo) !== -1
+              || (c.document || '').toLowerCase().indexOf(termo) !== -1;
+          })
+        : CLIENTES).slice(0, 40);
+
+      var html = '<button type="button" class="m-pick" data-cli="">'
+        + '<span class="m-ini">—</span>'
+        + '<span class="m-pick-body"><span class="m-pick-name">Sem cliente</span>'
+        + '<span class="m-pick-meta">Orçamento avulso</span></span></button>';
+
+      // Nome digitado que não existe no cadastro: vira o nome livre do orçamento, sem
+      // obrigar a cadastrar o cliente antes (o desktop aceita `customerName`).
+      var jaExiste = achados.some(function (c) { return c.name.toLowerCase() === termo; });
+      if (termo.length >= 2 && !jaExiste) {
+        html += '<button type="button" class="m-pick" data-livre="' + esc(el('busca-cliente').value.trim()) + '">'
+          + '<span class="m-ini">+</span>'
+          + '<span class="m-pick-body"><span class="m-pick-name">Usar "' + esc(el('busca-cliente').value.trim()) + '"</span>'
+          + '<span class="m-pick-meta">Sem cadastrar — só o nome no orçamento</span></span></button>';
+      }
+
+      html += achados.map(function (c) {
+        return '<button type="button" class="m-pick" data-cli="' + esc(c.uuid) + '">'
+          + '<span class="m-ini">' + esc(inicial(c.name)) + '</span>'
+          + '<span class="m-pick-body"><span class="m-pick-name">' + esc(c.name) + '</span>'
+          + '<span class="m-pick-meta">' + esc(c.phone || c.document || 'sem contato') + '</span></span></button>';
       }).join('');
-      Array.prototype.forEach.call(ul.querySelectorAll('input[data-idx]'), function (inp) {
+
+      if (!achados.length && termo.length < 2) html += '<p class="m-empty">Nenhum cliente cadastrado.</p>';
+      el('lista-cliente').innerHTML = html;
+
+      Array.prototype.forEach.call(el('lista-cliente').querySelectorAll('[data-cli]'), function (b) {
+        b.addEventListener('click', function () {
+          var uuid = b.getAttribute('data-cli');
+          cliente = uuid ? CLIENTES.filter(function (c) { return c.uuid === uuid; })[0] : null;
+          clienteLivre = '';
+          renderCliente();
+          fechar('sheet-cliente');
+        });
+      });
+      Array.prototype.forEach.call(el('lista-cliente').querySelectorAll('[data-livre]'), function (b) {
+        b.addEventListener('click', function () {
+          cliente = null;
+          clienteLivre = b.getAttribute('data-livre');
+          renderCliente();
+          fechar('sheet-cliente');
+        });
+      });
+    }
+
+    function renderCliente() {
+      var nome = cliente ? cliente.name : (clienteLivre || 'Sem cliente');
+      el('cliente-nome').textContent = nome;
+      el('cliente-ini').textContent = (cliente || clienteLivre) ? inicial(nome) : '—';
+      el('cliente-meta').textContent = cliente
+        ? (cliente.phone || cliente.document || 'cliente cadastrado')
+        : (clienteLivre ? 'nome livre, sem cadastro' : 'Toque para escolher ou digitar um nome');
+    }
+
+    // ─── Itens ───
+    function subtotal() {
+      return itens.reduce(function (a, i) { return a + Math.round(i.price_cents * i.qty); }, 0);
+    }
+    function totalFinal() {
+      var d = PODE_DESCONTO ? paraCentavos(el('desconto') ? el('desconto').value : '') : 0;
+      var a = PODE_DESCONTO ? paraCentavos(el('acrescimo') ? el('acrescimo').value : '') : 0;
+      return Math.max(0, subtotal() - d + a);
+    }
+
+    function renderItens() {
+      el('vazio').hidden = itens.length > 0;
+      el('itens').innerHTML = itens.map(function (i, idx) {
+        return '<div class="m-cart-item">'
+          + '<div class="m-cart-top">'
+          + '<span class="m-cart-name">' + esc(i.name)
+          + '<span class="m-cart-unit">' + brl(i.price_cents) + ' cada</span></span>'
+          + '<span class="m-cart-total">' + brl(Math.round(i.price_cents * i.qty)) + '</span>'
+          + '</div>'
+          + '<div class="m-cart-actions">'
+          + '<span class="m-step">'
+          + '<button type="button" data-menos="' + idx + '" aria-label="Diminuir">−</button>'
+          + '<input type="number" inputmode="decimal" step="any" min="0" value="' + i.qty + '" data-qtd="' + idx + '">'
+          + '<button type="button" data-mais="' + idx + '" aria-label="Aumentar">+</button>'
+          + '</span>'
+          + '<button type="button" class="m-cart-del" data-remove="' + idx + '">Remover</button>'
+          + '</div>'
+          + '<input class="m-cart-note" type="text" maxlength="200" data-nota="' + idx + '" '
+          + 'value="' + esc(i.note) + '" placeholder="Observação deste item (opcional)">'
+          + '</div>';
+      }).join('');
+
+      var box = el('itens');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-mais]'), function (b) {
+        b.addEventListener('click', function () { itens[+b.getAttribute('data-mais')].qty += 1; renderItens(); });
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-menos]'), function (b) {
+        b.addEventListener('click', function () {
+          var i = +b.getAttribute('data-menos');
+          itens[i].qty -= 1;
+          if (itens[i].qty <= 0) itens.splice(i, 1);
+          renderItens();
+        });
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-qtd]'), function (inp) {
         inp.addEventListener('change', function () {
-          var i = Number(inp.getAttribute('data-idx'));
+          var i = +inp.getAttribute('data-qtd');
           itens[i].qty = Number(inp.value) || 0;
           if (itens[i].qty <= 0) itens.splice(i, 1);
           renderItens();
         });
       });
-      Array.prototype.forEach.call(ul.querySelectorAll('button[data-remove]'), function (b) {
-        b.addEventListener('click', function () {
-          itens.splice(Number(b.getAttribute('data-remove')), 1);
-          renderItens();
-        });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-nota]'), function (inp) {
+        // `input` e não `change`: se a pessoa envia com o teclado ainda aberto, o
+        // `change` não dispara e a observação se perderia em silêncio.
+        inp.addEventListener('input', function () { itens[+inp.getAttribute('data-nota')].note = inp.value; });
       });
-      el('enviar').disabled = itens.length === 0;
-      el('aviso-preco').hidden = itens.length === 0;
+      renderTotais();
     }
 
-    el('busca').addEventListener('input', renderResultados);
+    function renderTotais() {
+      var sub = subtotal();
+      var d = PODE_DESCONTO && el('desconto') ? paraCentavos(el('desconto').value) : 0;
+      var a = PODE_DESCONTO && el('acrescimo') ? paraCentavos(el('acrescimo').value) : 0;
+      el('totais').hidden = itens.length === 0;
+      el('t-subtotal').textContent = brl(sub);
+      el('t-total').textContent = brl(totalFinal());
+      if (el('linha-desconto')) {
+        el('linha-desconto').hidden = d === 0;
+        el('t-desconto').textContent = '−' + brl(d);
+      }
+      if (el('linha-acrescimo')) {
+        el('linha-acrescimo').hidden = a === 0;
+        el('t-acrescimo').textContent = brl(a);
+      }
+      var qtdItens = itens.reduce(function (n, i) { return n + i.qty; }, 0);
+      el('barra-label').textContent = itens.length
+        ? qtdItens + (qtdItens === 1 ? ' item' : ' itens')
+        : 'Nenhum item';
+      el('barra-total').textContent = brl(totalFinal());
+      el('enviar').disabled = itens.length === 0;
+    }
 
-    // Se o computador da loja não sincroniza há muito, avisar ANTES de enviar: o orçamento
-    // ficaria parado na fila até ele voltar, e é melhor a pessoa saber disso agora.
+    // ─── Ligações ───
+    el('btn-add').addEventListener('click', function () { renderListaProduto(); abrir('sheet-produto'); });
+    el('btn-cliente').addEventListener('click', function () { renderListaCliente(); abrir('sheet-cliente'); });
+    el('busca-produto').addEventListener('input', renderListaProduto);
+    el('busca-cliente').addEventListener('input', renderListaCliente);
+
+    if (PODE_DESCONTO) {
+      el('btn-ajuste').addEventListener('click', function () {
+        var box = el('ajuste-box');
+        box.hidden = !box.hidden;
+        el('btn-ajuste').classList.toggle('on', !box.hidden);
+        if (!box.hidden) el('desconto').focus();
+      });
+      ['desconto', 'acrescimo'].forEach(function (id) {
+        el(id).addEventListener('input', function () {
+          el(id).value = mascaraDinheiro(el(id).value);
+          renderTotais();
+        });
+      });
+    }
+
+    // Se o computador da loja não sincroniza há muito, avisar ANTES de montar tudo: o
+    // orçamento ficaria na fila até ele voltar, e é melhor a pessoa saber disso agora.
     var minutos = <%= fresh.minutesAgo === null ? 'null' : fresh.minutesAgo %>;
     if (minutos === null || minutos > 30) {
-      var av = el('aviso-offline');
-      av.hidden = false;
-      av.textContent = 'O computador da loja não está sincronizando. O orçamento vai ficar na fila e só será criado quando ele voltar.';
+      el('aviso-offline').hidden = false;
+      el('aviso-offline').textContent = 'O computador da loja não está sincronizando. O orçamento vai ficar na fila e só será criado quando ele voltar.';
     }
 
     function acompanhar(id) {
@@ -136,18 +412,21 @@
           if (!d || d.status === 'pendente') return;
           pronto = true;
           el('spinner').hidden = true;
+          el('status-acoes').hidden = false;
           if (d.status === 'aplicado') {
-            el('status-titulo').textContent = 'Orçamento criado!';
-            el('status-texto').textContent = 'Número ' + (d.result && d.result.quoteId ? '#' + d.result.quoteId : '') +
-              (d.result && d.result.totalCents != null ? ' · Total R$ ' + brl(d.result.totalCents) : '');
+            el('status-titulo').textContent = 'Orçamento #' + (d.result && d.result.quoteId) + ' criado';
+            el('status-texto').textContent = d.result && d.result.totalCents != null
+              ? 'Total ' + brl(d.result.totalCents) + ' — já com a tabela de preço do cliente.'
+              : '';
+            if (d.result && d.result.quoteUuid) el('link-ver').href = '/m/orcamentos/' + d.result.quoteUuid;
+            else el('link-ver').style.display = 'none';
           } else {
             el('status-titulo').textContent = 'Não foi possível criar';
             el('status-texto').textContent = (d.result && d.result.error) || 'O computador da loja recusou o pedido.';
+            el('link-ver').style.display = 'none';
           }
         }).catch(function () {});
       }
-      // EventSource é nativo do navegador: a confirmação chega no instante em que o desktop
-      // responde, sem esperar o próximo intervalo do polling abaixo.
       try {
         var es = new EventSource('/api/mobile/events');
         es.addEventListener('command-done', function () { checar(); });
@@ -165,9 +444,13 @@
         body: JSON.stringify({
           kind: 'store.quote.create',
           payload: {
-            items: itens.map(function (i) { return { productUuid: i.uuid, qty: i.qty }; }),
-            customerUuid: el('cliente').value || null,
-            customerName: el('cliente').value ? null : (el('nomeLivre').value.trim() || null),
+            items: itens.map(function (i) {
+              return { productUuid: i.uuid, qty: i.qty, notes: i.note.trim() || null };
+            }),
+            customerUuid: cliente ? cliente.uuid : null,
+            customerName: cliente ? null : (clienteLivre || null),
+            discountCents: PODE_DESCONTO && el('desconto') ? paraCentavos(el('desconto').value) : 0,
+            surchargeCents: PODE_DESCONTO && el('acrescimo') ? paraCentavos(el('acrescimo').value) : 0,
             validUntil: el('validade').value || null,
             notes: el('obs').value.trim() || null,
           },
@@ -182,6 +465,7 @@
           return;
         }
         el('form-area').hidden = true;
+        el('barra').hidden = true;
         el('status-area').hidden = false;
         el('status-texto').textContent = res.d.desktopOnline
           ? 'O computador da loja está conectado — deve levar poucos segundos.'
@@ -193,6 +477,9 @@
         el('enviar').disabled = false;
       });
     });
+
+    renderCliente();
+    renderItens();
   })();
 </script>
 

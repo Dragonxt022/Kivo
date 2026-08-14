@@ -14,6 +14,7 @@ import menuRoutes from './routes/menu';
 import mobileGrantsRoutes from './routes/mobileGrants';
 import { mobileSide as mobileCommandsRoutes, desktopSide as desktopCommandsRoutes } from './routes/mobileCommands';
 import mobileAppRoutes from './routes/mobileApp';
+import quotePublicRoutes from './routes/quotePublic';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -39,6 +40,9 @@ export function createCloudServer() {
   app.use('/api/mobile', mobileCommandsRoutes);
   app.use('/api/commands', desktopCommandsRoutes);
   app.use('/m', mobileAppRoutes);
+  // Página do orçamento que o CLIENTE da loja abre pelo link do WhatsApp. Fora de `/m`
+  // porque é pública — `/m` inteiro exige o cookie de acesso do lojista.
+  app.use('/', quotePublicRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/admin', adminRoutes);
 

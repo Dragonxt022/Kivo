@@ -28,12 +28,16 @@ export interface PendingCommand {
 interface QuoteItemPayload {
   productUuid: string;
   qty: number;
+  /** Observação da linha ("sem cebola", "cor a definir") — igual à do PDV. */
+  notes?: string | null;
 }
 
 interface QuoteCommandPayload {
   items?: QuoteItemPayload[];
   customerUuid?: string | null;
   customerName?: string | null;
+  discountCents?: number | null;
+  surchargeCents?: number | null;
   validUntil?: string | null;
   notes?: string | null;
 }
@@ -43,9 +47,11 @@ interface StoreQuotesService {
   createQuote: (
     req: import('express').Request,
     input: {
-      items: { productId: number; qty: number }[];
+      items: { productId: number; qty: number; notes?: string }[];
       customerId?: number;
       customerName?: string;
+      discountCents?: number;
+      surchargeCents?: number;
       validUntil?: string;
       notes?: string;
     },
@@ -77,12 +83,26 @@ function handleQuoteCreate(cmd: PendingCommand): HandlerResult {
   const p = cmd.payload as QuoteCommandPayload;
   if (!Array.isArray(p.items) || !p.items.length) return { ok: false, error: 'Orçamento sem itens.' };
 
-  const items: { productId: number; qty: number }[] = [];
+  const items: { productId: number; qty: number; notes?: string }[] = [];
   for (const item of p.items) {
     const productId = localIdByUuid('products', item.productUuid);
     if (!productId) return { ok: false, error: 'Um dos produtos não existe mais no cadastro.' };
-    items.push({ productId, qty: Number(item.qty) });
+    items.push({
+      productId,
+      qty: Number(item.qty),
+      notes: item.notes ? String(item.notes).slice(0, 200) : undefined,
+    });
   }
+
+  /**
+   * Desconto e acréscimo passam pela MESMA porta da tela: `createQuote` exige
+   * `store.sales.discount` e recusa quem não tem. Não repito a checagem aqui de
+   * propósito — duas guardas para a mesma regra viram duas verdades no dia em que uma
+   * delas mudar. O celular esconde os campos de quem não pode (é usabilidade), e quem
+   * mandar o valor na mão mesmo assim recebe a recusa do serviço.
+   */
+  const discountCents = Math.max(0, Math.round(Number(p.discountCents) || 0));
+  const surchargeCents = Math.max(0, Math.round(Number(p.surchargeCents) || 0));
 
   const customerId = localIdByUuid('customers', p.customerUuid) ?? undefined;
   const quotes = getService<StoreQuotesService>('store.quotes');
@@ -92,11 +112,19 @@ function handleQuoteCreate(cmd: PendingCommand): HandlerResult {
     items,
     customerId,
     customerName: !customerId && p.customerName ? p.customerName : undefined,
+    discountCents: discountCents || undefined,
+    surchargeCents: surchargeCents || undefined,
     validUntil: p.validUntil ?? undefined,
     notes: p.notes ?? undefined,
   });
   if (!result.ok) return { ok: false, error: result.error };
-  return { ok: true, result: { quoteId: result.id, totalCents: result.totalCents } };
+  // O uuid vai junto para o celular abrir o orçamento recém-criado: o `id` é local desta
+  // máquina e não serve para achar o registro que subiu para a nuvem.
+  const uuid = db().prepare('SELECT uuid FROM quotes WHERE id = ?').get(result.id) as { uuid: string } | undefined;
+  return {
+    ok: true,
+    result: { quoteId: result.id, quoteUuid: uuid?.uuid ?? null, totalCents: result.totalCents },
+  };
 }
 
 const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {

@@ -1,24 +1,57 @@
 <%- include('partials/mobile-head', { titulo: 'Orçamentos', grant, fresh }) %>
 
+<%
+  var hoje = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  var abertos = quotes.filter(function (q) { return q.payload.status === 'aberto'; });
+  var somaAbertos = abertos.reduce(function (s, q) { return s + (q.payload.total_cents || 0); }, 0);
+  var dataBR = function (iso) { return iso ? iso.slice(0, 10).split('-').reverse().join('/') : ''; };
+%>
+
+<% if (quotes.length) { %>
+<div class="m-kpi-grid">
+  <div class="m-kpi">
+    <span class="m-kpi-label">Em aberto</span>
+    <strong class="m-kpi-value"><%= abertos.length %></strong>
+  </div>
+  <div class="m-kpi">
+    <span class="m-kpi-label">Valor em aberto</span>
+    <strong class="m-kpi-value" style="font-size:1.15rem">R$ <%= brl(somaAbertos) %></strong>
+  </div>
+</div>
+<% } %>
+
 <% if (!quotes.length) { %>
-  <p class="m-empty">Nenhum orçamento sincronizado ainda.</p>
+  <p class="m-empty" style="padding:2.5rem 1rem">
+    Nenhum orçamento ainda.<br>
+    <% if (podeCriar) { %>Toque em <strong>Novo</strong> para montar o primeiro.<% } %>
+  </p>
 <% } else { %>
   <ul class="m-list">
     <% quotes.forEach(function (q) { %>
+      <%
+        var p = q.payload;
+        var venceu = p.status === 'aberto' && p.valid_until && p.valid_until < hoje;
+        var rotulo = p.status === 'convertido' ? 'virou venda'
+          : (p.status === 'cancelado' ? 'cancelado' : (venceu ? 'vencido' : null));
+        var classe = p.status === 'convertido' ? 'm-badge-ok'
+          : (p.status === 'cancelado' ? 'm-badge-off' : 'm-badge-warn');
+        var qtdItens = (p.quote_items || []).length;
+      %>
       <li>
-        <div class="m-list-static">
+        <%# Vira link: era um <div> estático, então não havia como abrir o orçamento —
+            nem para conferir os itens, nem para mandar ao cliente. %>
+        <a href="/m/orcamentos/<%= q.uuid %>">
           <span class="m-list-main">
-            <%= q.payload.customer_name || 'Sem cliente' %>
-            <% if (q.payload.status !== 'aberto') { %>
-              <span class="m-badge m-badge-off"><%= q.payload.status %></span>
-            <% } %>
+            <%= p.customer_name || 'Sem cliente' %>
+            <% if (rotulo) { %><span class="m-badge <%= classe %>"><%= rotulo %></span><% } %>
           </span>
           <span class="m-list-meta">
-            <%= (q.payload.created_at || '').slice(0, 10).split('-').reverse().join('/') %>
-            <% if (q.payload.valid_until) { %> · vale até <%= q.payload.valid_until.split('-').reverse().join('/') %><% } %>
+            <%= dataBR(p.created_at) %>
+            <% if (qtdItens) { %> · <%= qtdItens %> <%= qtdItens === 1 ? 'item' : 'itens' %><% } %>
+            <% if (p.valid_until) { %> · vale até <%= dataBR(p.valid_until) %><% } %>
           </span>
-          <strong class="m-list-value">R$ <%= brl(q.payload.total_cents) %></strong>
-        </div>
+          <strong class="m-list-value">R$ <%= brl(p.total_cents) %></strong>
+        </a>
       </li>
     <% }) %>
   </ul>

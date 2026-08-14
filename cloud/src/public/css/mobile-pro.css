@@ -1,0 +1,769 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Kivo Web — camada de componentes.
+
+   Complementa mobile.css (que tem a casca: cabeçalho, navegação, listas simples) com
+   o que faltava para as telas deixarem de ser campos empilhados.
+
+   Três regras valem para tudo aqui, porque o alvo é celular de vendedor em pé na loja:
+
+   1. Alvo de toque nunca abaixo de 44px. O dedo é impreciso e errar um botão no meio
+      de um atendimento custa caro.
+   2. `font-size: 16px` em todo campo de texto. Abaixo disso o iOS dá zoom sozinho ao
+      focar e desalinha a tela inteira — parece bug, e não tem como desfazer sem
+      recarregar.
+   3. Ação principal fixa embaixo, no alcance do polegar, mostrando o resumo do que vai
+      acontecer. Não no fim de um formulário que exige rolar até o fim para confirmar.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Controle segmentado (período) ─── */
+.m-seg {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--surface-hover);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+.m-seg a,
+.m-seg button {
+  flex: 1;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  text-align: center;
+  padding: 0.55rem 0.3rem;
+  border-radius: 9px;
+  cursor: pointer;
+  min-height: 40px;
+}
+.m-seg .on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* ─── KPI com variação ─── */
+.m-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.m-kpi {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 0.85rem;
+  min-width: 0;
+}
+.m-kpi-wide {
+  grid-column: 1 / -1;
+}
+.m-kpi-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+.m-kpi-value {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+  /* Números tabulares: sem isso a coluna "dança" ao trocar de período, porque cada
+     dígito tem largura diferente na fonte do sistema. */
+  font-variant-numeric: tabular-nums;
+}
+.m-kpi-wide .m-kpi-value {
+  font-size: 1.9rem;
+}
+.m-kpi-sub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+.m-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  margin-top: 0.4rem;
+}
+.m-delta-up {
+  color: var(--success, #00a37a);
+  background: color-mix(in srgb, var(--success, #00a37a) 14%, transparent);
+}
+.m-delta-down {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.m-delta-flat {
+  color: var(--text-muted);
+  background: var(--surface-hover);
+}
+
+/* ─── Gráfico de barras (CSS puro, sem biblioteca) ─── */
+.m-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  height: 132px;
+  padding-top: 0.5rem;
+}
+.m-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  min-width: 0;
+  height: 100%;
+}
+.m-chart-bar {
+  width: 100%;
+  max-width: 34px;
+  background: var(--primary);
+  border-radius: 5px 5px 2px 2px;
+  /* Piso de 3px: barra de valor zero sumiria e a coluna pareceria um defeito. */
+  min-height: 3px;
+}
+.m-chart-bar.fraca {
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
+}
+.m-chart-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ─── Ranking ─── */
+.m-rank {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.m-rank li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.m-rank li:last-child {
+  border-bottom: 0;
+}
+.m-rank-pos {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.m-rank li:nth-child(1) .m-rank-pos {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+.m-rank-body {
+  flex: 1;
+  min-width: 0;
+}
+.m-rank-name {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-rank-meta {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.m-rank-val {
+  flex: none;
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+/* Barra proporcional sob o nome: dá a proporção sem obrigar a comparar números. */
+.m-rank-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
+  margin-top: 0.3rem;
+}
+
+/* ─── Divisão em fatias (formas de pagamento) ─── */
+.m-split {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.65rem;
+  background: var(--surface-hover);
+}
+.m-split span {
+  display: block;
+  min-width: 2px;
+}
+.m-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.m-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  margin-right: 0.35rem;
+  vertical-align: -1px;
+}
+
+/* ─── Busca ─── */
+.m-search {
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+.m-search svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.m-search input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 16px;
+  padding: 0.8rem 0.9rem 0.8rem 2.5rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 48px;
+}
+.m-search input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ─── Folha inferior (escolher produto/cliente) ─── */
+.m-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+}
+.m-sheet[hidden] {
+  display: none;
+}
+.m-sheet-box {
+  background: var(--surface);
+  border-radius: 18px 18px 0 0;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: m-sheet-in 0.18s ease-out;
+}
+@keyframes m-sheet-in {
+  from {
+    transform: translateY(12%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .m-sheet-box {
+    animation: none;
+  }
+}
+.m-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--border-light);
+}
+.m-sheet-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+}
+.m-sheet-close {
+  flex: none;
+  border: 0;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.m-sheet-body {
+  overflow-y: auto;
+  padding: 0.5rem 1rem 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Linha selecionável ─── */
+.m-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  padding: 0.75rem 0.15rem;
+  cursor: pointer;
+  min-height: 58px;
+}
+.m-pick:active {
+  background: var(--surface-hover);
+}
+.m-pick-body {
+  flex: 1;
+  min-width: 0;
+}
+.m-pick-name {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+.m-pick-meta {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+.m-pick-val {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.m-pick-add {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+/* Quantidade já no carrinho, mostrada na própria lista de busca: evita o vendedor
+   fechar a folha só para conferir se já tinha adicionado. */
+.m-pick-qtd {
+  flex: none;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 0.35rem;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Item do carrinho ─── */
+.m-cart-item {
+  border-bottom: 1px solid var(--border-light);
+  padding: 0.75rem 0;
+}
+.m-cart-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.m-cart-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+.m-cart-unit {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 0.1rem;
+}
+.m-cart-total {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.m-cart-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+.m-cart-note {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 16px;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border: 1.5px dashed var(--border-light);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  min-height: 44px;
+}
+.m-cart-note:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--primary);
+}
+.m-cart-del {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--danger);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.4rem 0.5rem;
+  min-height: 44px;
+}
+
+/* ─── Stepper de quantidade ─── */
+.m-step {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--border-light);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.m-step button {
+  border: 0;
+  background: var(--surface-hover);
+  color: var(--text);
+  width: 44px;
+  height: 44px;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.m-step button:active {
+  background: var(--border-light);
+}
+.m-step input {
+  width: 58px;
+  border: 0;
+  text-align: center;
+  font: inherit;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+  color: var(--text);
+  height: 44px;
+  -moz-appearance: textfield;
+}
+.m-step input::-webkit-outer-spin-button,
+.m-step input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ─── Bloco de totais ─── */
+.m-totals {
+  border-top: 1px solid var(--border-light);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+}
+.m-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.3rem 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.m-total-row strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.m-total-row.desc strong {
+  color: var(--danger);
+}
+.m-total-row.grande {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text);
+  border-top: 1px solid var(--border-light);
+  margin-top: 0.4rem;
+  padding-top: 0.6rem;
+}
+.m-total-row.grande strong {
+  font-size: 1.3rem;
+}
+
+/* ─── Barra de ação fixa ─── */
+.m-actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: var(--surface);
+  border-top: 1px solid var(--border-light);
+  padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.07);
+}
+.m-actionbar-info {
+  flex: 1;
+  min-width: 0;
+}
+.m-actionbar-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.m-actionbar-value {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.m-actionbar .m-btn {
+  width: auto;
+  flex: none;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  margin: 0;
+}
+/* Com a barra fixa, o conteúdo precisa de espaço embaixo para não ficar sob ela. */
+.m-body-actionbar {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+/* ─── Campos ─── */
+.m-field {
+  margin-bottom: 0.9rem;
+}
+.m-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+.m-field input,
+.m-field textarea,
+.m-field select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 16px;
+  padding: 0.75rem 0.85rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--text);
+  min-height: 48px;
+}
+.m-field input:focus,
+.m-field textarea:focus,
+.m-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.m-field-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+.m-field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0;
+}
+
+/* ─── Botão em pílula ─── */
+.m-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1.5px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 44px;
+  text-decoration: none;
+}
+.m-chip-btn:active {
+  background: var(--surface-hover);
+}
+.m-chip-btn.on {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.m-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* ─── Seleção atual (cliente escolhido) ─── */
+.m-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  min-height: 56px;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.m-selected-body {
+  flex: 1;
+  min-width: 0;
+}
+.m-selected-name {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+.m-selected-meta {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.m-selected-arrow {
+  flex: none;
+  color: var(--text-muted);
+}
+
+/* ─── Inicial do nome ─── */
+.m-ini {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* ─── Selo de status ─── */
+.m-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+.m-badge-ok {
+  background: color-mix(in srgb, var(--success, #00a37a) 15%, transparent);
+  color: var(--success, #00a37a);
+}
+.m-badge-warn {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.m-badge-off {
+  background: color-mix(in srgb, var(--danger) 13%, transparent);
+  color: var(--danger);
+}
+
+/* ─── Painel ─── */
+.m-panel {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 0.9rem;
+  margin-bottom: 1rem;
+}
+.m-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.m-panel-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.m-panel-head a,
+.m-panel-head span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+/* ─── Fluxo focado (montar orçamento) ───
+   Duas barras fixas no rodapé disputam o mesmo lugar: a navegação e a barra de ação.
+   A navegação vencia e escondia o botão "Enviar" — o orçamento ficava impossível de
+   concluir. Numa tela de TAREFA a saída não é empilhar as duas (130px de rodapé num
+   celular), é a tarefa mandar: a navegação sai e a ação principal ocupa a largura toda.
+   A volta continua existindo pelo "Cancelar" no fim do formulário e pelo botão do
+   aparelho. Telas de LEITURA mantêm a navegação normalmente. */
+.m-body-foco .m-nav {
+  display: none;
+}
