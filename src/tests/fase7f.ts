@@ -6,6 +6,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
+import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3759);
@@ -34,6 +35,9 @@ async function loginAs(u: string, p: string): Promise<string | null> {
 async function main() {
   migrateUp();
   runSeeds();
+  // Sem licença ativada, `requireActivation` (core/server.ts) barra até o login. Faltava
+  // aqui: o teste só passava quando outro teste já havia ativado o banco compartilhado.
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
   const db = getSqlite();

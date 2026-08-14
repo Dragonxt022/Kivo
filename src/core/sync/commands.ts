@@ -18,7 +18,7 @@ import { canUseWebApp } from '../license/plans';
  * saem corretas, e não como "sistema".
  */
 
-interface PendingCommand {
+export interface PendingCommand {
   id: number;
   kind: string;
   payload: Record<string, unknown>;

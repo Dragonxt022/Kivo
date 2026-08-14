@@ -100,20 +100,23 @@
     <% if (user) { %>
     this.loadNotifState();
     window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
-    <% } %>
+    const jobs = [];
     <% if (user && user.permissions.has('billing.view')) { %>
-    fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; this.pruneNotifState(); }).catch(() => {});
+    jobs.push(fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; }).catch(() => {}));
     <% } %>
-    <% if (user) { %>
-    fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; this.pruneNotifState(); }).catch(() => {});
+    jobs.push(fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; }).catch(() => {}));
     this.checkCloudStatus();
     setInterval(() => this.checkCloudStatus(), leve ? 120000 : 25000);
-    <% } %>
     <% if (user && user.permissions.has('finance.cash.view')) { %>
-    fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; this.pruneNotifState(); }).catch(() => {});
+    jobs.push(fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; }).catch(() => {}));
     <% } %>
     <% if (user && (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view'))) { %>
-    fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; this.pruneNotifState(); }).catch(() => {});
+    jobs.push(fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; }).catch(() => {}));
+    <% } %>
+    // Podar só depois de todos os fetches resolverem: com dados parciais, a poda
+    // apagaria ids de notificações cuja API ainda não respondeu (ex.: contas a pagar),
+    // e ler/dispensar "voltava" após um reload.
+    Promise.all(jobs).then(() => this.pruneNotifState());
     <% } %>
   },
   theme: document.documentElement.getAttribute('data-theme') || 'light',

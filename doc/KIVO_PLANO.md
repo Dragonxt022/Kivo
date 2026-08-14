@@ -253,30 +253,49 @@ O `package.json` contém apenas os atalhos mais usados; a lista completa está e
 
 ---
 
-## 9. Próximo passo — Kivo Web (celular/tablet)
+## 9. Kivo Web (celular/tablet) — entregue
 
-Anunciado no app (`src/views/partials/novidade.ejs` + item no sino), **ainda não construído**.
+Acompanhar a loja e montar orçamento pelo celular, exclusivo do plano **Diamante**.
+Provado ponta a ponta em `src/tests/kivo-web-e2e.ts` (desktop + nuvem + celular).
 
-O que já existe e encurta o caminho:
+### Como funciona
 
-- O app **já é** Express + EJS servido por HTTP — não há SPA a escrever, só um cliente enxuto.
-- `rede.acesso_local` já expõe o servidor na LAN (`src/electron/main.ts`), então celular na
-  mesma rede já alcança o Kivo hoje. O que falta é acesso **fora** da loja.
-- `src/core/license/plans.ts` já reserva a capability `app.online` exatamente para isto.
-- `cloud/` já autentica empresa por `X-Kivo-Company` + `X-Kivo-License-Key` e já sincroniza
-  tabelas via `core/sync`.
+| Peça | Onde |
+|---|---|
+| Ciclo automático de sync (3 min, ajustável) + disparo pós-venda | `src/core/sync/scheduler.ts` |
+| Canal de eventos nuvem → desktop (SSE) | `cloud/src/events.ts` ↔ `src/core/sync/events.ts` |
+| Concessão de acesso por link/QR | `src/core/remote/service.ts` ↔ `cloud/src/routes/mobileGrants.ts` |
+| Sessão do celular | `cloud/src/mobileAuth.ts` |
+| Painel (leitura de `sync_records`) | `cloud/src/routes/mobileApp.ts`, `cloud/src/mobileData.ts` |
+| Fila de comandos | `cloud/src/routes/mobileCommands.ts` ↔ `src/core/sync/commands.ts` |
 
-Desenho proposto: cliente leve hospedado em `cloud/`, autenticando contra as mesmas tabelas
-`users`/`sessions`/`roles` (`src/core/auth/service.ts`) replicadas pelo motor de sync, com
-gate `plan === 'diamante'` + capability `app.online`.
+**Três decisões que explicam o desenho:**
 
-**Duas perguntas a fechar antes de codificar:**
+1. **Login por link/QR, sem senha na nuvem.** `users` não sincroniza — o `password_hash` do
+   PDV nunca sai da máquina. O desktop gera um token por usuário, guarda só o sha256 e manda
+   à nuvem o hash + a lista de permissões. Revogar é imediato: a sessão do celular é o próprio
+   token revalidado a cada requisição, sem tabela de sessão.
+2. **Escrita por fila de comandos, não por sync.** O pull insere linhas direto nas tabelas,
+   sem passar por `createQuote`/`createSale` — quem valida produto, resolve preço pela tabela
+   do cliente, move estoque e lança no caixa. O celular grava a intenção; o desktop executa,
+   no nome de quem pediu (`core/auth/systemContext.ts`).
+3. **SSE, não webhook.** O desktop está atrás de NAT: a nuvem não consegue iniciar conexão
+   para lá. Invertendo o sentido, o desktop abre um `GET` e a nuvem empurra por ele. O ciclo
+   periódico continua como rede de segurança. **Exige `proxy_buffering off` no proxy da VPS —
+   ver `doc/instruções_deploy.md`.**
 
-1. Como a sessão na nuvem vira um usuário local **sem** mandar hash de senha para fora da
-   máquina? (Opções: sync de `users` só com um verificador derivado; ou autenticação
-   delegada, com o desktop validando e emitindo um token curto para a nuvem.)
-2. Venda criada na nuvem **desce pelo `sync`** (LWW, consistente com o resto) ou bate direto
-   no desktop? A primeira é coerente com a arquitetura; a segunda exige o desktop alcançável.
+> A capability `app.online`, antes reservada para isto, não foi usada: capabilities nascem
+> desligadas, e um terceiro interruptor faria o recurso parecer quebrado para quem acabou de
+> assinar Diamante. Os controles são o plano e a concessão por usuário.
+
+### Próximo passo — fechar venda pelo celular
+
+Falta o handler `store.sale.create` na fila. Três coisas a resolver antes:
+
+1. `payment_methods` **não sincroniza** (é config por terminal) — o celular não sabe as formas
+   de pagamento disponíveis.
+2. A venda exige **caixa aberto** no desktop; a tela precisa dizer isso antes de deixar montar.
+3. Definir o que acontece se o desktop recusar depois de o vendedor prometer o preço ao cliente.
 
 Em paralelo: publicar **v0.2.0** com as refatorações concluídas (repository + controller +
 cancelSale).

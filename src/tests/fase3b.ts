@@ -15,6 +15,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
 let failures = 0;
@@ -45,6 +46,10 @@ async function phase1(): Promise<void> {
   const base = `http://localhost:${PORT}`;
   migrateUp();
   runSeeds();
+  // Sem licença ativada, `requireActivation` (core/server.ts) responde antes de qualquer
+  // rota — inclusive /api/auth/login. Faltava aqui, e a parte 1 inteira falhava logo no
+  // login em qualquer banco novo; só passava em máquina cujo kivo.db já estivesse ativado.
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
   const C = '/api/commercial';

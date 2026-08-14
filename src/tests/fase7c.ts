@@ -12,6 +12,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
 let failures = 0;
@@ -49,6 +50,9 @@ async function phase1(): Promise<void> {
   const base = `http://localhost:${PORT}`;
   migrateUp();
   runSeeds();
+  // Sem licença ativada, `requireActivation` (core/server.ts) barra até o login. Faltava
+  // aqui: o teste só passava em máquina cujo kivo.db já estivesse ativado por outro uso.
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
 
@@ -71,6 +75,10 @@ async function phase1(): Promise<void> {
     const creditMethod = await enablePaymentMethod(base, admin!, 'credito_loja');
     const prod = await unwrap<{ id: number }>(
       await api(base, '/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Crédito', priceCents: 3000, initialStock: 10 }) }, admin!));
+
+    // `createSale` recusa venda com o caixa fechado — este teste vinha se apoiando no caixa
+    // que outro teste deixava aberto no banco compartilhado.
+    await api(base, '/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 0 }) }, admin!);
 
     // Gasta parte do saldo numa venda
     const sale = await api(base, '/api/store/sales', {

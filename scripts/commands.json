@@ -83,6 +83,14 @@
     "description": "Testes: importação/exportação de produtos (parser + rotas)",
     "run": "tsx src/tests/products-import.ts && node scripts/test-isolated.js src/tests/products-import-api.ts"
   },
+  "test:kivo-web-e2e": {
+    "description": "Testes: Kivo Web ponta a ponta (desktop + nuvem + celular; exige Docker)",
+    "run": "node scripts/test-isolated.js src/tests/kivo-web-e2e.ts"
+  },
+  "test:kivo-web": {
+    "description": "Testes: Kivo Web (comando de orçamento do celular + concessão de acesso)",
+    "run": "node scripts/test-isolated.js src/tests/kivo-web.ts"
+  },
   "test:variantes-api": {
     "description": "Testes: variantes pelo fluxo de rotas (capability, atributos, geração, PDV)",
     "run": "node scripts/test-isolated.js src/tests/variantes-api.ts"

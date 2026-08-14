@@ -57,12 +57,17 @@ function listCommands() {
 }
 
 /**
- * Testes que EXIGEM KIVO_DB_PATH: eles recusam rodar contra database/kivo.db (o mesmo
- * banco do `npm run dev`) e abortam sem a variável. Precisam do runner que cria um
- * arquivo descartável antes do processo começar — `tsx` direto aqui só produziria
- * falha de trava de segurança, não resultado de teste.
+ * Testes puros (sem banco): rodam direto, sem o custo de criar um SQLite descartável.
+ * Todo o resto passa pelo `test-isolated.js`.
+ *
+ * Antes era o contrário — uma lista fixa de 3 arquivos isolados e todos os demais rodando
+ * `tsx` direto contra `database/kivo.db`, o MESMO banco do `npm run dev`. Consequências:
+ * cada teste apagava e recriava o banco do anterior, o resultado variava entre execuções
+ * (o mesmo teste passava sozinho e falhava no conjunto), e quem estivesse desenvolvendo
+ * perdia os dados locais ao rodar a suíte. Manter a lista atualizada à mão também garantia
+ * que todo teste novo com banco nasceria fora dela.
  */
-const ISOLATED_TESTS = new Set(['products-import-api.ts', 'pdv-tipos-produto.ts', 'onboarding-permissoes.ts']);
+const PURE_TESTS = new Set(['shared.ts', 'testUtils.ts', 'products-import.ts']);
 
 function runTestAll() {
   const testsDir = join(ROOT, 'src', 'tests');
@@ -80,9 +85,9 @@ function runTestAll() {
     console.log(`━━━ ${'='.repeat(60)}\n`);
     try {
       run(
-        ISOLATED_TESTS.has(file)
-          ? `node scripts/test-isolated.js src/tests/${file}`
-          : `tsx src/tests/${file}`,
+        PURE_TESTS.has(file)
+          ? `tsx src/tests/${file}`
+          : `node scripts/test-isolated.js src/tests/${file}`,
         label,
       );
       console.log(`\n  ✓ ${label} PASS\n`);

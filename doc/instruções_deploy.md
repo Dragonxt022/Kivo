@@ -82,6 +82,38 @@ O que `npm run cloud:deploy` faz sozinho (script `scripts/deploy-cloud.sh`):
 
 Não precisa fazer nada manual na VPS — é só isso.
 
+### ⚠️ Uma vez só: liberar SSE no proxy reverso (Kivo Web)
+
+O Kivo Web usa **Server-Sent Events** (`GET /api/commands/events`) para o computador da loja
+saber na hora que chegou um orçamento do celular. É uma resposta HTTP que fica aberta — e
+proxy reverso, por padrão, **bufferiza** e derruba conexão ociosa.
+
+Se isso não for ajustado, o sintoma engana: o orçamento até é criado, mas só quando o ciclo
+periódico roda (minutos depois), e parece bug do aplicativo. No nginx:
+
+```nginx
+location /api/commands/events {
+    proxy_pass http://127.0.0.1:4000;
+    proxy_http_version 1.1;
+    proxy_set_header Connection '';
+    proxy_buffering off;       # sem isso os eventos chegam em lote
+    proxy_read_timeout 3600s;  # a conexão fica aberta de propósito
+}
+```
+
+A aplicação já manda `X-Accel-Buffering: no`, que o nginx respeita — a diretiva acima é o
+cinto de segurança para quando o cabeçalho for ignorado (Caddy, Cloudflare, outro proxy).
+
+**Como conferir** que ficou certo, com o desktop conectado:
+
+```bash
+curl -N -H "X-Kivo-Company: <uuid>" -H "X-Kivo-License-Key: <chave>" \
+  https://kivo.buscamais.org/api/commands/events
+```
+
+Os `: ping` têm de aparecer **um a cada 25s, em tempo real**. Se vierem todos juntos no
+final, o proxy ainda está bufferizando.
+
 ### Se precisar rodar algo manual na VPS
 ```bash
 ssh -i ~/.ssh/kivo_vps_deploy root@187.77.251.231

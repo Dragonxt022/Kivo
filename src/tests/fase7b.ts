@@ -7,6 +7,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3751);
@@ -35,6 +36,9 @@ async function loginAs(u: string, p: string): Promise<string | null> {
 async function main() {
   migrateUp();
   runSeeds();
+  // Sem licença ativada, `requireActivation` (core/server.ts) barra até o login. Faltava
+  // aqui: o teste só passava quando outro teste já havia ativado o banco compartilhado.
+  activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
 
@@ -66,6 +70,10 @@ async function main() {
       await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto Ficha', priceCents: 1000 }) }, admin!));
     const otherCust = await unwrap<{ id: number }>(
       await api('/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Outro Cliente' }) }, admin!));
+    // `createSale` recusa venda com o caixa fechado. Este teste vinha se apoiando no caixa
+    // que outro teste da suíte deixava aberto no banco compartilhado — sozinho, as quatro
+    // vendas abaixo falhavam em silêncio e os filtros conferiam listas vazias contra 1.
+    await api('/api/finance/cash/open', { method: 'POST', body: JSON.stringify({ openingCents: 0 }) }, admin!);
     await api('/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], paymentMethod: 'pix', customerId: cust.id }) }, admin!);
     await api('/api/store/sales', { method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }], paymentMethod: 'pix', customerId: otherCust.id }) }, admin!);
     const salesFiltered = await unwrap<{ id: number }[]>(await api(`/api/store/sales?customerId=${cust.id}`, {}, admin!));
