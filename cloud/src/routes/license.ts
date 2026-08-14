@@ -11,6 +11,8 @@ interface CompanyLicenseRow {
   modules: string[] | string | null;
   valid_until: string | null;
   max_devices: number;
+  /** Ver `ensureRecoverySecret`. NULL até a primeira validação pós-migration 0020. */
+  recovery_secret: string | null;
   // Perfil da empresa — desce na ativação e preenche as configurações do Kivo local.
   name: string | null;
   legal_name: string | null;
@@ -25,6 +27,30 @@ interface CompanyLicenseRow {
   district: string | null;
   city: string | null;
   state: string | null;
+}
+
+/**
+ * Segredo de resgate de senha da empresa, criado na primeira vez que ele é pedido.
+ *
+ * Preguiçoso em vez de gerado na migration porque a migration roda uma vez e empresas
+ * nascem o tempo todo (trial, cadastro pelo painel) — colocar a geração aqui cobre todas
+ * sem cada caminho de criação ter que lembrar disso.
+ *
+ * O `UPDATE ... WHERE recovery_secret IS NULL` é o que segura duas validações simultâneas
+ * (duas máquinas da mesma loja subindo juntas): a segunda não sobrescreve o segredo da
+ * primeira, e o SELECT de volta garante que as duas recebam o MESMO valor. Sobrescrever
+ * seria pior que uma corrida qualquer — invalidaria o segredo já guardado no cofre da
+ * outra máquina, e o resgate dela pararia de funcionar sem ninguém entender por quê.
+ */
+async function ensureRecoverySecret(companyUuid: string, current: string | null): Promise<string> {
+  if (current) return current;
+  const pool = getPool();
+  await pool.query('UPDATE companies SET recovery_secret = ? WHERE company_uuid = ? AND recovery_secret IS NULL', [
+    randomBytes(32).toString('hex'),
+    companyUuid,
+  ]);
+  const [rows] = await pool.query('SELECT recovery_secret FROM companies WHERE company_uuid = ?', [companyUuid]);
+  return (rows as { recovery_secret: string }[])[0].recovery_secret;
 }
 
 /**
@@ -53,15 +79,19 @@ router.post('/request-trial', async (req, res) => {
   const companyUuid = randomUUID();
   const licenseKey = randomBytes(24).toString('hex');
   const validUntil = trialValidUntil();
+  // Já sai preenchido aqui, e não na primeira revalidação: quem está em trial não
+  // sincroniza (canSaveToCloud exclui trial), então a próxima chamada ao /validate só
+  // aconteceria horas depois — e o resgate de senha precisa do segredo já no cofre.
+  const recoverySecret = randomBytes(32).toString('hex');
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
     await conn.query(
-      `INSERT INTO companies (company_uuid, license_key_hash, name, plan, valid_until, max_devices)
-       VALUES (?, ?, ?, 'trial', ?, 1)`,
-      [companyUuid, hashLicenseKey(licenseKey), `Avaliação — ${machineId.slice(0, 8)}`, validUntil],
+      `INSERT INTO companies (company_uuid, license_key_hash, name, plan, valid_until, max_devices, recovery_secret)
+       VALUES (?, ?, ?, 'trial', ?, 1, ?)`,
+      [companyUuid, hashLicenseKey(licenseKey), `Avaliação — ${machineId.slice(0, 8)}`, validUntil, recoverySecret],
     );
 
     await conn.query(
@@ -97,6 +127,7 @@ router.post('/request-trial', async (req, res) => {
     validUntil,
     supportPhone: settingsMap.support_phone ?? null,
     supportEmail: settingsMap.support_email ?? null,
+    recoverySecret,
     serverTime: new Date().toISOString(),
   });
 });
@@ -176,7 +207,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
   try {
     await conn.beginTransaction();
     const [companyRows] = await conn.query(
-      `SELECT plan, modules, valid_until, max_devices,
+      `SELECT plan, modules, valid_until, max_devices, recovery_secret,
               name, legal_name, document, state_registration, email, phone,
               zip, street, number, complement, district, city, state
        FROM companies WHERE company_uuid = ? FOR UPDATE`,
@@ -230,12 +261,18 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
       (settingsRows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
     );
 
+    // Desce em TODA validação (não só na ativação) de propósito: o resgate de senha tem
+    // que funcionar offline, então o segredo precisa já estar no cofre da máquina quando a
+    // senha for perdida. Instalação antiga o recebe na próxima revalidação periódica.
+    const recoverySecret = await ensureRecoverySecret(req.companyUuid!, company.recovery_secret);
+
     res.json({
       plan: company.plan,
       modules,
       validUntil: company.valid_until,
       supportPhone: settingsMap.support_phone ?? null,
       supportEmail: settingsMap.support_email ?? null,
+      recoverySecret,
       // Perfil da empresa cadastrado no painel — o Kivo local usa para preencher as
       // configurações (nome/documento/endereço do cupom) na ativação, só se vazias.
       company: {

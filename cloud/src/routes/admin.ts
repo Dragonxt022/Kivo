@@ -6,6 +6,7 @@ import { getPool } from '../db';
 import { hashLicenseKey } from '../auth';
 import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
+import { expectedResponse } from '../recoveryCodes';
 import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } from './catalog';
 import {
   hasAnyAdmin,
@@ -493,6 +494,41 @@ router.post('/companies/:uuid/rotate-key', requireAdminAuth, async (req, res) =>
     return;
   }
   res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
+});
+
+/**
+ * Resposta do resgate de senha, para o atendente ditar ao telefone.
+ *
+ * O que sai daqui é a resposta de UM desafio — nunca o `recovery_secret` da empresa.
+ * Quem tiver o segredo destrava qualquer máquina dela para sempre; quem tem uma resposta
+ * destrava um usuário, uma vez, nos próximos 30 minutos.
+ *
+ * Sem validar o formato do desafio de propósito: o HMAC normaliza a entrada (ver
+ * `recoveryCodes.normalize`), e recusar aqui só transformaria um erro de transcrição do
+ * atendente numa mensagem genérica em vez de num código que o cliente diz não funcionar —
+ * a diferença é que a segunda o cliente reporta na hora e a primeira ele não entende.
+ */
+router.post('/companies/:uuid/recovery-code', requireAdminAuth, async (req: AdminRequest, res) => {
+  const uuid = String(req.params.uuid);
+  const challenge = String(req.body?.challenge ?? '').trim();
+  const detail = await loadCompanyDetail(uuid);
+  if (!detail) {
+    res.status(404).send('Empresa não encontrada.');
+    return;
+  }
+  const secret = (detail.company as { recovery_secret?: string | null }).recovery_secret;
+  const recoveryCode = secret && challenge ? expectedResponse(secret, challenge) : null;
+  if (recoveryCode) {
+    console.log(`[admin] resgate de senha gerado para ${uuid} por ${req.adminUsername ?? '?'} (desafio ${challenge})`);
+  }
+  res.render('company-detail', {
+    ...detail,
+    revealedLicenseKey: null,
+    recoveryChallenge: challenge,
+    recoveryCode,
+    planTiers: PLAN_TIERS,
+    planLabels: PLAN_LABELS,
+  });
 });
 
 // --- Cobrança manual (sem gateway — só registro e baixa manual) ---

@@ -51,8 +51,12 @@
       list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
     }
     // Anúncio de produto (ver partials/novidade.ejs). Diferente dos demais itens, não vem de
-    // nenhuma API: é conteúdo fixo desta versão, e o id versionado faz o "dispensar" valer só
-    // para este anúncio. O link reabre a modal ignorando o "já vi".
+    // nenhuma API: é conteúdo fixo desta versão, e o id versionado faz o 'dispensar' valer só
+    // para este anúncio. O link reabre a modal ignorando o 'já vi'.
+    // (Aspas SIMPLES nos comentários deste bloco: tudo aqui vive dentro do valor do
+    //  atributo x-data, e uma aspa DUPLA fecha o atributo no meio — o navegador segue
+    //  lendo lixo até o próximo '>', que é o de uma arrow function, e o resto do nav
+    //  aparece como texto cru na tela. Ver o teste em src/tests/recuperacao-senha.ts.)
     list.push({
       id: 'novidade-web-v1', type: 'novidade',
       message: 'Kivo Web: acompanhe a loja e faça orçamento pelo celular',
@@ -115,7 +119,7 @@
     <% } %>
     // Podar só depois de todos os fetches resolverem: com dados parciais, a poda
     // apagaria ids de notificações cuja API ainda não respondeu (ex.: contas a pagar),
-    // e ler/dispensar "voltava" após um reload.
+    // e ler/dispensar 'voltava' após um reload.
     Promise.all(jobs).then(() => this.pruneNotifState());
     <% } %>
   },

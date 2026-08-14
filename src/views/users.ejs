@@ -8,11 +8,48 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .solo-admin-warn {
+      display: flex; align-items: flex-start; gap: .7rem;
+      border: 1.5px solid var(--warning); border-radius: 12px;
+      background: var(--warning-soft); padding: .8rem .9rem;
+      margin: 0 0 1rem; font-size: .86rem; line-height: 1.45;
+    }
+    .solo-admin-warn > svg { color: var(--warning); flex: none; margin-top: .1rem; }
+    .solo-admin-warn > div { flex: 1; }
+    .solo-admin-warn strong { display: block; margin-bottom: .15rem; }
+    .solo-admin-warn .btn { flex: none; align-self: center; }
+    .solo-admin-close {
+      background: none; border: 0; color: var(--text-muted); cursor: pointer;
+      flex: none; padding: .15rem; line-height: 0;
+    }
+    .solo-admin-close:hover { color: var(--text); }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'users' }) %>
   <main x-data="usersPage()" x-init="load()">
     <h1>Usuários</h1>
+
+    <%# Um administrador só é o cenário em que perder a senha tranca a loja para fora do
+        próprio sistema — o resgate pelo suporte existe justamente por causa dele, mas é
+        uma ligação a menos se houver um segundo acesso. Dispensável (fica no
+        localStorage) para não virar barulho em quem trabalha sozinho de propósito. %>
+    <% if (user.permissions.has('users.create')) { %>
+    <div class="solo-admin-warn" x-show="resetters !== null && resetters <= 1 && !soloDismissed" x-cloak>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <strong>Só existe um acesso capaz de redefinir senhas.</strong>
+        Se essa senha for perdida, ninguém aqui dentro consegue destravar — só o suporte,
+        por telefone. Crie um segundo administrador de confiança e isso deixa de ser risco.
+      </div>
+      <button type="button" class="btn secondary small" @click="openNew()">Criar agora</button>
+      <button type="button" class="solo-admin-close" @click="dismissSolo()" title="Dispensar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <% } %>
+
     <div class="toolbar">
       <% if (user.permissions.has('users.create')) { %>
         <button class="btn" @click="openNew()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> Novo usuário</button>
@@ -198,6 +235,10 @@
         ...tableToolkit(),
         users: [], roles: ['administrador','gerente','operador','caixa','entregador','estoquista'],
         form: {}, q: '', error: '', dlgError: '',
+        // Quantas pessoas conseguem redefinir a senha de outra (permissão users.edit).
+        // `null` enquanto não carregou, para o aviso não piscar em toda abertura da tela.
+        resetters: null,
+        soloDismissed: localStorage.getItem('kivo-solo-admin-ok') === '1',
         remote: { user: null, available: false, plan: null, existing: null, url: '', qr: '', error: '', saving: false, copied: false },
         sortGetters: {
           name: (u) => u.name, username: (u) => u.username, role: (u) => u.role ?? '',
@@ -217,6 +258,21 @@
           if (r.ok) { this.users = await r.json(); this.pruneSelection(this.users); } else showToast((await r.json()).error, 'error');
           const roles = await fetch('/api/users/roles');
           if (roles.ok) this.roles = (await roles.json()).map((x) => x.slug);
+          // Quem pode redefinir senha é decidido por permissão, não pelo nome do cargo —
+          // um cargo personalizado pode ter `users.edit` sem se chamar "administrador".
+          // Por isso vem do servidor em vez de ser contado aqui pela lista de cargos.
+          try {
+            const st = await fetch('/api/recovery/status');
+            if (st.ok) {
+              const body = await st.json();
+              // Envelope { success, data } — ver shared/responseEnvelope.ts.
+              this.resetters = (body && body.data ? body.data : body).administradores;
+            }
+          } catch (e) { /* aviso é melhoria, não pode derrubar a tela */ }
+        },
+        dismissSolo() {
+          this.soloDismissed = true;
+          localStorage.setItem('kivo-solo-admin-ok', '1');
         },
         // ─── Acesso pelo celular (Kivo Web) ───
         async openRemote(u) {

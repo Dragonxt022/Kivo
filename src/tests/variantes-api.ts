@@ -117,6 +117,41 @@ async function main(): Promise<void> {
     const pesada = await unwrap<{ id: number }>(await post(`/api/commercial/attributes/${attr.id}/values`, { value: 'Média Alta' }));
     check('dois valores cadastrados', !!leve.id && !!pesada.id);
 
+    // ── 4b. Editar o valor de um atributo ───────────────────────────────────────────
+    // O patch do UPDATE era montado com `value` E `sort_order` sempre, virando null o que a
+    // tela não mandava — e `sort_order` é NOT NULL. Resultado: renomear um valor devolvia
+    // 500 em 100% das vezes, e a única saída do lojista era excluir e cadastrar de novo.
+    const editar = await api(`/api/commercial/attributes/${attr.id}/values/${leve.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: 'Leve Plus' }),
+    });
+    check('renomear valor de atributo responde 200', editar.status === 200, String(editar.status));
+    const depois = db.prepare('SELECT value, sort_order FROM product_attribute_values WHERE id = ?').get(leve.id) as
+      { value: string; sort_order: number | null };
+    check('valor renomeado no banco', depois.value === 'Leve Plus', String(depois.value));
+    check('sort_order NÃO foi zerado pelo rename', depois.sort_order === 0, String(depois.sort_order));
+
+    const vazio = await api(`/api/commercial/attributes/${attr.id}/values/${leve.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: '   ' }),
+    });
+    check('renomear para vazio é recusado', vazio.status === 400, String(vazio.status));
+
+    const soOrdem = await api(`/api/commercial/attributes/${attr.id}/values/${leve.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ sortOrder: 5 }),
+    });
+    const ordenado = db.prepare('SELECT value, sort_order FROM product_attribute_values WHERE id = ?').get(leve.id) as
+      { value: string; sort_order: number };
+    check('mandar só sortOrder responde 200', soOrdem.status === 200, String(soOrdem.status));
+    check('mandar só sortOrder NÃO apaga o value', ordenado.value === 'Leve Plus', String(ordenado.value));
+    check('sortOrder gravado', ordenado.sort_order === 5, String(ordenado.sort_order));
+
+    // Volta o nome, para as checagens de SKU abaixo continuarem valendo.
+    await api(`/api/commercial/attributes/${attr.id}/values/${leve.id}`, {
+      method: 'PUT', body: JSON.stringify({ value: 'Leve', sortOrder: 0 }),
+    });
+
     const genRes = await post(`/api/commercial/products/${pai.id}/attributes/generate-variants`, {
       attributeValueIds: [leve.id, pesada.id],
     });

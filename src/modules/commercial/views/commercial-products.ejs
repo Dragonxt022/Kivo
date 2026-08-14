@@ -490,7 +490,13 @@
                       <td x-text="v.name" style="white-space:nowrap"></td>
                       <td class="muted text-xs" x-text="variantAttrsLabel(v)"></td>
                       <td><input type="text" x-model="v.sku" class="inline-edit" @change="updateVariantField(v, 'sku')" style="width:70px" /></td>
-                      <td><input type="text" x-model="v.priceDisplay" class="inline-edit" @change="updateVariantPrice(v)" style="width:60px" /></td>
+                      <%# Único campo de dinheiro do sistema que estava sem `maskMoney`: aqui
+                          "1250" ficava valendo mil duzentos e cinquenta reais em vez de
+                          R$ 12,50, ao contrário de todo o resto do Kivo (preço do produto,
+                          caixa, compras) onde os dígitos entram como centavos. %>
+                      <td><input type="text" inputmode="numeric" x-model="v.priceDisplay" class="inline-edit"
+                                 @input="v.priceDisplay = maskMoney(v.priceDisplay)"
+                                 @change="updateVariantPrice(v)" style="width:76px" /></td>
                       <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock" /></td>
                       <td @click.stop>
                         <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
@@ -1100,13 +1106,29 @@
                   <template x-if="attrValEditId !== val.id">
                     <span x-text="val.value"></span>
                   </template>
+                  <%# Mesmo tratamento do campo de ADICIONAR valor: grava no Enter, no ✓ e ao
+                      sair do campo, e recebe o foco sozinho. Antes só o Enter gravava e o
+                      cursor nem entrava no campo — quem clicava no lápis, digitava e clicava
+                      fora perdia a edição em silêncio. %>
                   <template x-if="attrValEditId === val.id">
-                    <input type="text" x-model="attrValEditName" style="width:60px" @keydown.enter="renameAttrValue(attr.id, val.id)" @keydown.escape="attrValEditId = null" />
+                    <span style="display:inline-flex;align-items:center;gap:.25rem">
+                      <input type="text" class="attr-val-edit-input" style="width:70px;font-size:.85rem"
+                             x-model="attrValEditName" x-init="$nextTick(() => { $el.focus(); $el.select(); })"
+                             @keydown.enter.prevent="renameAttrValue(attr.id, val.id)"
+                             @keydown.escape="attrValEditId = null"
+                             @blur="renameAttrValue(attr.id, val.id)" />
+                      <button class="icon-btn" style="width:16px;height:16px" title="Salvar"
+                              @mousedown.prevent @click="renameAttrValue(attr.id, val.id)">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </button>
+                    </span>
                   </template>
-                  <button class="icon-btn" style="width:16px;height:16px" @click="attrValEditId = val.id; attrValEditName = val.value" title="Renomear">
+                  <button class="icon-btn" style="width:16px;height:16px" x-show="attrValEditId !== val.id"
+                          @click="attrValEditId = val.id; attrValEditName = val.value" title="Renomear">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                   </button>
-                  <button class="icon-btn" style="width:16px;height:16px" @click="deleteAttrValue(attr.id, val)" title="Excluir">
+                  <button class="icon-btn" style="width:16px;height:16px" x-show="attrValEditId !== val.id"
+                          @click="deleteAttrValue(attr.id, val)" title="Excluir">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                   </button>
                 </span>
@@ -2058,26 +2080,44 @@
             return '';
           }
         },
+        /**
+         * A grade de variantes salva campo a campo, sem botão de confirmar — então a falha
+         * precisa aparecer. Antes as três funções abaixo ignoravam a resposta: SKU repetido
+         * (que o servidor recusa por UNIQUE) deixava o valor novo na tela como se tivesse
+         * gravado, e só ao reabrir o produto o lojista descobria que nada foi salvo.
+         */
+        async saveVariant(url, options, msgPadrao) {
+          const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+          if (r.ok) {
+            this.dlgError = '';
+            return true;
+          }
+          const erro = ((await r.json().catch(() => ({}))) || {}).error ?? msgPadrao;
+          this.dlgError = erro;
+          showToast(erro, 'error');
+          return false;
+        },
         async updateVariantField(v, field) {
           const body = { [field]: v[field] || null };
-          await fetch(`/api/commercial/products/${v.id}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-          });
+          if (!await this.saveVariant(`/api/commercial/products/${v.id}`,
+              { method: 'PUT', body: JSON.stringify(body) },
+              'Não foi possível salvar a variante.')) {
+            // Recarrega para a tela voltar a mostrar o que o banco realmente tem.
+            await this.loadVariants(this.form.id);
+          }
         },
         async updateVariantPrice(v) {
           const cents = this.toCents(v.priceDisplay);
           if (cents == null) return;
-          await fetch(`/api/commercial/products/${v.id}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ priceCents: cents }),
-          });
+          await this.saveVariant(`/api/commercial/products/${v.id}`,
+            { method: 'PUT', body: JSON.stringify({ priceCents: cents }) },
+            'Não foi possível salvar o preço.');
         },
         async updateVariantStock(v) {
           if (v.stock_qty == null) return;
-          await fetch('/api/commercial/stock/move', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ productId: v.id, type: 'ajuste', qty: Number(v.stock_qty), reason: 'Ajuste inline de variante' }),
-          });
+          await this.saveVariant('/api/commercial/stock/move',
+            { method: 'POST', body: JSON.stringify({ productId: v.id, type: 'ajuste', qty: Number(v.stock_qty), reason: 'Ajuste inline de variante' }) },
+            'Não foi possível ajustar o estoque.');
         },
         async deleteVariant(v) {
           if (!await window.confirmDlg(`Excluir variante "${v.name}"?`)) return;
@@ -2112,10 +2152,17 @@
           } else this.kitDlgError = (await r.json()).error;
         },
         async updateKitComponent(c) {
-          await fetch(`/api/commercial/kit-items/${c.id}`, {
+          const r = await fetch(`/api/commercial/kit-items/${c.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ qty: Number(c.qty) }),
           });
+          // Sem esta checagem a falha era invisível: o número ficava na tela como se tivesse
+          // sido salvo e só voltava ao valor antigo quando a pessoa reabrisse o diálogo.
+          if (!r.ok) {
+            this.kitDlgError = ((await r.json().catch(() => ({}))) || {}).error ?? 'Não foi possível salvar a quantidade.';
+            return;
+          }
+          this.kitDlgError = '';
           await this.applyKitAutoTotal();
         },
         async deleteKitComponent(c) {
@@ -2281,10 +2328,17 @@
           } else this.recipeDlgError = (await r.json()).error;
         },
         async updateRecipeInput(r) {
-          await fetch(`/api/commercial/recipe-items/${r.id}`, {
+          const resp = await fetch(`/api/commercial/recipe-items/${r.id}`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ qty: Number(r.qty) }),
           });
+          // Mesmo caso do kit: falha calada fazia o custo da ficha técnica mostrar um número
+          // que o banco não tinha.
+          if (!resp.ok) {
+            this.recipeDlgError = ((await resp.json().catch(() => ({}))) || {}).error ?? 'Não foi possível salvar a quantidade.';
+            return;
+          }
+          this.recipeDlgError = '';
           // Recalcular custo total da linha
           r.total_cost_cents = Math.round(Number(r.qty) * (r.cost_cents ?? 0));
         },
@@ -2371,14 +2425,29 @@
             this.savingAttrVal = false;
           }
         },
+        // `savingAttrVal` é o mesmo freio do addAttrValue: Enter e blur disparam juntos
+        // (o Enter grava e tira o foco), e sem isso saíam dois PUT para o mesmo valor.
         async renameAttrValue(attrId, valId) {
-          if (!this.attrValEditName.trim()) return;
-          const r = await fetch(`/api/commercial/attributes/${attrId}/values/${valId}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: this.attrValEditName.trim() }),
-          });
-          if (r.ok) { this.attrValEditId = null; await this.loadAttributes(); }
-          else this.attrDlgError = (await r.json()).error;
+          if (this.attrValEditId !== valId) return;
+          const novo = this.attrValEditName.trim();
+          if (!novo) { this.attrValEditId = null; return; }
+          if (this.savingAttrVal) return;
+          this.savingAttrVal = true;
+          try {
+            const r = await fetch(`/api/commercial/attributes/${attrId}/values/${valId}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value: novo }),
+            });
+            if (r.ok) {
+              this.attrValEditId = null;
+              this.attrDlgError = '';
+              await this.loadAttributes();
+            } else {
+              this.attrDlgError = ((await r.json().catch(() => ({}))) || {}).error ?? 'Não foi possível renomear o valor.';
+            }
+          } finally {
+            this.savingAttrVal = false;
+          }
         },
         async deleteAttrValue(attrId, val) {
           if (!await window.confirmDlg(`Excluir valor "${val.value}"?`)) return;

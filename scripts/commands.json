@@ -95,6 +95,10 @@
     "description": "Testes: variantes pelo fluxo de rotas (capability, atributos, geração, PDV)",
     "run": "node scripts/test-isolated.js src/tests/variantes-api.ts"
   },
+  "test:recuperacao-senha": {
+    "description": "Testes: resgate de senha por código do suporte (desafio, resposta, auditoria)",
+    "run": "node scripts/test-isolated.js src/tests/recuperacao-senha.ts"
+  },
   "test:onboarding": {
     "description": "Testes: cargos prontos, cadastros padrao e recursos do assistente",
     "run": "node scripts/test-isolated.js src/tests/onboarding-permissoes.ts"

@@ -5,6 +5,12 @@ import { machineIdSync } from 'node-machine-id';
 import { getSqlite } from '../database/connection';
 import { getCloudServerUrl } from '../config/cloud';
 import { settingsRepository } from '../repositories/SettingsRepository';
+// ⚠ Ciclo consciente: `core/secrets` importa `machineId` daqui para derivar a chave do
+// fallback de cifragem. Funciona porque nenhum dos dois lados usa o outro em tempo de
+// CARGA — só dentro de funções, e aí os dois módulos já terminaram de inicializar. Se
+// algum dia alguém precisar de `getSecret` no corpo deste arquivo (fora de função), o
+// ciclo passa a devolver `undefined` e é preciso quebrá-lo de verdade.
+import { getSecret, setSecret } from '../secrets/service';
 
 /**
  * Licenciamento (KIVO_PLANO.md §7): Machine ID + Empresa UUID + License Key.
@@ -240,8 +246,35 @@ interface CloudValidateResponse {
   validUntil: string | null;
   supportPhone: string | null;
   supportEmail: string | null;
+  /** Segredo do resgate de senha desta empresa — ver `storeRecoverySecret`. */
+  recoverySecret?: string | null;
   company?: CloudCompanyProfile | null;
   serverTime?: string;
+}
+
+/**
+ * Chave do segredo de resgate no cofre local (`core/secrets`), e não numa coluna da
+ * tabela `license`: o backup copia o SQLite inteiro e o envia para a nuvem, e o motor de
+ * sync espelha tabelas. Um segredo que destrava a troca de senha desta instalação não
+ * pode viajar em nenhum dos dois — o cofre é justamente o lugar fora dos dois caminhos.
+ */
+export const RECOVERY_SECRET_KEY = 'recovery.secret';
+
+/**
+ * Guarda o segredo que a nuvem mandou, se mandou. Idempotente e silencioso de propósito:
+ * roda em toda revalidação, e uma nuvem antiga (sem o campo) apenas não muda nada em vez
+ * de apagar o segredo que a instalação já tinha.
+ */
+function storeRecoverySecret(secret: string | null | undefined): void {
+  if (!secret) return;
+  try {
+    if (getSecret(RECOVERY_SECRET_KEY) === secret) return;
+    setSecret(RECOVERY_SECRET_KEY, secret);
+  } catch (e) {
+    // Cofre indisponível (permissão de escrita, safeStorage fora do ar) não pode derrubar
+    // a validação da licença — sem o segredo o resgate fica indisponível, só isso.
+    console.error('[license] não foi possível guardar o segredo de resgate:', e);
+  }
 }
 
 /**
@@ -327,9 +360,10 @@ export async function requestTrial(): Promise<TrialResult> {
 
   const body = (await res.json()) as {
     companyUuid: string; licenseKey: string; plan: string; validUntil: string;
-    supportPhone?: string; supportEmail?: string; serverTime?: string;
+    supportPhone?: string; supportEmail?: string; recoverySecret?: string; serverTime?: string;
   };
 
+  storeRecoverySecret(body.recoverySecret);
   ensureLicenseRow();
   getSqlite()
     .prepare(
@@ -434,6 +468,7 @@ export async function activateLicense(companyUuid: string | null, licenseKey: st
   const row = getRow()!;
   bumpWatermark(row, body.serverTime ? new Date(body.serverTime).getTime() : Date.now());
   applyCompanyProfile(body.company);
+  storeRecoverySecret(body.recoverySecret);
   return { ok: true, info: validateLicense() };
 }
 
@@ -489,6 +524,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
     const row = getRow()!;
     bumpWatermark(row, body.serverTime ? new Date(body.serverTime).getTime() : Date.now());
     applyCompanyProfile(body.company);
+    storeRecoverySecret(body.recoverySecret);
   } catch {
     // offline ou cloud fora do ar: mantém o cache local, não interrompe o sync.
   }

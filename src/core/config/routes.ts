@@ -7,6 +7,7 @@ import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
 import { getCloudServerUrl } from './cloud';
 import { getMachinePrefs, setMachinePrefs } from './machinePrefs';
+import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './companyLogo';
 import { getLicenseCredentials } from '../license/service';
 
 const router = Router();
@@ -78,6 +79,50 @@ router.put('/machine-prefs', requirePermission('settings.edit'), (req, res) => {
   req.app.locals.modoLeve = after.modoLeve;
   audit(req, 'editar', 'machine-prefs', 'modoLeve', before, after);
   res.json(after);
+});
+
+/**
+ * Logo da empresa. Rota própria em vez de mandar a imagem pelo `PUT /:key` genérico
+ * porque aqui há validação de formato, gravação de arquivo e limpeza da logo anterior —
+ * nada disso cabe num setter de string. Precisa vir ANTES do `PUT /:key`, que é curinga.
+ */
+router.put('/company-logo', requirePermission('settings.edit'), (req, res) => {
+  const { imageBase64 } = req.body ?? {};
+  if (!imageBase64) {
+    res.status(400).json({ error: 'Envie a imagem em imageBase64.' });
+    return;
+  }
+  const saved = saveCompanyLogo(String(imageBase64));
+  if (!saved.ok) {
+    res.status(400).json({ error: saved.error });
+    return;
+  }
+  const db = getSqlite();
+  const before = db.prepare('SELECT key, value FROM settings WHERE key = ?').get(LOGO_SETTING_KEY) as
+    | { key: string; value: string | null }
+    | undefined;
+  db.prepare(
+    `INSERT INTO settings (key, value, uuid) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now'), deleted_at = NULL`,
+  ).run(LOGO_SETTING_KEY, saved.url, randomUUID());
+  // Só depois de a nova estar gravada: se a escrita acima falhasse, apagar antes deixaria
+  // a loja sem logo nenhuma.
+  deleteCompanyLogoFile(before?.value);
+  req.app.locals.empresaLogoUrl = saved.url;
+  audit(req, 'editar', 'setting', LOGO_SETTING_KEY, before ?? null, { key: LOGO_SETTING_KEY, value: saved.url });
+  res.json({ url: saved.url });
+});
+
+router.delete('/company-logo', requirePermission('settings.edit'), (req, res) => {
+  const db = getSqlite();
+  const before = db.prepare('SELECT key, value FROM settings WHERE key = ?').get(LOGO_SETTING_KEY) as
+    | { key: string; value: string | null }
+    | undefined;
+  db.prepare(`UPDATE settings SET value = NULL, updated_at = datetime('now') WHERE key = ?`).run(LOGO_SETTING_KEY);
+  deleteCompanyLogoFile(before?.value);
+  req.app.locals.empresaLogoUrl = null;
+  audit(req, 'excluir', 'setting', LOGO_SETTING_KEY, before ?? null, null);
+  res.json({ ok: true });
 });
 
 router.put('/:key', requirePermission('settings.edit'), (req, res) => {

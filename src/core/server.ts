@@ -30,6 +30,8 @@ import { startEventChannel } from './sync/events';
 import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
 import supportRoutes from './support/routes';
+import recoveryRoutes from './recovery/routes';
+import { purgeOldChallenges } from './recovery/service';
 
 /** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina/relógio
  * só se autocura se o usuário reiniciar o app ou clicar em "Sincronizar agora". */
@@ -37,6 +39,11 @@ function startLicenseRevalidationScheduler(): NodeJS.Timeout {
   const check = () => {
     refreshLicenseFromCloud().catch((e) => console.error('[license] falha na revalidação:', e));
   };
+  // Uma passada logo depois do boot, além do ciclo de 4h. É por ela que o segredo do
+  // resgate de senha chega em instalação já existente (e em plano que não sincroniza, como
+  // o prata) — esperar as 4h significaria uma janela em que "esqueci minha senha" não
+  // funciona. 20s para não disputar rede com o boot; `unref` para não segurar o processo.
+  setTimeout(check, 20_000).unref?.();
   const timer = setInterval(check, 4 * 3600e3); // a cada 4h
   timer.unref();
   return timer;
@@ -133,6 +140,7 @@ export async function createServer(): Promise<KivoServer> {
   app.use(express.static(path.resolve(__dirname, '..', 'public')));
   app.use('/uploads/products', express.static(productImagesDir()));
   app.use('/uploads/categories', express.static(categoryImagesDir()));
+  app.use('/uploads/company', express.static(companyLogoDir()));
 
   // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
   app.use(responseEnvelope);
@@ -150,6 +158,9 @@ export async function createServer(): Promise<KivoServer> {
 
   // Rotas públicas
   app.use('/api/auth', authRoutes);
+  // Resgate de senha: pública pelo mesmo motivo do primeiro acesso — quem esqueceu a senha
+  // não tem sessão para autenticar. A guarda é o código que só o suporte gera.
+  app.use('/api/recovery', recoveryRoutes);
   app.get('/login', (_req, res) => {
     res.redirect('/?login=1');
   });
@@ -213,6 +224,12 @@ export async function createServer(): Promise<KivoServer> {
   startEventChannel();
   // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
   trySubmitPending().catch((e) => console.error('[submit] erro ao enviar fotos pendentes:', e));
+  // Desafios de resgate vencidos não servem para nada depois; limpa no boot.
+  try {
+    purgeOldChallenges();
+  } catch (e) {
+    console.error('[recovery] falha ao limpar desafios antigos:', e);
+  }
 
   // Error handler global (deve ser o ÚLTIMO middleware)
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
