@@ -70,9 +70,25 @@ async function connectOnce(): Promise<void> {
   throw new Error('conexão encerrada pelo servidor');
 }
 
+/**
+ * Espera entre reavaliações de plano. Curta porque a checagem é uma leitura do SQLite local
+ * — nada de rede —, e assim ativar a licença já liga o canal em segundos, sem reiniciar.
+ */
+const SEM_PLANO_MS = 15_000;
+
 async function loop(): Promise<void> {
   while (!stopped) {
+    // O plano é reavaliado a CADA volta, não uma vez no boot: o app pode subir antes de a
+    // licença ser ativada (primeira instalação) ou a empresa pode migrar para o Diamante
+    // com o Kivo aberto. Checar só na largada deixaria o canal desligado até alguém
+    // reiniciar o programa — e o sintoma seria "o orçamento do celular não chega".
+    if (!canUseWebApp(validateLicense().plan)) {
+      await new Promise((r) => setTimeout(r, SEM_PLANO_MS).unref?.());
+      continue;
+    }
     try {
+      // Toda vez que (re)conecta, drena o que entrou enquanto o canal esteve fora.
+      void drainCommands();
       await connectOnce();
     } catch (e) {
       if (stopped) return;
@@ -84,13 +100,10 @@ async function loop(): Promise<void> {
   }
 }
 
-/** Chamado no boot, depois dos demais agendadores. Silencioso fora do plano Diamante. */
+/** Chamado no boot, depois dos demais agendadores. Fica ocioso fora do plano Diamante. */
 export function startEventChannel(): void {
-  if (!canUseWebApp(validateLicense().plan)) return;
   stopped = false;
   void loop();
-  // Ao ligar, drena o que ficou pendente enquanto o app estava fechado.
-  void drainCommands();
 }
 
 export function stopEventChannel(): void {
