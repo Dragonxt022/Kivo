@@ -185,13 +185,16 @@
 /* ─── Grade de módulos ─── */
 .mod-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  /* min() evita que a coluna fique maior que a tela em celular estreito. */
+  grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
   gap: 1.25rem;
   margin-top: 2.5rem;
 }
 .mod-card {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: 16px;
@@ -240,6 +243,7 @@
   font-size: 0.86rem;
   color: var(--muted);
   display: flex;
+  justify-content: center;
   gap: 0.45rem;
 }
 .mod-card li svg {
@@ -260,7 +264,7 @@
 /* ─── Faixa de números ─── */
 .stat-band {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   gap: 1rem;
   margin-top: 2.5rem;
 }
@@ -287,7 +291,7 @@
 /* ─── Blocos de detalhe (páginas de módulo) ─── */
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 1.6rem 2rem;
   margin-top: 2.5rem;
 }
@@ -359,6 +363,18 @@ table.cmp thead th {
 table.cmp thead th.hi {
   color: var(--primary);
 }
+.cmp-price {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text);
+}
+table.cmp thead th.hi .cmp-price {
+  color: var(--primary);
+}
 table.cmp td.c,
 table.cmp th.c {
   text-align: center;
@@ -385,7 +401,7 @@ table.cmp tr.grp td {
 /* ─── Passo a passo ─── */
 .steps {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
   gap: 1.75rem;
   margin-top: 2.5rem;
   counter-reset: step;
@@ -464,8 +480,17 @@ table.cmp tr.grp td {
   }
 }
 @media (max-width: 460px) {
+  /* Empilhado numa coluna só, o mapa do site fica melhor centralizado. */
   .foot-grid {
     grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .foot-brand {
+    justify-content: center;
+  }
+  .foot-tag {
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 .foot-grid h4 {
