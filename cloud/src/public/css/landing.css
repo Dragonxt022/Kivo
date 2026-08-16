@@ -207,10 +207,11 @@ img {
   text-align: center;
 }
 .hero h1 {
-  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-size: clamp(1.75rem, 6vw, 3.4rem);
   line-height: 1.15;
   margin: 0 0 1rem;
   letter-spacing: -0.02em;
+  overflow-wrap: break-word;
 }
 .hero h1 em {
   color: var(--primary);
@@ -465,8 +466,9 @@ h2 {
 
 /* ─── Grid de destaques ─── */
 .grid {
+  /* min() evita que a coluna fique maior que a tela em celular estreito. */
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 1.25rem;
   margin-top: 2rem;
 }
@@ -476,6 +478,7 @@ h2 {
   border-radius: var(--radius);
   padding: 1.5rem;
   box-shadow: var(--shadow);
+  text-align: center;
 }
 .card .ico {
   width: 44px;
@@ -486,7 +489,7 @@ h2 {
   align-items: center;
   justify-content: center;
   color: var(--primary);
-  margin-bottom: 0.9rem;
+  margin: 0 auto 0.9rem;
 }
 .card h3 {
   margin: 0 0 0.4rem;
@@ -501,7 +504,7 @@ h2 {
 /* ─── Planos ─── */
 .plans {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
   gap: 1.25rem;
   margin-top: 2rem;
 }
@@ -535,11 +538,39 @@ h2 {
 .plan h3 {
   margin: 0 0 0.25rem;
   font-size: 1.2rem;
+  text-align: center;
 }
 .plan .tag {
   color: var(--muted);
   font-size: 0.85rem;
   margin-bottom: 1rem;
+  text-align: center;
+}
+/* Preço: "R$ 150" grande com o /mês menor ao lado, alinhado pela base. */
+.plan .price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0.35rem 0 0.3rem;
+}
+.plan .price .cur {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.plan .price .per {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.plan .price.free {
+  color: var(--primary);
 }
 .plan ul {
   list-style: none;
@@ -697,7 +728,8 @@ footer {
   flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  text-align: center;
   border-top: 1px solid var(--border-light);
   padding-top: 1.75rem;
 }
@@ -711,4 +743,54 @@ footer {
   color: var(--muted);
   max-width: 44rem;
   margin: 0 auto;
+}
+
+/* ═══ Ajustes de tela pequena ═══
+   Abaixo de 560px o texto grande e os botões largos estouravam a
+   largura da tela; aqui tudo encolhe e passa a ocupar uma coluna só. */
+@media (max-width: 560px) {
+  .wrap {
+    padding: 0 1rem;
+  }
+  section {
+    padding: 2.5rem 0;
+  }
+  .hero {
+    padding: 2.75rem 0 1.5rem;
+  }
+  /* As quebras manuais dos títulos viram quebra natural no celular. */
+  .hero h1 br,
+  .page-head h1 br {
+    display: none;
+  }
+  .hero p.sub {
+    margin-bottom: 1.5rem;
+  }
+  .hero-ctas {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-ctas .btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+  .btn.big {
+    padding: 0.85rem 1.1rem;
+    font-size: 1rem;
+  }
+  .chips {
+    margin: 1.5rem 0 2rem;
+  }
+  .cta-final {
+    padding: 2.25rem 1.1rem;
+    border-radius: 16px;
+  }
+  .card,
+  .plan {
+    padding: 1.35rem 1.15rem;
+  }
+  .faq details {
+    padding: 0.9rem 1rem;
+  }
 }
