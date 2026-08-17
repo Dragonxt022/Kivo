@@ -143,6 +143,16 @@ export interface BillPayload {
   due_date: string;
   status: string;
   paid_cents?: number;
+  /**
+   * UUID do cliente, não o id local: o motor de sync converte toda coluna declarada em
+   * `foreignKeys` (ver `receivables` no manifesto do finance) para o uuid do alvo antes de
+   * enviar. É o que permite ligar conta a receber e cliente aqui na nuvem.
+   *
+   * Opcional porque conta avulsa (sem cliente) existe e chega com null.
+   */
+  customer_id?: string | null;
+  notes?: string | null;
+  received_cents?: number;
 }
 
 export interface CashRegisterPayload {
@@ -178,4 +188,9 @@ export interface CustomerPayload {
   document: string | null;
   phone: string | null;
   active?: number;
+  email?: string | null;
+  address?: string | null;
+  /** Crédito de troca e pontos — o que o cliente tem A FAVOR, ao lado do que ele deve. */
+  store_credit_cents?: number;
+  loyalty_points?: number;
 }

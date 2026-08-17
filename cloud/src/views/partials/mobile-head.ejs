@@ -23,6 +23,14 @@
 <%# `bodyClass` deixa a tela pedir espaço extra embaixo quando tem barra de ação fixa. %>
 <body class="m-body <%= typeof bodyClass !== 'undefined' ? bodyClass : '' %>">
   <header class="m-header">
+    <%# Voltar. Nasce escondido e é revelado pelo script no fim deste arquivo só fora da
+        tela inicial — assim não pisca antes de o JS decidir. Sem ele, a única saída de uma
+        tela interna era a barra de baixo (que algumas telas escondem) ou o gesto do
+        navegador, que boa parte dos lojistas não usa. %>
+    <button type="button" class="m-header-back" id="m-voltar" hidden
+            onclick="mVoltar()" aria-label="Voltar para a tela anterior">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+    </button>
     <div class="m-header-text">
       <span class="m-header-company"><%= grant.companyName || 'Minha loja' %></span>
       <h1 class="m-header-title"><%= titulo %></h1>
@@ -45,5 +53,31 @@
   <% } else { %>
     <p class="m-stale">Atualizado há <%= fresh.minutesAgo %> min</p>
   <% } %>
+
+  <script>
+    // Profundidade da navegação gravada na própria entrada do histórico. Serve para o
+    // Voltar saber se existe tela ANTERIOR DENTRO do Kivo Web: quem abriu o app pelo link
+    // do WhatsApp já cai numa tela interna, e um history.back() cru o mandaria de volta
+    // para a conversa, para fora do app. Profundidade 1 = primeira tela desta aba.
+    (function () {
+      var st = history.state || {};
+      if (st.mDepth == null) {
+        var anterior = 0;
+        try { anterior = Number(sessionStorage.getItem('kivo-m-depth') || 0); } catch (e) {}
+        st.mDepth = anterior + 1;
+        history.replaceState(st, '');
+        try { sessionStorage.setItem('kivo-m-depth', String(st.mDepth)); } catch (e) {}
+      } else {
+        try { sessionStorage.setItem('kivo-m-depth', String(st.mDepth)); } catch (e) {}
+      }
+      var b = document.getElementById('m-voltar');
+      if (b && location.pathname !== '/m' && location.pathname !== '/m/') b.hidden = false;
+    })();
+    function mVoltar() {
+      var d = (history.state || {}).mDepth || 1;
+      if (d > 1) history.back();
+      else location.href = '/m';
+    }
+  </script>
 
   <main class="m-main">

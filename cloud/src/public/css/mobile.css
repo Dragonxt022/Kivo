@@ -4,6 +4,17 @@
    uma coluna só, alvos grandes e navegação no alcance do polegar.
    As variáveis de cor vêm de partials/styles.ejs, que já é compartilhado. */
 
+/* `hidden` tem de vencer QUALQUER display de classe.
+   Sem isto, todo elemento que o JS esconde com `.hidden = true` mas que tem um
+   `display: flex/grid` na própria classe continua visível — a especificidade de uma classe
+   empata com a do seletor de atributo e a ordem no arquivo decide. Já tinha custado as
+   linhas de "Desconto R$ 0,00"/"Acréscimo R$ 0,00" aparecendo zeradas no orçamento, e um
+   remendo local em `.m-sheet[hidden]`. Resolvido de uma vez para não voltar no próximo
+   componente que alguém criar. */
+[hidden] {
+  display: none !important;
+}
+
 .m-body {
   margin: 0;
   background: var(--bg);
@@ -28,8 +39,33 @@
   top: 0;
   z-index: 10;
 }
+/* Voltar do cabeçalho. 40px de alvo — dedo, não cursor. O `hidden` do HTML precisa vencer
+   o display daqui, senão a seta apareceria também na tela inicial (ver mobile-head.ejs). */
+.m-header-back {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-left: -0.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-header-back:active {
+  background: var(--surface-hover);
+}
+.m-header-back[hidden] {
+  display: none;
+}
 .m-header-text {
   min-width: 0;
+  /* Empurra o bloco de usuário para a direita quando a seta existe, mantendo o título
+     colado nela em vez de centralizado por acaso. */
+  flex: 1;
 }
 .m-header-company {
   display: block;
