@@ -242,7 +242,27 @@
           </div>
         </template>
 
-        <template x-if="!firstRun && !recovery.open">
+        <%# Entrada rápida: balões de quem salvou o perfil NESTE computador. A rota devolve
+            lista vazia fora do loopback, então pela rede local isto nem aparece — quem está
+            no celular vê só o formulário normal. %>
+        <template x-if="!firstRun && !recovery.open && quickProfiles.length">
+          <div class="quick-profiles">
+            <h1>Quem está usando?</h1>
+            <div class="quick-profiles-grid">
+              <template x-for="p in quickProfiles" :key="p.id">
+                <button type="button" class="quick-profile" @click="quickLogin(p)"
+                        :disabled="quickLoading" :title="'Entrar como ' + p.name">
+                  <span class="quick-profile-bolha" :style="{ background: p.color }" x-text="p.initials"></span>
+                  <span class="quick-profile-nome" x-text="p.name"></span>
+                </button>
+              </template>
+            </div>
+            <div class="error" x-text="quickError"></div>
+            <button type="button" class="link-btn" @click="quickProfiles = []">Entrar com outro usuário</button>
+          </div>
+        </template>
+
+        <template x-if="!firstRun && !recovery.open && !quickProfiles.length">
           <div>
             <h1>Entrar no Kivo</h1>
             <form @submit.prevent="login">
@@ -699,6 +719,11 @@
         setupPass2: '',
         setupLoading: false,
         setupError: '',
+        // Entrada rápida (balões). Lista vazia = nenhum perfil salvo nesta máquina, ou
+        // acesso vindo da rede local — nos dois casos cai no formulário normal.
+        quickProfiles: [],
+        quickLoading: false,
+        quickError: '',
         apps: [],
         dragId: null,
         dropOverId: null,
@@ -830,11 +855,42 @@
           if (this.showLogin) {
             // Sem sessão, o card pode ser de login ou de primeiro acesso — só o servidor
             // sabe se este computador ainda está com as credenciais de fábrica.
-            if (!isAuthed) this.checkFirstRun();
+            if (!isAuthed) { this.checkFirstRun(); this.loadQuickProfiles(); }
             this.$nextTick(() => {
               const el = this.$refs.loginUser;
               if (el) el.focus();
             });
+          }
+        },
+
+        async loadQuickProfiles() {
+          try {
+            const r = await fetch('/api/auth/quick-profiles');
+            if (!r.ok) return;
+            const d = await r.json();
+            this.quickProfiles = d.data ?? d ?? [];
+          } catch (e) { /* offline/erro: cai no formulário de sempre */ }
+        },
+
+        async quickLogin(p) {
+          if (this.quickLoading) return;
+          this.quickLoading = true;
+          this.quickError = '';
+          try {
+            const r = await fetch('/api/auth/quick-login', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ profileId: p.id }),
+            });
+            if (!r.ok) {
+              const b = await r.json().catch(() => ({}));
+              this.quickError = b.error ?? 'Não foi possível entrar com este perfil.';
+              return;
+            }
+            window.location.href = '/';
+          } catch (e) {
+            this.quickError = 'Erro de conexão.';
+          } finally {
+            this.quickLoading = false;
           }
         },
 

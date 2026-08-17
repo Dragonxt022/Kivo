@@ -201,6 +201,14 @@
               <span class="pdv-action-label">Imprimir</span>
               <span class="shortcut">F11</span>
             </button>
+            <%# Calculadora: F3 estava livre entre os atalhos do PDV, e conferir troco ou
+                somar algo à parte é conta que o operador hoje faz no papel ou no celular. %>
+            <button type="button" class="pdv-action" style="--action-color:#94A3B8" @click="abrirCalculadora()"
+                    title="Calculadora (F3)">
+              <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8" y2="11"/><line x1="12" y1="11" x2="12" y2="11"/><line x1="16" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="8" y2="15"/><line x1="12" y1="15" x2="12" y2="15"/><line x1="16" y1="15" x2="16" y2="19"/><line x1="8" y1="19" x2="12" y2="19"/></svg></span>
+              <span class="pdv-action-label">Calculadora</span>
+              <span class="shortcut">F3</span>
+            </button>
             <button type="button" class="pdv-action" style="--action-color:#F2542D" @click="clearCart()" title="Limpar carrinho (F9)">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
               <span class="pdv-action-label">Limpar</span>
@@ -249,6 +257,7 @@
     <div class="pdv-footer-bar">
       <div class="pdv-footer-shortcuts">
         <span><kbd>F2</kbd>Finalizar venda</span>
+        <span><kbd>F3</kbd>Calculadora</span>
         <% if (user.permissions.has('store.sales.discount')) { %>
         <span><kbd>F4</kbd>Desconto</span>
         <span><kbd>F7</kbd>Acréscimo</span>
@@ -1019,6 +1028,7 @@
             if (!dialogsOpen) {
               switch (e.key) {
                 case 'F2': e.preventDefault(); if (this.cart.length) this.openPay(); return;
+                case 'F3': e.preventDefault(); abrirCalculadora(); return;
                 case 'F4': e.preventDefault(); this.openValue('desconto'); return;
                 <% if (user.permissions.has('store.quotes.create')) { %>
                 case 'F6': e.preventDefault(); if (this.cart.length) this.openQuoteDlg(); return;

@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { settingsRepository } from '../repositories/SettingsRepository';
 import { listCapabilities, setCapabilityEnabled } from '../capabilities/service';
-import { isModuleEntitled } from '../license/service';
+import { isModuleEntitled, getLicenseCredentials } from '../license/service';
+import { getCloudServerUrl } from '../config/cloud';
 import { storeTableRepository } from '../../modules/comandas/repositories/StoreTableRepository';
 import { productRepository } from '../../modules/commercial/repositories/ProductRepository';
 import { categoryRepository } from '../../modules/commercial/repositories/CategoryRepository';
@@ -14,9 +15,40 @@ const COMPLETED_KEY = 'onboarding.completed';
 const DEMO_DATA_KEY = 'onboarding.demo_data_created';
 const USAGE_KEY = 'onboarding.usage';
 const BUSINESS_TYPE_KEY = 'onboarding.business_type';
+const EMPLOYEE_RANGE_KEY = 'onboarding.employee_range';
+/** Mesma chave usada pela tela de Configurações → Empresa: é o nome que sai no cupom. */
+const COMPANY_NAME_KEY = 'empresa.nome';
 
 export type OnboardingUsage = 'balcao' | 'mesas' | 'ambos';
-export type OnboardingBusinessType = 'restaurante' | 'roupas' | 'outro';
+
+/**
+ * Ramo do comércio. Os três primeiros são os originais e não podem sumir — instalações
+ * antigas já têm um deles gravado em `onboarding.business_type`, e são eles que decidem
+ * quais produtos de exemplo o assistente cria.
+ *
+ * Os demais entraram para a lista servir de pesquisa: com só três opções, quase toda loja
+ * caía em "outro" e o dado não dizia nada sobre quem usa o Kivo.
+ */
+export type OnboardingBusinessType =
+  | 'restaurante'
+  | 'roupas'
+  | 'outro'
+  | 'padaria'
+  | 'mercado'
+  | 'conveniencia'
+  | 'adega'
+  | 'farmacia'
+  | 'petshop'
+  | 'servicos';
+
+/**
+ * Faixas de porte. Não se sobrepõem de propósito: como o objetivo é pesquisa, faixas
+ * cumulativas (1 a 5 / 1 a 50 / 1 a 100) deixariam quem tem 3 funcionários podendo marcar
+ * três opções diferentes, e o número agregado não significaria nada.
+ */
+export type OnboardingEmployeeRange = '1-5' | '6-50' | '51-100' | '100+';
+
+export const EMPLOYEE_RANGES: OnboardingEmployeeRange[] = ['1-5', '6-50', '51-100', '100+'];
 
 export interface ProvisionInput {
   usage: OnboardingUsage;
@@ -24,6 +56,9 @@ export interface ProvisionInput {
   activePaymentMethodIds: number[];
   createDemoData: boolean;
   resetDemoData?: boolean;
+  /** Nome do negócio — vai para `empresa.nome` e sobe para a nuvem. */
+  businessName?: string;
+  employeeRange?: OnboardingEmployeeRange;
   /**
    * Recursos que devem ficar ligados ao final. `undefined` (cliente antigo, chamada
    * direta na API) cai na recomendação derivada das respostas — nunca em "nada ligado".
@@ -70,13 +105,13 @@ const WIZARD_FEATURES: WizardFeature[] = [
     key: 'foodservice.cozinha',
     label: 'Painel da cozinha (KDS)',
     hint: 'Manda o pedido para uma tela na cozinha em vez de papel.',
-    recommend: { usage: ['mesas', 'ambos'], businessType: ['restaurante'] },
+    recommend: { usage: ['mesas', 'ambos'], businessType: ['restaurante', 'padaria'] },
   },
   {
     key: 'commercial.complementos',
     label: 'Complementos e opcionais',
     hint: 'Bacon extra, escolha do sabor, ponto da carne — perguntado na hora da venda.',
-    recommend: { businessType: ['restaurante'] },
+    recommend: { businessType: ['restaurante', 'padaria'] },
   },
   {
     key: 'commercial.variantes',
@@ -88,12 +123,13 @@ const WIZARD_FEATURES: WizardFeature[] = [
     key: 'commercial.kits',
     label: 'Kits e combos',
     hint: 'Vende vários produtos como um item só, baixando o estoque de cada um.',
-    recommend: { businessType: ['restaurante'] },
+    recommend: { businessType: ['restaurante', 'padaria', 'mercado'] },
   },
   {
     key: 'commercial.producao',
     label: 'Ficha técnica',
     hint: 'O que é produzido consome os insumos do estoque automaticamente na venda.',
+    recommend: { businessType: ['padaria'] },
   },
 ];
 
@@ -164,10 +200,58 @@ function applyFeatures(
   return { enabled, disabled, active };
 }
 
-export function getOnboardingStatus(): { completed: boolean; demoDataCreated: boolean } {
+/**
+ * Manda o perfil respondido no assistente para o cloud/ (`PUT /api/license/business-profile`).
+ *
+ * Best-effort em todos os sentidos: sem licença ativada não há empresa lá para atualizar, e
+ * qualquer erro de rede morre no console. Nada aqui pode impedir o lojista de terminar o
+ * assistente — o perfil é pesquisa nossa, não requisito dele.
+ */
+async function enviarPerfilParaNuvem(perfil: {
+  name: string | null;
+  businessType: string;
+  employeeRange: string | null;
+}): Promise<void> {
+  try {
+    const { companyUuid, licenseKey } = getLicenseCredentials();
+    if (!companyUuid || !licenseKey) return;
+    const base = getCloudServerUrl();
+    if (!base) return;
+    const res = await fetch(`${base}/api/license/business-profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kivo-Company': companyUuid,
+        'X-Kivo-License-Key': licenseKey,
+      },
+      body: JSON.stringify(perfil),
+    });
+    if (!res.ok) {
+      console.error(`[onboarding] perfil do negócio não subiu para a nuvem: ${res.status}`);
+    }
+  } catch (e) {
+    console.error('[onboarding] perfil do negócio não subiu para a nuvem:', e);
+  }
+}
+
+export interface OnboardingStatus {
+  completed: boolean;
+  demoDataCreated: boolean;
+  /** Respostas já gravadas — o assistente reaberto abre com elas preenchidas em vez de em branco. */
+  businessName: string;
+  businessType: string | null;
+  employeeRange: string | null;
+  usage: string | null;
+}
+
+export function getOnboardingStatus(): OnboardingStatus {
   return {
     completed: settingsRepository.getBool(COMPLETED_KEY, false),
     demoDataCreated: settingsRepository.getBool(DEMO_DATA_KEY, false),
+    businessName: settingsRepository.get(COMPANY_NAME_KEY) ?? '',
+    businessType: settingsRepository.get(BUSINESS_TYPE_KEY) ?? null,
+    employeeRange: settingsRepository.get(EMPLOYEE_RANGE_KEY) ?? null,
+    usage: settingsRepository.get(USAGE_KEY) ?? null,
   };
 }
 
@@ -343,6 +427,26 @@ function createDemoCategories(): number {
 export function provision(req: Request, input: ProvisionInput): ProvisionResult {
   settingsRepository.set(USAGE_KEY, input.usage);
   settingsRepository.set(BUSINESS_TYPE_KEY, input.businessType);
+
+  // O nome do negócio mora na MESMA chave da tela de Configurações → Empresa, e não numa
+  // `onboarding.*` própria: é o nome que sai no cabeçalho do cupom e do orçamento, então
+  // duplicá-lo criaria dois lugares para editar a mesma coisa, fatalmente divergentes.
+  // Só grava se veio preenchido — reabrir o assistente e deixar o campo vazio não pode
+  // apagar um nome já cadastrado.
+  const nome = (input.businessName ?? '').trim();
+  if (nome) settingsRepository.set(COMPANY_NAME_KEY, nome);
+  if (input.employeeRange && EMPLOYEE_RANGES.includes(input.employeeRange)) {
+    settingsRepository.set(EMPLOYEE_RANGE_KEY, input.employeeRange);
+  }
+
+  // Envio do perfil para a nuvem: disparado e esquecido, de propósito. É dado de pesquisa —
+  // travar a conclusão do assistente (ou pior, falhá-la) porque a internet caiu seria
+  // trocar o cadastro da loja por uma estatística.
+  void enviarPerfilParaNuvem({
+    name: nome || null,
+    businessType: input.businessType,
+    employeeRange: input.employeeRange ?? null,
+  });
 
   const paymentMethodsActive = applyPaymentMethods(input.activePaymentMethodIds);
 

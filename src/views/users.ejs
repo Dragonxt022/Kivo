@@ -147,6 +147,24 @@
             <input type="checkbox" x-model="form.active" /> Ativo
           </label>
         </template>
+
+        <%# Entrada rápida. O aviso é obrigatório e não é decorativo: a caixa liga login SEM
+            SENHA, e quem marca precisa saber exatamente o que está trocando por comodidade. %>
+        <label class="label-checkbox" style="margin-top:.9rem">
+          <input type="checkbox" x-model="form.quickLogin" />
+          Salvar perfil neste computador (entrar com um clique)
+        </label>
+        <p class="hint" style="margin:.4rem 0 0">
+          O usuário vira um balão na tela de login e entra <strong>sem digitar senha</strong> —
+          bom para a loja onde várias pessoas se revezam no mesmo caixa, para cada uma usar a
+          própria conta em vez de todas no mesmo login.
+        </p>
+        <p class="hint" style="margin:.35rem 0 0">
+          Vale <strong>só neste computador</strong> e só para quem está nele: pela rede local
+          (celular, tablet) o balão não aparece e a senha continua obrigatória. Qualquer pessoa
+          com acesso a este teclado consegue entrar como <span x-text="form.name || 'este usuário'"></span>.
+        </p>
+
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -313,9 +331,10 @@
           if (data && data.selfSkipped) showToast('Seu próprio usuário não pode ser excluído em massa — foi mantido na lista.', 'warning');
 
         },
-        openNew() { this.form = { roleSlug: 'operador' }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openNew() { this.form = { roleSlug: 'operador', quickLogin: false }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         openEdit(u) {
-          this.form = { id: u.id, name: u.name, username: u.username, email: u.email ?? '', roleSlug: u.role, active: !!u.active, password: '' };
+          this.form = { id: u.id, name: u.name, username: u.username, email: u.email ?? '', roleSlug: u.role,
+                        active: !!u.active, password: '', quickLogin: !!u.quickLogin };
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
         async save() {

@@ -43,3 +43,26 @@ export async function pullBatch(cursor: string | null): Promise<PullPage> {
   if (!res.ok) throw new Error(`Pull de sync falhou: ${res.status} ${await res.text()}`);
   return (await res.json()) as PullPage;
 }
+
+export interface CompanyResetResult {
+  syncRecordsRemoved: number;
+  menuItemsRemoved: number;
+  backupsRemoved: number;
+}
+
+/**
+ * Apaga na nuvem o histórico sincronizado da empresa (reset de fábrica).
+ *
+ * Chamado ANTES de zerar o banco local, e é obrigatório que dê certo: como o `pullAll()`
+ * reconstrói tudo a partir de `sync_records` a cada rodada, zerar só o local devolveria
+ * os dados de teste no ciclo seguinte.
+ */
+export async function resetCompanyData(includeBackups: boolean): Promise<CompanyResetResult> {
+  const res = await fetch(`${baseUrl()}/api/sync/company-reset`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ includeBackups }),
+  });
+  if (!res.ok) throw new Error(`Reset na nuvem falhou: ${res.status} ${await res.text()}`);
+  return (await res.json()) as CompanyResetResult;
+}

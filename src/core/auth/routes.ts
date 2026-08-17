@@ -7,6 +7,7 @@ import { audit } from '../audit/service';
 import { assertAuth } from '../../shared/auth';
 import { validateBody } from '../../shared/validateBody';
 import { loginSchema, changePasswordSchema, firstRunSetupSchema } from '../../shared/schemas';
+import { isLoopback, listQuickProfiles, quickLogin } from './quickLogin';
 
 const router = Router();
 
@@ -63,6 +64,42 @@ router.post('/login', loginLimiter, validateBody(loginSchema), (req, res) => {
   }
   startSession(req, res, result);
   audit(req, 'login', 'user', result.user.id);
+  res.json({ user: publicUser(result.user) });
+});
+
+/**
+ * ─── Entrada rápida por perfil (balões na tela de login) ───
+ *
+ * Públicas por necessidade (não existe sessão antes de entrar) e restritas ao LOOPBACK: a
+ * troca vale para quem está no teclado daquele computador, não para quem alcança o Kivo pela
+ * rede. Com "Acesso pela rede local" ligado o app escuta em 0.0.0.0, e sem esta guarda
+ * qualquer celular no Wi-Fi da loja entraria como o dono só abrindo o endereço.
+ *
+ * Fora do loopback a lista responde vazia em vez de 403: quem está no celular não precisa
+ * saber que existem perfis salvos, nem quais são os nomes das pessoas da loja.
+ */
+router.get('/quick-profiles', (req, res) => {
+  res.json(isLoopback(req) ? listQuickProfiles() : []);
+});
+
+router.post('/quick-login', loginLimiter, (req, res) => {
+  if (!isLoopback(req)) {
+    res.status(403).json({ error: 'A entrada rápida só funciona no próprio computador.' });
+    return;
+  }
+  const profileId = Number((req.body ?? {}).profileId);
+  if (!Number.isInteger(profileId)) {
+    res.status(400).json({ error: 'Perfil inválido.' });
+    return;
+  }
+  const result = quickLogin(profileId, req.ip);
+  if (!result) {
+    audit(req, 'login_rapido_falhou', 'quick_profile', String(profileId));
+    res.status(401).json({ error: 'Perfil não encontrado ou usuário desativado.' });
+    return;
+  }
+  startSession(req, res, result);
+  audit(req, 'login_rapido', 'user', result.user.id);
   res.json({ user: publicUser(result.user) });
 });
 

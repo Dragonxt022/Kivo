@@ -309,7 +309,9 @@
           // sem exigir mais um clique na tela do Caixa.
           const params = new URLSearchParams(location.search);
           if (params.get('fechar') === '1' && this.open) {
-            history.replaceState(null, '', location.pathname);
+            // Mantém history.state: o Voltar do cabeçalho guarda a profundidade da
+            // navegação ali (kivoDepth, ver partials/nav.ejs).
+            history.replaceState(history.state, '', location.pathname);
             this.$refs.close.showModal();
           }
         },

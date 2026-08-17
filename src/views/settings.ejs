@@ -15,54 +15,54 @@
     <h1>Configurações</h1>
 
     <div class="tabs">
-      <button :class="{ active: tab === 'license' }" @click="tab = 'license'">
+      <button :class="{ active: tab === 'license' }" @click="setTab('license')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
         Licença
       </button>
-      <button :class="{ active: tab === 'empresa' }" @click="tab = 'empresa'">
+      <button :class="{ active: tab === 'empresa' }" @click="setTab('empresa')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg>
         Empresa
       </button>
-      <button :class="{ active: tab === 'stock' }" @click="tab = 'stock'">
+      <button :class="{ active: tab === 'stock' }" @click="setTab('stock')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
         Estoque
       </button>
-      <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'">
+      <button :class="{ active: tab === 'sales' }" @click="setTab('sales')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         Vendas
       </button>
-      <button :class="{ active: tab === 'financeiro' }" @click="tab = 'financeiro'">
+      <button :class="{ active: tab === 'financeiro' }" @click="setTab('financeiro')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Financeiro
       </button>
-      <button :class="{ active: tab === 'fidelidade' }" @click="tab = 'fidelidade'">
+      <button :class="{ active: tab === 'fidelidade' }" @click="setTab('fidelidade')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 8 8 12 8c4 0 5-4 7.5-4a2.5 2.5 0 0 1 0 5H18"/><path d="M12 9v10M18 9v10"/></svg>
         Fidelidade
       </button>
-      <button :class="{ active: tab === 'interface' }" @click="tab = 'interface'">
+      <button :class="{ active: tab === 'interface' }" @click="setTab('interface')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         Interface
       </button>
       <% if (user.permissions.has('settings.edit')) { %>
-      <button :class="{ active: tab === 'rede' }" @click="tab = 'rede'">
+      <button :class="{ active: tab === 'rede' }" @click="setTab('rede')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="18" x2="10.01" y2="18"/><path d="M6 14V7a6 6 0 0 1 12 0v7"/></svg>
         Rede local
       </button>
       <% } %>
       <% if (user.permissions.has('settings.edit')) { %>
-      <button :class="{ active: tab === 'cardapio' }" @click="tab = 'cardapio'">
+      <button :class="{ active: tab === 'cardapio' }" @click="setTab('cardapio')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         Cardápio online
       </button>
       <% } %>
       <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
-      <button :class="{ active: tab === 'security' }" @click="tab = 'security'">
+      <button :class="{ active: tab === 'security' }" @click="setTab('security')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Segurança
       </button>
       <% } %>
       <% if (user.permissions.has('settings.edit')) { %>
-      <button :class="{ active: tab === 'advanced' }" @click="tab = 'advanced'">
+      <button :class="{ active: tab === 'advanced' }" @click="setTab('advanced')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Avançado
       </button>
@@ -127,23 +127,27 @@
         </p>
         <div class="logo-uploader">
           <div class="logo-preview" :class="logo.url ? '' : 'vazio'">
-            <img x-show="logo.url" :src="logo.url" alt="Logo da empresa" />
+            <img x-show="logo.url" x-cloak :src="logo.url" alt="Logo da empresa" />
             <span x-show="!logo.url" class="hint">Nenhuma logo enviada</span>
           </div>
           <div class="logo-acoes">
             <input type="file" accept="image/png,image/jpeg,image/webp" x-ref="logoFile"
                    style="display:none" @change="enviarLogo($event)">
-            <button type="button" class="btn secondary" @click="$refs.logoFile.click()" :disabled="logo.enviando">
-              <span x-text="logo.enviando ? 'Enviando…' : (logo.url ? 'Trocar logo' : 'Escolher logo')"></span>
-            </button>
-            <button type="button" class="btn danger" x-show="logo.url" @click="removerLogo()" :disabled="logo.enviando">
-              Remover
-            </button>
-            <p class="hint" style="margin:.5rem 0 0">
+            <div class="logo-acoes-botoes">
+              <button type="button" class="btn secondary" @click="$refs.logoFile.click()" :disabled="logo.enviando">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span x-text="logo.enviando ? 'Enviando…' : (logo.url ? 'Trocar logo' : 'Escolher logo')"></span>
+              </button>
+              <button type="button" class="btn danger" x-show="logo.url" x-cloak @click="removerLogo()" :disabled="logo.enviando">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Remover
+              </button>
+            </div>
+            <p class="hint">
               A logo fica gravada <strong>neste computador</strong>. Se a loja tem mais de um
               terminal, envie em cada um.
             </p>
-            <p class="error" x-text="logo.erro"></p>
+            <p class="error" x-show="logo.erro" x-cloak x-text="logo.erro"></p>
           </div>
         </div>
       </section>
@@ -697,7 +701,134 @@
           </template>
         </tbody>
       </table>
+
+      <%# Zona de perigo. Fica no fim da última aba de propósito: ninguém tropeça nela
+          navegando, e quem chegou aqui veio procurando. %>
+      <section class="panel danger-zone">
+        <h2>Zona de perigo</h2>
+        <div class="danger-item">
+          <div class="danger-item-text">
+            <h3>Recomeçar do zero (sair do modo de teste)</h3>
+            <p class="hint mt-0">
+              Apaga <strong>todo o histórico</strong> desta loja — produtos, clientes,
+              fornecedores, vendas, compras, orçamentos, contas, caixa, comandas, estoque e
+              auditoria — e reabre o assistente de boas-vindas para você começar a cadastrar
+              os dados reais.
+            </p>
+            <p class="hint">
+              <strong>Continuam como estão:</strong> a licença ativa, os usuários
+              administradores (com as senhas), os cargos e permissões, os dados e a logo da
+              empresa, as formas de pagamento, o PIN de administrador e as preferências deste
+              computador.
+            </p>
+            <p class="hint">
+              Antes de apagar, o Kivo tira um <strong>backup automático</strong> — se você se
+              arrepender, dá para voltar por <a href="/admin/backup">Backup</a>.
+              Os dados também são apagados da nuvem, senão a sincronização traria tudo de
+              volta em poucos minutos.
+            </p>
+          </div>
+          <button class="btn danger" @click="openReset()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8"/></svg>
+            Recomeçar do zero
+          </button>
+        </div>
+      </section>
     </div>
+    <% } %>
+
+    <%# ─── MODAL: Reset de fábrica ───
+        A confirmação digitada existe porque um "Tem certeza?" comum já foi clicado no
+        automático mil vezes — e este é o único botão do app sem volta fácil. %>
+    <% if (user.permissions.has('settings.edit')) { %>
+    <dialog x-ref="resetDlg" class="dialog-fixed reset-dialog">
+      <h1>Recomeçar do zero</h1>
+      <div class="dialog-body">
+        <template x-if="!reset.result">
+          <div>
+            <div class="danger-callout">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Isto apaga o histórico da loja <strong>nesta máquina e na nuvem</strong>. Não dá para desfazer sem restaurar o backup.</span>
+            </div>
+
+            <%# Lado a lado, e não empilhados: as duas listas somadas passavam da altura do
+                diálogo e empurravam o campo de confirmação — o controle mais importante da
+                tela — para baixo da dobra, atrás de um scroll. %>
+            <div class="reset-colunas">
+              <div>
+                <p class="hint mt-0"><strong>Vai ser apagado</strong></p>
+                <ul class="reset-list">
+                  <li>Produtos, categorias, complementos e variações</li>
+                  <li>Clientes, fornecedores e listas de preço</li>
+                  <li>Vendas, orçamentos, compras e comandas</li>
+                  <li>Contas a pagar/receber, caixa e estoque</li>
+                  <li>Notas fiscais, mesas e auditoria</li>
+                  <li>Usuários que <strong>não</strong> são administradores</li>
+                </ul>
+              </div>
+              <div>
+                <p class="hint mt-0"><strong>Vai continuar</strong></p>
+                <ul class="reset-list keep">
+                  <li>Sua licença ativa (não precisa reativar)</li>
+                  <li>Os administradores e suas senhas</li>
+                  <li>Cargos, permissões e PIN</li>
+                  <li>Dados e logo da empresa</li>
+                  <li>Formas de pagamento</li>
+                  <li>Seus backups, incluindo o desta operação</li>
+                </ul>
+              </div>
+            </div>
+
+            <label class="label-checkbox">
+              <input type="checkbox" x-model="reset.includeCloudBackups" />
+              Apagar também os backups guardados na nuvem
+            </label>
+            <p class="hint" style="margin:.4rem 0 0">
+              Deixe desligado se quiser poder voltar atrás: o backup na nuvem não volta pela
+              sincronização, então guardá-lo não atrapalha o recomeço.
+            </p>
+
+            <div class="field" style="margin-top:1rem">
+              <label>Para confirmar, digite <strong>RESETAR</strong></label>
+              <input class="input" type="text" x-model="reset.confirmacao" placeholder="RESETAR"
+                     autocomplete="off" spellcheck="false"
+                     @keydown.enter.prevent="reset.confirmacao.trim().toUpperCase() === 'RESETAR' && runReset()" />
+            </div>
+            <p class="error" x-show="reset.erro" x-cloak x-text="reset.erro"></p>
+          </div>
+        </template>
+
+        <template x-if="reset.result">
+          <div class="dialog-body-center">
+            <div class="dialog-icon dialog-icon-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <h2 class="dialog-heading-md">Pronto — pode começar</h2>
+            <p class="dialog-text" x-text="reset.result.rowsRemoved + ' registro(s) de teste apagado(s).'"></p>
+            <p class="muted muted-sm" x-show="reset.result.backupId" x-cloak>
+              Backup de segurança nº <span x-text="reset.result.backupId"></span> guardado antes de apagar.
+            </p>
+            <p class="error muted-sm" x-show="reset.result.backupError" x-cloak
+               x-text="'Não deu para tirar o backup de segurança (' + reset.result.backupError + ').'"></p>
+            <p class="muted muted-sm" x-show="reset.result.cloudSkippedReason" x-cloak
+               x-text="reset.result.cloudSkippedReason"></p>
+            <p class="muted muted-sm">O assistente de boas-vindas abre assim que a tela recarregar.</p>
+          </div>
+        </template>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.resetDlg.close()" x-show="!reset.result" :disabled="reset.rodando">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar
+        </button>
+        <button class="btn danger" @click="runReset()" x-show="!reset.result"
+                :disabled="reset.rodando || reset.confirmacao.trim().toUpperCase() !== 'RESETAR'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8"/></svg>
+          <span x-text="reset.rodando ? 'Apagando…' : 'Apagar tudo e recomeçar'"></span>
+        </button>
+        <button class="btn" @click="location.href = '/'" x-show="reset.result">Ir para o começo</button>
+      </div>
+    </dialog>
     <% } %>
 
     <!-- ─── MODAL: Ativar / trocar licença ─── -->
@@ -773,9 +904,23 @@
   <script src="/js/masks.js"></script>
   <script src="/js/onboarding.js"></script>
   <script>
+    // Abas válidas — a lista existe só para não confiar cegamente no que vem no #hash da
+    // URL: um valor desconhecido esconderia todos os painéis e a tela ficaria em branco.
+    const SETTINGS_TABS = ['license', 'empresa', 'stock', 'sales', 'financeiro', 'fidelidade',
+                           'interface', 'rede', 'cardapio', 'security', 'advanced'];
+
     function settingsPage() {
       return {
-        tab: 'license',
+        // A aba fica no #hash porque vários ajustes desta tela (modo leve, tela inicial)
+        // só valem depois de um location.reload(), e o reload recriava o componente na
+        // aba Licença — quem mexia em Interface era jogado pra primeira aba a cada clique.
+        tab: (function () {
+          // decodeURIComponent estoura em hash malformado (#%) — e um throw aqui mataria
+          // o x-data inteiro, deixando a tela de configurações em branco.
+          let h = '';
+          try { h = decodeURIComponent((location.hash || '').slice(1)); } catch (e) { h = ''; }
+          return SETTINGS_TABS.includes(h) ? h : 'license';
+        })(),
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
         licenseThanks: { sync: null, syncError: null },
@@ -792,6 +937,19 @@
         rede: { acessoLocal: false, syncIntervalo: 3 }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null }, copiedUrl: '',
         savingSync: false, syncSaved: '',
         cardapio: { url: '', qr: '', loading: true, copied: false },
+        reset: { confirmacao: '', includeCloudBackups: false, rodando: false, erro: '', result: null },
+
+        // replaceState em vez de `location.hash = v`: não empilha uma entrada no histórico
+        // a cada aba clicada (o Voltar do navegador ficaria preso nesta tela) nem faz a
+        // página pular para o topo.
+        setTab(v) {
+          this.tab = v;
+          // Preserva history.state: o botão Voltar do cabeçalho guarda a profundidade da
+          // navegação ali (kivoDepth, ver partials/nav.ejs), e passar `null` a apagaria —
+          // fazendo a seta achar que esta é a primeira tela da aba.
+          try { history.replaceState(history.state, '', location.pathname + location.search + '#' + v); }
+          catch (e) { location.hash = v; }
+        },
 
         async load() {
           const r = await fetch('/api/settings');
@@ -1099,6 +1257,34 @@
             this.pinConfigured = true; this.pinSaved = 'PIN salvo.'; this.pinForm = { pin: '', confirm: '' };
           } else this.pinError = (await r.json()).error ?? 'Falha ao salvar PIN.';
         },
+        // ─── Reset de fábrica (zona de perigo) ───
+        openReset() {
+          this.reset = { confirmacao: '', includeCloudBackups: false, rodando: false, erro: '', result: null };
+          this.$refs.resetDlg.showModal();
+        },
+        async runReset() {
+          if (this.reset.confirmacao.trim().toUpperCase() !== 'RESETAR' || this.reset.rodando) return;
+          this.reset.rodando = true; this.reset.erro = '';
+          try {
+            const r = await fetch('/api/settings/factory-reset', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                confirmacao: this.reset.confirmacao.trim().toUpperCase(),
+                includeCloudBackups: this.reset.includeCloudBackups,
+              }),
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) { this.reset.erro = body.error ?? 'Não foi possível concluir o reset.'; return; }
+            this.reset.result = body;
+            // Nada de recarregar sozinho: o lojista precisa ler o número do backup de
+            // segurança antes de sair da tela. Sair é um clique dele, no botão do rodapé.
+          } catch (e) {
+            this.reset.erro = 'Erro de conexão — nada foi apagado.';
+          } finally {
+            this.reset.rodando = false;
+          }
+        },
+
         openNew() { this.form = { locked: false }; this.$refs.dlg.showModal(); },
         openEdit(s) { this.form = { key: s.key, value: s.value ?? '', locked: true }; this.$refs.dlg.showModal(); },
         async save() {

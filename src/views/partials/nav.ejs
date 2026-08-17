@@ -157,6 +157,14 @@
     </svg>
     <span class="nav-clock" x-text="now"></span>
     <% if (user) { %>
+    <%# Voltar. Nasce escondido e é revelado pelo script do rodapé só fora da tela inicial —
+        ao contrário de x-show, não pisca na tela antes do Alpine iniciar. %>
+    <button type="button" class="btn-icon nav-back-btn" id="kivo-voltar" hidden
+            onclick="kivoVoltar()" title="Voltar" aria-label="Voltar para a tela anterior">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+      </svg>
+    </button>
     <button class="btn-icon sidebar-collapse-btn" @click="toggleSidebar()" title="Recolher/expandir menu" aria-label="Recolher ou expandir menu lateral">
       <template x-if="!sidebarCollapsed">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg>
@@ -485,8 +493,75 @@
 <div id="toast-container" popover="manual"></div>
 <script>
 (function(){
-  // Fechamento animado de dialog
-  var c=HTMLDialogElement.prototype.close;HTMLDialogElement.prototype.close=function(){if(this.hasAttribute('open')){var d=this;d.style.animation='dialog-out 150ms ease forwards';d.addEventListener('animationend',function h(){d.removeEventListener('animationend',h);d.style.animation='';c.call(d)})}else c.call(this)};
+  // Fechamento animado de dialog: o fecha-de-verdade só acontece depois que a animação
+  // de saída termina. Três armadilhas, todas já custaram modal travada aberta:
+  //   1. Modo leve zera `animation` com !important (ver :root[data-lite] em app.css), o que
+  //      vence o style inline daqui — o animationend nunca vinha e a modal não fechava.
+  //   2. animationend borbulha: animação de um filho fechava a modal antes da hora.
+  //   3. Aba em segundo plano/GPU travada segura o evento indefinidamente — daí o timeout.
+  var nativeClose = HTMLDialogElement.prototype.close;
+  HTMLDialogElement.prototype.close = function () {
+    var d = this, args = arguments;
+    if (!d.hasAttribute('open')) return nativeClose.apply(d, args);
+    // Sem animação para esperar: fecha direto em vez de aguardar um evento que não vem.
+    if (document.documentElement.getAttribute('data-lite') === '1') {
+      d.style.animation = '';
+      return nativeClose.apply(d, args);
+    }
+    var fechado = false, timer;
+    function fim() {
+      if (fechado) return;
+      fechado = true;
+      clearTimeout(timer);
+      d.removeEventListener('animationend', aoFim);
+      d.style.animation = '';
+      nativeClose.apply(d, args);
+    }
+    function aoFim(e) { if (e.target === d) fim(); }
+    d.addEventListener('animationend', aoFim);
+    d.style.animation = 'dialog-out 150ms ease forwards';
+    timer = setTimeout(fim, 400);
+  };
+
+  // ─── Botão Voltar do cabeçalho ───
+  //
+  // `history.back()` só é seguro se a tela anterior for do próprio Kivo. Quem abriu o app
+  // direto numa tela interna (atalho na área de trabalho, link aberto no celular, aba nova)
+  // seria jogado para FORA do sistema ao clicar em Voltar.
+  //
+  // A conta é feita com uma profundidade gravada na própria entrada do histórico, e não com
+  // `document.referrer`: o referrer some em navegações legítimas (aba nova, política de
+  // referrer, alguns redirecionamentos), e aí a seta mandava para a tela inicial quem tinha
+  // sim de onde voltar. `history.length` também não serve — conta o histórico da ABA
+  // inteira, incluindo o que veio antes do Kivo.
+  //
+  // Profundidade 1 = primeira tela do Kivo nesta aba: não há para onde voltar dentro do app.
+  (function () {
+    var st = history.state || {};
+    if (st.kivoDepth == null) {
+      // Entrada nova: um nível abaixo da última que visitamos nesta aba.
+      var anterior = 0;
+      try { anterior = Number(sessionStorage.getItem('kivo-nav-depth') || 0); } catch (e) {}
+      var d = anterior + 1;
+      st.kivoDepth = d;
+      history.replaceState(st, '');
+      try { sessionStorage.setItem('kivo-nav-depth', String(d)); } catch (e) {}
+    } else {
+      // Entrada já conhecida (o lojista usou voltar/avançar): reancora o contador nela.
+      try { sessionStorage.setItem('kivo-nav-depth', String(st.kivoDepth)); } catch (e) {}
+    }
+
+    var b = document.getElementById('kivo-voltar');
+    // Na tela inicial não há para onde voltar: mostrar a seta ali só ensinaria que ela
+    // às vezes não faz nada.
+    if (b && location.pathname !== '/') b.hidden = false;
+  })();
+
+  window.kivoVoltar = function () {
+    var d = (history.state || {}).kivoDepth || 1;
+    if (d > 1) history.back();
+    else location.href = '/';
+  };
 
   // Toast global — sempre no #toast-container, nunca dentro de um <dialog>. Dialogs
   // abertos entram na "top layer" do navegador, que nenhum z-index normal supera; por
@@ -647,4 +722,8 @@
 <%- include('password') %>
 <% if (user) { %>
 <%- include('capability-gate') %>
+<%# Calculadora: carregada em toda tela porque as duas que a chamam hoje (PDV e cadastro
+    de produto) não são as únicas onde "quanto dá isso?" aparece, e o arquivo é pequeno.
+    Não injeta nada na página até alguém chamar window.abrirCalculadora(). %>
+<script defer src="/js/calculadora.js"></script>
 <% } %>
