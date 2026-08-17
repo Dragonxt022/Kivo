@@ -404,6 +404,34 @@
 }
 
 /* ─── Item do carrinho ─── */
+/* Cabeçalho da lista de itens — a contagem responde "quantos já entrei?" sem obrigar a
+   contar cartão por cartão nem olhar a barra de baixo. */
+.m-itens-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0.25rem;
+}
+.m-itens-titulo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.m-itens-contagem {
+  display: grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
 .m-cart-item {
   border-bottom: 1px solid var(--border-light);
   padding: 0.75rem 0;
@@ -464,6 +492,45 @@
   cursor: pointer;
   padding: 0.4rem 0.5rem;
   min-height: 44px;
+}
+
+/* Remover virou um × discreto no canto da linha, no lugar do texto "Remover" em vermelho.
+   Em vermelho e por extenso ele competia em peso com o próprio nome do produto, e repetido
+   em toda linha deixava a lista com cara de tela de erro. */
+.m-cart-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: -0.2rem -0.35rem 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-cart-x:active {
+  background: var(--danger-bg, var(--surface-hover));
+  color: var(--danger);
+}
+
+/* Abre a observação, que fica recolhida por padrão (ver renderItens em
+   mobile-orcamento-novo.ejs). Discreto de propósito: é a exceção, não a regra. */
+.m-cart-obs-link {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.4rem 0.35rem;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-cart-obs-link:active {
+  color: var(--primary);
 }
 
 /* ─── Stepper de quantidade ─── */
@@ -766,4 +833,216 @@
    aparelho. Telas de LEITURA mantêm a navegação normalmente. */
 .m-body-foco .m-nav {
   display: none;
+}
+
+/* ═══ Módulo de clientes e cobrança ═══════════════════════════════════════════
+   O financeiro lista contas soltas; aqui a unidade é o CLIENTE, que é como a cobrança
+   acontece de verdade ("quem me deve, quanto, e há quanto tempo"). */
+
+/* Destaque do KPI quando há valor vencido — vermelho só quando existe atraso, senão o
+   cartão gritaria todo dia e pararia de significar alguma coisa. */
+.m-kpi.alerta {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border-light));
+  background: color-mix(in srgb, var(--danger) 6%, var(--surface));
+}
+.m-kpi.alerta .m-kpi-value {
+  color: var(--danger);
+}
+
+.m-sec-titulo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 1.4rem 0 0.5rem;
+}
+
+/* ─── Linha da lista de clientes ─── */
+.m-cli {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border-light);
+  text-decoration: none;
+  color: inherit;
+}
+.m-cli-body {
+  flex: 1;
+  min-width: 0;
+}
+.m-cli-nome {
+  display: block;
+  font-size: 0.94rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-cli-meta {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.m-cli-valor {
+  flex: none;
+  text-align: right;
+}
+.m-cli-cents {
+  display: block;
+  font-size: 0.94rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.m-cli-tag {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.m-cli-valor.vencido .m-cli-cents,
+.m-cli-valor.vencido .m-cli-tag {
+  color: var(--danger);
+}
+
+/* ─── Topo da ficha ─── */
+.m-cli-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+.m-ini-g {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  font-size: 1.3rem;
+}
+.m-cli-topo-body {
+  min-width: 0;
+}
+.m-cli-topo-nome {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+.m-cli-topo-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0.15rem 0 0;
+}
+/* Ligar e WhatsApp lado a lado: são as duas coisas que se faz depois de abrir a ficha de
+   quem está devendo. */
+.m-cli-acoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.m-cli-acoes .m-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  text-decoration: none;
+}
+
+/* ─── Conta a receber ─── */
+.m-conta {
+  display: block;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+}
+/* A barra vermelha na lateral marca o atraso sem depender de o lojista comparar datas. */
+.m-conta.vencida {
+  border-left: 3px solid var(--danger);
+}
+.m-conta.quitada {
+  opacity: 0.7;
+}
+.m-conta-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.m-conta-linha.sub {
+  margin-top: 0.2rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.m-conta-desc {
+  min-width: 0;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-conta-valor {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.m-conta-atraso {
+  color: var(--danger);
+}
+.m-conta-ok {
+  color: var(--text-muted);
+}
+.m-conta-parcial {
+  flex: none;
+}
+
+.m-cli-favor > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface);
+  margin-bottom: 0.5rem;
+  font-size: 0.88rem;
+}
+
+/* ─── Atalhos da tela inicial ───
+   A barra de baixo cabe cinco itens; o app tem mais seções que isso. Sem este bloco, o que
+   não estava na barra não era alcançável de lugar nenhum. */
+.m-atalhos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+.m-atalho {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: var(--surface);
+  text-decoration: none;
+  color: inherit;
+}
+.m-atalho svg {
+  width: 22px;
+  height: 22px;
+  color: var(--primary);
+  margin-bottom: 0.3rem;
+}
+.m-atalho span {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.m-atalho em {
+  font-size: 0.74rem;
+  font-style: normal;
+  color: var(--text-muted);
+}
+.m-atalho:active {
+  background: var(--surface-hover);
 }

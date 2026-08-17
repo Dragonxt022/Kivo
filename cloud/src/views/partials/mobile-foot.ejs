@@ -24,21 +24,18 @@
       <span>Orçam.</span>
     </a>
     <% } %>
-    <%# Analíticos entra no lugar de Estoque quando os dois cabem: cinco itens já é o
-        limite de uma barra inferior legível, e o estoque continua alcançável pelo card
-        de estoque crítico dentro dos próprios analíticos. %>
-    <% if (grant.permissions.includes('store.reports.view') || grant.permissions.includes('store.sales.view')) { %>
-    <a href="/m/analiticos" class="<%= ativo === 'analiticos' ? 'on' : '' %>">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-      <span>Analít.</span>
+    <%# Clientes entra na barra: é por onde a cobrança acontece, e cobrar é a tarefa que
+        mais tira o lojista de perto do computador. %>
+    <% if (grant.permissions.includes('commercial.customers.view')) { %>
+    <a href="/m/clientes" class="<%= ativo === 'clientes' ? 'on' : '' %>">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+      <span>Clientes</span>
     </a>
     <% } %>
-    <% if (grant.permissions.includes('commercial.products.view')) { %>
-    <a href="/m/estoque" class="<%= ativo === 'estoque' ? 'on' : '' %>">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
-      <span>Estoque</span>
-    </a>
-    <% } %>
+    <%# Analíticos e Estoque ficam fora da barra e são alcançados pela tela inicial: cinco
+        itens já é o limite de uma barra inferior legível no celular, e a cobrança ganha a
+        vaga por ser tarefa diária. O estoque também segue no card de estoque crítico dos
+        analíticos. %>
     <% if (grant.permissions.includes('finance.payables.view') || grant.permissions.includes('finance.receivables.view')) { %>
     <a href="/m/financeiro" class="<%= ativo === 'financeiro' ? 'on' : '' %>">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>

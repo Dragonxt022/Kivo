@@ -325,7 +325,9 @@ router.put('/products/fiscal', requirePermission('commercial.products.edit'), (r
 router.put('/products/:id', requirePermission('commercial.products.edit'), validateBody(updateProductSchema), (req, res) => {
   assertAuth(req);
   const id = String(req.params.id);
-  const before = productRepository.findDetailed(id) as { price_cents: number; image_url: string | null } | undefined;
+  const before = productRepository.findDetailed(id) as
+    | { price_cents: number; image_url: string | null; product_type: string; parent_product_id: number | null }
+    | undefined;
   if (!before) {
     res.status(404).json({ error: 'Produto não encontrado.' });
     return;
@@ -358,7 +360,22 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
     return;
   }
   const productType = b.productType ?? (before as unknown as Record<string, unknown>).product_type ?? 'fisico';
-  const trackStock = (productType === 'variante' || productType === 'complemento') ? 0 : (b.trackStock != null ? (b.trackStock ? 1 : 0) : null);
+  /**
+   * Quem não tem saldo próprio é o produto-PAI de variações — a filha ("Camisa - M") é
+   * exatamente o item que se conta na prateleira.
+   *
+   * Pai e filha compartilham `product_type: 'variante'`, então a regra antiga, que olhava só
+   * o tipo, zerava o `track_stock` das filhas também. E como salvar o preço de uma variante
+   * é um PUT neste mesmo endpoint, bastava digitar o preço na grade para o controle de
+   * estoque daquela variante ser desligado sem aviso — depois disso o campo de quantidade
+   * aparecia travado e não havia como registrar entrada nenhuma.
+   *
+   * `parent_product_id` preenchido = é filha, e o track_stock dela é dela.
+   */
+  const ehPaiDeVariacoes = productType === 'variante' && before.parent_product_id == null;
+  const trackStock = (ehPaiDeVariacoes || productType === 'complemento')
+    ? 0
+    : (b.trackStock != null ? (b.trackStock ? 1 : 0) : null);
   try {
     productRepository.rawRun(
       `UPDATE products SET

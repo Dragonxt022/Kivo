@@ -13,18 +13,27 @@
       </span>
       <svg class="m-selected-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
-    <p class="m-field-hint">O preço final usa a tabela do cliente, aplicada pelo computador da loja.</p>
+    <p class="m-field-hint">O preço final usa a tabela do cliente.</p>
   </div>
+
+  <%# Cabeçalho da lista com a contagem, e o botão de adicionar LOGO DEPOIS dos itens (não
+      antes): montando um orçamento a pessoa vai empilhando produtos, e um botão fixo no
+      topo obriga a rolar de volta a cada item. Assim ele desce junto com a lista e fica
+      sempre embaixo do último que ela acabou de acrescentar. %>
+  <div class="m-itens-head" id="itens-head" hidden>
+    <span class="m-itens-titulo">Itens</span>
+    <span class="m-itens-contagem" id="itens-contagem">0</span>
+  </div>
+
+  <div id="vazio" class="m-empty" style="padding:1.5rem 1rem">
+    Nenhum item ainda.
+  </div>
+
+  <div id="itens"></div>
 
   <button type="button" class="m-btn m-btn-sec" id="btn-add" style="margin-bottom:1rem">
     + Adicionar produto
   </button>
-
-  <div id="vazio" class="m-empty" style="padding:2rem 1rem">
-    Nenhum item ainda.<br>Toque em <strong>Adicionar produto</strong> para começar.
-  </div>
-
-  <div id="itens"></div>
 
   <div class="m-totals" id="totais" hidden>
     <div class="m-total-row"><span>Subtotal</span><strong id="t-subtotal">R$ 0,00</strong></div>
@@ -141,6 +150,9 @@
     var itens = [];
     var cliente = null;      // { uuid, name } vindo do cadastro
     var clienteLivre = '';   // nome digitado quando não há cadastro
+    // Quais observações o vendedor abriu à mão nesta sessão (índice → true). Item que já
+    // tem texto abre sozinho, sem depender disto.
+    var notaAberta = {};
 
     var el = function (id) { return document.getElementById(id); };
     var brl = function (c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
@@ -302,14 +314,30 @@
       return Math.max(0, subtotal() - d + a);
     }
 
+    /**
+     * Linha do item.
+     *
+     * A observação fica RECOLHIDA atrás de um link, e não como campo sempre aberto: ela é
+     * usada em pouquíssimos itens, mas o campo custava ~90px em TODOS — um orçamento de 6
+     * produtos virava uma rolagem interminável, e era isso que fazia a tela parecer confusa.
+     * Item que já tem observação nasce aberto, para nada ficar escondido sem aviso.
+     */
     function renderItens() {
       el('vazio').hidden = itens.length > 0;
+      el('itens-head').hidden = itens.length === 0;
+      el('itens-contagem').textContent = itens.length;
+
       el('itens').innerHTML = itens.map(function (i, idx) {
+        var temNota = !!(i.note && i.note.trim());
+        var aberta = temNota || notaAberta[idx];
         return '<div class="m-cart-item">'
           + '<div class="m-cart-top">'
           + '<span class="m-cart-name">' + esc(i.name)
           + '<span class="m-cart-unit">' + brl(i.price_cents) + ' cada</span></span>'
           + '<span class="m-cart-total">' + brl(Math.round(i.price_cents * i.qty)) + '</span>'
+          + '<button type="button" class="m-cart-x" data-remove="' + idx + '" aria-label="Remover ' + esc(i.name) + '">'
+          + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+          + '</button>'
           + '</div>'
           + '<div class="m-cart-actions">'
           + '<span class="m-step">'
@@ -317,14 +345,34 @@
           + '<input type="number" inputmode="decimal" step="any" min="0" value="' + i.qty + '" data-qtd="' + idx + '">'
           + '<button type="button" data-mais="' + idx + '" aria-label="Aumentar">+</button>'
           + '</span>'
-          + '<button type="button" class="m-cart-del" data-remove="' + idx + '">Remover</button>'
+          + (aberta ? '' : '<button type="button" class="m-cart-obs-link" data-abrenota="' + idx + '">+ observação</button>')
           + '</div>'
-          + '<input class="m-cart-note" type="text" maxlength="200" data-nota="' + idx + '" '
-          + 'value="' + esc(i.note) + '" placeholder="Observação deste item (opcional)">'
+          + (aberta
+              ? '<input class="m-cart-note" type="text" maxlength="200" data-nota="' + idx + '" '
+                + 'value="' + esc(i.note) + '" placeholder="Observação deste item">'
+              : '')
           + '</div>';
       }).join('');
 
       var box = el('itens');
+      // O botão de remover existia na marcação desde sempre, mas nunca teve listener: dava
+      // para tocar em "Remover" à vontade que o item continuava no orçamento.
+      Array.prototype.forEach.call(box.querySelectorAll('[data-remove]'), function (b) {
+        b.addEventListener('click', function () {
+          itens.splice(+b.getAttribute('data-remove'), 1);
+          notaAberta = {}; // os índices deslocam ao remover — reabrir o que tiver texto basta
+          renderItens();
+        });
+      });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-abrenota]'), function (b) {
+        b.addEventListener('click', function () {
+          var i = +b.getAttribute('data-abrenota');
+          notaAberta[i] = true;
+          renderItens();
+          var campo = box.querySelector('[data-nota="' + i + '"]');
+          if (campo) campo.focus();
+        });
+      });
       Array.prototype.forEach.call(box.querySelectorAll('[data-mais]'), function (b) {
         b.addEventListener('click', function () { itens[+b.getAttribute('data-mais')].qty += 1; renderItens(); });
       });
@@ -332,7 +380,7 @@
         b.addEventListener('click', function () {
           var i = +b.getAttribute('data-menos');
           itens[i].qty -= 1;
-          if (itens[i].qty <= 0) itens.splice(i, 1);
+          if (itens[i].qty <= 0) { itens.splice(i, 1); notaAberta = {}; }
           renderItens();
         });
       });
@@ -340,7 +388,7 @@
         inp.addEventListener('change', function () {
           var i = +inp.getAttribute('data-qtd');
           itens[i].qty = Number(inp.value) || 0;
-          if (itens[i].qty <= 0) itens.splice(i, 1);
+          if (itens[i].qty <= 0) { itens.splice(i, 1); notaAberta = {}; }
           renderItens();
         });
       });
