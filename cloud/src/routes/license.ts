@@ -302,4 +302,55 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
   }
 });
 
+/**
+ * Perfil do negócio respondido no assistente de boas-vindas do Kivo local (migration 0021).
+ *
+ * Só preenche o que veio: o app manda os três campos juntos, mas uma versão futura que
+ * mandar só um não pode zerar os outros dois. `name` cai em `companies.name` (nome
+ * fantasia) e só sobrescreve se vier preenchido — o cadastro feito no painel do cloud vale
+ * mais que um campo em branco vindo do app.
+ *
+ * Idempotente por natureza: reabrir o assistente e salvar de novo apenas reescreve.
+ */
+const FAIXAS_FUNCIONARIOS = new Set(['1-5', '6-50', '51-100', '100+']);
+
+router.put('/business-profile', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const { name, businessType, employeeRange } = (req.body ?? {}) as {
+    name?: unknown;
+    businessType?: unknown;
+    employeeRange?: unknown;
+  };
+
+  const nome = typeof name === 'string' ? name.trim().slice(0, 255) : '';
+  const ramo = typeof businessType === 'string' ? businessType.trim().slice(0, 40) : '';
+  const faixa = typeof employeeRange === 'string' ? employeeRange.trim() : '';
+  // Faixa validada contra a lista fechada: é dado de pesquisa, e aceitar texto livre aqui
+  // transformaria o relatório de porte numa coluna impossível de agrupar.
+  const faixaValida = FAIXAS_FUNCIONARIOS.has(faixa) ? faixa : null;
+
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (nome) {
+    sets.push('name = ?');
+    params.push(nome);
+  }
+  if (ramo) {
+    sets.push('business_type = ?');
+    params.push(ramo);
+  }
+  if (faixaValida) {
+    sets.push('employee_range = ?');
+    params.push(faixaValida);
+  }
+  if (!sets.length) {
+    res.status(400).json({ error: 'Nada a gravar: envie name, businessType ou employeeRange.' });
+    return;
+  }
+  sets.push('business_profile_at = NOW(3)');
+  params.push(req.companyUuid);
+
+  await getPool().query(`UPDATE companies SET ${sets.join(', ')} WHERE company_uuid = ?`, params);
+  res.json({ ok: true, name: nome || null, businessType: ramo || null, employeeRange: faixaValida });
+});
+
 export default router;

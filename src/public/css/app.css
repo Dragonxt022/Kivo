@@ -695,6 +695,28 @@ header.nav .btn-link:hover {
 }
 /* Especificidade igual a "header.nav .btn-icon" (que define display:grid) — precisa
    bater de igual pra igual e vencer por ordem (esta regra vem depois no arquivo). */
+/* Voltar. Vale nos dois modos de interface (cartões e menu lateral) — em cartões é a única
+   forma de subir um nível sem passar pela tela inicial. O `hidden` do HTML tem de vencer o
+   display daqui, senão a seta apareceria também na tela inicial (ver nav.ejs). */
+header.nav .nav-back-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+header.nav .nav-back-btn:hover {
+  background: var(--surface-hover);
+  color: var(--primary);
+}
+header.nav .nav-back-btn[hidden] {
+  display: none;
+}
+
 header.nav .sidebar-collapse-btn {
   display: none;
 }
@@ -1142,6 +1164,19 @@ h1 {
   margin-bottom: 1.2rem;
   font-weight: 600;
 }
+/* Texto de abertura da página — o parágrafo que explica a tela, logo abaixo do H1.
+   Sem regra, ele herdava o `margin: 1em 0` do navegador e o espaçamento saía invertido:
+   ~2,2rem separando-o do título a que pertence (1,2rem do h1 + 1em dele) e só 1rem até o
+   card seguinte, que tem respiro interno generoso — daí a sensação de texto colado no card.
+   Aqui ele encosta no título, que é seu dono, e ganha ar antes do conteúdo. */
+main > h1 + p,
+main > h1 + .muted,
+main > h1 + .hint {
+  margin-top: -0.55rem;
+  margin-bottom: 1.5rem;
+  max-width: 78ch;
+  line-height: 1.55;
+}
 table {
   width: 100%;
   border-collapse: separate;
@@ -1227,8 +1262,13 @@ tr:last-child td:last-child {
 }
 
 /* ─── Buttons ─── */
+/* A borda transparente não é decoração: `.btn.secondary` tem borda de 1.5px e as demais
+   variantes tinham `border: 0`. Com box-sizing:border-box isso fazia todo botão secundário
+   nascer ~2px mais alto que um primário ou perigo do lado — visível em qualquer barra que
+   mistura os dois (Produtos, o bloco da logo em Configurações → Empresa, os rodapés de
+   diálogo). Reservando a borda aqui, toda variante tem a mesma caixa. */
 .btn {
-  border: 0;
+  border: 1.5px solid transparent;
   border-radius: 10px;
   padding: 0.55rem 1rem;
   font-size: 0.9rem;
@@ -2083,11 +2123,81 @@ dialog.wizard-dialog {
   line-height: 1.5;
 }
 
+/* ─── Passo "Sobre o seu negócio" do assistente ───
+   Três perguntas num passo só, então cada bloco precisa de respiro e de um rótulo próprio —
+   os outros passos têm uma pergunta só e vivem bem com o wizard-title fazendo esse papel. */
+.wizard-campo {
+  margin-bottom: 1.25rem;
+}
+.wizard-campo > label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.45rem;
+}
+.wizard-campo .input {
+  width: 100%;
+}
+.wizard-campo .error {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+}
+.wizard-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.wizard-chip {
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    color var(--transition);
+}
+.wizard-chip:hover {
+  border-color: var(--primary);
+}
+.wizard-chip.selected {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.85rem;
 }
+/* Dez ramos numa lista: no tamanho normal o passo viraria uma rolagem longa dentro do
+   diálogo, e o botão Continuar sumiria abaixo dela. Cartão menor, sem linha de descrição. */
+.choice-grid-compacto {
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.45rem;
+}
+.choice-grid-compacto .choice-card {
+  padding: 0.6rem 0.4rem;
+  gap: 0.3rem;
+}
+.choice-grid-compacto .choice-label {
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+/* O hover levanta o cartão 2px — numa grade apertada dentro de um passo que já rola, isso
+   fazia o cartão de baixo "pular" sob o cursor. */
+.choice-grid-compacto .choice-card:hover {
+  transform: none;
+}
+/* Serve tanto para <button> quanto para <a download> (Produtos → Importar/Exportar):
+   daí o text-decoration e o color explícitos, que o <a> traria do estilo de link. */
 .choice-card {
   display: flex;
   flex-direction: column;
@@ -2101,6 +2211,7 @@ dialog.wizard-dialog {
   cursor: pointer;
   font: inherit;
   color: inherit;
+  text-decoration: none;
   transition:
     border-color var(--transition),
     box-shadow var(--transition),
@@ -2131,6 +2242,28 @@ dialog.wizard-dialog {
 .choice-card .choice-desc {
   font-size: 0.76rem;
   color: var(--text-muted);
+  line-height: 1.35;
+}
+.choice-card:hover .choice-desc {
+  color: var(--text-secondary);
+}
+
+/* Escolha importar/exportar (Produtos): três cartões lado a lado não cabem nos 520px
+   padrão de <dialog> — a 150px mínimos por cartão sobrariam 10px para os vãos. */
+.io-dialog {
+  width: min(620px, calc(100vw - 2rem));
+}
+/* "Exportar complementos" quebra em duas linhas e os outros dois nomes não: sem reservar
+   as duas, a descrição do terceiro cartão descia sozinha e as três deixavam de alinhar.
+   Reservar a altura resolve em qualquer largura, sem depender de o nome caber numa linha. */
+.io-dialog .choice-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* line-height fixo + min-height de exatamente 2 linhas: o nome de uma linha fica
+     centrado na mesma caixa que o de duas, então as descrições começam na mesma altura. */
+  line-height: 1.3;
+  min-height: 2.6em;
 }
 
 /* ─── Seletor de cor (Configurações → Interface / assistente de boas-vindas) ─── */
@@ -2811,14 +2944,164 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
 .label-checkbox {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   cursor: pointer;
 }
 .label-checkbox-sm {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   cursor: pointer;
+}
+
+/* ─── Linha de configuração com chavinha ───────────────────────────────────────
+   Rótulo à esquerda, chave à direita, dentro de uma faixa própria — o padrão de qualquer
+   tela de ajustes moderna.
+
+   Antes a chave vinha ANTES de um texto miúdo e acinzentado (0,85rem + --text-muted,
+   herdados de `.field label`, que existe para rotular campo de texto) e o conjunto sumia
+   entre os parágrafos do painel: parecia legenda de rodapé, não o controle principal.
+
+   Escopo `.field >` de propósito: pega as linhas das telas de configuração e deixa em paz
+   as de dentro de diálogo (users.ejs, cadastro de produto), onde chave-e-texto lado a lado
+   é o formato certo por serem itens curtos no meio de um formulário. */
+.field:has(> .label-checkbox) {
+  /* Vence o max-width de 480px de `.field`: a faixa acompanha a largura do texto do painel
+     que ela acompanha, senão fica uma ilha curta embaixo de um parágrafo largo. */
+  max-width: 46rem;
+}
+.field > .label-checkbox {
+  /* `display` explícito: `.field label` (0,1,1) é MAIS específico que `.label-checkbox`
+     (0,1,0) e vinha ganhando com `display: block` — então a linha nunca chegou a ser flex
+     dentro de uma tela de configuração. Sem flex não há `gap` nem `align-items`: a chave e
+     o texto fluíam inline, encostados, e o rótulo herdava 0,85rem em cinza-claro. Era esse o
+     "botão de deslizar meio misturado com o texto". */
+  display: flex;
+  align-items: center;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border-light);
+  background: var(--surface-hover);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: var(--text);
+  transition:
+    border-color var(--transition),
+    background var(--transition);
+}
+.field > .label-checkbox:hover {
+  border-color: var(--border);
+}
+/* A dica que explica a opção pertence à faixa, não ao parágrafo seguinte. */
+.field > .label-checkbox + .hint {
+  margin: 0.45rem 0 0;
+  padding-left: 1rem;
+  max-width: 44rem;
+}
+
+/* ─── Chavinha deslizante ──────────────────────────────────────────────────────
+   Todo liga/desliga do app vira chave, não quadradinho: numa tela de configurações
+   inteira de checkboxes não dá pra ver de relance o que está ligado — o estado mora
+   dentro da caixa, num tique de 13px. A chave mostra o estado pela posição E pela cor.
+
+   Feito direto no <input> (appearance:none) em vez de pedir o <span class="toggle-slider">
+   do componente .toggle-switch: são 20+ rótulos espalhados por 10 telas, todos já com
+   x-model do Alpine amarrado no input. Estilizar o próprio input pega todos sem tocar em
+   nenhuma marcação nem arriscar quebrar binding.
+
+   Só checkbox — [type=radio] fica de fora de propósito: radio é escolha entre opções
+   (à vista/parcelado), e chave sugere liga/desliga independente. */
+.label-checkbox > input[type='checkbox'],
+.label-checkbox-sm > input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border-radius: 12px;
+  background: var(--border-light);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition);
+}
+.label-checkbox > input[type='checkbox']::after,
+.label-checkbox-sm > input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform var(--transition),
+    background var(--transition);
+}
+.label-checkbox > input[type='checkbox']:checked,
+.label-checkbox-sm > input[type='checkbox']:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.label-checkbox > input[type='checkbox']:checked::after,
+.label-checkbox-sm > input[type='checkbox']:checked::after {
+  transform: translateX(20px);
+  background: #fff;
+}
+.label-checkbox > input[type='checkbox']:focus-visible,
+.label-checkbox-sm > input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.label-checkbox > input[type='checkbox']:disabled,
+.label-checkbox-sm > input[type='checkbox']:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* A versão -sm aparece dentro de diálogo, ao lado de campos pequenos: 36×20 em vez de
+   44×24 para a chave não ficar maior que a linha de texto que ela rotula. */
+.label-checkbox-sm > input[type='checkbox'] {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+}
+.label-checkbox-sm > input[type='checkbox']::after {
+  width: 14px;
+  height: 14px;
+}
+.label-checkbox-sm > input[type='checkbox']:checked::after {
+  transform: translateX(16px);
+}
+/* Rótulo de chave nunca deve quebrar entre a chave e a primeira palavra. */
+.label-checkbox > input[type='checkbox'] + *,
+.label-checkbox-sm > input[type='checkbox'] + * {
+  min-width: 0;
+}
+
+/* Exceção: seleção múltipla de valores de variação (Produtos → gerar grade) é um
+   conjunto de fichinhas marcáveis, não um liga/desliga — ali a caixa continua caixa. */
+.chip-check > input[type='checkbox'] {
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  border-radius: 0;
+}
+.chip-check > input[type='checkbox']::after {
+  content: none;
 }
 
 /* ─── Menu / dropdown item ─── */
@@ -4858,10 +5141,380 @@ dialog.import-dialog > .dialog-body {
   }
 }
 
+/* ─── Entrada rápida por perfil (tela de login) ───────────────────────────────
+   Balões redondos com as iniciais: o operador reconhece o próprio pela cor e posição antes
+   de ler o nome, que é o que faz a troca de usuário custar menos que continuar todo mundo
+   no mesmo login. */
+.quick-profiles-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.1rem;
+  margin: 1.25rem 0 0.5rem;
+}
+.quick-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  width: 6.75rem;
+  padding: 0.3rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.quick-profile:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.quick-profile-bolha {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-sm);
+  border: 3px solid transparent;
+  transition:
+    transform var(--transition),
+    border-color var(--transition);
+}
+.quick-profile:hover .quick-profile-bolha,
+.quick-profile:focus-visible .quick-profile-bolha {
+  transform: scale(1.06);
+  border-color: var(--primary);
+}
+.quick-profile:focus-visible {
+  outline: none;
+}
+/* `overflow-wrap` em vez de `word-break: break-word`: este último parte a palavra no meio
+   assim que ela encosta na borda ("Administrado" / "r"), enquanto aquele só quebra dentro da
+   palavra quando ela sozinha não cabe. Nome muito longo é cortado em duas linhas com "…",
+   porque o balão é reconhecido pela cor e pelas iniciais — o nome só confirma. */
+.quick-profile-nome {
+  font-size: 0.82rem;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Calculadora (public/js/calculadora.js) ──────────────────────────────────
+   Disponível em qualquer tela: PDV e cadastro de produto têm botão próprio. O diálogo é
+   criado por JS, então tudo aqui é estilo puro — não há marcação em nenhum .ejs. */
+.calc-dialog {
+  width: min(360px, calc(100vw - 2rem));
+  padding: 1.1rem;
+  gap: 0.85rem;
+}
+.calc-head h1 {
+  font-size: 1.05rem;
+  margin: 0 0 0.6rem;
+}
+.calc-modos {
+  display: flex;
+  gap: 0.35rem;
+  background: var(--surface-hover);
+  padding: 0.25rem;
+  border-radius: var(--radius-full);
+}
+.calc-modo {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.calc-modo.selected {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
+}
+
+/* Visor: alinhado à direita como calculadora de verdade, e com a conta anterior menor
+   em cima — sem ela, depois do "=" o lojista perde de vista o que tinha digitado. */
+.calc-visor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-hover);
+  border: 1.5px solid var(--border-light);
+  min-height: 4.1rem;
+  justify-content: flex-end;
+}
+.calc-historico {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-height: 1rem;
+  word-break: break-all;
+}
+.calc-valor {
+  font-size: 1.55rem;
+  font-weight: 600;
+  line-height: 1.1;
+  word-break: break-all;
+  text-align: right;
+}
+.calc-teclado {
+  display: grid;
+  gap: 0.4rem;
+}
+.calc-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+.calc-key {
+  padding: 0.7rem 0;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.calc-key:hover {
+  border-color: var(--primary);
+}
+.calc-key:active {
+  background: var(--surface-hover);
+}
+.calc-key.op {
+  color: var(--primary);
+}
+.calc-key.aux {
+  color: var(--text-muted);
+}
+.calc-key.igual {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* ── Modo margem ── */
+.calc-margem-intro {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.calc-alvos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+}
+.calc-alvo {
+  padding: 0.45rem 0.3rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+.calc-alvo.selected {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+.calc-campo {
+  display: block;
+  margin-bottom: 0.6rem;
+}
+.calc-campo > span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+.calc-campo > span em {
+  color: var(--primary);
+  font-style: normal;
+}
+.calc-campo input {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-light);
+  background: var(--surface-hover);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+/* O campo calculado é só leitura: editar os três ao mesmo tempo seria um sistema sem
+   solução única, e o realce diz qual deles o app está preenchendo. */
+.calc-campo.alvo input {
+  background: var(--primary-bg);
+  border-color: var(--primary);
+  font-weight: 600;
+  cursor: default;
+}
+.calc-resultado {
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-hover);
+  border: 1.5px solid var(--border-light);
+}
+.calc-resultado-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+.calc-resultado-linha.sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+}
+.calc-resultado-vazio {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Linha "Margem: ..." + botão de calcular, no cadastro de produto. */
+.pm-margin-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+.pm-margin-linha .pm-margin {
+  min-width: 0;
+}
+
+/* Botão pequeno de calculadora ao lado de um campo de valor. */
+.calc-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.calc-inline-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ─── Zona de perigo (Configurações → Avançado) ───────────────────────────────
+   A borda vermelha não é enfeite: é o único aviso visual antes de um botão sem volta,
+   e separa este bloco dos painéis comuns da mesma tela, que são todos reversíveis. */
+.danger-zone {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border-light));
+}
+.danger-zone > h2 {
+  color: var(--danger-text);
+}
+.danger-item {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.danger-item-text {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+.danger-item-text h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}
+.danger-item-text .hint {
+  margin: 0 0 0.5rem;
+  max-width: 46rem;
+}
+.danger-item > .btn {
+  flex: none;
+}
+/* Faixa de aviso no topo do diálogo de confirmação. */
+.danger-callout {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+.danger-callout svg {
+  flex: none;
+  margin-top: 0.1rem;
+}
+/* As duas listas do diálogo (o que sai / o que fica). Só a lista destrutiva ganha cor:
+   o vermelho no marcador é o sinal, e repetir cor na lista do que fica só competiria com
+   ele. (Este tema não tem um token de "verde ok" — `--success-text` é laranja de marca.) */
+/* Mais largo que os 520px padrão para as duas colunas de lista caberem lado a lado. */
+.reset-dialog {
+  width: min(680px, calc(100vw - 2rem));
+}
+.reset-colunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.reset-list {
+  margin: 0.3rem 0 0.9rem;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.reset-list li::marker {
+  color: var(--danger);
+}
+.reset-list.keep li::marker {
+  color: var(--text-muted);
+}
+@media (max-width: 640px) {
+  .danger-item > .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* ─── Envio da logo da empresa (Configurações → Empresa) ─── */
 .logo-uploader {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -4899,15 +5552,35 @@ dialog.import-dialog > .dialog-body {
   max-height: 100%;
   object-fit: contain;
 }
+/* Antes: coluna com os dois botões empilhados, cada um de uma largura, o aviso colado
+   embaixo com margem inline e um <p class="error"> vazio segurando altura à toa — a
+   prévia de 80px ficava sozinha do lado de uma coluna quase três vezes mais alta.
+   Agora os botões dividem uma linha, o aviso ocupa a largura toda logo abaixo, e a
+   coluna toda alinha o topo com o da prévia. */
 .logo-acoes {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
+  gap: 0.6rem;
+  flex: 1 1 18rem;
   min-width: 0;
+}
+.logo-acoes-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.logo-acoes .hint,
+.logo-acoes .error {
+  margin: 0;
+  max-width: 34rem;
 }
 @media (max-width: 560px) {
   .logo-preview {
     width: 100%;
+  }
+  .logo-acoes-botoes .btn {
+    flex: 1 1 8rem;
+    justify-content: center;
   }
 }

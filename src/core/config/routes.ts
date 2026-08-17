@@ -9,6 +9,7 @@ import { getCloudServerUrl } from './cloud';
 import { getMachinePrefs, setMachinePrefs } from './machinePrefs';
 import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './companyLogo';
 import { getLicenseCredentials } from '../license/service';
+import { factoryReset } from '../reset/service';
 
 const router = Router();
 
@@ -121,6 +122,48 @@ router.delete('/company-logo', requirePermission('settings.edit'), (req, res) =>
   deleteCompanyLogoFile(before?.value);
   audit(req, 'excluir', 'setting', LOGO_SETTING_KEY, before ?? null, null);
   res.json({ ok: true });
+});
+
+/**
+ * Reset de fábrica (zona de perigo). Também precisa vir antes do `PUT /:key` — que é
+ * curinga só para PUT, mas manter os dois juntos evita a próxima armadilha.
+ *
+ * A confirmação por texto não é teatro: é a única barreira entre um clique errado e a
+ * perda de todo o histórico da loja, e um `confirm()` comum já foi clicado no automático
+ * mil vezes por qualquer usuário. Conferida no servidor, e não só na tela, porque a
+ * chamada é uma rota HTTP como qualquer outra.
+ */
+const RESET_CONFIRMATION = 'RESETAR';
+
+/**
+ * Erro da nuvem em uma linha legível. Quando o servidor responde uma página de erro em vez
+ * de JSON (proxy fora do ar, rota ainda não publicada), a mensagem crua é um documento HTML
+ * inteiro — que ia parar dentro do balão de erro da tela, ilegível para o lojista.
+ */
+function resumirErro(e: unknown): string {
+  const bruto = e instanceof Error ? e.message : String(e);
+  const semHtml = bruto.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return semHtml.length > 160 ? `${semHtml.slice(0, 157)}…` : semHtml;
+}
+
+router.post('/factory-reset', requirePermission('settings.edit'), async (req, res) => {
+  const { confirmacao, includeCloudBackups } = req.body ?? {};
+  if (String(confirmacao ?? '').trim().toUpperCase() !== RESET_CONFIRMATION) {
+    res.status(400).json({ error: `Digite ${RESET_CONFIRMATION} para confirmar.` });
+    return;
+  }
+  try {
+    res.json(await factoryReset(req, { includeCloudBackups: includeCloudBackups === true }));
+  } catch (e) {
+    // Falha na etapa da nuvem chega aqui com o banco local ainda INTACTO (ver a ordem em
+    // core/reset/service.ts) — daí a mensagem poder afirmar que nada foi apagado.
+    console.error('[reset] falhou:', e);
+    res.status(502).json({
+      error:
+        'Não deu para limpar os dados na nuvem, então nada foi apagado — seus dados continuam ' +
+        `como estavam. Tente de novo daqui a pouco. Detalhe: ${resumirErro(e)}`,
+    });
+  }
 });
 
 router.put('/:key', requirePermission('settings.edit'), (req, res) => {

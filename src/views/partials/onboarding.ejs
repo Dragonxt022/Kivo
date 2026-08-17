@@ -68,26 +68,47 @@
         </div>
       </div>
 
-      <!-- 3: tipo de negocio -->
+      <%# 3: sobre o negócio — nome, porte e ramo.
+          As três perguntas moram no mesmo passo porque respondem a uma coisa só ("quem é
+          essa loja"), e separá-las viraria três telas de uma pergunta cada. Diferente dos
+          passos 2 e 3 antigos, este NÃO avança sozinho ao clicar num cartão: o nome é
+          digitado, e pular fora dele engoliria o que o lojista ainda ia escrever. %>
       <div class="wizard-step">
-        <h2 class="wizard-title">Qual é o seu tipo de negócio?</h2>
-        <p class="wizard-subtitle">Com base nisso já deixamos alguns produtos de exemplo prontos pra você testar.</p>
-        <div class="choice-grid">
-          <button type="button" class="choice-card" :class="answers.businessType === 'restaurante' ? 'selected' : ''" @click="chooseBusiness('restaurante')">
-            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
-            <span class="choice-label">Restaurante / lanchonete</span>
-            <span class="choice-desc">Produtos com complementos</span>
-          </button>
-          <button type="button" class="choice-card" :class="answers.businessType === 'roupas' ? 'selected' : ''" @click="chooseBusiness('roupas')">
-            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
-            <span class="choice-label">Loja de roupas / acessórios</span>
-            <span class="choice-desc">Produtos com tamanho e cor</span>
-          </button>
-          <button type="button" class="choice-card" :class="answers.businessType === 'outro' ? 'selected' : ''" @click="chooseBusiness('outro')">
-            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
-            <span class="choice-label">Outro tipo de negócio</span>
-            <span class="choice-desc">Começo só com o básico</span>
-          </button>
+        <h2 class="wizard-title">Sobre o seu negócio</h2>
+        <p class="wizard-subtitle">
+          O nome aparece no cabeçalho dos cupons e orçamentos. O resto ajuda a deixar as
+          telas certas em destaque pra você.
+        </p>
+
+        <div class="wizard-campo">
+          <label for="wz-nome">Nome do seu negócio</label>
+          <input id="wz-nome" type="text" class="input" x-model="answers.businessName" maxlength="120"
+                 placeholder="ex.: Padaria da Esquina" autocomplete="organization"
+                 @keydown.enter.prevent="canLeaveBusinessStep() && next()" />
+          <p class="error" x-show="businessError" x-cloak x-text="businessError"></p>
+        </div>
+
+        <div class="wizard-campo">
+          <label>Quantas pessoas trabalham no negócio?</label>
+          <div class="wizard-chips">
+            <template x-for="f in employeeRanges" :key="f.id">
+              <button type="button" class="wizard-chip" :class="answers.employeeRange === f.id ? 'selected' : ''"
+                      @click="answers.employeeRange = f.id" x-text="f.label"></button>
+            </template>
+          </div>
+        </div>
+
+        <div class="wizard-campo">
+          <label>Qual é o ramo?</label>
+          <div class="choice-grid choice-grid-compacto">
+            <template x-for="t in businessTypes" :key="t.id">
+              <button type="button" class="choice-card" :class="answers.businessType === t.id ? 'selected' : ''"
+                      @click="answers.businessType = t.id">
+                <svg class="choice-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" x-html="t.icon"></svg>
+                <span class="choice-label" x-text="t.label"></span>
+              </button>
+            </template>
+          </div>
         </div>
       </div>
 
@@ -200,6 +221,10 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
     <button type="button" class="btn" @click="next()" x-show="step === 1">Continuar</button>
+    <%# O passo 3 (sobre o negócio) não avança sozinho: tem campo digitado, e só libera com
+        nome e ramo preenchidos — é o que o assistente precisa saber para configurar. %>
+    <button type="button" class="btn" @click="leaveBusinessStep()" x-show="step === 3"
+            :disabled="!canLeaveBusinessStep()">Continuar</button>
     <button type="button" class="btn" @click="next()" x-show="step === 4">Continuar</button>
     <button type="button" class="btn" @click="next()" x-show="step === 5" :disabled="!paymentMethods.length">Continuar</button>
     <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 6 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
