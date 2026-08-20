@@ -71,8 +71,11 @@
     <div class="panel" x-show="isOpen" x-cloak>
       <h2>Adicionar item</h2>
       <div class="combo-wrap">
-        <div style="display:flex;gap:.5rem">
-          <input type="text" class="input" style="flex:1" x-model="searchQ"
+        <%# `min-width:0` no input: item flex não encolhe abaixo do tamanho intrínseco
+            por padrão, e era isso que empurrava o botão "Procurar" para fora do cartão
+            no celular (o print do garçom mostra ele colado na borda). %>
+        <div style="display:flex;gap:.5rem;min-width:0">
+          <input type="text" class="input" style="flex:1;min-width:0" x-model="searchQ"
                  @input.debounce.300ms="searchProducts" @keydown.enter.prevent="quickAdd"
                  placeholder="Buscar produto por nome, SKU ou código de barras…" x-ref="searchInput" />
           <button type="button" class="btn secondary" @click="openBrowse()" title="Procurar produtos">
@@ -91,12 +94,27 @@
       </div>
     </div>
 
+    <%# Duas saídas diferentes, decididas pela permissão de venda:
+        quem opera o caixa (`store.sales.create`) vai ao PDV receber o pagamento;
+        o garçom, que não tem essa permissão, chama o caixa. Antes o botão era um só e
+        mandava todo mundo para /app/store/pdv — quem não podia entrar era devolvido à
+        home sem aviso nenhum (ver o redirect em core/server.ts). %>
     <div class="toolbar close-bar" x-show="isOpen && items.length" x-cloak style="justify-content:flex-end">
+      <% if (user.permissions.has('store.sales.create')) { %>
       <button type="button" class="btn" @click="openCloseDlg()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         Fechar comanda
       </button>
+      <% } else { %>
+      <button type="button" class="btn" @click="chamarCaixa()" :disabled="chamandoCaixa || prontaParaPagamento">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        <span x-text="prontaParaPagamento ? 'Caixa avisado' : (chamandoCaixa ? 'Enviando…' : 'Enviar para o caixa')"></span>
+      </button>
+      <% } %>
     </div>
+    <p class="hint caixa-avisado" x-show="prontaParaPagamento && isOpen" x-cloak>
+      Conta enviada ao caixa. Pode continuar lançando itens — se lançar, avise o caixa de novo.
+    </p>
     <div class="close-bar-spacer"></div>
 
     <!-- Dialog Transferir -->
@@ -352,12 +370,44 @@
     .browse-stock.low { color: var(--danger); }
     .browse-stock.negative { color: var(--danger); }
     .browse-empty { padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
+
+    .caixa-avisado {
+      margin-top: .75rem; padding: .7rem .9rem; border-radius: var(--radius);
+      background: var(--success-bg); color: var(--success-text);
+      border: 1.5px solid color-mix(in srgb, var(--success-text) 25%, transparent);
+    }
+
+    /* ─── Browse modal no celular ───
+       As 5 colunas do desktop (foto, nome, categoria, preço, estoque) não cabem em ~360px:
+       o nome quebrava letra a letra numa coluna de dois dedos e a lista ganhava rolagem
+       horizontal. Aqui viram duas linhas — nome/preço em cima, categoria/estoque embaixo —
+       com `minmax(0, 1fr)` para o texto poder encolher em vez de empurrar a grade. */
+    @media (max-width: 560px) {
+      .browse-result {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        grid-template-areas:
+          'thumb name price'
+          'thumb meta stock';
+        gap: .15rem .7rem;
+        padding: .75rem .8rem;
+      }
+      .browse-result-thumb { grid-area: thumb; width: 40px; height: 40px; align-self: center; }
+      .browse-name {
+        grid-area: name; min-width: 0; font-size: .92rem; line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+      .browse-category { grid-area: meta; min-width: 0; font-size: .76rem; }
+      .browse-price { grid-area: price; align-self: center; }
+      .browse-stock { grid-area: stock; }
+      .browse-list { overflow-x: hidden; }
+    }
   </style>
   <script>
     function comandaDetalhePage() {
       return {
         comandaId: <%= comandaId %>,
         comanda: null,
+        chamandoCaixa: false,
         items: [],
         searchQ: '',
         searchResults: [],
@@ -484,6 +534,31 @@
           await this.load();
         },
         openCloseDlg() { this.$refs.closeDlg.showModal(); },
+        // O servidor é a fonte da verdade: o caixa pode ter fechado a conta de outro
+        // aparelho enquanto esta tela estava aberta.
+        get prontaParaPagamento() {
+          return !!(this.comanda && this.comanda.ready_for_payment_at);
+        },
+        async chamarCaixa() {
+          this.chamandoCaixa = true;
+          try {
+            const r = await fetch(`/api/comandas/comandas/${this.comandaId}/ready-for-payment`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pronta: true }),
+            });
+            if (!r.ok) {
+              const b = await r.json().catch(() => null);
+              showToast((b && b.error) || 'Não foi possível avisar o caixa.', 'error');
+              return;
+            }
+            await this.load();
+            showToast('Caixa avisado — leve a comanda para o cliente pagar.', 'success');
+          } catch (e) {
+            showToast('Sem conexão com o Kivo. Tente de novo.', 'error');
+          } finally {
+            this.chamandoCaixa = false;
+          }
+        },
         confirmClose() {
           this.$refs.closeDlg.close();
           window.location.href = '/app/store/pdv?comandaId=' + this.comandaId;

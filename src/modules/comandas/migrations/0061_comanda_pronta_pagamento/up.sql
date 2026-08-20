@@ -1,0 +1,11 @@
+-- 0061_comanda_pronta_pagamento — o garçom avisa que a mesa quer pagar.
+--
+-- O cargo Garçom (core/roles/presets.ts) não tem `store.sales.create`, então o botão
+-- "Fechar comanda" do celular o mandava para /app/store/pdv e ele era redirecionado
+-- de volta à home sem nenhuma explicação — parecia que o app tinha travado.
+--
+-- Em vez de dar a frente de caixa inteira ao garçom, ele marca a comanda como pronta
+-- para pagamento e o caixa vê o aviso na tela de Mesas. É coluna nova, e não um novo
+-- valor em `status`: o CHECK aceita só aberta/fechada/cancelada, e a comanda continua
+-- ABERTA de verdade (ainda dá para lançar mais um item enquanto o caixa não fecha).
+ALTER TABLE comandas ADD COLUMN ready_for_payment_at TEXT;

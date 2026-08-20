@@ -26,6 +26,16 @@ export class ComandaRepository extends BaseRepository {
     );
   }
 
+  /** Garçom avisando o caixa. `NULL` desmarca — a mesa pediu mais uma coisa. */
+  setReadyForPayment(id: number, pronta: boolean): void {
+    this.rawRun(
+      `UPDATE comandas SET ready_for_payment_at = ${pronta ? "datetime('now')" : 'NULL'},
+              updated_at = datetime('now')
+        WHERE id = ?`,
+      id,
+    );
+  }
+
   transferTable(id: number, targetTableId: number): void {
     this.rawRun(
       "UPDATE comandas SET table_id = ?, updated_at = datetime('now') WHERE id = ?",

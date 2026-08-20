@@ -25,7 +25,7 @@ router.get('/', requirePermission('settings.view'), (_req, res) => {
  * O QR de cada endereço é gerado aqui (server-side, lib `qrcode` pura-JS, sem
  * dependência nativa nem CDN) para não precisar vendorizar mais um bundle
  * client-side — mesmo espírito 100% offline do resto do app. */
-router.get('/network-info', requirePermission('settings.view'), async (_req, res) => {
+router.get('/network-info', requirePermission('settings.view'), async (req, res) => {
   const port = Number(process.env.KIVO_PORT ?? 3123);
   const rawUrls: string[] = [];
   for (const addrs of Object.values(os.networkInterfaces())) {
@@ -36,7 +36,12 @@ router.get('/network-info', requirePermission('settings.view'), async (_req, res
   const urls = await Promise.all(
     rawUrls.map(async (url) => ({ url, qr: await QRCode.toDataURL(url, { margin: 1, width: 160 }) })),
   );
-  res.json({ urls, port });
+  // Em que host o servidor REALMENTE subiu neste boot (electron/main.ts grava ao escutar).
+  // A chave `rede.acesso_local` só entra em vigor no próximo início; comparar as duas é o
+  // que permite a tela dizer "já vale" ou "falta reiniciar" em vez de deixar o lojista
+  // adivinhando por que o celular não abre.
+  const lanAtivo = typeof req.app.locals.lanAtivo === 'boolean' ? (req.app.locals.lanAtivo as boolean) : null;
+  res.json({ urls, port, lanAtivo });
 });
 
 /** Link público do cardápio online (Fase 6) + QR — monta a partir do company_uuid da

@@ -82,6 +82,7 @@
         billingAlert: null,
         licenseStatus: null,
         cashAlert: null,
+        atualizacao: null,
         upcomingBills: null,
         notifUserKey: <%- JSON.stringify(user ? user.username : '') %>,
         notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles' },
@@ -119,6 +120,13 @@
             }
           }
           if (this.cashAlert) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
+          // Espelha o item do sino (partials/nav.ejs) — manter os dois em sincronia.
+          if (this.atualizacao && this.atualizacao.versaoDisponivel) {
+            const msgAtu = this.atualizacao.status === 'baixado'
+              ? `Kivo ${this.atualizacao.versaoDisponivel} baixado — clique para instalar`
+              : `Nova versão do Kivo disponível (${this.atualizacao.versaoDisponivel})`;
+            list.push({ id: 'atualizacao-' + this.atualizacao.versaoDisponivel, type: 'atualizacao', message: msgAtu, link: '/admin/configuracoes#atualizacao' });
+          }
           if (this.billingAlert && this.billingAlert.count) {
             list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
           }
@@ -173,6 +181,9 @@
           jobs.push(fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.count) this.billingAlert = d; }).catch(() => {}));
           <% } %>
           jobs.push(fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((d) => { this.licenseStatus = d; }).catch(() => {}));
+          <% if (user.permissions.has('settings.edit')) { %>
+          jobs.push(fetch('/api/updates/status').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.suportado) this.atualizacao = d; }).catch(() => {}));
+          <% } %>
           <% if (user.permissions.has('finance.cash.view')) { %>
           jobs.push(fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.open && d.openTooLong) this.cashAlert = d; }).catch(() => {}));
           <% } %>

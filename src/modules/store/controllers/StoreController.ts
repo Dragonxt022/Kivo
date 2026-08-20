@@ -92,9 +92,14 @@ export const storeController = {
     if (!quote) { res.status(404).json({ error: 'Orçamento não encontrado.' }); return; }
     // product_id/notes/line_group_uuid vão no retorno porque o PDV remonta o carrinho a
     // partir daqui ao reabrir o orçamento — sem eles o vínculo com os complementos se perde.
+    // image_url/sku saem do produto (LEFT JOIN — pode ter sido excluído): o PDV mostra a
+    // foto no carrinho ao reabrir o orçamento, igual a quando o item foi lançado à mão.
     const items = quoteRepository.raw(
-      `SELECT id, product_id, product_name, qty, unit_price_cents, total_cents, notes, line_group_uuid
-       FROM quote_items WHERE quote_id = ? ORDER BY id`,
+      `SELECT qi.id, qi.product_id, qi.product_name, qi.qty, qi.unit_price_cents, qi.total_cents,
+              qi.notes, qi.line_group_uuid, p.image_url, p.sku
+         FROM quote_items qi
+         LEFT JOIN products p ON p.id = qi.product_id
+        WHERE qi.quote_id = ? ORDER BY qi.id`,
       id,
     );
     res.json({ ...quote, items });

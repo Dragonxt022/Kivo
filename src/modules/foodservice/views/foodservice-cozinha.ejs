@@ -12,7 +12,15 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/foodservice/cozinha' }) %>
   <main x-data="cozinhaPage()" x-init="init()">
-    <h1>Painel de cozinha</h1>
+    <div class="kds-head">
+      <h1>Painel de cozinha</h1>
+      <% if (user.permissions.has('foodservice.routing.manage')) { %>
+      <a href="/app/foodservice/roteamento" class="btn secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+        Escolher produtos da cozinha
+      </a>
+      <% } %>
+    </div>
 
     <div class="tabs">
       <button type="button" :class="{ active: tab === 'pendente' }" @click="tab = 'pendente'; load()">Pendentes</button>
@@ -59,9 +67,25 @@
 
     <div x-show="!tickets.length" x-cloak>
       <%- include('partials/empty-state', { message: 'Nenhum ticket nesta etapa.' }) %>
+      <%# Painel sempre vazio é quase sempre isto: nenhum produto foi marcado como "vai
+          para a cozinha", então lançar item na comanda nunca gera ticket (a checagem
+          está em foodservice/kitchen.ts — sem roteamento, notifyOrder retorna sem fazer
+          nada). O aviso só aparece para quem pode resolver. %>
+      <% if (user.permissions.has('foodservice.routing.manage')) { %>
+      <p class="hint kds-dica">
+        O painel só recebe pedido de produtos marcados como "vai para a cozinha".
+        Marque-os em <a href="/app/foodservice/roteamento">Escolher produtos da cozinha</a> —
+        depois disso, todo item desses lançado numa comanda ou vendido no PDV aparece aqui
+        automaticamente.
+      </p>
+      <% } %>
     </div>
   </main>
   <style>
+    .kds-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .kds-head h1 { margin-bottom: 0; }
+    .kds-dica { max-width: 62ch; margin: .75rem auto 0; text-align: center; }
+
     .kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
     .kds-card {
       background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius);

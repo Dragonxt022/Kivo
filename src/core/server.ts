@@ -32,6 +32,7 @@ import { startEventChannel } from './sync/events';
 import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
 import supportRoutes from './support/routes';
+import updaterRoutes from './updater/routes';
 import recoveryRoutes from './recovery/routes';
 import { purgeOldChallenges } from './recovery/service';
 
@@ -224,6 +225,7 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/api/core/capabilities', requireAuth, capabilitiesRoutes);
   app.use('/api/onboarding', requireAuth, onboardingRoutes);
   app.use('/api/support', requireAuth, supportRoutes);
+  app.use('/api/updates', requireAuth, updaterRoutes);
 
   // Páginas do Core
   app.get('/', page('home'));

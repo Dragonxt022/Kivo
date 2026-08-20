@@ -27,7 +27,7 @@
       <template x-for="t in tables" :key="t.id">
         <div class="table-card"
              :data-id="t.id"
-             :class="[t.status === 'livre' ? 'table-livre' : 'table-ocupada', canManage ? 'drag-enabled' : '', dragId === t.id ? 'dragging' : '', dropOverId === t.id ? 'drop-target' : '']"
+             :class="[t.status === 'livre' ? 'table-livre' : 'table-ocupada', t.ready_for_payment_at ? 'table-quer-pagar' : '', canManage ? 'drag-enabled' : '', dragId === t.id ? 'dragging' : '', dropOverId === t.id ? 'drop-target' : '']"
              @pointerdown="onCardPointerDown($event, t)">
           <% if (user.permissions.has('comandas.tables.manage')) { %>
           <button type="button" class="icon-btn table-remove" x-show="t.status === 'livre'"
@@ -36,7 +36,7 @@
           </button>
           <% } %>
           <button type="button" class="table-card-body" @click="openTable(t)"
-                  :title="t.label + ' — ' + (t.status === 'livre' ? 'Livre' : 'Ocupada')">
+                  :title="t.label + ' — ' + (t.ready_for_payment_at ? 'Quer pagar' : (t.status === 'livre' ? 'Livre' : 'Ocupada'))">
             <div class="table-icon">
               <template x-if="t.status === 'livre'">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
@@ -46,7 +46,14 @@
               </template>
             </div>
             <div class="table-label" x-text="t.label"></div>
-            <span class="badge" :class="t.status === 'livre' ? 'ok' : 'off'" x-text="t.status === 'livre' ? 'Livre' : 'Ocupada'"></span>
+            <%# O aviso do garçom substitui o "Ocupada": para o caixa, saber que a mesa
+                chamou a conta é a informação que importa naquele instante. %>
+            <template x-if="t.ready_for_payment_at">
+              <span class="badge quer-pagar">Quer pagar</span>
+            </template>
+            <template x-if="!t.ready_for_payment_at">
+              <span class="badge" :class="t.status === 'livre' ? 'ok' : 'off'" x-text="t.status === 'livre' ? 'Livre' : 'Ocupada'"></span>
+            </template>
           </button>
         </div>
       </template>
@@ -101,6 +108,15 @@
     .table-card.table-livre:hover { border-color: var(--primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 16%, transparent); }
     .table-card.table-ocupada:hover { border-color: var(--danger); box-shadow: 0 8px 24px color-mix(in srgb, var(--danger) 16%, transparent); }
     .table-card.table-ocupada { background: var(--danger-bg); }
+    /* Mesa que chamou a conta: destaque próprio para o caixa achar de longe, sem se
+       confundir com o vermelho de "ocupada" — são estados diferentes. */
+    .table-card.table-quer-pagar {
+      background: var(--primary-bg);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+    }
+    .table-card.table-quer-pagar .table-icon { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
+    .badge.quer-pagar { background: var(--primary); color: #fff; font-weight: 700; }
     .table-card-body {
       width: 100%; background: none; border: 0; cursor: pointer; font: inherit; color: inherit;
       display: flex; flex-direction: column; align-items: center; gap: .5rem;
@@ -242,6 +258,9 @@
         async openTable(t) {
           this.error = '';
           if (t.status === 'ocupada') {
+            // O status já traz a comanda aberta da mesa; a busca na lista completa
+            // continua como plano B para uma grade carregada antes desta versão.
+            if (t.comanda_id) { window.location.href = '/app/comandas/mesas/' + t.comanda_id; return; }
             const r = await fetch('/api/comandas/comandas?status=aberta');
             if (!r.ok) return;
             const list = await r.json();
