@@ -81,6 +81,9 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
     origin_machine: req.headers['x-machine'] ?? null,
   });
   audit(req, 'adicionar_item_comanda', 'comanda_item', itemId, null, { comandaId, productId: product.id, qty: params.qty, unitPriceCents });
+  // Pediram mais uma coisa depois de chamar a conta: o caixa não pode fechar com o
+  // total antigo, então o aviso cai e o garçom manda de novo quando for a hora.
+  comandaRepository.setReadyForPayment(comandaId, false);
   if (hasService('foodservice.kitchen')) {
     try {
       const tableLabel = comanda.table_id
@@ -94,6 +97,29 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
     } catch { /* best-effort */ }
   }
   return { ok: true, id: itemId };
+}
+
+/**
+ * "Enviar para o caixa": o garçom não fecha a conta (o cargo dele não tem
+ * `store.sales.create` — ver core/roles/presets.ts), então sinaliza que a mesa quer
+ * pagar e o caixa vê o aviso na tela de Mesas.
+ *
+ * A comanda continua ABERTA: se o cliente pedir mais uma cerveja depois de chamar a
+ * conta, o garçom lança normalmente — o que também desmarca o aviso, senão o caixa
+ * fecharia uma conta com item faltando.
+ */
+export function setReadyForPayment(
+  req: Request,
+  comandaId: number,
+  pronta: boolean,
+): { ok: true } | { ok: false; error: string } {
+  assertAuth(req);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
+  if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
+  if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
+  comandaRepository.setReadyForPayment(comandaId, pronta);
+  audit(req, pronta ? 'comanda_pronta_pagamento' : 'comanda_reaberta_pagamento', 'comanda', comandaId);
+  return { ok: true };
 }
 
 export function voidItem(req: Request, comandaId: number, itemId: number): { ok: true } | { ok: false; error: string } {

@@ -19,6 +19,8 @@ router.delete('/comandas/:id/items/:itemId', requireCapability('comandas.mesas')
 router.post('/comandas/:id/transfer', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.transferAction);
 router.post('/comandas/:id/split', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.splitAction);
 router.post('/comandas/:id/merge', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.mergeAction);
+// `comandas.manage` e não uma permissão de venda: chamar o caixa é trabalho de garçom.
+router.post('/comandas/:id/ready-for-payment', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.readyForPaymentAction);
 router.post('/comandas/:id/close', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.closeComandaAction);
 router.post('/comandas/:id/cancel', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.cancelComandaAction);
 

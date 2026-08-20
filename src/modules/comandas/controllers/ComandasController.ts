@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
-import { openComanda, addItem, voidItem, transfer, split, merge, closeComanda, cancelComanda } from '../comandas';
+import { openComanda, addItem, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
 import { storeTableRepository } from '../repositories/StoreTableRepository';
 import { comandaRepository, comandaItemRepository } from '../repositories/ComandaRepository';
 
@@ -10,8 +10,26 @@ export const comandasController = {
     res.json(storeTableRepository.findAll({ orderBy: 'sort_order' }));
   },
 
+  /**
+   * Grade de mesas: além do status, leva a comanda aberta de cada uma e o aviso
+   * "quer pagar" que o garçom manda do celular — é assim que o caixa descobre qual
+   * mesa chamou sem precisar passar de mesa em mesa.
+   *
+   * O GROUP BY é rede de proteção: `openComanda` só abre comanda em mesa livre, então
+   * o normal é no máximo uma por mesa. Se por algum motivo houver duas, sem ele a
+   * mesa apareceria duplicada na grade. Com MAX(c.id), o SQLite traz as demais colunas
+   * de `c` da própria linha do máximo — a comanda mais recente.
+   */
   listTableStatus(_req: Request, res: Response) {
-    res.json(storeTableRepository.findAll({ orderBy: 'sort_order' }));
+    res.json(storeTableRepository.raw(
+      `SELECT t.*, MAX(c.id) AS comanda_id, c.ready_for_payment_at
+         FROM store_tables t
+         LEFT JOIN comandas c
+           ON c.table_id = t.id AND c.status = 'aberta' AND c.deleted_at IS NULL
+        WHERE t.deleted_at IS NULL
+        GROUP BY t.id
+        ORDER BY t.sort_order`,
+    ));
   },
 
   createTable(req: Request, res: Response) {
@@ -52,6 +70,13 @@ export const comandasController = {
     res.json({ ok: true });
   },
 
+  readyForPaymentAction(req: Request, res: Response) {
+    const pronta = req.body?.pronta !== false;
+    const result = setReadyForPayment(req, Number(req.params.id), pronta);
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.json({ ok: true, pronta });
+  },
+
   listComandas(req: Request, res: Response) {
     const status = req.query.status ? String(req.query.status) : undefined;
     let sql = `SELECT c.*, t.label AS table_label
@@ -74,8 +99,16 @@ export const comandasController = {
       id,
     );
     if (!comanda) { res.status(404).json({ error: 'Comanda nao encontrada.' }); return; }
+    // A foto e o SKU vêm do produto (o item só congela nome e preço): é o PDV que
+    // precisa deles ao reabrir a comanda para fechar a conta — sem o JOIN, o carrinho
+    // aparecia com o quadradinho cinza de "sem imagem" mesmo em produto fotografado.
+    // LEFT JOIN porque o produto pode ter sido excluído depois do lançamento.
     const items = comandaItemRepository.raw(
-      "SELECT * FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL ORDER BY id",
+      `SELECT ci.*, p.image_url, p.sku
+         FROM comanda_items ci
+         LEFT JOIN products p ON p.id = ci.product_id
+        WHERE ci.comanda_id = ? AND ci.deleted_at IS NULL AND ci.voided_at IS NULL
+        ORDER BY ci.id`,
       id,
     );
     res.json({ ...comanda, items });

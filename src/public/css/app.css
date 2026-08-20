@@ -3382,6 +3382,31 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   }
   header.nav {
     height: 50px;
+    /* Mesmo escondendo o nome do usuário, o conteúdo do cabeçalho (relógio + voltar +
+       logo de 150px + três ícones de 38px) media ~438px numa tela de 390 — o botão de
+       sair ficava cortado pela metade na borda direita. Aqui a barra ganha os 16px que
+       sobravam de margem e cada peça encolhe o suficiente para tudo caber. */
+    width: calc(100% - 16px);
+    padding: 0 0.4rem;
+  }
+  header.nav img.logo {
+    width: 118px;
+    height: auto;
+  }
+  header.nav img.logo-empresa {
+    max-width: 130px;
+    height: 26px;
+  }
+  header.nav .nav-left {
+    margin-left: 0;
+    min-width: 0;
+  }
+  header.nav .nav-end {
+    min-width: 0;
+  }
+  header.nav .btn-icon {
+    width: 34px;
+    height: 34px;
   }
   .apps-drawer {
     width: 100%;
@@ -3518,6 +3543,12 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   .app-grid {
     grid-template-columns: 1fr;
     gap: 0.7rem;
+  }
+  /* Último item a sair, e só nos aparelhos mais estreitos: entre ver a hora e alcançar
+     o botão de sair, o botão ganha. O relógio do próprio celular fica logo acima. */
+  header.nav .nav-clock,
+  header.nav .nav-clock-icon {
+    display: none;
   }
 }
 
@@ -5583,4 +5614,20 @@ dialog.import-dialog > .dialog-body {
     flex: 1 1 8rem;
     justify-content: center;
   }
+}
+
+/* Barra de progresso do download da atualização (Configurações › Atualização). */
+.update-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--border-light);
+  overflow: hidden;
+  margin: 0.5rem 0;
+  max-width: 420px;
+}
+.update-bar-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 99px;
+  transition: width 0.3s ease;
 }

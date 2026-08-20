@@ -12,7 +12,8 @@
     return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
   },
   notifUserKey: <%= JSON.stringify(user ? user.username : '') %>,
-  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles' },
+  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles', atualizacao: 'refresh-cw' },
+  atualizacao: null,
   notifIconSvg(type) {
     const name = this.notifIconMap[type];
     return (name && typeof NAV_SVG_ICONS !== 'undefined' && NAV_SVG_ICONS[name]) || '';
@@ -42,6 +43,14 @@
       }
     }
     if (this.cashAlert) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
+    // Versão nova do Kivo. O id carrega a versão para que 'lido'/'dispensado' valham só
+    // para ELA — a próxima versão volta a avisar. Espelhado em views/notifications.ejs.
+    if (this.atualizacao && this.atualizacao.versaoDisponivel) {
+      var msgAtu = this.atualizacao.status === 'baixado'
+        ? 'Kivo ' + this.atualizacao.versaoDisponivel + ' baixado — clique para instalar'
+        : 'Nova versão do Kivo disponível (' + this.atualizacao.versaoDisponivel + ')';
+      list.push({ id: 'atualizacao-' + this.atualizacao.versaoDisponivel, type: 'atualizacao', message: msgAtu, link: '/admin/configuracoes#atualizacao' });
+    }
     if (this.billingAlert && this.billingAlert.count) {
       list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
     }
@@ -111,6 +120,13 @@
     jobs.push(fetch('/api/license/status').then((r) => r.ok ? r.json() : null).then((data) => { this.licenseStatus = data; }).catch(() => {}));
     this.checkCloudStatus();
     setInterval(() => this.checkCloudStatus(), leve ? 120000 : 25000);
+    <% if (user && user.permissions.has('settings.edit')) { %>
+    // Só quem pode instalar recebe o aviso: para o garçom seria um alerta que ele não
+    // tem como resolver. O ciclo longo basta — a checagem em si é de 6 em 6 horas.
+    const lerAtu = () => fetch('/api/updates/status').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.suportado) this.atualizacao = d; }).catch(() => {});
+    jobs.push(lerAtu());
+    setInterval(lerAtu, 600000);
+    <% } %>
     <% if (user && user.permissions.has('finance.cash.view')) { %>
     jobs.push(fetch('/api/finance/cash/current').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.open && data.openTooLong) this.cashAlert = data; }).catch(() => {}));
     <% } %>

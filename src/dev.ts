@@ -25,6 +25,10 @@ async function main() {
   await refreshLicenseFromCloud();
 
   const { app, modules } = await createServer();
+  // Sem Electron o servidor escuta em todas as interfaces (padrão do `listen`), então o
+  // acesso pela rede local já vale — a tela de Configurações lê isto para não pedir um
+  // reinício que aqui não muda nada. No app empacotado quem decide é electron/main.ts.
+  app.locals.lanAtivo = true;
   const server = app.listen(PORT, () => {
     console.log(`[kivo] API local em http://localhost:${PORT} — módulos: ${modules.length}`);
   });

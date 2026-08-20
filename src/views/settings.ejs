@@ -62,6 +62,13 @@
       </button>
       <% } %>
       <% if (user.permissions.has('settings.edit')) { %>
+      <button :class="{ active: tab === 'atualizacao' }" @click="setTab('atualizacao')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        Atualização
+        <span x-show="temAtualizacao" x-cloak class="badge ok" style="margin-left:.35rem">1</span>
+      </button>
+      <% } %>
+      <% if (user.permissions.has('settings.edit')) { %>
       <button :class="{ active: tab === 'advanced' }" @click="setTab('advanced')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Avançado
@@ -495,22 +502,38 @@
           desde que esteja na mesma rede local (Wi-Fi ou cabo) desta máquina. Nenhum dado
           sai da rede local; não é acesso pela internet.
         </p>
+        <%# A chave grava sozinha (mesmo comportamento do "Modo leve" na aba Interface).
+            Antes ela dependia de um "Salvar" próprio, logo acima de um SEGUNDO "Salvar"
+            (o da sincronização) — quem marcava a chave e clicava no botão de baixo saía
+            achando que tinha ligado, e no reinício seguinte a chave estava desmarcada
+            porque nunca chegou a ser gravada. %>
         <div class="field">
           <label class="label-checkbox">
-            <input type="checkbox" x-model="rede.acessoLocal" />
+            <input type="checkbox" :checked="rede.acessoLocal" :disabled="savingRede" @change="toggleAcessoLocal($event.target.checked)" />
             Permitir acesso pela rede local
           </label>
-          <p class="hint">Desligado por padrão. <strong>Requer reiniciar o Kivo</strong> depois de salvar para valer.</p>
+          <p class="hint">
+            Desligado por padrão. <strong>Não precisa salvar</strong> — a chave grava sozinha ao marcar.
+          </p>
+          <p class="hint" x-show="redeSaved" x-cloak x-text="redeSaved"></p>
         </div>
-        <% if (user.permissions.has('settings.edit')) { %>
-        <div class="toolbar">
-          <button class="btn" @click="saveRede()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            <span x-text="savingRede ? 'Salvando…' : 'Salvar'"></span>
-          </button>
-          <span class="muted" x-show="redeSaved" x-text="redeSaved"></span>
+
+        <%# Estado REAL de agora (em que host o servidor subiu neste boot) x o que está
+            salvo: é o que responde "liguei e mesmo assim o celular não abre". %>
+        <div class="field" x-show="networkInfo.lanAtivo !== null && networkInfo.lanAtivo !== undefined" x-cloak>
+          <template x-if="rede.acessoLocal && networkInfo.lanAtivo">
+            <p class="hint mt-0"><span class="badge ok">Ativo agora</span> Outros aparelhos da mesma rede já conseguem abrir o Kivo nos endereços abaixo.</p>
+          </template>
+          <template x-if="rede.acessoLocal && !networkInfo.lanAtivo">
+            <p class="hint mt-0"><span class="badge neutral">Falta reiniciar</span> Está ligado e salvo, mas só passa a valer quando você fechar e abrir o Kivo.</p>
+          </template>
+          <template x-if="!rede.acessoLocal && networkInfo.lanAtivo">
+            <p class="hint mt-0"><span class="badge neutral">Falta reiniciar</span> Está desligado e salvo, mas continua acessível até você fechar e abrir o Kivo.</p>
+          </template>
+          <template x-if="!rede.acessoLocal && !networkInfo.lanAtivo">
+            <p class="hint mt-0"><span class="badge off">Desligado</span> Só este computador consegue abrir o Kivo.</p>
+          </template>
         </div>
-        <% } %>
         <div x-show="networkInfo.urls && networkInfo.urls.length" style="margin-top:1.25rem">
           <p class="hint mt-0">Endereço(s) desta máquina na rede local — acesse pelo navegador do celular/tablet, ou aponte a câmera para o QR:</p>
           <template x-for="u in networkInfo.urls" :key="u.url">
@@ -661,6 +684,131 @@
 
     <!-- ═══════ ABA: AVANÇADO ═══════ -->
     <% if (user.permissions.has('settings.edit')) { %>
+    <%# ═══════ ABA: ATUALIZAÇÃO ═══════
+        Cada etapa é um clique do lojista (verificar → baixar → instalar) em vez de o app
+        baixar sozinho: numa loja, ~100 MB no meio do movimento disputam a mesma internet
+        do TEF e da nuvem, e o reinício que vem depois cairia no pior momento possível.
+        O estado real vem de /api/updates/status — ver core/updater. %>
+    <div x-show="tab === 'atualizacao'" x-cloak>
+      <section class="panel">
+        <h2>Atualização do Kivo</h2>
+        <p class="hint mt-0">
+          Versão instalada nesta máquina: <strong x-text="atualizacao.versaoAtual"></strong>
+        </p>
+
+        <template x-if="!atualizacao.suportado">
+          <p class="hint">
+            <span class="badge neutral">Indisponível</span>
+            <span x-text="atualizacao.motivo"></span>
+          </p>
+        </template>
+
+        <template x-if="atualizacao.suportado">
+          <div>
+            <template x-if="atualizacao.status === 'ocioso'">
+              <div>
+                <p class="hint">
+                  <span class="badge ok">Em dia</span>
+                  Você já está com a versão mais recente.
+                  <span x-show="atualizacao.verificadoEm" x-cloak x-text="'Última verificação: ' + fmtQuando(atualizacao.verificadoEm) + '.'"></span>
+                </p>
+                <div class="toolbar">
+                  <button class="btn secondary" @click="procurarAtualizacao()" :disabled="atualizacao.ocupado">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                    Procurar atualizações
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="atualizacao.status === 'verificando'">
+              <p class="hint"><span class="badge neutral">Verificando</span> Procurando uma versão nova…</p>
+            </template>
+
+            <template x-if="atualizacao.status === 'disponivel'">
+              <div>
+                <p class="hint">
+                  <span class="badge ok">Novidade</span>
+                  A versão <strong x-text="atualizacao.versaoDisponivel"></strong> está disponível.
+                </p>
+                <p class="hint" x-show="atualizacao.notas" x-cloak x-text="atualizacao.notas" style="white-space:pre-wrap"></p>
+                <p class="hint">
+                  Baixar não interrompe nada: o Kivo continua funcionando normalmente enquanto
+                  o download acontece. O reinício só ocorre quando você mandar.
+                </p>
+                <div class="toolbar">
+                  <button class="btn" @click="baixarAtualizacao()" :disabled="atualizacao.ocupado">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Baixar atualização
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="atualizacao.status === 'baixando'">
+              <div>
+                <p class="hint">
+                  <span class="badge neutral">Baixando</span>
+                  Versão <strong x-text="atualizacao.versaoDisponivel"></strong> — pode continuar usando o Kivo.
+                </p>
+                <div class="update-bar" role="progressbar" :aria-valuenow="Math.round(pct)" aria-valuemin="0" aria-valuemax="100">
+                  <div class="update-bar-fill" :style="'width:' + pct + '%'"></div>
+                </div>
+                <p class="hint" x-text="Math.round(pct) + '% — ' + fmtBytes(atualizacao.progresso && atualizacao.progresso.transferido) + ' de ' + fmtBytes(atualizacao.progresso && atualizacao.progresso.total) + (atualizacao.progresso && atualizacao.progresso.bytesPorSegundo ? ' (' + fmtBytes(atualizacao.progresso.bytesPorSegundo) + '/s)' : '')"></p>
+              </div>
+            </template>
+
+            <template x-if="atualizacao.status === 'baixado'">
+              <div>
+                <p class="hint">
+                  <span class="badge ok">Pronto</span>
+                  A versão <strong x-text="atualizacao.versaoDisponivel"></strong> já está baixada nesta máquina.
+                </p>
+                <p class="hint">
+                  Ao clicar em Atualizar, o Kivo fecha, instala sozinho (sem nenhuma tela de
+                  instalação) e volta a abrir. Leva menos de um minuto —
+                  <strong>feche a venda em aberto antes</strong>.
+                </p>
+                <template x-if="!atualizacao.confirmando">
+                  <div class="toolbar">
+                    <button class="btn" @click="atualizacao.confirmando = true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                      Atualizar e reiniciar
+                    </button>
+                  </div>
+                </template>
+                <template x-if="atualizacao.confirmando">
+                  <div class="toolbar">
+                    <span class="muted">Fechar o Kivo agora e instalar?</span>
+                    <button class="btn" @click="instalarAtualizacao()" :disabled="atualizacao.ocupado">
+                      <span x-text="atualizacao.ocupado ? 'Reiniciando…' : 'Sim, atualizar agora'"></span>
+                    </button>
+                    <button class="btn secondary" @click="atualizacao.confirmando = false" :disabled="atualizacao.ocupado">Cancelar</button>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <template x-if="atualizacao.status === 'erro'">
+              <div>
+                <p class="hint">
+                  <span class="badge off">Falhou</span>
+                  <span x-text="atualizacao.erro || 'Não foi possível concluir.'"></span>
+                </p>
+                <p class="hint">Costuma ser internet instável. Nada foi alterado no Kivo instalado.</p>
+                <div class="toolbar">
+                  <button class="btn secondary" @click="procurarAtualizacao()" :disabled="atualizacao.ocupado">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                    Tentar de novo
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
+    </div>
+
     <div x-show="tab === 'advanced'" x-cloak>
       <section class="panel">
         <h2>Servidor de sincronização (cloud)</h2>
@@ -907,7 +1055,7 @@
     // Abas válidas — a lista existe só para não confiar cegamente no que vem no #hash da
     // URL: um valor desconhecido esconderia todos os painéis e a tela ficaria em branco.
     const SETTINGS_TABS = ['license', 'empresa', 'stock', 'sales', 'financeiro', 'fidelidade',
-                           'interface', 'rede', 'cardapio', 'security', 'advanced'];
+                           'interface', 'rede', 'cardapio', 'security', 'atualizacao', 'advanced'];
 
     function settingsPage() {
       return {
@@ -934,7 +1082,12 @@
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
         fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
-        rede: { acessoLocal: false, syncIntervalo: 3 }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null }, copiedUrl: '',
+        rede: { acessoLocal: false, syncIntervalo: 3 }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null, lanAtivo: null }, copiedUrl: '',
+        atualizacao: {
+          suportado: false, motivo: '', status: 'ocioso', versaoAtual: '—', versaoDisponivel: null,
+          notas: null, progresso: null, erro: null, verificadoEm: null, ocupado: false, confirmando: false,
+        },
+        pollAtualizacaoId: null,
         savingSync: false, syncSaved: '',
         cardapio: { url: '', qr: '', loading: true, copied: false },
         reset: { confirmacao: '', includeCloudBackups: false, rodando: false, erro: '', result: null },
@@ -944,6 +1097,10 @@
         // página pular para o topo.
         setTab(v) {
           this.tab = v;
+          // O estado do updater vive na memória do processo principal e muda sozinho
+          // (checagem de 6h, download em andamento): reler ao abrir a aba evita mostrar
+          // uma foto velha de quando a página carregou.
+          if (v === 'atualizacao') this.lerAtualizacao();
           // Preserva history.state: o botão Voltar do cabeçalho guarda a profundidade da
           // navegação ali (kivoDepth, ver partials/nav.ejs), e passar `null` a apagaria —
           // fazendo a seta achar que esta é a primeira tela da aba.
@@ -966,6 +1123,9 @@
           if (p.ok) this.pinConfigured = (await p.json()).configured;
           <% } %>
           <% if (user.permissions.has('settings.edit')) { %>
+          // Fora do `await` da fila: o selo de novidade na aba não deve atrasar o
+          // desenho do resto da tela.
+          this.lerAtualizacao();
           const n = await fetch('/api/settings/network-info');
           if (n.ok) this.networkInfo = await n.json();
           const c = await fetch('/api/settings/cardapio-info');
@@ -1201,14 +1361,122 @@
           const s = await fetch('/api/settings');
           if (s.ok) { this.settings = await s.json(); this.syncSettings(); }
         },
-        async saveRede() {
+        // Grava na hora, sem botão. O valor local muda ANTES do fetch de propósito: se a
+        // gravação falhar, devolver o valor anterior vira uma mudança de verdade para o
+        // Alpine e a chave volta sozinha na tela — em vez de ficar marcada mentindo.
+        async toggleAcessoLocal(alvo) {
+          const anterior = this.rede.acessoLocal;
+          this.rede.acessoLocal = alvo;
           this.savingRede = true; this.redeSaved = '';
-          const r = await fetch('/api/settings/rede.acesso_local', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: this.rede.acessoLocal ? '1' : '0' }),
-          });
-          this.savingRede = false;
-          this.redeSaved = r.ok ? 'Salvo — reinicie o Kivo para aplicar.' : 'Falha ao salvar.';
+          try {
+            const r = await fetch('/api/settings/rede.acesso_local', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value: alvo ? '1' : '0' }),
+            });
+            if (!r.ok) throw new Error('falhou');
+            this.redeSaved = alvo
+              ? 'Ligado e salvo. Feche e abra o Kivo para os outros aparelhos alcançarem este computador.'
+              : 'Desligado e salvo. Feche e abra o Kivo para fechar o acesso.';
+            showToast(this.redeSaved, 'success');
+          } catch (e) {
+            this.rede.acessoLocal = anterior;
+            this.redeSaved = '';
+            showToast('Não foi possível salvar o acesso pela rede local. Tente de novo.', 'error');
+          } finally {
+            this.savingRede = false;
+          }
+        },
+        // ─── Atualização do app ───
+        // Tudo passa por /api/updates (core/updater): a tela é servida pelo Express local,
+        // não é uma renderer com IPC, então não há `window.electron` para chamar aqui.
+        get temAtualizacao() {
+          return this.atualizacao.suportado
+            && (this.atualizacao.status === 'disponivel' || this.atualizacao.status === 'baixando' || this.atualizacao.status === 'baixado');
+        },
+        get pct() {
+          return this.atualizacao.progresso ? this.atualizacao.progresso.percent : 0;
+        },
+        fmtBytes(n) {
+          n = Number(n) || 0;
+          if (n < 1024) return n + ' B';
+          if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+          return (n / 1024 / 1024).toFixed(1) + ' MB';
+        },
+        fmtQuando(iso) {
+          const d = new Date(iso);
+          return isNaN(d) ? '—' : d.toLocaleString('pt-BR');
+        },
+        async lerAtualizacao() {
+          try {
+            const r = await fetch('/api/updates/status');
+            if (!r.ok) return;
+            const d = await r.json();
+            if (!d) return;
+            // `ocupado`/`confirmando` são estado só da tela — o servidor não os conhece,
+            // e sobrescrevê-los aqui reabilitaria um botão no meio de um clique.
+            this.atualizacao = { ...this.atualizacao, ...d };
+            if (this.atualizacao.status !== 'baixado') this.atualizacao.confirmando = false;
+            this.acompanharAtualizacao();
+          } catch (e) {
+            // Sem rede local não há o que mostrar; a próxima leitura tenta de novo.
+          }
+        },
+        // Só enquanto há algo em movimento: parado, a aba não fica batendo no servidor.
+        acompanharAtualizacao() {
+          const emMovimento = this.atualizacao.status === 'verificando' || this.atualizacao.status === 'baixando';
+          if (emMovimento && !this.pollAtualizacaoId) {
+            this.pollAtualizacaoId = setInterval(() => this.lerAtualizacao(), 1500);
+          } else if (!emMovimento && this.pollAtualizacaoId) {
+            clearInterval(this.pollAtualizacaoId);
+            this.pollAtualizacaoId = null;
+          }
+        },
+        async acaoAtualizacao(rota, erroPadrao) {
+          this.atualizacao.ocupado = true;
+          try {
+            const r = await fetch('/api/updates/' + rota, { method: 'POST' });
+            const body = await r.json().catch(() => null);
+            if (!r.ok) {
+              showToast((body && body.error) || erroPadrao, 'error');
+              return null;
+            }
+            if (body) this.atualizacao = { ...this.atualizacao, ...body };
+            this.acompanharAtualizacao();
+            return body;
+          } catch (e) {
+            showToast(erroPadrao, 'error');
+            return null;
+          } finally {
+            this.atualizacao.ocupado = false;
+          }
+        },
+        async procurarAtualizacao() {
+          this.atualizacao.erro = null;
+          const r = await this.acaoAtualizacao('check', 'Não foi possível verificar agora.');
+          if (r && r.status === 'ocioso') showToast('Nenhuma versão nova por enquanto.', 'info');
+        },
+        async baixarAtualizacao() {
+          const r = await this.acaoAtualizacao('download', 'Não foi possível iniciar o download.');
+          if (r) showToast('Download iniciado — pode continuar trabalhando.', 'info');
+        },
+        async instalarAtualizacao() {
+          this.atualizacao.ocupado = true;
+          try {
+            const r = await fetch('/api/updates/install', { method: 'POST' });
+            const body = await r.json().catch(() => null);
+            if (!r.ok) {
+              this.atualizacao.ocupado = false;
+              this.atualizacao.confirmando = false;
+              showToast((body && body.error) || 'Não foi possível instalar agora.', 'error');
+              return;
+            }
+            // Não zera `ocupado`: o app fecha em seguida, e reabilitar o botão só daria
+            // margem a um segundo clique enquanto a janela ainda está na tela.
+            showToast('Atualizando… o Kivo vai fechar e abrir sozinho.', 'success');
+          } catch (e) {
+            this.atualizacao.ocupado = false;
+            showToast('Não foi possível instalar agora.', 'error');
+          }
         },
         async saveSyncIntervalo() {
           this.savingSync = true; this.syncSaved = '';

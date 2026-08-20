@@ -9,6 +9,7 @@ import { getSqlite } from '../core/database/connection';
 import { refreshLicenseFromCloud, validateLicense } from '../core/license/service';
 import { canAutoUpdate } from '../core/license/plans';
 import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/machinePrefs';
+import { patchUpdateState, getUpdateState, registrarUpdaterDriver } from '../core/updater';
 
 /**
  * Modo leve desliga a aceleração de vídeo, e `disableHardwareAcceleration()` só vale se for
@@ -81,46 +82,155 @@ function reportFatalBootError(err: unknown): void {
 }
 
 /**
- * Auto-update de verdade (substitui o esqueleto da Fase 0): checa Releases do
- * GitHub (owner/repo/provider vêm do "publish" em package.json — `npm run
- * release:win` publica lá). Só roda no app empacotado; em dev não há
- * app-update.yml e o electron-updater erraria à toa. Sem console visível num app
+ * Auto-update: checa Releases do GitHub (owner/repo/provider vêm do "publish" em
+ * package.json — `npm run release:win` publica lá). Só roda no app empacotado; em dev
+ * não há app-update.yml e o electron-updater erraria à toa. Sem console visível num app
  * empacotado, os eventos vão para um log em userData.
+ *
+ * Quem manda no ritmo é o lojista, não o app: `autoDownload` fica DESLIGADO e cada etapa
+ * (verificar → baixar → instalar) sai de um clique em Configurações › Atualização. Numa
+ * loja, um download de ~100 MB disparado sozinho no meio do movimento disputa a mesma
+ * internet do TEF e da nuvem — e o reinício que vem depois cai no pior momento possível.
+ *
+ * O estado de cada etapa vive em core/updater (ver o porquê lá) e chega à tela pela API
+ * HTTP local, porque a interface do Kivo é uma página servida pelo Express, não uma
+ * renderer com IPC.
  */
-function setupAutoUpdater(): void {
-  if (!app.isPackaged) return;
-  if (!canAutoUpdate(validateLicense().plan)) return; // Prata/Trial: sem atualização automática.
+function setupAutoUpdater(win: BrowserWindow): void {
+  patchUpdateState({ versaoAtual: app.getVersion() });
+
+  if (!app.isPackaged) {
+    patchUpdateState({
+      suportado: false,
+      motivo: 'A atualização automática só funciona no Kivo instalado (aqui você está rodando em modo de desenvolvimento).',
+    });
+    return;
+  }
+  if (!canAutoUpdate(validateLicense().plan)) {
+    patchUpdateState({
+      suportado: false,
+      motivo: 'Seu plano atual não inclui atualização automática. Fale com o suporte para atualizar o Kivo.',
+    });
+    return;
+  }
+
   const logPath = path.join(app.getPath('userData'), 'update.log');
   const log = (msg: string) => {
     try {
-      fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
+      fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}
+`);
     } catch {
       // log é best-effort — não deve derrubar o app.
     }
   };
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.on('checking-for-update', () => log('verificando atualização...'));
-  autoUpdater.on('update-available', (info) => log(`atualização disponível: ${info.version}`));
-  autoUpdater.on('update-not-available', () => log('nenhuma atualização disponível.'));
-  autoUpdater.on('error', (err) => log(`erro: ${err.message}`));
-  autoUpdater.on('update-downloaded', (info) => {
-    log(`atualização baixada: ${info.version} — perguntando ao usuário.`);
-    dialog
-      .showMessageBox({
-        type: 'info',
-        title: 'Kivo — atualização disponível',
-        message: `Uma nova versão (${info.version}) foi baixada. Reiniciar agora para instalar?`,
-        buttons: ['Reiniciar agora', 'Depois'],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall();
+  /** Aviso na própria tela do Kivo. `showToast` não existe na tela de login/ativação — daí a guarda. */
+  const avisarNaTela = (msg: string, tipo: 'info' | 'success') => {
+    win.webContents
+      .executeJavaScript(`window.showToast && window.showToast(${JSON.stringify(msg)}, ${JSON.stringify(tipo)})`)
+      .catch(() => {
+        // Página sem o toast: o sino do cabeçalho e a aba Atualização continuam mostrando.
       });
+  };
+
+  autoUpdater.autoDownload = false;
+
+  autoUpdater.on('checking-for-update', () => {
+    log('verificando atualização...');
+    patchUpdateState({ status: 'verificando', erro: null });
+  });
+  autoUpdater.on('update-available', (info) => {
+    log(`atualização disponível: ${info.version}`);
+    const primeiraVez = getUpdateState().versaoDisponivel !== info.version;
+    patchUpdateState({
+      status: 'disponivel',
+      versaoDisponivel: info.version,
+      notas: typeof info.releaseNotes === 'string' ? info.releaseNotes : null,
+      verificadoEm: new Date().toISOString(),
+      erro: null,
+    });
+    // Só na primeira vez que ESTA versão aparece: a checagem se repete a cada 6h e o
+    // lojista não precisa do mesmo aviso três vezes por dia.
+    if (primeiraVez) {
+      avisarNaTela(
+        `Nova versão do Kivo disponível (${info.version}). Baixe em Configurações › Atualização.`,
+        'info',
+      );
+    }
+  });
+  autoUpdater.on('update-not-available', () => {
+    log('nenhuma atualização disponível.');
+    patchUpdateState({
+      status: 'ocioso',
+      versaoDisponivel: null,
+      notas: null,
+      progresso: null,
+      verificadoEm: new Date().toISOString(),
+      erro: null,
+    });
+  });
+  autoUpdater.on('download-progress', (p) => {
+    patchUpdateState({
+      status: 'baixando',
+      progresso: {
+        percent: Math.max(0, Math.min(100, p.percent ?? 0)),
+        transferido: p.transferred ?? 0,
+        total: p.total ?? 0,
+        bytesPorSegundo: p.bytesPerSecond ?? 0,
+      },
+    });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    log(`atualização baixada: ${info.version} — aguardando o usuário mandar instalar.`);
+    patchUpdateState({
+      status: 'baixado',
+      versaoDisponivel: info.version,
+      progresso: { percent: 100, transferido: 0, total: 0, bytesPorSegundo: 0 },
+      erro: null,
+    });
+    avisarNaTela(
+      `Kivo ${info.version} baixado. Clique em Atualizar em Configurações › Atualização quando puder reiniciar.`,
+      'success',
+    );
+  });
+  autoUpdater.on('error', (err) => {
+    log(`erro: ${err.message}`);
+    patchUpdateState({ status: 'erro', erro: err.message, progresso: null });
   });
 
-  autoUpdater.checkForUpdates().catch((err) => log(`falha ao checar: ${err.message}`));
+  patchUpdateState({ suportado: true, motivo: null, status: 'ocioso' });
+
+  registrarUpdaterDriver({
+    verificar: async () => {
+      await autoUpdater.checkForUpdates();
+    },
+    baixar: async () => {
+      // Não é `await` até o fim de propósito: a rota HTTP responde quando o download
+      // COMEÇA, e o andamento vai pelo evento `download-progress`. Um erro aqui já é
+      // reportado pelo evento `error` acima.
+      void autoUpdater.downloadUpdate().catch((e: Error) => {
+        log(`falha ao baixar: ${e.message}`);
+        patchUpdateState({ status: 'erro', erro: e.message, progresso: null });
+      });
+    },
+    instalar: () => {
+      log('instalando e reiniciando...');
+      // (silencioso, reabre depois): o instalador NSIS roda sem telas e o Kivo volta
+      // sozinho — para o lojista é só o app piscar, que é o pedido original.
+      autoUpdater.quitAndInstall(true, true);
+    },
+  });
+
+  const checar = () =>
+    autoUpdater.checkForUpdates().catch((err: Error) => {
+      log(`falha ao checar: ${err.message}`);
+      patchUpdateState({ status: 'erro', erro: err.message });
+    });
+
+  void checar();
+  // PDV fica dias aberto sem reiniciar: sem o ciclo, a única chance de descobrir uma
+  // versão nova seria o boot.
+  setInterval(() => void checar(), 6 * 3600e3).unref?.();
 }
 
 async function boot() {
@@ -147,7 +257,25 @@ async function boot() {
   const lanRow = getSqlite()
     .prepare("SELECT value FROM settings WHERE key = 'rede.acesso_local' AND deleted_at IS NULL")
     .get() as { value: string } | undefined;
-  api.listen(PORT, lanRow?.value === '1' ? '0.0.0.0' : '127.0.0.1');
+  const lanLigado = lanRow?.value === '1';
+  const host = lanLigado ? '0.0.0.0' : '127.0.0.1';
+  // A tela de Configurações compara isto com a chave salva para dizer se o acesso pela
+  // rede JÁ está valendo ou se ainda falta reiniciar. Sem esse retorno, quem ligava a
+  // chave não tinha como saber por que o celular continuava sem abrir.
+  api.locals.lanAtivo = lanLigado;
+  const server = api.listen(PORT, host);
+  server.once('error', (err: NodeJS.ErrnoException) => {
+    appendErrorLog(`[rede] falha ao escutar em ${host}:${PORT} — ${err.message}`);
+    if (!lanLigado) {
+      reportFatalBootError(err);
+      return;
+    }
+    // Firewall/política de rede recusando o 0.0.0.0 não pode derrubar o PDV desta
+    // máquina: volta para o loopback (o modo padrão) e a tela passa a mostrar que o
+    // acesso pela rede não está ativo, em vez de o app simplesmente não abrir.
+    api.locals.lanAtivo = false;
+    api.listen(PORT, '127.0.0.1');
+  });
 
   const win = new BrowserWindow({
     width: 1280,
@@ -173,7 +301,7 @@ async function boot() {
 
   detectarModoLeve(win, api);
 
-  setupAutoUpdater();
+  setupAutoUpdater(win);
 }
 
 /**
