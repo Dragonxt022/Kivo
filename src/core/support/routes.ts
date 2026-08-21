@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { validateBody } from '../../shared/validateBody';
+import { supportTicketSchema, supportMessageSchema } from '../../shared/schemas';
 import { getLicenseCredentials } from '../license/service';
 import { getCloudServerUrl, PRODUCTION_CLOUD_URL } from '../config/cloud';
 
@@ -59,8 +61,8 @@ router.get('/tickets', (_req, res) => {
   void proxy(res, '/api/support/tickets');
 });
 
-router.post('/tickets', (req, res) => {
-  const { subject, category, message, attachment } = (req.body ?? {}) as Record<string, unknown>;
+router.post('/tickets', validateBody(supportTicketSchema), (req, res) => {
+  const { subject, category, message, attachment } = req.body;
   void proxy(res, '/api/support/tickets', {
     method: 'POST',
     body: { subject, category, message, attachment, userName: req.user?.name },
@@ -71,8 +73,8 @@ router.get('/tickets/:id/messages', (req, res) => {
   void proxy(res, `/api/support/tickets/${Number(req.params.id)}/messages`);
 });
 
-router.post('/tickets/:id/messages', (req, res) => {
-  const { body, attachment } = (req.body ?? {}) as Record<string, unknown>;
+router.post('/tickets/:id/messages', validateBody(supportMessageSchema), (req, res) => {
+  const { body, attachment } = req.body;
   void proxy(res, `/api/support/tickets/${Number(req.params.id)}/messages`, {
     method: 'POST',
     body: { body, attachment, userName: req.user?.name },

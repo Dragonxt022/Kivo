@@ -4,6 +4,8 @@ import { requirePermission } from '../permissions/middleware';
 import { hashPassword } from '../auth/service';
 import { audit } from '../audit/service';
 import { validatePasswordStrength } from '../../shared/validation';
+import { validateBody } from '../../shared/validateBody';
+import { createUserSchema, updateUserSchema, bulkDeleteUsersSchema } from '../../shared/schemas';
 import { userRepository } from '../repositories/UserRepository';
 import { roleRepository } from '../repositories/RoleRepository';
 import { disableQuickProfile, enableQuickProfile, hasQuickProfile } from '../auth/quickLogin';
@@ -31,12 +33,8 @@ function aplicarEntradaRapida(userId: number, ligar: unknown): void {
   else disableQuickProfile(userId);
 }
 
-router.post('/', requirePermission('users.create'), (req, res) => {
-  const { username, name, email, password, roleSlug, quickLogin } = req.body ?? {};
-  if (!username || !name || !password || !roleSlug) {
-    res.status(400).json({ error: 'Campos obrigatórios: username, name, password, roleSlug.' });
-    return;
-  }
+router.post('/', requirePermission('users.create'), validateBody(createUserSchema), (req, res) => {
+  const { username, name, email, password, roleSlug, quickLogin } = req.body;
   const pwError = validatePasswordStrength(password);
   if (pwError) {
     res.status(400).json({ error: pwError });
@@ -61,14 +59,14 @@ router.post('/', requirePermission('users.create'), (req, res) => {
   }
 });
 
-router.put('/:id', requirePermission('users.edit'), (req, res) => {
+router.put('/:id', requirePermission('users.edit'), validateBody(updateUserSchema), (req, res) => {
   const id = String(req.params.id);
   const before = userRepository.findByIdWithRole(id);
   if (!before) {
     res.status(404).json({ error: 'Usuário não encontrado.' });
     return;
   }
-  const { name, email, roleSlug, active, password, quickLogin } = req.body ?? {};
+  const { name, email, roleSlug, active, password, quickLogin } = req.body;
 
   if (password) {
     const pwError = validatePasswordStrength(password);
@@ -133,8 +131,8 @@ router.delete('/:id', requirePermission('users.delete'), (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/bulk-delete', requirePermission('users.delete'), (req, res) => {
-  const bodyIds: unknown[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+router.post('/bulk-delete', requirePermission('users.delete'), validateBody(bulkDeleteUsersSchema), (req, res) => {
+  const bodyIds = req.body.ids as (number | string)[];
   const rawIds: string[] = [...new Set(bodyIds.map((id) => String(id)))];
   const selfId = req.user ? String(req.user.id) : null;
   const selfSkipped = selfId != null && rawIds.includes(selfId);

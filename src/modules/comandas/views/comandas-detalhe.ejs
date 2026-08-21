@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/comandas/mesas' }) %>
@@ -402,7 +402,7 @@
       .browse-list { overflow-x: hidden; }
     }
   </style>
-  <script>
+  <script nonce="<%= cspNonce %>">
     function comandaDetalhePage() {
       return {
         comandaId: <%= comandaId %>,
@@ -436,7 +436,7 @@
           this.items = data.items || [];
           this.isOpen = data.status === 'aberta';
         },
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         total() { return this.items.reduce((a, i) => a + i.unit_price_cents * i.qty, 0); },
         async searchProducts() {
           if (!this.searchQ.trim()) { this.searchResults = []; return; }

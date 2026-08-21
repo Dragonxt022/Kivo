@@ -35,12 +35,12 @@ function onboardingWizard() {
     ],
     // Preferências de interface/cor (localStorage, per-máquina) — nunca vão em `answers`
     // nem no POST de /api/onboarding/provision, que é só pra dados de negócio.
-    uiInterface: (function(){ try { return localStorage.getItem('kivo-interface') || 'cards'; } catch(e){ return 'cards'; } })(),
-    uiColorTheme: (function(){ try { return localStorage.getItem('kivo-color-theme') || 'orange'; } catch(e){ return 'orange'; } })(),
-    uiCustomColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch(e){ return '#ff8000'; } })(),
+    uiInterface: (function(){ try { return localStorage.getItem('kivo-interface') || 'cards'; } catch { return 'cards'; } })(),
+    uiColorTheme: (function(){ try { return localStorage.getItem('kivo-color-theme') || 'orange'; } catch { return 'orange'; } })(),
+    uiCustomColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch { return '#ff8000'; } })(),
     chooseInterface(v) {
       this.uiInterface = v;
-      try { localStorage.setItem('kivo-interface', v); } catch (e) {}
+      try { localStorage.setItem('kivo-interface', v); } catch {}
     },
     chooseColorPreset(id) {
       this.uiColorTheme = id;
@@ -48,13 +48,13 @@ function onboardingWizard() {
       s.removeProperty('--primary'); s.removeProperty('--icon-color');
       s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
       document.documentElement.setAttribute('data-color-theme', id);
-      try { localStorage.setItem('kivo-color-theme', id); } catch (e) {}
+      try { localStorage.setItem('kivo-color-theme', id); } catch {}
     },
     chooseCustomColor(hex) {
       this.uiCustomColor = hex; this.uiColorTheme = 'custom';
       document.documentElement.setAttribute('data-color-theme', 'custom');
       window.__kivoApplyCustomColor(hex);
-      try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch (e) {}
+      try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch {}
     },
     paymentMethods: [],
     // Recursos que o assistente liga/desliga. `features` é o catálogo vindo do servidor
@@ -76,7 +76,7 @@ function onboardingWizard() {
           const status = await r.json();
           if (!status.completed) await this.openFirstRun();
         }
-      } catch (e) {
+      } catch {
         // sem conexão — não trava a home, só não mostra o wizard agora
       }
     },
@@ -121,7 +121,7 @@ function onboardingWizard() {
           if (d.employeeRange) this.answers.employeeRange = d.employeeRange;
           if (d.usage) this.answers.usage = d.usage;
         }
-      } catch (e) {
+      } catch {
         // sem status: os campos só começam vazios
       }
       try {
@@ -130,13 +130,13 @@ function onboardingWizard() {
           this.paymentMethods = await r.json();
           this.answers.activePaymentMethodIds = this.paymentMethods.filter((p) => p.active).map((p) => p.id);
         }
-      } catch (e) {
+      } catch {
         // segue sem a lista — o passo de pagamento só fica vazio
       }
       try {
         const rf = await fetch('/api/onboarding/features');
         if (rf.ok) this.features = await rf.json();
-      } catch (e) {
+      } catch {
         // sem catálogo de recursos: o passo fica vazio e o provision cai na recomendação
         // do servidor, que é o mesmo que o assistente sugeriria aqui.
       }
@@ -264,7 +264,7 @@ function onboardingWizard() {
         this.result = await r.json();
         this.step = this.totalSteps - 1;
         this.$nextTick(() => this.resetScroll());
-      } catch (e) {
+      } catch {
         this.error = 'Erro de conexão.';
       } finally {
         this.loading = false;
@@ -290,3 +290,6 @@ function onboardingWizard() {
     },
   };
 }
+
+// API pública — usada como x-data="onboardingWizard()" na tela do assistente.
+window.onboardingWizard = onboardingWizard;

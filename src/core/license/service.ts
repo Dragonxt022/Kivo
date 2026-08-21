@@ -5,6 +5,9 @@ import { machineIdSync } from 'node-machine-id';
 import { getSqlite } from '../database/connection';
 import { getCloudServerUrl } from '../config/cloud';
 import { settingsRepository } from '../repositories/SettingsRepository';
+import { createLogger } from '../logger';
+
+const log = createLogger('license');
 // ⚠ Ciclo consciente: `core/secrets` importa `machineId` daqui para derivar a chave do
 // fallback de cifragem. Funciona porque nenhum dos dois lados usa o outro em tempo de
 // CARGA — só dentro de funções, e aí os dois módulos já terminaram de inicializar. Se
@@ -273,7 +276,7 @@ function storeRecoverySecret(secret: string | null | undefined): void {
   } catch (e) {
     // Cofre indisponível (permissão de escrita, safeStorage fora do ar) não pode derrubar
     // a validação da licença — sem o segredo o resgate fica indisponível, só isso.
-    console.error('[license] não foi possível guardar o segredo de resgate:', e);
+    log.error('não foi possível guardar o segredo de resgate:', e);
   }
 }
 

@@ -1,4 +1,4 @@
-import { BaseRepository, type Row } from '../database/repository';
+import { BaseRepository } from '../database/repository';
 
 export class AuditRepository extends BaseRepository {
   constructor() {

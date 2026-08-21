@@ -10,6 +10,9 @@ import { refreshLicenseFromCloud, validateLicense } from '../core/license/servic
 import { canAutoUpdate } from '../core/license/plans';
 import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/machinePrefs';
 import { patchUpdateState, getUpdateState, registrarUpdaterDriver } from '../core/updater';
+import { createLogger } from '../core/logger';
+
+const log = createLogger('electron');
 
 /**
  * Modo leve desliga a aceleração de vídeo, e `disableHardwareAcceleration()` só vale se for
@@ -41,12 +44,12 @@ function appendErrorLog(msg: string): void {
 
 process.on('unhandledRejection', (reason) => {
   const msg = reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
-  console.error('[unhandledRejection]', msg);
+  log.error('promessa rejeitada sem tratamento', msg);
   appendErrorLog(`[unhandledRejection] ${msg}`);
 });
 process.on('uncaughtException', (err) => {
   const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
-  console.error('[uncaughtException]', msg);
+  log.error('exceção não capturada', msg);
   appendErrorLog(`[uncaughtException] ${msg}`);
 });
 
@@ -115,7 +118,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
   }
 
   const logPath = path.join(app.getPath('userData'), 'update.log');
-  const log = (msg: string) => {
+  const logUpdate = (msg: string) => {
     try {
       fs.appendFileSync(logPath, `${new Date().toISOString()} ${msg}
 `);
@@ -136,11 +139,11 @@ function setupAutoUpdater(win: BrowserWindow): void {
   autoUpdater.autoDownload = false;
 
   autoUpdater.on('checking-for-update', () => {
-    log('verificando atualização...');
+    logUpdate('verificando atualização...');
     patchUpdateState({ status: 'verificando', erro: null });
   });
   autoUpdater.on('update-available', (info) => {
-    log(`atualização disponível: ${info.version}`);
+    logUpdate(`atualização disponível: ${info.version}`);
     const primeiraVez = getUpdateState().versaoDisponivel !== info.version;
     patchUpdateState({
       status: 'disponivel',
@@ -159,7 +162,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
     }
   });
   autoUpdater.on('update-not-available', () => {
-    log('nenhuma atualização disponível.');
+    logUpdate('nenhuma atualização disponível.');
     patchUpdateState({
       status: 'ocioso',
       versaoDisponivel: null,
@@ -181,7 +184,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
     });
   });
   autoUpdater.on('update-downloaded', (info) => {
-    log(`atualização baixada: ${info.version} — aguardando o usuário mandar instalar.`);
+    logUpdate(`atualização baixada: ${info.version} — aguardando o usuário mandar instalar.`);
     patchUpdateState({
       status: 'baixado',
       versaoDisponivel: info.version,
@@ -194,7 +197,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
     );
   });
   autoUpdater.on('error', (err) => {
-    log(`erro: ${err.message}`);
+    logUpdate(`erro: ${err.message}`);
     patchUpdateState({ status: 'erro', erro: err.message, progresso: null });
   });
 
@@ -209,12 +212,12 @@ function setupAutoUpdater(win: BrowserWindow): void {
       // COMEÇA, e o andamento vai pelo evento `download-progress`. Um erro aqui já é
       // reportado pelo evento `error` acima.
       void autoUpdater.downloadUpdate().catch((e: Error) => {
-        log(`falha ao baixar: ${e.message}`);
+        logUpdate(`falha ao baixar: ${e.message}`);
         patchUpdateState({ status: 'erro', erro: e.message, progresso: null });
       });
     },
     instalar: () => {
-      log('instalando e reiniciando...');
+      logUpdate('instalando e reiniciando...');
       // (silencioso, reabre depois): o instalador NSIS roda sem telas e o Kivo volta
       // sozinho — para o lojista é só o app piscar, que é o pedido original.
       autoUpdater.quitAndInstall(true, true);
@@ -223,7 +226,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
 
   const checar = () =>
     autoUpdater.checkForUpdates().catch((err: Error) => {
-      log(`falha ao checar: ${err.message}`);
+      logUpdate(`falha ao checar: ${err.message}`);
       patchUpdateState({ status: 'erro', erro: err.message });
     });
 

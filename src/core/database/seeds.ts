@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { getSqlite } from './connection';
 import { ROLE_PRESETS } from '../roles/presets';
+import { createLogger } from '../logger';
+
+const log = createLogger('seeds');
 
 /** Permissões do Core. Módulos adicionam as suas via manifesto. */
 export const CORE_PERMISSIONS: { key: string; description: string }[] = [
@@ -109,7 +112,7 @@ export function runSeeds(): void {
     // Credencial de fábrica: ninguém precisa conhecê-la. Enquanto ela estiver intacta, a
     // home mostra a tela de primeiro acesso, onde o dono cria o próprio usuário e senha
     // (ver isFirstRunSetupPending em core/auth/service.ts).
-    console.warn('[seeds] usuário inicial de fábrica criado (admin/admin) — a tela de primeiro acesso substitui essa credencial.');
+    log.warn('usuário inicial de fábrica criado (admin/admin) — a tela de primeiro acesso substitui essa credencial.');
   }
 
   // Configurações padrão do sistema — inseridas apenas se ainda não existirem,

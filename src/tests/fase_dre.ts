@@ -3,7 +3,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb } from './resetTestDb';
-import { demonstrativoResultado, type DreReport } from '../modules/dre/report';
+import { demonstrativoResultado } from '../modules/dre/report';
 
 let failures = 0;
 
@@ -56,9 +56,6 @@ async function main() {
   }
 
   // ── 3. Categorias: CRUD manual ────────────────────────────
-  const receitaBrutaId = catIdByKey('receita_bruta_vendas');
-  const cmvId = catIdByKey('cmv');
-  const taxasCartaoId = catIdByKey('taxas_cartao');
   const outrasDespOpId = catIdByKey('outras_despesas_operacionais');
   const outrasDespFinId = catIdByKey('outras_despesas_financeiras');
   const impostosId = catIdByKey('impostos_sobre_vendas');

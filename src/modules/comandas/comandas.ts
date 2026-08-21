@@ -5,7 +5,7 @@ import { audit } from '../../core/audit/service';
 import type { CommercialPricingService } from '../commercial/setup';
 import type { FoodserviceKitchenService } from '../foodservice/setup';
 import type { StoreSalesService } from '../store/setup';
-import type { SaleInput } from '../store/sales';
+import type { SaleInput, SalePaymentInput } from '../store/sales';
 import { assertAuth } from '../../shared/auth';
 import { comandaRepository, comandaItemRepository } from './repositories/ComandaRepository';
 import { storeTableRepository } from './repositories/StoreTableRepository';
@@ -198,7 +198,7 @@ export function merge(req: Request, targetComandaId: number, sourceComandaId: nu
 export function closeComanda(
   req: Request, comandaId: number,
   input: {
-    payments: any[]; discountCents?: number; surchargeCents?: number; customerId?: number; customerName?: string;
+    payments: SalePaymentInput[]; discountCents?: number; surchargeCents?: number; customerId?: number; customerName?: string;
     items?: { productId: number; qty: number; notes?: string; lineGroupUuid?: string; unitPriceCents?: number }[];
     clientRequestId?: string;
   },

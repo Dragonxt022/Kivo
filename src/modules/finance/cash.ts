@@ -3,7 +3,6 @@ import type { Request } from 'express';
 import { audit } from '../../core/audit/service';
 import { assertAuth } from '../../shared/auth';
 import { cashRegisterRepository, cashMovementRepository } from './repositories/CashRegisterRepository';
-import { saleRepository } from '../store/repositories/SaleRepository';
 
 export interface CashRegister {
   id: number;

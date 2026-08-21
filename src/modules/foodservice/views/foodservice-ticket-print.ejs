@@ -18,7 +18,7 @@
 </head>
 <body>
   <div class="no-print" style="text-align:center;margin-bottom:12px">
-    <button onclick="window.print()">Imprimir</button>
+    <button id="btn-imprimir">Imprimir</button>
   </div>
   <% const ticket = locals.ticket; if (!ticket) { %><p>Ticket não encontrado.</p><% return; } %>
   <h1>Ticket de Cozinha</h1>
@@ -38,5 +38,11 @@
     <p>Nenhum item neste ticket.</p>
   <% } %>
   <div class="footer">--- Kivo Food Service ---</div>
+  <script nonce="<%= cspNonce %>">
+    // Por addEventListener: a CSP recusa `onclick="..."` no HTML (nonce vale para a tag
+    // `script`, não para atributo de evento) e os botões ficariam sem reação nenhuma.
+    document.getElementById('btn-imprimir')?.addEventListener('click', function () { window.print(); });
+    document.getElementById('btn-fechar')?.addEventListener('click', function () { window.close(); });
+  </script>
 </body>
 </html>

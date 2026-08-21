@@ -12,7 +12,6 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
-import { randomUUID } from 'node:crypto';
 
 const ROOT = process.cwd();
 const TSX = require.resolve('tsx/cli');

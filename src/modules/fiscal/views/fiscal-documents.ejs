@@ -7,8 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
-  <script src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <style>
     .doc-status { font-size:.76rem; font-weight:600; padding:.15rem .5rem; border-radius:var(--radius-full); white-space:nowrap; }
     .doc-status.autorizada { background:var(--success-bg); color:var(--success-text); }
@@ -91,7 +91,7 @@
     </section>
   </main>
 
-  <script>
+  <script nonce="<%= cspNonce %>">
     function fiscalDocumentsPage() {
       return {
         loading: true,
@@ -128,7 +128,7 @@
           return mapa[d.status] || d.status;
         },
 
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ','); },
+        brl(c) { return window.brl(c); },
         formatDateTime(v) { return fmtDateTime(v); },
       };
     }

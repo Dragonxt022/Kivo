@@ -7,8 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
-  <script src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <style>
     /* O wizard do projeto foi desenhado para <dialog>; aqui ele vive na página, porque o
        lojista volta a esta tela para ajustar. Só o enquadramento muda. */
@@ -478,7 +478,7 @@
     </div>
   </main>
 
-  <script>
+  <script nonce="<%= cspNonce %>">
     const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
     function fiscalConfigPage() {

@@ -5,9 +5,10 @@ import { audit } from '../../core/audit/service';
 import { currentRegister, addMovement } from './cash';
 import { addDays } from '../../shared/date';
 import { computeLateCharges } from './lateFees';
+import { validateBody } from '../../shared/validateBody';
+import { createBillSchema, updateBillSchema, settleBillSchema } from '../../shared/schemas';
 import { payableRepository, receivableRepository, billSettlementPaymentRepository } from './repositories/BillRepository';
 import { paymentMethodRepository } from './repositories/PaymentMethodRepository';
-import { cashRegisterRepository } from './repositories/CashRegisterRepository';
 
 export interface BillsConfig {
   table: 'payables' | 'receivables';
@@ -119,7 +120,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     res.json(rows.map(withLateInfo));
   });
 
-  router.post('/', requirePermission(`${cfg.permPrefix}.create`), (req, res) => {
+  router.post('/', requirePermission(`${cfg.permPrefix}.create`), validateBody(createBillSchema), (req, res) => {
     const { description, amountCents, issueDate, dueDate, partyId, notes, dreCategoryId, installments } = req.body ?? {};
     if (!description || !amountCents || !dueDate) {
       res.status(400).json({ error: 'Campos obrigatórios: description, amountCents, dueDate.' });
@@ -180,7 +181,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     res.status(201).json(created);
   });
 
-  router.put('/:id', requirePermission(`${cfg.permPrefix}.edit`), (req, res) => {
+  router.put('/:id', requirePermission(`${cfg.permPrefix}.edit`), validateBody(updateBillSchema), (req, res) => {
     const id = String(req.params.id);
     const before = getBill(cfg, id) as { status: string } | undefined;
     if (!before) {
@@ -223,7 +224,7 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     res.json(after);
   });
 
-  router.post('/:id/settle', requirePermission(cfg.settlePermission), (req: Request, res) => {
+  router.post('/:id/settle', requirePermission(cfg.settlePermission), validateBody(settleBillSchema), (req: Request, res) => {
     const id = String(req.params.id);
     const bill = getBill(cfg, id) as BillRow | undefined;
     if (!bill) {

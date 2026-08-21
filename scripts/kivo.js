@@ -21,11 +21,27 @@ function shell() {
   return isWin ? 'cmd.exe' : '/bin/sh';
 }
 
+/**
+ * PATH com `node_modules/.bin` na frente.
+ *
+ * Os comandos de commands.json chamam os binários pelo nome (`tsx`, `eslint`, `prettier`,
+ * `electron-builder`). Quando o CLI roda por `npm run kivo`, o npm já põe `.bin` no PATH e
+ * tudo resolve; rodando `node scripts/kivo <cmd>` — que o README documenta como forma
+ * válida — não põe, e o comando morre com "'tsx' não é reconhecido". As duas formas
+ * precisam se comportar igual.
+ */
+function envComBin() {
+  const bin = join(ROOT, 'node_modules', '.bin');
+  const sep = isWin ? ';' : ':';
+  const atual = process.env.PATH ?? process.env.Path ?? '';
+  return { ...process.env, PATH: `${bin}${sep}${atual}` };
+}
+
 function run(cmd, label) {
   if (!cmd) return;
   const prefix = label ? `[${label}] ` : '';
   console.log(`\n${prefix}$ ${cmd}\n`);
-  execSync(cmd, { cwd: ROOT, stdio: 'inherit', shell: shell() });
+  execSync(cmd, { cwd: ROOT, stdio: 'inherit', shell: shell(), env: envComBin() });
 }
 
 function listCommands() {
@@ -103,12 +119,41 @@ function runTestAll() {
   return require('./test-runner').runAll();
 }
 
+/**
+ * Testes rodam sob o Node do sistema (via `tsx`), nunca sob o Electron — mas compartilham
+ * o mesmo `node_modules`, e o `better-sqlite3` é nativo. Quem acabou de rodar
+ * `dev:electron` ou `dist:win` deixa o binário compilado para o ABI do Electron, e aí
+ * TODO teste que abre banco morre com ERR_DLOPEN_FAILED — 41 de 48, num relatório que
+ * parece o projeto inteiro quebrado em vez de um binário no ABI errado.
+ *
+ * `dev` já se protegia com este mesmo pre-hook; `test`/`smoke` não, porque `kivo test` é
+ * tratado antes do dispatch por commands.json e os `test:*` não declaravam `pre`. Fica
+ * aqui, num ponto só, cobrindo as duas rotas. Sem rebuild se o ABI já estiver certo.
+ */
+function ensureNodeAbi() {
+  run(`node ${JSON.stringify(join(__dirname, 'ensure-native-abi.js'))} node`, 'pre');
+  // O test-runner refaz a sondagem quando chamado direto; já conferimos aqui.
+  process.env.KIVO_ABI_OK = '1';
+}
+
+function needsNodeAbi(arg) {
+  return arg === 'test' || arg === 'smoke' || arg.startsWith('test:');
+}
+
 async function main() {
   const arg = process.argv[2];
 
   if (!arg) {
     listCommands();
     return;
+  }
+
+  if (needsNodeAbi(arg)) {
+    try {
+      ensureNodeAbi();
+    } catch {
+      process.exit(1);
+    }
   }
 
   if (arg === 'test') {

@@ -117,3 +117,6 @@ function tableToolkit() {
     },
   };
 }
+
+// API pública — usada como mixin nas views (x-data="{ ...tableToolkit(), ... }").
+window.tableToolkit = tableToolkit;

@@ -1,10 +1,12 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertAuth } from '../shared/auth';
 import { responseEnvelope } from '../shared/responseEnvelope';
+import { formatBRL } from '../shared/money';
 import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
@@ -35,12 +37,22 @@ import supportRoutes from './support/routes';
 import updaterRoutes from './updater/routes';
 import recoveryRoutes from './recovery/routes';
 import { purgeOldChallenges } from './recovery/service';
+import { purgeExpiredSessions } from './auth/service';
+import { createLogger } from './logger';
+
+// Um logger por assunto, e não um genérico "server": é o que faz `[backup]`, `[license]`
+// e `[http]` continuarem separáveis no arquivo de log quando o suporte for procurar.
+const logLicenca = createLogger('license');
+const logCatalogo = createLogger('submit');
+const logRecuperacao = createLogger('recovery');
+const logSessoes = createLogger('sessions');
+const logHttp = createLogger('http');
 
 /** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina/relógio
  * só se autocura se o usuário reiniciar o app ou clicar em "Sincronizar agora". */
 function startLicenseRevalidationScheduler(): NodeJS.Timeout {
   const check = () => {
-    refreshLicenseFromCloud().catch((e) => console.error('[license] falha na revalidação:', e));
+    refreshLicenseFromCloud().catch((e) => logLicenca.error('falha na revalidação', e));
   };
   // Uma passada logo depois do boot, além do ciclo de 4h. É por ela que o segredo do
   // resgate de senha chega em instalação já existente (e em plano que não sincroniza, como
@@ -48,6 +60,32 @@ function startLicenseRevalidationScheduler(): NodeJS.Timeout {
   // funciona. 20s para não disputar rede com o boot; `unref` para não segurar o processo.
   setTimeout(check, 20_000).unref?.();
   const timer = setInterval(check, 4 * 3600e3); // a cada 4h
+  timer.unref();
+  return timer;
+}
+
+/**
+ * Sessões vencidas: limpa no boot e a cada 12h.
+ *
+ * Nada de sessão expirada tinha prazo de validade em DISCO — `userFromToken` já recusava
+ * o token, mas a linha ficava lá para sempre, porque só `logout` apagava e ninguém sai do
+ * PDV pelo botão "sair". Em uma instalação de um ano isso é uma tabela com dezenas de
+ * milhares de tokens inúteis, todos legíveis por quem alcançar o arquivo do banco.
+ *
+ * `unref` para o timer não segurar o processo no encerramento — mesma escolha do
+ * revalidador de licença acima.
+ */
+function startSessionPurgeScheduler(): NodeJS.Timeout {
+  const limpar = () => {
+    try {
+      const removidas = purgeExpiredSessions();
+      if (removidas > 0) logSessoes.info(`${removidas} sessão(ões) vencida(s) removida(s).`);
+    } catch (e) {
+      logSessoes.error('falha ao limpar sessões vencidas', e);
+    }
+  };
+  limpar();
+  const timer = setInterval(limpar, 12 * 3600e3);
   timer.unref();
   return timer;
 }
@@ -133,6 +171,12 @@ export async function createServer(): Promise<KivoServer> {
   // Logo do lojista no cabeçalho — ver o middleware `logoDaEmpresa` mais abaixo.
   app.locals.empresaLogoUrl = null;
 
+  // Valor de reserva do nonce da CSP. Toda requisição HTTP recebe o seu em `res.locals`
+  // (que tem precedência sobre `app.locals`) — este aqui só existe para `app.render()`
+  // fora de uma requisição, onde não há resposta, nem CSP, nem `res.locals`: sem ele a
+  // view estoura em "cspNonce is not defined" em vez de renderizar.
+  app.locals.cspNonce = '';
+
   // Helper EJS: retorna o SVG inline para icones — as views usam currentColor
   const iconsDir = path.resolve(__dirname, '..', 'public', 'icons');
   function svgIcon(name: string, width = 24, height = 24): string {
@@ -146,6 +190,13 @@ export async function createServer(): Promise<KivoServer> {
     }
   }
   app.locals.svgIcon = svgIcon;
+
+  // Dinheiro nas views renderizadas no servidor (cupom, orçamento, carnê, relatório de
+  // caixa, DRE impresso). Cada uma dessas telas trazia a própria cópia de `brl()` — e
+  // duas delas tinham divergido, imprimindo "R$ 1234,56" sem o separador de milhar
+  // enquanto o resto do sistema imprimia "R$ 1.234,56". Passa a existir uma implementação
+  // só, a `formatBRL` de shared/money, que já é coberta por testes.
+  app.locals.brl = (cents: number | null | undefined) => formatBRL(cents ?? 0);
 
   // Mapa nome→SVG para renderização inline no Alpine.js
   const svgMap = (() => {
@@ -169,9 +220,51 @@ export async function createServer(): Promise<KivoServer> {
   app.use(morgan('dev'));
 
   // Security headers (Helmet) — CSP desligado para compatibilidade com Alpine.js CDN
+  // Nonce por requisição: é o que permite ligar a CSP sem reescrever os ~53 blocos de
+  // <script> inline das telas. Cada resposta ganha um valor novo, e só as tags que o
+  // carimbam executam — um <script> que entre pelo nome de um produto (XSS armazenado)
+  // não tem como adivinhá-lo.
+  app.use((_req, res, next) => {
+    res.locals.cspNonce = randomBytes(16).toString('base64');
+    next();
+  });
+
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      /**
+       * CSP estava DESLIGADA com o comentário "compatibilidade com Alpine.js CDN" — só que
+       * o Alpine é servido local (`src/public/vendor/alpine.min.js`) desde que o projeto
+       * deixou de usar CDN. O motivo tinha deixado de existir; a porta continuou aberta.
+       *
+       * `'unsafe-eval'` fica: o Alpine avalia `x-data`/`x-text` com `new Function`, e a
+       * alternativa (build CSP-friendly) obrigaria a reescrever toda expressão de toda
+       * tela. Mesmo assim a política vale muito: `script-src` com nonce recusa script
+       * INJETADO, `connect-src 'self'` corta o caminho de exfiltrar dados da loja para
+       * outro servidor, e `object-src 'none'`/`frame-ancestors 'none'` fecham plugin e
+       * clickjacking.
+       */
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: [
+            "'self'",
+            (_req, res) => `'nonce-${(res as Response).locals.cspNonce}'`,
+            "'unsafe-eval'", // exigido pelo avaliador de expressões do Alpine
+          ],
+          // Estilo inline é usado à vontade nas telas (atributos `style=` e blocos
+          // <style> por página). Não é vetor de execução de código, e o ganho de fechar
+          // aqui não paga o risco de quebrar layout em telas que ninguém revisaria.
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'blob:'], // fotos em base64 e QR gerados como data:
+          fontSrc: ["'self'", 'data:'],
+          connectSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+        },
+      },
       crossOriginEmbedderPolicy: false,
     }),
   );
@@ -259,7 +352,7 @@ export async function createServer(): Promise<KivoServer> {
 
   // Licença (não trava o boot) e backup diário às 23:00
   const lic = validateLicense();
-  console.log(`[license] ${lic.status}: ${lic.message}`);
+  logLicenca.info(`${lic.status}: ${lic.message}`);
   startBackupScheduler();
   startLicenseRevalidationScheduler();
   // Sync periódico: o painel do Kivo Web lê o que a nuvem tem, então parar de depender do
@@ -269,17 +362,18 @@ export async function createServer(): Promise<KivoServer> {
   // no celular. O ciclo acima continua sendo a rede de segurança se o canal cair.
   startEventChannel();
   // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
-  trySubmitPending().catch((e) => console.error('[submit] erro ao enviar fotos pendentes:', e));
+  trySubmitPending().catch((e) => logCatalogo.error('erro ao enviar fotos pendentes', e));
   // Desafios de resgate vencidos não servem para nada depois; limpa no boot.
   try {
     purgeOldChallenges();
   } catch (e) {
-    console.error('[recovery] falha ao limpar desafios antigos:', e);
+    logRecuperacao.error('falha ao limpar desafios antigos', e);
   }
+  startSessionPurgeScheduler();
 
   // Error handler global (deve ser o ÚLTIMO middleware)
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('[erro]', err);
+    logHttp.error('erro não tratado numa rota', err);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   });
 

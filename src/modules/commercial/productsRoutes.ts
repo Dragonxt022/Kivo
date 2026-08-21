@@ -6,14 +6,12 @@ import { requirePermission, requireAnyPermission } from '../../core/permissions/
 import { requireCapability } from '../../core/capabilities/middleware';
 import { hasCapability } from '../../core/capabilities/service';
 import { audit } from '../../core/audit/service';
-import { sumCents } from '../../shared/money';
 import { validateBarcode, generateInternalBarcode } from '../../shared/barcode';
 import { assertAuth } from '../../shared/auth';
 import { validateBody } from '../../shared/validateBody';
 import { createProductSchema, updateProductSchema } from '../../shared/schemas';
-import { moveStock, type MovementType } from './stock';
+import { moveStock } from './stock';
 import { resolveMany } from './pricing';
-import { grant as grantStoreCredit } from './storeCredit';
 import { validateImageBuffer } from '../../core/catalog/imageValidation';
 import { runSync } from '../../core/sync/engine';
 import {
@@ -21,13 +19,15 @@ import {
   cloudBaseUrl, cloudAuthHeaders,
 } from '../../core/catalog/submissionQueue';
 import { productRepository } from './repositories/ProductRepository';
-import { categoryRepository } from './repositories/CategoryRepository';
-import { complementGroupRepository, complementItemRepository, productComplementGroupRepository } from './repositories/ComplementRepository';
 import { kitItemRepository } from './repositories/KitRepository';
 import { recipeItemRepository } from './repositories/RecipeRepository';
 import { productAttributeRepository, productAttributeValueRepository, productVariantValueRepository } from './repositories/AttributeRepository';
 import { priceListRepository, priceListItemRepository } from './repositories/PriceListRepository';
 import { settingsRepository } from '../../core/repositories/SettingsRepository';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('submit');
+const logCardapio = createLogger('cardapio-online');
 
 const router = Router();
 
@@ -235,7 +235,7 @@ router.post('/products', requirePermission('commercial.products.create'), valida
   const newId = Number(info.lastInsertRowid);
   if (img.buf && img.submit) {
     queueProductImageSubmission(newId, String(b.name), img.imageUrl!, img.buf);
-    trySubmitPending().catch((e) => console.error('[submit] erro ao enviar imagem:', e));
+    trySubmitPending().catch((e) => log.error('erro ao enviar imagem', e));
   }
   if (!b.sku && autoSkuEnabled()) {
     productRepository.generateAutoSku(newId);
@@ -402,7 +402,7 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
   }
   if (img.buf && img.submit) {
     queueProductImageSubmission(Number(id), String(b.name ?? (before as unknown as { name: string }).name), img.imageUrl!, img.buf);
-    trySubmitPending().catch((e) => console.error('[submit] erro ao enviar imagem:', e));
+    trySubmitPending().catch((e) => log.error('erro ao enviar imagem', e));
   }
   const after = productRepository.findDetailed(id);
   audit(req, 'editar', 'product', id, before, after);
@@ -493,7 +493,7 @@ router.put('/products/:id/cardapio-online', requirePermission('commercial.produc
   // Publica (ou remove) do cardápio online na hora, sem esperar o lojista lembrar de ir
   // em Configurações → Sincronizar agora. Best-effort: se a nuvem estiver fora do ar ou o
   // plano não incluir sync, falha em silêncio — o próximo "Sincronizar agora" cobre.
-  runSync(req).catch((e) => console.error('[cardapio-online] falha ao sincronizar:', (e as Error).message));
+  runSync(req).catch((e) => logCardapio.error('falha ao sincronizar', (e as Error).message));
 });
 
 router.post('/products/:id/duplicate', requirePermission('commercial.products.create'), (req, res) => {
@@ -760,7 +760,6 @@ router.post('/products/:id/attributes/generate-variants', requirePermission('com
     groups.set(v.attribute_id, arr);
   }
   const combos = cartesian([...groups.values()]);
-  const attrNames = [...groups.values()].map((g) => g[0].attribute_name);
   const created: number[] = [];
   const skipped: number[] = [];
   productRepository.transaction(() => {

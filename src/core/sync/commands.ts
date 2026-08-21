@@ -4,6 +4,9 @@ import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
 import { getService } from '../services/registry';
 import { validateLicense } from '../license/service';
 import { canUseWebApp } from '../license/plans';
+import { createLogger } from '../logger';
+
+const log = createLogger('commands');
 
 /**
  * Executa, no desktop, os comandos que chegaram do Kivo Web.
@@ -190,15 +193,15 @@ export async function drainCommands(): Promise<{ aplicados: number; erros: numbe
       }).catch(() => {
         // Sem o ack o comando volta como pendente na próxima rodada. O orçamento já foi
         // criado, então reaplicar duplicaria — por isso a mensagem, para ficar rastreável.
-        console.error(`[commands] ack não confirmado do comando ${cmd.id}; pode reaplicar.`);
+        log.error(`ack não confirmado do comando ${cmd.id}; pode reaplicar.`);
       });
     }
   } catch (e) {
-    console.error('[commands] falha ao buscar/aplicar:', (e as Error).message);
+    log.error('falha ao buscar/aplicar', (e as Error).message);
     return null;
   } finally {
     draining = false;
   }
-  if (aplicados || erros) console.log(`[commands] aplicados=${aplicados} erros=${erros}`);
+  if (aplicados || erros) log.info(`aplicados=${aplicados} erros=${erros}`);
   return { aplicados, erros };
 }

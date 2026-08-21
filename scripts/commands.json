@@ -107,6 +107,14 @@
     "description": "Testes: PDV lê e vende todos os tipos de produto",
     "run": "node scripts/test-isolated.js src/tests/pdv-tipos-produto.ts"
   },
+  "test:impressao": {
+    "description": "Testes: telas de impressão (cupom, orçamento, carnê, caixa, DRE)",
+    "run": "node scripts/test-isolated.js src/tests/impressao.ts"
+  },
+  "test:csp": {
+    "description": "Testes: Content-Security-Policy (cabeçalho + nonce em toda tag <script>)",
+    "run": "node scripts/test-isolated.js src/tests/csp.ts"
+  },
   "test:shared": {
     "description": "Testes de utilitários compartilhados",
     "run": "tsx src/tests/shared.ts"

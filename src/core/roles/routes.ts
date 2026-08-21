@@ -3,6 +3,8 @@ import { Router } from 'express';
 import { getSqlite } from '../database/connection';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
+import { validateBody } from '../../shared/validateBody';
+import { createRoleSchema, setRolePermissionsSchema } from '../../shared/schemas';
 import { ROLE_PRESETS } from './presets';
 
 const router = Router();
@@ -38,12 +40,8 @@ router.get('/', requirePermission('roles.view'), (_req, res) => {
   res.json(roles.map((r) => ({ ...r, permissions: byRole.get(r.id) ?? [] })));
 });
 
-router.post('/', requirePermission('roles.edit'), (req, res) => {
-  const { name } = req.body ?? {};
-  if (!name) {
-    res.status(400).json({ error: 'Campo obrigatório: name.' });
-    return;
-  }
+router.post('/', requirePermission('roles.edit'), validateBody(createRoleSchema), (req, res) => {
+  const { name } = req.body;
   const slug = String(name).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   try {
@@ -57,7 +55,7 @@ router.post('/', requirePermission('roles.edit'), (req, res) => {
 });
 
 /** Substitui o conjunto de permissões do cargo (matriz da tela). */
-router.put('/:id/permissions', requirePermission('roles.edit'), (req, res) => {
+router.put('/:id/permissions', requirePermission('roles.edit'), validateBody(setRolePermissionsSchema), (req, res) => {
   const id = Number(req.params.id);
   const role = db().prepare('SELECT id, slug, is_system FROM roles WHERE id = ? AND deleted_at IS NULL').get(id) as
     { id: number; slug: string; is_system: number } | undefined;
@@ -69,7 +67,7 @@ router.put('/:id/permissions', requirePermission('roles.edit'), (req, res) => {
     res.status(400).json({ error: 'O cargo Administrador sempre tem todas as permissões.' });
     return;
   }
-  const permissions: string[] = Array.isArray(req.body?.permissions) ? req.body.permissions : [];
+  const permissions = req.body.permissions as string[];
   const valid = new Set(
     (db().prepare('SELECT key FROM permissions').all() as { key: string }[]).map((p) => p.key),
   );

@@ -7,8 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
-  <script src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/finance/fluxo' }) %>
@@ -45,8 +45,8 @@
     </table>
     <%- include('partials/pager') %>
   </main>
-  <script src="/js/table-toolkit.js"></script>
-  <script>
+  <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
+  <script nonce="<%= cspNonce %>">
     function flowPage() {
       return {
         ...tableToolkit(),
@@ -55,7 +55,7 @@
         get displayRows() { return this.sortedRows(this.days, this.sortGetters); },
         get pageTotal() { return this.displayRows.length; },
         get pageRows() { return this.pagedRows(this.displayRows); },
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         async load() {
           const params = new URLSearchParams();
           if (this.from) params.set('from', this.from);

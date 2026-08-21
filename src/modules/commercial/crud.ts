@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
+import { z } from 'zod';
 import { BaseRepository } from '../../core/database/repository';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { validateDocument } from '../../shared/documents';
+import { validateBody } from '../../shared/validateBody';
 import { machineId } from '../../core/license/service';
 
 export interface CrudConfig {
@@ -15,10 +17,33 @@ export interface CrudConfig {
   readOnlyFields?: string[];
 }
 
+/**
+ * Um campo desta fábrica sempre acaba num parâmetro de SQL, e o `better-sqlite3` só aceita
+ * escalar. Mandar `{"name":{"a":1}}` para /api/commercial/customers estourava lá embaixo,
+ * no bind — resposta 500 e stack no log, quando o certo é 400 dizendo qual campo veio
+ * errado. Este é o formato genérico que cobre as três entidades da fábrica (clientes,
+ * fornecedores, empresas conveniadas) sem precisar declarar schema para cada uma.
+ */
+const crudScalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+function crudBodySchema(cfg: CrudConfig) {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const f of cfg.fields) shape[f] = crudScalar.optional();
+  // `active` não está em `fields` (é coluna de todas as tabelas da fábrica) mas o UPDATE lê.
+  shape.active = z.union([z.boolean(), z.number().int()]).nullable().optional();
+  return z.object(shape);
+}
+
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.union([z.number().int().positive(), z.string().min(1)]))
+    .min(1, 'Informe ao menos um id.'),
+});
+
 export function makeCrudRouter(cfg: CrudConfig): Router {
   const router = Router();
   const repo = new BaseRepository(cfg.table);
   const cols = ['id', ...cfg.fields, ...(cfg.readOnlyFields ?? []), 'active', 'updated_at'].join(', ');
+  const bodySchema = crudBodySchema(cfg);
 
   const get = (id: string | number) =>
     repo.rawOne(`SELECT ${cols} FROM ${cfg.table} WHERE id = ? AND deleted_at IS NULL`, id);
@@ -40,8 +65,8 @@ export function makeCrudRouter(cfg: CrudConfig): Router {
     res.json(row);
   });
 
-  router.post('/', requirePermission(`${cfg.permPrefix}.create`), (req, res) => {
-    const body = req.body ?? {};
+  router.post('/', requirePermission(`${cfg.permPrefix}.create`), validateBody(bodySchema), (req, res) => {
+    const body = req.body;
     for (const f of cfg.required) {
       if (!body[f]) {
         res.status(400).json({ error: `Campo obrigatório: ${f}` });
@@ -62,14 +87,14 @@ export function makeCrudRouter(cfg: CrudConfig): Router {
     res.status(201).json(created);
   });
 
-  router.put('/:id', requirePermission(`${cfg.permPrefix}.edit`), (req, res) => {
+  router.put('/:id', requirePermission(`${cfg.permPrefix}.edit`), validateBody(bodySchema), (req, res) => {
     const id = String(req.params.id);
     const before = get(id);
     if (!before) {
       res.status(404).json({ error: 'Registro não encontrado.' });
       return;
     }
-    const body = req.body ?? {};
+    const body = req.body;
     if (body.document && !validateDocument(String(body.document))) {
       res.status(400).json({ error: 'CPF/CNPJ inválido.' });
       return;
@@ -97,13 +122,9 @@ export function makeCrudRouter(cfg: CrudConfig): Router {
     res.json({ ok: true });
   });
 
-  router.post('/bulk-delete', requirePermission(`${cfg.permPrefix}.delete`), (req, res) => {
-    const bodyIds: unknown[] = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  router.post('/bulk-delete', requirePermission(`${cfg.permPrefix}.delete`), validateBody(bulkDeleteSchema), (req, res) => {
+    const bodyIds = req.body.ids as (number | string)[];
     const ids: string[] = [...new Set(bodyIds.map((id) => String(id)))];
-    if (!ids.length) {
-      res.status(400).json({ error: 'Informe ao menos um id.' });
-      return;
-    }
     const deletedIds: string[] = [];
     const skipped: string[] = [];
     repo.transaction(() => {

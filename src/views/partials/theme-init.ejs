@@ -1,4 +1,4 @@
-<script>
+<script nonce="<%= cspNonce %>">
 (function () {
   try {
     var t = localStorage.getItem('kivo-theme');
@@ -9,7 +9,14 @@
   } catch (e) {}
 })();
 </script>
-<script>
+<!--
+  Este partial é o gancho "roda em toda página" do Kivo: está no <head> de todas as telas,
+  antes do Alpine (que é `defer`). Por isso os globais de boot moram aqui — o tema acima,
+  o desembrulho do envelope abaixo, e `window.brl`, que as telas usam para formatar
+  dinheiro. Script externo (e não inline) para o navegador poder cachear.
+-->
+<script nonce="<%= cspNonce %>" src="/js/money.js"></script>
+<script nonce="<%= cspNonce %>">
 // Todo JSON do servidor vem embrulhado em { success, data } ou { success: false, error }
 // (ver src/shared/responseEnvelope.ts), mas as telas foram escritas esperando o corpo "cru"
 // (ex.: this.rows = await r.json()). Desembrulha aqui, num único lugar carregado em toda
@@ -26,7 +33,7 @@
   };
 })();
 </script>
-<script>
+<script nonce="<%= cspNonce %>">
 (function () {
   try {
     var mode = localStorage.getItem('kivo-interface');

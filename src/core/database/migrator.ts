@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getSqlite } from './connection';
+import { createLogger } from '../logger';
+
+const log = createLogger('migrator');
 
 const ALTER_ADD_RE = /^[ \t]*ALTER\s+TABLE\s+(\S+)\s+ADD\s+COLUMN\s+(\S+)/gim;
 const CREATE_INDEX_RE = /^[ \t]*CREATE\s+(UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(\S+)/gim;
@@ -13,6 +16,14 @@ function columnExists(db: import('better-sqlite3').Database, table: string, colu
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Tira o aspeamento de identificador do SQLite (`[nome]`, `` `nome` ``, `"nome"`, `'nome'`)
+ * para comparar com o que `sqlite_master`/`PRAGMA table_info` devolvem, que vem sempre cru.
+ */
+function unquoteIdentifier(raw: string): string {
+  return raw.replace(/[[\]`"']/g, '');
 }
 
 function objectExists(db: import('better-sqlite3').Database, type: string, name: string): boolean {
@@ -81,14 +92,14 @@ function commentOutExistingStatements(
 function stripExistingObjects(db: import('better-sqlite3').Database, sql: string): string {
   sql = sql.replace(/\r\n/g, '\n');
   sql = commentOutExistingStatements(sql, ALTER_ADD_RE, (match) => {
-    const table = match[1].replace(/[\[\]`"']/g, '');
-    const column = match[2].replace(/[\[\]`"']/g, '');
+    const table = unquoteIdentifier(match[1]);
+    const column = unquoteIdentifier(match[2]);
     if (!columnExists(db, table, column)) return false;
-    console.warn(`[migrator] ${table}.${column} já existe, ignorando ALTER TABLE`);
+    log.warn(`${table}.${column} já existe, ignorando ALTER TABLE`);
     return true;
   });
   sql = commentOutExistingStatements(sql, CREATE_INDEX_RE, (match) => {
-    const name = match[2].replace(/[\[\]`"']/g, '');
+    const name = unquoteIdentifier(match[2]);
     if (!objectExists(db, 'index', name)) return false;
     // Rebuilds (DROP TABLE + CREATE TABLE + RENAME, usados para alterar CHECK no
     // SQLite) derrubam o índice junto com a tabela dona. Se a própria migration
@@ -98,17 +109,18 @@ function stripExistingObjects(db: import('better-sqlite3').Database, sql: string
     const indexRow = db.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND name=?").get(name) as
       | { sql: string }
       | undefined;
-    const owner = indexRow?.sql?.match(/\bON\s+([^\s(]+)/i)?.[1]?.replace(/[\[\]`"']/g, '');
+    const ownerRaw = indexRow?.sql?.match(/\bON\s+([^\s(]+)/i)?.[1];
+    const owner = ownerRaw ? unquoteIdentifier(ownerRaw) : undefined;
     if (owner && new RegExp(`DROP\\s+TABLE\\b[^;]*\\b${escapeRegExp(owner)}\\b`, 'i').test(sql)) {
       return false;
     }
-    console.warn(`[migrator] índice ${name} já existe, ignorando`);
+    log.warn(`índice ${name} já existe, ignorando`);
     return true;
   });
   sql = commentOutExistingStatements(sql, CREATE_TABLE_RE, (match) => {
-    const name = match[1].replace(/[\[\]`"']/g, '');
+    const name = unquoteIdentifier(match[1]);
     if (!objectExists(db, 'table', name)) return false;
-    console.warn(`[migrator] tabela ${name} já existe, ignorando CREATE TABLE`);
+    log.warn(`tabela ${name} já existe, ignorando CREATE TABLE`);
     return true;
   });
   return sql;

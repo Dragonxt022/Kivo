@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
@@ -97,10 +97,10 @@
 
     <%- include('partials/cash-register-inline-open', { retryExpr: 'confirmSettle()' }) %>
   </main>
-  <script src="/js/masks.js"></script>
-  <script src="/js/datetime.js"></script>
-  <script src="/js/payment-methods.js"></script>
-  <script>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/payment-methods.js"></script>
+  <script nonce="<%= cspNonce %>">
     function receivablesPage(id) {
       const _d = new Date();
       return {
@@ -114,7 +114,7 @@
         next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
         settleError: '',
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
           const [c, r] = await Promise.all([

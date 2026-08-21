@@ -18,6 +18,9 @@ import { agreementChargeRepository } from '../finance/repositories/AgreementRepo
 import { stockMovementRepository } from '../commercial/repositories/StockMovementRepository';
 import { loyaltyPointMovementRepository } from '../commercial/repositories/StockMovementRepository';
 import { scheduleSyncSoon } from '../../core/sync/scheduler';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('kitchen');
 
 export interface SaleItemInput {
   productId: number;
@@ -457,7 +460,7 @@ export function createSale(
         items: items.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, notes: i.notes ?? undefined })),
       });
     }
-  } catch (e) { console.error('[kitchen] falha ao notificar:', e); }
+  } catch (e) { log.error('falha ao notificar', e); }
   // Empurra a venda para a nuvem em segundos, não no próximo ciclo: é o que faz o painel do
   // Kivo Web mostrar o movimento de hoje. Agrupado e sem `await` — o caixa não espera a rede.
   scheduleSyncSoon();

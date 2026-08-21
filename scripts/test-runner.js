@@ -22,6 +22,7 @@
 const { spawn, spawnSync } = require('node:child_process');
 const { readFileSync, readdirSync } = require('node:fs');
 const { join } = require('node:path');
+const net = require('node:net');
 
 const ROOT = join(__dirname, '..');
 const isWin = process.platform === 'win32';
@@ -35,6 +36,48 @@ const TTY = !FORCE_PLAIN && Boolean(process.stdout.isTTY);
  * tocar no `database/kivo.db` de desenvolvimento).
  */
 const PURE_TESTS = new Set(['shared.ts', 'testUtils.ts', 'products-import.ts']);
+
+/**
+ * Testes que sobem o `cloud/` e falam com o MySQL do docker-compose. Sem o container no
+ * ar eles morrem em ECONNREFUSED 3307 — 8 "falhas" que não dizem nada sobre o código e
+ * que tornavam impossível ler o resultado de `npm test` numa máquina limpa (pior: um
+ * deles é o fase3b, cuja descrição fala de código de barras e não dá pista nenhuma de
+ * que no meio do caminho precisa de nuvem).
+ *
+ * A suíte agora sonda a porta antes de começar e os MARCA COMO PULADOS em vez de
+ * executá-los — o resultado passa a ser verde-ou-vermelho de verdade, e quem tem o
+ * Docker no ar continua rodando tudo sem precisar de flag nenhuma.
+ */
+const CLOUD_TESTS = new Set([
+  'fase3b.ts',
+  'fase6a.ts',
+  'fase6b.ts',
+  'fase6c.ts',
+  'fase6d.ts',
+  'fase7c.ts',
+  'fase7d.ts',
+  'kivo-web-e2e.ts',
+]);
+
+const CLOUD_DB_PORT = Number(process.env.CLOUD_DB_PORT ?? 3307);
+const CLOUD_DB_HOST = process.env.CLOUD_DB_HOST ?? '127.0.0.1';
+const NO_CLOUD = process.argv.includes('--no-cloud');
+
+/** TCP connect curto: só queremos saber se há alguém escutando, não autenticar. */
+function cloudReachable(timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    const done = (ok) => {
+      sock.destroy();
+      resolve(ok);
+    };
+    sock.setTimeout(timeoutMs);
+    sock.once('connect', () => done(true));
+    sock.once('timeout', () => done(false));
+    sock.once('error', () => done(false));
+    sock.connect(CLOUD_DB_PORT, CLOUD_DB_HOST);
+  });
+}
 
 const SPIN = ['|', '/', '-', '\\'];
 
@@ -59,6 +102,10 @@ function flagValue(name) {
 }
 
 function testFiles() {
+  // `e2e` fica de fora desta suíte de propósito: sobe Chromium e leva minutos, enquanto
+  // aqui a graça é a volta rápida. Não são órfãos — rodam por `kivo test:e2e` /
+  // `test:e2e:comandas` e têm job próprio no CI (.github/workflows/ci.yml). Ficaram MESES
+  // quebrados justamente por não terem nenhum dos dois.
   let files = readdirSync(join(ROOT, 'src', 'tests'))
     .filter((f) => f.endsWith('.ts') && f !== 'resetTestDb.ts' && !f.startsWith('e2e'))
     .sort();
@@ -236,6 +283,20 @@ function printSummary(state) {
     );
   }
 
+  const skipped = state.skipped ?? [];
+  for (const t of skipped) {
+    console.log(
+      `  ${dye('—', C.yellow)} ${t.file.padEnd(28)} ${dye('SKIP', C.yellow)}  ${dye('precisa do Kivo Cloud', C.dim)}`,
+    );
+  }
+  if (skipped.length) {
+    console.log(
+      `\n  ${dye(`${skipped.length} teste(s) pulados`, C.yellow + C.bold)} — dependem do MySQL do cloud/ em ${CLOUD_DB_HOST}:${CLOUD_DB_PORT}.`,
+    );
+    console.log(dye('    docker compose -f cloud/docker-compose.yml up -d', C.gray));
+    console.log(dye('    npm run kivo cloud:migrate', C.gray));
+  }
+
   if (failed.length > 0) {
     console.log(`\n${dye('  Detalhes das falhas', C.red + C.bold)}`);
     for (const t of failed) {
@@ -260,25 +321,35 @@ function printSummary(state) {
   }
 
   console.log(`\n${'─'.repeat(Math.min(cols, 62))}`);
+  const okMsg = skipped.length
+    ? `  Todos os testes executados passaram (${skipped.length} pulados).`
+    : '  Todos os testes passaram!';
   console.log(
     dye(
-      failed.length === 0 ? '  Todos os testes passaram!' : `  ${failed.length} teste(s) falharam`,
+      failed.length === 0 ? okMsg : `  ${failed.length} teste(s) falharam`,
       failed.length === 0 ? C.green : C.red + C.bold,
     ),
   );
 }
 
 async function runAll() {
-  const files = testFiles();
-  if (files.length === 0) {
+  const allFiles = testFiles();
+  if (allFiles.length === 0) {
     console.log('Nenhum teste encontrado em src/tests.');
     return 1;
   }
+
+  const hasCloud = NO_CLOUD ? false : await cloudReachable();
+  const skipped = allFiles.filter((f) => CLOUD_TESTS.has(f) && !hasCloud);
+  const files = allFiles.filter((f) => !skipped.includes(f));
 
   const state = {
     t0: Date.now(),
     total: files.length,
     done: [],
+    // Não entram em `done`: não passaram nem falharam, e misturá-los estragaria a
+    // contagem de "X/Y testes passaram" que é a linha que todo mundo lê.
+    skipped: skipped.map((file) => ({ file, desc: describeFile(file) })),
     current: null,
     spin: 0,
     aborted: false,
@@ -375,7 +446,21 @@ async function runAll() {
   return state.done.some((t) => !t.ok) ? 1 : 0;
 }
 
+/**
+ * Mesmo motivo do `ensureNodeAbi` em scripts/kivo.js: rodando este arquivo direto (sem
+ * passar pelo CLI) o binário nativo pode estar no ABI do Electron e a suíte inteira cai
+ * em ERR_DLOPEN_FAILED. O CLI marca KIVO_ABI_OK para não pagar a sondagem duas vezes.
+ */
+function ensureNodeAbi() {
+  if (process.env.KIVO_ABI_OK === '1') return;
+  const r = spawnSync(process.execPath, [join(__dirname, 'ensure-native-abi.js'), 'node'], {
+    stdio: 'inherit',
+  });
+  if (r.status !== 0) process.exit(1);
+}
+
 async function main() {
+  ensureNodeAbi();
   process.exit(await runAll());
 }
 

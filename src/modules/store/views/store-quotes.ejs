@@ -7,8 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
-  <script src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/store/orcamentos' }) %>
@@ -92,8 +92,8 @@
     </table>
 
   </main>
-  <script src="/js/table-toolkit.js"></script>
-  <script>
+  <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
+  <script nonce="<%= cspNonce %>">
     function quotesPage() {
       return {
         ...tableToolkit(),
@@ -103,7 +103,7 @@
           valid_until: (q) => q.valid_until ?? '', status: (q) => q.status ?? '', username: (q) => q.username ?? '',
         },
         get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         async load() {
           const r = await fetch('/api/store/quotes');
           if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');

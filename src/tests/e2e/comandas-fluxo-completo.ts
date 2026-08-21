@@ -14,13 +14,12 @@
  *   npx tsx src/tests/e2e/comandas-fluxo-completo.ts
  */
 import { chromium, type Page } from 'playwright';
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { migrateUp } from '../../core/database/migrator';
 import { runSeeds } from '../../core/database/seeds';
 import { getSqlite, closeDb } from '../../core/database/connection';
 import { createServer } from '../../core/server';
-import { resetTestDb, activateTestLicense } from '../resetTestDb';
+import { resetTestDb, activateTestLicense, exitFirstRunState } from '../resetTestDb';
 import { unwrap } from '../testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3600);
@@ -53,6 +52,7 @@ async function setup() {
   migrateUp();
   runSeeds();
   activateTestLicense();
+  exitFirstRunState(); // sem isso a home mostra o assistente de primeiro acesso, não o login
 
   const db = getSqlite();
   const CAPS = [
@@ -92,7 +92,7 @@ async function login(page: Page) {
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 async function main() {
-  const { server, db } = await setup();
+  const { server } = await setup();
   const admin = await loginAs('admin', 'admin');
   if (!admin) { console.error('Falha no login admin'); process.exit(1); }
 
@@ -109,6 +109,14 @@ async function main() {
     await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Produto B', priceCents: 2500 }) }, admin));
   check('Produtos criados', !!prodA.id && !!prodB.id);
 
+  // Caixa aberto: fechar comanda GERA UMA VENDA, e venda exige caixa aberto
+  // (finance/cash.ts). Sem isto o `/close` responde 400 "Abra o caixa antes de realizar
+  // uma venda." e os três checks do fluxo feliz caem por causa do preparo, não do código.
+  const caixa = await api('/api/finance/cash/open', {
+    method: 'POST', body: JSON.stringify({ openingCents: 10000 }),
+  }, admin);
+  check('Caixa aberto para o fluxo de fechamento', caixa.status === 201, String(caixa.status));
+
   // ─── 2. Abrir navegador ───────────────────────────────────────────────────
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
@@ -123,7 +131,7 @@ async function main() {
   check('Comanda A aberta', !!comandaA.id);
 
   // Verificar mesa ocupada
-  let statusAfterOpen = await unwrap<{ id: number; status: string }[]>(await api('/api/comandas/tables/status', {}, admin));
+  const statusAfterOpen = await unwrap<{ id: number; status: string }[]>(await api('/api/comandas/tables/status', {}, admin));
   check('Mesa E2E ocupada', statusAfterOpen.find((t) => t.id === tableD.id)?.status === 'ocupada');
 
   // Adicionar itens
@@ -155,7 +163,8 @@ async function main() {
       payments: [{ methodId: pix.id, amountCents: totalCents }],
     }),
   }, admin);
-  check('Close via API (simula PDV) OK', closeAResult.status === 200);
+  check('Close via API (simula PDV) OK', closeAResult.status === 200,
+    closeAResult.status === 200 ? '' : await closeAResult.clone().text());
   const comandaACheck = await unwrap<{ status: string; sale_id: number | null }>(
     await api(`/api/comandas/comandas/${comandaA.id}`, {}, admin));
   check('Comanda A fechada', comandaACheck.status === 'fechada' && comandaACheck.sale_id != null);

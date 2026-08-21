@@ -20,6 +20,9 @@ import forge from 'node-forge';
 import { settingsRepository } from '../../../core/repositories/SettingsRepository';
 import { getSecret, setSecret } from '../../../core/secrets/service';
 import { SECRET_CERT_PASSWORD } from './config';
+import { createLogger } from '../../../core/logger';
+
+const log = createLogger('fiscal');
 
 export interface CertificateInfo {
   /** Nome do titular (CN), já sem o sufixo ":CNPJ" que a ICP-Brasil acrescenta. */
@@ -132,7 +135,7 @@ export function currentCertificate(): CertificateInfo | null {
   try {
     return readCertificate(fs.readFileSync(file), password);
   } catch (e) {
-    console.error('[fiscal] certificado gravado não pôde ser lido:', e);
+    log.error('certificado gravado não pôde ser lido', e);
     return null;
   }
 }

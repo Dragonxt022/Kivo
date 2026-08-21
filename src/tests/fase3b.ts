@@ -272,7 +272,7 @@ async function phase2(): Promise<void> {
     await api(a.base, `/api/commercial/price-lists/${atacado.id}/items`, {
       method: 'PUT', body: JSON.stringify({ items: [{ productId: prod.id, minQty: 1, unitPriceCents: 4000 }] }),
     }, a.cookie);
-    const cust = await unwrap<{ id: number }>(
+    await unwrap<{ id: number }>(
       await api(a.base, '/api/commercial/customers', { method: 'POST', body: JSON.stringify({ name: 'Cliente Atacado', price_list_id: atacado.id }) }, a.cookie));
 
     await syncBothTwice(a, b);

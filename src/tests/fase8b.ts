@@ -98,10 +98,8 @@ async function main() {
   // 2. recomputeStockForProducts
   // ====================================================================
   {
-    const { moveStockRaw, recomputeStockForProducts } = await import('../modules/commercial/stock');
+    const { recomputeStockForProducts } = await import('../modules/commercial/stock');
 
-    // Mock minimal do Request (moveStockRaw precisa de req.user?.id)
-    const mockReq = { user: { id: 999 } } as any;
 
     // Criar produto com estoque inicial
     const prod = db.prepare(

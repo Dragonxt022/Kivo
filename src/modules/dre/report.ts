@@ -101,7 +101,6 @@ export function demonstrativoResultado(from: string, to: string): DreReport {
   // Injeta o valor sem categoria na primeira categoria manual de despesas_operacionais
   // (ou cria uma fictícia se nenhuma existir).
   if (uncategorizedCents > 0) {
-    const operacionalId = categories.find((c) => c.key === 'outras_despesas_operacionais')?.id;
     const operacionalCat = categories.find((c) => c.dre_line === 'despesas_operacionais' && c.source === 'manual');
     if (operacionalCat) {
       const _realByCategory = realByCategory;

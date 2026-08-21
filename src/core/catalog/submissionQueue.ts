@@ -5,7 +5,6 @@ import { getSqlite } from '../database/connection';
 import { getLicenseCredentials, machineId } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
 import type { ImageFormat } from './imageValidation';
-import { validateImageBuffer } from './imageValidation';
 
 /**
  * Banco de imagens do Kivo Cloud (ecossistema descrito em conversa com o usuário):

@@ -26,6 +26,9 @@ import { resetCompanyData, type CompanyResetResult } from '../sync/client';
 import { getLicenseCredentials, validateLicense } from '../license/service';
 import { canSaveToCloud } from '../license/plans';
 import { SESSION_COOKIE } from '../auth/middleware';
+import { createLogger } from '../logger';
+
+const log = createLogger('reset');
 
 export interface FactoryResetInput {
   /** Apaga também os backups guardados na nuvem. Desligado por padrão — ver rota. */
@@ -82,7 +85,7 @@ export async function factoryReset(req: Request, input: FactoryResetInput = {}):
     backupId = (await runBackup('manual')).id;
   } catch (e) {
     backupError = e instanceof Error ? e.message : String(e);
-    console.error('[reset] backup de segurança falhou, seguindo mesmo assim:', e);
+    log.error('backup de segurança falhou, seguindo mesmo assim:', e);
   }
 
   // ─── 3. Local ───

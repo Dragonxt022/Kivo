@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .capabilities-section { margin-bottom: 2rem; }
     .capabilities-section h2 { margin-bottom: .75rem; display:flex; align-items:center; gap:.5rem; }
@@ -60,7 +60,7 @@
 
     <p class="muted" x-show="!hasCaps">Nenhum módulo declarou recursos ainda.</p>
   </main>
-  <script>
+  <script nonce="<%= cspNonce %>">
     const MODULE_NAMES = <%- typeof moduleNamesJson !== 'undefined' ? moduleNamesJson : '{}' %>;
 
     function recursosPage() {

@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
 import { audit } from '../audit/service';
-import { assertAuth } from '../../shared/auth';
 
 /**
  * RBAC: exige uma permissão específica (ex.: requirePermission('users.delete')).
