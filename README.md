@@ -47,6 +47,32 @@ npm run format             # Prettier
 
 A lista completa de comandos está em `scripts/commands.json`. Execute `npm run kivo` para vê-los todos.
 
+### Testes
+
+`npm test` roda a suíte de integração. Oito arquivos falam com o `cloud/` (sync, licença,
+backup, Kivo Web); sem o MySQL do docker-compose no ar eles entram como **SKIP**, e a
+execução continua sendo verde-ou-vermelho de verdade. Para rodar tudo:
+
+```sh
+docker compose -f cloud/docker-compose.yml up -d
+npm run kivo cloud:migrate
+npm test
+```
+
+Os testes de navegador (Playwright) ficam fora da suíte porque levam minutos — rodam à parte
+e têm job próprio no CI:
+
+```sh
+npm run kivo test:e2e            # cadastro de produtos
+npm run kivo test:e2e:comandas   # comandas e mesas
+```
+
+### Logs
+
+Toda operação registrada vai para `storage/logs/kivo-AAAA-MM-DD.log` (14 dias de retenção),
+ao lado do banco — é o arquivo que o lojista anexa num chamado. `KIVO_LOG_LEVEL=debug`
+aumenta o detalhe.
+
 ---
 
 ## Arquitetura

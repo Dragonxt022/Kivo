@@ -26,3 +26,6 @@ function crudPage(apiBase) {
     },
   };
 }
+
+// API pública — usada como x-data="crudPage('/api/...')" nas views de CRUD simples.
+window.crudPage = crudPage;

@@ -13,6 +13,9 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { createLogger } from '../../../core/logger';
+
+const log = createLogger('fiscal');
 
 export interface Municipio {
   /** Código IBGE de 7 dígitos (cMun). */
@@ -84,7 +87,7 @@ export async function listMunicipios(uf: string): Promise<Municipio[]> {
   } catch (e) {
     const stale = readStaleCache(sigla);
     if (stale) {
-      console.error(`[fiscal] busca de municípios de ${sigla} falhou; usando cache antigo:`, e);
+      log.error(`busca de municípios de ${sigla} falhou; usando cache antigo`, e);
       return stale;
     }
     throw new Error(

@@ -5,11 +5,16 @@ import QRCode from 'qrcode';
 import { getSqlite } from '../database/connection';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
+import { validateBody } from '../../shared/validateBody';
+import { setSettingSchema } from '../../shared/schemas';
 import { getCloudServerUrl } from './cloud';
 import { getMachinePrefs, setMachinePrefs } from './machinePrefs';
 import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './companyLogo';
 import { getLicenseCredentials } from '../license/service';
 import { factoryReset } from '../reset/service';
+import { createLogger } from '../logger';
+
+const log = createLogger('reset');
 
 const router = Router();
 
@@ -162,7 +167,7 @@ router.post('/factory-reset', requirePermission('settings.edit'), async (req, re
   } catch (e) {
     // Falha na etapa da nuvem chega aqui com o banco local ainda INTACTO (ver a ordem em
     // core/reset/service.ts) — daí a mensagem poder afirmar que nada foi apagado.
-    console.error('[reset] falhou:', e);
+    log.error('falhou:', e);
     res.status(502).json({
       error:
         'Não deu para limpar os dados na nuvem, então nada foi apagado — seus dados continuam ' +
@@ -171,9 +176,9 @@ router.post('/factory-reset', requirePermission('settings.edit'), async (req, re
   }
 });
 
-router.put('/:key', requirePermission('settings.edit'), (req, res) => {
+router.put('/:key', requirePermission('settings.edit'), validateBody(setSettingSchema), (req, res) => {
   const key = String(req.params.key);
-  const { value } = req.body ?? {};
+  const { value } = req.body;
   const db = getSqlite();
   const before = db.prepare('SELECT key, value FROM settings WHERE key = ?').get(key);
   db.prepare(

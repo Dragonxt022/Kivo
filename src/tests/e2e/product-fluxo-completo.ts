@@ -17,7 +17,7 @@ import { migrateUp } from '../../core/database/migrator';
 import { runSeeds } from '../../core/database/seeds';
 import { getSqlite, closeDb } from '../../core/database/connection';
 import { createServer } from '../../core/server';
-import { resetTestDb, activateTestLicense } from '../resetTestDb';
+import { resetTestDb, activateTestLicense, exitFirstRunState } from '../resetTestDb';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3599);
 const BASE = `http://localhost:${PORT}`;
@@ -47,6 +47,7 @@ async function startServer() {
   migrateUp();
   runSeeds();
   activateTestLicense();
+  exitFirstRunState(); // sem isso a home mostra o assistente de primeiro acesso, não o login
 
   const db = getSqlite();
   const CAPS = [
@@ -113,10 +114,6 @@ async function fillModel(page: Page, model: string, value: string) {
   await page.locator(sel).fill(value);
 }
 
-async function selectModel(page: Page, model: string, value: string) {
-  const sel = `[x-model\\.number="${model}"]`;
-  await page.locator(sel).selectOption(value);
-}
 
 // ─── 1. Criar categoria inline + produto simples ──────────────────────────
 async function testCriarProdutoSimples(page: Page) {
@@ -125,12 +122,17 @@ async function testCriarProdutoSimples(page: Page) {
   await openNewProduct(page);
   await snap(page, 'dialog-novo-produto');
 
-  // Criar categoria inline
-  const catInput = page.locator('[x-model="newCat"]');
-  await catInput.fill('Bebidas');
-  await page.locator('button:has-text("Criar")').first().click();
+  // Categoria: o campo "nova categoria" não é mais inline no formulário do produto —
+  // mora no diálogo "Gerenciar categorias", aberto pela engrenagem ao lado do select.
+  await page.locator('button[title="Gerenciar categorias"]').click();
+  await page.waitForSelector('[x-model="newCat"]', { state: 'visible', timeout: 5000 });
+  await page.locator('[x-model="newCat"]').fill('Bebidas');
+  await page.locator('dialog[open] button:has-text("Adicionar")').first().click();
   await wait(page, 600);
-  check('Categoria "Bebidas" criada inline', true);
+  const catCriada = await page.isVisible('dialog[open] td:has-text("Bebidas")');
+  check('Categoria "Bebidas" criada', catCriada);
+  await page.locator('dialog[open] button:has-text("Fechar")').first().click();
+  await wait(page, 400);
 
   // Preencher formulário
   await fillModel(page, 'form.name', 'Coca-Cola 350ml');
@@ -289,8 +291,10 @@ async function testProdutoVariantes(page: Page) {
   check('avisa que o produto-pai ainda não aparece no PDV',
     await page.locator('text=Nenhuma variação gerada ainda').isVisible());
 
-  // Gerenciar Atributos
-  await page.locator('button:has-text("Atributos")').click();
+  // Gerenciar Atributos. Dois botões abrem o mesmo diálogo (o da seção de variações e o
+  // atalho "Cadastrar atributos" de dentro do gerador); ancora no primeiro, que é o
+  // caminho normal do cadastro.
+  await page.locator('button:has-text("Atributos")').first().click();
   await wait(page, 500);
   await snap(page, 'gerenciar-atributos');
 
@@ -369,7 +373,8 @@ async function testKitCombo(page: Page) {
   await fillModel(page, 'form.price', '199,90');
 
   // Selecionar tipo "Kit"
-  await page.locator('[x-model="form.productType"]').selectOption('kit');
+  // Mesma migração do bloco de variantes: o tipo virou uma fileira de `.product-type-btn`.
+  await page.locator('.product-type-btn:has-text("Kit")').click();
   await wait(page, 300);
 
   await snap(page, 'criar-kit');
@@ -407,7 +412,7 @@ async function testProduzido(page: Page) {
   await fillModel(page, 'form.price', '15,00');
 
   // Selecionar tipo "Produzido (ficha técnica)"
-  await page.locator('[x-model="form.productType"]').selectOption('produzido');
+  await page.locator('.product-type-btn:has-text("Produzido")').click();
   await wait(page, 300);
 
   await snap(page, 'criar-produzido');

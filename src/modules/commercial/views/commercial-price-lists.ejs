@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/listas-de-preco' }) %>
@@ -149,16 +149,16 @@
       </div>
     </dialog>
   </main>
-  <script src="/js/masks.js"></script>
-  <script src="/js/table-toolkit.js"></script>
-  <script>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
+  <script nonce="<%= cspNonce %>">
     function priceListsPage() {
       return {
         ...tableToolkit(),
         rows: [], form: {}, items: [], prodQ: '', prodResults: [], error: '', dlgError: '', itemsError: '',
         sortGetters: { name: (l) => l.name, item_count: (l) => l.item_count ?? 0 },
         get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
-        brl(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         toCents(s) { if (s == null || s === '') return null; return Math.round(parseFloat(String(s).replace(/\./g, '').replace(',', '.')) * 100); },
         async load() {
           const r = await fetch('/api/commercial/price-lists');

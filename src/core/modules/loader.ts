@@ -8,6 +8,9 @@ import { isModuleEntitled } from '../license/service';
 import { hasCapability } from '../capabilities/service';
 import { stableUuid } from '../../shared/uuid';
 import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
+import { createLogger } from '../logger';
+
+const log = createLogger('modules');
 
 export const CORE_VERSION = '0.1.0';
 // Relativo a __dirname (não process.cwd()): em dev resolve para src/modules; no app
@@ -49,6 +52,7 @@ function findManifest(dir: string): string | null {
  * compilado via `node` puro (nunca em dev via `tsx`, que transpila diferente).
  */
 async function importFile(p: string) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberado: ver o comentário acima
   return require(p);
 }
 
@@ -223,7 +227,7 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
     validateManifest(manifestRaw, dir);
 
     if (!satisfiesCore(manifestRaw.requiresCore)) {
-      console.warn(`[modules] "${manifestRaw.id}" exige Core ${manifestRaw.requiresCore} — ignorado.`);
+      log.warn(`"${manifestRaw.id}" exige Core ${manifestRaw.requiresCore} — ignorado.`);
       continue;
     }
 
@@ -258,7 +262,7 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
     registerCapabilities(manifest);
     registerSyncTables(manifest.id, manifest.syncTables);
     loaded.push({ manifest, dir, router, pagesRouter, viewsDir });
-    console.log(`[modules] carregado: ${manifest.id}@${manifest.version}`);
+    log.info(`carregado: ${manifest.id}@${manifest.version}`);
   }
   return loaded;
 }

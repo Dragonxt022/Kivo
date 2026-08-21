@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/dre/relatorio' }) %>
@@ -56,7 +56,7 @@
       se o custo de um produto mudou depois da venda, o valor exibido é uma aproximação.
     </p>
   </main>
-  <script>
+  <script nonce="<%= cspNonce %>">
     function drePage() {
       return {
         from: '', to: '', rows: [],
@@ -70,7 +70,7 @@
           receita_bruta: 'var(--dre-receita)', deducoes: 'var(--dre-deducoes)', cmv: 'var(--dre-cmv)',
           despesas_operacionais: 'var(--dre-opex)', despesas_financeiras: 'var(--dre-fin)',
         },
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         pct(bps) { return (bps === 0 ? '—' : (bps > 0 ? '+' : '') + (bps / 100).toFixed(2).replace('.', ',') + '%'); },
         rowStyle(row) {
           if (row.type === 'final') return 'border-top:2px solid var(--border);font-size:1.05em';

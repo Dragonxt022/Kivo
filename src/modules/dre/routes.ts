@@ -3,12 +3,13 @@ import { Router } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
+import { validateBody } from '../../shared/validateBody';
+import { createDreCategorySchema, updateDreCategorySchema } from '../../shared/schemas';
 import { demonstrativoResultado } from './report';
 
 const router = Router();
 const db = () => getSqlite();
 
-const MANUAL_LINES = ['deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras'];
 
 // Ordem contábil do DRE (não é a ordem alfabética de dre_line) — usada tanto para ordenar a
 // listagem quanto para gerar o código "1.0.0 em diante" (dígito principal = posição da linha).
@@ -52,17 +53,9 @@ router.get('/categories', requirePermission('dre.view'), (req, res) => {
   res.json(withCodes(rows));
 });
 
-router.post('/categories', requirePermission('dre.categories.edit'), (req, res) => {
-  const { label, dreLine, adjustmentBps } = req.body ?? {};
-  if (!label || !MANUAL_LINES.includes(dreLine)) {
-    res.status(400).json({ error: `Campos: label, dreLine (${MANUAL_LINES.join('|')}).` });
-    return;
-  }
-  const adj = Math.round(adjustmentBps ?? 0);
-  if (adj < -10000 || adj > 10000) {
-    res.status(400).json({ error: 'Ajuste deve estar entre -10000 e 10000 bps (-100% a +100%).' });
-    return;
-  }
+router.post('/categories', requirePermission('dre.categories.edit'), validateBody(createDreCategorySchema), (req, res) => {
+  const { label, dreLine, adjustmentBps } = req.body;
+  const adj = adjustmentBps ?? 0;
   const key = `manual_${randomUUID().slice(0, 8)}`;
   const info = db().prepare(
     `INSERT INTO dre_categories (key, label, dre_line, source, system, adjustment_bps, sort, uuid)
@@ -74,7 +67,7 @@ router.post('/categories', requirePermission('dre.categories.edit'), (req, res) 
   res.status(201).json(created);
 });
 
-router.put('/categories/:id', requirePermission('dre.categories.edit'), (req, res) => {
+router.put('/categories/:id', requirePermission('dre.categories.edit'), validateBody(updateDreCategorySchema), (req, res) => {
   const id = String(req.params.id);
   const before = db().prepare('SELECT id, label, dre_line, system, adjustment_bps, active FROM dre_categories WHERE id = ? AND deleted_at IS NULL').get(id) as
     { id: number; label: string; dre_line: string; system: number; adjustment_bps: number; active: number } | undefined;
@@ -82,17 +75,9 @@ router.put('/categories/:id', requirePermission('dre.categories.edit'), (req, re
     res.status(404).json({ error: 'Categoria não encontrada.' });
     return;
   }
-  const { label, adjustmentBps, active, dreLine } = req.body ?? {};
+  const { label, adjustmentBps, active, dreLine } = req.body;
   if (dreLine != null && dreLine !== before.dre_line && before.system) {
     res.status(400).json({ error: 'Categorias do sistema não podem trocar de linha do DRE.' });
-    return;
-  }
-  if (dreLine != null && !MANUAL_LINES.includes(dreLine)) {
-    res.status(400).json({ error: `dreLine deve ser um de: ${MANUAL_LINES.join('|')}.` });
-    return;
-  }
-  if (adjustmentBps != null && (Math.round(adjustmentBps) < -10000 || Math.round(adjustmentBps) > 10000)) {
-    res.status(400).json({ error: 'Ajuste deve estar entre -10000 e 10000 bps.' });
     return;
   }
   db().prepare(

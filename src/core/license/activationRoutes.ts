@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { validateBody } from '../../shared/validateBody';
+import { activateLicenseSchema } from '../../shared/schemas';
 import { activateLicense, requestTrial, isActivated } from './service';
 
 /**
@@ -15,12 +17,8 @@ router.get('/ativacao', (_req, res) => {
   res.render('activation', { error: null });
 });
 
-router.post('/api/activation/activate', async (req, res) => {
-  const { companyUuid, licenseKey } = req.body ?? {};
-  if (!licenseKey) {
-    res.status(400).json({ error: 'Informe a chave de licença.' });
-    return;
-  }
+router.post('/api/activation/activate', validateBody(activateLicenseSchema), async (req, res) => {
+  const { companyUuid, licenseKey } = req.body;
   // UUID opcional: sem ele, `activateLicense` pergunta à nuvem a qual empresa a chave
   // pertence. O campo continua existindo na tela (recolhido) para licença antiga e para
   // quando a nuvem não conseguir resolver.

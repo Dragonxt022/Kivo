@@ -20,7 +20,6 @@ export function notifyOrder(
   const routing = new Map(routingRows.map((r) => [r.product_id, r]));
   const matched = params.items.filter((i) => routing.has(i.productId));
   if (!matched.length) return;
-  const r = routing.get(matched[0].productId)!;
   const ticketUuid = randomUUID();
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
   kitchenTicketRepository.transaction(() => {

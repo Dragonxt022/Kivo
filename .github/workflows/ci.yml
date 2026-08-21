@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Uma execução por branch: um push novo cancela a análise do anterior, que já não
+# interessa a ninguém.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualidade:
+    name: Tipos e lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: TypeScript (sem emitir)
+        run: npx tsc -p tsconfig.json --noEmit
+      - name: ESLint
+        run: npx eslint src
+
+  testes:
+    name: Suíte de integração
+    runs-on: ubuntu-latest
+    services:
+      # Os testes de sync/licença/backup sobem o cloud/ e falam com este MySQL.
+      # A porta 3307 é a mesma do cloud/docker-compose.yml — os testes leem CLOUD_DB_PORT,
+      # mas o padrão embutido neles é 3307, então mantemos o mapeamento igual ao local.
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: kivo
+          MYSQL_DATABASE: kivo_cloud
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pkivo"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      CLOUD_DB_HOST: 127.0.0.1
+      CLOUD_DB_PORT: '3307'
+      CLOUD_DB_USER: root
+      CLOUD_DB_PASSWORD: kivo
+      CLOUD_DB_NAME: kivo_cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Instalar o cloud/
+        run: npm --prefix cloud ci
+      - name: Migrations do cloud/
+        run: npm --prefix cloud run migrate
+      - name: Testes
+        # O runner sonda o MySQL antes de começar: se o serviço não subir, os testes de
+        # nuvem entram como SKIP em vez de derrubar a execução com ECONNREFUSED.
+        run: node scripts/test-runner.js --plain
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Navegador do Playwright
+        run: npx playwright install --with-deps chromium
+      - name: E2E — cadastro de produtos
+        run: node scripts/kivo test:e2e
+      - name: E2E — comandas e mesas
+        run: node scripts/kivo test:e2e:comandas
+      - name: Screenshots da execução
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: .qa-screenshots/
+          if-no-files-found: ignore
+          retention-days: 7

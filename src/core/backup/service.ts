@@ -1,12 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createGzip, createGunzip, gunzipSync } from 'node:zlib';
+import { createGzip, gunzipSync } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { getSqlite, closeDb } from '../database/connection';
 import { getLicenseCredentials, machineId, validateLicense } from '../license/service';
 import { canSaveToCloud } from '../license/plans';
 import { getCloudServerUrl } from '../config/cloud';
+import { createLogger } from '../logger';
+
+const log = createLogger('backup');
 
 /**
  * Backup local (KIVO_PLANO.md §8):
@@ -50,7 +53,7 @@ export function backupDir(): string {
       fs.mkdirSync(configured, { recursive: true });
       return configured;
     } catch (e) {
-      console.error(`[backup] destino configurado indisponível (${configured}) — usando o padrão desta máquina:`, e);
+      log.error(`destino configurado indisponível (${configured}) — usando o padrão desta máquina`, e);
     }
   }
   const fallback = defaultBackupDir();
@@ -102,7 +105,6 @@ export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Prom
   await db.backup(tmpDb); // cópia consistente mesmo com o banco em uso
   await pipeline(fs.createReadStream(tmpDb), createGzip(), fs.createWriteStream(finalPath));
   fs.unlinkSync(tmpDb);
-  const stat = fs.statSync(finalPath);
 
   const compressedBuf = fs.readFileSync(finalPath);
   const checksum = sha256(compressedBuf);
@@ -118,14 +120,14 @@ export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Prom
     try {
       await uploadBackupToCloud(id);
     } catch (e) {
-      console.error('[backup] falha ao enviar backup à nuvem (mantém apenas local):', e);
+      log.error('falha ao enviar backup à nuvem (mantém apenas local)', e);
     }
   }
 
   try {
     await enforceRetention();
   } catch (e) {
-    console.error('[backup] falha ao aplicar retenção (mantém os backups como estão):', e);
+    log.error('falha ao aplicar retenção (mantém os backups como estão)', e);
   }
 
   return { id, filePath: finalPath, sizeBytes: compressedBuf.length, checksum };
@@ -149,7 +151,7 @@ export async function enforceRetention(): Promise<void> {
       try {
         await deleteCloudBackup(row.uuid);
       } catch (e) {
-        console.error('[backup] falha ao excluir cópia antiga na nuvem (mantém a exclusão local):', e);
+        log.error('falha ao excluir cópia antiga na nuvem (mantém a exclusão local)', e);
       }
     }
     try {
@@ -206,7 +208,7 @@ export async function deleteBackup(backupId: number): Promise<{ ok: boolean; err
     try {
       await deleteCloudBackup(row.uuid);
     } catch (e) {
-      console.error('[backup] falha ao excluir cópia na nuvem (mantém a exclusão local):', e);
+      log.error('falha ao excluir cópia na nuvem (mantém a exclusão local)', e);
     }
   }
   try {
@@ -343,9 +345,9 @@ export function startBackupScheduler(): NodeJS.Timeout {
     if (!isScheduledBackupDue(new Date())) return;
     try {
       await runBackup('agendado');
-      console.log('[backup] backup agendado concluído.');
+      log.info('backup agendado concluído.');
     } catch (e) {
-      console.error('[backup] falha no backup agendado:', e);
+      log.error('falha no backup agendado', e);
     }
   };
   check(); // catch-up: cobre o caso do app ter ficado fechado no horário configurado

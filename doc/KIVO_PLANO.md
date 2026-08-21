@@ -198,10 +198,13 @@ O loader (`src/core/modules/loader.ts`) descobre, valida versão, ordena topolog
 | **F6a-d** | Sync engine, licenciamento remoto, backup nuvem, painel admin (cloud/) |
 | **Repository layer** | BaseRepository + 24 repositórios de domínio |
 | **Controller layer** | Store, Finance, Foodservice, Comandas |
-| **Segurança** | Helmet, rate-limit, CSRF (sameSite strict), password strength, validação Zod |
+| **Segurança** | Helmet, rate-limit, CSRF (sameSite strict), password strength, validação Zod em 70 das 140 rotas mutantes |
 | **Segurança F5** | `requestSingleInstanceLock`, `sandbox: true`, crash handlers |
+| **Segurança CSP** | Content-Security-Policy com nonce por requisição, sem handler inline em nenhuma view (`src/tests/csp.ts`) |
 | **Performance** | PRAGMA cache, dirty rows LIMIT, backup stream, criação/modificação de índices |
+| **Observabilidade** | Logger estruturado (`core/logger.ts`) com arquivo diário em `storage/logs/` e retenção de 14 dias |
 | **Código** | Error handler global, Morgan, `assertAuth`, divider `commercial/routes.ts`, `createSale` + `cancelSale` extraídos |
+| **Qualidade** | CI (tipos + lint + integração + e2e), lint sem erros, suíte verde sem Docker (testes de nuvem entram como SKIP) |
 | **Empacotamento** | NSIS installer, auto-updater (GitHub Releases), licenciamento com planos Trial/Prata/Ouro/Diamante |
 
 ### 🔄 Pendente (não contratado)
@@ -209,15 +212,42 @@ O loader (`src/core/modules/loader.ts`) descobre, valida versão, ordena topolog
 | Item | Esforço |
 |------|---------|
 | CRUD factory para demais entidades (reduzir código manual) | ~4h |
-| Logger estruturado (substituir console.log) | ~4h |
-| Índices compostos em tabelas de alta frequência | ~2h |
+| Cliente de API compartilhado no navegador (hoje ~298 `fetch()` soltos nas views) | ~8h |
+| Paginação no servidor para catálogo grande — ver nota abaixo | decisão de produto |
+| Zod nas 70 rotas mutantes restantes (a maioria sem corpo ou já validada à mão) | ~4h |
 | Transações em openComanda / convertQuote | ~1h |
 | Username enumeration timing fix | ~1h |
 | Sanitizar stored XSS no PDV | ~1h |
-| Limpeza de sessões expiradas | ~1h |
 | `origin_machine` stamp nos demais módulos | ~4h |
 | Code signing do instalador | variável |
 | Demais recomendações de auditoria (F7, F9, F10, F11, F12) | ~50h+ |
+
+#### Nota — catálogo grande e paginação
+
+Medido com catálogo gerado (`GET /api/commercial/products`, resposta completa):
+
+| Produtos | Tempo | Tamanho da resposta |
+|---|---|---|
+| 500 | 21 ms | 266 KB |
+| 2.000 | 20 ms | 1 MB |
+| 10.000 | 92 ms | 5,3 MB |
+| 30.000 | 243 ms | 16 MB |
+
+O gargalo **não é o SQLite** — é o tamanho do JSON que o navegador precisa baixar, interpretar
+e tornar reativo. A migration `0058_indice_listagem_produtos` tirou a ordenação temporária do
+plano da consulta (21,3 → 17,6 ms em 30 mil produtos), mas não muda o volume.
+
+Paginar de verdade exige mover busca, ordenação e filtro de aba para o servidor — e isso
+conflita com a premissa do PDV, que carrega o catálogo inteiro **de propósito** para buscar e
+validar o carrinho sem depender de rede. É decisão de produto (até que tamanho de loja o Kivo
+se propõe a atender offline?), não faxina técnica.
+
+#### Já resolvidos desta lista
+
+- **Logger estruturado** — `core/logger.ts`; 45 chamadas de `console.*` migradas. O que ficou em
+  `console.log` de propósito é saída de CLI (`database/cli.ts`, `dev.ts`), não registro de operação.
+- **Índices compostos** — `0058_indice_listagem_produtos` (ver a nota acima).
+- **Limpeza de sessões expiradas** — `purgeExpiredSessions()`, no boot e a cada 12h.
 
 ---
 

@@ -8,9 +8,9 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <link rel="stylesheet" href="/css/purchases-store.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
-  <script src="/js/datetime.js"></script>
-  <script src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
 </head>
 <body x-data="purchasesStore()" x-init="init()" @apply-filter.window="historyFilter=$event.detail; historyPage=1">
   <%- include('partials/nav', { user, page: '/app/commercial/compras' }) %>
@@ -316,7 +316,7 @@
                 <div class="ps-conv-fields">
                   <div class="field">
                     <label>Quantidade por <strong x-text="addModalProduct.purchase_unit.toUpperCase()"></strong></label>
-                    <input type="number" step="any" min="0.001" placeholder="Ex.: 12" x-model.number="addForm.qtyPerPurchaseUnit" />
+                    <input type="number" step="any" min="0.001" placeholder="Ex.: 12" x-model.number="addForm.qtyPerPurchaseUnit" x-ref="addQtyPerUnitInput" />
                     <p class="text-xs muted" style="margin-top:2px">Quantas <span x-text="addModalProduct.unit.toUpperCase()"></span> vêm em cada <span x-text="addModalProduct.purchase_unit.toUpperCase()"></span></p>
                   </div>
                   <div class="field">
@@ -637,7 +637,7 @@
 
   <%- include('partials/confirm') %>
 
-<script>
+<script nonce="<%= cspNonce %>">
   function purchasesStore() {
     return {
       // ─── General ───
@@ -752,7 +752,7 @@
       },
 
       // ─── Helpers ───
-      brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+      brl(c) { return window.brl(c); },
       cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
 
 
@@ -807,11 +807,14 @@
           }
         } catch {}
         this.$nextTick(() => {
-          if (p.purchase_unit && p.purchase_unit !== p.unit) {
-            this.$refs.addDlg.querySelector('[x-model.number="addForm.qtyPerPurchaseUnit"]')?.focus();
-          } else {
-            this.$refs.addDlg.querySelector('[x-model.number="addForm.qty"]')?.focus();
-          }
+          // Por x-ref, e não por querySelector('[x-model.number="…"]'): o ponto de
+          // `x-model.number` é separador de classe em CSS, então aquele seletor era
+          // INVÁLIDO e o querySelector lançava — o foco nunca chegava no campo, e quem
+          // lança compra tinha de clicar na quantidade em todo item.
+          const alvo = p.purchase_unit && p.purchase_unit !== p.unit
+            ? this.$refs.addQtyPerUnitInput
+            : this.$refs.addQtyInput;
+          alvo?.focus();
         });
         this.$refs.addDlg.showModal();
       },

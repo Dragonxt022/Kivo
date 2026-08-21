@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
-import { requirePermission } from '../../../core/permissions/middleware';
 import { audit } from '../../../core/audit/service';
 import { openRegister, closeRegister, currentRegister, expectedCents, addMovement, editClosedRegister } from '../cash';
 import { pendingTotal, generateInvoice } from '../agreements';

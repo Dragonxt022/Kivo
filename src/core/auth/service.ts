@@ -116,6 +116,24 @@ export function logout(token: string): void {
   userRepository.rawRun('DELETE FROM sessions WHERE token = ?', token);
 }
 
+/**
+ * Apaga sessões vencidas.
+ *
+ * `userFromToken` já recusa token expirado (`expires_at > datetime('now')`), então nada
+ * aqui muda quem consegue entrar — o problema era a tabela: só saía linha em logout
+ * explícito, e ninguém desliga o PDV pelo botão "sair". Cada abertura de caixa, cada
+ * troca de turno, cada reinício deixava uma linha para sempre. Numa instalação de um ano
+ * são dezenas de milhares de tokens de sessão parados no disco, todos inúteis e todos
+ * ainda legíveis por quem puser a mão no arquivo do banco.
+ *
+ * Roda no boot (server.ts) e a cada 12h. Devolve quantas linhas saíram — é o que o log
+ * usa; sem isso a limpeza seria invisível e ninguém saberia dizer se está funcionando.
+ */
+export function purgeExpiredSessions(): number {
+  const info = userRepository.rawRun(`DELETE FROM sessions WHERE expires_at <= datetime('now')`);
+  return info.changes;
+}
+
 export function userFromToken(token: string): AuthUser | null {
   const session = userRepository.rawOne(
     `SELECT user_id FROM sessions WHERE token = ? AND expires_at > datetime('now')`,

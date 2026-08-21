@@ -12,6 +12,8 @@ import { runSeeds } from '../core/database/seeds';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb } from './resetTestDb';
 import { registerCapabilities } from '../core/modules/loader';
+import type { ModuleManifest } from '../core/modules/types';
+import type { Request } from 'express';
 
 // Simula um módulo que declara capabilities
 const TEST_MODULE = {
@@ -68,35 +70,35 @@ async function main() {
   }
 
   // 1. registerCapabilities upserta com enabled=0
-  registerCapabilities(TEST_MODULE as any);
+  registerCapabilities(TEST_MODULE as unknown as ModuleManifest);
   const rows = db.prepare('SELECT key, enabled FROM capabilities ORDER BY key').all() as { key: string; enabled: number }[];
   check('capabilities inseridas (2 rows)', rows.length === 2);
   check('feature_x enabled=0', rows.find((r) => r.key === 'test_caps.feature_x')?.enabled === 0);
   check('feature_y enabled=0', rows.find((r) => r.key === 'test_caps.feature_y')?.enabled === 0);
 
   // Registrar de novo: enabled preservado (continua 0)
-  registerCapabilities(TEST_MODULE as any);
+  registerCapabilities(TEST_MODULE as unknown as ModuleManifest);
   const rows2 = db.prepare('SELECT key, enabled FROM capabilities ORDER BY key').all() as { key: string; enabled: number }[];
   check('re-registro preserva enabled (0)', rows2.every((r) => r.enabled === 0) && rows2.length === 2);
 
   // Agora marca enabled=1 direto no banco e re-registra
   db.prepare('UPDATE capabilities SET enabled = 1 WHERE key = ?').run('test_caps.feature_x');
-  registerCapabilities(TEST_MODULE as any);
+  registerCapabilities(TEST_MODULE as unknown as ModuleManifest);
   const rowX = db.prepare('SELECT enabled FROM capabilities WHERE key = ?').get('test_caps.feature_x') as { enabled: number };
   check('re-registro preserva enabled (1)', rowX.enabled === 1);
 
   // 2. hasCapability (precisa do server rodando para isModuleEntitled, mas testamos a lógica SQL)
   // Import hasCapability e testa com módulo que existe
-  const { hasCapability } = require('../core/capabilities/service');
+  const { hasCapability } = await import('../core/capabilities/service');
   // Ainda não chamamos activateTestLicense, então isModuleEntitled retorna null (fail-open == true)
   check('hasCapability com enabled=1 → true', hasCapability('test_caps.feature_x') === true);
   check('hasCapability com enabled=0 → false', hasCapability('test_caps.feature_y') === false);
   check('hasCapability key inexistente → false', hasCapability('test_caps.nonexistent') === false);
 
   // 3. setCapabilityEnabled via código direto
-  const { setCapabilityEnabled } = require('../core/capabilities/service');
+  const { setCapabilityEnabled } = await import('../core/capabilities/service');
   // Mock um req mínimo
-  const fakeReq = { user: { id: 1, username: 'admin' }, ip: '127.0.0.1' } as any;
+  const fakeReq = { user: { id: 1, username: 'admin' }, ip: '127.0.0.1' } as unknown as Request;
   setCapabilityEnabled(fakeReq, 'test_caps.feature_y', true);
   const rowY = db.prepare('SELECT enabled FROM capabilities WHERE key = ?').get('test_caps.feature_y') as { enabled: number };
   check('setCapabilityEnabled liga feature_y', rowY.enabled === 1);

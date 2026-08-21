@@ -176,7 +176,7 @@
     <%# Voltar. Nasce escondido e é revelado pelo script do rodapé só fora da tela inicial —
         ao contrário de x-show, não pisca na tela antes do Alpine iniciar. %>
     <button type="button" class="btn-icon nav-back-btn" id="kivo-voltar" hidden
-            onclick="kivoVoltar()" title="Voltar" aria-label="Voltar para a tela anterior">
+            title="Voltar" aria-label="Voltar para a tela anterior">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
       </svg>
@@ -197,8 +197,7 @@
         do segundo computador da loja: a URL chega pelo sync, o arquivo não, e sem isso
         apareceria o ícone de imagem quebrada no cabeçalho de todas as telas. %>
     <% if (typeof empresaLogoUrl !== 'undefined' && empresaLogoUrl) { %>
-      <img class="logo logo-empresa" src="<%= empresaLogoUrl %>" alt="<%= (typeof empresaNome !== 'undefined' && empresaNome) ? empresaNome : 'Logo da empresa' %>"
-           onerror="this.onerror=null;this.classList.remove('logo-empresa');this.src=document.documentElement.getAttribute('data-theme')==='dark'?'/logo_kivo-horizontal_branco.svg':'/logo_kivo-horizontal.svg';" />
+      <img class="logo logo-empresa" id="kivo-logo-empresa" src="<%= empresaLogoUrl %>" alt="<%= (typeof empresaNome !== 'undefined' && empresaNome) ? empresaNome : 'Logo da empresa' %>" />
     <% } else { %>
       <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
     <% } %>
@@ -466,7 +465,7 @@
     });
   }
 %>
-<script>
+<script nonce="<%= cspNonce %>">
   const SIDEBAR_MENU_SEED = <%- JSON.stringify(sidebarGroupsSeed) %>;
   const NAV_SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
 </script>
@@ -507,7 +506,7 @@
 <% } %>
 </div>
 <div id="toast-container" popover="manual"></div>
-<script>
+<script nonce="<%= cspNonce %>">
 (function(){
   // Fechamento animado de dialog: o fecha-de-verdade só acontece depois que a animação
   // de saída termina. Três armadilhas, todas já custaram modal travada aberta:
@@ -579,6 +578,21 @@
     else location.href = '/';
   };
 
+  // Por addEventListener: a CSP recusa `onclick`/`onerror` no HTML — o nonce vale para a
+  // tag `script`, nunca para atributo de evento.
+  document.getElementById('kivo-voltar')?.addEventListener('click', window.kivoVoltar);
+
+  // Fallback da logo da empresa: se o arquivo sumiu (troca de máquina, backup restaurado),
+  // volta para a marca do Kivo em vez de deixar o ícone quebrado no cabeçalho de TODAS as
+  // telas. `once` no lugar do antigo `this.onerror = null` para não entrar em laço se o
+  // próprio fallback falhar.
+  document.getElementById('kivo-logo-empresa')?.addEventListener('error', function () {
+    this.classList.remove('logo-empresa');
+    this.src = document.documentElement.getAttribute('data-theme') === 'dark'
+      ? '/logo_kivo-horizontal_branco.svg'
+      : '/logo_kivo-horizontal.svg';
+  }, { once: true });
+
   // Toast global — sempre no #toast-container, nunca dentro de um <dialog>. Dialogs
   // abertos entram na "top layer" do navegador, que nenhum z-index normal supera; por
   // isso o container também é um popover (mesma top layer), reordenado pro topo dela a
@@ -590,7 +604,10 @@
     var icons = { error: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>', success: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', info: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', warning: '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' };
     var el = document.createElement('div');
     el.className = 'toast toast-' + type;
-    el.innerHTML = (icons[type] || icons.error) + '<span class="toast-msg">' + String(msg).replace(/</g,'&lt;') + '</span><button class="toast-close" onclick="this.parentElement.remove()">&times;</button>';
+    el.innerHTML = (icons[type] || icons.error) + '<span class="toast-msg">' + String(msg).replace(/</g,'&lt;') + '</span><button class="toast-close">&times;</button>';
+    // Listener em vez de `onclick` no HTML: a CSP recusa handler inline, e o × do toast
+    // ficava sem efeito — o aviso só sumia sozinho, no tempo dele.
+    el.querySelector('.toast-close').addEventListener('click', function () { el.remove(); });
     container.appendChild(el);
     if (container.showPopover) {
       try {
@@ -644,7 +661,7 @@
 })();
 </script>
 <% if (user) { %>
-<script>
+<script nonce="<%= cspNonce %>">
 (function(){
   // ─── Atalhos flutuantes de páginas recentes (preferência deste computador) ───
   // Registra a página atual e mostra balões no canto inferior direito com as últimas
@@ -741,5 +758,5 @@
 <%# Calculadora: carregada em toda tela porque as duas que a chamam hoje (PDV e cadastro
     de produto) não são as únicas onde "quanto dá isso?" aparece, e o arquivo é pequeno.
     Não injeta nada na página até alguém chamar window.abrirCalculadora(). %>
-<script defer src="/js/calculadora.js"></script>
+<script nonce="<%= cspNonce %>" defer src="/js/calculadora.js"></script>
 <% } %>

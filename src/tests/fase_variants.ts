@@ -76,7 +76,6 @@ async function main() {
   check('valores de Cor (Azul/Vermelho) criados', valAzul > 0 && valVermelho > 0);
 
   // 5. Testar geracao de variantes (produto cartesiano: 3 tamanhos x 2 cores = 6)
-  const attrValueIds = [valP, valM, valG, valAzul, valVermelho];
   // Agrupar por attribute_id
   const tamanhoIds = [valP, valM, valG];
   const corIds = [valAzul, valVermelho];

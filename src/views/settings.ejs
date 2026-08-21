@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'settings' }) %>
@@ -1049,9 +1049,9 @@
       </div>
     </dialog>
   </main>
-  <script src="/js/masks.js"></script>
-  <script src="/js/onboarding.js"></script>
-  <script>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/onboarding.js"></script>
+  <script nonce="<%= cspNonce %>">
     // Abas válidas — a lista existe só para não confiar cegamente no que vem no #hash da
     // URL: um valor desconhecido esconderia todos os painéis e a tela ficaria em branco.
     const SETTINGS_TABS = ['license', 'empresa', 'stock', 'sales', 'financeiro', 'fidelidade',

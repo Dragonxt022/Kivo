@@ -2,6 +2,9 @@ import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
 import { validateLicense } from '../license/service';
 import { canUseWebApp } from '../license/plans';
 import { drainCommands } from './commands';
+import { createLogger } from '../logger';
+
+const log = createLogger('eventos');
 
 /**
  * Conexão persistente com a nuvem para saber, em segundos, que chegou pedido do celular.
@@ -48,7 +51,7 @@ async function connectOnce(): Promise<void> {
 
   // Conectou: zera o backoff para a próxima queda ser tratada como incidente novo.
   delay = RECONNECT_MIN_MS;
-  console.log('[eventos] conectado ao canal da nuvem.');
+  log.info('conectado ao canal da nuvem.');
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -92,7 +95,7 @@ async function loop(): Promise<void> {
       await connectOnce();
     } catch (e) {
       if (stopped) return;
-      console.log(`[eventos] canal caiu (${(e as Error).message}); tentando em ${Math.round(delay / 1000)}s.`);
+      log.info(`canal caiu (${(e as Error).message}); tentando em ${Math.round(delay / 1000)}s.`);
     }
     if (stopped) return;
     await new Promise((r) => setTimeout(r, delay).unref?.());

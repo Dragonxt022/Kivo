@@ -10,18 +10,18 @@
     <h2 class="dialog-heading-sm">Confirmar</h2>
     <p id="confirm-msg" class="dialog-muted"></p>
     <div class="actions actions-center">
-      <button class="btn secondary" onclick="__confirm(false)">
+      <button class="btn secondary" id="confirm-cancelar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
         Cancelar
       </button>
-      <button class="btn" onclick="__confirm(true)">
+      <button class="btn" id="confirm-ok">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         Confirmar
       </button>
     </div>
   </div>
 </dialog>
-<script>
+<script nonce="<%= cspNonce %>">
 var __confirmResolve = null;
 function __confirm(val) {
   var dlg = document.getElementById('confirm-dlg');
@@ -42,4 +42,10 @@ document.addEventListener('keydown', function (e) {
     if (dlg && dlg.open) __confirm(false);
   }
 });
+// Por addEventListener, e não por `onclick="..."` no HTML: a CSP recusa handler inline —
+// nonce vale para a tag `script`, nunca para atributo de evento. Com o onclick, os dois
+// botões deste diálogo ficavam mudos e qualquer confirmação (excluir em massa, por
+// exemplo) parava sem mensagem nenhuma.
+document.getElementById('confirm-cancelar').addEventListener('click', function () { __confirm(false); });
+document.getElementById('confirm-ok').addEventListener('click', function () { __confirm(true); });
 </script>

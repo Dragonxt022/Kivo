@@ -47,3 +47,11 @@ function monthNav(initial) {
     next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
   };
 }
+
+// API pública deste arquivo — as views chamam estes nomes direto do HTML (@input, x-text).
+// Declarar o vínculo explicitamente segue o padrão de masks.js/barcode.js e evita que
+// pareçam código morto para quem lê (ou para o ESLint).
+window.fmtDateTime = fmtDateTime;
+window.fmtDate = fmtDate;
+window.todayLocal = todayLocal;
+window.monthNav = monthNav;

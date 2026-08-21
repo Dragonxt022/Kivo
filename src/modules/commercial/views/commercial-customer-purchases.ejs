@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
@@ -35,9 +35,9 @@
       </table>
     </section>
   </main>
-  <script src="/js/masks.js"></script>
-  <script src="/js/datetime.js"></script>
-  <script>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
     function purchasesPage(id) {
       const _d = new Date();
       return {
@@ -47,7 +47,7 @@
         get key() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
         prev() { if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
         next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         async load() {
           const [c, p] = await Promise.all([
             fetch(`/api/commercial/customers/${this.id}`),

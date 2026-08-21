@@ -67,7 +67,9 @@ export const foodserviceController = {
     const statusFilter = req.query.status
       ? String(req.query.status).split(',').map((s) => s.trim()).filter(Boolean)
       : undefined;
-    const tickets = listTickets(statusFilter) as any[];
+    // listTickets devolve unknown[] (a camada de repositório não tipa colunas); aqui só o
+    // `id` é lido, então declarar isso é mais honesto — e mais seguro — que um `any[]`.
+    const tickets = listTickets(statusFilter) as (Record<string, unknown> & { id: number })[];
     const result = tickets.map((t) => ({ ...t, items: getTicketItems(t.id) }));
     res.json(result);
   },

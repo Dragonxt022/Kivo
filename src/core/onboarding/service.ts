@@ -10,6 +10,9 @@ import { categoryRepository } from '../../modules/commercial/repositories/Catego
 import { complementGroupRepository, complementItemRepository, productComplementGroupRepository } from '../../modules/commercial/repositories/ComplementRepository';
 import { productAttributeRepository, productAttributeValueRepository, productVariantValueRepository } from '../../modules/commercial/repositories/AttributeRepository';
 import { paymentMethodRepository } from '../../modules/finance/repositories/PaymentMethodRepository';
+import { createLogger } from '../logger';
+
+const log = createLogger('onboarding');
 
 const COMPLETED_KEY = 'onboarding.completed';
 const DEMO_DATA_KEY = 'onboarding.demo_data_created';
@@ -193,7 +196,7 @@ function applyFeatures(
       (shouldBeOn ? enabled : disabled).push(f.label);
       if (shouldBeOn) active.add(f.key);
     } catch (e) {
-      console.error(`[onboarding] não deu pra ${shouldBeOn ? 'ligar' : 'desligar'} a capability ${f.key}:`, e);
+      log.error(`não deu pra ${shouldBeOn ? 'ligar' : 'desligar'} a capability ${f.key}`, e);
       if (f.enabled) active.add(f.key);
     }
   }
@@ -227,10 +230,10 @@ async function enviarPerfilParaNuvem(perfil: {
       body: JSON.stringify(perfil),
     });
     if (!res.ok) {
-      console.error(`[onboarding] perfil do negócio não subiu para a nuvem: ${res.status}`);
+      log.error(`perfil do negócio não subiu para a nuvem: ${res.status}`);
     }
   } catch (e) {
-    console.error('[onboarding] perfil do negócio não subiu para a nuvem:', e);
+    log.error('perfil do negócio não subiu para a nuvem', e);
   }
 }
 

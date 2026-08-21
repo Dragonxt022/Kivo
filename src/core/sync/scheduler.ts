@@ -2,6 +2,9 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 import { systemRequest } from '../auth/systemContext';
 import { runSync } from './engine';
 import { drainCommands } from './commands';
+import { createLogger } from '../logger';
+
+const log = createLogger('sync');
 
 /**
  * Ciclo periódico de sincronização.
@@ -42,14 +45,14 @@ async function tick(motivo: string): Promise<void> {
   try {
     const result = await runSync(systemRequest());
     if (!result.skipped && (result.pushed || result.pulled)) {
-      console.log(`[sync:${motivo}] enviados=${result.pushed} recebidos=${result.pulled}`);
+      log.info(`[${motivo}] enviados=${result.pushed} recebidos=${result.pulled}`);
     }
     // Rede de segurança do canal de eventos: se ele estiver caído, os pedidos feitos no
     // celular ainda são aplicados aqui, com a latência do ciclo em vez de segundos.
     if (!result.skipped) await drainCommands();
   } catch (e) {
     // Rede fora do ar é o caso comum e esperado — o próximo ciclo tenta de novo.
-    console.error(`[sync:${motivo}] falhou:`, (e as Error).message);
+    log.error(`[${motivo}] falhou`, (e as Error).message);
   } finally {
     running = false;
   }
@@ -59,13 +62,13 @@ async function tick(motivo: string): Promise<void> {
 export function startSyncScheduler(): void {
   const minutes = intervalMinutes();
   if (minutes <= 0) {
-    console.log('[sync] ciclo automático desligado (sync.intervalo_minutos = 0).');
+    log.info('ciclo automático desligado (sync.intervalo_minutos = 0).');
     return;
   }
   timer = setInterval(() => void tick('periodico'), minutes * 60_000);
   // unref: um timer pendente não pode segurar o processo vivo no encerramento.
   timer.unref();
-  console.log(`[sync] ciclo automático a cada ${minutes} min.`);
+  log.info(`ciclo automático a cada ${minutes} min.`);
 }
 
 /** Usado ao mudar o intervalo em Configurações, para valer sem reiniciar o app. */

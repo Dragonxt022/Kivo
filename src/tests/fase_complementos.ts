@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
-import { getSqlite, closeDb } from '../core/database/connection';
+import { getSqlite } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
-import { hasCapability } from '../core/capabilities/service';
 import { registerCapabilities } from '../core/modules/loader';
 
 const TEST_MODULE = {

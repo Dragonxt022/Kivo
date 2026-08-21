@@ -51,3 +51,8 @@ function cashRegisterInlineOpenMixin() {
     },
   };
 }
+
+// API pública — mixins usados nas views de caixa/PDV.
+window.paymentMethodIcon = paymentMethodIcon;
+window.paymentMethodsMixin = paymentMethodsMixin;
+window.cashRegisterInlineOpenMixin = cashRegisterInlineOpenMixin;

@@ -8,7 +8,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
-import { unwrap } from './testUtils';
+import { unwrap, type ApiRow } from './testUtils';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3761);
 const base = `http://localhost:${PORT}`;
@@ -78,7 +78,7 @@ async function main() {
       method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pix.id, amountCents: 100000 }] }),
     }, admin!);
     check('acerto parcial da parcela 1 (200k) aceito', settle1.status === 200, String(settle1.status));
-    const settle1Body = await unwrap<any>(settle1);
+    const settle1Body = await unwrap<ApiRow>(settle1);
     check('rolledOverCents = 100000', settle1Body.rolledOverCents === 100000, JSON.stringify(settle1Body));
     check('rolloverTarget = existing (parcela 2 já existia)', settle1Body.rolloverTarget === 'existing');
 
@@ -92,7 +92,7 @@ async function main() {
       method: 'POST', body: JSON.stringify({ payments: [{ paymentMethodId: pix.id, amountCents: 50000 }] }),
     }, admin!);
     check('acerto parcial da última parcela aceito', settle5.status === 200, String(settle5.status));
-    const settle5Body = await unwrap<any>(settle5);
+    const settle5Body = await unwrap<ApiRow>(settle5);
     check('rolloverTarget = new (não havia parcela 6)', settle5Body.rolloverTarget === 'new', JSON.stringify(settle5Body));
 
     const newInstallment = db.prepare(
@@ -118,7 +118,7 @@ async function main() {
         { paymentMethodId: pix.id, amountCents: 150000 },
       ] }),
     }, admin!);
-    const blockedBody = await blocked.json() as { success: boolean; data?: any; error?: string };
+    const blockedBody = await blocked.json() as { success: boolean; data?: ApiRow; error?: string };
     check('bloqueia split com parte em dinheiro sem caixa aberto', blocked.status === 400 && !!blockedBody, JSON.stringify(blockedBody));
 
     // Abrir caixa e repetir
@@ -131,7 +131,7 @@ async function main() {
         { paymentMethodId: pix.id, amountCents: 150000 },
       ] }),
     }, admin!);
-    const splitOkBody = await unwrap<any>(splitOk);
+    const splitOkBody = await unwrap<ApiRow>(splitOk);
     check('split aceito com caixa aberto', splitOk.status === 200 && splitOkBody.registeredInCash === true, JSON.stringify(splitOkBody));
 
     const settlePays = db.prepare('SELECT payment_method_id, amount_cents FROM bill_settlement_payments WHERE entity = ? AND bill_id = ?').all('payable', other.id) as { payment_method_id: number; amount_cents: number }[];

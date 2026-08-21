@@ -21,6 +21,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { machineId } from '../license/service';
+import { createLogger } from '../logger';
+
+const log = createLogger('secrets');
 
 const FILE_VERSION = 1;
 const PEPPER = 'kivo-secrets-v1-3d9b7e02';
@@ -132,7 +135,7 @@ export function getSecret(key: string): string | null {
     }
     return fallbackDecrypt(stored.d, vault.salt);
   } catch (e) {
-    console.error(`[secrets] não foi possível decifrar "${key}" (esquema ${stored.s}):`, e);
+    log.error(`não foi possível decifrar "${key}" (esquema ${stored.s})`, e);
     return null;
   }
 }

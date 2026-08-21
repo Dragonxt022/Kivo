@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .login-overlay {
       position: fixed; inset: 0; z-index: 200;
@@ -693,9 +693,9 @@
   <% } %>
 
   <% if (user && user.permissions.has('settings.edit')) { %>
-  <script src="/js/onboarding.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/onboarding.js"></script>
   <% } %>
-  <script>
+  <script nonce="<%= cspNonce %>">
     const HOME_APPS_SEED = <%- JSON.stringify(typeof visibleItemsForAlpine !== 'undefined' ? visibleItemsForAlpine : []) %>;
     const HOME_ORDER_KEY = 'kivo-home-order';
     const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
@@ -1132,7 +1132,7 @@
         period: 'week',
         trend: [],
         hoverBar: null,
-        brl(c) { return 'R$ ' + ((c ?? 0) / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); },
+        brl(c) { return window.brl(c); },
         get maxTrend() { return Math.max(1, ...this.trend.map((b) => b.totalCents)); },
         async loadTrend() {
           const r = await fetch('/api/store/reports/revenue-trend?period=' + this.period);

@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
+import { validateBody } from '../../shared/validateBody';
+import {
+  saveFiscalConfigSchema,
+  saveFiscalEmpresaSchema,
+  saveFiscalCredentialsSchema,
+  uploadCertificateSchema,
+} from '../../shared/schemas';
 import { fiscalController } from './controllers/FiscalController';
 
 /**
@@ -18,11 +25,11 @@ router.use(requireCapability('fiscal.nfce'));
 router.get('/config', requirePermission('fiscal.config.view'), fiscalController.getState);
 router.get('/readiness', requirePermission('fiscal.config.view'), fiscalController.getReadiness);
 router.get('/municipios', requirePermission('fiscal.config.view'), fiscalController.listMunicipios);
-router.put('/config', requirePermission('fiscal.config.edit'), fiscalController.saveConfig);
-router.put('/empresa', requirePermission('fiscal.config.edit'), fiscalController.saveEmpresa);
-router.put('/credenciais', requirePermission('fiscal.config.edit'), fiscalController.saveCredentials);
+router.put('/config', requirePermission('fiscal.config.edit'), validateBody(saveFiscalConfigSchema), fiscalController.saveConfig);
+router.put('/empresa', requirePermission('fiscal.config.edit'), validateBody(saveFiscalEmpresaSchema), fiscalController.saveEmpresa);
+router.put('/credenciais', requirePermission('fiscal.config.edit'), validateBody(saveFiscalCredentialsSchema), fiscalController.saveCredentials);
 router.put('/ambiente', requirePermission('fiscal.config.edit'), fiscalController.setEnvironment);
-router.post('/certificado', requirePermission('fiscal.config.edit'), fiscalController.uploadCertificate);
+router.post('/certificado', requirePermission('fiscal.config.edit'), validateBody(uploadCertificateSchema), fiscalController.uploadCertificate);
 router.delete('/certificado', requirePermission('fiscal.config.edit'), fiscalController.removeCertificate);
 
 // Documentos

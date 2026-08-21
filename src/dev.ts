@@ -7,12 +7,19 @@ import { runSeeds } from './core/database/seeds';
 import { createServer } from './core/server';
 import { closeDb } from './core/database/connection';
 import { refreshLicenseFromCloud } from './core/license/service';
+import { createLogger } from './core/logger';
 
+const log = createLogger('boot');
+
+// Crash handlers pelo logger: são justamente as linhas que precisam sobreviver ao
+// terminal fechado e ir para o arquivo. O resto deste arquivo continua em `console.log`
+// de propósito — é saída de FERRAMENTA de linha de comando ("API local em…", resultado
+// do smoke), não registro de operação do produto.
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
+  log.error('promessa rejeitada sem tratamento', reason);
 });
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err);
+  log.error('exceção não capturada', err);
 });
 
 const PORT = Number(process.env.KIVO_PORT ?? 3123);
@@ -45,6 +52,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
+  log.error('falha no boot', err);
   process.exit(1);
 });

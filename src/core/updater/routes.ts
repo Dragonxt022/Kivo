@@ -8,6 +8,9 @@ import {
   baixarAtualizacao,
   instalarAtualizacao,
 } from './index';
+import { createLogger } from '../logger';
+
+const log = createLogger('updater');
 
 const router = Router();
 
@@ -64,7 +67,7 @@ router.post('/install', requirePermission('settings.edit'), (req, res) => {
   // deixaria a tela pendurada num fetch que nunca responde — sem nenhuma pista do que houve.
   setTimeout(() => {
     const r = instalarAtualizacao();
-    if (!r.ok) console.error('[updater] falha ao instalar:', r.error);
+    if (!r.ok) log.error('falha ao instalar', r.error);
   }, 500);
 });
 

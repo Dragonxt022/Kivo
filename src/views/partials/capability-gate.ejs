@@ -9,11 +9,11 @@
     <p class="dialog-muted-sm" id="capability-gate-msg"></p>
     <% if (user && user.permissions.has('settings.capabilities.edit')) { %>
     <div class="actions actions-center">
-      <button class="btn secondary" onclick="__closeCapabilityGate()">
+      <button class="btn secondary" data-cap-gate="fechar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
         Depois
       </button>
-      <button class="btn" id="capability-gate-activate-btn" onclick="__activateCapability()">
+      <button class="btn" id="capability-gate-activate-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         Ativar agora
       </button>
@@ -21,12 +21,12 @@
     <% } else { %>
     <p class="dialog-text-sm">Peça para um administrador ativar em Configurações → Recursos.</p>
     <div class="actions actions-center">
-      <button class="btn" onclick="__closeCapabilityGate()">Entendi</button>
+      <button class="btn" data-cap-gate="fechar">Entendi</button>
     </div>
     <% } %>
   </div>
 </dialog>
-<script>
+<script nonce="<%= cspNonce %>">
 var __capabilityGateKey = null;
 var CAPABILITY_LABELS = {
   'comandas.mesas': 'o sistema de mesas e comandas',
@@ -72,4 +72,11 @@ window.handleApiError = function (r, body, fallbackMsg) {
   if (r.status === 403 && m) { window.showCapabilityGate(m[1]); return; }
   window.showToast((body && body.error) || fallbackMsg, 'error');
 };
+// Por addEventListener: a CSP recusa `onclick="..."` no HTML (o nonce vale para a tag
+// `script`, nunca para atributo de evento) e os botões ficariam sem reação nenhuma.
+document.querySelectorAll('[data-cap-gate="fechar"]').forEach(function (b) {
+  b.addEventListener('click', __closeCapabilityGate);
+});
+document.getElementById('capability-gate-activate-btn')?.addEventListener('click', __activateCapability);
+
 </script>

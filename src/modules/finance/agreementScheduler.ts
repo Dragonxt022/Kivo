@@ -1,5 +1,8 @@
 import type { Request } from 'express';
 import { companiesDueForInvoice, generateInvoice } from './agreements';
+import { createLogger } from '../../core/logger';
+
+const log = createLogger('convenio');
 
 /** Requisição sintética para ações disparadas pelo sistema (sem operador humano). */
 const systemReq = {} as Request;
@@ -8,9 +11,9 @@ function runCheck(): void {
   for (const company of companiesDueForInvoice()) {
     const result = generateInvoice(systemReq, company.id);
     if (result.ok) {
-      console.log(`[convenio] fatura gerada automaticamente: ${company.name} — ${result.amountCents} centavos.`);
+      log.info(`fatura gerada automaticamente: ${company.name} — ${result.amountCents} centavos.`);
     } else {
-      console.error(`[convenio] falha ao gerar fatura automática de ${company.name}: ${result.error}`);
+      log.error(`falha ao gerar fatura automática de ${company.name}: ${result.error}`);
     }
   }
 }

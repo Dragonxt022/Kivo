@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <script defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/dre/categorias' }) %>
@@ -78,7 +78,7 @@
       </div>
     </dialog>
   </main>
-  <script>
+  <script nonce="<%= cspNonce %>">
     function dreCategoriesPage() {
       return {
         rows: [], form: {}, error: '', dlgError: '',

@@ -126,8 +126,8 @@
       </div>
     </template>
   </div>
-  <script defer src="/vendor/alpine.min.js"></script>
-  <script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <script nonce="<%= cspNonce %>">
     function activationPage() {
       return {
         theme: document.documentElement.getAttribute('data-theme') || 'light',
