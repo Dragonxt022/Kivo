@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
-import { advanceItemStatus, advanceTicketStatus, getTicketItems, listTickets } from '../kitchen';
+import { advanceItemStatus, advanceTicketStatus, getItemsForTickets, listTickets } from '../kitchen';
 import { kitchenRoutingRepository } from '../repositories/KitchenRepository';
 import { productRepository } from '../../commercial/repositories/ProductRepository';
 
@@ -70,8 +70,15 @@ export const foodserviceController = {
     // listTickets devolve unknown[] (a camada de repositório não tipa colunas); aqui só o
     // `id` é lido, então declarar isso é mais honesto — e mais seguro — que um `any[]`.
     const tickets = listTickets(statusFilter) as (Record<string, unknown> & { id: number })[];
-    const result = tickets.map((t) => ({ ...t, items: getTicketItems(t.id) }));
-    res.json(result);
+    // Itens numa query só (IN) — antes era uma query por ticket (N+1) a cada poll de 5s do KDS.
+    const items = getItemsForTickets(tickets.map((t) => t.id)) as (Record<string, unknown> & { ticket_id: number })[];
+    const byTicket = new Map<number, unknown[]>();
+    for (const item of items) {
+      const existing = byTicket.get(item.ticket_id as number);
+      if (existing) existing.push(item);
+      else byTicket.set(item.ticket_id as number, [item]);
+    }
+    res.json(tickets.map((t) => ({ ...t, items: byTicket.get(t.id) ?? [] })));
   },
 
   advanceItemStatusAction(req: Request, res: Response) {

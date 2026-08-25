@@ -4,6 +4,12 @@
  * (POST /api/store/sales) deve gerar 1 kitchen_ticket com só o item roteado;
  * avançar status do item reflete no ticket; venda sem item roteado não cria ticket;
  * tudo atrás da capability 'foodservice.cozinha'.
+ *
+ * Cenários de correção (bugfix KDS):
+ * - avançar o ticket INTEIRO propaga pros itens; recalc por item não rebaixa ticket 'entregue';
+ * - cancelar venda/comanda marca os tickets em aberto como 'cancelado' (não ficam pendentes eternos);
+ * - anular item da comanda remove o item do ticket (ticket vazio é cancelado);
+ * - fechar comanda NÃO cria ticket 'sale' duplicado (itens já foram um a um).
  */
 import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
@@ -108,6 +114,76 @@ async function main() {
   check('venda sem item roteado ainda funciona', saleSemRoteado.status === 201);
   const ticketsAfter = (db.prepare('SELECT COUNT(*) c FROM kitchen_tickets').get() as { c: number }).c;
   check('venda sem item roteado não cria ticket novo', ticketsAfter === ticketsBefore, `antes=${ticketsBefore} depois=${ticketsAfter}`);
+
+  // ── Correções: ticket criado agora tem created_at (idade no painel) ──
+  const createdRow = db.prepare('SELECT created_at FROM kitchen_tickets LIMIT 1').get() as { created_at: string } | undefined;
+  check('ticket tem created_at', !!createdRow?.created_at);
+
+  // ── Correção: avançar o ticket INTEIRO propaga pros itens não entregues ──
+  const sale2 = await unwrap<{ id: number }>(await api('/api/store/sales', {
+    method: 'POST', body: JSON.stringify({ items: [{ productId: hamburguer.id, qty: 1 }], paymentMethod: 'pix' }),
+  }, admin!));
+  const t2 = (await unwrap<{ id: number; source_type: string; source_id: number }[]>(await api('/api/foodservice/kitchen/tickets?status=pendente', {}, admin!)))
+    .find((t) => t.source_type === 'sale' && t.source_id === sale2.id)!;
+  check('ticket da 2a venda criado pendente', !!t2);
+  check('avança ticket inteiro pra pronto',
+    (await api(`/api/foodservice/kitchen/tickets/${t2.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'pronto' }) }, admin!)).status === 200);
+  const t2items = db.prepare('SELECT status FROM kitchen_ticket_items WHERE ticket_id = ?').all(t2.id) as { status: string }[];
+  check('avançar ticket propaga pros itens', t2items.length > 0 && t2items.every((i) => i.status === 'pronto'));
+
+  // Guarda: item corrigido manualmente depois do ticket entregue NÃO rebaixa o ticket
+  // (antes o recalc fazia o ticket "entregue" voltar a aparecer como "em preparo").
+  check('avança ticket 2 pra entregue',
+    (await api(`/api/foodservice/kitchen/tickets/${t2.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'entregue' }) }, admin!)).status === 200);
+  const t2itemId = (db.prepare('SELECT id FROM kitchen_ticket_items WHERE ticket_id = ? LIMIT 1').get(t2.id) as { id: number }).id;
+  await api(`/api/foodservice/kitchen/tickets/${t2.id}/items/${t2itemId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'preparo' }) }, admin!);
+  await api(`/api/foodservice/kitchen/tickets/${t2.id}/items/${t2itemId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'pronto' }) }, admin!);
+  const t2final = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(t2.id) as { status: string };
+  check('recalc não rebaixa ticket entregue', t2final.status === 'entregue');
+
+  // ── Correção: cancelar a venda cancela os tickets em aberto dela ──
+  const saleC = await unwrap<{ id: number }>(await api('/api/store/sales', {
+    method: 'POST', body: JSON.stringify({ items: [{ productId: hamburguer.id, qty: 1 }], paymentMethod: 'pix' }),
+  }, admin!));
+  const ticketCancel = db.prepare("SELECT id, status FROM kitchen_tickets WHERE source_type = 'sale' AND source_id = ?").get(saleC.id) as { id: number; status: string };
+  check('ticket da venda cancelável existe pendente', ticketCancel?.status === 'pendente');
+  check('cancela a venda', (await api(`/api/store/sales/${saleC.id}/cancel`, { method: 'POST' }, admin!)).status === 200);
+  const afterCancel = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(ticketCancel.id) as { status: string };
+  check('cancelar venda marca ticket como cancelado', afterCancel.status === 'cancelado');
+
+  // ── Correções na comanda: anular item tira da cozinha; cancelar comanda idem;
+  //    fechar comanda não duplica ticket ──
+  check('liga capability comandas.mesas',
+    (await api('/api/core/capabilities/comandas.mesas', { method: 'PUT', body: JSON.stringify({ enabled: true }) }, admin!)).status === 200);
+
+  const comanda = await unwrap<{ id: number }>(await api('/api/comandas/comandas', { method: 'POST', body: JSON.stringify({}) }, admin!));
+  check('lança hamburguer na comanda',
+    (await api(`/api/comandas/comandas/${comanda.id}/items`, { method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 1 }) }, admin!)).status === 201);
+  const comandaTicket = db.prepare("SELECT id, status FROM kitchen_tickets WHERE source_type = 'comanda' AND source_id = ?").get(comanda.id) as { id: number; status: string };
+  check('item na comanda gera ticket na cozinha', !!comandaTicket && comandaTicket.status === 'pendente');
+  const comandaItemId = (db.prepare('SELECT id FROM comanda_items WHERE comanda_id = ?').all(comanda.id) as { id: number }[])[0].id;
+  check('anula item da comanda',
+    (await api(`/api/comandas/comandas/${comanda.id}/items/${comandaItemId}`, { method: 'DELETE' }, admin!)).status === 200);
+  const ticketAfterVoid = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(comandaTicket.id) as { status: string };
+  check('anular único item cancela o ticket da cozinha', ticketAfterVoid.status === 'cancelado');
+
+  const comanda3 = await unwrap<{ id: number }>(await api('/api/comandas/comandas', { method: 'POST', body: JSON.stringify({}) }, admin!));
+  await api(`/api/comandas/comandas/${comanda3.id}/items`, { method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 1 }) }, admin!);
+  check('cancela a comanda',
+    (await api(`/api/comandas/comandas/${comanda3.id}/cancel`, { method: 'POST' }, admin!)).status === 200);
+  const ticketComandaCancelada = db.prepare("SELECT status FROM kitchen_tickets WHERE source_type = 'comanda' AND source_id = ?").get(comanda3.id) as { status: string };
+  check('cancelar comanda marca ticket como cancelado', ticketComandaCancelada?.status === 'cancelado');
+
+  const comanda2 = await unwrap<{ id: number }>(await api('/api/comandas/comandas', { method: 'POST', body: JSON.stringify({}) }, admin!));
+  await api(`/api/comandas/comandas/${comanda2.id}/items`, { method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 2 }) }, admin!);
+  const ticketsBeforeClose = (db.prepare('SELECT COUNT(*) c FROM kitchen_tickets').get() as { c: number }).c;
+  const pixMethod = db.prepare("SELECT id FROM payment_methods WHERE type = 'pix' AND active = 1 LIMIT 1").get() as { id: number };
+  check('fecha a comanda',
+    (await api(`/api/comandas/comandas/${comanda2.id}/close`, {
+      method: 'POST', body: JSON.stringify({ payments: [{ methodId: pixMethod.id, amountCents: 3600 }] }),
+    }, admin!)).status === 200);
+  const ticketsAfterClose = (db.prepare('SELECT COUNT(*) c FROM kitchen_tickets').get() as { c: number }).c;
+  check('fechar comanda não cria ticket duplicado', ticketsAfterClose === ticketsBeforeClose, `antes=${ticketsBeforeClose} depois=${ticketsAfterClose}`);
 
   // Desliga a capability de novo -> volta a bloquear
   check('desliga capability foodservice.cozinha',

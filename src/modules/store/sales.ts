@@ -287,7 +287,7 @@ function resolveSalePayments(
 export function createSale(
   req: Request,
   input: SaleInput,
-  opts: { allowPriceOverride?: boolean; allowDiscount?: boolean } = {},
+  opts: { allowPriceOverride?: boolean; allowDiscount?: boolean; skipKitchenNotify?: boolean } = {},
 ): SaleResult {
   assertAuth(req);
 
@@ -453,14 +453,19 @@ export function createSale(
   audit(req, 'venda', 'sale', saleId, null, {
     total, feeCents: totalFee, payments: resolved.map((p) => ({ method: p.method.name, amount: p.amountCents })),
   });
-  try {
-    if (hasService('foodservice.kitchen')) {
-      getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
-        sourceType: 'sale', sourceId: saleId,
-        items: items.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, notes: i.notes ?? undefined })),
-      });
-    }
-  } catch (e) { log.error('falha ao notificar', e); }
+  // skipKitchenNotify: fechamento de comanda passa aqui — os itens JÁ foram para a
+  // cozinha um a um (ticket 'comanda' por lançamento, ver comandas/addItem); notificar
+  // de novo geraria um ticket 'sale' duplicado com a comanda inteira no KDS.
+  if (!opts.skipKitchenNotify) {
+    try {
+      if (hasService('foodservice.kitchen')) {
+        getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
+          sourceType: 'sale', sourceId: saleId,
+          items: items.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, notes: i.notes ?? undefined })),
+        });
+      }
+    } catch (e) { log.error('falha ao notificar', e); }
+  }
   // Empurra a venda para a nuvem em segundos, não no próximo ciclo: é o que faz o painel do
   // Kivo Web mostrar o movimento de hoje. Agrupado e sem `await` — o caixa não espera a rede.
   scheduleSyncSoon();
@@ -614,5 +619,12 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
 
   if (error) return { ok: false, error };
   audit(req, 'venda_cancelar', 'sale', saleId, sale, { status: 'cancelada' });
+  // Best-effort: a venda já foi cancelada — falha na cozinha não pode desfazer isso.
+  // Sem isso o KDS ficava com ticket pendente eterno de pedido que não existe mais.
+  try {
+    if (hasService('foodservice.kitchen')) {
+      getService<FoodserviceKitchenService>('foodservice.kitchen').cancelTicketsForSource(req, 'sale', saleId);
+    }
+  } catch (e) { log.error('falha ao cancelar tickets de cozinha', e); }
   return { ok: true };
 }
