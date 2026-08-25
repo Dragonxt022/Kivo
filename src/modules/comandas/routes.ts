@@ -7,6 +7,7 @@ import {
   updateTableSchema,
   openComandaSchema,
   addComandaItemSchema,
+  comandaItemNotesSchema,
   transferComandaSchema,
   splitComandaSchema,
   mergeComandaSchema,
@@ -27,6 +28,10 @@ router.get('/comandas', requireCapability('comandas.mesas'), requirePermission('
 router.get('/comandas/:id', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.getComanda);
 router.post('/comandas', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(openComandaSchema), comandasController.openComandaAction);
 router.post('/comandas/:id/items', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(addComandaItemSchema), comandasController.addItemAction);
+// Observação por item depois do lançamento (modal no clique no nome).
+router.put('/comandas/:id/items/:itemId/notes', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(comandaItemNotesSchema), comandasController.updateItemNotesAction);
+// "Enviar p/ cozinha" é ação do garçom (mesma permissão de lançar item), não do caixa.
+router.post('/comandas/:id/enviar-cozinha', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.enviarCozinhaAction);
 router.delete('/comandas/:id/items/:itemId', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.voidItemAction);
 router.post('/comandas/:id/transfer', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(transferComandaSchema), comandasController.transferAction);
 router.post('/comandas/:id/split', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(splitComandaSchema), comandasController.splitAction);

@@ -20,7 +20,7 @@ interface ComandaRow {
   closed_at?: string | null;
 }
 
-interface ComandaItemRow { id: number; productId: number; qty: number; notes: string | null; lineGroupUuid: string | null; unit_price_cents: number }
+interface ComandaItemRow { id: number; productId: number; productName: string; qty: number; notes: string | null; lineGroupUuid: string | null; unit_price_cents: number }
 
 export function openComanda(req: Request, params: OpenComandaParams): { ok: true; id: number } | { ok: false; error: string } {
   assertAuth(req);
@@ -81,22 +81,75 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
     origin_machine: req.headers['x-machine'] ?? null,
   });
   audit(req, 'adicionar_item_comanda', 'comanda_item', itemId, null, { comandaId, productId: product.id, qty: params.qty, unitPriceCents });
+  // NÃO avisa a cozinha aqui: enquanto o garçom está montando o pedido o cliente pode
+  // desistir ou trocar. A cozinha só recebe quando ele aperta "Enviar p/ cozinha"
+  // (sendToKitchen abaixo). Venda direta no PDV continua avisando na hora — ali o
+  // pedido já está pago e confirmado.
   // Pediram mais uma coisa depois de chamar a conta: o caixa não pode fechar com o
   // total antigo, então o aviso cai e o garçom manda de novo quando for a hora.
   comandaRepository.setReadyForPayment(comandaId, false);
-  if (hasService('foodservice.kitchen')) {
-    try {
-      const tableLabel = comanda.table_id
-        ? (storeTableRepository.findByComandaTableId(comanda.table_id) as { label: string } | undefined)?.label
-        : undefined;
-      getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
-        sourceType: 'comanda', sourceId: comandaId,
-        tableLabel,
-        items: [{ productId: product.id, name: product.name, qty: params.qty, notes: params.notes, comandaItemId: itemId }],
-      });
-    } catch { /* best-effort */ }
-  }
   return { ok: true, id: itemId };
+}
+
+/**
+ * "Enviar p/ cozinha": ação EXPLÍCITA do garçom. Envia apenas os itens ainda não
+ * enviados (pode apertar quantas vezes quiser sem duplicar — o vínculo em
+ * kitchen_ticket_items.comanda_item_id marca o que já foi) e devolve quantos itens
+ * geraram produção. Produtos fora do roteamento (refrigerante de geladeira) contam
+ * como enviados mas não aparecem no KDS.
+ */
+export function sendToKitchen(req: Request, comandaId: number): { ok: true; sent: number; estimatedMinutes: number | null } | { ok: false; error: string } {
+  assertAuth(req);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
+  if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
+  if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
+  const items = comandaItemRepository.listActiveByComanda(comandaId) as unknown as ComandaItemRow[];
+  if (!items.length) return { ok: false, error: 'Comanda sem itens.' };
+  if (!hasService('foodservice.kitchen')) return { ok: true, sent: 0, estimatedMinutes: null };
+  const kitchen = getService<FoodserviceKitchenService>('foodservice.kitchen');
+  const alreadySent = new Set(kitchen.findSentComandaItemIds(items.map((i) => i.id)));
+  const pending = items.filter((i) => !alreadySent.has(i.id));
+  if (!pending.length) return { ok: true, sent: 0, estimatedMinutes: null };
+  const tableLabel = comanda.table_id
+    ? (storeTableRepository.findByComandaTableId(comanda.table_id) as { label: string } | undefined)?.label
+    : undefined;
+  let result: { items: number; maxEstimatedMinutes: number | null };
+  try {
+    result = kitchen.notifyOrder(req, {
+      sourceType: 'comanda', sourceId: comandaId,
+      tableLabel,
+      items: pending.map((i) => ({ productId: i.productId, name: i.productName ?? String(i.productId), qty: i.qty, notes: i.notes ?? undefined, comandaItemId: i.id })),
+    });
+  } catch {
+    // Aqui falha NÃO é silenciosa: o garçom precisa saber que a cozinha não recebeu.
+    return { ok: false, error: 'Nao foi possivel enviar para a cozinha. Tente de novo.' };
+  }
+  audit(req, 'enviar_cozinha', 'comanda', comandaId, null, { itensEnviados: result.items, itensNoPedido: pending.length, minutosEstimados: result.maxEstimatedMinutes });
+  return { ok: true, sent: result.items, estimatedMinutes: result.maxEstimatedMinutes };
+}
+
+/**
+ * Observação por item DEPOIS de lançado: na tela o garçom clica no nome do item e
+ * escreve/ajusta a observação num modal. Vazio remove. Enquanto o item ainda não foi
+ * pra produção, a mudança espelha no ticket da cozinha (syncItemNotes).
+ */
+export function updateItemNotes(req: Request, comandaId: number, itemId: number, notes: string | null): { ok: true } | { ok: false; error: string } {
+  assertAuth(req);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
+  if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
+  if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
+  const item = comandaItemRepository.findInComanda(itemId, comandaId) as { id: number; voided_at: string | null } | undefined;
+  if (!item) return { ok: false, error: 'Item nao encontrado.' };
+  if (item.voided_at) return { ok: false, error: 'Item ja foi anulado.' };
+  const clean = notes && notes.trim() ? notes.trim() : null;
+  comandaItemRepository.update(itemId, { notes: clean });
+  audit(req, 'editar_obs_item_comanda', 'comanda_item', itemId, null, { notes: clean });
+  try {
+    if (hasService('foodservice.kitchen')) {
+      getService<FoodserviceKitchenService>('foodservice.kitchen').syncItemNotes(req, itemId, clean);
+    }
+  } catch { /* best-effort: a observação já ficou salva na comanda */ }
+  return { ok: true };
 }
 
 /**

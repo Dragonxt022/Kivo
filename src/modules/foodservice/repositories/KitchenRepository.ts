@@ -55,6 +55,19 @@ export class KitchenTicketItemRepository extends BaseRepository {
     );
   }
 
+  /**
+   * Quais itens de comanda JÁ foram enviados para a cozinha — "Enviar p/ cozinha" usa
+   * isso para mandar só o que é novo (o garçom pode apertar várias vezes sem duplicar).
+   */
+  findSentComandaItemIds(comandaItemIds: number[]): number[] {
+    if (!comandaItemIds.length) return [];
+    const ph = comandaItemIds.map(() => '?').join(',');
+    return (this.raw(
+      `SELECT DISTINCT comanda_item_id FROM kitchen_ticket_items WHERE comanda_item_id IN (${ph}) AND deleted_at IS NULL`,
+      ...comandaItemIds,
+    ) as { comanda_item_id: number }[]).map((r) => r.comanda_item_id);
+  }
+
   /** Itens de vários tickets numa query só — o painel mapeia N tickets sem N+1. */
   listByTickets(ticketIds: number[]): Row[] {
     if (!ticketIds.length) return [];

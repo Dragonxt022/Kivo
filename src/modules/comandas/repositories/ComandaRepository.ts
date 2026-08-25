@@ -52,8 +52,11 @@ export class ComandaItemRepository extends BaseRepository {
   }
 
   listActiveByComanda(comandaId: number): Row[] {
+    // `id` e `productName`: "Enviar p/ cozinha" precisa do vínculo item↔cozinha e do
+    // nome para o ticket (snapshot — o produto pode mudar de nome depois).
     return this.raw(
-      `SELECT product_id AS productId, qty, notes, line_group_uuid AS lineGroupUuid, unit_price_cents
+      `SELECT id, product_id AS productId, product_name AS productName, qty, notes,
+              line_group_uuid AS lineGroupUuid, unit_price_cents
        FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL ORDER BY id`,
       comandaId,
     );

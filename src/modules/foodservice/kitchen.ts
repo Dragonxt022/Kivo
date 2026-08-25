@@ -29,16 +29,23 @@ export interface NotifyOrderItem {
   comandaItemId?: number;
 }
 
+/**
+ * Cria ticket com os itens roteados para a cozinha. Devolve quantos itens geraram
+ * produção e o maior tempo estimado entre eles (para o garçom poder dizer ao cliente
+ * "pronto em ~X min") — produtos fora do roteamento são ignorados silenciosamente
+ * (é isso que permite enviar "a comanda inteira" sem saber o que é da cozinha).
+ */
 export function notifyOrder(
   req: Request,
   params: { sourceType: 'sale' | 'comanda'; sourceId: number; tableLabel?: string; items: NotifyOrderItem[] },
-): void {
+): { items: number; maxEstimatedMinutes: number | null } {
   const routingRows = kitchenRoutingRepository.findAllActive() as
     { product_id: number; station: string | null; estimated_minutes: number | null }[];
-  if (!routingRows.length) return;
+  if (!routingRows.length) return { items: 0, maxEstimatedMinutes: null };
   const routing = new Map(routingRows.map((r) => [r.product_id, r]));
   const matched = params.items.filter((i) => routing.has(i.productId));
-  if (!matched.length) return;
+  if (!matched.length) return { items: 0, maxEstimatedMinutes: null };
+  const maxEstimate = Math.max(0, ...matched.map((i) => routing.get(i.productId)?.estimated_minutes ?? 0));
   const ticketUuid = randomUUID();
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
   kitchenTicketRepository.transaction(() => {
@@ -73,6 +80,7 @@ export function notifyOrder(
       sourceType: params.sourceType, sourceId: params.sourceId, items: matched.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty })),
     });
   });
+  return { items: matched.length, maxEstimatedMinutes: maxEstimate > 0 ? maxEstimate : null };
 }
 
 export function listTickets(statusFilter?: string[]): unknown[] {
@@ -147,6 +155,24 @@ export function voidComandaItem(req: Request, comandaItemId: number): void {
   kitchenTicketItemRepository.softDelete(link.id);
   audit(req, 'anular_item_cozinha', 'kitchen_ticket_item', link.id, null, { comandaItemId });
   recalcTicketStatus(req, link.ticket_id);
+}
+
+/**
+ * A observação de um item de comanda foi editada DEPOIS do envio: espelha no item do
+ * ticket enquanto ele ainda está 'pendente' (não foi pra produção). Depois disso o
+ * item já está na frente da cozinha — a mudança fica registrada só na comanda.
+ */
+export function syncItemNotes(req: Request, comandaItemId: number, notes: string | null): void {
+  const link = kitchenTicketItemRepository.rawOne(
+    'SELECT id, status FROM kitchen_ticket_items WHERE comanda_item_id = ? AND deleted_at IS NULL',
+    comandaItemId,
+  ) as { id: number; status: string } | undefined;
+  if (!link || link.status !== 'pendente') return;
+  kitchenTicketItemRepository.rawRun(
+    "UPDATE kitchen_ticket_items SET notes = ?, updated_at = datetime('now') WHERE id = ?",
+    notes, link.id,
+  );
+  audit(req, 'editar_obs_item_cozinha', 'kitchen_ticket_item', link.id, null, { comandaItemId, notes });
 }
 
 function recalcTicketStatus(req: Request, ticketId: number): void {
