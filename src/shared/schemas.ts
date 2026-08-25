@@ -274,6 +274,11 @@ export const addComandaItemSchema = z.object({
   lineGroupUuid: z.string().optional(),
 });
 
+// Observação editada depois do lançamento (modal no clique no nome do item).
+export const comandaItemNotesSchema = z.object({
+  notes: z.string().max(500, 'Observação muito longa.').nullable().optional(),
+});
+
 export const transferComandaSchema = z.object({
   tableId: z.number().int().positive('Informe a mesa de destino.'),
 });

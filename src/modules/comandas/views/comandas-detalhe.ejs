@@ -22,6 +22,12 @@
         <p class="muted" x-show="comanda?.notes" x-text="'Obs.: ' + (comanda?.notes ?? '')"></p>
       </div>
       <div class="toolbar header-actions" x-show="isOpen" x-cloak>
+        <%# Envio explícito: enquanto monta o pedido o cliente pode desistir/trocar —
+            a cozinha só vê o que o garçom confirmar aqui. %>
+        <button type="button" class="btn secondary" @click="enviarCozinha()" :disabled="enviandoCozinha || !items.length" title="Enviar itens para o painel da cozinha">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+          <span class="btn-label" x-text="enviandoCozinha ? 'Enviando…' : 'Enviar p/ cozinha'"></span>
+        </button>
         <button type="button" class="btn secondary" @click="openTransferDlg()" title="Transferir">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
           <span class="btn-label">Transferir</span>
@@ -48,7 +54,16 @@
           <div class="comanda-item">
             <div class="comanda-item-qty" x-text="(item.qty % 1 === 0 ? item.qty : item.qty.toFixed(3)) + 'x'"></div>
             <div class="comanda-item-info">
-              <div class="comanda-item-name" x-text="item.product_name"></div>
+              <%# Clicar no nome abre o editor de observação (como no PDF): clicou de novo,
+                  editou de novo — enquanto a comanda estiver aberta. %>
+              <button type="button" class="comanda-item-name-btn" :disabled="!isOpen" @click="openNotes(item)"
+                      :title="item.notes ? 'Editar observação' : 'Adicionar observação'">
+                <span class="comanda-item-name" x-text="item.product_name"></span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     :class="{ 'obs-on': item.notes }">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </button>
               <div class="comanda-item-meta" x-show="item.notes" x-text="'Obs.: ' + item.notes"></div>
             </div>
             <div class="comanda-item-price" x-text="brl(item.unit_price_cents * item.qty)"></div>
@@ -86,11 +101,24 @@
         <div class="combo-results" x-show="searchResults.length" x-cloak>
           <template x-for="p in searchResults" :key="p.id">
             <button type="button" class="combo-result" @click="addItem(p)">
-              <span x-text="p.name"></span>
-              <span class="muted text-sm" x-text="brl(p.price_cents) + (p.sku ? ' · ' + p.sku : '')"></span>
+              <span class="combo-thumb">
+                <img x-show="p.image_url" :src="p.image_url" alt="" loading="lazy" />
+                <template x-if="!p.image_url">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </template>
+              </span>
+              <span style="flex:1;min-width:0;text-align:left">
+                <span x-text="p.name" style="display:block;font-weight:600;font-size:.92rem"></span>
+                <span class="muted text-sm" x-text="(p.category ? p.category + ' · ' : '') + (p.sku || '')"></span>
+              </span>
+              <strong style="color:var(--primary);white-space:nowrap" x-text="brl(p.price_cents)"></strong>
             </button>
           </template>
         </div>
+        <%# Observação vale para o PRÓXIMO item lançado (busca ou "Procurar") e limpa
+            sozinha depois — fluxo do garçom: digita "sem cebola", clica no lanche. %>
+        <input type="text" class="input" style="width:100%;margin-top:.5rem" x-model="itemNotes"
+               maxlength="500" placeholder="Observação para o próximo item (ex.: sem cebola, ponto da carne) — opcional" />
       </div>
     </div>
 
@@ -215,9 +243,24 @@
       </div>
     </dialog>
 
-    <!-- ─── Modal: Procurar produtos ─── -->
+    <!-- Dialog: observação do item -->
+    <dialog x-ref="notesDlg">
+      <h1>Observação do item</h1>
+      <p class="muted dialog-text" x-text="notesItemName"></p>
+      <textarea class="input obs-input" rows="3" maxlength="500" x-model="notesDraft" x-ref="notesInput"
+                placeholder="Ex.: sem cebola, sem picles, ponto da carne…"></textarea>
+      <%# Observação vai para a cozinha em DESTAQUE vermelho no painel — vale caprichar. %>
+      <p class="muted text-sm">Essa observação aparece em destaque no painel da cozinha.</p>
+      <div class="toolbar" style="justify-content:flex-end;gap:.5rem;margin-top:.75rem">
+        <button type="button" class="btn secondary" @click="$refs.notesDlg.close()">Cancelar</button>
+        <button type="button" class="btn" :disabled="salvandoObs" @click="salvarObs()"
+                x-text="salvandoObs ? 'Salvando…' : 'Salvar observação'"></button>
+      </div>
+    </dialog>
+
+    <!-- ─── Modal: Procurar produtos (grade visual com foto) ─── -->
     <dialog x-ref="browseDlg" style="width:min(960px, 94vw)">
-      <h1>Procurar produtos</h1>
+      <h1>Adicionar produtos</h1>
       <input type="text" x-ref="browseInput" x-model="browseQ"
              @input.debounce.250ms="searchBrowse()"
              placeholder="Buscar por nome, código de barras ou SKU…" />
@@ -232,23 +275,25 @@
                   x-text="c.name"></button>
         </template>
       </div>
-      <div class="browse-list">
+      <div class="prod-grid">
         <template x-for="p in browseFiltered()" :key="p.id">
-          <div class="browse-result" @click="addItem(p); $refs.browseDlg.close()">
-            <span class="browse-result-thumb">
-              <img x-show="p.image_url" :src="p.image_url" alt="" />
+          <button type="button" class="prod-card" @click="addItem(p); $refs.browseDlg.close()">
+            <span class="prod-thumb">
+              <img x-show="p.image_url" :src="p.image_url" alt="" loading="lazy" />
               <template x-if="!p.image_url">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </template>
             </span>
-            <span class="browse-name" x-text="p.name"></span>
-            <span class="browse-category muted text-sm" x-show="p.category" x-text="p.category"></span>
-            <span class="browse-price" x-text="brl(p.price_cents)"></span>
-            <span class="browse-stock"
-                  :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
-                  x-show="p.track_stock"
-                  x-text="'Est: ' + p.stock_qty"></span>
-          </div>
+            <span class="prod-name" x-text="p.name"></span>
+            <span class="prod-meta">
+              <span class="muted text-sm" x-show="p.category" x-text="p.category"></span>
+              <span class="prod-stock"
+                    :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
+                    x-show="p.track_stock"
+                    x-text="'Est: ' + p.stock_qty"></span>
+            </span>
+            <span class="prod-price" x-text="brl(p.price_cents)"></span>
+          </button>
         </template>
         <p class="browse-empty" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
       </div>
@@ -284,6 +329,17 @@
       background: var(--primary-bg); border-radius: 8px; padding: .2rem 0; font-size: .85rem;
     }
     .comanda-item-info { flex: 1; min-width: 0; }
+    .comanda-item-name-btn {
+      display: inline-flex; align-items: center; gap: .35rem;
+      background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: inherit;
+      font: inherit; max-width: 100%;
+    }
+    .comanda-item-name-btn:disabled { cursor: default; }
+    .comanda-item-name-btn:not(:disabled):hover .comanda-item-name { color: var(--primary); text-decoration: underline dotted; }
+    .comanda-item-name-btn svg { color: var(--text-muted); flex-shrink: 0; }
+    /* Item COM observação: balão fica vermelho — mesmo destaque que o KDS mostra. */
+    .comanda-item-name-btn svg.obs-on { color: var(--danger-text); }
+    .obs-input { width: 100%; resize: vertical; margin-top: .5rem; }
     .comanda-item-name { font-weight: 500; }
     .comanda-item-meta { font-size: .82rem; color: var(--text-muted); margin-top: .1rem; }
     .comanda-item-price { font-weight: 600; font-size: .92rem; white-space: nowrap; }
@@ -338,7 +394,6 @@
       .comanda-item .icon-btn { width: 40px; height: 40px; }
     }
 
-    /* ─── Browse modal ─── */
     .browse-cats { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
     .browse-cat-chip {
       border: 1.5px solid var(--border-light); background: var(--surface-hover); color: var(--text-secondary);
@@ -347,59 +402,56 @@
     }
     .browse-cat-chip:hover { border-color: var(--primary); color: var(--primary); }
     .browse-cat-chip.active { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
-    .browse-list { max-height: min(64vh, 680px); overflow-y: auto; margin-top: .75rem; border: 1.5px solid var(--border-light); border-radius: var(--radius); }
-    .browse-result {
-      display: grid; grid-template-columns: 38px 1fr auto auto auto; gap: .75rem; align-items: center;
-      padding: .7rem .9rem; cursor: pointer; border-bottom: 1px solid var(--border-light);
-      transition: background var(--transition);
+
+    /* ─── Grade de produtos com foto (modal "Adicionar produtos") ─── */
+    .prod-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem;
+      max-height: min(62vh, 640px); overflow-y: auto; margin-top: .75rem; padding: 2px;
     }
-    .browse-result:last-child { border-bottom: 0; }
-    .browse-result:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
-    .browse-result-thumb {
-      width: 36px; height: 36px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
+    .prod-card {
+      display: flex; flex-direction: column; align-items: stretch; gap: .3rem;
+      border: 1.5px solid var(--border-light); border-radius: var(--radius);
+      background: var(--surface); padding: .55rem; cursor: pointer; text-align: left;
+      transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+    }
+    .prod-card:hover {
+      border-color: var(--primary); transform: translateY(-2px);
+      box-shadow: var(--shadow-sm, 0 4px 12px rgba(0,0,0,.08));
+    }
+    .prod-thumb {
+      aspect-ratio: 1 / 1; width: 100%; border-radius: calc(var(--radius) - 4px);
+      overflow: hidden; background: var(--surface-hover); border: 1px solid var(--border-light);
+      display: grid; place-items: center; color: var(--text-muted);
+    }
+    .prod-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .prod-name {
+      font-weight: 600; font-size: .9rem; line-height: 1.25; color: var(--text);
+      min-width: 0; overflow-wrap: anywhere;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .prod-meta { display: flex; justify-content: space-between; gap: .35rem; min-width: 0; }
+    .prod-meta .text-sm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prod-stock { font-size: .76rem; color: var(--text-muted); white-space: nowrap; }
+    .prod-stock.low, .prod-stock.negative { color: var(--danger); font-weight: 700; }
+    .prod-price { font-weight: 700; font-size: .95rem; color: var(--primary); }
+    .browse-empty { grid-column: 1 / -1; padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
+    @media (max-width: 560px) {
+      .prod-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .55rem; }
+    }
+
+    /* Miniatura nos resultados da busca rápida (fora do modal) */
+    .combo-result { align-items: center; }
+    .combo-thumb {
+      width: 34px; height: 34px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
       background: var(--surface-hover); border: 1px solid var(--border-light);
       display: grid; place-items: center; color: var(--text-muted);
     }
-    .browse-result-thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .browse-name { font-weight: 600; font-size: .95rem; color: var(--text); }
-    .browse-category { font-size: .8rem; }
-    .browse-price { font-weight: 700; font-size: .95rem; color: var(--primary); white-space: nowrap; }
-    .browse-stock {
-      font-size: .78rem; color: var(--text-muted); white-space: nowrap; text-align: right;
-    }
-    .browse-stock.low { color: var(--danger); }
-    .browse-stock.negative { color: var(--danger); }
-    .browse-empty { padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
+    .combo-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
     .caixa-avisado {
       margin-top: .75rem; padding: .7rem .9rem; border-radius: var(--radius);
       background: var(--success-bg); color: var(--success-text);
       border: 1.5px solid color-mix(in srgb, var(--success-text) 25%, transparent);
-    }
-
-    /* ─── Browse modal no celular ───
-       As 5 colunas do desktop (foto, nome, categoria, preço, estoque) não cabem em ~360px:
-       o nome quebrava letra a letra numa coluna de dois dedos e a lista ganhava rolagem
-       horizontal. Aqui viram duas linhas — nome/preço em cima, categoria/estoque embaixo —
-       com `minmax(0, 1fr)` para o texto poder encolher em vez de empurrar a grade. */
-    @media (max-width: 560px) {
-      .browse-result {
-        grid-template-columns: 40px minmax(0, 1fr) auto;
-        grid-template-areas:
-          'thumb name price'
-          'thumb meta stock';
-        gap: .15rem .7rem;
-        padding: .75rem .8rem;
-      }
-      .browse-result-thumb { grid-area: thumb; width: 40px; height: 40px; align-self: center; }
-      .browse-name {
-        grid-area: name; min-width: 0; font-size: .92rem; line-height: 1.25;
-        overflow-wrap: anywhere;
-      }
-      .browse-category { grid-area: meta; min-width: 0; font-size: .76rem; }
-      .browse-price { grid-area: price; align-self: center; }
-      .browse-stock { grid-area: stock; }
-      .browse-list { overflow-x: hidden; }
     }
   </style>
   <script nonce="<%= cspNonce %>">
@@ -408,8 +460,14 @@
         comandaId: <%= comandaId %>,
         comanda: null,
         chamandoCaixa: false,
+        enviandoCozinha: false,
         items: [],
         searchQ: '',
+        itemNotes: '',
+        notesItemId: null,
+        notesItemName: '',
+        notesDraft: '',
+        salvandoObs: false,
         searchResults: [],
         isOpen: false,
         error: '', dlgError: '',
@@ -473,12 +531,68 @@
           return this.browseResults.filter((p) => p.category_id === this.browseCategoryId);
         },
         async addItem(p) {
+          const notes = this.itemNotes.trim();
           const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/items', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ productId: p.id, qty: 1 }),
+            body: JSON.stringify({ productId: p.id, qty: 1, ...(notes ? { notes } : {}) }),
           });
-          if (r.ok) { this.searchQ = ''; this.searchResults = []; await this.load(); this.$refs.searchInput?.focus(); showToast('Item adicionado.', 'success'); }
+          if (r.ok) { this.searchQ = ''; this.itemNotes = ''; this.searchResults = []; await this.load(); this.$refs.searchInput?.focus(); showToast(`${p.name} adicionado.`, 'success'); }
           else showToast((await r.json()).error ?? 'Erro ao adicionar item.', 'error');
+        },
+        openNotes(item) {
+          this.notesItemId = item.id;
+          this.notesItemName = (item.qty % 1 === 0 ? item.qty : item.qty.toFixed(3)) + 'x ' + item.product_name;
+          this.notesDraft = item.notes || '';
+          this.$refs.notesDlg.showModal();
+          this.$nextTick(() => this.$refs.notesInput?.focus());
+        },
+        async salvarObs() {
+          if (this.salvandoObs || !this.notesItemId) return;
+          this.salvandoObs = true;
+          try {
+            const r = await fetch(`/api/comandas/comandas/${this.comandaId}/items/${this.notesItemId}/notes`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ notes: this.notesDraft }),
+            });
+            if (!r.ok) {
+              const b = await r.json().catch(() => null);
+              showToast((b && b.error) || 'Erro ao salvar observação.', 'error');
+              return;
+            }
+            const tinhaObs = !!this.notesDraft.trim();
+            this.$refs.notesDlg.close();
+            await this.load();
+            showToast(tinhaObs ? 'Observação salva — vai para a cozinha no "Enviar p/ cozinha".' : 'Observação removida.', 'success');
+          } catch {
+            showToast('Sem conexão com o Kivo. Tente de novo.', 'error');
+          } finally {
+            this.salvandoObs = false;
+          }
+        },
+        async enviarCozinha() {
+          this.enviandoCozinha = true;
+          try {
+            const r = await fetch(`/api/comandas/comandas/${this.comandaId}/enviar-cozinha`, { method: 'POST' });
+            if (!r.ok) {
+              const b = await r.json().catch(() => null);
+              showToast((b && b.error) || 'Não foi possível enviar para a cozinha.', 'error');
+              return;
+            }
+            // Envelope global: { success, data: { sent, estimatedMinutes } }
+            const body = await r.json().catch(() => null);
+            const sent = Number(body?.data?.sent ?? 0);
+            const min = Number(body?.data?.estimatedMinutes ?? 0);
+            if (sent > 0) {
+              const itens = sent === 1 ? '1 item enviado para a cozinha' : `${sent} itens enviados para a cozinha`;
+              showToast(min > 0 ? `${itens} — pronto em ~${min} min.` : `${itens}.`, 'success');
+            } else {
+              showToast('Nada novo para a cozinha — itens já enviados ou que não são da cozinha.', 'info');
+            }
+          } catch {
+            showToast('Sem conexão com o Kivo. Tente de novo.', 'error');
+          } finally {
+            this.enviandoCozinha = false;
+          }
         },
         async voidItem(itemId, idx) {
           if (!await window.confirmDlg('Remover ' + this.items[idx].product_name + ' da comanda?')) return;

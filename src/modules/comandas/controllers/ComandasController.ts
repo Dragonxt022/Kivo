@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
-import { openComanda, addItem, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
+import { openComanda, addItem, updateItemNotes, sendToKitchen, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
 import { storeTableRepository } from '../repositories/StoreTableRepository';
 import { comandaRepository, comandaItemRepository } from '../repositories/ComandaRepository';
 
@@ -136,6 +136,21 @@ export const comandasController = {
     const result = voidItem(req, comandaId, itemId);
     if (!result.ok) { res.status(400).json(result); return; }
     res.json({ ok: true });
+  },
+
+  updateItemNotesAction(req: Request, res: Response) {
+    const { notes } = req.body ?? {};
+    const result = updateItemNotes(req, Number(req.params.id), Number(req.params.itemId), typeof notes === 'string' ? notes : null);
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.json({ ok: true });
+  },
+
+  enviarCozinhaAction(req: Request, res: Response) {
+    const result = sendToKitchen(req, Number(req.params.id));
+    if (!result.ok) { res.status(400).json(result); return; }
+    // Sem a chave 'ok': o envelope de resposta colapsaria {ok,...} num escalar
+    // solto; assim chega como data.{sent,estimatedMinutes}, forma estável.
+    res.json({ sent: result.sent, estimatedMinutes: result.estimatedMinutes });
   },
 
   transferAction(req: Request, res: Response) {

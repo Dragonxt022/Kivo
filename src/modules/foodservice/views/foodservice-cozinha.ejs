@@ -14,59 +14,88 @@
   <main x-data="cozinhaPage()" x-init="init()">
     <div class="kds-head">
       <h1>Painel de cozinha</h1>
-      <% if (user.permissions.has('foodservice.routing.manage')) { %>
-      <a href="/app/foodservice/roteamento" class="btn secondary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
-        Escolher produtos da cozinha
-      </a>
-      <% } %>
+      <div class="toolbar kds-head-actions">
+        <%# Som de novo pedido: desligado por padrão (política de autoplay dos navegadores
+            exige um toque antes) — abrir o diálogo e ouvir a prévia já vale como interação.
+            A escolha fica no aparelho (localStorage): cada tela de cozinha decide sozinha. %>
+        <button type="button" class="btn secondary" @click="openSomDlg()" title="Escolher ou silenciar o som de novo pedido">
+          <svg x-show="somAtivo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          <svg x-show="!somAtivo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          <span x-text="somAtivo ? ('Som: ' + somLabel(somArquivo)) : 'Som desligado'"></span>
+        </button>
+        <button type="button" class="btn secondary" @click="showEntregues = !showEntregues">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <span x-text="showEntregues ? 'Ocultar entregues' : 'Mostrar entregues'"></span>
+        </button>
+        <% if (user.permissions.has('foodservice.routing.manage')) { %>
+        <a href="/app/foodservice/roteamento" class="btn secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+          Escolher produtos da cozinha
+        </a>
+        <% } %>
+      </div>
     </div>
 
-    <div class="tabs">
-      <button type="button" :class="{ active: tab === 'pendente' }" @click="tab = 'pendente'; load()">Pendentes</button>
-      <button type="button" :class="{ active: tab === 'preparo' }" @click="tab = 'preparo'; load()">Em preparo</button>
-      <button type="button" :class="{ active: tab === 'pronto' }" @click="tab = 'pronto'; load()">Prontos</button>
-      <button type="button" :class="{ active: tab === 'entregue' }" @click="tab = 'entregue'; load()">Entregues</button>
-    </div>
-
-    <div class="kds-grid" x-show="tickets.length">
-      <template x-for="ticket in tickets" :key="ticket.id">
-        <div class="kds-card" :class="'kds-' + ticket.status">
-          <div class="kds-card-header">
-            <span class="kds-source">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path x-show="ticket.source_type === 'comanda'" d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
-                <g x-show="ticket.source_type !== 'comanda'"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></g>
-              </svg>
-              <span x-text="ticket.source_type === 'comanda' ? (ticket.table_label || ('Mesa ' + ticket.source_id)) : 'PDV #' + ticket.source_id"></span>
-            </span>
-            <span class="kds-time" :class="{ 'kds-late': isLate(ticket) }" x-text="ticketAge(ticket)"></span>
-          </div>
-          <div class="kds-items">
-            <template x-for="item in (ticket.items || [])" :key="item.id">
-              <div class="kds-item" :class="'kds-item-' + item.status">
-                <div class="kds-item-qty" x-text="item.qty + 'x'"></div>
-                <div class="kds-item-info">
-                  <div class="kds-item-name" x-text="item.product_name"></div>
-                  <div class="kds-item-meta" x-show="item.notes" x-text="'Obs.: ' + item.notes"></div>
-                  <span class="badge badge-info" x-show="item.station" x-text="item.station"></span>
+    <%# Kanban: uma coluna por etapa; o ticket anda de coluna quando os itens avançam.
+        Cancelados não aparecem — pedido que deixou de existir não ocupa tela. %>
+    <div class="kds-board" :class="{ 'kds-4col': showEntregues }" x-show="tickets.length">
+      <template x-for="col in visibleColumns()" :key="col.status">
+        <section class="kds-col" :class="'kds-col-' + col.status">
+          <header class="kds-col-head">
+            <span x-text="col.label"></span>
+            <span class="kds-count" x-text="byStatus(col.status).length"></span>
+          </header>
+          <div class="kds-col-body">
+            <template x-for="ticket in byStatus(col.status)" :key="ticket.id">
+              <div class="kds-card" :class="'kds-' + ticket.status">
+                <div class="kds-card-header">
+                  <span class="kds-source">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path x-show="ticket.source_type === 'comanda'" d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+                      <g x-show="ticket.source_type !== 'comanda'"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></g>
+                    </svg>
+                    <span x-text="ticket.source_type === 'comanda' ? (ticket.table_label || ('Comanda #' + ticket.source_id)) : 'PDV #' + ticket.source_id"></span>
+                  </span>
+                  <span class="kds-time" :class="{ 'kds-late': isLate(ticket) }" x-text="ticketAge(ticket)"></span>
                 </div>
-                <button type="button" class="btn small" :disabled="item.status === 'entregue'" @click="advanceItem(ticket.id, item.id, item.status)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon x-show="item.status === 'pendente'" points="6 3 20 12 6 21 6 3"/>
-                    <path x-show="item.status !== 'pendente'" d="M20 6 9 17l-5-5"/>
-                  </svg>
-                  <span x-text="nextStatus(item.status)"></span>
-                </button>
+                <div class="kds-items">
+                  <template x-for="item in (ticket.items || [])" :key="item.id">
+                    <div class="kds-item" :class="'kds-item-' + item.status">
+                      <div class="kds-item-qty" x-text="item.qty + 'x'"></div>
+                      <div class="kds-item-info">
+                        <div class="kds-item-name" x-text="item.product_name"></div>
+                        <%# Observação do garçom em VERMELHO e em negrito: "sem cebola"
+                            não pode se perder no meio do card. %>
+                        <div class="kds-item-notes" x-show="item.notes" x-text="'⚠ Obs.: ' + item.notes"></div>
+                        <span class="badge badge-info" x-show="item.station" x-text="item.station"></span>
+                      </div>
+                      <button type="button" class="btn small" :disabled="item.status === 'entregue'" @click="advanceItem(ticket.id, item.id, item.status)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polygon x-show="item.status === 'pendente'" points="6 3 20 12 6 21 6 3"/>
+                          <path x-show="item.status !== 'pendente'" d="M20 6 9 17l-5-5"/>
+                        </svg>
+                        <span x-text="nextStatus(item.status)"></span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+                <%# Avanço do pedido inteiro (propaga pros itens no servidor) — atalho
+                    pra tirar o card da coluna sem tocar item por item. %>
+                <div class="kds-card-footer" x-show="nextTicketStatus(ticket.status)">
+                  <button type="button" class="btn small secondary" @click="advanceTicket(ticket)">
+                    <span x-text="'Marcar pedido: ' + nextTicketStatus(ticket.status)"></span>
+                  </button>
+                </div>
               </div>
             </template>
+            <p class="kds-empty" x-show="!byStatus(col.status).length">Nenhum pedido aqui.</p>
           </div>
-        </div>
+        </section>
       </template>
     </div>
 
     <div x-show="!tickets.length" x-cloak>
-      <%- include('partials/empty-state', { message: 'Nenhum ticket nesta etapa.' }) %>
+      <%- include('partials/empty-state', { message: 'Nenhum pedido nesta etapa.' }) %>
       <%# Painel sempre vazio é quase sempre isto: nenhum produto foi marcado como "vai
           para a cozinha", então lançar item na comanda nunca gera ticket (a checagem
           está em foodservice/kitchen.ts — sem roteamento, notifyOrder retorna sem fazer
@@ -75,18 +104,71 @@
       <p class="hint kds-dica">
         O painel só recebe pedido de produtos marcados como "vai para a cozinha".
         Marque-os em <a href="/app/foodservice/roteamento">Escolher produtos da cozinha</a> —
-        depois disso, todo item desses lançado numa comanda ou vendido no PDV aparece aqui
-        automaticamente.
+        depois disso, o garçom lança na comanda, aperta <strong>Enviar p/ cozinha</strong> e
+        o pedido aparece aqui automaticamente.
       </p>
       <% } %>
     </div>
+
+    <!-- Dialog: som de novo pedido -->
+    <dialog x-ref="somDlg" @close="stopPreview()">
+      <h1>Som de novo pedido</h1>
+      <p class="muted dialog-text">Toque no play para ouvir antes de escolher. A seleção vale para esta tela.</p>
+      <div class="som-list">
+        <button type="button" class="som-option" :class="{ selected: pendenteSom === '' }" @click="pendenteSom = ''">
+          <span>Silencioso</span>
+          <span class="muted text-sm">sem aviso sonoro</span>
+        </button>
+        <template x-for="s in sons" :key="s.file">
+          <div class="som-option" :class="{ selected: pendenteSom === s.file }">
+            <button type="button" class="som-choose" @click="pendenteSom = s.file">
+              <span x-text="s.label"></span>
+            </button>
+            <button type="button" class="icon-btn som-preview" @click="preview(s.file)" title="'Ouvir ' + s.label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            </button>
+          </div>
+        </template>
+      </div>
+      <div class="toolbar som-dialog-actions">
+        <button type="button" class="btn secondary" @click="$refs.somDlg.close()">Cancelar</button>
+        <button type="button" class="btn" @click="salvarSom()"
+                x-text="pendenteSom ? 'Ativar este som' : 'Salvar silencioso'"></button>
+      </div>
+    </dialog>
   </main>
   <style>
     .kds-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
     .kds-head h1 { margin-bottom: 0; }
     .kds-dica { max-width: 62ch; margin: .75rem auto 0; text-align: center; }
 
-    .kds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+    /* ─── Kanban: colunas lado a lado; no celular viram pilha (uma abaixo da outra) ─── */
+    .kds-board { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 1rem; align-items: start; }
+    .kds-board.kds-4col { grid-template-columns: repeat(4, minmax(250px, 1fr)); }
+    @media (max-width: 1100px) {
+      .kds-board, .kds-board.kds-4col { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    }
+    .kds-col { min-width: 0; }
+    .kds-col-head {
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 700; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text-muted); padding: .45rem .25rem; margin-bottom: .75rem;
+      border-bottom: 2.5px solid var(--border-light);
+    }
+    .kds-col-pendente .kds-col-head { border-bottom-color: var(--warning-text); }
+    .kds-col-preparo .kds-col-head { border-bottom-color: var(--kds-preparo); }
+    .kds-col-pronto .kds-col-head { border-bottom-color: var(--primary); }
+    .kds-col-entregue .kds-col-head { border-bottom-color: var(--text-muted); opacity: .75; }
+    .kds-count {
+      background: var(--surface-hover); border: 1px solid var(--border-light); border-radius: 999px;
+      min-width: 1.6rem; text-align: center; padding: .05rem .45rem; font-size: .78rem;
+    }
+    .kds-col-body { display: flex; flex-direction: column; gap: .75rem; }
+    .kds-empty {
+      color: var(--text-muted); font-size: .8rem; text-align: center;
+      padding: 1.25rem 0; border: 1px dashed var(--border-light); border-radius: var(--radius);
+    }
+
     .kds-card {
       background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius);
       box-shadow: var(--shadow-xs); overflow: hidden; border-left: 4px solid var(--border);
@@ -117,11 +199,34 @@
     }
     .kds-item-info { flex: 1; min-width: 0; }
     .kds-item-name { font-weight: 500; font-size: .92rem; }
-    .kds-item-meta { font-size: .8rem; color: var(--text-muted); margin: .1rem 0 .25rem; }
+    /* Observação do garçom: destaque máximo — vermelho e negrito, com fundo leve. */
+    .kds-item-notes {
+      display: inline-block; margin-top: .15rem; padding: .08rem .45rem; border-radius: 6px;
+      background: var(--danger-bg); color: var(--danger-text);
+      font-weight: 700; font-size: .82rem;
+    }
+    .kds-card-footer {
+      display: flex; justify-content: flex-end;
+      padding: .5rem 1rem; border-top: 1px solid var(--border-light); background: var(--surface-hover);
+    }
 
-    /* ─── Toque/mobile: alvo do botão de avançar maior, grid encolhe pra caber num celular ─── */
+    /* ─── Diálogo de som ─── */
+    .som-list { display: flex; flex-direction: column; gap: .4rem; margin: .75rem 0 1rem; min-width: min(420px, 80vw); }
+    .som-option {
+      display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+      border: 1.5px solid var(--border-light); border-radius: var(--radius);
+      background: var(--surface); padding: .55rem .8rem; cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .som-option:hover { background: var(--surface-hover); }
+    .som-option.selected { border-color: var(--primary); background: var(--primary-bg); font-weight: 600; }
+    .som-choose { display: flex; align-items: center; flex: 1; text-align: left; cursor: pointer; }
+    .som-preview { flex-shrink: 0; }
+    .som-dialog-actions { justify-content: flex-end; gap: .5rem; margin-top: .25rem; }
+
+    /* ─── Toque/mobile: alvo do botão de avançar maior, colunas empilham num celular ─── */
     @media (hover: none), (max-width: 540px) {
-      .kds-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .75rem; }
+      .kds-board, .kds-board.kds-4col { grid-template-columns: 1fr; }
       .kds-item .btn.small { padding: .55rem .8rem; font-size: .82rem; }
     }
   </style>
@@ -132,15 +237,96 @@
   <script nonce="<%= cspNonce %>">
     function cozinhaPage() {
       return {
-        tab: 'pendente',
         tickets: [],
         pollTimer: null,
+        showEntregues: false,
+        // Som de novo pedido: preferência fica no aparelho (localStorage) — cada tela
+        // de cozinha decide sozinha. `knownIds` é o baseline: carregar a página não toca
+        // sirene para pedidos que já estavam lá.
+        somAtivo: localStorage.getItem('kds-som') === '1',
+        somArquivo: localStorage.getItem('kds-som-arquivo') || 'pedido.mp3',
+        pendenteSom: '',
+        sons: [
+          { label: 'Pedido 1', file: 'pedido.mp3' },
+          { label: 'Pedido 2', file: 'pedido2.mp3' },
+          { label: 'Pedido 3', file: 'pedido3.mp3' },
+          { label: 'Pedido 4', file: 'pedido4.mp3' },
+          { label: 'Pedido 5', file: 'pedido5.mp3' },
+        ],
+        audio: null,
+        previewAudio: null,
+        knownIds: null,
+        columns: [
+          { status: 'pendente', label: 'Pendentes' },
+          { status: 'preparo', label: 'Em preparo' },
+          { status: 'pronto', label: 'Prontos' },
+          { status: 'entregue', label: 'Entregues' },
+        ],
         async init() {
           await this.load();
           this.pollTimer = setInterval(() => this.load(), 5000);
         },
-        // updated_at/created_at vêm em UTC do SQLite ('YYYY-MM-DD HH:MM:SS'); sem o 'Z'
-        // o Date parseia como hora local e o relógio do painel sairia errado.
+        visibleColumns() {
+          return this.columns.filter((c) => c.status !== 'entregue' || this.showEntregues);
+        },
+        byStatus(status) {
+          return this.tickets.filter((t) => t.status === status);
+        },
+        async load() {
+          const r = await fetch('/api/foodservice/kitchen/tickets');
+          if (!r.ok) return;
+          const all = await r.json();
+          const visiveis = all.filter((t) => t.status !== 'cancelado');
+          const ids = new Set(visiveis.map((t) => t.id));
+          if (this.knownIds && this.somAtivo) {
+            for (const id of ids) {
+              if (!this.knownIds.has(id)) { this.playSom(); break; }
+            }
+          }
+          this.knownIds = ids;
+          this.tickets = visiveis;
+        },
+        somLabel(file) {
+          return (this.sons.find((s) => s.file === file) ?? this.sons[0]).label;
+        },
+        openSomDlg() {
+          // Seleção pendente começa na configuração atual; salvar só no botão.
+          this.pendenteSom = this.somAtivo ? this.somArquivo : '';
+          this.$refs.somDlg.showModal();
+        },
+        preview(file) {
+          try {
+            this.stopPreview();
+            this.previewAudio = new Audio('/sons/' + file);
+            this.previewAudio.play().catch(() => showToast('Não foi possível tocar o áudio.', 'error'));
+          } catch { showToast('Não foi possível tocar o áudio.', 'error'); }
+        },
+        stopPreview() {
+          if (!this.previewAudio) return;
+          this.previewAudio.pause();
+          this.previewAudio.currentTime = 0;
+        },
+        salvarSom() {
+          this.stopPreview();
+          this.somArquivo = this.pendenteSom || 'pedido.mp3';
+          this.somAtivo = !!this.pendenteSom;
+          localStorage.setItem('kds-som', this.somAtivo ? '1' : '0');
+          localStorage.setItem('kds-som-arquivo', this.somArquivo);
+          this.$refs.somDlg.close();
+          if (this.somAtivo) { showToast(`Som ativado: ${this.somLabel(this.somArquivo)}.`, 'success'); this.playSom(); }
+          else showToast('Painel silenciado.', 'info');
+        },
+        playSom() {
+          if (!this.somAtivo) return;
+          try {
+            if (!this.audio || this.audio.dataset.file !== this.somArquivo) {
+              this.audio = new Audio('/sons/' + this.somArquivo);
+              this.audio.dataset.file = this.somArquivo;
+            }
+            this.audio.currentTime = 0;
+            this.audio.play().catch(() => { /* autoplay bloqueado — nada que fazer */ });
+          } catch { /* áudio indisponível não pode travar o painel */ }
+        },
         parseUtc(raw) {
           if (!raw) return null;
           return new Date(String(raw).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z');
@@ -160,14 +346,16 @@
           const estimate = Math.max(15, ...(ticket.items || []).map((i) => i.estimated_minutes || 0));
           return min >= estimate;
         },
-        async load() {
-          const r = await fetch('/api/foodservice/kitchen/tickets?status=' + this.tab);
-          if (r.ok) this.tickets = await r.json();
-        },
         nextStatus(s) {
           if (s === 'pendente') return 'Iniciar';
           if (s === 'preparo') return 'Pronto';
           if (s === 'pronto') return 'Entregue';
+          return '';
+        },
+        nextTicketStatus(s) {
+          if (s === 'pendente') return 'em preparo';
+          if (s === 'preparo') return 'pronto';
+          if (s === 'pronto') return 'entregue';
           return '';
         },
         async advanceItem(ticketId, itemId, currentStatus) {
@@ -176,6 +364,15 @@
           const r = await fetch(`/api/foodservice/kitchen/tickets/${ticketId}/items/${itemId}/status`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: currentStatus === 'pendente' ? 'preparo' : currentStatus === 'preparo' ? 'pronto' : 'entregue' }),
+          });
+          if (r.ok) await this.load();
+        },
+        async advanceTicket(ticket) {
+          const target = ticket.status === 'pendente' ? 'preparo' : ticket.status === 'preparo' ? 'pronto' : ticket.status === 'pronto' ? 'entregue' : null;
+          if (!target) return;
+          const r = await fetch(`/api/foodservice/kitchen/tickets/${ticket.id}/status`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: target }),
           });
           if (r.ok) await this.load();
         },
