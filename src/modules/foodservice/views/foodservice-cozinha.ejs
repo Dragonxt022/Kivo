@@ -40,7 +40,7 @@
               </svg>
               <span x-text="ticket.source_type === 'comanda' ? (ticket.table_label || ('Mesa ' + ticket.source_id)) : 'PDV #' + ticket.source_id"></span>
             </span>
-            <span class="kds-time" x-text="ticket.updated_at?.slice(11, 16) || ''"></span>
+            <span class="kds-time" :class="{ 'kds-late': isLate(ticket) }" x-text="ticketAge(ticket)"></span>
           </div>
           <div class="kds-items">
             <template x-for="item in (ticket.items || [])" :key="item.id">
@@ -102,6 +102,7 @@
     }
     .kds-source { display: flex; align-items: center; gap: .4rem; color: var(--text); }
     .kds-time { color: var(--text-muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+    .kds-time.kds-late { color: var(--warning-text); font-weight: 700; }
     .kds-items { display: flex; flex-direction: column; }
     .kds-item {
       display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem;
@@ -137,6 +138,27 @@
         async init() {
           await this.load();
           this.pollTimer = setInterval(() => this.load(), 5000);
+        },
+        // updated_at/created_at vêm em UTC do SQLite ('YYYY-MM-DD HH:MM:SS'); sem o 'Z'
+        // o Date parseia como hora local e o relógio do painel sairia errado.
+        parseUtc(raw) {
+          if (!raw) return null;
+          return new Date(String(raw).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z');
+        },
+        ticketAge(ticket) {
+          const d = this.parseUtc(ticket.created_at || ticket.updated_at);
+          if (!d) return '';
+          const min = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000));
+          const hhmm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          return min < 60 ? `${hhmm} · há ${min} min` : `${hhmm} · há ${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
+        },
+        isLate(ticket) {
+          const d = this.parseUtc(ticket.created_at || ticket.updated_at);
+          if (!d) return false;
+          const min = Math.floor((Date.now() - d.getTime()) / 60000);
+          // Meta do pedido = maior tempo estimado entre os itens (snapshot do roteamento); 15 min é o padrão.
+          const estimate = Math.max(15, ...(ticket.items || []).map((i) => i.estimated_minutes || 0));
+          return min >= estimate;
         },
         async load() {
           const r = await fetch('/api/foodservice/kitchen/tickets?status=' + this.tab);

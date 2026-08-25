@@ -92,7 +92,7 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
       getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
         sourceType: 'comanda', sourceId: comandaId,
         tableLabel,
-        items: [{ productId: product.id, name: product.name, qty: params.qty, notes: params.notes }],
+        items: [{ productId: product.id, name: product.name, qty: params.qty, notes: params.notes, comandaItemId: itemId }],
       });
     } catch { /* best-effort */ }
   }
@@ -128,6 +128,13 @@ export function voidItem(req: Request, comandaId: number, itemId: number): { ok:
   if (item.voided_at) return { ok: false, error: 'Item ja foi anulado.' };
   comandaItemRepository.void(itemId);
   audit(req, 'anular_item_comanda', 'comanda_item', itemId);
+  // Best-effort: remove o item do ticket da cozinha se ele ainda não foi pra produção
+  // (ticket sem nenhum item ativo é cancelado junto). Falha aqui não desfaz a anulação.
+  try {
+    if (hasService('foodservice.kitchen')) {
+      getService<FoodserviceKitchenService>('foodservice.kitchen').voidComandaItem(req, itemId);
+    }
+  } catch { /* best-effort */ }
   return { ok: true };
 }
 
@@ -237,7 +244,12 @@ export function closeComanda(
   let saleId: number;
   try {
     comandaRepository.transaction(() => {
-      const saleResult = storeSales.createSale(req, saleInput, { allowPriceOverride: true });
+      const saleResult = storeSales.createSale(req, saleInput, {
+        allowPriceOverride: true,
+        // Itens já foram pra cozinha um a um via addItem (tickets 'comanda'); um ticket
+        // 'sale' aqui seria duplicação de toda a comanda no KDS.
+        skipKitchenNotify: true,
+      });
       if (!saleResult.ok) throw new Error(saleResult.error);
       saleId = saleResult.id;
       comandaRepository.close(comandaId, saleResult.id);
@@ -259,5 +271,12 @@ export function cancelComanda(req: Request, comandaId: number): { ok: true } | {
     if (comanda.table_id) storeTableRepository.free(comanda.table_id);
   });
   audit(req, 'cancelar_comanda', 'comanda', comandaId);
+  // Best-effort: tickets em aberto desta comanda viram 'cancelado' no KDS — sem isso a
+  // cozinha produzia pedido de comanda que deixou de existir.
+  try {
+    if (hasService('foodservice.kitchen')) {
+      getService<FoodserviceKitchenService>('foodservice.kitchen').cancelTicketsForSource(req, 'comanda', comandaId);
+    }
+  } catch { /* best-effort */ }
   return { ok: true };
 }

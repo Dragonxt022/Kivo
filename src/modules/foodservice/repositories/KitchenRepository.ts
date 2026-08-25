@@ -23,15 +23,17 @@ export class KitchenTicketRepository extends BaseRepository {
     return this.findOneWhere({ uuid } as unknown as Record<string, string | number | boolean | null>);
   }
 
+  // Tie-break por id DESC: tickets criados no mesmo segundo tinham ordem instável
+  // entre polls do KDS (cards "pulavam" de posição a cada refresh).
   listByStatus(statusFilter?: string[]): Row[] {
     if (statusFilter?.length) {
       const ph = statusFilter.map(() => '?').join(',');
       return this.raw(
-        `SELECT * FROM kitchen_tickets WHERE deleted_at IS NULL AND status IN (${ph}) ORDER BY updated_at DESC`,
+        `SELECT * FROM kitchen_tickets WHERE deleted_at IS NULL AND status IN (${ph}) ORDER BY updated_at DESC, id DESC`,
         ...statusFilter,
       );
     }
-    return this.raw('SELECT * FROM kitchen_tickets WHERE deleted_at IS NULL ORDER BY updated_at DESC');
+    return this.raw('SELECT * FROM kitchen_tickets WHERE deleted_at IS NULL ORDER BY updated_at DESC, id DESC');
   }
 
   updateStatus(id: number, status: string): void {
@@ -50,6 +52,29 @@ export class KitchenTicketItemRepository extends BaseRepository {
     return this.raw(
       'SELECT * FROM kitchen_ticket_items WHERE ticket_id = ? AND deleted_at IS NULL ORDER BY id',
       ticketId,
+    );
+  }
+
+  /** Itens de vários tickets numa query só — o painel mapeia N tickets sem N+1. */
+  listByTickets(ticketIds: number[]): Row[] {
+    if (!ticketIds.length) return [];
+    const ph = ticketIds.map(() => '?').join(',');
+    return this.raw(
+      `SELECT * FROM kitchen_ticket_items WHERE ticket_id IN (${ph}) AND deleted_at IS NULL ORDER BY id`,
+      ...ticketIds,
+    );
+  }
+
+  /**
+   * Propaga o status do ticket inteiro para os itens que ainda não terminaram
+   * ('entregue' é ponto sem volta — itens já entregues não "voltam" se o status do
+   * ticket for rebaixado manualmente).
+   */
+  advanceOpenItems(ticketId: number, status: string): void {
+    this.rawRun(
+      `UPDATE kitchen_ticket_items SET status = ?, updated_at = datetime('now')
+       WHERE ticket_id = ? AND deleted_at IS NULL AND status != 'entregue'`,
+      status, ticketId,
     );
   }
 
