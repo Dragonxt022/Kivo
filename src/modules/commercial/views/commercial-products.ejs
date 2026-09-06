@@ -347,7 +347,21 @@
                   <label>SKU</label><input type="text" x-model="form.sku" />
                 </div>
                 <div class="pm-field">
-                  <label title="un, kg, l, cx…">Unidade</label><input type="text" x-model="form.unit" placeholder="un" />
+                  <label>Unidade</label>
+                  <select x-model="form.unit">
+                    <option value="un">un — Unidade</option>
+                    <option value="kg">kg — Quilograma</option>
+                    <option value="g">g — Grama</option>
+                    <option value="L">L — Litro</option>
+                    <option value="ml">ml — Mililitro</option>
+                    <option value="cx">cx — Caixa</option>
+                    <option value="pct">pct — Pacote</option>
+                    <option value="porcao">porção — Porção</option>
+                    <option value="dz">dz — Dúzia</option>
+                    <option value="par">par — Par</option>
+                    <option value="m">m — Metro</option>
+                    <option x-show="form.unit && !['un','kg','g','L','ml','cx','pct','porcao','dz','par','m'].includes(form.unit)" :value="form.unit" x-text="form.unit + ' (atual)'"></option>
+                  </select>
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
-import { openComanda, addItem, updateItemNotes, sendToKitchen, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
+import { openComanda, addItem, updateItemNotes, updateItemQty, sendToKitchen, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
 import { storeTableRepository } from '../repositories/StoreTableRepository';
 import { comandaRepository, comandaItemRepository } from '../repositories/ComandaRepository';
 
@@ -104,7 +104,7 @@ export const comandasController = {
     // aparecia com o quadradinho cinza de "sem imagem" mesmo em produto fotografado.
     // LEFT JOIN porque o produto pode ter sido excluído depois do lançamento.
     const items = comandaItemRepository.raw(
-      `SELECT ci.*, p.image_url, p.sku
+      `SELECT ci.*, p.image_url, p.sku, p.unit, p.product_type
          FROM comanda_items ci
          LEFT JOIN products p ON p.id = ci.product_id
         WHERE ci.comanda_id = ? AND ci.deleted_at IS NULL AND ci.voided_at IS NULL
@@ -141,6 +141,13 @@ export const comandasController = {
   updateItemNotesAction(req: Request, res: Response) {
     const { notes } = req.body ?? {};
     const result = updateItemNotes(req, Number(req.params.id), Number(req.params.itemId), typeof notes === 'string' ? notes : null);
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.json({ ok: true });
+  },
+
+  updateItemQtyAction(req: Request, res: Response) {
+    const { qty } = req.body ?? {};
+    const result = updateItemQty(req, Number(req.params.id), Number(req.params.itemId), Number(qty));
     if (!result.ok) { res.status(400).json(result); return; }
     res.json({ ok: true });
   },

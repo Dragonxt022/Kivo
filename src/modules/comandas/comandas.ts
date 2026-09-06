@@ -133,6 +133,28 @@ export function sendToKitchen(req: Request, comandaId: number): { ok: true; sent
  * escreve/ajusta a observação num modal. Vazio remove. Enquanto o item ainda não foi
  * pra produção, a mudança espelha no ticket da cozinha (syncItemNotes).
  */
+export function updateItemQty(req: Request, comandaId: number, itemId: number, qty: number): { ok: true } | { ok: false; error: string } {
+  assertAuth(req);
+  const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
+  if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
+  if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
+  const item = comandaItemRepository.findInComanda(itemId, comandaId) as { id: number; voided_at: string | null; product_id: number } | undefined;
+  if (!item) return { ok: false, error: 'Item nao encontrado.' };
+  if (item.voided_at) return { ok: false, error: 'Item ja foi anulado.' };
+  if (!(qty > 0)) return { ok: false, error: 'Quantidade deve ser positiva.' };
+  const pricing = getService<CommercialPricingService>('commercial.pricing');
+  const unitPriceCents = pricing.resolvePrice(item.product_id, qty, comanda.customer_id).unitCents;
+  comandaItemRepository.update(itemId, { qty, unit_price_cents: unitPriceCents });
+  audit(req, 'editar_qtd_item_comanda', 'comanda_item', itemId, null, { qty, unitPriceCents });
+  comandaRepository.setReadyForPayment(comandaId, false);
+  try {
+    if (hasService('foodservice.kitchen')) {
+      getService<FoodserviceKitchenService>('foodservice.kitchen').syncItemNotes(req, itemId, null);
+    }
+  } catch { /* best-effort */ }
+  return { ok: true };
+}
+
 export function updateItemNotes(req: Request, comandaId: number, itemId: number, notes: string | null): { ok: true } | { ok: false; error: string } {
   assertAuth(req);
   const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
