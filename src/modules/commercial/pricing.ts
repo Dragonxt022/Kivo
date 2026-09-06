@@ -15,7 +15,7 @@ export function resolvePrice(productId: number, qty: number, customerId?: number
     if (customer?.price_list_id) {
       const row = priceListItemRepository.findByProductAndList(customer.price_list_id, productId, qty) as
         | { unit_price_cents: number; min_qty: number } | undefined;
-      if (row) {
+      if (row && row.unit_price_cents > 0) {
         return { unitCents: row.unit_price_cents, source: 'customer_list', priceListId: customer.price_list_id, minQtyApplied: row.min_qty };
       }
     }
@@ -25,7 +25,7 @@ export function resolvePrice(productId: number, qty: number, customerId?: number
   if (defaultList) {
     const row = priceListItemRepository.findByProductAndList(defaultList.id, productId, qty) as
       | { unit_price_cents: number; min_qty: number } | undefined;
-    if (row) {
+    if (row && row.unit_price_cents > 0) {
       return { unitCents: row.unit_price_cents, source: 'default_list', priceListId: defaultList.id, minQtyApplied: row.min_qty };
     }
   }

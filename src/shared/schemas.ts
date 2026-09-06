@@ -279,6 +279,10 @@ export const comandaItemNotesSchema = z.object({
   notes: z.string().max(500, 'Observação muito longa.').nullable().optional(),
 });
 
+export const comandaItemQtySchema = z.object({
+  qty: z.number().positive('Quantidade deve ser positiva.'),
+});
+
 export const transferComandaSchema = z.object({
   tableId: z.number().int().positive('Informe a mesa de destino.'),
 });

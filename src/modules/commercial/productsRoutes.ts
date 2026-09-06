@@ -117,6 +117,58 @@ function deleteLocalImageIfOwned(imageUrl: string | null | undefined): void {
   }
 }
 
+function findExistingProductImage(b: Record<string, unknown>): string | null {
+  const barcode = b.barcode ? String(b.barcode).trim() : null;
+  const sku = b.sku ? String(b.sku).trim() : null;
+  const name = b.name ? String(b.name).trim() : null;
+
+  if (!barcode && !sku && !name) return null;
+
+  const db = productRepository.raw.bind(productRepository);
+  const where: string[] = ['p.deleted_at IS NULL', 'p.image_url IS NOT NULL', 'p.image_url != \'\''];
+  const params: unknown[] = [];
+
+  if (barcode) {
+    where.push('p.barcode = ?');
+    params.push(barcode);
+  } else if (sku) {
+    where.push('p.sku = ?');
+    params.push(sku);
+  } else if (name) {
+    where.push('p.name = ?');
+    params.push(name);
+  }
+
+  const row = productRepository.rawOne(
+    `SELECT p.image_url FROM products p WHERE ${where.join(' AND ')} ORDER BY p.updated_at DESC LIMIT 1`,
+    ...params,
+  ) as { image_url: string } | undefined;
+
+  return row?.image_url ?? null;
+}
+
+function prepareProductImage(b: Record<string, unknown>): {
+  imageUrl?: string | null; buf?: Buffer; submit?: boolean; error?: string;
+} {
+  if (b.removeImage) return { imageUrl: null };
+  if (b.imageUrl) return { imageUrl: String(b.imageUrl) };
+  if (b.imageBase64) {
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(String(b.imageBase64), 'base64');
+    } catch {
+      return { error: 'Imagem inválida.' };
+    }
+    const check = validateImageBuffer(buf);
+    if (!check.ok) return { error: check.error };
+    const imageUrl = saveLocalProductImage(buf, check.format);
+    return { imageUrl, buf, submit: b.submitToCatalog !== false };
+  }
+  const fallbackImage = findExistingProductImage(b);
+  if (fallbackImage) return { imageUrl: fallbackImage };
+  return {};
+}
+
 router.get('/products', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const includeParents = req.query.includeParents === 'true';
