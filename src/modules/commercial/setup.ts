@@ -1,6 +1,7 @@
 import { registerService } from '../../core/services/registry';
 import { registerRecomputeHook } from '../../core/sync/registry';
 import { moveStock, moveStockRaw, listMovements, recomputeStockForProducts } from './stock';
+import { createPurchaseInbound } from './purchaseInbound';
 import { resolvePrice, resolveMany } from './pricing';
 import * as storeCredit from './storeCredit';
 import * as loyalty from './loyalty';
@@ -12,6 +13,11 @@ export interface CommercialStockService {
   /** Sem transação própria — use quando já estiver dentro de uma transação. */
   moveRaw: typeof moveStockRaw;
   listMovements: typeof listMovements;
+}
+
+/** Criação de compra recebida (estoque/custo) reutilizável por outros módulos. */
+export interface CommercialPurchaseInboundService {
+  createInbound: typeof createPurchaseInbound;
 }
 
 export interface CommercialPricingService {
@@ -46,6 +52,7 @@ export interface CommercialLoyaltyService {
 export default function setup(): void {
   registerService('commercial.stock', { move: moveStock, moveRaw: moveStockRaw, listMovements } satisfies CommercialStockService);
   registerService('commercial.pricing', { resolvePrice, resolveMany } satisfies CommercialPricingService);
+  registerService('commercial.purchaseInbound', { createInbound: createPurchaseInbound } satisfies CommercialPurchaseInboundService);
   registerService('commercial.storeCredit', {
     grantRaw: storeCredit.grant, redeemRaw: storeCredit.redeem, reverseRaw: storeCredit.reverse,
     balance: storeCredit.getBalance, listMovements: storeCredit.listCreditMovements,

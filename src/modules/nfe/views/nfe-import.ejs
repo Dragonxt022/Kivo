@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Importar NF-e</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/nfe/importar' }) %>
+  <main x-data="nfeImportPage(<%- JSON.stringify(user.permissions.has('nfe.import.run')) %>)" x-init="init()">
+    <h1>Importar NF-e</h1>
+    <p class="muted">Envie o XML da nota do fornecedor (NF-e modelo 55, versão 4.00). Nada é alterado antes da sua conferência.</p>
+
+    <%# ── Passo 1: escolher o arquivo ── %>
+    <div x-show="!preview" x-cloak>
+      <div class="panel" style="max-width:760px;margin-top:.75rem">
+        <div class="toolbar" style="margin-bottom:.5rem">
+          <input type="file" accept=".xml,.XML,text/xml,application/xml" x-ref="file"
+                 style="display:none" @change="onFile($event.target.files)" />
+          <button class="btn" @click="$refs.file.click()" :disabled="parsing">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span x-text="parsing ? 'Lendo o XML…' : 'Escolher arquivo XML'"></span>
+          </button>
+          <span class="error" x-text="error"></span>
+        </div>
+        <p class="muted text-sm">Também dá para colar o conteúdo do XML abaixo e clicar em analisar.</p>
+        <textarea x-ref="pasteXml" rows="6" style="width:100%" placeholder="<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?>…"></textarea>
+        <div class="toolbar">
+          <button class="btn secondary" @click="previewPasted()" :disabled="parsing">
+            <span x-text="parsing ? 'Analisando…' : 'Analisar'"></span>
+          </button>
+        </div>
+      </div>
+
+      <%# Histórico recente ── %>
+      <h2 style="margin-top:1.5rem">Importações recentes</h2>
+      <table x-show="history.length">
+        <thead><tr><th>NF-e</th><th>Fornecedor</th><th>Emitida em</th><th>Total</th><th>Itens aceitos</th></tr></thead>
+        <tbody>
+          <template x-for="h in history" :key="h.id">
+            <tr>
+              <td>
+                <span x-text="'NF ' + (h.invoice_number || '') + (h.series ? '/S' + h.series : '')"></span>
+                <span class="muted text-xs" x-text="' · chave ' + h.access_key"></span>
+              </td>
+              <td x-text="h.supplier_name || '—'"></td>
+              <td x-text="h.issued_at || '—'"></td>
+              <td x-text="brl(h.total_cents)"></td>
+              <td x-text="h.imported_count + ' / ' + h.items_count"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <div x-show="!history.length" x-cloak>
+        <%- include('partials/empty-state', { message: 'Nenhuma NF-e importada ainda.' }) %>
+      </div>
+    </div>
+
+    <%# ── Passo 2: conferência ── %>
+    <div x-show="preview" x-cloak>
+      <div class="panel" style="margin-top:.75rem">
+        <div class="flex-row" style="justify-content:space-between;gap:1rem;flex-wrap:wrap">
+          <div>
+            <strong x-text="'Fornecedor: ' + (preview.supplier.name || '—')"></strong>
+            <span class="muted" x-text="' · CNPJ ' + preview.supplier.cnpj"></span>
+            <span class="badge" :class="preview.supplier.exists ? 'ok' : 'neutral'"
+                  x-text="preview.supplier.exists ? 'Cadastrado' : 'Novo (será criado)'"></span>
+          </div>
+          <div class="muted text-sm">
+            <div x-text="'NF-e nº ' + (preview.number || '—') + (preview.serie ? ' · Série ' + preview.serie : '')"></div>
+            <div x-text="'Total da nota: ' + brl(preview.totalCents)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top:1rem">
+        <button class="btn secondary" @click="backToUpload()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Outro arquivo
+        </button>
+        <span class="toolbar-spacer"></span>
+        <span class="muted" x-text="'Aceitos: ' + acceptedCount + ' de ' + rows.length"></span>
+        <span class="error" x-text="commitError"></span>
+        <% if (user.permissions.has('nfe.import.run')) { %>
+        <button class="btn" @click="confirmImport()" :disabled="committing || acceptedCount === 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <span x-text="committing ? 'Importando…' : 'Confirmar importação'"></span>
+        </button>
+        <% } else { %>
+        <span class="muted text-sm">Você pode conferir; a confirmação exige a permissão de importar.</span>
+        <% } %>
+      </div>
+
+      <div class="table-wrap" style="overflow-x:auto">
+      <table class="nfe-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item da nota</th>
+            <th>Produto no Kivo / ação</th>
+            <th>Qtd.</th>
+            <th>Custo unit. (R$)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="row in rows" :key="row.line">
+            <tr :class="row.action === 'ignore' ? 'nfe-ignored' : ''">
+              <td class="muted" x-text="row.line"></td>
+              <td style="min-width:220px">
+                <div style="font-weight:600" x-text="row.description"></div>
+                <div class="muted text-xs" x-text="'Cód. ' + row.cProd + (row.ean ? ' · EAN ' + row.ean : '')"></div>
+                <div class="muted text-xs" x-text="[row.ncm && ('NCM ' + row.ncm), row.cfop && ('CFOP ' + row.cfop), row.unit].filter(Boolean).join(' · ')"></div>
+                <div style="margin-top:.2rem">
+                  <template x-for="f in row.flags" :key="f">
+                    <span class="badge nfe-flag" x-text="flagLabel(f)" :title="flagLabel(f)"></span>
+                  </template>
+                  <span class="badge neutral" x-show="row.error" x-text="row.error"></span>
+                </div>
+              </td>
+              <td style="min-width:300px">
+                <div class="toolbar nfe-acts">
+                  <button type="button" class="btn small" :class="row.action === 'link' ? 'active' : 'secondary'"
+                          @click="setAction(row, 'link')" :disabled="row.kind === 'invalid'">Vincular</button>
+                  <button type="button" class="btn small" :class="row.action === 'create' ? 'active' : 'secondary'"
+                          @click="setAction(row, 'create')" :disabled="row.kind === 'invalid'">Criar</button>
+                  <button type="button" class="btn small" :class="row.action === 'ignore' ? 'active danger' : 'secondary'"
+                          @click="setAction(row, 'ignore')">Ignorar</button>
+                </div>
+                <div x-show="row.action === 'link' && row.productId" class="text-sm" style="margin-top:.35rem">
+                  <span class="badge ok" x-text="row.productName"></span>
+                  <button type="button" class="btn-link" @click="openSearch(row)">Trocar produto…</button>
+                </div>
+                <div x-show="row.action === 'link' && !row.productId" class="text-sm" style="margin-top:.35rem">
+                  <button type="button" class="btn small secondary" @click="openSearch(row)">Buscar produto…</button>
+                </div>
+                <div x-show="row.action === 'create'" class="text-sm" style="margin-top:.35rem">
+                  <span class="badge module">Novo produto: <span x-text="row.description"></span></span>
+                </div>
+                <div x-show="row.action === 'ignore'" class="muted text-sm">linha ignorada — não vira compra</div>
+              </td>
+              <td style="min-width:80px">
+                <input type="number" min="0" step="any" x-model="row.qty" :disabled="row.action === 'ignore'" style="width:86px" />
+              </td>
+              <td style="min-width:100px">
+                <input type="text" inputmode="decimal" x-model="row.cost" :disabled="row.action === 'ignore'" style="width:96px" />
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <%# Modal: buscar produto para vincular ── %>
+    <dialog x-ref="searchDlg" @close="searchOpenRow = null">
+      <h1>Vincular produto</h1>
+      <p class="muted dialog-text" x-text="searchOpenRow ? ('Linha ' + searchOpenRow.line + ' — ' + searchOpenRow.description) : ''"></p>
+      <input type="text" x-ref="searchInput" placeholder="Buscar por nome, código de barras ou SKU…"
+             x-model="searchQ" @input.debounce.350ms="doSearch()" style="width:100%" />
+      <div class="dialog-body" style="max-height:300px;overflow-y:auto;margin-top:.5rem">
+        <template x-for="r in searchResults" :key="r.id">
+          <button type="button" class="row-option" @click="pickSearchResult(r)">
+            <span style="font-weight:600" x-text="r.name"></span>
+            <span class="muted text-xs" x-text="[r.barcode && ('EAN ' + r.barcode), r.sku && ('SKU ' + r.sku), r.unit].filter(Boolean).join(' · ')"></span>
+          </button>
+        </template>
+        <p x-show="!searchResults.length && searchQ.trim().length >= 2" class="muted text-xs" style="text-align:center;padding:.75rem">Nenhum produto encontrado.</p>
+        <p x-show="searchQ.trim().length < 2" class="muted text-xs" style="text-align:center;padding:.75rem">Digite ao menos 2 caracteres.</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn secondary" @click="$refs.searchDlg.close()">Cancelar</button>
+      </div>
+    </dialog>
+  </main>
+
+  <style>
+    .nfe-acts .btn.active { background: var(--primary); color: #fff; }
+    .nfe-acts .btn.active.danger { background: var(--danger); color: #fff; }
+    .nfe-flag { background: var(--warning-bg); color: var(--warning-text); margin-right:.2rem; }
+    tr.nfe-ignored td { opacity:.55; }
+    .btn-link { background:none; border:0; color:var(--primary); cursor:pointer; padding:0 .2rem; font-size:.8rem; text-decoration:underline; }
+    .row-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; text-align:left;
+      background:var(--surface); border:1px solid var(--border-light); border-radius:var(--radius);
+      padding:.55rem .7rem; margin-top:.35rem; cursor:pointer; }
+    .row-option:hover { border-color: var(--primary); }
+    .nfe-table th, .nfe-table td { padding: .6rem .5rem; }
+  </style>
+  <script nonce="<%= cspNonce %>">
+    function nfeImportPage(canRun) {
+      return {
+        canRun: canRun,
+        parsing: false, committing: false,
+        preview: null, rows: [],
+        error: '', commitError: '',
+        history: [],
+        searchOpenRow: null, searchQ: '', searchResults: [],
+        brl: (c) => window.brl(c),
+        async init() { await this.loadHistory(); },
+        async loadHistory() {
+          const r = await fetch('/api/nfe/invoices');
+          if (r.ok) this.history = await r.json();
+        },
+        brlToCents(s) {
+          if (s == null || s === '') return 0;
+          const t = String(s).trim();
+          const num = t.includes(',') ? parseFloat(t.replace(/\./g, '').replace(',', '.')) : parseFloat(t);
+          return Number.isFinite(num) ? Math.round(num * 100) : 0;
+        },
+        async onFile(files) {
+          if (!files || !files.length) return;
+          const f = files[0];
+          if (f.size > 9 * 1024 * 1024) { this.error = 'Arquivo muito grande (máx. 9 MB).'; return; }
+          try { this.previewXml(await f.text()); }
+          catch { this.error = 'Não foi possível ler o arquivo.'; }
+        },
+        async previewPasted() {
+          const xml = this.$refs.pasteXml.value;
+          if (!xml.trim()) { this.error = 'Cole o conteúdo do XML ou escolha um arquivo.'; return; }
+          this.previewXml(xml);
+        },
+        async previewXml(xml) {
+          this.parsing = true; this.error = '';
+          try {
+            const r = await fetch('/api/nfe/preview', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ xml }),
+            });
+            const d = r.ok ? await r.json() : { error: (await r.json().catch(() => ({}))).error ?? 'Não foi possível analisar a NF-e.' };
+            if (!r.ok) { this.error = d.error; this.preview = null; this.rows = []; return; }
+            this.xml = xml;
+            this.preview = d;
+            this.rows = d.items.map((it) => this.rowFromPreview(it));
+            this.error = '';
+          } finally { this.parsing = false; }
+        },
+        rowFromPreview(it) {
+          let action = it.kind === 'new' ? 'create' : it.kind === 'invalid' ? 'ignore' : 'link';
+          let productId = null;
+          if (it.kind === 'matched' && it.product) { action = 'link'; productId = it.product.id; }
+          else if (it.kind === 'possible') { action = it.product ? 'link' : (it.candidates.length ? 'link' : 'create'); productId = (it.product || it.candidates[0])?.id ?? null; }
+          const selected = it.candidates.find((c) => c.id === productId) || (it.product && it.product.id === productId ? it.product : null);
+          return {
+            line: it.line, description: it.description, cProd: it.cProd, ean: it.ean,
+            ncm: it.ncm, cfop: it.cfop, unit: it.unit,
+            flags: it.flags, error: it.error, kind: it.kind,
+            candidates: it.candidates || [],
+            action, productId, productName: selected ? selected.name : '',
+            qty: String(it.qty), cost: (it.unitCostCents / 100).toFixed(2),
+          };
+        },
+        flagLabel(f) {
+          return { ean_conflict: 'EAN diferente do cadastrado', name_conflict: 'Mais de um produto com este nome',
+                   supplier_code_conflict: 'Código do fornecedor ambíguo', unit_conflict: 'Unidade diferente',
+                   ncm_conflict: 'NCM diferente do cadastrado', price_changed: 'Custo diferente do cadastrado' }[f] || f;
+        },
+        setAction(row, action) {
+          row.action = action;
+          if (action !== 'link') return;
+          if (row.productId) return;
+          const first = (row.candidates && row.candidates[0]);
+          if (first) { row.productId = first.id; row.productName = first.name; }
+        },
+        async openSearch(row) {
+          this.searchOpenRow = row;
+          this.searchQ = ''; this.searchResults = [];
+          this.$refs.searchDlg.showModal();
+          this.$nextTick(() => this.$refs.searchInput.focus());
+        },
+        async doSearch() {
+          const q = this.searchQ.trim();
+          if (q.length < 2) { this.searchResults = []; return; }
+          const r = await fetch('/api/nfe/products?q=' + encodeURIComponent(q));
+          this.searchResults = r.ok ? await r.json() : [];
+        },
+        pickSearchResult(r) {
+          const row = this.searchOpenRow;
+          if (row) { row.action = 'link'; row.productId = r.id; row.productName = r.name; }
+          this.$refs.searchDlg.close();
+        },
+        get acceptedCount() {
+          return this.rows.filter((r) => r.action !== 'ignore').length;
+        },
+        backToUpload() { this.preview = null; this.rows = []; this.commitError = ''; },
+        async confirmImport() {
+          this.commitError = '';
+          const semProduto = this.rows.filter((r) => r.action === 'link' && !r.productId);
+          if (semProduto.length) {
+            this.commitError = 'Vincule um produto às linhas ' + semProduto.map((r) => r.line).join(', ') + ' ou crie/ignore.';
+            return;
+          }
+          if (!window.confirmDlg || !(await window.confirmDlg('Confirmar a importação? Produtos novos serão criados e a compra entrará no estoque com os custos conferidos.'))) return;
+          this.committing = true;
+          try {
+            const decisions = this.rows.map((r) => ({
+              line: r.line,
+              action: r.action,
+              productId: r.action === 'link' ? r.productId : null,
+              qty: Number(String(r.qty).replace(',', '.')),
+              unitCostCents: this.brlToCents(r.cost),
+            }));
+            const r = await fetch('/api/nfe/commit', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ xml: this.xml, decisions }),
+            });
+            const d = r.ok ? await r.json() : { error: (await r.json().catch(() => ({}))).error ?? 'Falha ao importar.' };
+            if (!r.ok) { this.commitError = d.error; return; }
+            showToast(`NF-e importada: ${d.created} criado(s), ${d.linked} vinculado(s), ${d.ignored} ignorado(s).`, 'success');
+            this.preview = null; this.rows = [];
+            this.loadHistory();
+          } finally { this.committing = false; }
+        },
+      };
+    }
+  </script>
+</body>
+</html>
