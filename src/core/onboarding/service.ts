@@ -5,12 +5,10 @@ import { listCapabilities, setCapabilityEnabled } from '../capabilities/service'
 import { isModuleEntitled, getLicenseCredentials } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
 import { storeTableRepository } from '../../modules/comandas/repositories/StoreTableRepository';
-import { productRepository } from '../../modules/commercial/repositories/ProductRepository';
-import { categoryRepository } from '../../modules/commercial/repositories/CategoryRepository';
-import { complementGroupRepository, complementItemRepository, productComplementGroupRepository } from '../../modules/commercial/repositories/ComplementRepository';
-import { productAttributeRepository, productAttributeValueRepository, productVariantValueRepository } from '../../modules/commercial/repositories/AttributeRepository';
 import { paymentMethodRepository } from '../../modules/finance/repositories/PaymentMethodRepository';
 import { createLogger } from '../logger';
+import { createDemoCatalog } from './demoCatalog';
+import type { DemoFlags } from './demoCatalog';
 
 const log = createLogger('onboarding');
 
@@ -72,6 +70,8 @@ export interface ProvisionInput {
 export interface ProvisionResult {
   tablesCreated: number;
   productsCreated: number;
+  categoriesCreated: number;
+  kitchenRoutesCreated: number;
   paymentMethodsActive: string[];
   featuresEnabled: string[];
   featuresDisabled: string[];
@@ -297,134 +297,21 @@ function createTables(count: number): number {
   return count;
 }
 
-function createSimpleProduct(name: string, priceCents: number, unit = 'un', categoryId?: number): number {
-  return productRepository.create({
-    name, unit, price_cents: priceCents, cost_cents: 0, product_type: 'fisico', track_stock: 0, category_id: categoryId ?? null, uuid: randomUUID(),
-  } as Record<string, unknown>);
-}
-
-function attachComplementGroup(sellableProductId: number, groupName: string, minSelect: number, maxSelect: number | null, items: { name: string; priceCents: number }[]): void {
-  const groupId = complementGroupRepository.create({ name: groupName, min_select: minSelect, max_select: maxSelect, uuid: randomUUID() });
-  items.forEach((item, idx) => {
-    const productId = createSimpleProduct(item.name, 0);
-    complementItemRepository.create({
-      group_id: groupId, product_id: productId,
-      price_override_cents: item.priceCents, sort_order: idx, uuid: randomUUID(),
-    });
-  });
-  productComplementGroupRepository.create({ product_id: sellableProductId, group_id: groupId, sort_order: 0, uuid: randomUUID() });
-}
-
-function getOrCreateCategory(name: string): number {
-  const existing = categoryRepository.rawOne('SELECT id FROM categories WHERE name = ? AND deleted_at IS NULL', name) as { id: number } | undefined;
-  if (existing) return existing.id;
-  return categoryRepository.create({ name, parent_id: null, uuid: randomUUID() });
-}
-
-function createRestauranteDemoProducts(withComplements: boolean): number {
-  let count = 0;
-
-  // Criar/obter categorias
-  const catHamburgueres = getOrCreateCategory('Hambúrgueres');
-  const catBebidas = getOrCreateCategory('Bebidas');
-  const catAcompanhamentos = getOrCreateCategory('Acompanhamentos');
-
-  const suco = createSimpleProduct('Suco Natural', 800, 'un', catBebidas);
-  count += 1;
-  if (withComplements) {
-    attachComplementGroup(suco, 'Sabor do suco', 1, 1, [
-      { name: 'Laranja', priceCents: 0 },
-      { name: 'Abacaxi', priceCents: 0 },
-      { name: 'Morango', priceCents: 100 },
-    ]);
-    count += 3;
-  }
-
-  const lanche = createSimpleProduct('Lanche Completo (X-Burger)', 1800, 'un', catHamburgueres);
-  count += 1;
-  if (withComplements) {
-    attachComplementGroup(lanche, 'Adicionais', 0, 4, [
-      { name: 'Bacon extra', priceCents: 300 },
-      { name: 'Queijo extra', priceCents: 200 },
-      { name: 'Ovo', priceCents: 200 },
-      { name: 'Salada extra', priceCents: 0 },
-    ]);
-    count += 4;
-  }
-
-  createSimpleProduct('Refrigerante Lata', 600, 'un', catBebidas);
-  createSimpleProduct('Batata Frita', 1200, 'un', catAcompanhamentos);
-  count += 2;
-
-  return count;
-}
-
-function createRoupasDemoProducts(): number {
-  const tamanhoId = productAttributeRepository.create({ name: 'Tamanho', uuid: randomUUID() });
-  const corId = productAttributeRepository.create({ name: 'Cor', uuid: randomUUID() });
-
-  const tamanhoValues = ['P', 'M', 'G', 'GG'].map((v, i) =>
-    productAttributeValueRepository.create({ attribute_id: tamanhoId, value: v, sort_order: i, uuid: randomUUID() }));
-  const corValues = ['Branco', 'Preto', 'Azul'].map((v, i) =>
-    productAttributeValueRepository.create({ attribute_id: corId, value: v, sort_order: i, uuid: randomUUID() }));
-
-  let count = 0;
-  count += generateVariantProduct('Camiseta Básica', 4990, [
-    { attributeId: tamanhoId, valueIds: tamanhoValues },
-    { attributeId: corId, valueIds: corValues },
-  ]);
-  count += generateVariantProduct('Calça Jeans', 12990, [
-    { attributeId: tamanhoId, valueIds: tamanhoValues },
-  ]);
-  return count;
-}
-
-function generateVariantProduct(name: string, priceCents: number, attributeGroups: { attributeId: number; valueIds: number[] }[]): number {
-  const parentId = productRepository.create({
-    name, unit: 'un', price_cents: priceCents, cost_cents: 0, product_type: 'variante', track_stock: 0, uuid: randomUUID(),
-  } as Record<string, unknown>);
-
-  const combos = cartesian(attributeGroups.map((g) => g.valueIds.map((valueId) => ({ attributeId: g.attributeId, valueId }))));
-  let created = 1; // produto pai
-  for (const combo of combos) {
-    const values = productAttributeValueRepository.findByIds(combo.map((c) => c.valueId)) as { id: number; value: string }[];
-    const suffix = values.map((v) => v.value).join(', ');
-    const variantId = productRepository.create({
-      name: `${name} - ${suffix}`, parent_product_id: parentId, product_type: 'variante',
-      unit: 'un', price_cents: priceCents, cost_cents: 0, track_stock: 1, min_stock: 0, active: 1, uuid: randomUUID(),
-    } as Record<string, unknown>);
-    for (const c of combo) {
-      productVariantValueRepository.create({
-        product_id: variantId, attribute_id: c.attributeId, attribute_value_id: c.valueId, uuid: randomUUID(),
-      } as Record<string, unknown>);
-    }
-    created++;
-  }
-  return created;
-}
-
-function cartesian<T>(arrays: T[][]): T[][] {
-  return arrays.reduce<T[][]>((acc, arr) => acc.flatMap((a) => arr.map((b) => [...a, b])), [[]]);
-}
-
-function createDemoCategories(): number {
-  // Categorias de exemplo para restaurante
-  const categorias = [
-    { name: 'Hambúrgueres', image_url: null },
-    { name: 'Bebidas', image_url: null },
-    { name: 'Acompanhamentos', image_url: null },
-    { name: 'Sobremesas', image_url: null },
-  ];
-
-  let count = 0;
-  for (const cat of categorias) {
-    const existing = categoryRepository.rawOne('SELECT id FROM categories WHERE name = ? AND deleted_at IS NULL', cat.name);
-    if (!existing) {
-      categoryRepository.create({ name: cat.name, parent_id: null, uuid: randomUUID() });
-      count++;
-    }
-  }
-  return count;
+/**
+ * A demonstração por ramo mora em `demoCatalog.ts` — categorias + produtos de teste que
+ * cobrem os TIPOS de cadastro de cada ramo (simples, complementos, kits/combos,
+ * variações, ficha técnica, serviços) e o roteamento para o painel de cozinha quando o
+ * ramo faz comida. O catálogo é condicionado aos recursos que ficaram LIGADOS: um kit só
+ * nasce com a capability de kits ativa, senão o produto fica órfão de tela.
+ */
+function buildDemoFlags(active: Set<string>): DemoFlags {
+  return {
+    complementos: active.has('commercial.complementos'),
+    kits: active.has('commercial.kits'),
+    variantes: active.has('commercial.variantes'),
+    producao: active.has('commercial.producao'),
+    kitchen: active.has('foodservice.cozinha'),
+  };
 }
 
 export function provision(req: Request, input: ProvisionInput): ProvisionResult {
@@ -464,6 +351,8 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
 
   let tablesCreated = 0;
   let productsCreated = 0;
+  let categoriesCreated = 0;
+  let kitchenRoutesCreated = 0;
 
   if (input.resetDemoData) {
     settingsRepository.set(DEMO_DATA_KEY, '0');
@@ -477,13 +366,10 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
     // isso, quem desmarcasse "Complementos" ainda receberia sucos com grupo de sabor que
     // o PDV não mostraria, e as 10 mesas apareceriam num sistema sem o módulo de mesas.
     if (features.active.has('comandas.mesas')) tablesCreated = createTables(10);
-    if (input.businessType === 'restaurante') {
-      productsCreated = createRestauranteDemoProducts(features.active.has('commercial.complementos'));
-    } else if (input.businessType === 'roupas' && features.active.has('commercial.variantes')) {
-      productsCreated = createRoupasDemoProducts();
-    }
-    // Criar categorias de exemplo com imagens
-    productsCreated += createDemoCategories();
+    const demo = createDemoCatalog(input.businessType, buildDemoFlags(features.active));
+    productsCreated = demo.productsCreated;
+    categoriesCreated = demo.categoriesCreated;
+    kitchenRoutesCreated = demo.kitchenRoutesCreated;
     settingsRepository.set(DEMO_DATA_KEY, '1');
   }
 
@@ -492,6 +378,8 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
   return {
     tablesCreated,
     productsCreated,
+    categoriesCreated,
+    kitchenRoutesCreated,
     paymentMethodsActive,
     featuresEnabled: features.enabled,
     featuresDisabled: features.disabled,

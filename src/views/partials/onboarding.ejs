@@ -20,32 +20,61 @@
         </p>
       </div>
 
-      <!-- 1: interface e cor -->
+      <!-- 1: ramo do negócio (isolado e primeiro, de propósito)
+           É a resposta mais importante do assistente: ela decide a cor sugerida, os
+           recursos recomendados e o catálogo de produtos de teste de cada ramo. Por isso
+           vem antes do nome e do porte — escolher o ramo primeiro deixa o resto do
+           assistente já "vestido" para aquele tipo de loja. -->
       <div class="wizard-step">
-        <h2 class="wizard-title">Como você prefere navegar?</h2>
-        <p class="wizard-subtitle">Você pode mudar isso depois em Configurações → Interface.</p>
-        <div class="choice-grid">
-          <button type="button" class="choice-card" :class="uiInterface === 'cards' ? 'selected' : ''" @click="chooseInterface('cards')">
-            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            <span class="choice-label">Cartões</span>
-            <span class="choice-desc">Tela inicial com ícones</span>
-          </button>
-          <button type="button" class="choice-card" :class="uiInterface === 'sidebar' ? 'selected' : ''" @click="chooseInterface('sidebar')">
-            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-            <span class="choice-label">Menu lateral</span>
-            <span class="choice-desc">Menu fixo à esquerda</span>
-          </button>
-        </div>
-        <p class="hint" style="margin-top:1rem">Cor de destaque</p>
-        <div class="color-swatch-row">
-          <template x-for="p in KIVO_COLOR_PRESETS" :key="p.id">
-            <button type="button" class="color-swatch" :class="uiColorTheme === p.id ? 'selected' : ''" :style="{ background: p.hex }" @click="chooseColorPreset(p.id)"></button>
+        <h2 class="wizard-title">Qual é o seu ramo?</h2>
+        <p class="wizard-subtitle">
+          Preparamos produtos de teste, recursos e uma cor de destaque para o seu tipo de
+          negócio — você pode mudar tudo isso depois.
+        </p>
+        <div class="choice-grid choice-grid-compacto">
+          <template x-for="t in businessTypes" :key="t.id">
+            <button type="button" class="choice-card" :class="answers.businessType === t.id ? 'selected' : ''"
+                    @click="chooseBranch(t.id)" :title="t.hint">
+              <svg class="choice-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" x-html="t.icon"></svg>
+              <span class="choice-label" x-text="t.label"></span>
+            </button>
           </template>
-          <input type="color" class="color-swatch color-swatch-custom" :value="uiCustomColor" @input="chooseCustomColor($event.target.value)" />
+        </div>
+        <p class="hint" style="margin-top:1rem" x-show="answers.businessType" x-cloak>
+          Escolhido: <strong x-text="branchLabel()"></strong> — cor e catálogo de teste ajustados. Pode avançar.
+        </p>
+      </div>
+
+      <%# 2: sobre o negócio — nome e porte.
+          O ramo já foi escolhido no passo anterior (isolado, porque é a resposta que mais
+          decide o resto do assistente). Aqui ficam o nome — que sai no cabeçalho dos
+          cupons e orçamentos — e o porte. %>
+      <div class="wizard-step">
+        <h2 class="wizard-title">Sobre o seu negócio</h2>
+        <p class="wizard-subtitle">
+          O nome aparece no cabeçalho dos cupons e orçamentos.
+        </p>
+
+        <div class="wizard-campo">
+          <label for="wz-nome">Nome do seu negócio</label>
+          <input id="wz-nome" type="text" class="input" x-model="answers.businessName" maxlength="120"
+                 placeholder="ex.: Padaria da Esquina" autocomplete="organization"
+                 @keydown.enter.prevent="canLeaveDetailsStep() && leaveDetailsStep()" />
+          <p class="error" x-show="businessError" x-cloak x-text="businessError"></p>
+        </div>
+
+        <div class="wizard-campo">
+          <label>Quantas pessoas trabalham no negócio?</label>
+          <div class="wizard-chips">
+            <template x-for="f in employeeRanges" :key="f.id">
+              <button type="button" class="wizard-chip" :class="answers.employeeRange === f.id ? 'selected' : ''"
+                      @click="answers.employeeRange = f.id" x-text="f.label"></button>
+            </template>
+          </div>
         </div>
       </div>
 
-      <!-- 2: onde vai usar -->
+      <!-- 3: onde vai usar -->
       <div class="wizard-step">
         <h2 class="wizard-title">Onde você vai usar o Kivo?</h2>
         <p class="wizard-subtitle">Isso ajuda a deixar as telas certas em destaque pra você.</p>
@@ -68,51 +97,35 @@
         </div>
       </div>
 
-      <%# 3: sobre o negócio — nome, porte e ramo.
-          As três perguntas moram no mesmo passo porque respondem a uma coisa só ("quem é
-          essa loja"), e separá-las viraria três telas de uma pergunta cada. Diferente dos
-          passos 2 e 3 antigos, este NÃO avança sozinho ao clicar num cartão: o nome é
-          digitado, e pular fora dele engoliria o que o lojista ainda ia escrever. %>
+      <!-- 4: interface e cor -->
       <div class="wizard-step">
-        <h2 class="wizard-title">Sobre o seu negócio</h2>
-        <p class="wizard-subtitle">
-          O nome aparece no cabeçalho dos cupons e orçamentos. O resto ajuda a deixar as
-          telas certas em destaque pra você.
+        <h2 class="wizard-title">Como você prefere navegar?</h2>
+        <p class="wizard-subtitle">Você pode mudar isso depois em Configurações → Interface.</p>
+        <div class="choice-grid">
+          <button type="button" class="choice-card" :class="uiInterface === 'cards' ? 'selected' : ''" @click="chooseInterface('cards')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span class="choice-label">Cartões</span>
+            <span class="choice-desc">Tela inicial com ícones</span>
+          </button>
+          <button type="button" class="choice-card" :class="uiInterface === 'sidebar' ? 'selected' : ''" @click="chooseInterface('sidebar')">
+            <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            <span class="choice-label">Menu lateral</span>
+            <span class="choice-desc">Menu fixo à esquerda</span>
+          </button>
+        </div>
+        <p class="hint" style="margin-top:1rem">Cor de destaque</p>
+        <p class="hint" x-show="branchHasColorSuggestion()" x-cloak style="margin:.35rem 0 0">
+          Sugerimos uma cor para o ramo que você escolheu — pode trocar à vontade.
         </p>
-
-        <div class="wizard-campo">
-          <label for="wz-nome">Nome do seu negócio</label>
-          <input id="wz-nome" type="text" class="input" x-model="answers.businessName" maxlength="120"
-                 placeholder="ex.: Padaria da Esquina" autocomplete="organization"
-                 @keydown.enter.prevent="canLeaveBusinessStep() && next()" />
-          <p class="error" x-show="businessError" x-cloak x-text="businessError"></p>
-        </div>
-
-        <div class="wizard-campo">
-          <label>Quantas pessoas trabalham no negócio?</label>
-          <div class="wizard-chips">
-            <template x-for="f in employeeRanges" :key="f.id">
-              <button type="button" class="wizard-chip" :class="answers.employeeRange === f.id ? 'selected' : ''"
-                      @click="answers.employeeRange = f.id" x-text="f.label"></button>
-            </template>
-          </div>
-        </div>
-
-        <div class="wizard-campo">
-          <label>Qual é o ramo?</label>
-          <div class="choice-grid choice-grid-compacto">
-            <template x-for="t in businessTypes" :key="t.id">
-              <button type="button" class="choice-card" :class="answers.businessType === t.id ? 'selected' : ''"
-                      @click="answers.businessType = t.id">
-                <svg class="choice-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" x-html="t.icon"></svg>
-                <span class="choice-label" x-text="t.label"></span>
-              </button>
-            </template>
-          </div>
+        <div class="color-swatch-row">
+          <template x-for="p in KIVO_COLOR_PRESETS" :key="p.id">
+            <button type="button" class="color-swatch" :class="uiColorTheme === p.id ? 'selected' : ''" :style="{ background: p.hex }" @click="chooseColorPreset(p.id)"></button>
+          </template>
+          <input type="color" class="color-swatch color-swatch-custom" :value="uiCustomColor" @input="chooseCustomColor($event.target.value)" />
         </div>
       </div>
 
-      <!-- 4: recursos -->
+      <!-- 5: recursos -->
       <div class="wizard-step">
         <h2 class="wizard-title">O que você vai usar?</h2>
         <p class="wizard-subtitle">
@@ -137,7 +150,7 @@
         </div>
       </div>
 
-      <!-- 5: formas de pagamento -->
+      <!-- 6: formas de pagamento -->
       <div class="wizard-step">
         <h2 class="wizard-title">Formas de pagamento</h2>
         <p class="wizard-subtitle">Marque as que você aceita — dá pra mudar depois em Configurações.</p>
@@ -152,7 +165,7 @@
         </div>
       </div>
 
-      <!-- 6: resumo -->
+      <!-- 7: resumo -->
       <div class="wizard-step">
         <div class="wizard-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -164,18 +177,12 @@
             <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
             <span>10 mesas já cadastradas, prontas pra usar</span>
           </div>
-          <div class="wizard-summary-item" x-show="answers.businessType === 'restaurante'">
-            <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-            <!-- Sem o recurso de complementos, os produtos de exemplo saem sem os grupos
-                 de adicionais: prometer "com complementos" aqui seria mentira. -->
-            <span x-text="featureKeys.includes('commercial.complementos')
-              ? 'Produtos de exemplo (suco, lanche…) com complementos, prontos pro PDV'
-              : 'Produtos de exemplo (suco, lanche…) prontos pro PDV'"></span>
-          </div>
-          <div class="wizard-summary-item" x-show="willCreateVariantProducts()">
-            <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-            <span>Produtos de exemplo com variações de tamanho e cor</span>
-          </div>
+          <template x-for="h in demoHighlights()" :key="h">
+            <div class="wizard-summary-item">
+              <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span x-text="h"></span>
+            </div>
+          </template>
           <div class="wizard-summary-item" x-show="selectedFeatureLabels().length">
             <span class="wizard-summary-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
             <span x-text="'Recursos ativos: ' + selectedFeatureLabels().join(', ')"></span>
@@ -196,7 +203,7 @@
         <div class="error" x-text="error"></div>
       </div>
 
-      <!-- 7: sucesso -->
+      <!-- 8: sucesso -->
       <div class="wizard-step">
         <div class="wizard-icon" style="background:var(--primary);color:#fff">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
@@ -216,21 +223,21 @@
     <button type="button" class="btn secondary" @click="skipWizard()" x-show="step === 0 && mode === 'first-run'">Pular por agora</button>
     <button type="button" class="btn secondary" @click="close()" x-show="step === 0 && mode === 'reopen'">Fechar</button>
     <div class="spacer"></div>
+    <%# O ramo (passo 1) e o uso (passo 3) avançam sozinhos ao clicar no cartão — por isso
+        não têm botão próprio. O passo do nome (2) precisa de botão: é campo digitado. %>
     <button type="button" class="btn" @click="next()" x-show="step === 0">
       Vamos lá
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
-    <button type="button" class="btn" @click="next()" x-show="step === 1">Continuar</button>
-    <%# O passo 3 (sobre o negócio) não avança sozinho: tem campo digitado, e só libera com
-        nome e ramo preenchidos — é o que o assistente precisa saber para configurar. %>
-    <button type="button" class="btn" @click="leaveBusinessStep()" x-show="step === 3"
-            :disabled="!canLeaveBusinessStep()">Continuar</button>
+    <button type="button" class="btn" @click="leaveDetailsStep()" x-show="step === 2"
+            :disabled="!canLeaveDetailsStep()">Continuar</button>
     <button type="button" class="btn" @click="next()" x-show="step === 4">Continuar</button>
-    <button type="button" class="btn" @click="next()" x-show="step === 5" :disabled="!paymentMethods.length">Continuar</button>
-    <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 6 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
-    <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 6" :disabled="loading">
+    <button type="button" class="btn" @click="next()" x-show="step === 5">Continuar</button>
+    <button type="button" class="btn" @click="next()" x-show="step === 6" :disabled="!paymentMethods.length">Continuar</button>
+    <button type="button" class="btn secondary" @click="finish(true, true)" x-show="step === 7 && mode === 'reopen'" :disabled="loading">Regenerar dados de exemplo</button>
+    <button type="button" class="btn" @click="finish(mode === 'first-run')" x-show="step === 7" :disabled="loading">
       <span x-text="loading ? 'Configurando…' : (mode === 'first-run' ? 'Concluir e configurar' : 'Salvar preferências')"></span>
     </button>
-    <button type="button" class="btn" @click="close()" x-show="step === 7">Ir para o sistema</button>
+    <button type="button" class="btn" @click="close()" x-show="step === 8">Ir para o sistema</button>
   </div>
 </dialog>

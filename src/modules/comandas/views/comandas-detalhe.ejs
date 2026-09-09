@@ -55,7 +55,14 @@
             <div class="comanda-item-qty" x-show="!isOpen || (item.line_group_uuid && idx > 0 && items[idx-1]?.line_group_uuid === item.line_group_uuid)" x-text="(item.qty % 1 === 0 ? item.qty : item.qty.toFixed(3)) + 'x'"></div>
             <div class="qty-wrap" x-show="isOpen && !(item.line_group_uuid && idx > 0 && items[idx-1]?.line_group_uuid === item.line_group_uuid)">
               <button type="button" class="qty-btn" @click="changeItemQty(item, -1)" title="Diminuir">−</button>
-              <input type="number" :step="isFractionalUnit(item.unit) ? '0.001' : '1'" :min="isFractionalUnit(item.unit) ? '0.001' : '1'" :value="item.qty % 1 === 0 ? item.qty : Number(item.qty).toFixed(3).replace('.',',')" @change="onQtyInput(item, $event.target.value)" @focus="$event.target.select()" :title="isFractionalUnit(item.unit) ? 'Qtd em ' + item.unit : 'Qtd inteira'" />
+              <%# x-model.number + step="any" (mesmo padrão do PDV): sem isso o valor era
+                  formatado com vírgula num <input type="number">, que o navegador não
+                  entende — o campo aparecia vazio (qtd "zerada") para unidade fracionada.
+                  @change/@keydown.enter: mesmo sem sair do campo (Enter) a quantidade é
+                  gravada. %>
+              <input type="number" step="any" :min="isFractionalUnit(item.unit) ? '0.001' : '1'" x-model.number="item.qty"
+                     @change="onQtyInput(item)" @keydown.enter.prevent="onQtyInput(item)"
+                     @focus="$event.target.select()" :title="isFractionalUnit(item.unit) ? 'Qtd em ' + item.unit : 'Qtd inteira'" />
               <button type="button" class="qty-btn" @click="changeItemQty(item, 1)" title="Aumentar">+</button>
             </div>
             <div x-show="item.line_group_uuid && idx > 0 && items[idx-1]?.line_group_uuid === item.line_group_uuid" style="color:var(--text-muted)">↳</div>
@@ -677,9 +684,9 @@
           if (fractional) newQty = Math.round(newQty * 1000) / 1000;
           await this.updateItemQty(item, newQty);
         },
-        async onQtyInput(item, val) {
-          const v = this.parseQty(val);
-          if (!(v>0) || isNaN(v)) { showToast('Quantidade deve ser positiva.', 'error'); await this.load(); return; }
+        async onQtyInput(item) {
+          const v = Number(item.qty);
+          if (!Number.isFinite(v) || !(v > 0)) { showToast('Quantidade deve ser positiva.', 'error'); await this.load(); return; }
           const fractional = this.isFractionalUnit(item.unit);
           if (!fractional && !Number.isInteger(v)) { showToast('Produto com unidade "'+(item.unit||'un')+'" só aceita quantidade inteira.', 'error'); await this.load(); return; }
           await this.updateItemQty(item, v);

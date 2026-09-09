@@ -81,7 +81,7 @@ export class ComandaItemRepository extends BaseRepository {
 
   findInComanda(itemId: number, comandaId: number): Row | undefined {
     return this.rawOne(
-      "SELECT id, voided_at FROM comanda_items WHERE id = ? AND comanda_id = ? AND deleted_at IS NULL",
+      "SELECT id, voided_at, product_id FROM comanda_items WHERE id = ? AND comanda_id = ? AND deleted_at IS NULL",
       itemId, comandaId,
     );
   }

@@ -225,6 +225,31 @@ async function main() {
   const ticketsAfterClose = (db.prepare('SELECT COUNT(*) c FROM kitchen_tickets').get() as { c: number }).c;
   check('fechar comanda não cria ticket duplicado', ticketsAfterClose === ticketsBeforeClose, `antes=${ticketsBeforeClose} depois=${ticketsAfterClose}`);
 
+  // ── "Pedido pronto" na grade de mesas: ticket 'pronto' da comanda sinaliza a mesa ──
+  const gridReadyCount = async (tableId: number): Promise<number> => {
+    const rows = await unwrap<{ id: number; kitchen_ready_count?: number }[]>(
+      await api('/api/comandas/tables/status', {}, admin!),
+    );
+    const found = rows.find((r) => r.id === tableId);
+    return found?.kitchen_ready_count ?? 0;
+  };
+  const mesa = await unwrap<{ id: number }>(
+    await api('/api/comandas/tables', { method: 'POST', body: JSON.stringify({ label: 'Mesa Grade' }) }, admin!),
+  );
+  const comandaMesa = await unwrap<{ id: number }>(
+    await api('/api/comandas/comandas', { method: 'POST', body: JSON.stringify({ tableId: mesa.id }) }, admin!),
+  );
+  await api(`/api/comandas/comandas/${comandaMesa.id}/items`, { method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 1 }) }, admin!);
+  await api(`/api/comandas/comandas/${comandaMesa.id}/enviar-cozinha`, { method: 'POST' }, admin!);
+  const ticketMesa = db.prepare("SELECT id FROM kitchen_tickets WHERE source_type = 'comanda' AND source_id = ?").get(comandaMesa.id) as { id: number };
+  check('mesa ainda sem pedido pronto na grade', (await gridReadyCount(mesa.id)) === 0);
+  check('cozinha marca o pedido pronto',
+    (await api(`/api/foodservice/kitchen/tickets/${ticketMesa.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'pronto' }) }, admin!)).status === 200);
+  check('grade sinaliza a mesa com pedido pronto', (await gridReadyCount(mesa.id)) > 0);
+  check('garçom marca como entregue',
+    (await api(`/api/foodservice/kitchen/tickets/${ticketMesa.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'entregue' }) }, admin!)).status === 200);
+  check('entregue tira o sinal de pedido pronto da mesa', (await gridReadyCount(mesa.id)) === 0);
+
   // Desliga a capability de novo -> volta a bloquear
   check('desliga capability foodservice.cozinha',
     (await api('/api/core/capabilities/foodservice.cozinha', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, admin!)).status === 200);

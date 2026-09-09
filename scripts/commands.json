@@ -103,6 +103,10 @@
     "description": "Testes: cargos prontos, cadastros padrao e recursos do assistente",
     "run": "node scripts/test-isolated.js src/tests/onboarding-permissoes.ts"
   },
+  "test:product-images": {
+    "description": "Testes: preenchimento em lote de imagens de produtos sem foto",
+    "run": "node scripts/test-isolated.js src/tests/product-image-autofill.ts"
+  },
   "test:pdv-tipos": {
     "description": "Testes: PDV lê e vende todos os tipos de produto",
     "run": "node scripts/test-isolated.js src/tests/pdv-tipos-produto.ts"
@@ -234,6 +238,10 @@
   "test:comandas": {
     "description": "Testes: comandas / mesas",
     "run": "tsx src/tests/fase_comandas.ts"
+  },
+  "test:comanda-qty": {
+    "description": "Testes: atualizar quantidade/remover item de comanda (preço não zera)",
+    "run": "node scripts/test-isolated.js src/tests/comanda-qty-price.ts"
   },
   "test:license-profile": {
     "description": "Testes: perfil de empresa que desce na ativação (offline)",

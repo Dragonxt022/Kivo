@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
+import { getService, hasService } from '../../../core/services/registry';
+import type { FoodserviceKitchenService } from '../../foodservice/setup';
 import { openComanda, addItem, updateItemNotes, updateItemQty, sendToKitchen, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
 import { storeTableRepository } from '../repositories/StoreTableRepository';
 import { comandaRepository, comandaItemRepository } from '../repositories/ComandaRepository';
@@ -21,7 +23,7 @@ export const comandasController = {
    * de `c` da própria linha do máximo — a comanda mais recente.
    */
   listTableStatus(_req: Request, res: Response) {
-    res.json(storeTableRepository.raw(
+    const tables = storeTableRepository.raw(
       `SELECT t.*, MAX(c.id) AS comanda_id, c.ready_for_payment_at
          FROM store_tables t
          LEFT JOIN comandas c
@@ -29,7 +31,25 @@ export const comandasController = {
         WHERE t.deleted_at IS NULL
         GROUP BY t.id
         ORDER BY t.sort_order`,
-    ));
+    ) as Record<string, unknown>[];
+
+    // Tickets 'pronto' da cozinha por comanda aberta: a mesa ganha o selo "Pedido
+    // pronto" quando existe algo aguardando o garçom levar. Melhor via serviço do
+    // foodservice (regra de cross-module) — sem módulo, campo fica 0.
+    const readyByComanda = new Map<number, number>();
+    if (hasService('foodservice.kitchen')) {
+      const comandaIds = tables
+        .map((t) => Number(t.comanda_id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+      for (const row of getService<FoodserviceKitchenService>('foodservice.kitchen').readyTicketCountByComanda(comandaIds)) {
+        readyByComanda.set(row.comandaId, row.readyCount);
+      }
+    }
+
+    res.json(tables.map((t) => {
+      const comandaId = Number(t.comanda_id);
+      return { ...t, kitchen_ready_count: Number.isFinite(comandaId) && comandaId > 0 ? (readyByComanda.get(comandaId) ?? 0) : 0 };
+    }));
   },
 
   createTable(req: Request, res: Response) {
