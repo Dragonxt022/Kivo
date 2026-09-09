@@ -38,6 +38,16 @@
           Importar / Exportar
         </button>
       <% } %>
+      <% if (user.permissions.has('commercial.products.edit')) { %>
+        <%# Preenchimento em lote de imagens: discreto, só ícone ao lado do importar/exportar.
+            Age sobre a aba ativa (Produtos ou Complementos) — o tooltip diz qual. %>
+        <button type="button" class="icon-btn fill-imgs-btn" @click="fillMissingImages()"
+                :disabled="fillImgsLoading"
+                :title="fillImgsLoading ? 'Buscando imagens…' : 'Preencher imagens sem foto — ' + fillScopeLabel()"
+                aria-label="Preencher imagens sem foto">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </button>
+      <% } %>
       <span class="toolbar-spacer"></span>
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
@@ -1543,6 +1553,11 @@
       </div>
     </dialog>
   </main>
+  <style>
+    .fill-imgs-btn { color: var(--text-muted); }
+    .fill-imgs-btn:hover { color: var(--text); }
+    .fill-imgs-btn:disabled { opacity: .55; cursor: progress; }
+  </style>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/barcode.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
@@ -1559,6 +1574,7 @@
         rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false, imgSearchError: '',
+        fillImgsLoading: false,
         selectedCategoryImage: '',
         // Variantes
         variants: [], attributes: [], attrValues: {}, attrEditId: null, attrEditName: '', attrValEditId: null, attrValEditName: '',
@@ -1916,6 +1932,45 @@
           this.form.newImagePreview = null; this.form.imageUrl = null;
           this.form.pendingImageBase64 = null; this.form.pendingImageUrl = null;
           this.form.removeImage = true;
+        },
+        /**
+         * Preenchimento em lote de imagens SEM foto da aba ativa (ver
+         * productImageAutofill.ts). Roda local (copia foto de item igual) e, com
+         * internet, consulta o banco de imagens — sem gate de plano.
+         */
+        fillScope() { return this.productTab === 'complementos' ? 'complementos' : 'produtos'; },
+        fillScopeLabel() { return this.productTab === 'complementos' ? 'aba Complementos' : 'aba Produtos'; },
+        async fillMissingImages() {
+          const rotulo = this.fillScope() === 'complementos' ? 'os complementos' : 'os produtos';
+          if (!await window.confirmDlg(
+            `Buscar imagens para ${rotulo} sem foto? O Kivo reaproveita a foto de um ` +
+            'item igual (mesmo código de barras/SKU/nome) e, com internet, usa o banco ' +
+            'de imagens do Kivo Cloud — funciona em qualquer plano.',
+          )) return;
+          this.fillImgsLoading = true;
+          try {
+            const r = await fetch('/api/commercial/products/images/autofill', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ scope: this.fillScope() }),
+            });
+            const d = r.ok ? await r.json() : { error: (await r.json()).error ?? 'Falha ao preencher imagens.' };
+            if (!r.ok) { showToast(d.error, 'error'); return; }
+            const partes = [];
+            if (d.filledLocal) partes.push(`${d.filledLocal} copiada(s) de item igual`);
+            if (d.filledCloud) partes.push(`${d.filledCloud} do banco de imagens`);
+            if (!partes.length) {
+              if (!d.scanned) showToast('Nenhum item sem foto.', 'success');
+              else if (d.offline) showToast('Nenhuma foto equivalente localmente (banco de imagens indisponível).', 'info');
+              else showToast('Nenhuma foto correspondente encontrada.', 'info');
+              return;
+            }
+            let msg = 'Imagens preenchidas: ' + partes.join(' e ') + '.';
+            if (d.stillMissing) msg += ` ${d.stillMissing} ainda sem foto${d.limited ? ' — rode de novo para continuar.' : '.'}`;
+            showToast(msg, 'success');
+            this.load();
+          } finally {
+            this.fillImgsLoading = false;
+          }
         },
         async searchCatalogImages() {
           const q = (this.form.name || '').trim();

@@ -39,6 +39,23 @@ export class KitchenTicketRepository extends BaseRepository {
   updateStatus(id: number, status: string): void {
     this.update(id, { status } as unknown as Partial<Row>);
   }
+
+  /**
+   * Quantos tickets 'pronto' (aguardando o garçom levar — a coluna "Prontos" do KDS)
+   * cada comanda tem. A grade de mesas consome via serviço para marcar "pedido pronto".
+   */
+  readyCountByComanda(comandaIds: number[]): { comanda_id: number; ready_count: number }[] {
+    if (!comandaIds.length) return [];
+    const ph = comandaIds.map(() => '?').join(',');
+    return this.raw(
+      `SELECT source_id AS comanda_id, COUNT(*) AS ready_count
+         FROM kitchen_tickets
+        WHERE deleted_at IS NULL AND source_type = 'comanda'
+          AND source_id IN (${ph}) AND status = 'pronto'
+        GROUP BY source_id`,
+      ...comandaIds,
+    ) as { comanda_id: number; ready_count: number }[];
+  }
 }
 
 export const kitchenTicketRepository = new KitchenTicketRepository();

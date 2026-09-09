@@ -26,16 +26,28 @@ export const foodserviceController = {
     ) as { id: number; deleted_at: string | null } | undefined;
     if (!product || product.deleted_at) { res.status(404).json({ error: 'Produto nao encontrado.' }); return; }
     const existing = kitchenRoutingRepository.rawOne(
-      'SELECT id FROM kitchen_routing WHERE product_id = ? AND deleted_at IS NULL', productId,
-    );
-    if (existing) { res.status(409).json({ error: 'Produto ja esta roteado para a cozinha.' }); return; }
-    const id = kitchenRoutingRepository.create({
-      product_id: productId,
-      station: station ?? null,
-      estimated_minutes: estimatedMinutes ?? null,
-      uuid: randomUUID(),
-      origin_machine: req.headers['x-machine'] ?? null,
-    });
+      'SELECT id, deleted_at FROM kitchen_routing WHERE product_id = ?', productId,
+    ) as { id: number; deleted_at: string | null } | undefined;
+    if (existing && !existing.deleted_at) { res.status(409).json({ error: 'Produto ja esta roteado para a cozinha.' }); return; }
+    let id: number;
+    if (existing) {
+      // Removido antes (soft delete) e agora re-adicionado: a UNIQUE(product_id) impede
+      // um novo INSERT na mesma linha, então reativa a linha existente em vez de criar.
+      kitchenRoutingRepository.update(existing.id, {
+        deleted_at: null,
+        station: station ?? null,
+        estimated_minutes: estimatedMinutes ?? null,
+      });
+      id = existing.id;
+    } else {
+      id = kitchenRoutingRepository.create({
+        product_id: productId,
+        station: station ?? null,
+        estimated_minutes: estimatedMinutes ?? null,
+        uuid: randomUUID(),
+        origin_machine: req.headers['x-machine'] ?? null,
+      });
+    }
     audit(req, 'criar_roteamento_cozinha', 'kitchen_routing', id);
     res.status(201).json({ id });
   },

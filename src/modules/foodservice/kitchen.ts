@@ -87,6 +87,14 @@ export function listTickets(statusFilter?: string[]): unknown[] {
   return kitchenTicketRepository.listByStatus(statusFilter) as unknown[];
 }
 
+/** Tickets 'pronto' por comanda — a grade de mesas usa para sinalizar "pedido pronto". */
+export function readyTicketCountByComanda(comandaIds: number[]): { comandaId: number; readyCount: number }[] {
+  return kitchenTicketRepository.readyCountByComanda(comandaIds).map((r) => ({
+    comandaId: r.comanda_id,
+    readyCount: Number(r.ready_count),
+  }));
+}
+
 export function getTicketItems(ticketId: number): unknown[] {
   return kitchenTicketItemRepository.listByTicket(ticketId) as unknown[];
 }

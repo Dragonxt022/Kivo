@@ -14,6 +14,7 @@ import { moveStock } from './stock';
 import { resolveMany } from './pricing';
 import { validateImageBuffer } from '../../core/catalog/imageValidation';
 import { runSync } from '../../core/sync/engine';
+import { autofillMissingProductImages } from './productImageAutofill';
 import {
   productImagesDir, saveLocalProductImage, queueProductImageSubmission, trySubmitPending,
   cloudBaseUrl, cloudAuthHeaders,
@@ -88,26 +89,6 @@ function friendlyUniqueError(e: unknown): string | null {
   return null;
 }
 
-function prepareProductImage(b: Record<string, unknown>): {
-  imageUrl?: string | null; buf?: Buffer; submit?: boolean; error?: string;
-} {
-  if (b.removeImage) return { imageUrl: null };
-  if (b.imageUrl) return { imageUrl: String(b.imageUrl) };
-  if (b.imageBase64) {
-    let buf: Buffer;
-    try {
-      buf = Buffer.from(String(b.imageBase64), 'base64');
-    } catch {
-      return { error: 'Imagem inválida.' };
-    }
-    const check = validateImageBuffer(buf);
-    if (!check.ok) return { error: check.error };
-    const imageUrl = saveLocalProductImage(buf, check.format);
-    return { imageUrl, buf, submit: b.submitToCatalog !== false };
-  }
-  return {};
-}
-
 function deleteLocalImageIfOwned(imageUrl: string | null | undefined): void {
   if (!imageUrl || !imageUrl.startsWith('/uploads/products/')) return;
   try {
@@ -124,7 +105,6 @@ function findExistingProductImage(b: Record<string, unknown>): string | null {
 
   if (!barcode && !sku && !name) return null;
 
-  const db = productRepository.raw.bind(productRepository);
   const where: string[] = ['p.deleted_at IS NULL', 'p.image_url IS NOT NULL', 'p.image_url != \'\''];
   const params: unknown[] = [];
 
@@ -220,6 +200,24 @@ router.get('/products/image-search', requirePermission('commercial.products.view
     res.json({ results: results.map((it) => ({ id: it.id, name: it.name, url: `/api/commercial/products/catalog-image/${it.id}` })) });
   } catch {
     res.json({ results: [], offline: true });
+  }
+});
+
+router.post('/products/images/autofill', requirePermission('commercial.products.edit'), async (req, res) => {
+  /**
+   * Preenche em lote a foto de produtos SEM imagem (ver productImageAutofill.ts).
+   * `scope` diz a aba ativa na tela: 'produtos' (padrão) ou 'complementos' — o mesmo
+   * endpoint atende as duas, cada rodada varre só o escopo pedido.
+   * Sem gate de plano: a camada local é offline e a busca na nuvem não exige assinatura.
+   */
+  try {
+    const scope = req.body?.scope === 'complementos' ? 'complementos' : 'produtos';
+    const result = await autofillMissingProductImages(scope);
+    audit(req, 'preencher_imagens_auto', 'product', undefined, null, { ...result, scope });
+    res.json(result);
+  } catch (e) {
+    log.error('falha no autofill de imagens', e);
+    res.status(500).json({ error: 'Falha ao preencher imagens. Tente novamente.' });
   }
 });
 

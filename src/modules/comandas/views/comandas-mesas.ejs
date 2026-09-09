@@ -20,6 +20,16 @@
         Nova mesa
       </button>
       <% } %>
+      <%# Som de "pedido pronto": quando a cozinha marca um pedido pronto, a grade toca
+          um som e pisca a mesa — aviso pro garçom levar sem ficar olhando o painel.
+          Fica no aparelho (localStorage), como o som de novo pedido do painel. %>
+      <button type="button" class="icon-btn mesas-som-btn" :class="somProntoAtivo ? 'mesas-som-on' : ''"
+              @click="toggleSomPronto()"
+              :title="somProntoAtivo ? 'Desligar o som de pedido pronto' : 'Ligar o som de pedido pronto'"
+              aria-label="Som de pedido pronto">
+        <svg x-show="somProntoAtivo" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        <svg x-show="!somProntoAtivo" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
       <span class="error" x-text="error"></span>
     </div>
 
@@ -27,7 +37,7 @@
       <template x-for="t in tables" :key="t.id">
         <div class="table-card"
              :data-id="t.id"
-             :class="[t.status === 'livre' ? 'table-livre' : 'table-ocupada', t.ready_for_payment_at ? 'table-quer-pagar' : '', canManage ? 'drag-enabled' : '', dragId === t.id ? 'dragging' : '', dropOverId === t.id ? 'drop-target' : '']"
+             :class="[t.status === 'livre' ? 'table-livre' : 'table-ocupada', t.ready_for_payment_at ? 'table-quer-pagar' : '', kitchenReady(t) ? 'table-pedido-pronto' : '', flashReady(t) ? 'table-pronto-flash' : '', canManage ? 'drag-enabled' : '', dragId === t.id ? 'dragging' : '', dropOverId === t.id ? 'drop-target' : '']"
              @pointerdown="onCardPointerDown($event, t)">
           <% if (user.permissions.has('comandas.tables.manage')) { %>
           <button type="button" class="icon-btn table-remove" x-show="t.status === 'livre'"
@@ -46,12 +56,16 @@
               </template>
             </div>
             <div class="table-label" x-text="t.label"></div>
-            <%# O aviso do garçom substitui o "Ocupada": para o caixa, saber que a mesa
-                chamou a conta é a informação que importa naquele instante. %>
+            <%# "Pedido pronto" (a cozinha marcou — selo verde) e "Quer pagar" (o garçom
+                chamou o caixa — selo azul) são avisos independentes: os dois podem
+                aparecer juntos. Sem eles, o selo é o estado da mesa (Livre/Ocupada). %>
+            <template x-if="kitchenReady(t)">
+              <span class="badge pedido-pronto">Pedido pronto</span>
+            </template>
             <template x-if="t.ready_for_payment_at">
               <span class="badge quer-pagar">Quer pagar</span>
             </template>
-            <template x-if="!t.ready_for_payment_at">
+            <template x-if="!kitchenReady(t) && !t.ready_for_payment_at">
               <span class="badge" :class="t.status === 'livre' ? 'ok' : 'off'" x-text="t.status === 'livre' ? 'Livre' : 'Ocupada'"></span>
             </template>
           </button>
@@ -82,6 +96,9 @@
     </dialog>
   </main>
   <style>
+    /* Verde de "pedido pronto": nem o vermelho de ocupada, nem o laranja de quer pagar. */
+    :root { --mesa-pronto: #16a34a; --mesa-pronto-bg: color-mix(in srgb, #16a34a 13%, transparent); }
+    :root[data-theme="dark"] { --mesa-pronto: #4ade80; --mesa-pronto-bg: color-mix(in srgb, #4ade80 15%, transparent); }
     .tables-grid {
       display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem;
     }
@@ -108,6 +125,26 @@
     .table-card.table-livre:hover { border-color: var(--primary); box-shadow: 0 8px 24px color-mix(in srgb, var(--primary) 16%, transparent); }
     .table-card.table-ocupada:hover { border-color: var(--danger); box-shadow: 0 8px 24px color-mix(in srgb, var(--danger) 16%, transparent); }
     .table-card.table-ocupada { background: var(--danger-bg); }
+    /* Mesa com pedido pronto (a cozinha marcou): o garçom precisa achar de longe que
+       tem coisa para levar. Regras vêm ANTES do quer-pagar — se a mesa também chamou a
+       conta, o destaque azul do caixa prevalece e o selo verde segue no card. */
+    .table-card.table-pedido-pronto {
+      background: var(--mesa-pronto-bg);
+      border-color: var(--mesa-pronto);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--mesa-pronto) 35%, transparent);
+    }
+    .table-card.table-pedido-pronto .table-icon { background: color-mix(in srgb, var(--mesa-pronto) 18%, transparent); color: var(--mesa-pronto); }
+    .badge.pedido-pronto { background: var(--mesa-pronto); color: #fff; font-weight: 700; }
+    /* Recém-pronto: pulso por alguns segundos pra chamar o olho; some sozinho (a classe
+       é removida no JS ~8s depois de detectar a virada pra pronto). */
+    .table-card.table-pedido-pronto.table-pronto-flash { animation: mesa-pronto-pulse 1.1s ease-in-out 4; }
+    @keyframes mesa-pronto-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--mesa-pronto) 35%, transparent); }
+      50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--mesa-pronto) 55%, transparent); }
+    }
+    .mesas-som-btn { color: var(--text-muted); }
+    .mesas-som-btn:hover { color: var(--text); }
+    .mesas-som-btn.mesas-som-on { color: var(--mesa-pronto); }
     /* Mesa que chamou a conta: destaque próprio para o caixa achar de longe, sem se
        confundir com o vermelho de "ocupada" — são estados diferentes. */
     .table-card.table-quer-pagar {
@@ -157,6 +194,13 @@
         canManage: !!canManage,
         dragId: null,
         dropOverId: null,
+        // Som de "pedido pronto": preferência no aparelho (localStorage). `knownReady`
+        // é o baseline das mesas já com pedido pronto — carregar a página não dispara
+        // sirene para o que já estava lá; só para a virada (novo pedido pronto).
+        somProntoAtivo: localStorage.getItem('mesas-som-pronto') === '1',
+        audioPronto: null,
+        knownReady: null,
+        flashIds: [],
         async init() {
           await this.load();
           this.pollTimer = setInterval(() => this.load(), 10000);
@@ -164,8 +208,48 @@
         async load() {
           if (this.dragId !== null) return;
           const r = await fetch('/api/comandas/tables/status');
-          if (r.ok) { this.tables = await r.json(); return; }
-          window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar mesas.');
+          if (!r.ok) { window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar mesas.'); return; }
+          const next = await r.json();
+          // Detecta mesas que ACABARAM de ficar com pedido pronto: pisca o card sempre;
+          // o som e o toast só quando a página estava aberta (knownReady já setado) —
+          // abrir a tela com pedido pronto não toca sirene.
+          const agora = new Set(next.filter((t) => this.kitchenReady(t)).map((t) => t.id));
+          const tinhaBaseline = this.knownReady !== null;
+          const novos = tinhaBaseline ? [...agora].filter((id) => !this.knownReady.has(id)) : [...agora];
+          this.knownReady = agora;
+          if (novos.length) {
+            // Pisca o card sempre (inclusive ao abrir a tela já com pedido pronto).
+            this.flashTables(novos);
+            // Som e toast só para a virada com a página aberta — abrir a tela com
+            // pedido pronto não toca sirene.
+            if (tinhaBaseline) {
+              const labels = next.filter((t) => novos.includes(t.id)).map((t) => t.label);
+              if (labels.length) showToast('Pedido pronto: ' + labels.join(', ') + '.', 'success');
+              if (this.somProntoAtivo) this.playPronto();
+            }
+          }
+          this.tables = next;
+        },
+        kitchenReady(t) { return (t.kitchen_ready_count || 0) > 0; },
+        flashReady(t) { return this.flashIds.includes(t.id); },
+        flashTables(ids) {
+          ids.forEach((id) => {
+            if (!this.flashIds.includes(id)) this.flashIds.push(id);
+            setTimeout(() => { this.flashIds = this.flashIds.filter((x) => x !== id); }, 8000);
+          });
+        },
+        toggleSomPronto() {
+          this.somProntoAtivo = !this.somProntoAtivo;
+          localStorage.setItem('mesas-som-pronto', this.somProntoAtivo ? '1' : '0');
+          if (this.somProntoAtivo) { showToast('Som de pedido pronto ativado.', 'success'); this.playPronto(); }
+          else showToast('Som de pedido pronto desligado.', 'info');
+        },
+        playPronto() {
+          try {
+            if (!this.audioPronto) this.audioPronto = new Audio('/sons/pedido.mp3');
+            this.audioPronto.currentTime = 0;
+            this.audioPronto.play().catch(() => { /* autoplay bloqueado — nada que fazer */ });
+          } catch { /* áudio indisponível não pode travar a grade */ }
         },
         onCardPointerDown(e, t) {
           if (!this.canManage || e.pointerType === 'mouse' && e.button !== 0) return;

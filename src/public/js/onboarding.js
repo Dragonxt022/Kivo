@@ -3,7 +3,7 @@ function onboardingWizard() {
     open: false,
     mode: 'first-run', // 'first-run' | 'reopen'
     step: 0,
-    totalSteps: 8,
+    totalSteps: 9,
     answers: {
       usage: null, businessType: null, activePaymentMethodIds: [],
       businessName: '', employeeRange: null,
@@ -20,29 +20,47 @@ function onboardingWizard() {
     ],
 
     // Espelha OnboardingBusinessType (core/onboarding/service.ts) — os ids têm de bater,
-    // é o que o servidor valida e o que decide os recursos recomendados.
+    // é o que o servidor valida e o que decide recursos e catálogo de teste.
     businessTypes: [
-      { id: 'restaurante', label: 'Restaurante / lanchonete', icon: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>' },
-      { id: 'padaria', label: 'Padaria / confeitaria', icon: '<path d="M4 13h16a1 1 0 0 1 0 8H4a1 1 0 0 1 0-8Z"/><path d="M6 13c0-3 2-5 6-5s6 2 6 5"/><path d="M9 8V5M15 8V5"/>' },
-      { id: 'mercado', label: 'Mercado / mercearia', icon: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>' },
-      { id: 'conveniencia', label: 'Conveniência', icon: '<path d="M3 9h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="m3 9 2-6h14l2 6"/><path d="M9 9v12M15 9v12"/>' },
-      { id: 'adega', label: 'Adega / bebidas', icon: '<path d="M8 2h8l-1 7a3 3 0 0 1-6 0Z"/><path d="M12 9v9"/><path d="M9 22h6"/>' },
-      { id: 'roupas', label: 'Roupas / calçados', icon: '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>' },
-      { id: 'farmacia', label: 'Farmácia', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/>' },
-      { id: 'petshop', label: 'Petshop', icon: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10c-3 0-5 3-5 6a3 3 0 0 0 5 2 4 4 0 0 1 4 0 3 3 0 0 0 5-2c0-3-2-6-5-6Z"/>' },
-      { id: 'servicos', label: 'Serviços', icon: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/>' },
-      { id: 'outro', label: 'Outro', icon: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>' },
+      { id: 'restaurante', label: 'Restaurante / lanchonete', icon: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>', hint: 'Lanches, sucos, porções, combo e pedidos no painel da cozinha.' },
+      { id: 'padaria', label: 'Padaria / confeitaria', icon: '<path d="M4 13h16a1 1 0 0 1 0 8H4a1 1 0 0 1 0-8Z"/><path d="M6 13c0-3 2-5 6-5s6 2 6 5"/><path d="M9 8V5M15 8V5"/>', hint: 'Pães, salgados, bolo com ficha técnica e pedidos no painel da cozinha.' },
+      { id: 'mercado', label: 'Mercado / mercearia', icon: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>', hint: 'Mercearia, hortifrúti, açougue e cesta básica como kit.' },
+      { id: 'conveniencia', label: 'Conveniência', icon: '<path d="M3 9h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="m3 9 2-6h14l2 6"/><path d="M9 9v12M15 9v12"/>', hint: 'Bebidas, snacks, gelados e recarga de celular (serviço).' },
+      { id: 'adega', label: 'Adega / bebidas', icon: '<path d="M8 2h8l-1 7a3 3 0 0 1-6 0Z"/><path d="M12 9v9"/><path d="M9 22h6"/>', hint: 'Vinhos, cervejas, destilados, kit de degustação e combos.' },
+      { id: 'roupas', label: 'Roupas / calçados', icon: '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>', hint: 'Grades de tamanho/cor, numeração de calçados e ajuste de barra.' },
+      { id: 'farmacia', label: 'Farmácia', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/>', hint: 'Medicamentos, higiene, vitaminas e kits de conveniência.' },
+      { id: 'petshop', label: 'Petshop', icon: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10c-3 0-5 3-5 6a3 3 0 0 0 5 2 4 4 0 0 1 4 0 3 3 0 0 0 5-2c0-3-2-6-5-6Z"/>', hint: 'Rações, acessórios e banho & tosa como serviços.' },
+      { id: 'servicos', label: 'Serviços', icon: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/>', hint: 'Hora técnica, visita e manutenção como serviços.' },
+      { id: 'outro', label: 'Outro', icon: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>', hint: 'Começa sem produtos de exemplo — você cadastra do seu jeito.' },
     ],
+    // Cor de destaque sugerida por ramo (espelho das telas, não vai pro servidor). O ramo
+    // escolhido aplica essa cor automaticamente; o lojista continua livre para trocar no
+    // passo de interface/cor — a partir daí a escolha dele vence e a sugestão não volta.
+    branchColors: {
+      restaurante: { theme: 'orange', hex: '#ff8000' },
+      padaria: { theme: 'custom', hex: '#b45309' },
+      mercado: { theme: 'green', hex: '#16a34a' },
+      conveniencia: { theme: 'green', hex: '#16a34a' },
+      adega: { theme: 'custom', hex: '#7c3aed' },
+      roupas: { theme: 'pink', hex: '#ec4899' },
+      farmacia: { theme: 'blue', hex: '#2563eb' },
+      petshop: { theme: 'custom', hex: '#0ea5e9' },
+      servicos: { theme: 'blue', hex: '#2563eb' },
+    },
     // Preferências de interface/cor (localStorage, per-máquina) — nunca vão em `answers`
     // nem no POST de /api/onboarding/provision, que é só pra dados de negócio.
     uiInterface: (function(){ try { return localStorage.getItem('kivo-interface') || 'cards'; } catch { return 'cards'; } })(),
     uiColorTheme: (function(){ try { return localStorage.getItem('kivo-color-theme') || 'orange'; } catch { return 'orange'; } })(),
     uiCustomColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch { return '#ff8000'; } })(),
+    // Vira true quando o lojista escolhe uma cor com as próprias mãos — dali em diante a
+    // cor do ramo não sobrescreve mais a preferência dele.
+    colorTouched: false,
     chooseInterface(v) {
       this.uiInterface = v;
       try { localStorage.setItem('kivo-interface', v); } catch {}
     },
     chooseColorPreset(id) {
+      this.colorTouched = true;
       this.uiColorTheme = id;
       var s = document.documentElement.style;
       s.removeProperty('--primary'); s.removeProperty('--icon-color');
@@ -51,10 +69,37 @@ function onboardingWizard() {
       try { localStorage.setItem('kivo-color-theme', id); } catch {}
     },
     chooseCustomColor(hex) {
+      this.colorTouched = true;
       this.uiCustomColor = hex; this.uiColorTheme = 'custom';
       document.documentElement.setAttribute('data-color-theme', 'custom');
       window.__kivoApplyCustomColor(hex);
       try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch {}
+    },
+    // Aplica a cor sugerida pelo ramo SEM marcar colorTouched: trocar de ramo ainda pode
+    // re-sugerir enquanto o lojista não escolher uma cor manualmente.
+    applyBranchColor(branch) {
+      var m = this.branchColors[branch];
+      if (!m) return;
+      var s = document.documentElement.style;
+      s.removeProperty('--primary'); s.removeProperty('--icon-color');
+      s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
+      if (m.theme === 'custom') {
+        this.uiColorTheme = 'custom'; this.uiCustomColor = m.hex;
+        document.documentElement.setAttribute('data-color-theme', 'custom');
+        window.__kivoApplyCustomColor(m.hex);
+        try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', m.hex); } catch {}
+      } else {
+        this.uiColorTheme = m.theme;
+        document.documentElement.setAttribute('data-color-theme', m.theme);
+        try { localStorage.setItem('kivo-color-theme', m.theme); } catch {}
+      }
+    },
+    branchLabel() {
+      var t = this.businessTypes.find((b) => b.id === this.answers.businessType);
+      return t ? t.label : '';
+    },
+    branchHasColorSuggestion() {
+      return this.mode === 'first-run' && !!this.branchColors[this.answers.businessType];
     },
     paymentMethods: [],
     // Recursos que o assistente liga/desliga. `features` é o catálogo vindo do servidor
@@ -99,6 +144,7 @@ function onboardingWizard() {
       };
       this.featureKeys = [];
       this.featuresTouched = false;
+      this.colorTouched = false;
       this.open = true;
       this.$nextTick(() => {
         this.$refs.onboardingDlg?.showModal();
@@ -160,7 +206,7 @@ function onboardingWizard() {
 
     // Passo dos recursos — nomeado porque `next()` e a view precisam dele e um número
     // solto aqui vira bug silencioso na próxima vez que um passo for inserido no meio.
-    STEP_FEATURES: 4,
+    STEP_FEATURES: 5,
 
     /** Espelha isRecommended() de core/onboarding/service.ts — mesma regra, mesmo dado. */
     featureRecommended(f) {
@@ -187,22 +233,27 @@ function onboardingWizard() {
       return this.features.filter((f) => f.enabled && this.featureKeys.indexOf(f.key) === -1).map((f) => f.label);
     },
 
+    // ─── Passo 1: ramo ─────────────────────────────────────────────────────────────
+    // A escolha do ramo também aplica a cor sugerida (first-run, enquanto o lojista não
+    // mexeu na cor) e avança sozinho, como o passo de "onde vai usar".
+    chooseBranch(b) {
+      this.answers.businessType = b;
+      if (this.mode === 'first-run' && !this.colorTouched) this.applyBranchColor(b);
+      setTimeout(() => this.next(), 260);
+    },
+
     chooseUsage(v) {
       this.answers.usage = v;
       setTimeout(() => this.next(), 260);
     },
 
-    /** Nome e ramo são o mínimo para o assistente configurar alguma coisa. */
-    canLeaveBusinessStep() {
-      return !!this.answers.businessName.trim() && !!this.answers.businessType;
+    /** Passo 2 (nome/porte): o nome é o mínimo — o ramo já veio no passo 1. */
+    canLeaveDetailsStep() {
+      return !!this.answers.businessName.trim();
     },
-    leaveBusinessStep() {
+    leaveDetailsStep() {
       if (!this.answers.businessName.trim()) {
         this.businessError = 'Informe o nome do seu negócio.';
-        return;
-      }
-      if (!this.answers.businessType) {
-        this.businessError = 'Escolha o ramo do seu negócio.';
         return;
       }
       this.businessError = '';
@@ -220,8 +271,56 @@ function onboardingWizard() {
     willCreateTables() {
       return this.featureKeys.indexOf('comandas.mesas') !== -1;
     },
-    willCreateVariantProducts() {
-      return this.answers.businessType === 'roupas' && this.featureKeys.indexOf('commercial.variantes') !== -1;
+
+    /**
+     * Linhas do resumo sobre o catálogo de teste do ramo escolhido. Espelha o que o
+     * servidor gera em core/onboarding/demoCatalog.ts e é condicionado aos recursos que
+     * ficaram ligados — os mesmos que decidem o que o catálogo inclui de verdade.
+     */
+    demoHighlights() {
+      const bt = this.answers.businessType;
+      const on = (k) => this.featureKeys.indexOf(k) !== -1;
+      const base = {
+        restaurante: ['Cardápio de teste: X-Burger, suco, batata frita e sobremesas'],
+        padaria: ['Padaria de teste: pães, salgados, doces e café'],
+        mercado: ['Mercado de teste: mercearia, hortifrúti, açougue e limpeza'],
+        conveniencia: ['Conveniência de teste: bebidas, snacks e gelados'],
+        adega: ['Adega de teste: vinhos, cervejas, destilados e sem álcool'],
+        roupas: [],
+        farmacia: ['Farmácia de teste: medicamentos, higiene e vitaminas'],
+        petshop: ['Petshop de teste: rações, acessórios e brinquedos'],
+        servicos: ['Serviços de teste: hora técnica, visita e manutenção'],
+      };
+      const lines = (base[bt] ?? []).slice();
+      if (bt === 'restaurante') {
+        if (on('commercial.complementos')) lines.push('Suco com sabor e X-Burger com adicionais');
+        if (on('commercial.kits')) lines.push('Combo X-Burger com preço fechado');
+        if (on('foodservice.cozinha')) lines.push('X-Burger e batata já vão pro Painel de cozinha');
+        if (on('commercial.variantes')) lines.push('Pizza com variações de tamanho e sabor');
+      } else if (bt === 'padaria') {
+        if (on('commercial.complementos')) lines.push('Café com complementos (chantilly, leite…)');
+        if (on('commercial.producao')) lines.push('Bolo de Chocolate com ficha técnica que consome insumos');
+        if (on('commercial.kits')) lines.push('Kit Café da Manhã pronto');
+        if (on('foodservice.cozinha')) lines.push('Pães, salgados e bolos já vão pro Painel de cozinha');
+      } else if (bt === 'mercado') {
+        if (on('commercial.kits')) lines.push('Cesta Básica pronta como kit');
+        if (on('foodservice.cozinha')) lines.push('Padaria interna e frango assado roteados pra cozinha');
+      } else if (bt === 'conveniencia') {
+        if (on('commercial.kits')) lines.push('Combo Salgadinho + Refrigerante');
+      } else if (bt === 'adega') {
+        if (on('commercial.kits')) lines.push('Kit Degustação de Vinhos e Combo de Cervejas');
+      } else if (bt === 'roupas') {
+        if (on('commercial.variantes')) lines.push('Camiseta, calça e tênis com grade (tamanho/cor e numeração)');
+        else lines.push('Roupas, calçados e acessórios');
+        lines.push('Ajuste de barra cadastrado como serviço');
+      } else if (bt === 'farmacia') {
+        if (on('commercial.kits')) lines.push('Kits de higiene prontos');
+      } else if (bt === 'petshop') {
+        lines.push('Banho e tosa como serviços, sem estoque');
+      } else if (bt === 'servicos') {
+        if (on('commercial.kits')) lines.push('Pacote de 10 horas como combo');
+      }
+      return lines;
     },
 
     async skipWizard() {
@@ -276,7 +375,11 @@ function onboardingWizard() {
       const parts = [];
       if (this.result.tablesCreated) parts.push(`${this.result.tablesCreated} mesas`);
       if (this.result.productsCreated) parts.push(`${this.result.productsCreated} produtos de exemplo`);
-      const criado = parts.length ? `Criamos ${parts.join(' e ')}. ` : '';
+      if (this.result.categoriesCreated) parts.push(`${this.result.categoriesCreated} categorias`);
+      const criado = parts.length ? `Criamos ${parts.join(', ')}. ` : '';
+      const cozinha = this.result.kitchenRoutesCreated
+        ? `${this.result.kitchenRoutesCreated} produtos já vão pro Painel de cozinha. `
+        : '';
       const ligados = this.result.featuresEnabled?.length
         ? `Ativamos: ${this.result.featuresEnabled.join(', ')}. `
         : '';
@@ -286,7 +389,7 @@ function onboardingWizard() {
       const pagamentos = this.result.paymentMethodsActive?.length
         ? `Formas de pagamento ativas: ${this.result.paymentMethodsActive.join(', ')}.`
         : '';
-      return `${criado}${ligados}${desligados}${pagamentos} Já é só usar.`;
+      return `${criado}${cozinha}${ligados}${desligados}${pagamentos} Já é só usar.`;
     },
   };
 }

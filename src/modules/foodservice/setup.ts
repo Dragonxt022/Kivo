@@ -1,5 +1,5 @@
 import { registerService } from '../../core/services/registry';
-import { cancelTicketsForSource, notifyOrder, syncItemNotes, voidComandaItem } from './kitchen';
+import { cancelTicketsForSource, notifyOrder, readyTicketCountByComanda, syncItemNotes, voidComandaItem } from './kitchen';
 import { kitchenTicketItemRepository } from './repositories/KitchenRepository';
 
 export interface FoodserviceKitchenService {
@@ -12,11 +12,13 @@ export interface FoodserviceKitchenService {
   findSentComandaItemIds: (comandaItemIds: number[]) => number[];
   /** Observação do item da comanda mudou: espelha no ticket enquanto pendente. */
   syncItemNotes: typeof syncItemNotes;
+  /** Tickets 'pronto' por comanda — a grade de mesas sinaliza "pedido pronto" na mesa. */
+  readyTicketCountByComanda: typeof readyTicketCountByComanda;
 }
 
 export default function setup(): void {
   registerService('foodservice.kitchen', {
-    notifyOrder, cancelTicketsForSource, voidComandaItem, syncItemNotes,
+    notifyOrder, cancelTicketsForSource, voidComandaItem, syncItemNotes, readyTicketCountByComanda,
     findSentComandaItemIds: (ids) => kitchenTicketItemRepository.findSentComandaItemIds(ids),
   } satisfies FoodserviceKitchenService);
 }

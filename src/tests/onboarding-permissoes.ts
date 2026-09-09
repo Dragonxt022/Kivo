@@ -216,6 +216,70 @@ async function main(): Promise<void> {
       ligada('comandas.mesas') && ligada('commercial.complementos') && !ligada('commercial.variantes'),
       `mesas=${ligada('comandas.mesas')} compl=${ligada('commercial.complementos')} var=${ligada('commercial.variantes')}`);
 
+    // ── Catálogo de demonstração por ramo ─────────────────────────────────────────
+    // Restaurante com tudo ligado: gera cardápio com complementos, combo, grade de
+    // variações e roteamento pro painel de cozinha — o "ambiente de teste completo".
+    const demo = await unwrap<{ productsCreated: number; categoriesCreated: number; kitchenRoutesCreated: number }>(
+      await api('/api/onboarding/provision', {
+        method: 'POST',
+        body: JSON.stringify({
+          usage: 'ambos', businessType: 'restaurante', businessName: 'Restaurante Demo',
+          activePaymentMethodIds: [], createDemoData: true,
+          activeFeatureKeys: [
+            'comandas.mesas', 'foodservice.cozinha', 'commercial.complementos',
+            'commercial.kits', 'commercial.variantes',
+          ],
+        }),
+      }),
+    );
+    const qty = (table: string, where = '1=1'): number =>
+      (db.prepare(`SELECT COUNT(*) c FROM ${table} WHERE ${where}`).get() as { c: number }).c;
+    check('restaurante gera produtos de exemplo', demo.productsCreated > 0, `${demo.productsCreated} produtos`);
+    check('restaurante gera as categorias do cardápio', demo.categoriesCreated >= 5, `${demo.categoriesCreated} categorias`);
+    check('produtos do cardápio são roteados pro painel de cozinha',
+      demo.kitchenRoutesCreated === 2, `${demo.kitchenRoutesCreated} roteamentos`);
+    check('o combo nasce como produto tipo combo',
+      (db.prepare("SELECT COUNT(*) c FROM products WHERE name = 'Combo X-Burger' AND product_type = 'combo' AND deleted_at IS NULL").get() as { c: number }).c === 1);
+    check('a pizza de variações tem filhas geradas',
+      (db.prepare("SELECT COUNT(*) c FROM products WHERE name LIKE 'Pizza Artesanal - %' AND parent_product_id IS NOT NULL AND deleted_at IS NULL").get() as { c: number }).c === 6);
+    check('complementos do X-Burger foram anexados',
+      (db.prepare(`SELECT COUNT(*) c FROM product_complement_groups pcg
+                   JOIN products p ON p.id = pcg.product_id
+                   WHERE p.name = 'X-Burger' AND pcg.deleted_at IS NULL`).get() as { c: number }).c >= 1);
+
+    // Reexecutar (regenerar) não duplica o catálogo.
+    const produtosAntes = qty('products', "deleted_at IS NULL AND name IN ('X-Burger','Combo X-Burger')");
+    const demo2 = await unwrap<{ productsCreated: number }>(
+      await api('/api/onboarding/provision', {
+        method: 'POST',
+        body: JSON.stringify({
+          usage: 'ambos', businessType: 'restaurante', businessName: 'Restaurante Demo',
+          activePaymentMethodIds: [], createDemoData: true, resetDemoData: true,
+          activeFeatureKeys: [
+            'comandas.mesas', 'foodservice.cozinha', 'commercial.complementos',
+            'commercial.kits', 'commercial.variantes',
+          ],
+        }),
+      }),
+    );
+    check('regenerar não duplica os produtos de exemplo',
+      demo2.productsCreated === 0 && qty('products', "deleted_at IS NULL AND name IN ('X-Burger','Combo X-Burger')") === produtosAntes,
+      `novos=${demo2.productsCreated}`);
+
+    // Ramo "outro" não inventa catálogo.
+    const vazio = await unwrap<{ productsCreated: number; categoriesCreated: number; kitchenRoutesCreated: number }>(
+      await api('/api/onboarding/provision', {
+        method: 'POST',
+        body: JSON.stringify({
+          usage: 'balcao', businessType: 'outro', businessName: 'Loja Genérica',
+          activePaymentMethodIds: [], createDemoData: true, resetDemoData: true, activeFeatureKeys: [],
+        }),
+      }),
+    );
+    check('ramo "outro" gera catálogo vazio',
+      vazio.productsCreated === 0 && vazio.categoriesCreated === 0 && vazio.kitchenRoutesCreated === 0,
+      `produtos=${vazio.productsCreated} categorias=${vazio.categoriesCreated}`);
+
     // ── As telas mexidas renderizam ───────────────────────────────────────────────
     // Erro de EJS não aparece em teste de API nenhum: a rota devolve 500 só quando um
     // humano abre a página. Um GET aqui custa nada e pega o typo antes do lojista.
