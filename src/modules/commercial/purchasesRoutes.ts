@@ -6,12 +6,16 @@ import { sumCents } from '../../shared/money';
 import { validateBody } from '../../shared/validateBody';
 import { createPurchaseSchema, updatePurchaseSchema } from '../../shared/schemas';
 import { moveStockRaw } from './stock';
+import { createPurchaseInbound, postPurchaseItems } from './purchaseInbound';
 import { purchaseRepository, purchaseItemRepository } from './repositories/PurchaseRepository';
 import { supplierRepository } from './repositories/SupplierRepository';
-import { productRepository } from './repositories/ProductRepository';
 
 const router = Router();
 
+/**
+ * Custo médio e postagem de entrada/estoque vivem em `purchaseInbound.ts` (usados
+ * também pela importação de NF-e) — a rota de compra só delega para ele.
+ */
 function replacePurchaseItems(purchaseId: number, items: { productId: number; qty: number; unitCostCents: number }[]): number {
   purchaseItemRepository.deleteByPurchase(purchaseId);
   const total = sumCents(...items.map((i) => Math.round(i.qty * i.unitCostCents)));
@@ -20,50 +24,6 @@ function replacePurchaseItems(purchaseId: number, items: { productId: number; qt
   }
   purchaseRepository.updateTotal(purchaseId, total);
   return total;
-}
-
-/**
- * Custo médio ponderado móvel: novo custo = (saldo × custo atual + entrada × custo da
- * compra) / (saldo + entrada).
- *
- * Antes o custo era SOBRESCRITO pelo da última compra. Comprar 100un a R$10 e depois
- * 1un a R$14 fazia todo o estoque valer R$14 — e, como a venda tira um retrato de
- * `products.cost_cents` para `sale_items.cost_cents` (ver store/sales.ts), e o DRE soma
- * `qty × cost_cents` desses itens, o CMV saía inflado e a margem, subestimada. O erro
- * ficava gravado na venda: corrigir o cadastro depois não conserta o passado.
- *
- * Casos que caem de volta no custo da compra (média não faz sentido):
- *  - saldo <= 0 (estoque zerado ou negativo): não há o que ponderar;
- *  - custo atual == 0: produto nunca custeado, a 1ª compra define o custo;
- *  - produto sem controle de estoque: não há saldo para ponderar.
- */
-export function weightedAverageCostCents(
-  saldoAtual: number,
-  custoAtualCents: number,
-  qtdEntrada: number,
-  custoEntradaCents: number,
-): number {
-  if (!(qtdEntrada > 0)) return custoAtualCents;
-  if (!(saldoAtual > 0) || !(custoAtualCents > 0)) return Math.round(custoEntradaCents);
-  const valorTotal = saldoAtual * custoAtualCents + qtdEntrada * custoEntradaCents;
-  return Math.round(valorTotal / (saldoAtual + qtdEntrada));
-}
-
-function postPurchaseItems(req: import('express').Request, purchaseId: number, items: { productId: number; qty: number; unitCostCents: number }[]): void {
-  for (const item of items) {
-    // Lê o saldo ANTES da entrada: é ele que pondera contra a quantidade que chega.
-    const before = productRepository.findByIdWithColumns(Number(item.productId), 'id, stock_qty, cost_cents, track_stock') as
-      | { id: number; stock_qty: number; cost_cents: number; track_stock: number } | undefined;
-    if (!before) throw new Error(`Produto ${item.productId} não encontrado.`);
-
-    const novoCusto = before.track_stock
-      ? weightedAverageCostCents(before.stock_qty, before.cost_cents, Number(item.qty), Math.round(item.unitCostCents))
-      : Math.round(item.unitCostCents);
-    productRepository.updateCost(item.productId, novoCusto);
-
-    const move = moveStockRaw(req, Number(item.productId), 'entrada', Number(item.qty), 'compra', 'purchase', purchaseId);
-    if (!move.ok) throw new Error(move.error);
-  }
 }
 
 router.get('/', requirePermission('commercial.purchases.view'), (_req, res) => {
@@ -88,35 +48,22 @@ router.post('/', requirePermission('commercial.purchases.create'), validateBody(
     return;
   }
 
-  let purchaseId = 0;
-  let error: string | null = null;
+  let purchaseId: number;
   try {
-    purchaseRepository.transaction(() => {
-      const total = sumCents(...items.map((i: { qty: number; unitCostCents: number }) => Math.round(i.qty * i.unitCostCents)));
-      purchaseId = purchaseRepository.create({
-        supplier_id: supplierId,
-        status: asDraft ? 'rascunho' : 'recebida',
-        total_cents: total,
-        notes: notes ?? null,
-        received_at: asDraft ? null : new Date().toISOString(),
-        uuid: randomUUID(),
-        payment_method_id: paymentMethodId ?? null,
-        installment_count: installmentCount ?? 1,
-        first_due_date: firstDueDate ?? null,
-        late_fee_cents: lateFeeCents ?? 0,
-        daily_interest_bps: dailyInterestBps ?? 0,
-      });
-      for (const item of items) {
-        purchaseItemRepository.create({ purchase_id: purchaseId, product_id: item.productId, qty: item.qty, unit_cost_cents: Math.round(item.unitCostCents) });
-      }
-      if (!asDraft) postPurchaseItems(req, purchaseId, items);
+    // Cria a compra e (se recebida) posta estoque/custo — ver purchaseInbound.ts.
+    purchaseId = createPurchaseInbound(req, {
+      supplierId,
+      items,
+      notes: notes ?? null,
+      status: asDraft ? 'rascunho' : 'recebida',
+      paymentMethodId,
+      installmentCount,
+      firstDueDate,
+      lateFeeCents,
+      dailyInterestBps,
     });
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
-  }
-
-  if (error) {
-    res.status(400).json({ error });
+    res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
     return;
   }
   audit(req, 'criar', 'purchase', purchaseId, null, { supplierId, items, status: asDraft ? 'rascunho' : 'recebida' });

@@ -7,7 +7,7 @@
  * gravado na venda — e corrigir o cadastro depois não conserta o passado.
  * Lógica pura: roda em milissegundos, sem banco.
  */
-import { weightedAverageCostCents as avg } from '../modules/commercial/purchasesRoutes';
+import { weightedAverageCostCents as avg } from '../modules/commercial/purchaseInbound';
 
 let failures = 0;
 function eq(label: string, actual: number, expected: number): void {
