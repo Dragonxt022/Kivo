@@ -46,6 +46,16 @@ async function main() {
   const server = app.listen(PORT);
   const db = getSqlite();
 
+  // Período e vencimentos no MÊS CORRENTE: as vendas são criadas com datetime('now')
+  // (UTC) — fixar 2026-08 no teste fazia receita/CMV sumirem quando a máquina rodasse
+  // fora daquele mês. Hoje, "hoje" = UTC, o mesmo relógio que grava o created_at.
+  const _now = new Date();
+  const y = _now.getUTCFullYear();
+  const mo = _now.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const day = (d: number): string => `${y}-${pad(mo)}-${pad(d)}`;
+
   const admin = await loginAs('admin', 'admin');
   check('login admin', admin !== null);
 
@@ -136,21 +146,21 @@ async function main() {
     // ---- Criar payables com categorias ----
     const p1 = await unwrap<ApiRow>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Imposto', amountCents: 1500, dueDate: '2026-08-10', dreCategoryId: deducoesCat,
+        description: 'Imposto', amountCents: 1500, dueDate: day(10), dreCategoryId: deducoesCat,
       }),
     }, admin!));
     check('payable deducoes criada', p1.id > 0);
 
     const p2 = await unwrap<ApiRow>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Aluguel', amountCents: 4000, dueDate: '2026-08-15', dreCategoryId: operacionalCat,
+        description: 'Aluguel', amountCents: 4000, dueDate: day(15), dreCategoryId: operacionalCat,
       }),
     }, admin!));
     check('payable operacional criada', p2.id > 0);
 
     const p3 = await unwrap<ApiRow>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Juros bancários', amountCents: 2500, dueDate: '2026-08-20', dreCategoryId: financeiraCat,
+        description: 'Juros bancários', amountCents: 2500, dueDate: day(20), dreCategoryId: financeiraCat,
       }),
     }, admin!));
     check('payable financeira criada', p3.id > 0);
@@ -158,7 +168,7 @@ async function main() {
     // Payable SEM categoria (deve cair em despesas_operacionais como fallback)
     const p4 = await unwrap<ApiRow>(await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Material escritório', amountCents: 1800, dueDate: '2026-08-12',
+        description: 'Material escritório', amountCents: 1800, dueDate: day(12),
       }),
     }, admin!));
     check('payable sem categoria criada', p4.id > 0);
@@ -186,7 +196,7 @@ async function main() {
     check('venda 2 (Débito Stone) concluída', s2.id > 0);
 
     // ---- Consultar DRE ----
-    const report = await unwrap<ApiRow>(await api(`${DRE}/report?from=2026-08-01&to=2026-08-31`, {}, admin!));
+    const report = await unwrap<ApiRow>(await api(`${DRE}/report?from=${day(1)}&to=${day(lastDay)}`, {}, admin!));
 
     // Linhas
     const receita = report.lines.receita_bruta;
@@ -243,7 +253,7 @@ async function main() {
     }, admin!));
     await api(`${F}/payables`, {
       method: 'POST', body: JSON.stringify({
-        description: 'Frete teste', amountCents: 999, dueDate: '2026-08-01', dreCategoryId: created.id,
+        description: 'Frete teste', amountCents: 999, dueDate: day(5), dreCategoryId: created.id,
       }),
     }, admin!);
     const delInUse = await api(`${DRE}/categories/${created.id}`, { method: 'DELETE' }, admin!);
