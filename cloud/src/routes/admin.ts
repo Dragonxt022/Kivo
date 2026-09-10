@@ -982,6 +982,16 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
      FROM catalog_images`,
   );
   const stats = (statsRows as { pending: number | null; approved: number | null; rejected: number | null; storage_bytes: number | null }[])[0];
+
+  // Aprendizado do catálogo: termos procurados sem imagem (demanda) e aliases aprendidos.
+  const [demandRows] = await pool.query(
+    'SELECT id, term, misses, last_seen_at FROM catalog_demand ORDER BY misses DESC, last_seen_at DESC LIMIT 30',
+  );
+  const [aliasStatsRows] = await pool.query(
+    'SELECT COUNT(*) AS total, COALESCE(SUM(occurrences), 0) AS hits FROM catalog_image_aliases',
+  );
+  const aliasStats = (aliasStatsRows as { total: number; hits: number }[])[0] ?? { total: 0, hits: 0 };
+
   res.render('catalog-queue', {
     images: images as CatalogImageRow[],
     activeStatus,
@@ -989,9 +999,17 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
       pending: stats?.pending ?? 0, approved: stats?.approved ?? 0, rejected: stats?.rejected ?? 0,
       storageBytes: stats?.storage_bytes ?? 0,
     },
+    demand: demandRows,
+    aliasStats: { total: Number(aliasStats.total), hits: Number(aliasStats.hits) },
     error: null,
     deleted: req.query.deleted ? Number(req.query.deleted) : null,
   });
+});
+
+/** Tira um termo da lista de demanda (já atendido / irrelevante). */
+router.post('/catalog/demand/:id/delete', requireAdminAuth, async (req, res) => {
+  await getPool().query('DELETE FROM catalog_demand WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/catalog');
 });
 
 /** Miniatura no painel de curadoria — serve qualquer status (a pública em /api/catalog/image só serve aprovada). */

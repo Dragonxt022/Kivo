@@ -203,6 +203,28 @@ router.get('/products/image-search', requirePermission('commercial.products.view
   }
 });
 
+router.post('/products/image-learn', requirePermission('commercial.products.view'), async (req, res) => {
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  const imageId = Number(req.body?.imageId);
+  const name = String(req.body?.name ?? '').trim();
+  if (!base || !auth || !Number.isInteger(imageId) || imageId <= 0 || name.length < 3) {
+    res.json({ ok: false });
+    return;
+  }
+  try {
+    await fetch(`${base}/api/catalog/learn`, {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageId, name }),
+      signal: AbortSignal.timeout(6000),
+    });
+  } catch {
+    // best-effort: aprender o alias não pode atrapalhar a escolha da imagem.
+  }
+  res.json({ ok: true });
+});
+
 router.post('/products/images/autofill', requirePermission('commercial.products.edit'), async (req, res) => {
   /**
    * Preenche em lote a foto de produtos SEM imagem (ver productImageAutofill.ts).

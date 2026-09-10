@@ -58,6 +58,38 @@
           <a href="/admin/catalog?status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
         </div>
 
+        <% if (demand && demand.length) { %>
+        <div class="card" style="padding: 16px 20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+            <h2 style="margin:0; font-size:1.05rem;">Demanda do catálogo</h2>
+            <span class="field-hint" style="margin:0;">
+              <%= aliasStats.total %> alias aprendido<%= aliasStats.total === 1 ? '' : 's' %> · <%= aliasStats.hits %> uso<%= aliasStats.hits === 1 ? '' : 's' %>
+            </span>
+          </div>
+          <p class="field-hint" style="margin-top:0;">
+            Nomes que as empresas procuraram e não acharam (anônimo). Adicione uma imagem para o termo e marque "Resolvido".
+          </p>
+          <table>
+            <thead><tr><th>Termo buscado</th><th class="text-right">Buscas</th><th>Última vez</th><th></th></tr></thead>
+            <tbody>
+              <% demand.forEach(function(d) { %>
+              <tr>
+                <td><strong><%= d.term %></strong></td>
+                <td class="text-right tabular"><%= d.misses %></td>
+                <td class="cell-muted"><%= d.last_seen_at %></td>
+                <td class="text-right">
+                  <form method="post" action="/admin/catalog/demand/<%= d.id %>/delete" style="display:inline;"
+                        onsubmit="return confirm('Remover este termo da lista de demanda?');">
+                    <button type="submit" class="btn small secondary">Resolvido</button>
+                  </form>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+
         <div class="card" style="padding: 0;" x-data="catalogTable()">
           <div style="padding: 16px 20px 0; display: flex; justify-content: flex-end;">
             <input type="text" class="input-search" placeholder="Buscar por produto…" x-model="q">
