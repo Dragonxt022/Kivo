@@ -389,7 +389,7 @@
             <div class="pm-image-card">
               <h3 class="pm-image-title">Foto do produto</h3>
               <div class="product-image-picker" @click="!(form.newImagePreview || form.imageUrl) && $refs.imageFile.click()">
-                <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
                 <template x-if="form.newImagePreview || form.imageUrl">
                   <img :src="form.newImagePreview || form.imageUrl" alt="" />
                 </template>
@@ -658,7 +658,7 @@
     <dialog x-ref="ioDlg" class="io-dialog">
       <h1>Importar e exportar</h1>
       <p class="muted" style="margin:0 0 1rem">
-        Tudo em planilha <code>.csv</code>. Escolha o que você quer fazer:
+        Planilha <code>.csv</code> para o catálogo, ou a nota do fornecedor em <code>.xml</code>. Escolha o que você quer fazer:
       </p>
       <div class="choice-grid">
         <% if (user.permissions.has('commercial.products.create')) { %>
@@ -667,6 +667,13 @@
           <span class="choice-label">Importar produtos</span>
           <span class="choice-desc">Cadastrar ou atualizar em massa a partir de uma planilha</span>
         </button>
+        <% } %>
+        <% if (caps.nfe && user.permissions.has('nfe.import.view')) { %>
+        <a class="choice-card" href="/app/nfe/importar" @click="$refs.ioDlg.close()">
+          <svg class="choice-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span class="choice-label">Importar NF-e (XML)</span>
+          <span class="choice-desc">Cadastrar produtos e entrada de estoque a partir do XML da nota do fornecedor</span>
+        </a>
         <% } %>
         <% if (user.permissions.has('commercial.products.view')) { %>
         <a class="choice-card" href="/api/commercial/products/export.csv" download @click="$refs.ioDlg.close()">

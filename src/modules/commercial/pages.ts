@@ -21,6 +21,9 @@ export function capabilitiesForView() {
     kits: hasCapability('commercial.kits'),
     producao: hasCapability('commercial.producao'),
     cardapioOnline: hasCapability('commercial.cardapio_online'),
+    // Módulo nfe (importação de XML): o card no modal de importar/exportar só aparece com
+    // o recurso ligado E o módulo no plano — mesma régua do menu.
+    nfe: hasCapability('nfe.import'),
   };
 }
 

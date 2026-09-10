@@ -22,7 +22,7 @@ import {
 } from '../adminAuth';
 
 const router = Router();
-const rawCatalogImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '6mb' });
+const rawCatalogImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp', 'image/avif'], limit: '6mb' });
 
 function generateLicenseKey(): string {
   return randomBytes(24).toString('hex');
@@ -954,7 +954,7 @@ interface CatalogImageRow {
   product_name: string;
   keywords: string;
   image_path: string;
-  format: 'jpeg' | 'png' | 'webp';
+  format: 'jpeg' | 'png' | 'webp' | 'avif';
   width: number;
   height: number;
   size_bytes: number;
@@ -965,6 +965,7 @@ interface CatalogImageRow {
 
 router.get('/catalog', requireAdminAuth, async (req, res) => {
   const pool = getPool();
+  const activeTab = req.query.tab === 'demanda' ? 'demanda' : 'imagens';
   const activeStatus = req.query.status === 'aprovada' ? 'aprovada' : 'pendente';
   const orderBy = activeStatus === 'aprovada' ? 'reviewed_at DESC' : 'created_at ASC';
   const [images] = await pool.query(
@@ -995,6 +996,7 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
   res.render('catalog-queue', {
     images: images as CatalogImageRow[],
     activeStatus,
+    activeTab,
     stats: {
       pending: stats?.pending ?? 0, approved: stats?.approved ?? 0, rejected: stats?.rejected ?? 0,
       storageBytes: stats?.storage_bytes ?? 0,
@@ -1015,7 +1017,7 @@ router.post('/catalog/demand/:id/delete', requireAdminAuth, async (req, res) => 
 /** Miniatura no painel de curadoria — serve qualquer status (a pública em /api/catalog/image só serve aprovada). */
 router.get('/catalog/:id/image', requireAdminAuth, async (req, res) => {
   const [rows] = await getPool().query('SELECT image_path, format FROM catalog_images WHERE id = ?', [req.params.id]);
-  const row = (rows as { image_path: string; format: 'jpeg' | 'png' | 'webp' }[])[0];
+  const row = (rows as { image_path: string; format: 'jpeg' | 'png' | 'webp' | 'avif' }[])[0];
   const filePath = row?.image_path ? path.join(CATALOG_STORAGE_DIR, row.image_path) : null;
   if (!filePath || !fs.existsSync(filePath)) {
     res.status(404).send('Imagem não encontrada.');

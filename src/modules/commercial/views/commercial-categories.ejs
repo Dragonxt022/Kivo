@@ -98,7 +98,7 @@
         <div class="cat-upload-col">
           <label>Imagem da categoria</label>
           <div class="cat-upload-zone" @click="!(form.newImagePreview || form.imageUrl) && $refs.imageFile.click()">
-            <input type="file" accept="image/jpeg,image/png,image/webp" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" x-ref="imageFile" class="hidden-file-input" @change="onImageFile($event)" />
             <template x-if="form.newImagePreview || form.imageUrl">
               <div class="cat-upload-preview">
                 <img :src="form.newImagePreview || form.imageUrl" alt="" />

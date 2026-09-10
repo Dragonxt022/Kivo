@@ -9,7 +9,7 @@ import { imageSize } from 'image-size';
  * (deployables separados, sem pacote compartilhado — mesma regra do resto do cloud/).
  */
 
-export type ImageFormat = 'jpeg' | 'png' | 'webp';
+export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'avif';
 
 const MIN_BYTES = 2 * 1024;
 const MAX_BYTES = 6 * 1024 * 1024;
@@ -29,6 +29,12 @@ export function sniffImageFormat(buf: Buffer): ImageFormat | null {
     buf.subarray(8, 12).toString('ascii') === 'WEBP'
   ) {
     return 'webp';
+  }
+  // AVIF é ISO BMFF: caixa "ftyp" no offset 4; a marca "avif"/"avis" pode ser a principal
+  // ou uma das compatíveis (arquivos com "mif1" principal ainda são AVIF).
+  if (buf.length >= 12 && buf.subarray(4, 8).toString('ascii') === 'ftyp') {
+    const brands = buf.subarray(8, Math.min(buf.length, 40)).toString('ascii');
+    if (brands.includes('avif') || brands.includes('avis')) return 'avif';
   }
   return null;
 }

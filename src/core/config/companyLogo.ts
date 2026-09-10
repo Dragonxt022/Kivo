@@ -16,7 +16,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { validateImageBuffer, type ImageFormat } from '../catalog/imageValidation';
 
-const EXT_BY_FORMAT: Record<ImageFormat, string> = { jpeg: 'jpg', png: 'png', webp: 'webp' };
+const EXT_BY_FORMAT: Record<ImageFormat, string> = { jpeg: 'jpg', png: 'png', webp: 'webp', avif: 'avif' };
 
 /** Chave em `settings`. Fica junto dos demais dados da empresa (nome, CNPJ, endereço). */
 export const LOGO_SETTING_KEY = 'empresa.logo_url';

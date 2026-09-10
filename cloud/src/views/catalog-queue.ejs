@@ -54,11 +54,13 @@
         <% } %>
 
         <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
-          <a href="/admin/catalog?status=pendente" class="btn secondary <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
-          <a href="/admin/catalog?status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
+          <a href="/admin/catalog?tab=imagens&status=pendente" class="btn secondary <%= activeTab === 'imagens' ? 'active' : '' %>">Imagens</a>
+          <a href="/admin/catalog?tab=demanda" class="btn secondary <%= activeTab === 'demanda' ? 'active' : '' %>">
+            Demanda<% if (demand && demand.length) { %> (<%= demand.length %>)<% } %>
+          </a>
         </div>
 
-        <% if (demand && demand.length) { %>
+        <% if (activeTab === 'demanda') { %>
         <div class="card" style="padding: 16px 20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
             <h2 style="margin:0; font-size:1.05rem;">Demanda do catálogo</h2>
@@ -85,10 +87,17 @@
                 </td>
               </tr>
               <% }) %>
+              <% if (!demand || !demand.length) { %>
+              <tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhuma demanda registrada ainda.' }) %></td></tr>
+              <% } %>
             </tbody>
           </table>
         </div>
-        <% } %>
+        <% } else { %>
+        <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
+          <a href="/admin/catalog?tab=imagens&status=pendente" class="btn secondary <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
+          <a href="/admin/catalog?tab=imagens&status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
+        </div>
 
         <div class="card" style="padding: 0;" x-data="catalogTable()">
           <div style="padding: 16px 20px 0; display: flex; justify-content: flex-end;">
@@ -173,6 +182,7 @@
             </tbody>
           </table>
         </div>
+        <% } %>
       </div>
     </main>
   </div>
@@ -183,7 +193,7 @@
       <button type="button" class="modal-close" onclick="closeUploadModal()">&times;</button>
     </div>
     <div class="modal-body">
-      <label>Imagens (JPEG, PNG ou WEBP — mínimo 200×200px, máximo 6MB cada)</label>
+      <label>Imagens (JPEG, PNG, WEBP ou AVIF — mínimo 200×200px, máximo 6MB cada)</label>
       <p class="field-hint" style="margin-top:-4px">O nome de cada produto é gerado a partir do nome do arquivo — renomeie os arquivos antes de selecionar se quiser outro nome.</p>
       <div class="drop-zone" id="drop-zone">
         <div class="drop-zone-icon">
@@ -192,7 +202,7 @@
         <div>Arraste imagens aqui ou clique para selecionar</div>
         <div style="font-size: 0.78rem; margin-top: 4px; color: var(--muted);">Pode selecionar várias imagens de uma vez</div>
       </div>
-      <input type="file" id="manual-image-file" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
+      <input type="file" id="manual-image-file" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" multiple style="display:none">
 
       <div class="upload-preview-grid" id="upload-preview-grid"></div>
       <div class="upload-counter" id="upload-counter" style="display:none">
@@ -359,7 +369,7 @@
       e.preventDefault();
       dropZone.classList.remove('dragover');
       var files = Array.from(e.dataTransfer.files).filter(function (f) {
-        return ['image/jpeg', 'image/png', 'image/webp'].indexOf(f.type) !== -1;
+        return ['image/jpeg', 'image/png', 'image/webp', 'image/avif'].indexOf(f.type) !== -1;
       });
       if (files.length) {
         pendingFiles = pendingFiles.concat(files);
