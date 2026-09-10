@@ -180,6 +180,35 @@ async function main(): Promise<void> {
     const html = await page.text();
     check('página de importação abre', page.status === 200 && html.includes('nfeImportPage'), `status=${page.status}`);
 
+    // ── Reversão: desfaz a importação e volta ao estado anterior ──
+    const revertR = await api(`/api/nfe/invoices/${result.invoiceId}/revert`, { method: 'POST' }, cookie);
+    const rev = await unwrap<{ stockReversed: number; costRestored: number; productsDeleted: number; supplierDeleted: boolean; purchaseDeleted: boolean }>(revertR);
+    check('reversão responde', revertR.status === 200, `status=${revertR.status}`);
+    check('reversão devolveu o estoque (2 itens)', rev.stockReversed === 2, `stockReversed=${rev.stockReversed}`);
+    check('reversão restaurou o custo', rev.costRestored === 1, `costRestored=${rev.costRestored}`);
+    check('reversão apagou o produto criado', rev.productsDeleted === 1, `productsDeleted=${rev.productsDeleted}`);
+    check('reversão apagou o fornecedor criado', rev.supplierDeleted === true);
+    check('reversão apagou a compra', rev.purchaseDeleted === true);
+
+    const prodAfter = db.prepare('SELECT stock_qty, cost_cents FROM products WHERE id = ?').get(existingProductId) as { stock_qty: number; cost_cents: number };
+    check('estoque do produto vinculado voltou a 0', prodAfter.stock_qty === 0, `saldo=${prodAfter.stock_qty}`);
+    check('custo do produto vinculado restaurado (0)', prodAfter.cost_cents === 0, `custo=${prodAfter.cost_cents}`);
+
+    const novoDepois = db.prepare("SELECT deleted_at FROM products WHERE name = 'Pao de Forma Integral'").get() as { deleted_at: string | null } | undefined;
+    check('produto novo ficou soft-deleted', !!novoDepois && novoDepois.deleted_at != null);
+
+    const invoiceDepois = db.prepare('SELECT deleted_at FROM purchase_invoices WHERE id = ?').get(result.invoiceId) as { deleted_at: string | null };
+    check('NF-e ficou soft-deleted', invoiceDepois.deleted_at != null);
+    const supplierDepois = db.prepare('SELECT deleted_at FROM suppliers WHERE id = ?').get(invoice.supplier_id) as { deleted_at: string | null };
+    check('fornecedor ficou soft-deleted', supplierDepois.deleted_at != null);
+
+    // A chave fica livre de novo (o índice único é parcial em deleted_at IS NULL).
+    const reimportR = await api('/api/nfe/commit', { method: 'POST', body: JSON.stringify({
+      xml,
+      decisions: [{ line: 1, action: 'ignore', qty: 1, unitCostCents: 2400 }, { line: 2, action: 'ignore', qty: 1, unitCostCents: 850 }],
+    }) }, cookie);
+    check('mesma chave pode ser reimportada após reverter', reimportR.status === 200, `status=${reimportR.status}`);
+
     // ── Capability desligada bloqueia a API de novo ──
     check('desliga capability nfe.import',
       (await api('/api/core/capabilities/nfe.import', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, cookie)).status === 200);

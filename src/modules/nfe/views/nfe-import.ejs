@@ -39,7 +39,7 @@
       <%# Histórico recente ── %>
       <h2 style="margin-top:1.5rem">Importações recentes</h2>
       <table x-show="history.length">
-        <thead><tr><th>NF-e</th><th>Fornecedor</th><th>Emitida em</th><th>Total</th><th>Itens aceitos</th></tr></thead>
+        <thead><tr><th>NF-e</th><th>Fornecedor</th><th>Emitida em</th><th>Total</th><th>Itens aceitos</th><th></th></tr></thead>
         <tbody>
           <template x-for="h in history" :key="h.id">
             <tr>
@@ -51,6 +51,13 @@
               <td x-text="h.issued_at || '—'"></td>
               <td x-text="brl(h.total_cents)"></td>
               <td x-text="h.imported_count + ' / ' + h.items_count"></td>
+              <td class="text-right">
+                <button type="button" class="btn small secondary" x-show="canRun"
+                        @click="revert(h)" :disabled="reverting === h.id"
+                        title="Desfazer esta importação (volta estoque, custo e remove o que ela criou)">
+                  <span x-text="reverting === h.id ? 'Revertendo…' : 'Desfazer'"></span>
+                </button>
+              </td>
             </tr>
           </template>
         </tbody>
@@ -216,13 +223,29 @@
         parsing: false, committing: false,
         preview: null, rows: [],
         error: '', commitError: '',
-        history: [],
+        history: [], reverting: null,
         searchOpenRow: null, searchQ: '', searchResults: [],
         brl: (c) => window.brl(c),
         async init() { await this.loadHistory(); },
         async loadHistory() {
           const r = await fetch('/api/nfe/invoices');
           if (r.ok) this.history = await r.json();
+        },
+        async revert(h) {
+          const ok = await window.confirmDlg(
+            'Desfazer a importação da NF-e ' + (h.invoice_number || h.access_key) + '? ' +
+            'O estoque e o custo voltam ao estado anterior e o que a nota criou (produtos sem uso, fornecedor e vínculos) será removido. ' +
+            'A nota sai do histórico e poderá ser importada de novo.'
+          );
+          if (!ok) return;
+          this.reverting = h.id;
+          try {
+            const r = await fetch('/api/nfe/invoices/' + h.id + '/revert', { method: 'POST' });
+            const d = r.ok ? await r.json() : { error: (await r.json().catch(() => ({}))).error ?? 'Falha ao reverter.' };
+            if (!r.ok) { showToast(d.error, 'error'); return; }
+            showToast('Importação desfeita: ' + d.productsDeleted + ' produto(s) removido(s), estoque devolvido.', 'success');
+            this.loadHistory();
+          } finally { this.reverting = null; }
         },
         brlToCents(s) {
           if (s == null || s === '') return 0;

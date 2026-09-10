@@ -12,5 +12,6 @@ router.get('/products', requirePermission('nfe.import.view'), nfeController.sear
 router.get('/invoices', requirePermission('nfe.import.view'), nfeController.listInvoices);
 router.post('/preview', requirePermission('nfe.import.view'), nfeController.preview);
 router.post('/commit', requirePermission('nfe.import.run'), nfeController.commit);
+router.post('/invoices/:id/revert', requirePermission('nfe.import.run'), nfeController.revert);
 
 export default router;

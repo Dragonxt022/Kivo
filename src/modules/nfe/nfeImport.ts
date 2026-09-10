@@ -258,6 +258,7 @@ export function commitImport(req: Request, xml: string, decisions: NfeDecision[]
     productRepository.transaction(() => {
       // 1. Fornecedor (cria se for o primeiro XML deste CNPJ).
       let supplierId = findSupplierByCnpj(doc.emitente.cnpj)?.id ?? 0;
+      const supplierCreated = supplierId === 0;
       if (!supplierId) supplierId = createSupplier(req, doc);
       resultSupplierId = supplierId;
       const supplierName = (supplierRepository.findById(supplierId) as { name: string }).name;
@@ -319,10 +320,21 @@ export function commitImport(req: Request, xml: string, decisions: NfeDecision[]
         total_cents: doc.totalCents,
         xml,
         status: 'importada',
+        supplier_created: supplierCreated ? 1 : 0,
         imported_by: (req as { user?: { id: number } }).user?.id ?? null,
         uuid: randomUUID(),
         origin_machine: req.headers['x-machine'] ?? null,
       });
+
+      // Custo de cada produto ANTES da entrada (a compra recebida altera o custo médio).
+      // Lido agora, ainda sem a movimentação — é o valor que a reversão restaura.
+      const prevCostByProduct = new Map<number, number>();
+      for (const pid of productByLine.values()) {
+        if (pid == null || prevCostByProduct.has(pid)) continue;
+        const prod = productRepository.findByIdWithColumns(pid, 'cost_cents') as { cost_cents: number } | undefined;
+        prevCostByProduct.set(pid, prod ? Number(prod.cost_cents) : 0);
+      }
+
       const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
       for (const item of doc.items) {
         const outcome = statusByLine.get(item.line) ?? 'ignorado';
@@ -340,6 +352,7 @@ export function commitImport(req: Request, xml: string, decisions: NfeDecision[]
           qty: item.qty,
           unit_cost_cents: item.unitCostCents,
           total_cost_cents: item.totalCents,
+          prev_cost_cents: productId != null ? (prevCostByProduct.get(productId) ?? null) : null,
           status: outcome,
           uuid: randomUUID(),
           origin_machine: req.headers['x-machine'] ?? null,
@@ -364,6 +377,11 @@ export function commitImport(req: Request, xml: string, decisions: NfeDecision[]
           status: 'recebida',
           receivedAt: now,
         });
+        // Liga a nota à compra gerada — é por aqui que a reversão acha o que desfazer.
+        purchaseInvoiceRepository.rawRun(
+          'UPDATE purchase_invoices SET purchase_id = ? WHERE id = ?',
+          purchaseId, invoiceId,
+        );
       }
 
       audit(req, 'importar_nfe', 'purchase_invoice', invoiceId, null, {
