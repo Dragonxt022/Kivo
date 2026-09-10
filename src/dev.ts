@@ -8,6 +8,7 @@ import { createServer } from './core/server';
 import { closeDb } from './core/database/connection';
 import { refreshLicenseFromCloud } from './core/license/service';
 import { createLogger } from './core/logger';
+import { installTelemetry, flushTelemetry } from './core/telemetry/service';
 
 const log = createLogger('boot');
 
@@ -26,10 +27,12 @@ const PORT = Number(process.env.KIVO_PORT ?? 3123);
 const smoke = process.argv.includes('--smoke');
 
 async function main() {
+  installTelemetry();
   const applied = migrateUp();
   if (applied.length) console.log(`[db] migrations aplicadas: ${applied.join(', ')}`);
   runSeeds();
   await refreshLicenseFromCloud();
+  flushTelemetry().catch(() => { /* best-effort */ });
 
   const { app, modules } = await createServer();
   // Sem Electron o servidor escuta em todas as interfaces (padrão do `listen`), então o

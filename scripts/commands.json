@@ -111,6 +111,10 @@
     "description": "Testes: importação de NF-e (XML modelo 55) para compras/estoque",
     "run": "node scripts/test-isolated.js src/tests/nfe-import.ts"
   },
+  "test:telemetry": {
+    "description": "Testes: telemetria anônima (erros + inventário de hardware)",
+    "run": "node scripts/test-isolated.js src/tests/telemetry.ts"
+  },
   "test:pdv-tipos": {
     "description": "Testes: PDV lê e vende todos os tipos de produto",
     "run": "node scripts/test-isolated.js src/tests/pdv-tipos-produto.ts"

@@ -15,6 +15,7 @@ import mobileGrantsRoutes from './routes/mobileGrants';
 import { mobileSide as mobileCommandsRoutes, desktopSide as desktopCommandsRoutes } from './routes/mobileCommands';
 import mobileAppRoutes from './routes/mobileApp';
 import quotePublicRoutes from './routes/quotePublic';
+import telemetryRoutes, { startTelemetryRetention } from './routes/telemetry';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -44,6 +45,7 @@ export function createCloudServer() {
   // porque é pública — `/m` inteiro exige o cookie de acesso do lojista.
   app.use('/', quotePublicRoutes);
   app.use('/api/support', supportRoutes);
+  app.use('/api/telemetry', telemetryRoutes);
   app.use('/admin', adminRoutes);
 
   // Middleware de erro global: captura falhas de conexão com o banco de dados
@@ -63,5 +65,6 @@ export function createCloudServer() {
 
 if (require.main === module) {
   const app = createCloudServer();
+  startTelemetryRetention();
   app.listen(PORT, () => console.log(`[kivo-cloud] ouvindo em http://localhost:${PORT}`));
 }

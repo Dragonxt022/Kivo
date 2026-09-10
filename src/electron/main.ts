@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, nativeTheme } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeTheme, screen } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,6 +11,7 @@ import { canAutoUpdate } from '../core/license/plans';
 import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/machinePrefs';
 import { patchUpdateState, getUpdateState, registrarUpdaterDriver } from '../core/updater';
 import { createLogger } from '../core/logger';
+import { installTelemetry, registerInventoryProvider, recordError } from '../core/telemetry/service';
 
 const log = createLogger('electron');
 
@@ -51,6 +52,15 @@ process.on('uncaughtException', (err) => {
   const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
   log.error('exceção não capturada', msg);
   appendErrorLog(`[uncaughtException] ${msg}`);
+});
+
+// Crash de renderer/processo filho não caía em nenhum handler — agora vira telemetria,
+// que é justamente o tipo de falha (tela branca, GPU) que o suporte precisa enxergar.
+app.on('render-process-gone', (_event, _wc, details) => {
+  recordError('renderer-process', `renderer finalizado: ${details.reason}`, { exitCode: details.exitCode });
+});
+app.on('child-process-gone', (_event, details) => {
+  recordError('child-process', `processo filho finalizado: ${details.type}/${details.reason}`, { exitCode: details.exitCode });
 });
 
 const PORT = Number(process.env.KIVO_PORT ?? 3123);
@@ -246,6 +256,32 @@ async function boot() {
 
   migrateUp();
   runSeeds();
+  installTelemetry();
+  registerInventoryProvider(() => {
+    let screenInfo: { width: number; height: number; scaleFactor: number } | null = null;
+    try {
+      const d = screen.getPrimaryDisplay();
+      screenInfo = { width: d.size.width, height: d.size.height, scaleFactor: d.scaleFactor };
+    } catch {
+      // Sem display (headless): segue sem tela.
+    }
+    let gpu: { status: string; software: boolean } | null = null;
+    try {
+      const status = app.getGPUFeatureStatus() as unknown as Record<string, string>;
+      const software = ['gpu_compositing', '2d_canvas'].some((k) => (status?.[k] ?? '').includes('software'));
+      gpu = { status: String(status?.gpu_compositing ?? 'desconhecida'), software };
+    } catch {
+      // Plataforma que não expõe o status de GPU.
+    }
+    return {
+      appVersion: app.getVersion(),
+      electronVersion: process.versions.electron ?? null,
+      chromeVersion: process.versions.chrome ?? null,
+      nodeVersion: process.versions.node,
+      screen: screenInfo,
+      gpu,
+    };
+  });
   // O destino dos backups NÃO é semeado no banco: `backupDir()` deriva de `KIVO_DB_PATH`
   // (userData no app empacotado) a cada uso. Gravar o caminho absoluto aqui fazia ele
   // viajar junto num banco restaurado em outra máquina/outro perfil do Windows.

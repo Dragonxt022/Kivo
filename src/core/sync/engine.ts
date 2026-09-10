@@ -4,6 +4,7 @@ import { getSqlite } from '../database/connection';
 import { audit } from '../audit/service';
 import { machineId, refreshLicenseFromCloud, validateLicense } from '../license/service';
 import { canSaveToCloud } from '../license/plans';
+import { flushTelemetry } from '../telemetry/service';
 import { getSyncTables, getRecomputeHook } from './registry';
 import {
   tableColumns,
@@ -339,6 +340,9 @@ async function pullAll(req: Request): Promise<number> {
 }
 
 export async function runSync(req: Request): Promise<{ pushed: number; pulled: number; skipped?: boolean }> {
+  // Telemetria (erros + inventário) pega carona no ciclo do sync e não depende do plano —
+  // trial/prata também mandam. Best-effort: nunca atrapalha o sync.
+  flushTelemetry().catch(() => { /* best-effort */ });
   // Reconectar também confirma entitlement/validade (Fase 6b) — best-effort, não
   // interrompe o resto do sync se o cloud/ estiver fora do ar. Módulos são checados
   // dinamicamente por requisição (não só no boot), então o plano atualizado aqui já

@@ -39,6 +39,7 @@ import recoveryRoutes from './recovery/routes';
 import { purgeOldChallenges } from './recovery/service';
 import { purgeExpiredSessions } from './auth/service';
 import { createLogger } from './logger';
+import { recordError } from './telemetry/service';
 
 // Um logger por assunto, e não um genérico "server": é o que faz `[backup]`, `[license]`
 // e `[http]` continuarem separáveis no arquivo de log quando o suporte for procurar.
@@ -334,6 +335,22 @@ export async function createServer(): Promise<KivoServer> {
   // Módulos: API (/api/<id>) e páginas (/app/<id>) exigem autenticação por padrão
   app.use('/api', requireAuth);
   app.use('/app', requireAuth);
+
+  // Erros do front-end (renderer) chegam aqui e viram telemetria — o CSP só deixa o
+  // navegador falar com a própria origem, então o renderer não chama o cloud direto.
+  app.post('/api/telemetry/client-error', (req: Request, res: Response) => {
+    const body = req.body as { message?: unknown; stack?: unknown; source?: unknown; line?: unknown; column?: unknown } | undefined;
+    const message = typeof body?.message === 'string' ? body.message.slice(0, 2000) : 'erro no front-end';
+    const stack = typeof body?.stack === 'string' ? body.stack.slice(0, 20_000) : undefined;
+    recordError('renderer', message, {
+      stack,
+      source: typeof body?.source === 'string' ? body.source.slice(0, 300) : undefined,
+      line: body?.line,
+      column: body?.column,
+    });
+    res.json({ ok: true });
+  });
+
   const modules = await loadModules(app);
 
   // Views dos módulos entram no lookup do EJS; menu dos manifestos vai para as views
@@ -374,6 +391,7 @@ export async function createServer(): Promise<KivoServer> {
   // Error handler global (deve ser o ÚLTIMO middleware)
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     logHttp.error('erro não tratado numa rota', err);
+    recordError('http', err.message || 'erro não tratado numa rota', err);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   });
 

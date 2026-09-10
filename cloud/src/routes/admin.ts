@@ -430,6 +430,87 @@ router.post('/trials/:machineId/release', requireAdminAuth, async (req: AdminReq
 });
 
 /**
+ * Erros anônimos reportados pelos desktops, agrupados por (empresa, fingerprint).
+ * É a tela de onde o suporte copia a mensagem/stack para investigar.
+ */
+router.get('/errors', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
+  const [rows] = await pool.query(
+    `SELECT company_uuid, fingerprint, MAX(scope) AS scope, MAX(level) AS level, MAX(message) AS message,
+            MAX(stack) AS stack, SUM(occurrences) AS total, COUNT(DISTINCT machine_id) AS devices,
+            MAX(last_seen_at) AS last_seen_at, MIN(first_seen_at) AS first_seen_at
+       FROM client_error_reports
+       GROUP BY company_uuid, fingerprint
+       ORDER BY last_seen_at DESC
+       LIMIT 300`,
+  );
+  const [companyRows] = await pool.query('SELECT company_uuid, name FROM companies');
+  const names = new Map(
+    (companyRows as { company_uuid: string; name: string | null }[]).map((c) => [c.company_uuid, c.name]),
+  );
+  const errors = (rows as Record<string, unknown>[]).map((r) => ({
+    ...r,
+    company_name: names.get(String(r.company_uuid)) ?? null,
+  }));
+  res.render('errors', { errors });
+});
+
+/**
+ * Inventário de hardware (anônimo) por instalação, mais um resumo por perfil
+ * (OS + CPU + RAM) para achar padrões de placa/máquina que dão problema.
+ */
+router.get('/hardware', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
+  const [rows] = await pool.query(
+    `SELECT company_uuid, machine_id, data, os, cpu, ram_gb, app_version, first_seen_at, last_seen_at
+       FROM client_machine_inventory ORDER BY last_seen_at DESC LIMIT 1000`,
+  );
+  const [companyRows] = await pool.query('SELECT company_uuid, name FROM companies');
+  const names = new Map(
+    (companyRows as { company_uuid: string; name: string | null }[]).map((c) => [c.company_uuid, c.name]),
+  );
+  interface MachineRow {
+    company_uuid: string;
+    machine_id: string;
+    os: string | null;
+    cpu: string | null;
+    ram_gb: number | null;
+    app_version: string | null;
+    first_seen_at: string;
+    last_seen_at: string;
+    company_name: string | null;
+    data: unknown;
+  }
+  const machines: MachineRow[] = (rows as Record<string, unknown>[]).map((r) => ({
+    ...(r as unknown as MachineRow),
+    company_name: names.get(String(r.company_uuid)) ?? null,
+    data: typeof r.data === 'string' ? safeJson(r.data) : r.data,
+  }));
+
+  const groups = new Map<string, { os: string | null; cpu: string | null; ram_gb: number | null; machines: number; companies: Set<string> }>();
+  for (const m of machines) {
+    const key = `${m.os ?? '?'}|${m.cpu ?? '?'}|${m.ram_gb ?? '?'}`;
+    const g = groups.get(key) ?? { os: m.os as string | null, cpu: m.cpu as string | null, ram_gb: m.ram_gb as number | null, machines: 0, companies: new Set<string>() };
+    g.machines++;
+    g.companies.add(String(m.company_uuid));
+    groups.set(key, g);
+  }
+  const profiles = [...groups.values()]
+    .map((g) => ({ os: g.os, cpu: g.cpu, ram_gb: g.ram_gb, machines: g.machines, companies: g.companies.size }))
+    .sort((a, b) => b.machines - a.machines);
+
+  res.render('hardware', { machines, profiles });
+});
+
+function safeJson(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Exclusão definitiva: some com histórico de sincronização, backups (linha + arquivo no
  * disco), cobranças, cardápio publicado e chamados de suporte. Imagens do banco
  * (catalog_images) só perdem o vínculo com a empresa (company_uuid = NULL) — são um

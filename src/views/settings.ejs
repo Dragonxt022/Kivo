@@ -588,6 +588,32 @@
         </div>
         <% } %>
       </section>
+
+      <section class="panel">
+        <h2>Privacidade e diagnóstico</h2>
+        <p class="hint mt-0">
+          Envia <strong>erros anônimos</strong> e um <strong>inventário técnico da máquina</strong>
+          (sistema, CPU, memória, GPU, tela e versões) para o suporte do Kivo. Não enviamos nome,
+          documento, usuário nem dados dos seus clientes — só dado técnico, para corrigir falhas e
+          melhorar a compatibilidade com computadores diferentes.
+        </p>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="telemetria.habilitada" />
+            Enviar diagnóstico anônimo
+          </label>
+          <p class="hint">Ligado por padrão. Desligar interrompe o envio imediatamente.</p>
+        </div>
+        <% if (user.permissions.has('settings.edit')) { %>
+        <div class="toolbar">
+          <button class="btn" @click="saveTelemetria()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingTelemetria ? 'Salvando…' : 'Salvar'"></span>
+          </button>
+          <span class="muted" x-show="telemetriaSaved" x-text="telemetriaSaved"></span>
+        </div>
+        <% } %>
+      </section>
     </div>
     <% } %>
 
@@ -1083,6 +1109,7 @@
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
         fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
         rede: { acessoLocal: false, syncIntervalo: 3 }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null, lanAtivo: null }, copiedUrl: '',
+        telemetria: { habilitada: true }, savingTelemetria: false, telemetriaSaved: '',
         atualizacao: {
           suportado: false, motivo: '', status: 'ocioso', versaoAtual: '—', versaoDisponivel: null,
           notas: null, progresso: null, erro: null, verificadoEm: null, ocupado: false, confirmando: false,
@@ -1168,6 +1195,7 @@
           this.rede.acessoLocal = this.settings.find(s => s.key === 'rede.acesso_local')?.value === '1';
           const iv = this.settings.find(s => s.key === 'sync.intervalo_minutos')?.value;
           this.rede.syncIntervalo = iv == null || iv === '' ? 3 : Number(iv);
+          this.telemetria.habilitada = this.settings.find(s => s.key === 'telemetria.habilitada')?.value !== '0';
         },
         // ─── Logo da empresa ───
         // O arquivo vira base64 aqui porque o resto do app já manda imagem assim (fotos de
@@ -1486,6 +1514,15 @@
           });
           this.savingSync = false;
           this.syncSaved = r.ok ? 'Salvo — reinicie o Kivo para aplicar.' : 'Falha ao salvar.';
+        },
+        async saveTelemetria() {
+          this.savingTelemetria = true; this.telemetriaSaved = '';
+          const r = await fetch('/api/settings/telemetria.habilitada', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.telemetria.habilitada ? '1' : '0' }),
+          });
+          this.savingTelemetria = false;
+          this.telemetriaSaved = r.ok ? 'Salvo.' : 'Falha ao salvar.';
         },
         copyUrl(u) {
           navigator.clipboard?.writeText(u).then(() => {
