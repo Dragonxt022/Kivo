@@ -1,0 +1,2 @@
+-- Reversão impossível: a normalização é destrutiva por natureza — depois de rodar não há
+-- como saber qual produto tinha "UN" e qual já era "un". O rollback é um no-op deliberado.

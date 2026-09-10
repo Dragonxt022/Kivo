@@ -392,7 +392,11 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
     res.status(400).json({ error: 'Saldo de estoque não é editável: use movimentações (/stock/move).' });
     return;
   }
-  if (b.barcode && !validateBarcode(String(b.barcode))) {
+  // Barcode inválido só é barrado quando o usuário está GRAVANDO um valor novo. Um
+  // produto legado (importado antes desta validação) com código inválido continua
+  // editável — senão o lojista não consegue nem corrigir o cadastro pelo formulário.
+  const beforeBarcode = String((before as unknown as { barcode?: string | null }).barcode ?? '');
+  if (b.barcode && String(b.barcode) !== beforeBarcode && !validateBarcode(String(b.barcode))) {
     res.status(400).json({ error: 'Código de barras inválido (dígito verificador não confere).' });
     return;
   }

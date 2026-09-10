@@ -118,6 +118,7 @@
                 <span x-html="typeIcon(p.product_type)"></span>
                 <span x-text="p.name"></span>
               </span>
+              <div class="muted text-xs" x-show="p.barcode" :title="p.barcode" style="font-family:var(--font-mono,monospace)" x-text="p.barcode"></div>
               <span class="badge off" x-show="p.track_stock && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
               <span class="badge off" x-show="p.track_stock && p.stock_qty >= 0 && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
             </td>
@@ -327,6 +328,13 @@
                 <div class="pm-field">
                   <label>Estoque mínimo</label><input type="text" x-model="form.minStock" />
                 </div>
+                <template x-if="form.id">
+                  <div class="pm-field">
+                    <label>Estoque atual</label>
+                    <input type="text" :value="form.stockQty ?? 0" disabled />
+                    <span class="muted text-xs">Para alterar, use o menu ⋯ → Estoque (movimentação).</span>
+                  </div>
+                </template>
                 <template x-if="!form.id">
                   <div class="pm-field">
                     <label title="Opcional — entra como movimentação de entrada">Estoque inicial</label>
@@ -341,8 +349,8 @@
               <h2 class="pm-section-title">Identificação</h2>
               <div class="pm-field">
                 <label>Código de barras</label>
-                <div class="flex-row">
-                  <input type="text" x-model="form.barcode" style="flex:1" @input="barcodeHint = checkBarcode(form.barcode)" />
+                <div class="flex-row" style="flex-wrap:wrap">
+                  <input type="text" x-model="form.barcode" :title="form.barcode" style="flex:1 1 200px;min-width:0;font-family:var(--font-mono,monospace)" @input="barcodeHint = checkBarcode(form.barcode)" />
                   <template x-if="form.id">
                     <button class="btn secondary small" type="button" @click="genBarcode()">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"/><path d="M6 4v16"/><path d="M10 4v4"/><path d="M10 16v4"/><path d="M14 4v8"/><path d="M14 16v4"/><path d="M18 4v4"/><path d="M18 12v8"/><path d="M22 4v16"/></svg>
@@ -2083,12 +2091,12 @@
             categoryId: p.category_id ?? '',
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
             minStock: p.min_stock, productType: p.product_type ?? 'fisico', noStockControl: !p.track_stock,
-            description: p.description ?? '' };
+            stockQty: p.stock_qty, description: p.description ?? '' };
           // Produto antigo pode ter sido gravado como serviço COM controle de estoque (o
           // tipo não existia no formulário). Normalizar na abertura evita a chave aparecer
           // desligada e travada ao mesmo tempo — e salvar já acerta o dado.
           if (this.stockLessTypes[this.form.productType]) this.form.noStockControl = true;
-          this.dlgError = ''; this.barcodeHint = ''; this.resetImageState();
+          this.dlgError = ''; this.barcodeHint = this.checkBarcode(this.form.barcode); this.resetImageState();
           this.form.imageUrl = p.image_url ?? null;
           this.selectedCategoryImage = p.category_image_url ?? '';
           this.variants = [];
