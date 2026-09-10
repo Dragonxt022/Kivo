@@ -15,7 +15,7 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 import { getLicenseCredentials, machineId } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
 import { createLogger, setErrorSink } from '../logger';
-import { collectMachineInventory, osLabel, type InventoryOverrides } from './hardware';
+import { collectMachineInventory, osLabel, type InventoryOverrides, type MachineInventory } from './hardware';
 
 const log = createLogger('telemetria');
 
@@ -39,6 +39,11 @@ let cachedAppVersion: string | null | undefined;
 export function registerInventoryProvider(fn: () => InventoryOverrides): void {
   inventoryProvider = fn;
   cachedAppVersion = undefined;
+}
+
+/** Inventário atual, com os dados que o Electron registrou (tela/GPU/versões). */
+export function getMachineInventory(): MachineInventory {
+  return collectMachineInventory(inventoryProvider?.() ?? {});
 }
 
 function appVersion(): string | null {

@@ -87,6 +87,11 @@ export function getUpdateState(): UpdateState {
   return { ...state, progresso: state.progresso ? { ...state.progresso } : null };
 }
 
+/** Versão instalada (package.json, ou a que o Electron informou). Usada no /license/validate. */
+export function versaoInstalada(): string {
+  return state.versaoAtual;
+}
+
 export function patchUpdateState(patch: Partial<UpdateState>): UpdateState {
   state = { ...state, ...patch };
   return getUpdateState();

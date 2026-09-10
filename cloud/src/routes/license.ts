@@ -13,6 +13,8 @@ interface CompanyLicenseRow {
   max_devices: number;
   /** Ver `ensureRecoverySecret`. NULL até a primeira validação pós-migration 0020. */
   recovery_secret: string | null;
+  /** Versão mínima exigida pelo suporte (painel). NULL = sem exigência. */
+  licensed_version: string | null;
   // Perfil da empresa — desce na ativação e preenche as configurações do Kivo local.
   name: string | null;
   legal_name: string | null;
@@ -201,13 +203,15 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
     res.status(400).json({ error: 'Cabeçalho obrigatório: X-Kivo-Machine-Id.' });
     return;
   }
+  // Versão que o desktop está rodando (opcional) — alimenta a tela de versões do painel.
+  const appVersion = (req.header('X-Kivo-App-Version') ?? '').trim().slice(0, 24) || null;
 
   const pool = getPool();
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     const [companyRows] = await conn.query(
-      `SELECT plan, modules, valid_until, max_devices, recovery_secret,
+      `SELECT plan, modules, valid_until, max_devices, recovery_secret, licensed_version,
               name, legal_name, document, state_registration, email, phone,
               zip, street, number, complement, district, city, state
        FROM companies WHERE company_uuid = ? FOR UPDATE`,
@@ -232,7 +236,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
         res.status(403).json({ error: 'device_revoked' });
         return;
       }
-      await conn.query('UPDATE company_devices SET last_seen_at = NOW(3) WHERE id = ?', [device.id]);
+      await conn.query('UPDATE company_devices SET last_seen_at = NOW(3), app_version = COALESCE(?, app_version) WHERE id = ?', [appVersion, device.id]);
     } else {
       const [countRows] = await conn.query(
         'SELECT COUNT(*) AS total FROM company_devices WHERE company_uuid = ? AND removed_at IS NULL',
@@ -244,7 +248,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
         res.status(403).json({ error: 'device_limit_exceeded', maxDevices: company.max_devices });
         return;
       }
-      await conn.query('INSERT INTO company_devices (company_uuid, machine_id) VALUES (?, ?)', [req.companyUuid, machineId]);
+      await conn.query('INSERT INTO company_devices (company_uuid, machine_id, app_version) VALUES (?, ?, ?)', [req.companyUuid, machineId, appVersion]);
     }
 
     await conn.commit();
@@ -270,6 +274,8 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
       plan: company.plan,
       modules,
       validUntil: company.valid_until,
+      // Versão mínima exigida pelo suporte (painel). O desktop avisa/força a atualização.
+      licensedVersion: company.licensed_version,
       supportPhone: settingsMap.support_phone ?? null,
       supportEmail: settingsMap.support_email ?? null,
       recoverySecret,

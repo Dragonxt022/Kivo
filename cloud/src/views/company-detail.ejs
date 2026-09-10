@@ -400,6 +400,37 @@
 
         <!-- ─────────── Diagnóstico ─────────── -->
         <section x-show="tab === 'diagnostico'" role="tabpanel" x-cloak>
+          <div class="card" x-data="companyCommands('<%= company.company_uuid %>')" x-init="init()">
+            <h2>Ações de suporte</h2>
+            <p class="card-intro">Executa no computador do cliente pela fila de comandos — sem precisar de acesso remoto. O resultado aparece abaixo e atualiza sozinho.</p>
+            <div class="toolbar">
+              <form method="post" action="/admin/companies/<%= company.company_uuid %>/commands">
+                <input type="hidden" name="kind" value="support.sync_now" />
+                <button type="submit" class="btn">Forçar sincronização</button>
+              </form>
+              <form method="post" action="/admin/companies/<%= company.company_uuid %>/commands">
+                <input type="hidden" name="kind" value="support.diagnostics" />
+                <button type="submit" class="btn secondary">Pedir diagnóstico</button>
+              </form>
+            </div>
+            <div class="table-scroll" style="margin-top:14px;">
+              <table>
+                <thead><tr><th>Comando</th><th>Status</th><th>Resultado</th><th>Enviado</th></tr></thead>
+                <tbody>
+                  <template x-for="c in commands" :key="c.id">
+                    <tr>
+                      <td x-text="label(c.kind)"></td>
+                      <td><span class="badge" :class="c.status === 'aplicado' ? 'paga' : (c.status === 'erro' ? 'cancelada' : '')" x-text="c.status"></span></td>
+                      <td class="cell-muted" x-text="summary(c)"></td>
+                      <td class="cell-muted" x-text="c.created_at"></td>
+                    </tr>
+                  </template>
+                  <tr x-show="!commands.length"><td colspan="4" class="cell-muted">Nenhum comando enviado ainda.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="card table-card">
             <div class="table-toolbar">
               <h2 style="margin:0; font-size:1.05rem;">Inventário da máquina</h2>
@@ -536,6 +567,35 @@
   <script src="/js/table-toolkit.js"></script>
   <script>
     var VALID_TABS = ['detalhes', 'licenca', 'cobrancas', 'sync', 'diagnostico', 'perigo'];
+
+    function companyCommands(uuid) {
+      return {
+        commands: [],
+        timer: null,
+        async load() {
+          try {
+            const r = await fetch('/admin/api/companies/' + uuid + '/commands', { credentials: 'same-origin' });
+            if (r.ok) this.commands = (await r.json()).commands;
+          } catch (e) { /* silencioso */ }
+        },
+        init() {
+          this.load();
+          this.timer = setInterval(() => this.load(), 5000);
+        },
+        label(kind) {
+          return kind === 'support.sync_now' ? 'Forçar sincronização'
+            : kind === 'support.diagnostics' ? 'Diagnóstico' : kind;
+        },
+        summary(c) {
+          if (!c.result) return c.status === 'pendente' ? 'aguardando o computador…' : '—';
+          const r = c.result;
+          if (r.error) return r.error;
+          if (r.agendado) return 'Sincronização agendada';
+          if (r.os) return [r.os, r.cpu, r.ramGb ? r.ramGb + ' GB' : null].filter(Boolean).join(' · ');
+          try { return JSON.stringify(r).slice(0, 140); } catch (e) { return '—'; }
+        },
+      };
+    }
 
     function companyTabs() {
       return {

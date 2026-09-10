@@ -9,18 +9,35 @@ import {
   instalarAtualizacao,
 } from './index';
 import { createLogger } from '../logger';
+import { settingsRepository } from '../repositories/SettingsRepository';
+import { LICENSED_VERSION_KEY } from '../license/service';
 
 const log = createLogger('updater');
 
 const router = Router();
 
+/** Compara versões "x.y.z" (só os três primeiros números). */
+function cmpVersao(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = b.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
 /**
  * A tela de Configurações e o sino do cabeçalho leem daqui. É uma leitura de memória
  * (nenhum I/O), então pode ser consultada de poucos em poucos segundos enquanto uma
- * barra de progresso estiver na tela.
+ * barra de progresso estiver na tela. Inclui a versão mínima exigida pelo suporte.
  */
 router.get('/status', requirePermission('settings.view'), (_req, res) => {
-  res.json(getUpdateState());
+  const estado = getUpdateState();
+  const exigida = (settingsRepository.get(LICENSED_VERSION_KEY) ?? '').trim();
+  const atual = estado.versaoAtual;
+  const obrigatoria = !!exigida && /^\d/.test(atual) && cmpVersao(atual, exigida) < 0;
+  res.json({ ...estado, versaoExigida: exigida || null, atualizacaoObrigatoria: obrigatoria });
 });
 
 router.post('/check', requirePermission('settings.edit'), async (_req, res) => {

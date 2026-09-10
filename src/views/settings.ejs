@@ -722,6 +722,13 @@
           Versão instalada nesta máquina: <strong x-text="atualizacao.versaoAtual"></strong>
         </p>
 
+        <div class="hint" x-show="atualizacao.versaoExigida" x-cloak
+             :style="atualizacao.atualizacaoObrigatoria ? 'border-left:3px solid var(--danger);padding-left:.6rem;' : 'border-left:3px solid var(--primary);padding-left:.6rem;'">
+          <strong x-text="atualizacao.atualizacaoObrigatoria ? 'Atualização necessária' : 'Versão exigida pelo suporte'"></strong>:
+          use a versão <strong x-text="atualizacao.versaoExigida"></strong> ou superior.
+          <span x-show="atualizacao.atualizacaoObrigatoria">A versão instalada está abaixo da exigida — atualize para continuar em conformidade.</span>
+        </div>
+
         <template x-if="!atualizacao.suportado">
           <p class="hint">
             <span class="badge neutral">Indisponível</span>
@@ -1113,6 +1120,7 @@
         atualizacao: {
           suportado: false, motivo: '', status: 'ocioso', versaoAtual: '—', versaoDisponivel: null,
           notas: null, progresso: null, erro: null, verificadoEm: null, ocupado: false, confirmando: false,
+          versaoExigida: null, atualizacaoObrigatoria: false,
         },
         pollAtualizacaoId: null,
         savingSync: false, syncSaved: '',

@@ -4,6 +4,7 @@ import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import express, { Router } from 'express';
 import { getPool } from '../db';
 import { hashLicenseKey } from '../auth';
+import { emitToCompany } from '../events';
 import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
 import { expectedResponse } from '../recoveryCodes';
@@ -185,6 +186,21 @@ router.get('/companies', requireAdminAuth, async (_req, res) => {
   });
 });
 
+/** Exporta a lista de empresas em CSV (o Excel brasileiro abre com `;` e BOM). */
+router.get('/companies/export.csv', requireAdminAuth, async (_req, res) => {
+  const rows = (await loadCompaniesList()) as Record<string, unknown>[];
+  const columns = ['company_uuid', 'name', 'plan', 'valid_until', 'sync_count', 'last_activity', 'pending_cents'];
+  const cell = (v: unknown): string => {
+    const s = v == null ? '' : String(v);
+    return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [columns.join(';'), ...rows.map((r) => columns.map((c) => cell(r[c])).join(';'))];
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="empresas-${stamp}.csv"`);
+  res.send('\uFEFF' + lines.join('\r\n'));
+});
+
 router.get('/', requireAdminAuth, async (_req, res) => {
   const pool = getPool();
 
@@ -291,9 +307,91 @@ router.get('/', requireAdminAuth, async (_req, res) => {
     alerts.push({ type: 'info', icon: 'plus', title: 'Bem-vindo ao Kivo Cloud!', detail: 'Comece cadastrando sua primeira empresa.' });
   }
 
+  // ─── Alertas extras: inatividade, licenças vencidas e erros recentes ───
+  const [companyNameRows] = await pool.query('SELECT company_uuid, name FROM companies');
+  const companyNames = new Map(
+    (companyNameRows as { company_uuid: string; name: string | null }[]).map((c) => [c.company_uuid, c.name]),
+  );
+
+  const [inactiveRows] = await pool.query(
+    `SELECT c.company_uuid, c.name, MAX(sr.server_received_at) AS last_activity
+       FROM companies c JOIN sync_records sr ON sr.company_uuid = c.company_uuid
+       GROUP BY c.company_uuid, c.name
+       HAVING MAX(sr.server_received_at) < DATE_SUB(NOW(), INTERVAL 7 DAY)
+       ORDER BY last_activity ASC LIMIT 5`,
+  );
+  for (const r of inactiveRows as { company_uuid: string; name: string | null; last_activity: string }[]) {
+    alerts.push({
+      type: 'warning', icon: 'pause',
+      title: r.name || r.company_uuid.slice(0, 8),
+      detail: `sem sincronizar desde ${String(r.last_activity).slice(0, 10)}`,
+      link: `/admin/companies/${r.company_uuid}`,
+    });
+  }
+
+  const [expiredRows] = await pool.query(
+    `SELECT name, company_uuid, valid_until FROM companies
+      WHERE valid_until IS NOT NULL AND valid_until < NOW()
+      ORDER BY valid_until DESC LIMIT 5`,
+  );
+  for (const e of expiredRows as { name: string | null; company_uuid: string; valid_until: string }[]) {
+    alerts.push({
+      type: 'danger', icon: 'clock',
+      title: e.name || e.company_uuid.slice(0, 8),
+      detail: `licença vencida em ${String(e.valid_until).slice(0, 10)}`,
+      link: `/admin/companies/${e.company_uuid}`,
+    });
+  }
+
+  const [errorCompanyRows] = await pool.query(
+    `SELECT company_uuid, SUM(occurrences) AS total, MAX(last_seen_at) AS last_seen
+       FROM client_error_reports WHERE last_seen_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+       GROUP BY company_uuid ORDER BY total DESC LIMIT 5`,
+  );
+  for (const e of errorCompanyRows as { company_uuid: string; total: number; last_seen: string }[]) {
+    alerts.push({
+      type: 'warning', icon: 'alert',
+      title: `Erros: ${companyNames.get(e.company_uuid) || e.company_uuid.slice(0, 8)}`,
+      detail: `${e.total} ocorrência(s) nos últimos 7 dias`,
+      link: `/admin/companies/${e.company_uuid}#diagnostico`,
+    });
+  }
+
+  // ─── Métricas comerciais ───
+  const [mrrRows] = await pool.query(
+    `SELECT COALESCE(SUM(amount_cents), 0) AS cents, COUNT(*) AS n
+       FROM charges WHERE status = 'paga' AND paid_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+  );
+  const mrr = (mrrRows as { cents: number; n: number }[])[0];
+  const [commercialRows] = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM trial_registry) AS trials,
+       (SELECT COUNT(*) FROM trial_registry tr JOIN companies c ON c.company_uuid = tr.company_uuid
+          WHERE c.plan IN ('prata','ouro','diamante')) AS converted,
+       (SELECT COUNT(*) FROM companies WHERE valid_until IS NOT NULL AND valid_until < NOW() AND plan <> 'trial') AS churned,
+       (SELECT COUNT(*) FROM (
+          SELECT c.company_uuid FROM companies c JOIN sync_records sr ON sr.company_uuid = c.company_uuid
+          GROUP BY c.company_uuid HAVING MAX(sr.server_received_at) < DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ) t) AS inactive`,
+  );
+  const cr = (commercialRows as { trials: number; converted: number; churned: number; inactive: number }[])[0];
+  const commercial = {
+    revenue30dCents: Number(mrr?.cents || 0),
+    paidCount30d: Number(mrr?.n || 0),
+    trials: Number(cr?.trials || 0),
+    converted: Number(cr?.converted || 0),
+    churned: Number(cr?.churned || 0),
+    inactive: Number(cr?.inactive || 0),
+  };
+
+  // Mais grave primeiro; a lista é longa (inatividade, vencidas, erros...) e virava um
+  // paredão — o painel mostra os 8 principais.
+  const severity: Record<string, number> = { danger: 0, warning: 1, info: 2 };
+  alerts.sort((a, b) => (severity[a.type] ?? 3) - (severity[b.type] ?? 3));
+
   res.render('dashboard', {
     planTiers: PLAN_TIERS, planLabels: PLAN_LABELS,
-    kpis, planDistribution, recentActivity, alerts, syncTrend, revenueTrend,
+    kpis, planDistribution, recentActivity, alerts: alerts.slice(0, 8), syncTrend, revenueTrend, commercial,
   });
 });
 
@@ -521,6 +619,48 @@ router.get('/hardware', requireAdminAuth, async (_req, res) => {
   res.render('hardware', { machines, profiles });
 });
 
+/** Compara versões "x.y.z" (só os três primeiros números). */
+function cmpVersao(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = b.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/**
+ * Versões: distribuição de versões do app e, por instalação, a versão que está rodando
+ * contra a versão exigida pelo suporte (`companies.licensed_version`). Alimenta o painel
+ * para ver quem está desatualizado.
+ */
+router.get('/versions', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
+  const [deviceRows] = await pool.query(
+    `SELECT c.company_uuid, c.name AS company_name, c.plan, c.licensed_version,
+            cd.machine_id, cd.app_version, cd.last_seen_at
+       FROM company_devices cd JOIN companies c ON c.company_uuid = cd.company_uuid
+      WHERE cd.removed_at IS NULL
+      ORDER BY c.name, cd.last_seen_at DESC`,
+  );
+  const devices = (deviceRows as Record<string, unknown>[]).map((d) => ({
+    ...d,
+    desatualizado: !!d.licensed_version && !!d.app_version
+      && cmpVersao(String(d.app_version), String(d.licensed_version)) < 0,
+  }));
+
+  const [versionRows] = await pool.query(
+    `SELECT COALESCE(app_version, 'desconhecida') AS app_version, COUNT(*) AS total
+       FROM company_devices WHERE removed_at IS NULL
+      GROUP BY app_version ORDER BY total DESC`,
+  );
+  const distribution = versionRows as { app_version: string; total: number }[];
+  const outdated = devices.filter((d) => d.desatualizado).length;
+
+  res.render('versions', { devices, distribution, outdated, totalDevices: devices.length });
+});
+
 function safeJson(s: string): unknown {
   try {
     return JSON.parse(s);
@@ -628,6 +768,42 @@ router.post('/companies/:uuid/recovery-code', requireAdminAuth, async (req: Admi
     recoveryCode,
     planTiers: PLAN_TIERS,
     planLabels: PLAN_LABELS,
+  });
+});
+
+// --- Comandos de suporte (fila company_commands, executada pelo desktop) ---
+
+/** Só estes tipos podem ser disparados pelo painel — evita virar um executor genérico. */
+const SUPPORT_COMMANDS = new Set(['support.sync_now', 'support.diagnostics']);
+
+router.post('/companies/:uuid/commands', requireAdminAuth, async (req: AdminRequest, res) => {
+  const uuid = String(req.params.uuid);
+  const kind = String((req.body ?? {}).kind ?? '');
+  if (!SUPPORT_COMMANDS.has(kind)) {
+    res.status(400).send('Comando de suporte inválido.');
+    return;
+  }
+  const [result] = await getPool().query(
+    `INSERT INTO company_commands (company_uuid, kind, payload, created_by_user_uuid)
+     VALUES (?, ?, CAST(? AS JSON), ?)`,
+    [uuid, kind, JSON.stringify({ by: req.adminUsername ?? 'admin' }), '00000000-0000-0000-0000-000000000000'],
+  );
+  // Acorda o desktop na hora, se o canal SSE dele estiver conectado.
+  emitToCompany(uuid, 'command', { id: (result as { insertId: number }).insertId, kind });
+  res.redirect(`/admin/companies/${uuid}#diagnostico`);
+});
+
+router.get('/api/companies/:uuid/commands', requireAdminAuth, async (req, res) => {
+  const [rows] = await getPool().query(
+    `SELECT id, kind, status, result, created_at, applied_at
+       FROM company_commands WHERE company_uuid = ? ORDER BY id DESC LIMIT 10`,
+    [req.params.uuid],
+  );
+  res.json({
+    commands: (rows as Record<string, unknown>[]).map((c) => ({
+      ...c,
+      result: typeof c.result === 'string' ? safeJson(c.result) : c.result,
+    })),
   });
 });
 
