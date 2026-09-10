@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { NfeImportError, buildImportPreview, commitImport } from '../nfeImport';
+import { revertImport } from '../nfeRevert';
 import { productRepository } from '../../commercial/repositories/ProductRepository';
 import { purchaseInvoiceRepository } from '../repositories/NfeRepository';
 
@@ -61,5 +62,11 @@ export const nfeController = {
         ORDER BY pi.id DESC LIMIT 30`,
     );
     res.json(rows);
+  }),
+
+  revert: wrap((req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Importação inválida.' }); return; }
+    res.json(revertImport(req, id));
   }),
 };
