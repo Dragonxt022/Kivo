@@ -38,6 +38,18 @@ export function setLogLevel(level: LogLevel): void {
 }
 
 /**
+ * Sink opcional para erros — a telemetria registra aqui para enviar ao cloud. Fica como
+ * callback (e não um import direto) para o logger continuar sem dependência de Core/DB e
+ * para o sink nunca recursar: ele NÃO pode logar pelo próprio logger.
+ */
+type ErrorSink = (escopo: string, mensagem: string, contexto?: unknown) => void;
+let errorSink: ErrorSink | null = null;
+
+export function setErrorSink(fn: ErrorSink | null): void {
+  errorSink = fn;
+}
+
+/**
  * Mesma raiz de `storage/` usada por backups e imagens: o diretório do banco, dois níveis
  * acima. Resolver a partir de KIVO_DB_PATH (e não de process.cwd()) é o que faz o app
  * empacotado escrever ao lado dos dados do cliente, e não dentro de Program Files.
@@ -109,6 +121,14 @@ function escrever(level: LogLevel, escopo: string, mensagem: string, contexto?: 
   } catch {
     // Disco cheio, pasta somente-leitura, antivírus segurando o arquivo: o app não pode
     // parar de funcionar porque não conseguiu registrar. O console acima já saiu.
+  }
+
+  if (level === 'error' && errorSink) {
+    try {
+      errorSink(escopo, mensagem, contexto);
+    } catch {
+      // O sink (telemetria) tem de ser à prova de falha — o log acima já saiu.
+    }
   }
 }
 

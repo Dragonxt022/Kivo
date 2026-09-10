@@ -1311,7 +1311,7 @@ tr:last-child td:last-child {
   border: 1.5px solid var(--border);
 }
 .btn.secondary:hover {
-  background: #eae8ea;
+  background: var(--border-light);
 }
 .btn.small {
   padding: 0.3rem 0.7rem;

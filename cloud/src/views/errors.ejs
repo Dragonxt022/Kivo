@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Erros</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'errors' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'errors' }) %>
+
+      <div class="page" x-data="errorsPage()">
+        <div class="page-header">
+          <h1>Erros dos clientes</h1>
+        </div>
+        <p class="field-hint" style="margin-top:0">
+          Erros anônimos enviados pelas instalações (só dado técnico, sem dado pessoal). Agrupados por empresa e pela
+          assinatura do erro. Use "Ver stack" para copiar a mensagem e investigar.
+        </p>
+
+        <div class="toolbar" style="margin-bottom: 14px;">
+          <input type="text" class="input-search" placeholder="Buscar por empresa, origem, mensagem…" x-model="q">
+        </div>
+
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead><tr>
+              <th class="sortable" @click="sortCycle('company_name')">Empresa<span class="sort-arrow" x-text="sortArrow('company_name')"></span></th>
+              <th class="sortable" @click="sortCycle('scope')">Origem<span class="sort-arrow" x-text="sortArrow('scope')"></span></th>
+              <th>Mensagem</th>
+              <th class="sortable" @click="sortCycle('total')">Ocorrências<span class="sort-arrow" x-text="sortArrow('total')"></span></th>
+              <th class="sortable" @click="sortCycle('devices')">Máquinas<span class="sort-arrow" x-text="sortArrow('devices')"></span></th>
+              <th class="sortable" @click="sortCycle('last_seen_at')">Última vez<span class="sort-arrow" x-text="sortArrow('last_seen_at')"></span></th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              <template x-for="e in displayRows" :key="e.company_uuid + '|' + e.fingerprint">
+                <tr>
+                  <td><a :href="'/admin/companies/' + e.company_uuid" x-text="e.company_name || e.company_uuid"></a></td>
+                  <td><span class="badge" x-text="e.scope || '—'"></span></td>
+                  <td style="max-width: 540px;">
+                    <div x-text="e.message || '—'"></div>
+                    <div class="muted text-xs" x-text="e.fingerprint"></div>
+                    <pre class="err-stack" x-show="isOpen(e)" x-text="e.stack || '(sem stack)'"></pre>
+                  </td>
+                  <td x-text="e.total"></td>
+                  <td x-text="e.devices"></td>
+                  <td x-text="e.last_seen_at"></td>
+                  <td class="text-right">
+                    <button type="button" class="btn small" @click="toggle(e)"
+                            x-text="isOpen(e) ? 'Ocultar' : 'Ver stack'"></button>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum erro reportado ainda.' }) %></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/table-toolkit.js"></script>
+  <script>
+    function errorsPage() {
+      return {
+        ...tableToolkit(),
+        rows: <%- JSON.stringify(errors) %>,
+        q: '',
+        expanded: new Set(),
+        sortGetters: {
+          company_name: (e) => e.company_name || e.company_uuid,
+          scope: (e) => e.scope || '',
+          total: (e) => Number(e.total) || 0,
+          devices: (e) => Number(e.devices) || 0,
+          last_seen_at: (e) => e.last_seen_at || '',
+        },
+        keyOf(e) { return e.company_uuid + '|' + e.fingerprint; },
+        isOpen(e) { return this.expanded.has(this.keyOf(e)); },
+        toggle(e) {
+          const s = new Set(this.expanded);
+          const k = this.keyOf(e);
+          if (s.has(k)) s.delete(k); else s.add(k);
+          this.expanded = s;
+        },
+        get displayRows() {
+          const q = this.q.trim().toLowerCase();
+          const filtered = q
+            ? this.rows.filter((e) => [e.company_name, e.message, e.scope, e.fingerprint]
+                .some((v) => String(v ?? '').toLowerCase().includes(q)))
+            : this.rows;
+          return this.sortedRows(filtered, this.sortGetters);
+        },
+      };
+    }
+  </script>
+  <style>
+    .err-stack { white-space: pre-wrap; word-break: break-word; font-size: .72rem; line-height: 1.45;
+      background: #0f1115; color: #c9d1d9; padding: 10px; border-radius: 8px; margin-top: 8px; max-height: 320px; overflow: auto; }
+  </style>
+</body>
+</html>

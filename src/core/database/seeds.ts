@@ -136,4 +136,14 @@ export function runSeeds(): void {
     randomUUID(),
     'Intervalo em minutos do ciclo automático de sincronização com a nuvem. "0" desliga (só sincroniza no clique manual). É o que mantém atual o acompanhamento pelo celular (Kivo Web).',
   );
+
+  db.prepare(
+    `INSERT OR IGNORE INTO settings (key, value, uuid, comment)
+     VALUES (?, ?, ?, ?)`,
+  ).run(
+    'telemetria.habilitada',
+    '1',
+    randomUUID(),
+    'Envia erros anônimos e inventário de hardware (OS, CPU, RAM, GPU, tela e versões) para o suporte melhorar o sistema. Só dado técnico, sem dado pessoal. "1" = ligado (padrão); "0" = desligado.',
+  );
 }

@@ -17,51 +17,55 @@
 
     <%# ── Passo 1: escolher o arquivo ── %>
     <div x-show="!preview" x-cloak>
-      <div class="panel" style="max-width:760px;margin-top:.75rem">
-        <div class="toolbar" style="margin-bottom:.5rem">
+      <div class="panel nfe-upload">
+        <h2>Escolha o arquivo</h2>
+        <p class="muted text-sm">Envie o XML da NF-e (modelo 55, versão 4.00) ou cole o conteúdo abaixo.</p>
+        <div class="nfe-upload-row">
           <input type="file" accept=".xml,.XML,text/xml,application/xml" x-ref="file"
                  style="display:none" @change="onFile($event.target.files)" />
           <button class="btn" @click="$refs.file.click()" :disabled="parsing">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <span x-text="parsing ? 'Lendo o XML…' : 'Escolher arquivo XML'"></span>
           </button>
-          <span class="error" x-text="error"></span>
+          <span class="muted text-sm">ou cole o XML abaixo</span>
         </div>
-        <p class="muted text-sm">Também dá para colar o conteúdo do XML abaixo e clicar em analisar.</p>
-        <textarea x-ref="pasteXml" rows="6" class="input" style="width:100%;resize:vertical;min-height:120px" placeholder="<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?>…"></textarea>
-        <div class="toolbar">
+        <textarea x-ref="pasteXml" rows="6" class="input nfe-paste" placeholder="<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?>…"></textarea>
+        <div class="nfe-upload-actions">
+          <span class="error" x-text="error"></span>
           <button class="btn secondary" @click="previewPasted()" :disabled="parsing">
-            <span x-text="parsing ? 'Analisando…' : 'Analisar'"></span>
+            <span x-text="parsing ? 'Analisando…' : 'Analisar XML'"></span>
           </button>
         </div>
       </div>
 
       <%# Histórico recente ── %>
-      <h2 style="margin-top:1.5rem">Importações recentes</h2>
-      <table x-show="history.length">
-        <thead><tr><th>NF-e</th><th>Fornecedor</th><th>Emitida em</th><th>Total</th><th>Itens aceitos</th><th></th></tr></thead>
-        <tbody>
-          <template x-for="h in history" :key="h.id">
-            <tr>
-              <td>
-                <span x-text="'NF ' + (h.invoice_number || '') + (h.series ? '/S' + h.series : '')"></span>
-                <span class="muted text-xs" x-text="' · chave ' + h.access_key"></span>
-              </td>
-              <td x-text="h.supplier_name || '—'"></td>
-              <td x-text="h.issued_at || '—'"></td>
-              <td x-text="brl(h.total_cents)"></td>
-              <td x-text="h.imported_count + ' / ' + h.items_count"></td>
-              <td class="text-right">
-                <button type="button" class="btn small secondary" x-show="canRun"
-                        @click="revert(h)" :disabled="reverting === h.id"
-                        title="Desfazer esta importação (volta estoque, custo e remove o que ela criou)">
-                  <span x-text="reverting === h.id ? 'Revertendo…' : 'Desfazer'"></span>
-                </button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+      <h2 class="nfe-section-title">Importações recentes</h2>
+      <div class="nfe-table-card" x-show="history.length">
+        <table class="nfe-table">
+          <thead><tr><th>NF-e</th><th>Fornecedor</th><th>Emitida em</th><th class="num">Total</th><th class="num">Itens aceitos</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="h in history" :key="h.id">
+              <tr>
+                <td>
+                  <div x-text="'NF ' + (h.invoice_number || '') + (h.series ? '/S' + h.series : '')"></div>
+                  <div class="muted text-xs" style="font-family:var(--font-mono,monospace)" x-text="h.access_key"></div>
+                </td>
+                <td x-text="h.supplier_name || '—'"></td>
+                <td x-text="h.issued_at || '—'"></td>
+                <td class="num" x-text="brl(h.total_cents)"></td>
+                <td class="num" x-text="h.imported_count + ' / ' + h.items_count"></td>
+                <td class="num">
+                  <button type="button" class="btn small secondary" x-show="canRun"
+                          @click="revert(h)" :disabled="reverting === h.id"
+                          title="Desfazer esta importação (volta estoque, custo e remove o que ela criou)">
+                    <span x-text="reverting === h.id ? 'Revertendo…' : 'Desfazer'"></span>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
       <div x-show="!history.length" x-cloak>
         <%- include('partials/empty-state', { message: 'Nenhuma NF-e importada ainda.' }) %>
       </div>
@@ -69,40 +73,55 @@
 
     <%# ── Passo 2: conferência ── %>
     <div x-show="preview" x-cloak>
-      <div class="panel" style="margin-top:.75rem">
-        <div class="flex-row" style="justify-content:space-between;gap:1rem;flex-wrap:wrap">
-          <div>
-            <strong x-text="'Fornecedor: ' + (preview.supplier.name || '—')"></strong>
-            <span class="muted" x-text="' · CNPJ ' + preview.supplier.cnpj"></span>
+      <section class="panel nfe-head">
+        <div class="nfe-head-supplier">
+          <span class="nfe-head-label">Fornecedor</span>
+          <strong x-text="preview.supplier.name || '—'"></strong>
+          <div class="nfe-head-sub">
+            <span class="muted text-xs" x-text="'CNPJ ' + preview.supplier.cnpj"></span>
             <span class="badge" :class="preview.supplier.exists ? 'ok' : 'neutral'"
                   x-text="preview.supplier.exists ? 'Cadastrado' : 'Novo (será criado)'"></span>
           </div>
-          <div class="muted text-sm">
-            <div x-text="'NF-e nº ' + (preview.number || '—') + (preview.serie ? ' · Série ' + preview.serie : '')"></div>
-            <div x-text="'Total da nota: ' + brl(preview.totalCents)"></div>
+        </div>
+        <div class="nfe-head-meta">
+          <div>
+            <span class="nfe-head-label">NF-e</span>
+            <span x-text="'nº ' + (preview.number || '—') + (preview.serie ? ' · Série ' + preview.serie : '')"></span>
+          </div>
+          <div>
+            <span class="nfe-head-label">Emissão</span>
+            <span x-text="preview.issuedAt ? preview.issuedAt.slice(0, 10) : '—'"></span>
+          </div>
+          <div>
+            <span class="nfe-head-label">Total da nota</span>
+            <strong x-text="brl(preview.totalCents)"></strong>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="toolbar" style="margin-top:1rem">
-        <button class="btn secondary" @click="backToUpload()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          Outro arquivo
-        </button>
+      <div class="nfe-filters">
+        <div class="nfe-tabs" role="tablist">
+          <button type="button" class="nfe-tab" :class="{ active: filter === 'todas' }" @click="filter = 'todas'">
+            Todos <span class="nfe-tab-count" x-text="tabCount('todas')"></span>
+          </button>
+          <button type="button" class="nfe-tab" :class="{ active: filter === 'revisar' }" @click="filter = 'revisar'">
+            Precisam de atenção <span class="nfe-tab-count" x-text="tabCount('revisar')"></span>
+          </button>
+          <button type="button" class="nfe-tab" :class="{ active: filter === 'reconhecidas' }" @click="filter = 'reconhecidas'">
+            Reconhecidos <span class="nfe-tab-count" x-text="tabCount('reconhecidas')"></span>
+          </button>
+          <button type="button" class="nfe-tab" :class="{ active: filter === 'ignoradas' }" @click="filter = 'ignoradas'">
+            Ignorados <span class="nfe-tab-count" x-text="tabCount('ignoradas')"></span>
+          </button>
+        </div>
         <span class="toolbar-spacer"></span>
-        <span class="muted" x-text="'Aceitos: ' + acceptedCount + ' de ' + rows.length"></span>
-        <span class="error" x-text="commitError"></span>
-        <% if (user.permissions.has('nfe.import.run')) { %>
-        <button class="btn" @click="confirmImport()" :disabled="committing || acceptedCount === 0">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          <span x-text="committing ? 'Importando…' : 'Confirmar importação'"></span>
+        <button type="button" class="btn small secondary" @click="applySuggestions()" :disabled="suggestionDiffCount === 0"
+                :title="suggestionDiffCount ? 'Devolve as linhas à sugestão do sistema' : 'Nenhuma linha divergindo da sugestão'">
+          <span x-text="suggestionDiffCount ? 'Aplicar sugestões (' + suggestionDiffCount + ')' : 'Aplicar sugestões'"></span>
         </button>
-        <% } else { %>
-        <span class="muted text-sm">Você pode conferir; a confirmação exige a permissão de importar.</span>
-        <% } %>
       </div>
 
-      <div class="table-wrap" style="overflow-x:auto">
+      <div class="nfe-table-card">
       <table class="nfe-table">
         <thead>
           <tr>
@@ -115,8 +134,8 @@
           </tr>
         </thead>
         <tbody>
-          <template x-for="row in rows" :key="row.line">
-            <tr :class="{ 'nfe-ignored': row.action === 'ignore', 'nfe-new': row.kind === 'new' && row.action !== 'ignore' }">
+          <template x-for="row in visibleRows" :key="row.line">
+            <tr :class="{ 'nfe-ignored': row.action === 'ignore', 'nfe-attention': (row.flags.length > 0 || row.error) && row.action !== 'ignore' }">
               <td class="muted" x-text="row.line"></td>
               <td style="min-width:220px">
                 <div style="font-weight:600" x-text="row.description"></div>
@@ -130,12 +149,12 @@
                 </div>
               </td>
               <td style="min-width:300px">
-                <div class="toolbar nfe-acts">
-                  <button type="button" class="btn small" :class="row.action === 'link' ? 'active' : 'secondary'"
+                <div class="nfe-acts">
+                  <button type="button" class="btn small" :class="row.action === 'link' ? 'active' : ''"
                           @click="setAction(row, 'link')" :disabled="row.kind === 'invalid'">Vincular</button>
-                  <button type="button" class="btn small" :class="row.action === 'create' ? 'active' : 'secondary'"
+                  <button type="button" class="btn small" :class="row.action === 'create' ? 'active' : ''"
                           @click="setAction(row, 'create')" :disabled="row.kind === 'invalid'">Criar</button>
-                  <button type="button" class="btn small" :class="row.action === 'ignore' ? 'active danger' : 'secondary'"
+                  <button type="button" class="btn small" :class="row.action === 'ignore' ? 'active danger' : ''"
                           @click="setAction(row, 'ignore')">Ignorar</button>
                 </div>
                 <div x-show="row.action === 'link' && row.productId" class="text-sm" style="margin-top:.35rem">
@@ -174,6 +193,30 @@
           </tr>
         </tfoot>
       </table>
+        <div x-show="!visibleRows.length" class="nfe-empty">Nenhuma linha nesta visão.</div>
+      </div>
+
+      <div class="nfe-footer">
+        <div class="nfe-footer-stats">
+          <span class="nfe-stat"><strong x-text="rows.length"></strong> itens</span>
+          <span class="nfe-stat"><strong x-text="acceptedCount"></strong> aceitos</span>
+          <span class="nfe-stat muted"><strong x-text="ignoredCount"></strong> ignorados</span>
+        </div>
+        <div class="nfe-footer-total">
+          <span class="nfe-head-label">Total conferido</span>
+          <strong x-text="brl(acceptedTotal)"></strong>
+          <span class="muted text-xs" x-text="'nota ' + brl(preview.totalCents)"></span>
+        </div>
+        <span class="error" x-text="commitError"></span>
+        <button class="btn secondary" @click="backToUpload()">Outro arquivo</button>
+        <% if (user.permissions.has('nfe.import.run')) { %>
+        <button class="btn" @click="confirmImport()" :disabled="committing || acceptedCount === 0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <span x-text="committing ? 'Importando…' : 'Confirmar importação'"></span>
+        </button>
+        <% } else { %>
+        <span class="muted text-sm">A confirmação exige a permissão de importar.</span>
+        <% } %>
       </div>
     </div>
 
@@ -200,20 +243,80 @@
   </main>
 
   <style>
-    .nfe-acts .btn.active { background: var(--primary); color: #fff; }
-    .nfe-acts .btn.active.danger { background: var(--danger); color: #fff; }
-    .nfe-flag { background: var(--warning-bg); color: var(--warning-text); margin-right:.2rem; }
-    tr.nfe-ignored td { opacity:.55; }
+    /* Página mais larga: a conferência tem 6 colunas e ficava apertada em 1100px. */
+    main { max-width: 1280px; }
+
+    .nfe-section-title { margin: 1.75rem 0 .75rem; }
+
+    /* Passo 1 — upload */
+    .nfe-upload { max-width: 760px; }
+    .nfe-upload h2 { margin-bottom: .35rem; }
+    .nfe-upload-row { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; margin:1rem 0; }
+    .nfe-paste { width:100%; resize:vertical; min-height:130px; font-family:var(--font-mono,monospace); font-size:.8rem; }
+    .nfe-upload-actions { display:flex; align-items:center; gap:.75rem; margin-top:.75rem; }
+    .nfe-upload-actions .btn { margin-left:auto; }
+
+    /* Passo 2 — cabeçalho da nota */
+    .nfe-head { display:flex; flex-wrap:wrap; gap:1.25rem 2.5rem; align-items:flex-start; justify-content:space-between; }
+    .nfe-head-label { display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin-bottom:.2rem; }
+    .nfe-head-supplier strong { font-size:1.1rem; }
+    .nfe-head-sub { display:flex; align-items:center; gap:.5rem; margin-top:.35rem; flex-wrap:wrap; }
+    .nfe-head-meta { display:flex; gap:2rem; flex-wrap:wrap; }
+    .nfe-head-meta > div { display:flex; flex-direction:column; }
+    .nfe-head-meta strong { font-variant-numeric:tabular-nums; }
+
+    /* Passo 2 — rodapé fixo de confirmação */
+    .nfe-footer { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+      margin-top:1rem; padding:.75rem 1rem;
+      background:var(--glass-strong); backdrop-filter:blur(var(--glass-blur)) saturate(180%);
+      -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(180%);
+      border:1px solid var(--glass-border); border-radius:var(--radius); box-shadow:var(--shadow); }
+    .nfe-footer-stats { display:flex; gap:.6rem; flex-wrap:wrap; }
+    .nfe-stat { display:inline-flex; align-items:baseline; gap:.3rem; font-size:.82rem; color:var(--text-secondary); }
+    .nfe-stat strong { color:var(--text); font-variant-numeric:tabular-nums; }
+    .nfe-footer-total { display:flex; flex-direction:column; margin-left:auto; text-align:right; }
+    .nfe-footer-total strong { font-size:1.05rem; font-variant-numeric:tabular-nums; }
+
+    /* Passo 2 — filtros */
+    .nfe-filters { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; }
+    .nfe-tabs { display:inline-flex; gap:.2rem; padding:.25rem; background:var(--surface-hover);
+      border:1px solid var(--border-light); border-radius:9999px; flex-wrap:wrap; }
+    .nfe-tab { border:0; background:transparent; color:var(--text-secondary); font-size:.82rem;
+      padding:.35rem .85rem; border-radius:9999px; cursor:pointer; display:inline-flex; align-items:center; gap:.4rem; }
+    .nfe-tab:hover { color:var(--text); }
+    .nfe-tab.active { background:var(--primary); color:#fff; }
+    .nfe-tab-count { font-size:.72rem; opacity:.7; font-variant-numeric:tabular-nums; }
+    .nfe-tab.active .nfe-tab-count { opacity:.9; }
+
+    /* Passo 2 — tabela */
+    .nfe-table-card { background:var(--surface); border:1px solid var(--border-light);
+      border-radius:var(--radius); overflow-x:auto; }
+    .nfe-table { width:100%; border-collapse:collapse; }
+    .nfe-table th { text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
+      color:var(--text-muted); padding:.7rem .9rem; background:var(--surface-hover); border-bottom:1px solid var(--border); }
+    .nfe-table td { padding:.85rem .9rem; border-bottom:1px solid var(--border-light); vertical-align:top; }
+    .nfe-table tbody tr:last-child td { border-bottom:none; }
+    .nfe-table tfoot td { background:var(--surface-hover); border-top:2px solid var(--border); padding:.7rem .9rem; }
+    .nfe-table th.num, .nfe-table td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .nfe-empty { padding:1.5rem; text-align:center; color:var(--text-muted); font-size:.85rem; }
+
+    /* Ação por linha — controle segmentado */
+    .nfe-acts { display:inline-flex; gap:.15rem; padding:.2rem; background:var(--surface-hover);
+      border:1px solid var(--border-light); border-radius:9px; }
+    .nfe-acts .btn { border:0; background:transparent; color:var(--text-secondary); padding:.3rem .7rem; border-radius:7px; }
+    .nfe-acts .btn:hover:not(:disabled) { background:var(--surface); color:var(--text); }
+    .nfe-acts .btn.active, .nfe-acts .btn.active:hover { background:var(--primary); color:#fff; }
+    .nfe-acts .btn.active.danger, .nfe-acts .btn.active.danger:hover { background:var(--danger); color:#fff; }
+
+    tr.nfe-ignored td { opacity:.5; }
+    tr.nfe-attention td:first-child { box-shadow: inset 3px 0 0 var(--warning-text); }
+    .nfe-flag { background:var(--warning-bg); color:var(--warning-text); margin-right:.2rem; }
+    .nfe-input { width:100%; padding:.45rem .55rem; box-sizing:border-box; }
     .btn-link { background:none; border:0; color:var(--primary); cursor:pointer; padding:0 .2rem; font-size:.8rem; text-decoration:underline; }
     .row-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; text-align:left;
       background:var(--surface); border:1px solid var(--border-light); border-radius:var(--radius);
       padding:.55rem .7rem; margin-top:.35rem; cursor:pointer; }
-    .row-option:hover { border-color: var(--primary); }
-    .nfe-table th, .nfe-table td { padding: .6rem .5rem; }
-    .nfe-table th.num, .nfe-table td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-    .nfe-table tfoot td { background:var(--surface-hover); border-top:2px solid var(--border); }
-    tr.nfe-new td { background:var(--primary-bg); }
-    .nfe-input { width:100%; padding:.45rem .5rem; box-sizing:border-box; }
+    .row-option:hover { border-color:var(--primary); }
   </style>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>">
@@ -221,7 +324,7 @@
       return {
         canRun: canRun,
         parsing: false, committing: false,
-        preview: null, rows: [],
+        preview: null, rows: [], filter: 'revisar',
         error: '', commitError: '',
         history: [], reverting: null,
         searchOpenRow: null, searchQ: '', searchResults: [],
@@ -277,6 +380,7 @@
             this.xml = xml;
             this.preview = d;
             this.rows = d.items.map((it) => this.rowFromPreview(it));
+            this.filter = 'revisar';
             this.error = '';
           } finally { this.parsing = false; }
         },
@@ -286,12 +390,14 @@
           if (it.kind === 'matched' && it.product) { action = 'link'; productId = it.product.id; }
           else if (it.kind === 'possible') { action = it.product ? 'link' : (it.candidates.length ? 'link' : 'create'); productId = (it.product || it.candidates[0])?.id ?? null; }
           const selected = it.candidates.find((c) => c.id === productId) || (it.product && it.product.id === productId ? it.product : null);
+          const productName = selected ? selected.name : '';
           return {
             line: it.line, description: it.description, cProd: it.cProd, ean: it.ean,
             ncm: it.ncm, cfop: it.cfop, unit: it.unit,
             flags: it.flags, error: it.error, kind: it.kind,
             candidates: it.candidates || [],
-            action, productId, productName: selected ? selected.name : '',
+            action, productId, productName,
+            suggestedAction: action, suggestedProductId: productId, suggestedProductName: productName,
             qty: String(it.qty),
             cost: it.unitCostCents > 0 ? maskMoney(String(it.unitCostCents)) : '0,00',
           };
@@ -328,6 +434,32 @@
         },
         get acceptedCount() {
           return this.rows.filter((r) => r.action !== 'ignore').length;
+        },
+        get ignoredCount() {
+          return this.rows.filter((r) => r.action === 'ignore').length;
+        },
+        get suggestionDiffCount() {
+          return this.rows.filter((r) => r.action !== r.suggestedAction || r.productId !== r.suggestedProductId).length;
+        },
+        get visibleRows() {
+          if (this.filter === 'todas') return this.rows;
+          if (this.filter === 'reconhecidas') return this.rows.filter((r) => r.kind === 'matched');
+          if (this.filter === 'ignoradas') return this.rows.filter((r) => r.action === 'ignore');
+          return this.rows.filter((r) => r.kind !== 'matched');
+        },
+        tabCount(kind) {
+          if (kind === 'todas') return this.rows.length;
+          if (kind === 'reconhecidas') return this.rows.filter((r) => r.kind === 'matched').length;
+          if (kind === 'ignoradas') return this.rows.filter((r) => r.action === 'ignore').length;
+          return this.rows.filter((r) => r.kind !== 'matched').length;
+        },
+        applySuggestions() {
+          for (const row of this.rows) {
+            row.action = row.suggestedAction;
+            row.productId = row.suggestedProductId;
+            row.productName = row.suggestedProductName;
+          }
+          showToast('Sugestões do sistema aplicadas a todas as linhas.', 'success');
         },
         lineTotal(row) {
           const qty = Number(String(row.qty).replace(',', '.'));

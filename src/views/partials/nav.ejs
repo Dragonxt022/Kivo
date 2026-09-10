@@ -624,6 +624,26 @@
     }, 5000);
   };
 
+  // Erros do front-end viram telemetria pela API local (o CSP não deixa o renderer falar
+  // com o cloud direto). Best-effort e silencioso: nada na tela muda por causa disto.
+  window.addEventListener('error', function (ev) {
+    try {
+      fetch('/api/telemetry/client-error', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: ev.message, source: ev.filename, line: ev.lineno, column: ev.colno, stack: ev.error && ev.error.stack }),
+      }).catch(function () {});
+    } catch (e) {}
+  });
+  window.addEventListener('unhandledrejection', function (ev) {
+    try {
+      var r = ev.reason;
+      fetch('/api/telemetry/client-error', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'promise rejeitada: ' + (r && r.message ? r.message : String(r)), stack: r && r.stack }),
+      }).catch(function () {});
+    } catch (e) {}
+  });
+
   // Setas de rolagem em qualquer ".tabs" que não caiba na largura disponível — sem
   // isso, abas extras (ex.: Configurações com 11 abas) só existiam via scroll
   // horizontal sem nenhuma pista visual, ficando escondidas na prática.
