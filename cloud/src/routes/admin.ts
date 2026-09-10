@@ -74,7 +74,26 @@ async function loadCompanyDetail(companyUuid: string) {
     [companyUuid],
   );
 
-  return { company, syncStats, backups, charges, devices };
+  // Diagnóstico: erros anônimos agrupados + inventário de hardware desta empresa.
+  const [errorRows] = await pool.query(
+    `SELECT fingerprint, MAX(scope) AS scope, MAX(level) AS level, MAX(message) AS message,
+            MAX(stack) AS stack, SUM(occurrences) AS total, COUNT(DISTINCT machine_id) AS devices,
+            MAX(last_seen_at) AS last_seen_at
+       FROM client_error_reports WHERE company_uuid = ?
+       GROUP BY fingerprint ORDER BY last_seen_at DESC LIMIT 100`,
+    [companyUuid],
+  );
+  const [inventoryRows] = await pool.query(
+    `SELECT machine_id, data, os, cpu, ram_gb, app_version, last_seen_at
+       FROM client_machine_inventory WHERE company_uuid = ? ORDER BY last_seen_at DESC`,
+    [companyUuid],
+  );
+  const inventory = (inventoryRows as Record<string, unknown>[]).map((m) => ({
+    ...(m as unknown as { machine_id: string; os: string | null; cpu: string | null; ram_gb: number | null; app_version: string | null; last_seen_at: string }),
+    data: typeof m.data === 'string' ? safeJson(m.data) : m.data,
+  }));
+
+  return { company, syncStats, backups, charges, devices, errors: errorRows, inventory };
 }
 
 // --- Autenticação ---
@@ -98,7 +117,7 @@ router.post('/login', async (req, res) => {
     res.status(401).render('login', { error: 'Usuário ou senha inválidos.' });
     return;
   }
-  const token = createAdminSession(String(username));
+  const token = await createAdminSession(String(username));
   res.cookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
   res.redirect('/admin');
 });
@@ -133,13 +152,13 @@ router.post('/setup', async (req, res) => {
     'INSERT INTO admin_users (username, password_hash) VALUES (?, ?)',
     [String(username), hashPassword(String(password))],
   );
-  const token = createAdminSession(String(username));
+  const token = await createAdminSession(String(username));
   res.cookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
   res.redirect('/admin');
 });
 
-router.post('/logout', (req, res) => {
-  destroyAdminSession(readAdminCookie(req));
+router.post('/logout', async (req, res) => {
+  await destroyAdminSession(readAdminCookie(req));
   res.clearCookie(ADMIN_SESSION_COOKIE);
   res.redirect('/admin/login');
 });
@@ -1004,6 +1023,46 @@ router.post('/leads/:id/status', requireAdminAuth, async (req, res) => {
 router.post('/leads/:id/delete', requireAdminAuth, async (req, res) => {
   await getPool().query('DELETE FROM contact_leads WHERE id = ?', [Number(req.params.id)]);
   res.redirect('/admin/leads');
+});
+
+// --- Busca global do topo: empresa (nome/documento/uuid) e máquina (machine id) ---
+
+router.get('/api/search', requireAdminAuth, async (req, res) => {
+  const q = String(req.query.q ?? '').trim();
+  if (q.length < 2) {
+    res.json({ results: [] });
+    return;
+  }
+  const like = `%${q}%`;
+  const pool = getPool();
+  const [companyRows] = await pool.query(
+    `SELECT company_uuid, name FROM companies
+      WHERE name LIKE ? OR document LIKE ? OR company_uuid = ?
+      ORDER BY name LIMIT 6`,
+    [like, like, q],
+  );
+  const [deviceRows] = await pool.query(
+    `SELECT cd.company_uuid, cd.machine_id, c.name AS company_name
+       FROM company_devices cd JOIN companies c ON c.company_uuid = cd.company_uuid
+      WHERE cd.machine_id LIKE ?
+      ORDER BY cd.last_seen_at DESC LIMIT 6`,
+    [like],
+  );
+  const results = [
+    ...(companyRows as { company_uuid: string; name: string | null }[]).map((c) => ({
+      type: 'Empresa',
+      label: c.name || c.company_uuid,
+      sub: c.company_uuid,
+      href: `/admin/companies/${c.company_uuid}`,
+    })),
+    ...(deviceRows as { company_uuid: string; machine_id: string; company_name: string | null }[]).map((d) => ({
+      type: 'Máquina',
+      label: d.company_name || d.company_uuid,
+      sub: `${String(d.machine_id).slice(0, 16)}…`,
+      href: `/admin/companies/${d.company_uuid}`,
+    })),
+  ];
+  res.json({ results });
 });
 
 // --- Notificações em tempo real (consumido pelo Alpine.js do painel) ---

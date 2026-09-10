@@ -7,6 +7,11 @@
       <img id="brand-logo" class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
       <img id="brand-logo-dark" class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" style="display:none" />
     </a>
+    <div class="navbar-search" style="position:relative; flex:1; max-width:420px; margin-left:16px;">
+      <input type="text" id="global-search" placeholder="Buscar empresa, machine ID…" autocomplete="off"
+             style="width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:.85rem;" />
+      <div id="global-search-results" style="display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; background:var(--card-bg, var(--bg)); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:60; overflow:hidden;"></div>
+    </div>
   </div>
   <div class="right">
     <div class="user-menu">
@@ -78,5 +83,36 @@
       userDropdown.classList.remove('open');
       notifDropdown.classList.remove('open');
     });
+
+    // Busca global: empresa (nome/documento/uuid) e máquina (machine id).
+    var searchInput = document.getElementById('global-search');
+    var searchBox = document.getElementById('global-search-results');
+    if (searchInput && searchBox) {
+      var searchTimer = null;
+      var closeSearch = function () { searchBox.style.display = 'none'; searchBox.innerHTML = ''; };
+      searchInput.addEventListener('input', function () {
+        var q = searchInput.value.trim();
+        clearTimeout(searchTimer);
+        if (q.length < 2) { closeSearch(); return; }
+        searchTimer = setTimeout(function () {
+          fetch('/admin/api/search?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+            .then(function (d) {
+              if (!d.results || !d.results.length) { closeSearch(); return; }
+              searchBox.innerHTML = d.results.map(function (r) {
+                var label = String(r.label).replace(/</g, '&lt;');
+                var sub = String(r.sub).replace(/</g, '&lt;');
+                return '<a href="' + r.href + '" style="display:block;padding:8px 12px;text-decoration:none;color:inherit;border-bottom:1px solid var(--border);">'
+                  + '<div style="font-size:.85rem;font-weight:600;">' + label + '</div>'
+                  + '<div style="font-size:.72rem;color:var(--text-muted);">' + r.type + ' · ' + sub + '</div></a>';
+              }).join('');
+              searchBox.style.display = 'block';
+            })
+            .catch(closeSearch);
+        }, 220);
+      });
+      document.addEventListener('click', function (e) { if (!e.target.closest('.navbar-search')) closeSearch(); });
+      searchInput.addEventListener('keydown', function (e) { if (e.key === 'Escape') { searchInput.value = ''; closeSearch(); } });
+    }
   })();
 </script>
