@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express, { Router } from 'express';
 import { getPool } from '../db';
-import { requireCompanyAuth, requireCloudSavePlan, type AuthedRequest } from '../auth';
+import { requireCompanyAuth, type AuthedRequest } from '../auth';
 import { validateCatalogImage, normalizeKeywords, sha256, type ImageFormat } from '../catalogValidation';
 
 /**
@@ -86,22 +86,87 @@ router.get('/search', requireCompanyAuth, async (req: AuthedRequest, res) => {
     return;
   }
   const pool = getPool();
-  let [rows] = await pool.query(
+  const norm = normalizeKeywords(q);
+
+  const seen = new Set<number>();
+  const results: { id: number; product_name: string }[] = [];
+  const add = (rows: { id: number; product_name: string }[]): void => {
+    for (const r of rows) {
+      if (results.length >= 3) break;
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      results.push(r);
+    }
+  };
+
+  // 1. FULLTEXT no nome/keywords cadastrados.
+  const [ftRows] = await pool.query(
     `SELECT id, product_name FROM catalog_images
      WHERE status = 'aprovada' AND MATCH(product_name, keywords) AGAINST (? IN NATURAL LANGUAGE MODE)
-     LIMIT 3`,
+     LIMIT 5`,
     [q],
   );
-  let results = rows as { id: number; product_name: string }[];
-  if (!results.length) {
-    // Fallback para termos raros/curtos que o FULLTEXT (stopwords, tamanho mínimo de token) não pega.
-    [rows] = await pool.query(
-      `SELECT id, product_name FROM catalog_images WHERE status = 'aprovada' AND (product_name LIKE ? OR keywords LIKE ?) LIMIT 3`,
-      [`%${q}%`, `%${normalizeKeywords(q)}%`],
+  add(ftRows as { id: number; product_name: string }[]);
+
+  // 2. Aliases aprendidos — sinônimos que o cadastro original não tinha. É FULLTEXT por
+  //    tokens, então "coca lata 350" casa "refrigerante cola lata 350ml".
+  if (results.length < 3 && norm) {
+    const [aliasRows] = await pool.query(
+      `SELECT ci.id, ci.product_name, MAX(a.occurrences) AS pop
+         FROM catalog_image_aliases a JOIN catalog_images ci ON ci.id = a.catalog_image_id
+        WHERE ci.status = 'aprovada' AND MATCH(a.alias) AGAINST (? IN NATURAL LANGUAGE MODE)
+        GROUP BY ci.id, ci.product_name ORDER BY pop DESC LIMIT 5`,
+      [q],
     );
-    results = rows as { id: number; product_name: string }[];
+    add(aliasRows as { id: number; product_name: string }[]);
   }
+
+  // 3. Fallback LIKE para termos raros/curtos que o FULLTEXT (stopwords, token mínimo) não pega.
+  if (results.length < 3) {
+    const [likeRows] = await pool.query(
+      `SELECT id, product_name FROM catalog_images
+        WHERE status = 'aprovada' AND (product_name LIKE ? OR keywords LIKE ?) LIMIT 5`,
+      [`%${q}%`, `%${norm}%`],
+    );
+    add(likeRows as { id: number; product_name: string }[]);
+  }
+
+  // 4. Demanda anônima: busca sem resultado vira sinal para a curadoria (sem empresa).
+  if (!results.length && norm) {
+    await pool.query(
+      `INSERT INTO catalog_demand (term) VALUES (?)
+       ON DUPLICATE KEY UPDATE misses = misses + 1, last_seen_at = CURRENT_TIMESTAMP(3)`,
+      [norm.slice(0, 255)],
+    );
+  }
+
   res.json(results.map((r) => ({ id: r.id, name: r.product_name, url: `/api/catalog/image/${r.id}` })));
+});
+
+/**
+ * Aprende um alias: o nome que a empresa usou para uma imagem aprovada. Anônimo (não guarda
+ * quem mandou) e idempotente — a mesma associação só incrementa o contador. Faz a busca
+ * casar sinônimos com o uso real.
+ */
+router.post('/learn', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const body = (req.body ?? {}) as { imageId?: unknown; name?: unknown };
+  const imageId = Number(body.imageId);
+  const alias = normalizeKeywords(String(body.name ?? '')).slice(0, 255);
+  if (!Number.isInteger(imageId) || imageId <= 0 || alias.length < 3) {
+    res.status(400).json({ error: 'imageId e name (>=3 caracteres) são obrigatórios.' });
+    return;
+  }
+  const [imgRows] = await getPool().query("SELECT id FROM catalog_images WHERE id = ? AND status = 'aprovada'", [imageId]);
+  if (!(imgRows as unknown[]).length) {
+    res.status(404).json({ error: 'Imagem não encontrada.' });
+    return;
+  }
+  await getPool().query(
+    `INSERT INTO catalog_image_aliases (catalog_image_id, alias) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE occurrences = occurrences + 1, updated_at = CURRENT_TIMESTAMP(3)`,
+    [imageId, alias],
+  );
+  res.json({ ok: true });
 });
 
 router.get('/image/:id', requireCompanyAuth, async (req: AuthedRequest, res) => {

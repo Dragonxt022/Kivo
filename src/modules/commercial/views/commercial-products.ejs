@@ -2016,6 +2016,14 @@
             this.form.pendingImageUrl = null;
             this.form.removeImage = false;
             this.form.submitToCatalog = false; // já veio do catálogo — reenviar não tem sentido
+            // Aprende o alias (anônimo): o nome deste produto passa a apontar para esta imagem,
+            // então a próxima busca por nome parecido acha. Best-effort, não bloqueia a escolha.
+            if (this.form.name && this.form.name.trim().length >= 3) {
+              fetch('/api/commercial/products/image-learn', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageId: r.id, name: this.form.name }),
+              }).catch(() => {});
+            }
           } finally {
             this.imgSearching = false;
           }
