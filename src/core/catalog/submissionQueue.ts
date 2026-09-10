@@ -14,9 +14,9 @@ import type { ImageFormat } from './imageValidation';
  * parecidos sem precisar subir foto própria. Ver cloud/src/routes/catalog.ts.
  */
 
-const EXT_BY_FORMAT: Record<ImageFormat, string> = { jpeg: 'jpg', png: 'png', webp: 'webp' };
+const EXT_BY_FORMAT: Record<ImageFormat, string> = { jpeg: 'jpg', png: 'png', webp: 'webp', avif: 'avif' };
 const MIME_BY_FORMAT: Record<ImageFormat, string> = {
-  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif',
 };
 
 /**

@@ -20,12 +20,12 @@ import { validateCatalogImage, normalizeKeywords, sha256, type ImageFormat } fro
  */
 
 const router = Router();
-const rawImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '6mb' });
+const rawImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp', 'image/avif'], limit: '6mb' });
 
 export const CATALOG_STORAGE_DIR = path.resolve(__dirname, '..', '..', 'storage', 'catalog');
-export const CATALOG_EXT_BY_FORMAT: Record<ImageFormat, string> = { jpeg: 'jpg', png: 'png', webp: 'webp' };
+export const CATALOG_EXT_BY_FORMAT: Record<ImageFormat, string> = { jpeg: 'jpg', png: 'png', webp: 'webp', avif: 'avif' };
 export const CATALOG_MIME_BY_FORMAT: Record<ImageFormat, string> = {
-  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif',
 };
 const STORAGE_DIR = CATALOG_STORAGE_DIR;
 const EXT_BY_FORMAT = CATALOG_EXT_BY_FORMAT;

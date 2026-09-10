@@ -6,7 +6,7 @@
  * ver cloud/src/catalogValidation.ts.
  */
 
-export type ImageFormat = 'jpeg' | 'png' | 'webp';
+export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'avif';
 
 const MIN_BYTES = 2 * 1024; // 2KB — abaixo disso é quase sempre lixo/corrompido
 const MAX_BYTES = 6 * 1024 * 1024; // 6MB
@@ -26,6 +26,12 @@ export function sniffImageFormat(buf: Buffer): ImageFormat | null {
   ) {
     return 'webp';
   }
+  // AVIF é ISO BMFF: caixa "ftyp" no offset 4; a marca "avif"/"avis" pode ser a principal
+  // ou uma das compatíveis (arquivos com "mif1" principal ainda são AVIF).
+  if (buf.length >= 12 && buf.subarray(4, 8).toString('ascii') === 'ftyp') {
+    const brands = buf.subarray(8, Math.min(buf.length, 40)).toString('ascii');
+    if (brands.includes('avif') || brands.includes('avis')) return 'avif';
+  }
   return null;
 }
 
@@ -38,6 +44,6 @@ export function validateImageBuffer(buf: Buffer): ImageValidationResult {
   if (buf.length < MIN_BYTES) return { ok: false, error: 'Imagem muito pequena ou corrompida.' };
   if (buf.length > MAX_BYTES) return { ok: false, error: 'Imagem muito grande (máximo 6MB).' };
   const format = sniffImageFormat(buf);
-  if (!format) return { ok: false, error: 'Formato não suportado (use JPEG, PNG ou WEBP).' };
+  if (!format) return { ok: false, error: 'Formato não suportado (use JPEG, PNG, WEBP ou AVIF).' };
   return { ok: true, format };
 }
