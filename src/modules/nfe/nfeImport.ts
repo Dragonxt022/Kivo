@@ -20,6 +20,8 @@ import {
 import { productRepository } from '../commercial/repositories/ProductRepository';
 import { supplierRepository } from '../commercial/repositories/SupplierRepository';
 import { productSupplierRepository, purchaseInvoiceRepository, purchaseInvoiceItemRepository } from './repositories/NfeRepository';
+import { validateBarcode } from '../../shared/barcode';
+import { normalizeProductUnit } from '../../shared/units';
 
 export type NfeImportAction = 'link' | 'create' | 'ignore';
 
@@ -128,7 +130,10 @@ function createSupplier(req: Request, doc: NfeParsed): number {
 
 /** Adota o EAN da nota num produto vinculado apenas se ele ainda não tem código. */
 function adoptEanIfFree(productId: number, item: NfeDetItem, products: CatalogProduct[]): boolean {
-  if (!item.ean) return false;
+  // EAN com dígito verificador errado (comum em nota de fornecedor pequeno) nunca vira
+  // código de barras do catálogo: sujaria o produto e travaria a edição depois, porque o
+  // PUT de produto recusa barcode inválido. O código continua no item da NF-e.
+  if (!item.ean || !validateBarcode(item.ean)) return false;
   const owned = products.some((p) => p.id !== productId && (p.barcode ?? '').trim() === item.ean);
   if (owned) return false;
   productRepository.rawRun(
@@ -139,12 +144,14 @@ function adoptEanIfFree(productId: number, item: NfeDetItem, products: CatalogPr
 }
 
 function createProductForItem(req: Request, item: NfeDetItem, products: CatalogProduct[]): number {
-  const barcode = item.ean && !products.some((p) => (p.barcode ?? '').trim() === item.ean) ? item.ean : null;
+  const barcode = item.ean && validateBarcode(item.ean) && !products.some((p) => (p.barcode ?? '').trim() === item.ean)
+    ? item.ean
+    : null;
   const id = productRepository.create({
     name: item.description.trim(),
     sku: null,
     barcode,
-    unit: item.unit?.trim() || 'un',
+    unit: normalizeProductUnit(item.unit),
     price_cents: 0,
     cost_cents: 0,
     track_stock: 1,
@@ -170,6 +177,9 @@ export function buildImportPreview(xml: string): NfeImportPreview {
 
   const items: NfePreviewItem[] = doc.items.map((item) => {
     const res = resolveItem(item, cat);
+    const flags = item.ean && !validateBarcode(item.ean) && !res.flags.includes('ean_invalid')
+      ? [...res.flags, 'ean_invalid' as const]
+      : res.flags;
     return {
       line: item.line,
       cProd: item.cProd,
@@ -183,7 +193,7 @@ export function buildImportPreview(xml: string): NfeImportPreview {
       totalCents: item.totalCents,
       kind: res.kind,
       reason: res.reason,
-      flags: res.flags,
+      flags,
       error: res.error,
       product: res.product ? serializeProduct(res.product) : null,
       candidates: res.candidates.slice(0, 6).map(serializeProduct),

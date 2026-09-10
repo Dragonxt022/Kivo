@@ -26,6 +26,8 @@
  *    arquivo (DELETE + INSERT no commit). O arquivo é a fonte da verdade.
  */
 
+import { normalizeProductUnit } from '../../shared/units';
+
 export const IMPORT_COLUMNS = [
   // Identidade estável do produto. Vem preenchida na exportação e serve para o
   // reimport atualizar o produto certo — inclusive quando ele não tem SKU nem
@@ -557,7 +559,7 @@ export function buildPreview(input: BuildPreviewInput): { ok: true; report: Prev
         name,
         description: cell(raw, 'descricao') || null,
         categoryName,
-        unit: cell(raw, 'unidade') || 'un',
+        unit: normalizeProductUnit(cell(raw, 'unidade')),
         priceCents: price.ok ? price.cents : 0,
         costCents: cost.ok ? cost.cents : 0,
         minStock: minStock.ok ? (minStock.value ?? 0) : 0,

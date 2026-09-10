@@ -43,6 +43,7 @@ export type NfeLineKind = 'new' | 'matched' | 'possible' | 'invalid';
 
 export type NfeLineFlag =
   | 'ean_conflict'
+  | 'ean_invalid'
   | 'name_conflict'
   | 'supplier_code_conflict'
   | 'unit_conflict'
@@ -220,6 +221,7 @@ function computeFlags(item: NfeDetItem, product: CatalogProduct, base: NfeLineFl
 /** Labels PT-BR das flags para a tela de conferência. */
 export const FLAG_LABELS: Record<NfeLineFlag, string> = {
   ean_conflict: 'EAN diferente do cadastrado',
+  ean_invalid: 'EAN da nota com dígito verificador inválido',
   name_conflict: 'Mais de um produto com este nome',
   supplier_code_conflict: 'Código do fornecedor ambíguo',
   unit_conflict: 'Unidade diferente',

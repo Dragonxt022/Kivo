@@ -28,7 +28,7 @@
           <span class="error" x-text="error"></span>
         </div>
         <p class="muted text-sm">Também dá para colar o conteúdo do XML abaixo e clicar em analisar.</p>
-        <textarea x-ref="pasteXml" rows="6" style="width:100%" placeholder="<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?>…"></textarea>
+        <textarea x-ref="pasteXml" rows="6" class="input" style="width:100%;resize:vertical;min-height:120px" placeholder="<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?>…"></textarea>
         <div class="toolbar">
           <button class="btn secondary" @click="previewPasted()" :disabled="parsing">
             <span x-text="parsing ? 'Analisando…' : 'Analisar'"></span>
@@ -104,11 +104,12 @@
             <th>Produto no Kivo / ação</th>
             <th>Qtd.</th>
             <th>Custo unit. (R$)</th>
+            <th class="num">Total</th>
           </tr>
         </thead>
         <tbody>
           <template x-for="row in rows" :key="row.line">
-            <tr :class="row.action === 'ignore' ? 'nfe-ignored' : ''">
+            <tr :class="{ 'nfe-ignored': row.action === 'ignore', 'nfe-new': row.kind === 'new' && row.action !== 'ignore' }">
               <td class="muted" x-text="row.line"></td>
               <td style="min-width:220px">
                 <div style="font-weight:600" x-text="row.description"></div>
@@ -142,15 +143,29 @@
                 </div>
                 <div x-show="row.action === 'ignore'" class="muted text-sm">linha ignorada — não vira compra</div>
               </td>
-              <td style="min-width:80px">
-                <input type="number" min="0" step="any" x-model="row.qty" :disabled="row.action === 'ignore'" style="width:86px" />
+              <td style="min-width:110px">
+                <input type="number" min="0" step="any" x-model="row.qty" :disabled="row.action === 'ignore'" class="input nfe-input" />
               </td>
-              <td style="min-width:100px">
-                <input type="text" inputmode="decimal" x-model="row.cost" :disabled="row.action === 'ignore'" style="width:96px" />
+              <td style="min-width:120px">
+                <input type="text" inputmode="decimal" x-model="row.cost" :disabled="row.action === 'ignore'"
+                       class="input nfe-input" @input="row.cost = maskMoney(row.cost)" />
+              </td>
+              <td class="num" style="min-width:110px">
+                <span x-text="brl(lineTotal(row))"></span>
               </td>
             </tr>
           </template>
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" class="num muted">Total conferido (linhas aceitas)</td>
+            <td class="num" style="font-weight:600" x-text="brl(acceptedTotal)"></td>
+          </tr>
+          <tr>
+            <td colspan="5" class="num muted">Total da nota</td>
+            <td class="num muted" x-text="preview ? brl(preview.totalCents) : ''"></td>
+          </tr>
+        </tfoot>
       </table>
       </div>
     </div>
@@ -188,7 +203,12 @@
       padding:.55rem .7rem; margin-top:.35rem; cursor:pointer; }
     .row-option:hover { border-color: var(--primary); }
     .nfe-table th, .nfe-table td { padding: .6rem .5rem; }
+    .nfe-table th.num, .nfe-table td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .nfe-table tfoot td { background:var(--surface-hover); border-top:2px solid var(--border); }
+    tr.nfe-new td { background:var(--primary-bg); }
+    .nfe-input { width:100%; padding:.45rem .5rem; box-sizing:border-box; }
   </style>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>">
     function nfeImportPage(canRun) {
       return {
@@ -249,11 +269,13 @@
             flags: it.flags, error: it.error, kind: it.kind,
             candidates: it.candidates || [],
             action, productId, productName: selected ? selected.name : '',
-            qty: String(it.qty), cost: (it.unitCostCents / 100).toFixed(2),
+            qty: String(it.qty),
+            cost: it.unitCostCents > 0 ? maskMoney(String(it.unitCostCents)) : '0,00',
           };
         },
         flagLabel(f) {
-          return { ean_conflict: 'EAN diferente do cadastrado', name_conflict: 'Mais de um produto com este nome',
+          return { ean_conflict: 'EAN diferente do cadastrado', ean_invalid: 'EAN da nota com dígito verificador inválido',
+                   name_conflict: 'Mais de um produto com este nome',
                    supplier_code_conflict: 'Código do fornecedor ambíguo', unit_conflict: 'Unidade diferente',
                    ncm_conflict: 'NCM diferente do cadastrado', price_changed: 'Custo diferente do cadastrado' }[f] || f;
         },
@@ -283,6 +305,13 @@
         },
         get acceptedCount() {
           return this.rows.filter((r) => r.action !== 'ignore').length;
+        },
+        lineTotal(row) {
+          const qty = Number(String(row.qty).replace(',', '.'));
+          return Number.isFinite(qty) ? Math.round(this.brlToCents(row.cost) * qty) : 0;
+        },
+        get acceptedTotal() {
+          return this.rows.filter((r) => r.action !== 'ignore').reduce((sum, r) => sum + this.lineTotal(r), 0);
         },
         backToUpload() { this.preview = null; this.rows = []; this.commitError = ''; },
         async confirmImport() {
