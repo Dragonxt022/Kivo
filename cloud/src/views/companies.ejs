@@ -22,7 +22,10 @@
             <div class="breadcrumb">Geral</div>
             <h1>Empresas</h1>
           </div>
-          <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
+          <div style="display:flex; gap:8px;">
+            <a href="/admin/companies/export.csv" class="btn secondary">Exportar CSV</a>
+            <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
+          </div>
         </div>
 
         <div class="card table-card">

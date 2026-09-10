@@ -48,8 +48,10 @@ async function tick(motivo: string): Promise<void> {
       log.info(`[${motivo}] enviados=${result.pushed} recebidos=${result.pulled}`);
     }
     // Rede de segurança do canal de eventos: se ele estiver caído, os pedidos feitos no
-    // celular ainda são aplicados aqui, com a latência do ciclo em vez de segundos.
-    if (!result.skipped) await drainCommands();
+    // celular ainda são aplicados aqui, com a latência do ciclo em vez de segundos. Roda
+    // mesmo quando o sync foi pulado (plano sem nuvem) porque os comandos de SUPORTE do
+    // painel cloud precisam chegar em qualquer plano.
+    await drainCommands();
   } catch (e) {
     // Rede fora do ar é o caso comum e esperado — o próximo ciclo tenta de novo.
     log.error(`[${motivo}] falhou`, (e as Error).message);

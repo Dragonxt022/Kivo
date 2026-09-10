@@ -1,6 +1,4 @@
 import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
-import { validateLicense } from '../license/service';
-import { canUseWebApp } from '../license/plans';
 import { drainCommands } from './commands';
 import { createLogger } from '../logger';
 
@@ -74,21 +72,12 @@ async function connectOnce(): Promise<void> {
 }
 
 /**
- * Espera entre reavaliações de plano. Curta porque a checagem é uma leitura do SQLite local
- * — nada de rede —, e assim ativar a licença já liga o canal em segundos, sem reiniciar.
+ * Não há mais gate de plano: o canal também carrega os comandos de SUPORTE do painel
+ * cloud, que precisam chegar em qualquer plano. Sem licença, o `connectOnce` falha na
+ * checagem de credenciais e o backoff cuida do resto.
  */
-const SEM_PLANO_MS = 15_000;
-
 async function loop(): Promise<void> {
   while (!stopped) {
-    // O plano é reavaliado a CADA volta, não uma vez no boot: o app pode subir antes de a
-    // licença ser ativada (primeira instalação) ou a empresa pode migrar para o Diamante
-    // com o Kivo aberto. Checar só na largada deixaria o canal desligado até alguém
-    // reiniciar o programa — e o sintoma seria "o orçamento do celular não chega".
-    if (!canUseWebApp(validateLicense().plan)) {
-      await new Promise((r) => setTimeout(r, SEM_PLANO_MS).unref?.());
-      continue;
-    }
     try {
       // Toda vez que (re)conecta, drena o que entrou enquanto o canal esteve fora.
       void drainCommands();

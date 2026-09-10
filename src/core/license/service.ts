@@ -6,6 +6,7 @@ import { getSqlite } from '../database/connection';
 import { getCloudServerUrl } from '../config/cloud';
 import { settingsRepository } from '../repositories/SettingsRepository';
 import { createLogger } from '../logger';
+import { versaoInstalada } from '../updater';
 
 const log = createLogger('license');
 // ⚠ Ciclo consciente: `core/secrets` importa `machineId` daqui para derivar a chave do
@@ -249,6 +250,8 @@ interface CloudValidateResponse {
   validUntil: string | null;
   supportPhone: string | null;
   supportEmail: string | null;
+  /** Versão mínima exigida pelo suporte (painel). */
+  licensedVersion?: string | null;
   /** Segredo do resgate de senha desta empresa — ver `storeRecoverySecret`. */
   recoverySecret?: string | null;
   company?: CloudCompanyProfile | null;
@@ -262,6 +265,23 @@ interface CloudValidateResponse {
  * pode viajar em nenhum dos dois — o cofre é justamente o lugar fora dos dois caminhos.
  */
 export const RECOVERY_SECRET_KEY = 'recovery.secret';
+
+/**
+ * Versão mínima exigida pelo suporte, baixada em toda validação (painel → /license/validate).
+ * Vazia = sem exigência. A tela de Atualização compara com a versão instalada.
+ */
+export const LICENSED_VERSION_KEY = 'license.versao_exigida';
+
+function storeLicensedVersion(v: string | null | undefined): void {
+  try {
+    const next = (v ?? '').trim();
+    if ((settingsRepository.get(LICENSED_VERSION_KEY) ?? '') === next) return;
+    settingsRepository.set(LICENSED_VERSION_KEY, next);
+  } catch (e) {
+    // Nunca pode derrubar a validação da licença — só deixa a tela sem a versão exigida.
+    log.error('não foi possível guardar a versão exigida', e);
+  }
+}
 
 /**
  * Guarda o segredo que a nuvem mandou, se mandou. Idempotente e silencioso de propósito:
@@ -409,6 +429,16 @@ async function resolveCompanyUuid(url: string, licenseKey: string): Promise<stri
   }
 }
 
+/** Cabeçalhos do /license/validate — inclui a versão instalada (tela de versões do painel). */
+function validateHeaders(companyUuid: string, licenseKey: string): Record<string, string> {
+  return {
+    'X-Kivo-Company': companyUuid,
+    'X-Kivo-License-Key': licenseKey,
+    'X-Kivo-Machine-Id': machineId(),
+    'X-Kivo-App-Version': versaoInstalada(),
+  };
+}
+
 export async function activateLicense(companyUuid: string | null, licenseKey: string): Promise<ActivateResult> {
   const url = getCloudServerUrl();
   if (!url) return { ok: false, error: 'Servidor de licenciamento não configurado.', reason: 'not_configured' };
@@ -427,7 +457,7 @@ export async function activateLicense(companyUuid: string | null, licenseKey: st
   let res: Response;
   try {
     res = await fetch(`${url.replace(/\/$/, '')}/api/license/validate`, {
-      headers: { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey, 'X-Kivo-Machine-Id': machineId() },
+      headers: validateHeaders(companyUuid, licenseKey),
       signal: AbortSignal.timeout(8000),
     });
   } catch {
@@ -450,6 +480,7 @@ export async function activateLicense(companyUuid: string | null, licenseKey: st
   if (!res.ok) return { ok: false, error: `Falha ao validar (HTTP ${res.status}).`, reason: 'offline' };
 
   const body = (await res.json()) as CloudValidateResponse;
+  storeLicensedVersion(body.licensedVersion);
   ensureLicenseRow();
   getSqlite()
     .prepare(
@@ -488,7 +519,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
   if (!companyUuid || !licenseKey || !url) return;
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/api/license/validate`, {
-      headers: { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey, 'X-Kivo-Machine-Id': machineId() },
+      headers: validateHeaders(companyUuid, licenseKey),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
@@ -506,6 +537,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
       return;
     }
     const body = (await res.json()) as CloudValidateResponse;
+    storeLicensedVersion(body.licensedVersion);
     ensureLicenseRow();
     getSqlite()
       .prepare(

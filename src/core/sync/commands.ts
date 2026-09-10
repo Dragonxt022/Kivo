@@ -2,9 +2,8 @@ import { getSqlite } from '../database/connection';
 import { impersonate } from '../auth/systemContext';
 import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
 import { getService } from '../services/registry';
-import { validateLicense } from '../license/service';
-import { canUseWebApp } from '../license/plans';
 import { createLogger } from '../logger';
+import { flushTelemetry, getMachineInventory } from '../telemetry/service';
 
 const log = createLogger('commands');
 
@@ -132,6 +131,31 @@ function handleQuoteCreate(cmd: PendingCommand): HandlerResult {
 
 const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {
   'store.quote.create': handleQuoteCreate,
+
+  // Comandos de SUPORTE (o painel cloud dispara; não dependem do plano nem de usuário).
+  // "Forçar sincronização": agenda um ciclo agora — o resultado real sai no próximo sync.
+  'support.sync_now': () => {
+    void import('./scheduler').then((m) => m.scheduleSyncSoon());
+    return { ok: true, result: { agendado: true } };
+  },
+  // "Pedir diagnóstico": envia erros/inventário pendentes e devolve o hardware na hora.
+  'support.diagnostics': () => {
+    void flushTelemetry();
+    const inv = getMachineInventory();
+    return {
+      ok: true,
+      result: {
+        os: `${inv.os.platform} ${inv.os.release} (${inv.os.arch})`,
+        cpu: inv.cpu.model,
+        cores: inv.cpu.cores,
+        ramGb: inv.memory.totalGb,
+        gpu: inv.gpu,
+        screen: inv.screen,
+        versions: inv.versions,
+        collectedAt: inv.collectedAt,
+      },
+    };
+  },
 };
 
 /**
@@ -165,7 +189,6 @@ let draining = false;
  */
 export async function drainCommands(): Promise<{ aplicados: number; erros: number } | null> {
   if (draining) return null;
-  if (!canUseWebApp(validateLicense().plan)) return null;
   const base = cloudBaseUrl();
   const auth = cloudAuthHeaders();
   if (!base || !auth) return null;

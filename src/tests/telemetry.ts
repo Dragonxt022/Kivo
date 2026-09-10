@@ -13,6 +13,7 @@ import { getSqlite, closeDb } from '../core/database/connection';
 import { settingsRepository } from '../core/repositories/SettingsRepository';
 import { collectMachineInventory } from '../core/telemetry/hardware';
 import { recordError, isTelemetryEnabled, flushTelemetry } from '../core/telemetry/service';
+import { applyCommand } from '../core/sync/commands';
 
 let failures = 0;
 function check(label: string, ok: boolean, extra = ''): void {
@@ -81,6 +82,15 @@ async function main(): Promise<void> {
     threw = true;
   }
   check('flush sem licença não lança', !threw);
+
+  // ── Comandos de suporte (disparados pelo painel cloud) ──
+  const admin = '00000000-0000-0000-0000-000000000000';
+  const diag = applyCommand({ id: 1, kind: 'support.diagnostics', payload: {}, created_by_user_uuid: admin });
+  check('support.diagnostics devolve o inventário', diag.ok && typeof (diag.result as { os?: unknown }).os === 'string', diag.ok ? String((diag.result as { os?: unknown }).os) : diag.error);
+  const sync = applyCommand({ id: 2, kind: 'support.sync_now', payload: {}, created_by_user_uuid: admin });
+  check('support.sync_now é aceito', sync.ok);
+  const unknown = applyCommand({ id: 3, kind: 'support.nao_existe', payload: {}, created_by_user_uuid: admin });
+  check('comando de suporte desconhecido vira erro', !unknown.ok);
 
   closeDb();
   console.log(failures === 0 ? '\nTelemetria: TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);

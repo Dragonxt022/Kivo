@@ -22,7 +22,10 @@
             <div class="breadcrumb">Geral</div>
             <h1>Dashboard</h1>
           </div>
-          <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
+          <div style="display:flex; gap:8px;">
+            <a href="/admin/companies/export.csv" class="btn secondary">Exportar CSV</a>
+            <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
+          </div>
         </div>
 
         <%
@@ -61,6 +64,8 @@
           var companyDelta = pct(newCompanies30d, newCompaniesPrev30d);
           var revenueDelta = pct(revenueMonth, revenuePrevMonth);
           var activePct = totalCompanies ? Math.round((activeCompanies / totalCompanies) * 100) : 0;
+          var comm = commercial || { revenue30dCents: 0, paidCount30d: 0, trials: 0, converted: 0, churned: 0, inactive: 0 };
+          var conversionPct = comm.trials ? Math.round((comm.converted / comm.trials) * 100) : 0;
         %>
 
         <%
@@ -127,6 +132,44 @@
           </div>
         </div>
 
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= brl(comm.revenue30dCents / 100) %></div>
+            <div class="dash-kpi-label">Receita recebida (30 dias)</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base"><%= comm.paidCount30d %> cobrança<%= comm.paidCount30d === 1 ? '' : 's' %> paga<%= comm.paidCount30d === 1 ? '' : 's' %></span></div>
+          </div>
+
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= conversionPct %>%</div>
+            <div class="dash-kpi-label">Conversão teste → pago</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base"><%= comm.converted %> de <%= comm.trials %> teste<%= comm.trials === 1 ? '' : 's' %></span></div>
+          </div>
+
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= comm.churned %></div>
+            <div class="dash-kpi-label">Licenças vencidas (churn)</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base">planos pagos fora da validade</span></div>
+          </div>
+
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= comm.inactive %></div>
+            <div class="dash-kpi-label">Empresas inativas</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base">sem sincronizar há 30 dias</span></div>
+          </div>
+        </div>
+
         <% if (alerts.length) { %>
         <div class="card" style="margin-bottom: 24px;">
           <h2 style="margin-bottom: 14px;">Avisos</h2>
@@ -137,6 +180,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               <% } else if (a.icon === 'alert') { %>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <% } else if (a.icon === 'pause') { %>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
               <% } else { %>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <% } %>

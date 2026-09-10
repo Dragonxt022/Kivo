@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Versões</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'versions' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'versions' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Sistema</div>
+            <h1>Versões</h1>
+          </div>
+        </div>
+        <p class="field-hint" style="margin-top:0">
+          Versão do Kivo que cada instalação está rodando (enviada na validação da licença). Compara com a versão
+          exigida pelo suporte em cada empresa — linhas em vermelho estão abaixo do exigido.
+        </p>
+
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= totalDevices %></div>
+            <div class="dash-kpi-label">Instalações ativas</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= outdated %></div>
+            <div class="dash-kpi-label">Abaixo da versão exigida</div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar"><h2 style="margin:0; font-size:1.05rem;">Distribuição de versões</h2></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Versão</th><th class="text-right">Instalações</th></tr></thead>
+              <tbody>
+                <% distribution.forEach(function(v) { %>
+                <tr><td><%= v.app_version %></td><td class="text-right tabular"><%= v.total %></td></tr>
+                <% }) %>
+                <% if (!distribution.length) { %><tr><td colspan="2"><%- include('partials/empty-state', { message: 'Nenhuma versão reportada ainda.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 style="margin:0; font-size:1.05rem;">Instalações</h2>
+            <div class="table-count"><%= totalDevices %> instalação<%= totalDevices === 1 ? '' : 'ões' %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Empresa</th><th>Plano</th><th>Versão</th><th>Exigida</th><th>Máquina</th><th>Visto por último</th></tr></thead>
+              <tbody>
+                <% devices.forEach(function(d) { %>
+                <tr <%= d.desatualizado ? 'style="background: color-mix(in srgb, var(--danger) 10%, transparent);"' : '' %>>
+                  <td><a href="/admin/companies/<%= d.company_uuid %>"><%= d.company_name || d.company_uuid %></a></td>
+                  <td><%= d.plan || '—' %></td>
+                  <td>
+                    <span class="badge <%= d.desatualizado ? 'cancelada' : 'paga' %>"><%= d.app_version || 'desconhecida' %></span>
+                  </td>
+                  <td class="cell-muted"><%= d.licensed_version || '—' %></td>
+                  <td class="cell-muted" title="<%= d.machine_id %>"><%= String(d.machine_id).slice(0, 16) %>…</td>
+                  <td class="cell-muted"><%= d.last_seen_at %></td>
+                </tr>
+                <% }) %>
+                <% if (!devices.length) { %><tr><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma instalação registrada ainda.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
