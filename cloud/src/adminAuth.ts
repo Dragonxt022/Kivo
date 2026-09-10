@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import type { Request, Response, NextFunction } from 'express';
 import { getPool } from './db';
@@ -6,19 +6,16 @@ import { getPool } from './db';
 export const ADMIN_SESSION_COOKIE = 'kivo_admin_session';
 const SESSION_TTL_MS = 12 * 3600e3; // 12h
 
-interface AdminSession {
-  username: string;
-  expiresAt: number;
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 /**
- * Sessão do painel em memória — decisão de escopo da Fase 6d: o painel reinicia
- * raramente e um logout forçado num restart é aceitável (evita mais uma tabela só
- * para sessão). Cookie lido via regex manual em `req.headers.cookie`, mesmo padrão de
- * `src/core/auth/middleware.ts` no app principal — sem dependência de cookie-parser.
+ * Sessão do painel persistida no banco (`admin_sessions`) — antes era um `Map` em
+ * memória, e todo deploy/restart deslogava o suporte. O cookie carrega o token cru; o
+ * banco guarda só o hash. Cookie lido via regex manual em `req.headers.cookie`, mesmo
+ * padrão de `src/core/auth/middleware.ts` — sem dependência de cookie-parser.
  */
-const sessions = new Map<string, AdminSession>();
-
 export function hashPassword(plain: string): string {
   return bcrypt.hashSync(plain, 10);
 }
@@ -35,14 +32,32 @@ export async function verifyAdminCredentials(username: string, password: string)
   return bcrypt.compareSync(password, row.password_hash);
 }
 
-export function createAdminSession(username: string): string {
+export async function createAdminSession(username: string): Promise<string> {
   const token = randomBytes(32).toString('hex');
-  sessions.set(token, { username, expiresAt: Date.now() + SESSION_TTL_MS });
+  const expires = new Date(Date.now() + SESSION_TTL_MS);
+  await getPool().query(
+    'INSERT INTO admin_sessions (token_hash, username, expires_at) VALUES (?, ?, ?)',
+    [hashToken(token), username, expires],
+  );
   return token;
 }
 
-export function destroyAdminSession(token: string | null): void {
-  if (token) sessions.delete(token);
+export async function destroyAdminSession(token: string | null): Promise<void> {
+  if (!token) return;
+  try {
+    await getPool().query('DELETE FROM admin_sessions WHERE token_hash = ?', [hashToken(token)]);
+  } catch {
+    // Logout é best-effort: o cookie é limpo de qualquer forma.
+  }
+}
+
+/** Apaga sessões vencidas. Chamado no boot e a cada 6h — a tabela não precisa crescer. */
+export async function purgeExpiredAdminSessions(): Promise<void> {
+  try {
+    await getPool().query('DELETE FROM admin_sessions WHERE expires_at < NOW()');
+  } catch {
+    // best-effort
+  }
 }
 
 function readCookie(req: Request): string | null {
@@ -99,14 +114,29 @@ async function loadNotifications(): Promise<{ count: number; items: Notification
 
 export async function requireAdminAuth(req: AdminRequest, res: Response, next: NextFunction): Promise<void> {
   const token = readCookie(req);
-  const session = token ? sessions.get(token) : undefined;
-  if (!session || session.expiresAt < Date.now()) {
-    if (token) sessions.delete(token);
+  if (!token) {
     res.redirect('/admin/login');
     return;
   }
-  req.adminUsername = session.username;
-  res.locals.adminUsername = session.username;
+  const hash = hashToken(token);
+  let row: { username: string; expires_at: string } | undefined;
+  try {
+    const [rows] = await getPool().query(
+      'SELECT username, expires_at FROM admin_sessions WHERE token_hash = ?',
+      [hash],
+    );
+    row = (rows as { username: string; expires_at: string }[])[0];
+  } catch {
+    res.redirect('/admin/login');
+    return;
+  }
+  if (!row || new Date(row.expires_at) < new Date()) {
+    if (row) await getPool().query('DELETE FROM admin_sessions WHERE token_hash = ?', [hash]).catch(() => {});
+    res.redirect('/admin/login');
+    return;
+  }
+  req.adminUsername = row.username;
+  res.locals.adminUsername = row.username;
   res.locals.notifications = await loadNotifications();
   next();
 }

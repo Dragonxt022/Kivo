@@ -16,6 +16,7 @@ import { mobileSide as mobileCommandsRoutes, desktopSide as desktopCommandsRoute
 import mobileAppRoutes from './routes/mobileApp';
 import quotePublicRoutes from './routes/quotePublic';
 import telemetryRoutes, { startTelemetryRetention } from './routes/telemetry';
+import { purgeExpiredAdminSessions } from './adminAuth';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -66,5 +67,8 @@ export function createCloudServer() {
 if (require.main === module) {
   const app = createCloudServer();
   startTelemetryRetention();
+  // Sessões do painel vivem no banco agora — limpa as vencidas no boot e a cada 6h.
+  purgeExpiredAdminSessions();
+  setInterval(() => purgeExpiredAdminSessions(), 6 * 3600e3).unref?.();
   app.listen(PORT, () => console.log(`[kivo-cloud] ouvindo em http://localhost:${PORT}`));
 }

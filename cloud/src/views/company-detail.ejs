@@ -64,6 +64,10 @@
           </button>
           <button type="button" class="tab" role="tab" :class="{ active: tab === 'sync' }"
                   :aria-selected="tab === 'sync'" @click="go('sync')">Sincronização</button>
+          <button type="button" class="tab" role="tab" :class="{ active: tab === 'diagnostico' }"
+                  :aria-selected="tab === 'diagnostico'" @click="go('diagnostico')">
+            Diagnóstico<% if (errors && errors.length) { %><span class="tab-badge"><%= errors.length %></span><% } %>
+          </button>
           <button type="button" class="tab tab-danger" role="tab" :class="{ active: tab === 'perigo' }"
                   :aria-selected="tab === 'perigo'" @click="go('perigo')">Zona de perigo</button>
         </div>
@@ -394,6 +398,65 @@
           </div>
         </section>
 
+        <!-- ─────────── Diagnóstico ─────────── -->
+        <section x-show="tab === 'diagnostico'" role="tabpanel" x-cloak>
+          <div class="card table-card">
+            <div class="table-toolbar">
+              <h2 style="margin:0; font-size:1.05rem;">Inventário da máquina</h2>
+              <div class="table-count"><%= inventory.length %> instalação<%= inventory.length === 1 ? '' : 'ões' %></div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Máquina</th><th>Sistema</th><th>CPU</th><th>RAM</th><th>GPU</th><th>Tela</th><th>Versão</th><th>Visto por último</th></tr></thead>
+                <tbody>
+                  <% inventory.forEach(function(m) { var g = m.data && m.data.gpu; var s = m.data && m.data.screen; %>
+                  <tr>
+                    <td class="cell-muted" title="<%= m.machine_id %>"><%= String(m.machine_id).slice(0, 16) %>…</td>
+                    <td class="cell-muted"><%= m.os || '—' %></td>
+                    <td class="cell-muted"><%= m.cpu || '—' %></td>
+                    <td class="cell-muted"><%= m.ram_gb ? m.ram_gb + ' GB' : '—' %></td>
+                    <td class="cell-muted"><%= g ? (g.status + (g.software ? ' (software)' : '')) : '—' %></td>
+                    <td class="cell-muted"><%= s ? (s.width + '×' + s.height + (s.scaleFactor && s.scaleFactor !== 1 ? ' @' + s.scaleFactor + 'x' : '')) : '—' %></td>
+                    <td class="cell-muted"><%= m.app_version || '—' %></td>
+                    <td class="cell-muted"><%= m.last_seen_at %></td>
+                  </tr>
+                  <% }) %>
+                  <% if (!inventory.length) { %><tr><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhum inventário recebido ainda.' }) %></td></tr><% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card table-card">
+            <div class="table-toolbar">
+              <h2 style="margin:0; font-size:1.05rem;">Erros reportados</h2>
+              <div class="table-count"><%= errors.length %> assinatura<%= errors.length === 1 ? '' : 's' %></div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Origem</th><th>Mensagem</th><th class="text-right">Ocorrências</th><th class="text-right">Máquinas</th><th>Última vez</th></tr></thead>
+                <tbody>
+                  <% errors.forEach(function(e) { %>
+                  <tr>
+                    <td class="cell-muted"><%= e.scope || '—' %></td>
+                    <td>
+                      <div><%= e.message || '—' %></div>
+                      <% if (e.stack) { %>
+                      <details><summary class="cell-sub" style="cursor:pointer;">Ver stack</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:.72rem;background:#0f1115;color:#c9d1d9;padding:8px;border-radius:6px;max-height:240px;overflow:auto;margin:6px 0 0;"><%= e.stack %></pre></details>
+                      <% } %>
+                    </td>
+                    <td class="text-right tabular"><%= e.total %></td>
+                    <td class="text-right tabular"><%= e.devices %></td>
+                    <td class="cell-muted"><%= e.last_seen_at %></td>
+                  </tr>
+                  <% }) %>
+                  <% if (!errors.length) { %><tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum erro reportado por esta empresa.' }) %></td></tr><% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- ─────────── Zona de perigo ─────────── -->
         <section x-show="tab === 'perigo'" role="tabpanel" x-cloak>
           <div class="card" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent);">
@@ -472,7 +535,7 @@
 
   <script src="/js/table-toolkit.js"></script>
   <script>
-    var VALID_TABS = ['detalhes', 'licenca', 'cobrancas', 'sync', 'perigo'];
+    var VALID_TABS = ['detalhes', 'licenca', 'cobrancas', 'sync', 'diagnostico', 'perigo'];
 
     function companyTabs() {
       return {
