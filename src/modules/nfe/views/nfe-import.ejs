@@ -76,25 +76,25 @@
       <section class="panel nfe-head">
         <div class="nfe-head-supplier">
           <span class="nfe-head-label">Fornecedor</span>
-          <strong x-text="preview.supplier.name || '—'"></strong>
+          <strong x-text="preview ? (preview.supplier.name || '—') : ''"></strong>
           <div class="nfe-head-sub">
-            <span class="muted text-xs" x-text="'CNPJ ' + preview.supplier.cnpj"></span>
-            <span class="badge" :class="preview.supplier.exists ? 'ok' : 'neutral'"
-                  x-text="preview.supplier.exists ? 'Cadastrado' : 'Novo (será criado)'"></span>
+            <span class="muted text-xs" x-text="preview ? ('CNPJ ' + preview.supplier.cnpj) : ''"></span>
+            <span class="badge" :class="preview && preview.supplier.exists ? 'ok' : 'neutral'"
+                  x-text="preview ? (preview.supplier.exists ? 'Cadastrado' : 'Novo (será criado)') : ''"></span>
           </div>
         </div>
         <div class="nfe-head-meta">
           <div>
             <span class="nfe-head-label">NF-e</span>
-            <span x-text="'nº ' + (preview.number || '—') + (preview.serie ? ' · Série ' + preview.serie : '')"></span>
+            <span x-text="preview ? ('nº ' + (preview.number || '—') + (preview.serie ? ' · Série ' + preview.serie : '')) : ''"></span>
           </div>
           <div>
             <span class="nfe-head-label">Emissão</span>
-            <span x-text="preview.issuedAt ? preview.issuedAt.slice(0, 10) : '—'"></span>
+            <span x-text="preview && preview.issuedAt ? preview.issuedAt.slice(0, 10) : '—'"></span>
           </div>
           <div>
             <span class="nfe-head-label">Total da nota</span>
-            <strong x-text="brl(preview.totalCents)"></strong>
+            <strong x-text="preview ? brl(preview.totalCents) : ''"></strong>
           </div>
         </div>
       </section>
@@ -205,7 +205,7 @@
         <div class="nfe-footer-total">
           <span class="nfe-head-label">Total conferido</span>
           <strong x-text="brl(acceptedTotal)"></strong>
-          <span class="muted text-xs" x-text="'nota ' + brl(preview.totalCents)"></span>
+          <span class="muted text-xs" x-text="preview ? ('nota ' + brl(preview.totalCents)) : ''"></span>
         </div>
         <span class="error" x-text="commitError"></span>
         <button class="btn secondary" @click="backToUpload()">Outro arquivo</button>
