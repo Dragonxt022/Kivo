@@ -3,6 +3,7 @@
   now: new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Porto_Velho' }),
   billingAlert: null,
   licenseStatus: null,
+  cloudIssueDismissed: false,
   cashAlert: null,
   upcomingBills: null,
   notifOpen: false,
@@ -12,7 +13,7 @@
     return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
   },
   notifUserKey: <%= JSON.stringify(user ? user.username : '') %>,
-  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles', atualizacao: 'refresh-cw' },
+  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles', atualizacao: 'refresh-cw', licenca: 'shield-check' },
   atualizacao: null,
   notifIconSvg(type) {
     const name = this.notifIconMap[type];
@@ -53,6 +54,11 @@
     }
     if (this.billingAlert && this.billingAlert.count) {
       list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
+    }
+    // Empresa recusada pela nuvem (excluída/desativada ou chave trocada): o Kivo segue
+    // funcionando até a validade local, mas o lojista precisa saber por que o sync parou.
+    if (this.licenseStatus && this.licenseStatus.cloudIssue) {
+      list.push({ id: 'licenca-nuvem', type: 'licenca', message: 'Sua empresa não está mais ativa no servidor — o Kivo segue funcionando até a licença vencer', link: '/admin/configuracoes' });
     }
     if (this.licenseStatus && this.licenseStatus.plan === 'trial' && this.licenseStatus.status !== 'expirada') {
       const d = this.licenseStatus.daysRemaining;
@@ -281,6 +287,23 @@
   <span>⚠ <span x-text="billingAlert ? billingAlert.count : 0"></span> cobrança(s) vencendo em até 3 dias</span>
   <a href="/admin/cobrancas" style="color:inherit;font-weight:600;text-decoration:underline">ver</a>
   <button @click="billingAlert = null" class="btn-reset" style="font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
+</div>
+<% } %>
+
+<% if (user) { %>
+<%# Aviso de empresa recusada pela nuvem. Fica abaixo do aviso de cobrança (se houver os
+    dois) e é dispensável só na sessão: o estado continua no servidor. O Kivo segue
+    operando até a validade local — ver core/license/service.ts. %>
+<div x-show="licenseStatus && licenseStatus.cloudIssue && !cloudIssueDismissed" x-cloak
+     style="position:fixed;top:calc(var(--header-height) + 56px);left:50%;transform:translateX(-50%);z-index:40;
+            background:#fef3c7;color:#92400e;border-radius:10px;padding:.6rem 1rem;
+            display:flex;align-items:center;gap:.75rem;font-size:.88rem;box-shadow:var(--shadow-sm);max-width:92vw">
+  <span>
+    ⚠ <span x-text="licenseStatus && licenseStatus.cloudIssue === 'empresa_removida' ? 'Sua empresa não existe mais no servidor (excluída ou desativada).' : 'A chave de licença não é mais aceita pelo servidor.'"></span>
+    <template x-if="licenseStatus && licenseStatus.validUntil"><span> O Kivo segue funcionando até <strong x-text="fmtDueDate(licenseStatus.validUntil)"></strong>.</span></template>
+  </span>
+  <a href="/admin/configuracoes" style="color:inherit;font-weight:600;text-decoration:underline">ver</a>
+  <button @click="cloudIssueDismissed = true" class="btn-reset" style="font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
 </div>
 <% } %>
 

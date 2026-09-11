@@ -1,5 +1,6 @@
 import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
 import { drainCommands } from './commands';
+import { hasCloudIssue } from '../license/service';
 import { createLogger } from '../logger';
 
 const log = createLogger('eventos');
@@ -84,7 +85,11 @@ async function loop(): Promise<void> {
       await connectOnce();
     } catch (e) {
       if (stopped) return;
-      log.info(`canal caiu (${(e as Error).message}); tentando em ${Math.round(delay / 1000)}s.`);
+      // Empresa excluída/desativada na nuvem: o 401 é esperado e o aviso já está na tela.
+      // Continua tentando (com backoff) em silêncio, para reconectar se a empresa voltar.
+      if (!hasCloudIssue()) {
+        log.info(`canal caiu (${(e as Error).message}); tentando em ${Math.round(delay / 1000)}s.`);
+      }
     }
     if (stopped) return;
     await new Promise((r) => setTimeout(r, delay).unref?.());

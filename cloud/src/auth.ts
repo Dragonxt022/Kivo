@@ -20,15 +20,28 @@ export async function requireCompanyAuth(req: AuthedRequest, res: Response, next
   const companyUuid = req.header('X-Kivo-Company');
   const licenseKey = req.header('X-Kivo-License-Key');
   if (!companyUuid || !licenseKey) {
-    res.status(401).json({ error: 'Credenciais ausentes (X-Kivo-Company / X-Kivo-License-Key).' });
+    res.status(401).json({
+      error: 'Credenciais ausentes (X-Kivo-Company / X-Kivo-License-Key).',
+      code: 'credentials_missing',
+    });
     return;
   }
   const [rows] = await getPool().query('SELECT license_key_hash, plan FROM companies WHERE company_uuid = ?', [
     companyUuid,
   ]);
   const company = (rows as { license_key_hash: string; plan: string | null }[])[0];
-  if (!company || company.license_key_hash !== hashLicenseKey(licenseKey)) {
-    res.status(401).json({ error: 'Credenciais inválidas.' });
+  // Empresa inexistente = foi excluída (ou nunca existiu) no painel cloud. É diferente de
+  // chave errada: o `code` deixa o desktop explicar ao lojista em vez de só "credenciais
+  // inválidas". Aqui, empresa some → 404; chave não confere → 401.
+  if (!company) {
+    res.status(404).json({
+      error: 'Empresa não encontrada no servidor (foi excluída ou desativada).',
+      code: 'company_not_found',
+    });
+    return;
+  }
+  if (company.license_key_hash !== hashLicenseKey(licenseKey)) {
+    res.status(401).json({ error: 'Credenciais inválidas.', code: 'invalid_credentials' });
     return;
   }
   req.companyUuid = companyUuid;
