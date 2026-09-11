@@ -428,7 +428,7 @@
                 <div class="product-image-suggestions" x-show="imgSearchResults.length">
                   <template x-for="r in imgSearchResults" :key="r.id">
                     <button type="button" class="product-image-suggestion" @click="pickCatalogImage(r)">
-                      <img :src="r.url" :alt="r.name" />
+                      <img :src="r.thumb || r.url" :alt="r.name" />
                       <span x-text="r.name"></span>
                     </button>
                   </template>
@@ -1996,9 +1996,10 @@
             const data = r.ok ? await r.json() : { results: [] };
             this.imgSearchResults = data.results || [];
             this.imgSearchOffline = !!data.offline;
-            // A rota agora distingue queda de rede de recusa do servidor (plano, credencial):
-            // sem isso os dois casos apareciam como "indisponível agora" e ninguém sabia o motivo.
-            this.imgSearchError = data.error || '';
+            // A rota distingue queda de rede de recusa do servidor (plano, credencial) e
+            // devolve o motivo em `message` — sem isso os dois casos apareciam como
+            // "indisponível agora" e ninguém sabia o que corrigir.
+            this.imgSearchError = data.message || '';
           } finally {
             this.imgSearching = false;
           }
@@ -2022,14 +2023,23 @@
             this.form.pendingImageBase64 = dataUrl.split(',')[1] ?? '';
             this.form.pendingImageUrl = null;
             this.form.removeImage = false;
-            this.form.submitToCatalog = false; // já veio do catálogo — reenviar não tem sentido
-            // Aprende o alias (anônimo): o nome deste produto passa a apontar para esta imagem,
-            // então a próxima busca por nome parecido acha. Best-effort, não bloqueia a escolha.
-            if (this.form.name && this.form.name.trim().length >= 3) {
-              fetch('/api/commercial/products/image-learn', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageId: r.id, name: this.form.name }),
-              }).catch(() => {});
+            this.form.submitToCatalog = false; // já veio de uma sugestão — reenviar não tem sentido
+            const nome = (this.form.name || '').trim();
+            // Aprende a escolha (anônima) para melhorar as próximas sugestões. O catálogo do
+            // Kivo aprende um alias; a imagem da web alimenta o ranking global no Cloud —
+            // imagens que mais deram certo sobem na frente para todo mundo. Best-effort.
+            if (nome.length >= 3) {
+              if (r.source === 'web') {
+                fetch('/api/commercial/products/image-web-learn', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ term: nome, url: r.srcUrl, thumb: r.srcThumb, title: r.name }),
+                }).catch(() => {});
+              } else {
+                fetch('/api/commercial/products/image-learn', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ imageId: r.id, name: nome }),
+                }).catch(() => {});
+              }
             }
           } finally {
             this.imgSearching = false;

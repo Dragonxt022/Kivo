@@ -8,6 +8,12 @@ import { audit } from '../audit/service';
 import { validateBody } from '../../shared/validateBody';
 import { setSettingSchema } from '../../shared/schemas';
 import { getCloudServerUrl } from './cloud';
+import { hasSecret, setSecret, deleteSecret } from '../secrets/service';
+import { settingsRepository } from '../repositories/SettingsRepository';
+import {
+  GOOGLE_CSE_SECRET_KEY, GOOGLE_CSE_CX_SETTING, DEFAULT_GOOGLE_CSE_CX,
+  getGoogleCseConfig, searchGoogleImages,
+} from '../catalog/googleImageSearch';
 import { getMachinePrefs, setMachinePrefs } from './machinePrefs';
 import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './companyLogo';
 import { getLicenseCredentials } from '../license/service';
@@ -132,6 +138,65 @@ router.delete('/company-logo', requirePermission('settings.edit'), (req, res) =>
   deleteCompanyLogoFile(before?.value);
   audit(req, 'excluir', 'setting', LOGO_SETTING_KEY, before ?? null, null);
   res.json({ ok: true });
+});
+
+/**
+ * Configuração da busca de imagens no Google (sugestões ao cadastrar produto).
+ *
+ * A API Key NÃO vai para a tabela `settings`: lá ela sincronizaria entre máquinas e seria
+ * devolvida por `GET /api/settings` a qualquer usuário com `settings.view`. Fica no cofre
+ * local (core/secrets). A tela só vê se está configurada, nunca o valor.
+ */
+router.get('/image-search-config', requirePermission('settings.view'), (_req, res) => {
+  const cx = settingsRepository.get(GOOGLE_CSE_CX_SETTING) || DEFAULT_GOOGLE_CSE_CX;
+  res.json({
+    configured: hasSecret(GOOGLE_CSE_SECRET_KEY),
+    cx,
+    defaultCx: DEFAULT_GOOGLE_CSE_CX,
+  });
+});
+
+router.put('/image-search-config', requirePermission('settings.edit'), (req, res) => {
+  const { apiKey, cx } = req.body ?? {};
+  const before = {
+    configured: hasSecret(GOOGLE_CSE_SECRET_KEY),
+    cx: settingsRepository.get(GOOGLE_CSE_CX_SETTING) || DEFAULT_GOOGLE_CSE_CX,
+  };
+  // Campo ausente = não mexe. `apiKey: ''` remove a chave (desliga a busca no Google).
+  if (apiKey !== undefined) {
+    if (apiKey === null || String(apiKey).trim() === '') deleteSecret(GOOGLE_CSE_SECRET_KEY);
+    else setSecret(GOOGLE_CSE_SECRET_KEY, String(apiKey).trim());
+  }
+  if (cx !== undefined && cx !== null && String(cx).trim()) {
+    settingsRepository.set(GOOGLE_CSE_CX_SETTING, String(cx).trim());
+  }
+  const after = {
+    configured: hasSecret(GOOGLE_CSE_SECRET_KEY),
+    cx: settingsRepository.get(GOOGLE_CSE_CX_SETTING) || DEFAULT_GOOGLE_CSE_CX,
+  };
+  audit(req, 'editar', 'setting', 'image-search-config', before, after);
+  res.json(after);
+});
+
+/**
+ * Testa a configuração chamando o Google com um termo de exemplo. Devolve quantas imagens
+ * voltaram ou o motivo da falha — sem isso, uma chave errada só apareceria como "nenhuma
+ * sugestão" no cadastro, sem dizer o porquê.
+ */
+router.post('/image-search-config/test', requirePermission('settings.edit'), async (req, res) => {
+  if (!getGoogleCseConfig()) {
+    res.json({ tested: false, error: 'Configure a API Key primeiro.' });
+    return;
+  }
+  const q = String(req.body?.q ?? '').trim() || 'refrigerante lata';
+  try {
+    const results = await searchGoogleImages(q, 6);
+    // `tested` (e não `ok`): o envelope colapsa `{ ok: true, count }` em só o número,
+    // perdendo o campo — ver shared/responseEnvelope.ts.
+    res.json({ tested: true, count: results.length });
+  } catch (e) {
+    res.json({ tested: false, error: e instanceof Error ? e.message : 'Falha ao consultar o Google.' });
+  }
 });
 
 /**

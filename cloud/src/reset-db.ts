@@ -27,6 +27,7 @@ const DATA_TABLES = [
   'company_devices',
   'menu_items',
   'catalog_images',
+  'catalog_web_images',
   'companies',
   'app_settings',
 ];

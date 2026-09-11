@@ -864,6 +864,42 @@
           </button>
         </div>
       </section>
+
+      <%# Sugestão de imagens no cadastro: Google CSE (chave no cofre) com fallback para o
+          banco de imagens do Kivo. A chave nunca aparece de volta na tela. %>
+      <section class="panel">
+        <h2>Imagens de produtos (Google)</h2>
+        <p class="hint mt-0">
+          Ao cadastrar um produto o Kivo sugere até 6 fotos. Com a API Key abaixo ele busca
+          no Google; sem ela — ou se o Google falhar — usa só o banco de imagens do Kivo.
+        </p>
+        <div class="field">
+          <label>API Key do Google Custom Search</label>
+          <input class="input" type="password" autocomplete="off" x-model="imgCfg.apiKey"
+                 placeholder="cole aqui a API Key (fica guardada no cofre local)">
+          <p class="hint">Gerada no Google Cloud Console (Custom Search API). Nunca é sincronizada nem aparece de volta.</p>
+        </div>
+        <div class="field">
+          <label>ID do mecanismo de busca (cx)</label>
+          <input class="input" type="text" x-model="imgCfg.cx" :placeholder="imgCfg.defaultCx || 'a7c7f9a8761d54e79'">
+        </div>
+        <div class="toolbar">
+          <button class="btn secondary" @click="saveImageSearchConfig()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingImgCfg ? 'Salvando…' : 'Salvar'"></span>
+          </button>
+          <button class="btn secondary" @click="testImageSearchConfig()" :disabled="testingImgCfg">
+            <span x-text="testingImgCfg ? 'Testando…' : 'Testar busca'"></span>
+          </button>
+          <button class="btn secondary" @click="removeImageSearchConfig()" x-show="imgCfg.configured" x-cloak>
+            Remover chave
+          </button>
+          <span class="muted" x-text="imgCfg.status"></span>
+        </div>
+        <p class="muted text-xs" x-show="imgCfg.configured" x-cloak>
+          Chave configurada. O campo em branco mantém a chave atual.
+        </p>
+      </section>
       <div class="toolbar">
         <button class="btn secondary small" @click="openNew()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1119,6 +1155,8 @@
         empresa: { nome: '', razaoSocial: '', documento: '', ie: '', email: '', telefone: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
         logo: { url: '', enviando: false, erro: '' },
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
+        imgCfg: { apiKey: '', cx: '', defaultCx: '', configured: false, status: '' },
+        savingImgCfg: false, testingImgCfg: false,
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
         fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
@@ -1173,6 +1211,7 @@
           const c = await fetch('/api/settings/cardapio-info');
           if (c.ok) this.cardapio = { ...(await c.json()), loading: false, copied: false };
           else this.cardapio.loading = false;
+          await this.loadImageSearchConfig();
           <% } %>
         },
         syncSettings() {
@@ -1318,6 +1357,66 @@
           });
           this.savingCloudUrl = false;
           if (r.ok) await this.load();
+        },
+        // ─── Busca de imagens no Google (sugestões do cadastro) ───
+        async loadImageSearchConfig() {
+          const r = await fetch('/api/settings/image-search-config');
+          if (!r.ok) return;
+          const d = await r.json();
+          this.imgCfg.cx = d.cx || '';
+          this.imgCfg.defaultCx = d.defaultCx || '';
+          this.imgCfg.configured = !!d.configured;
+        },
+        async saveImageSearchConfig() {
+          this.savingImgCfg = true; this.imgCfg.status = '';
+          try {
+            // Campo em branco = NÃO mexe na chave (senão salvar só o cx apagaria o segredo).
+            // Para remover há o botão dedicado.
+            const body = { cx: this.imgCfg.cx };
+            if (this.imgCfg.apiKey) body.apiKey = this.imgCfg.apiKey;
+            const r = await fetch('/api/settings/image-search-config', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { this.imgCfg.status = d.error || 'Falha ao salvar.'; return; }
+            this.imgCfg.configured = !!d.configured;
+            this.imgCfg.cx = d.cx || this.imgCfg.cx;
+            this.imgCfg.apiKey = '';
+            this.imgCfg.status = 'Salvo.';
+          } finally {
+            this.savingImgCfg = false;
+          }
+        },
+        async removeImageSearchConfig() {
+          if (!await window.confirmDlg('Remover a API Key? A busca de imagens no Google será desligada.')) return;
+          this.savingImgCfg = true; this.imgCfg.status = '';
+          try {
+            const r = await fetch('/api/settings/image-search-config', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey: '' }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { this.imgCfg.status = d.error || 'Falha ao remover.'; return; }
+            this.imgCfg.configured = false;
+            this.imgCfg.status = 'Chave removida.';
+          } finally {
+            this.savingImgCfg = false;
+          }
+        },
+        async testImageSearchConfig() {
+          this.testingImgCfg = true; this.imgCfg.status = '';
+          try {
+            const r = await fetch('/api/settings/image-search-config/test', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+            });
+            const d = await r.json().catch(() => ({}));
+            this.imgCfg.status = d.tested
+              ? `OK — ${d.count} imagem(ns) encontrada(s).`
+              : (d.error || 'Falha no teste.');
+          } finally {
+            this.testingImgCfg = false;
+          }
         },
         <% } %>
         async saveStock() {
