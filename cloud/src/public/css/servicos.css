@@ -1,0 +1,20 @@
+/* ═══════════════════════════════════════════════════════════
+   Kivo Serviços — tema azul-petróleo para o segmento de
+   assistência técnica, oficinas e prestadores de serviço.
+   Complementa landing.css sobrescrevendo só as cores de
+   destaque (o restante do layout é reaproveitado do site).
+   ═══════════════════════════════════════════════════════════ */
+
+body.theme-servicos {
+  --primary: #0f766e;
+  --primary-hover: #0d9488;
+  --primary-soft: color-mix(in srgb, #0f766e 10%, transparent);
+  --accent-blue: #0891b2;
+}
+
+:root[data-theme='dark'] body.theme-servicos {
+  --primary: #2dd4bf;
+  --primary-hover: #5eead4;
+  --primary-soft: color-mix(in srgb, #2dd4bf 18%, transparent);
+  --accent-blue: #22d3ee;
+}

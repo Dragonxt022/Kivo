@@ -83,7 +83,7 @@
   margin-top: 0.2rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .nav-burger {
     display: inline-flex;
     margin-left: auto;
