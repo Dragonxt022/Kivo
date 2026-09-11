@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Kivo Farmácias — sistema para farmácias, drogarias e perfumarias',
+    description: 'PDV rápido com código de barras, controle de lote e validade com alerta de vencimento, convênios e venda a prazo, clientes e fidelidade, compras e financeiro. Feito para farmácias e drogarias. Funciona offline e salva na nuvem.',
+    theme: 'farmacias',
+    themeColor: '#8e1c3d'
+  }) %>
+</head>
+<body class="theme-farmacias">
+  <%- include('partials/site/topbar', { page: 'farmacias', downloadUrl: downloadUrl }) %>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="seg-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+        Para farmácias, drogarias e perfumarias
+      </span>
+      <h1>A farmácia organizada <br /><em>do balcão ao vencimento.</em></h1>
+      <p class="sub">
+        Vende no PDV com código de barras, controla lote e validade e é avisado
+        antes de vencer. Cuida ainda de convênios, fiado e fidelidade — tudo
+        <strong>sem internet</strong> e sincronizado na nuvem quando ela volta.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn big" href="<%= downloadUrl %>">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar para Windows — v<%= appVersion %>
+        </a>
+        <a class="btn big secondary" href="/contato">Falar com um especialista</a>
+      </div>
+      <div class="hero-note">✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração do seu catálogo inclusa</div>
+
+      <div class="chips">
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Lote e validade</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Alerta de vencimento</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Convênios e fiado</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</span>
+      </div>
+
+      <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com venda de medicamentos montada e resumo do carrinho' }) %>
+    </div>
+  </section>
+
+  <!-- ─── MÓDULOS PARA FARMÁCIA ─── -->
+  <section id="recursos">
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Feito para a farmácia</div>
+        <h2>O que a sua farmácia usa no dia a dia</h2>
+        <p>Um sistema modular: você liga só o que precisa. Clique em qualquer módulo para ver as telas reais por dentro.</p>
+      </div>
+
+      <div class="mod-grid">
+        <a class="mod-card" href="/recursos/pdv">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+          <h3>PDV &amp; Vendas</h3>
+          <p>Bipe o código de barras, cobre e chame o próximo. Atalhos de teclado, várias vendas abertas e pagamento dividido.</p>
+          <span class="mod-more">Ver o PDV por dentro →</span>
+        </a>
+        <a class="mod-card" href="/recursos/estoque">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Estoque com lote e validade</h3>
+          <p>Entrada por lote, alerta antes de vencer, estoque mínimo por produto e custo médio calculado sozinho.</p>
+          <span class="mod-more">Ver estoque e compras →</span>
+        </a>
+        <a class="mod-card" href="/recursos/financeiro">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Financeiro &amp; DRE</h3>
+          <p>Caixa conferido no fechamento, contas a pagar e receber, e o lucro real da farmácia calculado pelo custo de verdade.</p>
+          <span class="mod-more">Ver o financeiro →</span>
+        </a>
+        <a class="mod-card" href="/planos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Clientes &amp; Convênios</h3>
+          <p>Venda a prazo com limite, convênios de empresas, crédito de troca e pontos de fidelidade na ficha do cliente.</p>
+          <span class="mod-more">Ver nos planos →</span>
+        </a>
+        <a class="mod-card" href="/recursos/estoque">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
+          <h3>Compras &amp; Reposição</h3>
+          <p>Pedido ao fornecedor, entrada de mercadoria com lote e validade, e as contas a pagar geradas na hora.</p>
+          <span class="mod-more">Ver compras →</span>
+        </a>
+        <a class="mod-card" href="/recursos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+          <h3>E mais</h3>
+          <p>Permissões por cargo, auditoria, backup e atualização automática. O que segura uma farmácia crescendo sem bagunça.</p>
+          <span class="mod-more">Ver todos os módulos →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── LOTE E VALIDADE ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Lote e validade</div>
+          <h2>Vencimento não pode pegar você de surpresa</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Cada entrada guarda o lote e a validade. O Kivo avisa antes do produto
+            vencer, então dá tempo de girar o estoque, fazer promoção ou devolver
+            ao fornecedor — sem aquele achado caro na prateleira do fundo.
+          </p>
+          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Lote e validade registrados na entrada de cada produto</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Aviso de vencimento com antecedência configurável</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Código de barras gerado ou bipe do que já vem do fabricante</li>
+          </ul>
+          <a class="mod-more" href="/recursos/estoque">Conhecer o estoque →</a>
+        </div>
+        <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kivo com lote, validade, preço e estoque' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CONVÊNIOS E CLIENTES ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'clientes', alt: 'Ficha de clientes do Kivo com histórico de compras, fiado e convênios' }) %>
+        <div>
+          <div class="kicker">Convênios e fiado</div>
+          <h2>O cliente de sempre leva fiado. O sistema não esquece</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Venda a prazo com limite por cliente e convênios de empresas, cada um
+            com seu vencimento e sua lista de preço. O que entrou vira conta a
+            receber sozinho — nada de caderninho perdido no balcão.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Venda a prazo e carnê</h3>
+              <p>Fiado com vencimento e limite por cliente. O valor vira conta a receber automaticamente.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Convênios de empresas</h3>
+              <p>Fature por empresa conveniada, com histórico e fechamento por período.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fidelidade e pontos</h3>
+              <p>A cada compra o cliente acumula pontos que abatem direto no total da próxima venda.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Histórico completo</h3>
+              <p>Quem é o cliente, o que já comprou, quanto deve e o que tem de crédito — na mesma tela.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DIFERENCIAIS ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Por que o Kivo Farmácias</div>
+        <h2>Feito para o ritmo de um balcão</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+          <h3>Offline primeiro, nuvem sempre</h3>
+          <p>Internet caiu no meio do movimento? Continue vendendo normalmente. Voltou? Tudo sincroniza sozinho.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M6 4v16M10 4v4M10 16v4M14 4v8M14 16v4M18 4v4M18 12v8M22 4v16"/></svg></div>
+          <h3>Etiquetas e código de barras</h3>
+          <p>Imprima etiquetas com preço e código. Sem código? O Kivo gera um interno pra você.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Importar por planilha</h3>
+          <p>Traga o catálogo inteiro do sistema antigo de uma vez — e exporte quando quiser.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Reposição e fornecedores</h3>
+          <p>Histórico de compras por fornecedor, custo médio atualizado e alerta de estoque mínimo.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissões e auditoria</h3>
+          <p>Desconto acima do limite só com autorização. Cada ação sensível fica registrada com usuário e hora.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+          <h3>Interface do seu jeito</h3>
+          <p>Tema claro ou escuro, cor de destaque personalizada e navegação em cartões ou menu lateral.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── COMO FUNCIONA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Como funciona na prática</div>
+        <h2>Do fornecedor ao balcão em quatro passos</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Cadastra o produto</h3>
+          <p>Preço, código de barras e estoque mínimo. O catálogo já nasce pronto pra vender.</p>
+        </div>
+        <div class="step">
+          <h3>Recebe com lote e validade</h3>
+          <p>A entrada do fornecedor registra lote, validade e atualiza o custo médio do produto.</p>
+        </div>
+        <div class="step">
+          <h3>Vende no balcão</h3>
+          <p>Bipe o código, receba em dinheiro, PIX, cartão, convênio ou a prazo.</p>
+        </div>
+        <div class="step">
+          <h3>Fecha o dia</h3>
+          <p>Caixa conferido por forma de pagamento e o lucro real da farmácia calculado no DRE.</p>
+        </div>
+      </div>
+
+      <div class="pull">
+        <p><strong>Uma venda, o sistema inteiro atualizado.</strong> O item vendido sai do estoque na hora, entra no caixa, alimenta o CMV do DRE e aparece na ficha do cliente — sem você digitar nada duas vezes.</p>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Coloque a sua farmácia no Kivo',
+    ctaText: 'No teste grátis o assistente já deixa produtos de exemplo e formas de pagamento prontos — dá pra simular um dia de balcão antes de decidir.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>
