@@ -1,0 +1,20 @@
+/* ═══════════════════════════════════════════════════════════
+   Kivo Restaurantes — tema laranja quente para o segmento de
+   restaurantes, lanchonetes, sorveterias e conveniência.
+   Complementa landing.css sobrescrevendo só as cores de
+   destaque (o restante do layout é reaproveitado do site).
+   ═══════════════════════════════════════════════════════════ */
+
+body.theme-restaurantes {
+  --primary: #e8590c;
+  --primary-hover: #f97316;
+  --primary-soft: color-mix(in srgb, #e8590c 10%, transparent);
+  --accent-blue: #f59e0b;
+}
+
+:root[data-theme='dark'] body.theme-restaurantes {
+  --primary: #fb923c;
+  --primary-hover: #fdba74;
+  --primary-soft: color-mix(in srgb, #fb923c 18%, transparent);
+  --accent-blue: #fbbf24;
+}

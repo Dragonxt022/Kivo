@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Kivo Serviços — sistema para assistência técnica, oficinas e prestadores',
+    description: 'Orçamento que vira venda, ordem de serviço com peças e mão de obra, estoque de peças, clientes com histórico e financeiro completo. Feito para assistência técnica de celulares, oficinas e prestadores de serviço. Funciona offline e salva na nuvem.',
+    theme: 'servicos',
+    themeColor: '#0f766e'
+  }) %>
+</head>
+<body class="theme-servicos">
+  <%- include('partials/site/topbar', { page: 'servicos', downloadUrl: downloadUrl }) %>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="seg-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        Para assistência técnica, oficinas e prestadores de serviço
+      </span>
+      <h1>Do orçamento à entrega, <br /><em>tudo no lugar certo.</em></h1>
+      <p class="sub">
+        Orçamento que vira venda, ordem de serviço com peças e mão de obra, e o
+        histórico do cliente sempre à mão. Um caixa, um estoque e um financeiro —
+        <strong>sem internet</strong> e na nuvem quando ela volta.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn big" href="<%= downloadUrl %>">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar para Windows — v<%= appVersion %>
+        </a>
+        <a class="btn big secondary" href="/contato">Falar com um especialista</a>
+      </div>
+      <div class="hero-note">✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração dos seus dados inclusa</div>
+
+      <div class="chips">
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Orçamento que vira venda</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Ordem de serviço</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Peças e mão de obra juntas</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</span>
+      </div>
+
+      <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com serviço e peças lançados na venda' }) %>
+    </div>
+  </section>
+
+  <!-- ─── MÓDULOS ─── -->
+  <section id="recursos">
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Feito para quem presta serviço</div>
+        <h2>O que a sua operação usa no dia a dia</h2>
+        <p>Um sistema modular: você liga só o que precisa. Clique em qualquer módulo para ver as telas reais por dentro.</p>
+      </div>
+
+      <div class="mod-grid">
+        <a class="mod-card" href="/recursos/pdv">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+          <h3>PDV &amp; Vendas</h3>
+          <p>Fecha o serviço no caixa com peças e mão de obra, recebendo em dinheiro, PIX, cartão ou a prazo.</p>
+          <span class="mod-more">Ver o PDV por dentro →</span>
+        </a>
+        <a class="mod-card" href="/recursos/estoque">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Estoque de peças</h3>
+          <p>Peças de celular, autopeças e insumos com custo médio, estoque mínimo e alerta antes de faltar.</p>
+          <span class="mod-more">Ver estoque e compras →</span>
+        </a>
+        <a class="mod-card" href="/recursos/importacao-nfe">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Importação de NF-e</h3>
+          <p>Chegou o pedido de peças? Envie o XML da nota e o estoque entra sem digitação item a item.</p>
+          <span class="mod-more">Ver a importação de NF-e →</span>
+        </a>
+        <a class="mod-card" href="/recursos/financeiro">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Financeiro &amp; DRE</h3>
+          <p>Caixa conferido, contas a receber do serviço e o lucro real por ordem, descontando as peças.</p>
+          <span class="mod-more">Ver o financeiro →</span>
+        </a>
+        <a class="mod-card" href="/planos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Clientes &amp; Histórico</h3>
+          <p>Ficha com o que já foi feito, quanto pagou e o que está em aberto. Venda a prazo com limite.</p>
+          <span class="mod-more">Ver nos planos →</span>
+        </a>
+        <a class="mod-card" href="/recursos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+          <h3>E mais</h3>
+          <p>Permissões por cargo, auditoria, backup e atualização automática. O que segura a operação crescendo.</p>
+          <span class="mod-more">Ver todos os módulos →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── ORÇAMENTO ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Orçamento que vira venda</div>
+          <h2>Passou o preço, o cliente aprovou. E agora?</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Agora o orçamento vira a venda num clique. Você monta, imprime ou envia,
+            define a validade e acompanha o status. Aprovou? Fatura no PDV com o preço
+            já travado — sem redigitar nada.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Monte e imprima</h3>
+              <p>Peças e mão de obra no mesmo orçamento, com impressão pronta para o cliente levar.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Validade e status</h3>
+              <p>Cada orçamento com data de validade e situação: aberto, convertido ou cancelado.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fatura no PDV</h3>
+              <p>Aprovou, fatura: o orçamento abre no caixa com tudo já lançado, pronto para receber.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Preço congelado</h3>
+              <p>O valor combinado não muda, mesmo que você reajuste a tabela depois do orçamento.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'vendas', alt: 'Histórico de vendas e orçamentos do Kivo com status e totais' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── ORDEM DE SERVIÇO ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'comanda', alt: 'Comanda do Kivo usada como ordem de serviço, com peças e mão de obra' }) %>
+        <div>
+          <div class="kicker">Ordem de serviço</div>
+          <h2>Cada serviço com a sua ordem, aberta até a entrega</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Abra uma comanda para o aparelho, o carro ou o serviço, vá lançando peças
+            e mão de obra enquanto trabalha e feche no caixa na entrega. O histórico
+            fica registrado para a garantia e para o próximo atendimento.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Várias ordens abertas</h3>
+              <p>Um aparelho esperando peça, outro pronto para retirar — cada ordem no seu estado, sem perder o fio.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Peças e serviço juntos</h3>
+              <p>Adicione a peça (que baixa do estoque) e a mão de obra (que não movimenta estoque) na mesma ordem.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Observação por item</h3>
+              <p>Anote o defeito, a peça trocada ou o combinado — fica registrado na ordem e no histórico.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fecha direto no caixa</h3>
+              <p>Na entrega, a ordem vira venda normal no PDV, com a forma de pagamento que o cliente escolher.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SERVIÇO x PEÇA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Serviços e peças</div>
+          <h2>Serviço não tem estoque. Peça tem.</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Cadastre a mão de obra como produto do tipo serviço: ela entra na venda
+            com preço, mas não movimenta estoque. A peça, essa sim, baixa do estoque
+            na hora e entra no seu custo — o lucro por ordem aparece de verdade.
+          </p>
+          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Produto do tipo serviço: preço, sem baixa de estoque</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Peças com código de barras, custo médio e estoque mínimo</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Kits e combos: peça + serviço vendidos como um item só</li>
+          </ul>
+          <a class="mod-more" href="/recursos/estoque">Conhecer o estoque →</a>
+        </div>
+        <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kivo com serviços, peças, preço e estoque' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DIFERENCIAIS ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Por que o Kivo Serviços</div>
+        <h2>Feito para a bancada e o balcão</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+          <h3>Offline primeiro, nuvem sempre</h3>
+          <p>Internet caiu no meio do expediente? Continue trabalhando e vendendo. Voltou? Tudo sincroniza sozinho.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+          <h3>Mão de obra e peças</h3>
+          <p>Serviço não movimenta estoque; peça sim. O custo real de cada ordem fica calculado sozinho.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Importação de NF-e</h3>
+          <p>Peças do fornecedor entram no estoque pelo XML da nota, com conferência e custo médio atualizado.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Cliente que volta</h3>
+          <p>Histórico de cada atendimento e fidelidade por pontos — o cliente confia e retorna.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissões e auditoria</h3>
+          <p>Desconto acima do limite só com autorização. Cada ação sensível fica registrada com usuário e hora.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Financeiro &amp; DRE</h3>
+          <p>Caixa conferido no fechamento, contas a receber do serviço e o lucro real calculado no DRE.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── COMO FUNCIONA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Como funciona na prática</div>
+        <h2>Do orçamento à entrega em quatro passos</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Monta o orçamento</h3>
+          <p>Peças e mão de obra com validade. Imprime ou envia e o cliente decide.</p>
+        </div>
+        <div class="step">
+          <h3>Aprovou, abre a ordem</h3>
+          <p>O serviço entra numa comanda e vai sendo lançado enquanto o trabalho acontece.</p>
+        </div>
+        <div class="step">
+          <h3>Executa e registra</h3>
+          <p>As peças baixam do estoque e a observação do serviço fica no histórico do cliente.</p>
+        </div>
+        <div class="step">
+          <h3>Entrega e fecha o caixa</h3>
+          <p>A ordem vira venda no PDV e o lucro real entra no DRE, sem planilha.</p>
+        </div>
+      </div>
+
+      <div class="pull">
+        <p><strong>Uma ordem, o sistema inteiro atualizado.</strong> A peça usada sai do estoque na hora, entra no caixa, alimenta o CMV do DRE e aparece na ficha do cliente — sem você digitar nada duas vezes.</p>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Coloque a sua operação no Kivo',
+    ctaText: 'No teste grátis o assistente já deixa produtos e formas de pagamento prontos — dá pra simular um orçamento e uma ordem de serviço antes de decidir.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

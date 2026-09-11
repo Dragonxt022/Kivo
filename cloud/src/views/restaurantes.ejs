@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Kivo Restaurantes — sistema para restaurante, sorveteria e conveniência',
+    description: 'Mesas, comandas, modo garçom e painel de cozinha (KDS), cardápio online com QR code, complementos e tamanhos para sorveteria, PDV rápido e estoque para conveniência. Funciona offline e salva na nuvem.',
+    theme: 'restaurantes',
+    themeColor: '#e8590c'
+  }) %>
+</head>
+<body class="theme-restaurantes">
+  <%- include('partials/site/topbar', { page: 'restaurantes', downloadUrl: downloadUrl }) %>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="seg-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+        Para restaurantes, sorveterias e conveniência
+      </span>
+      <h1>Do balcão à mesa, <br /><em>tudo num sistema só.</em></h1>
+      <p class="sub">
+        O pedido sai da mesa e chega na cozinha, o sorvete é montado do jeito do
+        cliente e a conveniência gira no código de barras. Um caixa, um estoque e
+        um financeiro — <strong>sem internet</strong> e na nuvem quando ela volta.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn big" href="<%= downloadUrl %>">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar para Windows — v<%= appVersion %>
+        </a>
+        <a class="btn big secondary" href="/contato">Falar com um especialista</a>
+      </div>
+      <div class="hero-note">✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração do seu cardápio inclusa</div>
+
+      <div class="chips">
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mesas, comandas e cozinha</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Complementos e tamanhos</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Cardápio online com QR code</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</span>
+      </div>
+
+      <%- include('partials/site/shot', { name: 'mesas', alt: 'Mapa de mesas do Kivo com mesas livres e ocupadas' }) %>
+    </div>
+  </section>
+
+  <!-- ─── MÓDULOS ─── -->
+  <section id="recursos">
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Feito para food service</div>
+        <h2>O que o seu negócio usa no dia a dia</h2>
+        <p>Um sistema modular: você liga só o que precisa. Clique em qualquer módulo para ver as telas reais por dentro.</p>
+      </div>
+
+      <div class="mod-grid">
+        <a class="mod-card" href="/recursos/restaurante">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
+          <h3>Mesas &amp; Comandas</h3>
+          <p>Mapa de mesas, comandas que transferem, dividem e juntam, e o pedido fechando direto no caixa.</p>
+          <span class="mod-more">Ver mesas e comandas →</span>
+        </a>
+        <a class="mod-card" href="/recursos/restaurante">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20"/><path d="M4 12a8 8 0 0 1 16 0"/><path d="M12 4v0"/><path d="M7 16h10"/><path d="M9 20h6"/></svg></div>
+          <h3>Cozinha (KDS)</h3>
+          <p>O pedido cai no painel já separado por estação — chapa, forno, fritadeira, bar — e avança de status na tela.</p>
+          <span class="mod-more">Ver o painel de cozinha →</span>
+        </a>
+        <a class="mod-card" href="/recursos/pdv">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+          <h3>PDV &amp; Vendas</h3>
+          <p>Balcão rápido para lanches, sorvete e conveniência. Atalhos, pagamento dividido e várias vendas abertas.</p>
+          <span class="mod-more">Ver o PDV por dentro →</span>
+        </a>
+        <a class="mod-card" href="/recursos/cardapio-online">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+          <h3>Cardápio online</h3>
+          <p>Seu cardápio vira uma página pública com QR code na mesa. Sem app e sem taxa por pedido.</p>
+          <span class="mod-more">Ver o cardápio online →</span>
+        </a>
+        <a class="mod-card" href="/recursos/estoque">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Estoque &amp; Compras</h3>
+          <p>Insumos, bebidas e produtos de conveniência com custo médio, alerta de mínimo e reposição.</p>
+          <span class="mod-more">Ver estoque e compras →</span>
+        </a>
+        <a class="mod-card" href="/recursos/importacao-nfe">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Importação de NF-e</h3>
+          <p>Chegou a mercadoria? Envie o XML da nota do fornecedor e o estoque entra sem digitação item a item.</p>
+          <span class="mod-more">Ver a importação de NF-e →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── RESTAURANTE ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'comanda', alt: 'Detalhe da comanda no Kivo com itens lançados e total' }) %>
+        <div>
+          <div class="kicker">Restaurante e lanchonete</div>
+          <h2>O salão inteiro na tela</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            O garçom lança na mesa, a cozinha recebe na estação certa e o caixa fecha
+            no PDV. A mesa 7 juntou com a 8? Um clique resolve — sem papelzinho e
+            sem gritaria no salão.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Transferir, dividir e juntar</h3>
+              <p>Mudou de mesa, quer conta separada ou juntou tudo no fim — a comanda acompanha.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Modo garçom</h3>
+              <p>Pedido lançado direto na mesa, com observação por item: "sem cebola", "ao ponto".</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Preço congelado</h3>
+              <p>O valor lançado na comanda não muda, mesmo que você reajuste o cardápio no meio do serviço.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fecha direto no PDV</h3>
+              <p>A comanda vira uma venda normal no caixa, com as formas de pagamento que o cliente escolher.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SORVETERIA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Sorveteria, açaí e doceria</div>
+          <h2>Monte do jeito do cliente, sem errar o preço</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Tamanhos, sabores, coberturas e adicionais: o que entra no pedido aparece
+            como complemento e já soma no total. Ficha técnica para açaí e sobremesas
+            desconta os insumos do estoque sozinho.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tamanhos e variantes</h3>
+              <p>300 ml, 500 ml, casquinha ou pote — cada um com seu preço e estoque próprios.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Complementos e adicionais</h3>
+              <p>Coberturas, granola, leite em pó e extras aparecem na hora de lançar, com preço somado.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Ficha técnica</h3>
+              <p>Vendeu o açaí? Os insumos da receita saem do estoque na proporção certa.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Balcão rápido</h3>
+              <p>Pedido montado em segundos, com pagamento em dinheiro, PIX, cartão ou a prazo.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kivo com tamanhos, complementos, preço e estoque' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CONVENIÊNCIA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com itens de conveniência no carrinho' }) %>
+        <div>
+          <div class="kicker">Conveniência e mercadinho</div>
+          <h2>Conveniência vive de giro — e de não faltar</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Bipe o código de barras, receba e chame o próximo. O estoque baixa na
+            hora, o sistema avisa antes de acabar e a compra do fornecedor entra
+            com custo médio atualizado.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Código de barras</h3>
+              <p>Cadastro e venda por leitura, com código interno gerado quando o produto não tem.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Estoque mínimo</h3>
+              <p>Aviso antes da prateleira esvaziar, com reposição e listas de preço atacado/varejo.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fiado e a prazo</h3>
+              <p>O cliente da casa leva fiado com limite e vencimento — vira conta a receber sozinho.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Importação de NF-e</h3>
+              <p>Recebeu o pedido? O XML da nota entra no estoque sem digitação item por item.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DIFERENCIAIS ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Por que o Kivo Restaurantes</div>
+        <h2>Feito para operar no ritmo da casa cheia</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+          <h3>Offline primeiro, nuvem sempre</h3>
+          <p>Internet caiu no meio do movimento? Continue vendendo normalmente. Voltou? Tudo sincroniza sozinho.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+          <h3>Cardápio com QR code</h3>
+          <p>O cliente lê o QR na mesa e vê o cardápio atualizado, sem app e sem taxa por pedido.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Fidelidade</h3>
+          <p>Pontos a cada compra que abatem na próxima — perfeito para o cliente que volta toda semana.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Importação de NF-e</h3>
+          <p>Mercadoria e insumos entram no estoque pelo XML da nota, com conferência e custo médio.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissões e auditoria</h3>
+          <p>Desconto acima do limite só com autorização. Cada ação sensível fica registrada com usuário e hora.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Financeiro &amp; DRE</h3>
+          <p>Caixa conferido no fechamento e o lucro real calculado pelo custo de verdade, com CMV do cardápio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── COMO FUNCIONA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Como funciona na prática</div>
+        <h2>Da abertura ao fechamento do caixa</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Monta o cardápio</h3>
+          <p>Cadastra pratos, lanches, sorvetes e produtos com tamanhos e complementos. O assistente já deixa exemplos prontos.</p>
+        </div>
+        <div class="step">
+          <h3>Atende no salão ou no balcão</h3>
+          <p>O garçom lança na mesa, ou o caixa bipe direto no PDV para sorvete e conveniência.</p>
+        </div>
+        <div class="step">
+          <h3>Produz e entrega</h3>
+          <p>A cozinha recebe por estação e marca o que ficou pronto; o salão vê quando pode buscar.</p>
+        </div>
+        <div class="step">
+          <h3>Fecha o dia</h3>
+          <p>Caixa conferido por forma de pagamento e o lucro real calculado no DRE, sem planilha.</p>
+        </div>
+      </div>
+
+      <div class="pull">
+        <p><strong>Uma venda, o sistema inteiro atualizado.</strong> O item vendido sai do estoque na hora, entra no caixa, alimenta o CMV do DRE e aparece na ficha do cliente — sem você digitar nada duas vezes.</p>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Coloque o seu negócio no Kivo',
+    ctaText: 'No teste grátis o assistente já cria mesas e produtos de exemplo com complementos — dá pra simular um serviço inteiro antes de decidir.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>
