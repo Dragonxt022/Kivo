@@ -28,6 +28,16 @@ import { getSecret, setSecret } from '../secrets/service';
 
 export type LicenseStatus = 'valida' | 'tolerancia' | 'expirada' | 'sem_licenca' | 'bloqueada';
 
+/**
+ * Situação da empresa no servidor, detectada na última tentativa de validação remota:
+ *  - `empresa_removida`: a empresa não existe mais lá (excluída/desativada) — 404.
+ *  - `credenciais_invalidas`: a chave não confere mais (trocada/rotacionada) — 401.
+ *
+ * Não bloqueia nada por si só: o Kivo segue operando com a validade local (`valid_until`)
+ * até vencer. Serve para explicar ao lojista por que o sync/telemetria pararam de funcionar.
+ */
+export type CloudIssue = 'empresa_removida' | 'credenciais_invalidas';
+
 export interface LicenseInfo {
   status: LicenseStatus;
   machineId: string;
@@ -40,6 +50,8 @@ export interface LicenseInfo {
   supportPhone: string | null;
   supportEmail: string | null;
   message: string;
+  cloudIssue: CloudIssue | null;
+  cloudIssueSince: string | null;
 }
 
 /** Versão atual do algoritmo de machineId — ver `reanchorMachineIdIfNeeded`. */
@@ -203,6 +215,72 @@ export function setLicense(companyUuid: string, licenseKey: string, plan?: strin
 export function getLicenseCredentials(): { companyUuid: string | null; licenseKey: string | null } {
   const row = getRow();
   return { companyUuid: row?.company_uuid ?? null, licenseKey: row?.license_key ?? null };
+}
+
+/**
+ * Chaves onde fica registrada a última resposta autoritativa do servidor sobre a empresa.
+ * Em `settings` (e não numa coluna de `license`) porque é estado de aviso, não de licença:
+ * some do backup de licença e não interfere na assinatura de integridade. Gravado só quando
+ * o estado muda, para preservar o "desde" original.
+ */
+const SETTING_CLOUD_ISSUE = 'license.situacao_nuvem';
+const SETTING_CLOUD_ISSUE_AT = 'license.situacao_nuvem_em';
+
+function isCloudIssue(v: string | null): v is CloudIssue {
+  return v === 'empresa_removida' || v === 'credenciais_invalidas';
+}
+
+export function getCloudIssue(): { issue: CloudIssue | null; since: string | null } {
+  try {
+    const raw = settingsRepository.get(SETTING_CLOUD_ISSUE);
+    if (!isCloudIssue(raw)) return { issue: null, since: null };
+    return { issue: raw, since: settingsRepository.get(SETTING_CLOUD_ISSUE_AT) };
+  } catch {
+    return { issue: null, since: null };
+  }
+}
+
+/** `true` quando o servidor já recusou esta empresa (excluída ou chave alterada). */
+export function hasCloudIssue(): boolean {
+  return getCloudIssue().issue !== null;
+}
+
+function markCloudIssue(issue: CloudIssue): void {
+  try {
+    if (settingsRepository.get(SETTING_CLOUD_ISSUE) === issue) return;
+    settingsRepository.set(SETTING_CLOUD_ISSUE, issue);
+    settingsRepository.set(SETTING_CLOUD_ISSUE_AT, new Date().toISOString());
+  } catch (e) {
+    // Aviso é acessório: falha ao gravar não pode derrubar a validação da licença.
+    log.error('não foi possível registrar a situação da empresa na nuvem', e);
+  }
+}
+
+function clearCloudIssue(): void {
+  try {
+    if (settingsRepository.get(SETTING_CLOUD_ISSUE) == null) return;
+    settingsRepository.set(SETTING_CLOUD_ISSUE, '');
+    settingsRepository.set(SETTING_CLOUD_ISSUE_AT, '');
+  } catch {
+    // idem: silencioso de propósito
+  }
+}
+
+/** `YYYY-MM-DD HH:MM:SS` (SQLite) → `DD/MM/YYYY` para exibir o prazo ao lojista. */
+function formatDay(s: string | null): string | null {
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+}
+
+/** Explicação, em português claro, de por que a nuvem não atende mais esta instalação. */
+function cloudIssueMessage(issue: CloudIssue, validUntil: string | null): string {
+  const ate = formatDay(validUntil);
+  const prazo = ate ? ` O Kivo continua funcionando normalmente até ${ate}.` : '';
+  if (issue === 'empresa_removida') {
+    return `A empresa desta licença não existe mais no servidor (foi excluída ou desativada).${prazo} Contate o suporte para reativar.`;
+  }
+  return `A chave de licença não é mais aceita pelo servidor (pode ter sido alterada).${prazo} Contate o suporte.`;
 }
 
 /** Ativação obrigatória (primeira conexão): sem isso, o gate em server.ts bloqueia tudo. */
@@ -464,6 +542,13 @@ export async function activateLicense(companyUuid: string | null, licenseKey: st
     return { ok: false, error: 'Sem conexão com a internet. Conecte-se para ativar.', reason: 'offline' };
   }
 
+  if (res.status === 404) {
+    return {
+      ok: false,
+      error: 'Empresa não encontrada no servidor (foi excluída ou desativada). Confira os dados ou contate o suporte.',
+      reason: 'invalid_credentials',
+    };
+  }
   if (res.status === 401) return { ok: false, error: 'Empresa ou chave de licença inválidas.', reason: 'invalid_credentials' };
   if (res.status === 403) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -481,6 +566,7 @@ export async function activateLicense(companyUuid: string | null, licenseKey: st
 
   const body = (await res.json()) as CloudValidateResponse;
   storeLicensedVersion(body.licensedVersion);
+  clearCloudIssue();
   ensureLicenseRow();
   getSqlite()
     .prepare(
@@ -533,11 +619,24 @@ export async function refreshLicenseFromCloud(): Promise<void> {
           ensureLicenseRow();
           getSqlite().prepare("UPDATE license SET device_revoked_at = datetime('now'), updated_at = datetime('now')").run();
         }
+        return;
+      }
+      // 404/401 também são autoritativos: a empresa não existe mais ou a chave mudou.
+      // Marca a situação para a tela explicar — mas NÃO mexe em `valid_until`, para o
+      // Kivo continuar operando (offline) até a validade local vencer.
+      if (res.status === 404) {
+        markCloudIssue('empresa_removida');
+        return;
+      }
+      if (res.status === 401) {
+        markCloudIssue('credenciais_invalidas');
+        return;
       }
       return;
     }
     const body = (await res.json()) as CloudValidateResponse;
     storeLicensedVersion(body.licensedVersion);
+    clearCloudIssue();
     ensureLicenseRow();
     getSqlite()
       .prepare(
@@ -572,6 +671,7 @@ export function validateLicense(): LicenseInfo {
   reanchorMachineIdIfNeeded(row);
 
   const daysRemaining = row.valid_until ? Math.ceil((parseSqliteUtc(row.valid_until) - Date.now()) / 86_400_000) : null;
+  const { issue: cloudIssue, since: cloudIssueSince } = getCloudIssue();
   const base = {
     machineId: row.machine_id,
     companyUuid: row.company_uuid,
@@ -582,6 +682,8 @@ export function validateLicense(): LicenseInfo {
     daysRemaining,
     supportPhone: row.support_phone,
     supportEmail: row.support_email,
+    cloudIssue,
+    cloudIssueSince,
   };
 
   if (!row.license_key || !row.company_uuid) {
@@ -619,5 +721,9 @@ export function validateLicense(): LicenseInfo {
     return { ...base, status: 'expirada', message: 'Licença expirada. Renove para continuar recebendo atualizações.' };
   }
 
-  return { ...base, status: 'valida', message: 'Licença válida.' };
+  return {
+    ...base,
+    status: 'valida',
+    message: cloudIssue ? cloudIssueMessage(cloudIssue, row.valid_until) : 'Licença válida.',
+  };
 }

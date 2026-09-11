@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
 import { runSync } from './engine';
+import { CloudAuthError } from './client';
 import { getCloudServerUrl } from '../config/cloud';
 import { getLicenseCredentials } from '../license/service';
 import { trySubmitPending } from '../catalog/submissionQueue';
@@ -45,6 +46,11 @@ router.post('/run', requirePermission('sync.run'), async (req, res) => {
     audit(req, 'sync.run', 'sync', undefined, null, result);
     res.json(result);
   } catch (e) {
+    // Empresa ausente/chave trocada na nuvem: mensagem explicativa, não um 502 genérico.
+    if (e instanceof CloudAuthError) {
+      res.status(409).json({ error: e.message, code: e.code });
+      return;
+    }
     res.status(502).json({ error: (e as Error).message });
   }
 });

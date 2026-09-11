@@ -12,7 +12,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getSqlite } from '../database/connection';
 import { settingsRepository } from '../repositories/SettingsRepository';
-import { getLicenseCredentials, machineId } from '../license/service';
+import { getLicenseCredentials, machineId, hasCloudIssue } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
 import { createLogger, setErrorSink } from '../logger';
 import { collectMachineInventory, osLabel, type InventoryOverrides, type MachineInventory } from './hardware';
@@ -188,6 +188,10 @@ let flushing = false;
 /** Envia erros pendentes + inventário. Best-effort: nunca lança. */
 export async function flushTelemetry(): Promise<void> {
   if (!isTelemetryEnabled() || flushing) return;
+  // Empresa já recusada pelo servidor (excluída/desativada ou chave trocada): insistir só
+  // geraria 401 a cada ciclo. O aviso já está na tela de licença; o próximo `refresh`
+  // bem-sucedido (empresa restaurada) limpa o marcador e a telemetria volta sozinha.
+  if (hasCloudIssue()) return;
   const { companyUuid, licenseKey } = getLicenseCredentials();
   const base = getCloudServerUrl();
   if (!companyUuid || !licenseKey || !base) return;

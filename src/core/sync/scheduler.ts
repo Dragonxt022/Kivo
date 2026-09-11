@@ -2,6 +2,7 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 import { systemRequest } from '../auth/systemContext';
 import { runSync } from './engine';
 import { drainCommands } from './commands';
+import { CloudAuthError } from './client';
 import { createLogger } from '../logger';
 
 const log = createLogger('sync');
@@ -25,6 +26,8 @@ const DEBOUNCE_MS = 20_000;
 let timer: NodeJS.Timeout | null = null;
 let debounce: NodeJS.Timeout | null = null;
 let running = false;
+/** Evita repetir o mesmo aviso de empresa ausente a cada ciclo (ver `tick`). */
+let authIssueLogged = false;
 
 function intervalMinutes(): number {
   const raw = settingsRepository.get('sync.intervalo_minutos');
@@ -52,9 +55,21 @@ async function tick(motivo: string): Promise<void> {
     // mesmo quando o sync foi pulado (plano sem nuvem) porque os comandos de SUPORTE do
     // painel cloud precisam chegar em qualquer plano.
     await drainCommands();
+    authIssueLogged = false;
   } catch (e) {
-    // Rede fora do ar é o caso comum e esperado — o próximo ciclo tenta de novo.
-    log.error(`[${motivo}] falhou`, (e as Error).message);
+    if (e instanceof CloudAuthError) {
+      // Empresa excluída/desativada na nuvem (ou chave trocada): não é falha de rede nem
+      // bug. O aviso claro fica na tela de licença e o app segue até a validade local —
+      // registra uma vez, não a cada ciclo, para não poluir o log.
+      if (!authIssueLogged) {
+        log.warn(e.message);
+        authIssueLogged = true;
+      }
+    } else {
+      authIssueLogged = false;
+      // Rede fora do ar é o caso comum e esperado — o próximo ciclo tenta de novo.
+      log.error(`[${motivo}] falhou`, (e as Error).message);
+    }
   } finally {
     running = false;
   }
