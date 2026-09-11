@@ -56,19 +56,19 @@
                   <td class="muted" style="max-width: 260px; white-space: pre-wrap;" x-text="l.message || '—'"></td>
                   <td><span class="badge" :class="statusBadge[l.status] || 'pendente'" x-text="l.status"></span></td>
                   <td class="text-right" style="white-space: nowrap;">
-                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" style="display:inline" x-show="l.status === 'novo'">
+                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" class="inline" x-show="l.status === 'novo'">
                       <input type="hidden" name="status" value="contatado">
                       <button type="submit" class="btn small">Contatado</button>
                     </form>
-                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" style="display:inline" x-show="l.status === 'contatado'">
+                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" class="inline" x-show="l.status === 'contatado'">
                       <input type="hidden" name="status" value="convertido">
                       <button type="submit" class="btn small">Convertido</button>
                     </form>
-                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" style="display:inline" x-show="l.status !== 'descartado' && l.status !== 'convertido'">
+                    <form method="post" :action="'/admin/leads/' + l.id + '/status'" class="inline" x-show="l.status !== 'descartado' && l.status !== 'convertido'">
                       <input type="hidden" name="status" value="descartado">
                       <button type="submit" class="btn secondary small">Descartar</button>
                     </form>
-                    <form method="post" :action="'/admin/leads/' + l.id + '/delete'" style="display:inline"
+                    <form method="post" :action="'/admin/leads/' + l.id + '/delete'" class="inline"
                           @submit.prevent="if (confirm('Excluir definitivamente o lead de ' + l.name + '?')) $el.submit()">
                       <button type="submit" class="btn danger small">Excluir</button>
                     </form>
