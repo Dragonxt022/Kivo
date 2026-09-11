@@ -19,7 +19,7 @@ import {
   productImagesDir, saveLocalProductImage, queueProductImageSubmission, trySubmitPending,
   cloudBaseUrl, cloudAuthHeaders,
 } from '../../core/catalog/submissionQueue';
-import { getGoogleCseConfig, searchGoogleImages, fetchExternalImage } from '../../core/catalog/googleImageSearch';
+import { getWebImageConfig, searchWebImages, fetchExternalImage } from '../../core/catalog/webImageSearch';
 import { productRepository } from './repositories/ProductRepository';
 import { kitItemRepository } from './repositories/KitRepository';
 import { recipeItemRepository } from './repositories/RecipeRepository';
@@ -174,8 +174,8 @@ router.get('/products', requireAnyPermission('commercial.products.view', 'commer
 });
 
 /**
- * Quantas sugestões a tela mostra. Era 3; subiu para 6 junto com a chegada da busca do
- * Google (o catálogo do Cloud também passou a devolver 6 — ver CATALOG_SEARCH_LIMIT).
+ * Quantas sugestões a tela mostra. Era 3; subiu para 6 junto com a chegada da busca
+ * externa (o catálogo do Cloud também passou a devolver 6 — ver CATALOG_SEARCH_LIMIT).
  */
 const IMAGE_SUGGESTION_LIMIT = 6;
 
@@ -283,17 +283,17 @@ router.get('/products/image-search', requirePermission('commercial.products.view
       merged.push(s);
     }
   };
-  // Curadoria do Kivo e escolhas comprovadas primeiro; o Google preenche o que sobrar.
+  // Curadoria do Kivo e escolhas comprovadas primeiro; a busca externa preenche o resto.
   add(catalog);
   add(webCached);
 
-  // Camada 3 — Google CSE (a "API externa"): só quando ainda há espaço e a chave está
+  // Camada 3 — busca externa (Brave Search API): só quando ainda há espaço e a chave está
   // configurada. Se falhar, a lista fica com o que o sugestor local achou.
-  const googleConfigured = !!getGoogleCseConfig();
-  let googleFailed = false;
-  if (merged.length < IMAGE_SUGGESTION_LIMIT && googleConfigured) {
+  const externalConfigured = !!getWebImageConfig();
+  let externalFailed = false;
+  if (merged.length < IMAGE_SUGGESTION_LIMIT && externalConfigured) {
     try {
-      const fresh = await searchGoogleImages(q, IMAGE_SUGGESTION_LIMIT);
+      const fresh = await searchWebImages(q, IMAGE_SUGGESTION_LIMIT);
       add(fresh.map((it) => ({
         id: 0,
         name: it.title,
@@ -304,12 +304,12 @@ router.get('/products/image-search', requirePermission('commercial.products.view
         srcThumb: it.thumbUrl,
       })));
     } catch {
-      googleFailed = true;
+      externalFailed = true;
     }
   }
 
   const noLocal = (!hasCloud || cloudFailed) && catalog.length === 0 && webCached.length === 0;
-  const offline = merged.length === 0 && noLocal && (!googleConfigured || googleFailed);
+  const offline = merged.length === 0 && noLocal && (!externalConfigured || externalFailed);
   // `message` (e não `error`): a chave `error` faz o envelope de resposta virar
   // `success:false` (ver shared/responseEnvelope.ts) — aqui é só um aviso da tela.
   const payload: { results: ImageSuggestion[]; offline: boolean; message?: string } = {
@@ -343,7 +343,7 @@ router.post('/products/image-learn', requirePermission('commercial.products.view
 });
 
 /**
- * Aprende uma escolha da WEB (imagem do Google) para um termo: alimenta o ranking global
+ * Aprende uma escolha da WEB (imagem da busca externa) para um termo: alimenta o ranking global
  * no Cloud, que reapresenta primeiro as imagens que já deram certo para o mesmo nome —
  * em qualquer empresa. Anônimo e best-effort.
  */
@@ -373,7 +373,7 @@ router.post('/products/image-web-learn', requirePermission('commercial.products.
 
 /**
  * Proxy local para uma imagem da web. O navegador nunca acessa o host externo: o
- * servidor baixa (com guarda SSRF, ver googleImageSearch.fetchExternalImage) e devolve os
+ * servidor baixa (com guarda SSRF, ver webImageSearch.fetchExternalImage) e devolve os
  * bytes. Mantém a CSP (`img-src 'self'`) fechada e evita CORS/mixed-content.
  */
 router.get('/products/web-image', requirePermission('commercial.products.view'), async (req, res) => {

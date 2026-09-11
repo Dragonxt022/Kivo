@@ -2,6 +2,7 @@
  * Boot sem Electron (dev/teste): roda migrations e sobe a API local.
  * Com --smoke: sobe, testa /api/health e /api/hello, e encerra.
  */
+import './core/config/loadEnv';
 import { migrateUp } from './core/database/migrator';
 import { runSeeds } from './core/database/seeds';
 import { createServer } from './core/server';

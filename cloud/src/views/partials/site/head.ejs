@@ -1,6 +1,11 @@
 <%
   /* Cabeçalho comum das páginas públicas do site.
-     Espera: title, description. `canonicalPath` é opcional. */
+     Espera: title, description.
+     `theme` é opcional: slug de uma folha extra em /css/<theme>.css (ex.: 'lojas'),
+     usada pelas páginas de segmento para trocar a cor de destaque.
+     `themeColor` é opcional: cor da barra do navegador (padrão laranja da marca). */
+  var _theme = typeof theme !== 'undefined' ? theme : '';
+  var _themeColor = typeof themeColor !== 'undefined' ? themeColor : '#ff8000';
 %>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,8 +14,9 @@
 <meta property="og:title" content="<%= title %>" />
 <meta property="og:description" content="<%= description %>" />
 <meta property="og:type" content="website" />
-<meta name="theme-color" content="#ff8000" />
+<meta name="theme-color" content="<%= _themeColor %>" />
 <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
 <%- include('../theme-init') %>
 <link rel="stylesheet" href="/css/landing.css">
 <link rel="stylesheet" href="/css/site.css">
+<% if (_theme) { %><link rel="stylesheet" href="/css/<%= _theme %>.css"><% } %>

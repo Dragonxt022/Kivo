@@ -1,0 +1,38 @@
+/* ═══════════════════════════════════════════════════════════
+   Kivo Lojas — tema azul para o segmento de lojas de roupas,
+   variedades, acessórios e presentes. Complementa landing.css
+   sobrescrevendo só as cores de destaque (o restante do layout
+   e dos componentes é reaproveitado do site genérico).
+   ═══════════════════════════════════════════════════════════ */
+
+body.theme-lojas {
+  --primary: #2563eb;
+  --primary-hover: #3b82f6;
+  --primary-soft: color-mix(in srgb, #2563eb 10%, transparent);
+  --accent-blue: #6366f1;
+}
+
+:root[data-theme='dark'] body.theme-lojas {
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-soft: color-mix(in srgb, #3b82f6 18%, transparent);
+  --accent-blue: #818cf8;
+}
+
+/* Selo de segmento no topo do hero. */
+.seg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 1.1rem;
+}
+.seg-pill svg {
+  flex: none;
+}
