@@ -76,6 +76,7 @@ router.get('/', async (_req, res) => {
  */
 const SITE_PAGES: Record<string, string> = {
   '/lojas': 'lojas',
+  '/farmacias': 'farmacias',
   '/recursos': 'recursos',
   '/recursos/pdv': 'recursos-pdv',
   '/recursos/estoque': 'recursos-estoque',

@@ -1,20 +1,20 @@
 /* ═══════════════════════════════════════════════════════════
-   Kivo Lojas — tema azul para o segmento de lojas de roupas,
-   variedades, acessórios e presentes. Complementa landing.css
+   Kivo Farmácias — tema vermelho vinho para o segmento de
+   farmácias, drogarias e perfumarias. Complementa landing.css
    sobrescrevendo só as cores de destaque (o restante do layout
    e dos componentes é reaproveitado do site genérico).
    ═══════════════════════════════════════════════════════════ */
 
-body.theme-lojas {
-  --primary: #2563eb;
-  --primary-hover: #3b82f6;
-  --primary-soft: color-mix(in srgb, #2563eb 10%, transparent);
-  --accent-blue: #6366f1;
+body.theme-farmacias {
+  --primary: #8e1c3d;
+  --primary-hover: #a8234a;
+  --primary-soft: color-mix(in srgb, #8e1c3d 10%, transparent);
+  --accent-blue: #0d9488;
 }
 
-:root[data-theme='dark'] body.theme-lojas {
-  --primary: #3b82f6;
-  --primary-hover: #60a5fa;
-  --primary-soft: color-mix(in srgb, #3b82f6 18%, transparent);
-  --accent-blue: #818cf8;
+:root[data-theme='dark'] body.theme-farmacias {
+  --primary: #e0567a;
+  --primary-hover: #ef7192;
+  --primary-soft: color-mix(in srgb, #e0567a 18%, transparent);
+  --accent-blue: #2dd4bf;
 }

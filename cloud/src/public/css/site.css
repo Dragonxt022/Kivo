@@ -444,6 +444,23 @@ table.cmp tr.grp td {
 .cta-note {
   margin-top: 1rem;
 }
+/* Selo de segmento usado no topo do hero das páginas por segmento. */
+.seg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 1.1rem;
+}
+.seg-pill svg {
+  flex: none;
+}
 .sec-tight {
   padding-top: 1rem;
 }
