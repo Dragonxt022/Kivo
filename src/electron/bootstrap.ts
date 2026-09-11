@@ -9,9 +9,14 @@
  */
 import { app } from 'electron';
 import path from 'node:path';
+import { loadEnvFiles } from '../core/config/env';
 
 if (app.isPackaged) {
   process.env.KIVO_DB_PATH = path.join(app.getPath('userData'), 'database', 'kivo.db');
 }
+
+// Lê o `.env` (raiz do projeto em dev; raiz de dados/userData no app empacotado) ANTES de
+// carregar o Core — `main` e `core/database/connection` leem `process.env` no topo.
+loadEnvFiles();
 
 void import('./main');

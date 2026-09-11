@@ -75,6 +75,7 @@ router.get('/', async (_req, res) => {
  * rota → view em vez de um handler repetido para cada uma.
  */
 const SITE_PAGES: Record<string, string> = {
+  '/lojas': 'lojas',
   '/recursos': 'recursos',
   '/recursos/pdv': 'recursos-pdv',
   '/recursos/estoque': 'recursos-estoque',

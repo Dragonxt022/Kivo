@@ -4,7 +4,7 @@
  * Cobre a promessa central da funcionalidade:
  *   - Sem a API Key configurada, a busca NÃO chama o Google e cai no sugestor local
  *     (que, sem nuvem/credencial no ambiente de teste, aparece como "indisponível").
- *   - Com a API Key, o Google CSE é consultado e as imagens voltam pela grade, SEMPRE
+ *   - Com a API Key, a busca externa (Brave) é consultada e as imagens voltam pela grade, SEMPRE
  *     por um proxy local (`/products/web-image`) — o navegador nunca acessa o host externo.
  *   - O proxy bloqueia SSRF (endereço privado/local).
  *   - A chave some da resposta de status (nunca volta na tela) e pode ser removida.
@@ -22,6 +22,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
+import { parseEnv } from '../core/config/env';
 import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
@@ -67,11 +68,11 @@ function installFetchMock(): void {
   globalThis.fetch = (async (input: string | URL | { url: string }, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
-    if (url.includes('googleapis.com/customsearch')) {
+    if (url.includes('api.search.brave.com')) {
       return new Response(JSON.stringify({
-        items: [
-          { title: 'Refrigerante Cola Lata', link: `https://${EXT_HOST}/coca.jpg`, image: { thumbnailLink: `https://${EXT_HOST}/coca-thumb.jpg`, contextLink: 'https://exemplo.com/coca' } },
-          { title: 'Refrigerante Lata', link: `https://${EXT_HOST}/refri.jpg`, image: { thumbnailLink: `https://${EXT_HOST}/refri-thumb.jpg` } },
+        results: [
+          { title: 'Refrigerante Cola Lata', url: 'https://exemplo.com/coca', thumbnail: { src: `https://${EXT_HOST}/coca-thumb.jpg` }, properties: { url: `https://${EXT_HOST}/coca.jpg` } },
+          { title: 'Refrigerante Lata', url: 'https://exemplo.com/refri', thumbnail: { src: `https://${EXT_HOST}/refri-thumb.jpg` }, properties: { url: `https://${EXT_HOST}/refri.jpg` } },
         ],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -100,6 +101,20 @@ async function main(): Promise<void> {
   const TMP_DB = assertBancoDescartavel();
   fs.mkdirSync(path.dirname(TMP_DB), { recursive: true });
   fs.rmSync(TMP_DB, { force: true });
+  // Hermético: o padrão por variável de ambiente (se existir na máquina) mudaria o teste.
+  delete process.env.KIVO_BRAVE_SEARCH_API_KEY;
+
+  // Parser do `.env` (core/config/env.ts) — o carregador do padrão de fábrica.
+  const parsed = parseEnv([
+    '# comentário',
+    'KIVO_BRAVE_SEARCH_API_KEY="chave-entre-aspas"',
+    'export OUTRA_CHAVE=valor',
+    'linha sem igual',
+    '= sem-chave',
+  ].join('\n'));
+  check('parseEnv lê valor entre aspas', parsed.KIVO_BRAVE_SEARCH_API_KEY === 'chave-entre-aspas');
+  check('parseEnv aceita "export"', parsed.OUTRA_CHAVE === 'valor');
+  check('parseEnv ignora linhas inválidas', !('linha sem igual' in parsed) && Object.keys(parsed).length === 2);
 
   migrateUp();
   runSeeds();
@@ -115,13 +130,11 @@ async function main(): Promise<void> {
     check('login admin', cookie !== '');
     if (!cookie) return;
 
-    // 1. Sem chave: status diz "não configurado", com o cx padrão do usuário.
-    const cfg0 = await unwrap<{ configured: boolean; cx: string; defaultCx: string }>(
+    // 1. Sem chave: status diz "não configurado".
+    const cfg0 = await unwrap<{ configured: boolean; source: string | null }>(
       await api('/api/settings/image-search-config'),
     );
     check('sem chave, a config aparece como não configurada', cfg0.configured === false);
-    check('o cx padrão é o motor criado pelo usuário',
-      cfg0.defaultCx === 'a7c7f9a8761d54e79', cfg0.defaultCx);
     check('a resposta de status NÃO devolve a chave',
       !('apiKey' in (cfg0 as unknown as Record<string, unknown>)));
 
@@ -129,17 +142,17 @@ async function main(): Promise<void> {
     const s0 = await unwrap<{ results: Suggestion[]; offline: boolean }>(
       await api('/api/commercial/products/image-search?q=refrigerante'),
     );
-    check('sem chave, não busca no Google e a lista fica vazia', s0.results.length === 0);
+    check('sem chave, não busca na web e a lista fica vazia', s0.results.length === 0);
     check('sem chave e sem nuvem, a tela recebe o aviso de indisponível', s0.offline === true);
 
-    // 3. Salva uma chave falsa; o cx vazio cai no padrão.
-    const saved = await unwrap<{ configured: boolean; cx: string }>(
+    // 3. Salva uma chave falsa.
+    const saved = await unwrap<{ configured: boolean; source: string | null }>(
       await api('/api/settings/image-search-config', {
-        method: 'PUT', body: JSON.stringify({ apiKey: 'chave-de-teste', cx: '' }),
+        method: 'PUT', body: JSON.stringify({ apiKey: 'chave-de-teste' }),
       }),
     );
     check('salvar a chave marca como configurada', saved.configured === true);
-    check('cx vazio usa o padrão', saved.cx === 'a7c7f9a8761d54e79', saved.cx);
+    check('a chave salva na tela tem origem "vault"', saved.source === 'vault', saved.source ?? '');
 
     // O botão "Testar busca" devolve quantas imagens voltaram (não colapsa no envelope).
     const tested = await unwrap<{ tested: boolean; count: number }>(
@@ -148,11 +161,11 @@ async function main(): Promise<void> {
     check('o teste da config reporta sucesso e a contagem',
       tested.tested === true && tested.count === 2, JSON.stringify(tested));
 
-    // 4. Com a chave, o Google (mock) alimenta a grade — via proxy local.
+    // 4. Com a chave, a busca externa (mock) alimenta a grade — via proxy local.
     const s1 = await unwrap<{ results: Suggestion[]; offline: boolean }>(
       await api('/api/commercial/products/image-search?q=refrigerante'),
     );
-    check('com a chave, as imagens do Google aparecem', s1.results.length === 2, `n=${s1.results.length}`);
+    check('com a chave, as imagens da web aparecem', s1.results.length === 2, `n=${s1.results.length}`);
     check('as sugestões da web vêm marcadas com source=web',
       s1.results.every((r) => r.source === 'web'));
     check('a URL exibida é o proxy LOCAL, não o host externo',
@@ -179,7 +192,7 @@ async function main(): Promise<void> {
     });
     check('registrar a escolha da web responde', learn.ok, `status=${learn.status}`);
 
-    // 7. Remover a chave desliga a busca no Google.
+    // 7. Remover a chave desliga a busca externa.
     const removed = await unwrap<{ configured: boolean }>(
       await api('/api/settings/image-search-config', {
         method: 'PUT', body: JSON.stringify({ apiKey: '' }),
@@ -189,20 +202,29 @@ async function main(): Promise<void> {
     const s2 = await unwrap<{ results: Suggestion[] }>(
       await api('/api/commercial/products/image-search?q=refrigerante'),
     );
-    check('sem chave de novo, o Google não é consultado', s2.results.length === 0);
+    check('sem chave de novo, a web não é consultada', s2.results.length === 0);
 
-    // 8. A tela de produtos renderiza a grade de sugestões.
+    // 8. Padrão por variável de ambiente (sem tocar no cofre) liga a busca.
+    process.env.KIVO_BRAVE_SEARCH_API_KEY = 'chave-ambiente';
+    const envCfg = await unwrap<{ configured: boolean; source: string | null }>(
+      await api('/api/settings/image-search-config'),
+    );
+    check('variável de ambiente serve de padrão',
+      envCfg.configured === true && envCfg.source === 'env', JSON.stringify(envCfg));
+    delete process.env.KIVO_BRAVE_SEARCH_API_KEY;
+
+    // 9. A tela de produtos renderiza a grade de sugestões.
     const pagina = await api('/app/commercial/produtos');
     const html = await pagina.text();
     check('a tela de produtos traz a grade de sugestões automáticas',
       pagina.ok && html.includes('searchCatalogImages') && html.includes('image-web-learn'),
       `status=${pagina.status}`);
 
-    // 9. A tela de Configurações renderiza o painel da API Key (pega typo de EJS antes do lojista).
+    // 10. A tela de Configurações renderiza o painel da API Key (pega typo de EJS antes do lojista).
     const cfgPage = await api('/admin/configuracoes');
     const cfgHtml = await cfgPage.text();
-    check('Configurações traz o painel de imagens do Google',
-      cfgPage.ok && cfgHtml.includes('Imagens de produtos (Google)') && cfgHtml.includes('saveImageSearchConfig'),
+    check('Configurações traz o painel de imagens da Brave',
+      cfgPage.ok && cfgHtml.includes('Imagens de produtos (Brave Search)') && cfgHtml.includes('saveImageSearchConfig'),
       `status=${cfgPage.status}`);
   } finally {
     server.close();

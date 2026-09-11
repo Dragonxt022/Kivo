@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Kivo Lojas — sistema para lojas de roupas, variedades e acessórios',
+    description: 'PDV rápido com grade de tamanhos e cores, estoque por variante, trocas e crédito de loja, clientes e fidelidade, compras e financeiro. Feito para lojas de roupas, variedades e presentes. Funciona offline e salva na nuvem.',
+    theme: 'lojas',
+    themeColor: '#2563eb'
+  }) %>
+</head>
+<body class="theme-lojas">
+  <%- include('partials/site/topbar', { page: 'lojas', downloadUrl: downloadUrl }) %>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="seg-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        Para lojas de roupas, variedades e acessórios
+      </span>
+      <h1>A sua loja inteira <br /><em>num sistema só.</em></h1>
+      <p class="sub">
+        Vendeu a P e sobrou a M? O estoque sabe. PDV com grade de tamanhos e cores,
+        trocas que viram crédito, fidelidade e o lucro real da loja — tudo
+        <strong>sem internet</strong> e sincronizado na nuvem quando ela volta.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn big" href="<%= downloadUrl %>">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar para Windows — v<%= appVersion %>
+        </a>
+        <a class="btn big secondary" href="/contato">Falar com um especialista</a>
+      </div>
+      <div class="hero-note">✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração do seu catálogo inclusa</div>
+
+      <div class="chips">
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Grade de tamanhos e cores</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Trocas e crédito de loja</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</span>
+        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fidelidade e lista de preço</span>
+      </div>
+
+      <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com venda de roupas montada e resumo do carrinho' }) %>
+    </div>
+  </section>
+
+  <!-- ─── MÓDULOS PARA LOJA ─── -->
+  <section id="recursos">
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Feito para o varejo</div>
+        <h2>O que a sua loja usa no dia a dia</h2>
+        <p>Um sistema modular: você liga só o que precisa. Clique em qualquer módulo para ver as telas reais por dentro.</p>
+      </div>
+
+      <div class="mod-grid">
+        <a class="mod-card" href="/recursos/pdv">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+          <h3>PDV &amp; Vendas</h3>
+          <p>Bipe a etiqueta, escolha tamanho e cor, cobre e chame o próximo. Atalhos de teclado e várias vendas abertas ao mesmo tempo.</p>
+          <span class="mod-more">Ver o PDV por dentro →</span>
+        </a>
+        <a class="mod-card" href="/recursos/estoque">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Estoque por variante</h3>
+          <p>Camiseta P, M e G com estoque separado, mas cadastro único. Alerta de mínimo e custo médio calculado sozinho.</p>
+          <span class="mod-more">Ver estoque e compras →</span>
+        </a>
+        <a class="mod-card" href="/recursos/financeiro">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Financeiro &amp; DRE</h3>
+          <p>Caixa conferido no fechamento, contas a pagar e receber, e o lucro real da loja calculado pelo custo de verdade.</p>
+          <span class="mod-more">Ver o financeiro →</span>
+        </a>
+        <a class="mod-card" href="/planos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Clientes &amp; Fidelidade</h3>
+          <p>Ficha com histórico de compras, pontos, crédito de troca e listas de preço por cliente. Venda a prazo com limite.</p>
+          <span class="mod-more">Ver nos planos →</span>
+        </a>
+        <a class="mod-card" href="/recursos/cardapio-online">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+          <h3>Catálogo online</h3>
+          <p>Seus produtos viram uma página pública com QR code — mostre a coleção sem app e sem taxa por pedido.</p>
+          <span class="mod-more">Ver o catálogo online →</span>
+        </a>
+        <a class="mod-card" href="/recursos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+          <h3>E mais</h3>
+          <p>Permissões por cargo, auditoria, backup e atualização automática. O que segura uma loja crescendo sem bagunça.</p>
+          <span class="mod-more">Ver todos os módulos →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── GRADE DE TAMANHOS E CORES ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Grade e variantes</div>
+          <h2>Vendeu a P, sobrou a M. O estoque sabe disso</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            A mesma camiseta em três tamanhos e quatro cores é um cadastro só —
+            com foto, preço e estoque por combinação. O que vende, o que encalha
+            e o que precisa repor, sem planilha paralela.
+          </p>
+          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Variantes por tamanho, cor e modelo, com SKU próprio</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Código de barras gerado ou bipe do que já vem do fornecedor</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Sugestor de imagens: digitou o produto, a foto certa aparece</li>
+          </ul>
+          <a class="mod-more" href="/recursos/estoque">Conhecer o estoque →</a>
+        </div>
+        <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kivo com variantes de tamanho, cor, preço e estoque' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── TROCAS E FIDELIDADE ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/shot', { name: 'clientes', alt: 'Ficha de clientes do Kivo com histórico de compras e crédito de loja' }) %>
+        <div>
+          <div class="kicker">Trocas e clientes</div>
+          <h2>Comprou, não serviu, voltou. E agora?</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Agora é um clique. A devolução volta pro estoque e o valor vira crédito
+            na ficha do cliente — que abate na próxima compra. Sem caderninho e
+            sem discussão no balcão.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Crédito de troca</h3>
+              <p>A mercadoria devolvida entra de volta no estoque e o valor fica como crédito do cliente.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Pontos de fidelidade</h3>
+              <p>A cada compra o cliente acumula pontos que abatem direto no total da próxima venda.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Listas de preço</h3>
+              <p>Atacado, varejo e faixas por quantidade. Comprou 10, o preço muda sozinho.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Histórico completo</h3>
+              <p>Quem é o cliente, o que já comprou, quanto deve e o que tem de crédito — na mesma tela.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DIFERENCIAIS ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Por que o Kivo Lojas</div>
+        <h2>Feito para o ritmo de uma loja</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+          <h3>Offline primeiro, nuvem sempre</h3>
+          <p>Internet caiu no meio do movimento? Continue vendendo normalmente. Voltou? Tudo sincroniza sozinho.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16M6 4v16M10 4v4M10 16v4M14 4v8M14 16v4M18 4v4M18 12v8M22 4v16"/></svg></div>
+          <h3>Etiquetas e código de barras</h3>
+          <p>Imprima etiquetas com preço e código. Sem código? O Kivo gera um interno pra você.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Importar por planilha</h3>
+          <p>Traga o catálogo inteiro do sistema antigo de uma vez — e exporte quando quiser.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Reposição da coleção</h3>
+          <p>Entrada de mercadoria do fornecedor com custo médio atualizado e alerta de estoque mínimo por variante.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissões e auditoria</h3>
+          <p>O caixa vende mas não dá desconto sem autorização. Cada ação sensível fica registrada com usuário e hora.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+          <h3>Interface do seu jeito</h3>
+          <p>Tema claro ou escuro, cor de destaque personalizada e navegação em cartões ou menu lateral.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── COMO FUNCIONA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Como funciona na prática</div>
+        <h2>Da arara pro caixa em quatro passos</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Cadastra o produto</h3>
+          <p>Foto, preço e a grade de tamanhos e cores. O estoque já nasce separado por variante.</p>
+        </div>
+        <div class="step">
+          <h3>Chega a mercadoria</h3>
+          <p>Entrada de compra do fornecedor com custo médio atualizado e etiquetas prontas pra imprimir.</p>
+        </div>
+        <div class="step">
+          <h3>Vende no balcão</h3>
+          <p>Bipe a etiqueta, escolha tamanho e cor, receba em dinheiro, PIX, cartão ou a prazo.</p>
+        </div>
+        <div class="step">
+          <h3>Fecha o dia</h3>
+          <p>Caixa conferido por forma de pagamento e o lucro real da loja calculado no DRE.</p>
+        </div>
+      </div>
+
+      <div class="pull">
+        <p><strong>Uma venda, o sistema inteiro atualizado.</strong> A peça vendida sai do estoque na hora, entra no caixa, alimenta o CMV do DRE e aparece na ficha do cliente — sem você digitar nada duas vezes.</p>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Coloque a sua loja no Kivo',
+    ctaText: 'No teste grátis o assistente já deixa produtos de exemplo com grade de tamanhos e formas de pagamento prontos — dá pra simular um dia de movimento antes de decidir.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

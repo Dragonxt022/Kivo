@@ -865,23 +865,19 @@
         </div>
       </section>
 
-      <%# Sugestão de imagens no cadastro: Google CSE (chave no cofre) com fallback para o
+      <%# Sugestão de imagens no cadastro: busca externa (Brave Search) com fallback para o
           banco de imagens do Kivo. A chave nunca aparece de volta na tela. %>
       <section class="panel">
-        <h2>Imagens de produtos (Google)</h2>
+        <h2>Imagens de produtos (Brave Search)</h2>
         <p class="hint mt-0">
           Ao cadastrar um produto o Kivo sugere até 6 fotos. Com a API Key abaixo ele busca
-          no Google; sem ela — ou se o Google falhar — usa só o banco de imagens do Kivo.
+          na web (Brave); sem ela — ou se a busca falhar — usa só o banco de imagens do Kivo.
         </p>
         <div class="field">
-          <label>API Key do Google Custom Search</label>
+          <label>API Key da Brave Search</label>
           <input class="input" type="password" autocomplete="off" x-model="imgCfg.apiKey"
                  placeholder="cole aqui a API Key (fica guardada no cofre local)">
-          <p class="hint">Gerada no Google Cloud Console (Custom Search API). Nunca é sincronizada nem aparece de volta.</p>
-        </div>
-        <div class="field">
-          <label>ID do mecanismo de busca (cx)</label>
-          <input class="input" type="text" x-model="imgCfg.cx" :placeholder="imgCfg.defaultCx || 'a7c7f9a8761d54e79'">
+          <p class="hint">Gerada em api-dashboard.search.brave.com (plano Free). Nunca é sincronizada nem aparece de volta.</p>
         </div>
         <div class="toolbar">
           <button class="btn secondary" @click="saveImageSearchConfig()">
@@ -896,8 +892,12 @@
           </button>
           <span class="muted" x-text="imgCfg.status"></span>
         </div>
-        <p class="muted text-xs" x-show="imgCfg.configured" x-cloak>
+        <p class="muted text-xs" x-show="imgCfg.configured && imgCfg.source !== 'env'" x-cloak>
           Chave configurada. O campo em branco mantém a chave atual.
+        </p>
+        <p class="muted text-xs" x-show="imgCfg.source === 'env'" x-cloak>
+          Chave definida por variável de ambiente (<code>KIVO_BRAVE_SEARCH_API_KEY</code>).
+          Colar uma chave aqui tem prioridade sobre ela; “Remover chave” volta para a do ambiente.
         </p>
       </section>
       <div class="toolbar">
@@ -1155,7 +1155,7 @@
         empresa: { nome: '', razaoSocial: '', documento: '', ie: '', email: '', telefone: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
         logo: { url: '', enviando: false, erro: '' },
         cloudUrlForm: { value: '' }, savingCloudUrl: false,
-        imgCfg: { apiKey: '', cx: '', defaultCx: '', configured: false, status: '' },
+        imgCfg: { apiKey: '', configured: false, source: null, status: '' },
         savingImgCfg: false, testingImgCfg: false,
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
@@ -1358,21 +1358,19 @@
           this.savingCloudUrl = false;
           if (r.ok) await this.load();
         },
-        // ─── Busca de imagens no Google (sugestões do cadastro) ───
+        // ─── Busca de imagens na web (sugestões do cadastro) ───
         async loadImageSearchConfig() {
           const r = await fetch('/api/settings/image-search-config');
           if (!r.ok) return;
           const d = await r.json();
-          this.imgCfg.cx = d.cx || '';
-          this.imgCfg.defaultCx = d.defaultCx || '';
           this.imgCfg.configured = !!d.configured;
+          this.imgCfg.source = d.source || null;
         },
         async saveImageSearchConfig() {
           this.savingImgCfg = true; this.imgCfg.status = '';
           try {
-            // Campo em branco = NÃO mexe na chave (senão salvar só o cx apagaria o segredo).
-            // Para remover há o botão dedicado.
-            const body = { cx: this.imgCfg.cx };
+            // Campo em branco = NÃO mexe na chave. Para remover há o botão dedicado.
+            const body = {};
             if (this.imgCfg.apiKey) body.apiKey = this.imgCfg.apiKey;
             const r = await fetch('/api/settings/image-search-config', {
               method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1381,7 +1379,7 @@
             const d = await r.json().catch(() => ({}));
             if (!r.ok) { this.imgCfg.status = d.error || 'Falha ao salvar.'; return; }
             this.imgCfg.configured = !!d.configured;
-            this.imgCfg.cx = d.cx || this.imgCfg.cx;
+            this.imgCfg.source = d.source || null;
             this.imgCfg.apiKey = '';
             this.imgCfg.status = 'Salvo.';
           } finally {
@@ -1389,7 +1387,7 @@
           }
         },
         async removeImageSearchConfig() {
-          if (!await window.confirmDlg('Remover a API Key? A busca de imagens no Google será desligada.')) return;
+          if (!await window.confirmDlg('Remover a API Key? A busca de imagens na web será desligada.')) return;
           this.savingImgCfg = true; this.imgCfg.status = '';
           try {
             const r = await fetch('/api/settings/image-search-config', {
@@ -1398,7 +1396,8 @@
             });
             const d = await r.json().catch(() => ({}));
             if (!r.ok) { this.imgCfg.status = d.error || 'Falha ao remover.'; return; }
-            this.imgCfg.configured = false;
+            this.imgCfg.configured = !!d.configured;
+            this.imgCfg.source = d.source || null;
             this.imgCfg.status = 'Chave removida.';
           } finally {
             this.savingImgCfg = false;
