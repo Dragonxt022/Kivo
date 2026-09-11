@@ -107,6 +107,10 @@
     "description": "Testes: preenchimento em lote de imagens de produtos sem foto",
     "run": "node scripts/test-isolated.js src/tests/product-image-autofill.ts"
   },
+  "test:image-suggest": {
+    "description": "Testes: sugestão de imagens no cadastro (Google CSE + fallback local + proxy)",
+    "run": "node scripts/test-isolated.js src/tests/product-image-suggest.ts"
+  },
   "test:nfe-import": {
     "description": "Testes: importação de NF-e (XML modelo 55) para compras/estoque",
     "run": "node scripts/test-isolated.js src/tests/nfe-import.ts"

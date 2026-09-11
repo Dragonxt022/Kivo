@@ -19,6 +19,7 @@ import {
   productImagesDir, saveLocalProductImage, queueProductImageSubmission, trySubmitPending,
   cloudBaseUrl, cloudAuthHeaders,
 } from '../../core/catalog/submissionQueue';
+import { getGoogleCseConfig, searchGoogleImages, fetchExternalImage } from '../../core/catalog/googleImageSearch';
 import { productRepository } from './repositories/ProductRepository';
 import { kitItemRepository } from './repositories/KitRepository';
 import { recipeItemRepository } from './repositories/RecipeRepository';
@@ -172,35 +173,151 @@ router.get('/products', requireAnyPermission('commercial.products.view', 'commer
   }
 });
 
+/**
+ * Quantas sugestões a tela mostra. Era 3; subiu para 6 junto com a chegada da busca do
+ * Google (o catálogo do Cloud também passou a devolver 6 — ver CATALOG_SEARCH_LIMIT).
+ */
+const IMAGE_SUGGESTION_LIMIT = 6;
+
+/**
+ * Uma sugestão pronta para a tela. `url`/`thumb` são SEMPRE URLs locais (proxy), porque a
+ * CSP da tela só permite `img-src 'self'` — a imagem externa nunca é buscada pelo
+ * navegador. `srcUrl`/`srcThumb` guardam a URL original (só nas sugestões da web) para o
+ * "aprendizado" global no Cloud, que precisa do endereço real, não do proxy.
+ */
+interface ImageSuggestion {
+  id: number;
+  name: string;
+  url: string;
+  thumb: string;
+  source: 'catalog' | 'web';
+  srcUrl?: string;
+  srcThumb?: string;
+}
+
+/** URL do proxy local que baixa a imagem externa (mesmo host → CSP satisfeita). */
+function webImageProxyUrl(u: string): string {
+  return `/api/commercial/products/web-image?u=${encodeURIComponent(u)}`;
+}
+
+/** Busca as imagens aprovadas do banco de imagens do Kivo Cloud (o "sugestor local"). */
+async function fetchCloudCatalog(
+  base: string, auth: Record<string, string>, q: string,
+): Promise<ImageSuggestion[]> {
+  const r = await fetch(`${base}/api/catalog/search?q=${encodeURIComponent(q)}`, {
+    headers: auth, signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) {
+    // Um 403 de plano ou 401 de credencial precisa chegar com o motivo, senão fica
+    // indistinguível de queda de rede. Só o `message` da resposta sobe para a tela.
+    const body = (await r.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Banco de imagens respondeu ${r.status}.`);
+  }
+  const rows = (await r.json()) as { id: number; name: string }[];
+  return rows.map((it) => ({
+    id: it.id,
+    name: it.name,
+    url: `/api/commercial/products/catalog-image/${it.id}`,
+    thumb: `/api/commercial/products/catalog-image/${it.id}`,
+    source: 'catalog' as const,
+  }));
+}
+
+/** Sugestões da web que outras empresas já escolheram para este termo (ranking global). */
+async function fetchCloudWebPicks(
+  base: string, auth: Record<string, string>, q: string,
+): Promise<ImageSuggestion[]> {
+  const r = await fetch(`${base}/api/catalog/web-search?q=${encodeURIComponent(q)}`, {
+    headers: auth, signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) return [];
+  const rows = (await r.json()) as { id: number; url: string; thumb: string | null; title: string | null }[];
+  return rows.map((it) => ({
+    id: it.id,
+    name: it.title ?? '',
+    url: webImageProxyUrl(it.url),
+    thumb: webImageProxyUrl(it.thumb || it.url),
+    source: 'web' as const,
+    srcUrl: it.url,
+    srcThumb: it.thumb || it.url,
+  }));
+}
+
 router.get('/products/image-search', requirePermission('commercial.products.view'), async (req, res) => {
   const q = String(req.query.q ?? '').trim();
   if (q.length < 3) {
     res.json({ results: [], error: 'Digite ao menos 3 letras para buscar.' });
     return;
   }
+
   const base = cloudBaseUrl();
   const auth = cloudAuthHeaders();
-  if (!base || !auth) {
-    res.json({ results: [], offline: true });
-    return;
-  }
-  try {
-    const r = await fetch(`${base}/api/catalog/search?q=${encodeURIComponent(q)}`, {
-      headers: auth, signal: AbortSignal.timeout(8000),
-    });
-    if (!r.ok) {
-      // Antes qualquer falha virava `offline: true` e a tela dizia "banco de imagens
-      // indisponível agora" — indistinguível de queda de rede. Um 403 de plano ou um 401 de
-      // credencial precisam chegar ao usuário com o motivo, senão ninguém sabe o que corrigir.
-      const body = (await r.json().catch(() => ({}))) as { error?: string };
-      res.json({ results: [], offline: true, error: body.error ?? `Banco de imagens respondeu ${r.status}.` });
-      return;
+  const hasCloud = !!(base && auth);
+
+  // Camada 1+2 — sugestor local (banco de imagens do Kivo Cloud): catálogo aprovado e
+  // escolhas da web já registradas, ambas já ranqueadas por popularidade no servidor.
+  let catalog: ImageSuggestion[] = [];
+  let webCached: ImageSuggestion[] = [];
+  let cloudFailed = false;
+  let cloudError = '';
+  if (base && auth) {
+    try {
+      [catalog, webCached] = await Promise.all([
+        fetchCloudCatalog(base, auth, q),
+        fetchCloudWebPicks(base, auth, q),
+      ]);
+    } catch (e) {
+      cloudFailed = true;
+      cloudError = e instanceof Error ? e.message : '';
     }
-    const results = (await r.json()) as { id: number; name: string; url: string }[];
-    res.json({ results: results.map((it) => ({ id: it.id, name: it.name, url: `/api/commercial/products/catalog-image/${it.id}` })) });
-  } catch {
-    res.json({ results: [], offline: true });
   }
+
+  const merged: ImageSuggestion[] = [];
+  const seen = new Set<string>();
+  const add = (list: ImageSuggestion[]): void => {
+    for (const s of list) {
+      if (merged.length >= IMAGE_SUGGESTION_LIMIT) return;
+      const key = s.source === 'catalog' ? `c${s.id}` : `w${s.srcUrl ?? s.url}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(s);
+    }
+  };
+  // Curadoria do Kivo e escolhas comprovadas primeiro; o Google preenche o que sobrar.
+  add(catalog);
+  add(webCached);
+
+  // Camada 3 — Google CSE (a "API externa"): só quando ainda há espaço e a chave está
+  // configurada. Se falhar, a lista fica com o que o sugestor local achou.
+  const googleConfigured = !!getGoogleCseConfig();
+  let googleFailed = false;
+  if (merged.length < IMAGE_SUGGESTION_LIMIT && googleConfigured) {
+    try {
+      const fresh = await searchGoogleImages(q, IMAGE_SUGGESTION_LIMIT);
+      add(fresh.map((it) => ({
+        id: 0,
+        name: it.title,
+        url: webImageProxyUrl(it.imageUrl),
+        thumb: webImageProxyUrl(it.thumbUrl),
+        source: 'web' as const,
+        srcUrl: it.imageUrl,
+        srcThumb: it.thumbUrl,
+      })));
+    } catch {
+      googleFailed = true;
+    }
+  }
+
+  const noLocal = (!hasCloud || cloudFailed) && catalog.length === 0 && webCached.length === 0;
+  const offline = merged.length === 0 && noLocal && (!googleConfigured || googleFailed);
+  // `message` (e não `error`): a chave `error` faz o envelope de resposta virar
+  // `success:false` (ver shared/responseEnvelope.ts) — aqui é só um aviso da tela.
+  const payload: { results: ImageSuggestion[]; offline: boolean; message?: string } = {
+    results: merged,
+    offline,
+  };
+  if (offline) payload.message = cloudError || 'Sugestões indisponíveis agora.';
+  res.json(payload);
 });
 
 router.post('/products/image-learn', requirePermission('commercial.products.view'), async (req, res) => {
@@ -223,6 +340,56 @@ router.post('/products/image-learn', requirePermission('commercial.products.view
     // best-effort: aprender o alias não pode atrapalhar a escolha da imagem.
   }
   res.json({ ok: true });
+});
+
+/**
+ * Aprende uma escolha da WEB (imagem do Google) para um termo: alimenta o ranking global
+ * no Cloud, que reapresenta primeiro as imagens que já deram certo para o mesmo nome —
+ * em qualquer empresa. Anônimo e best-effort.
+ */
+router.post('/products/image-web-learn', requirePermission('commercial.products.view'), async (req, res) => {
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  const term = String(req.body?.term ?? '').trim();
+  const url = String(req.body?.url ?? '').trim();
+  const thumb = req.body?.thumb != null ? String(req.body.thumb) : null;
+  const title = req.body?.title != null ? String(req.body.title) : null;
+  if (!base || !auth || term.length < 3 || !/^https?:\/\//i.test(url)) {
+    res.json({ ok: false });
+    return;
+  }
+  try {
+    await fetch(`${base}/api/catalog/web-pick`, {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ term, url, thumb, title }),
+      signal: AbortSignal.timeout(6000),
+    });
+  } catch {
+    // best-effort: registrar a escolha não pode atrapalhar o cadastro.
+  }
+  res.json({ ok: true });
+});
+
+/**
+ * Proxy local para uma imagem da web. O navegador nunca acessa o host externo: o
+ * servidor baixa (com guarda SSRF, ver googleImageSearch.fetchExternalImage) e devolve os
+ * bytes. Mantém a CSP (`img-src 'self'`) fechada e evita CORS/mixed-content.
+ */
+router.get('/products/web-image', requirePermission('commercial.products.view'), async (req, res) => {
+  const raw = String(req.query.u ?? '');
+  if (!raw) {
+    res.status(400).end();
+    return;
+  }
+  const img = await fetchExternalImage(raw);
+  if (!img) {
+    res.status(404).end();
+    return;
+  }
+  res.setHeader('Content-Type', img.contentType);
+  res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+  res.send(img.buf);
 });
 
 router.post('/products/images/autofill', requirePermission('commercial.products.edit'), async (req, res) => {

@@ -22,6 +22,19 @@ import { validateCatalogImage, normalizeKeywords, sha256, type ImageFormat } fro
 const router = Router();
 const rawImage = express.raw({ type: ['image/jpeg', 'image/png', 'image/webp', 'image/avif'], limit: '6mb' });
 
+/**
+ * Quantas sugestões a busca devolve. Era 3 e subiu para 6 (pedido do usuário): a tela de
+ * produto mostra uma grade de até 6 miniaturas. O local app também mescla as imagens da
+ * web (Google CSE) por cima deste resultado — daí o teto ser compartilhado.
+ */
+export const CATALOG_SEARCH_LIMIT = 6;
+
+/** Um termo com menos que isso não descreve produto nenhum. */
+const MIN_TERM_LEN = 3;
+
+/** URL de imagem aceita no /web-pick (guarda contra payload gigante no MySQL). */
+const MAX_URL_LEN = 1000;
+
 export const CATALOG_STORAGE_DIR = path.resolve(__dirname, '..', '..', 'storage', 'catalog');
 export const CATALOG_EXT_BY_FORMAT: Record<ImageFormat, string> = { jpeg: 'jpg', png: 'png', webp: 'webp', avif: 'avif' };
 export const CATALOG_MIME_BY_FORMAT: Record<ImageFormat, string> = {
@@ -81,8 +94,8 @@ router.post('/submit', rawImage, requireCompanyAuth, async (req: AuthedRequest, 
 
 router.get('/search', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const q = String(req.query.q ?? '').trim();
-  if (q.length < 3) {
-    res.status(400).json({ error: 'Informe ao menos 3 caracteres para buscar.' });
+  if (q.length < MIN_TERM_LEN) {
+    res.status(400).json({ error: `Informe ao menos ${MIN_TERM_LEN} caracteres para buscar.` });
     return;
   }
   const pool = getPool();
@@ -92,40 +105,44 @@ router.get('/search', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const results: { id: number; product_name: string }[] = [];
   const add = (rows: { id: number; product_name: string }[]): void => {
     for (const r of rows) {
-      if (results.length >= 3) break;
+      if (results.length >= CATALOG_SEARCH_LIMIT) break;
       if (seen.has(r.id)) continue;
       seen.add(r.id);
       results.push(r);
     }
   };
 
-  // 1. FULLTEXT no nome/keywords cadastrados.
+  // 1. FULLTEXT no nome/keywords cadastrados. O desempate por `pick_count` faz as fotos
+  //    que mais foram escolhidas subirem quando a relevância textual empata.
   const [ftRows] = await pool.query(
     `SELECT id, product_name FROM catalog_images
      WHERE status = 'aprovada' AND MATCH(product_name, keywords) AGAINST (? IN NATURAL LANGUAGE MODE)
-     LIMIT 5`,
-    [q],
+     ORDER BY MATCH(product_name, keywords) AGAINST (? IN NATURAL LANGUAGE MODE) DESC, pick_count DESC
+     LIMIT 10`,
+    [q, q],
   );
   add(ftRows as { id: number; product_name: string }[]);
 
   // 2. Aliases aprendidos — sinônimos que o cadastro original não tinha. É FULLTEXT por
-  //    tokens, então "coca lata 350" casa "refrigerante cola lata 350ml".
-  if (results.length < 3 && norm) {
+  //    tokens, então "coca lata 350" casa "refrigerante cola lata 350ml". O ranking soma
+  //    as escolhas da imagem (pick_count) às do alias.
+  if (results.length < CATALOG_SEARCH_LIMIT && norm) {
     const [aliasRows] = await pool.query(
       `SELECT ci.id, ci.product_name, MAX(a.occurrences) AS pop
          FROM catalog_image_aliases a JOIN catalog_images ci ON ci.id = a.catalog_image_id
         WHERE ci.status = 'aprovada' AND MATCH(a.alias) AGAINST (? IN NATURAL LANGUAGE MODE)
-        GROUP BY ci.id, ci.product_name ORDER BY pop DESC LIMIT 5`,
+        GROUP BY ci.id, ci.product_name ORDER BY pop DESC, ci.pick_count DESC LIMIT 10`,
       [q],
     );
     add(aliasRows as { id: number; product_name: string }[]);
   }
 
   // 3. Fallback LIKE para termos raros/curtos que o FULLTEXT (stopwords, token mínimo) não pega.
-  if (results.length < 3) {
+  if (results.length < CATALOG_SEARCH_LIMIT) {
     const [likeRows] = await pool.query(
       `SELECT id, product_name FROM catalog_images
-        WHERE status = 'aprovada' AND (product_name LIKE ? OR keywords LIKE ?) LIMIT 5`,
+        WHERE status = 'aprovada' AND (product_name LIKE ? OR keywords LIKE ?)
+        ORDER BY pick_count DESC LIMIT 10`,
       [`%${q}%`, `%${norm}%`],
     );
     add(likeRows as { id: number; product_name: string }[]);
@@ -165,6 +182,55 @@ router.post('/learn', requireCompanyAuth, async (req: AuthedRequest, res) => {
     `INSERT INTO catalog_image_aliases (catalog_image_id, alias) VALUES (?, ?)
      ON DUPLICATE KEY UPDATE occurrences = occurrences + 1, updated_at = CURRENT_TIMESTAMP(3)`,
     [imageId, alias],
+  );
+  // Ranking global: cada escolha conta para a imagem, independente do alias. É o que
+  // ordena a busca principal por "produtos mais escolhidos".
+  await getPool().query('UPDATE catalog_images SET pick_count = pick_count + 1 WHERE id = ?', [imageId]);
+  res.json({ ok: true });
+});
+
+/**
+ * Sugestões da web (Google CSE) que já foram escolhidas por alguma empresa, para o mesmo
+ * termo. O app local chama isto ANTES do Google: se já há escolhas boas em cache, ele
+ * economiza cota da API do Google e mostra primeiro o que deu certo. Anônimo.
+ */
+router.get('/web-search', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const q = String(req.query.q ?? '').trim();
+  if (q.length < MIN_TERM_LEN) {
+    res.status(400).json({ error: `Informe ao menos ${MIN_TERM_LEN} caracteres para buscar.` });
+    return;
+  }
+  const norm = normalizeKeywords(q);
+  const [rows] = await getPool().query(
+    `SELECT id, url, thumb, title, pick_count FROM catalog_web_images
+      WHERE term = ? OR term LIKE ?
+      ORDER BY pick_count DESC, updated_at DESC LIMIT ?`,
+    [norm, `%${norm}%`, CATALOG_SEARCH_LIMIT],
+  );
+  res.json((rows as { id: number; url: string; thumb: string | null; title: string | null }[])
+    .map((r) => ({ id: r.id, url: r.url, thumb: r.thumb, title: r.title })));
+});
+
+/**
+ * Registra a escolha de uma imagem da web para um termo. Idempotente por (termo, url):
+ * a mesma escolha só incrementa o contador. Anônimo (não guarda quem escolheu).
+ */
+router.post('/web-pick', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const body = (req.body ?? {}) as { term?: unknown; url?: unknown; thumb?: unknown; title?: unknown };
+  const term = normalizeKeywords(String(body.term ?? '')).slice(0, 191);
+  const url = String(body.url ?? '').trim().slice(0, MAX_URL_LEN);
+  const thumb = body.thumb != null ? String(body.thumb).trim().slice(0, MAX_URL_LEN) : null;
+  const title = body.title != null ? String(body.title).trim().slice(0, 500) : null;
+  if (term.length < MIN_TERM_LEN || !/^https?:\/\//i.test(url)) {
+    res.status(400).json({ error: 'term (>=3) e url (http/https) são obrigatórios.' });
+    return;
+  }
+  await getPool().query(
+    `INSERT INTO catalog_web_images (term, url_hash, url, thumb, title)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE pick_count = pick_count + 1, url = VALUES(url),
+       thumb = VALUES(thumb), title = VALUES(title), updated_at = CURRENT_TIMESTAMP(3)`,
+    [term, sha256(Buffer.from(url)), url, thumb, title],
   );
   res.json({ ok: true });
 });
