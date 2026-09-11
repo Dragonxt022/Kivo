@@ -677,7 +677,9 @@ function safeJson(s: string): unknown {
  *
  * TODA tabela que referencia `companies` precisa aparecer aqui: `menu_items` tem FK e
  * ficou de fora até a 0.3.1, então excluir uma empresa que já tinha publicado cardápio
- * estourava a FK e virava um "Erro interno do servidor." genérico na tela.
+ * estourava a FK e virava um "Erro interno do servidor." genérico na tela. O mesmo valia
+ * para `company_mobile_grants` e `company_commands` (0019): a FK sem ON DELETE CASCADE
+ * derrubava a exclusão de qualquer empresa com acesso pelo celular ou comando na fila.
  *
  * `trial_registry` também sai: sem isso a máquina daquela empresa ficava marcada para
  * sempre como "já usou o teste" mesmo depois da empresa ter sido apagada, e não havia
@@ -703,6 +705,8 @@ router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
     // support_messages cai junto por ON DELETE CASCADE em fk_support_messages_ticket.
     await conn.query('DELETE FROM support_tickets WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM trial_registry WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM company_mobile_grants WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM company_commands WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_devices WHERE company_uuid = ?', [uuid]);
     await conn.query('UPDATE catalog_images SET company_uuid = NULL WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM companies WHERE company_uuid = ?', [uuid]);
