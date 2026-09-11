@@ -83,6 +83,8 @@ const SITE_PAGES: Record<string, string> = {
   '/recursos/financeiro': 'recursos-financeiro',
   '/recursos/restaurante': 'recursos-restaurante',
   '/recursos/cardapio-online': 'recursos-cardapio',
+  '/recursos/importacao-nfe': 'recursos-nfe',
+  '/recursos/fiscal': 'recursos-fiscal',
   '/planos': 'planos',
   '/contato': 'contato',
 };

@@ -59,11 +59,23 @@
           <p>Catálogo com 11 tipos de produto, entrada de compra e custo médio ponderado calculado sozinho.</p>
           <span class="mod-more">Ver estoque e compras →</span>
         </a>
+        <a class="mod-card" href="/recursos/importacao-nfe">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Importação de NF-e</h3>
+          <p>Envie o XML da nota do fornecedor e o estoque se atualiza sozinho, com conferência item a item e reversão.</p>
+          <span class="mod-more">Ver a importação de NF-e →</span>
+        </a>
         <a class="mod-card" href="/recursos/financeiro">
           <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
           <h3>Financeiro &amp; DRE</h3>
           <p>Caixa conferido no fechamento, contas a pagar e receber, e o lucro real calculado pelo custo de verdade.</p>
           <span class="mod-more">Ver o financeiro →</span>
+        </a>
+        <a class="mod-card" href="/recursos/fiscal">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg></div>
+          <h3>Fiscal (NFC-e)</h3>
+          <p>Nota fiscal do consumidor emitida direto do PDV, com certificado, fila de envio e cancelamento. Em beta.</p>
+          <span class="mod-more">Ver o módulo fiscal →</span>
         </a>
         <a class="mod-card" href="/recursos/restaurante">
           <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
@@ -128,6 +140,29 @@
           </ul>
           <a class="mod-more" href="/recursos/restaurante">Conhecer o módulo restaurante →</a>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Importação de NF-e</div>
+          <h2>A nota do fornecedor vira estoque sem digitação</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Envie o XML da NF-e e o Kivo lê os produtos, o fornecedor, as quantidades
+            e os custos. Você confere linha por linha, cria ou vincula os produtos e
+            confirma — a compra entra no estoque com o custo médio atualizado.
+          </p>
+          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Chega de redigitar nota de 50 itens</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Reconhecimento automático e avisos de divergência</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Reversível: desfaz estoque e custo quando precisar</li>
+          </ul>
+          <a class="mod-more" href="/recursos/importacao-nfe">Conhecer a importação de NF-e →</a>
+        </div>
+        <%- include('partials/site/shot', { name: 'compras', alt: 'Compras do Kivo geradas a partir do XML da nota do fornecedor' }) %>
       </div>
     </div>
   </section>
