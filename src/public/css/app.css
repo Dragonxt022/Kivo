@@ -2528,7 +2528,8 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   padding: 6px;
   text-align: left;
 }
-.dropdown-menu button {
+.dropdown-menu button,
+.dropdown-menu a {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -2541,11 +2542,15 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   font-size: 0.85rem;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
 }
-.dropdown-menu button:hover {
+.dropdown-menu button:hover,
+.dropdown-menu a:hover {
   background: var(--surface-hover);
+  text-decoration: none;
 }
-.dropdown-menu button.danger {
+.dropdown-menu button.danger,
+.dropdown-menu a.danger {
   color: var(--danger);
 }
 

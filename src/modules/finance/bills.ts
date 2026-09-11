@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { Router, type Request } from 'express';
-import { requirePermission } from '../../core/permissions/middleware';
+import { requirePermission, requireAnyPermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { currentRegister, addMovement } from './cash';
 import { addDays } from '../../shared/date';
@@ -9,6 +11,7 @@ import { validateBody } from '../../shared/validateBody';
 import { createBillSchema, updateBillSchema, settleBillSchema } from '../../shared/schemas';
 import { payableRepository, receivableRepository, billSettlementPaymentRepository } from './repositories/BillRepository';
 import { paymentMethodRepository } from './repositories/PaymentMethodRepository';
+import { billAttachmentsDir, saveBillAttachment, deleteBillAttachmentFile, contentDisposition } from './attachments';
 
 export interface BillsConfig {
   table: 'payables' | 'receivables';
@@ -40,6 +43,10 @@ interface BillRow {
   installment_no: number | null;
   installment_count: number | null;
   sale_id?: number | null;
+  attachment_file?: string | null;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size?: number | null;
 }
 
 const repoForTable = (table: string) =>
@@ -57,7 +64,8 @@ function getBill(cfg: BillsConfig, id: string | number): (BillRow & Record<strin
             b.amount_cents, b.issue_date, b.due_date, b.status, b.${cfg.settleDateCol} AS settled_at,
             b.${cfg.settleCentsCol} AS settled_cents, b.notes, b.updated_at,
             b.settle_payment_method_id, spm.name AS settle_method_name,
-            b.installment_group_id, b.installment_no, b.installment_count${saleIdCol}${categoryCols}
+            b.installment_group_id, b.installment_no, b.installment_count${saleIdCol}${categoryCols},
+            b.attachment_file, b.attachment_name, b.attachment_mime, b.attachment_size
      FROM ${cfg.table} b ${joins}${categoryJoin}
      WHERE b.id = ? AND b.deleted_at IS NULL`,
     id,
@@ -112,7 +120,8 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
     const sql = `SELECT b.id, b.description, p.name AS party, b.amount_cents, b.issue_date, b.due_date, b.status,
                         b.notes, b.${cfg.settleDateCol} AS settled_at, b.${cfg.settleCentsCol} AS settled_cents,
                         spm.name AS settle_method_name,
-                        b.installment_group_id, b.installment_no, b.installment_count${saleIdCol}${categoryCols}
+                        b.installment_group_id, b.installment_no, b.installment_count${saleIdCol}${categoryCols},
+                        b.attachment_file, b.attachment_name, b.attachment_mime, b.attachment_size
                  FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
                       LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id${categoryJoin}
                  WHERE b.deleted_at IS NULL ${conditions} ORDER BY b.due_date, b.id`;
@@ -376,6 +385,77 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
       rolledOverCents, rolloverTarget, caixa: hasCash ? reg?.id : null,
     });
     res.json({ ok: true, settledCents: totalPaidCents, rolledOverCents, rolloverTarget, registeredInCash: hasCash });
+  });
+
+  // ─── Anexo de documento (boleto, nota, comprovante) ───
+  // O arquivo chega em base64 no corpo JSON e é gravado em disco; na conta fica só a
+  // referência. Anexar conta como "editar" (ou "criar", para quem acabou de lançar a conta
+  // e ainda não tem a permissão de edição).
+
+  router.post('/:id/attachment', requireAnyPermission(`${cfg.permPrefix}.edit`, `${cfg.permPrefix}.create`), (req, res) => {
+    const id = String(req.params.id);
+    const bill = getBill(cfg, id) as BillRow | undefined;
+    if (!bill) {
+      res.status(404).json({ error: 'Conta não encontrada.' });
+      return;
+    }
+    const file = typeof req.body?.file === 'string' ? req.body.file : '';
+    const name = typeof req.body?.name === 'string' ? req.body.name : '';
+    if (!file) {
+      res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+      return;
+    }
+    const saved = saveBillAttachment(file, name);
+    if (!saved.ok) {
+      res.status(400).json({ error: saved.error });
+      return;
+    }
+    // Troca de anexo: apaga o arquivo anterior depois de gravar o novo.
+    deleteBillAttachmentFile(bill.attachment_file);
+    repo.update(id, {
+      attachment_file: saved.file,
+      attachment_name: saved.name,
+      attachment_mime: saved.mime,
+      attachment_size: saved.size,
+    });
+    const after = getBill(cfg, id);
+    audit(req, 'anexar', cfg.entity, id, { attachment_name: bill.attachment_name ?? null }, { attachment_name: saved.name, attachment_size: saved.size });
+    res.json(after);
+  });
+
+  router.delete('/:id/attachment', requireAnyPermission(`${cfg.permPrefix}.edit`, `${cfg.permPrefix}.create`), (req, res) => {
+    const id = String(req.params.id);
+    const bill = getBill(cfg, id) as BillRow | undefined;
+    if (!bill) {
+      res.status(404).json({ error: 'Conta não encontrada.' });
+      return;
+    }
+    deleteBillAttachmentFile(bill.attachment_file);
+    repo.update(id, { attachment_file: null, attachment_name: null, attachment_mime: null, attachment_size: null });
+    const after = getBill(cfg, id);
+    audit(req, 'remover_anexo', cfg.entity, id, { attachment_name: bill.attachment_name ?? null }, null);
+    res.json(after);
+  });
+
+  router.get('/:id/attachment', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
+    const id = String(req.params.id);
+    const bill = getBill(cfg, id) as BillRow | undefined;
+    if (!bill || !bill.attachment_file) {
+      res.status(404).json({ error: 'Esta conta não tem documento anexado.' });
+      return;
+    }
+    const full = path.join(billAttachmentsDir(), path.basename(bill.attachment_file));
+    if (!fs.existsSync(full)) {
+      res.status(404).json({ error: 'O arquivo do anexo não está disponível neste computador.' });
+      return;
+    }
+    const name = bill.attachment_name || path.basename(full);
+    const buf = fs.readFileSync(full);
+    res.setHeader('Content-Disposition', contentDisposition(name));
+    res.setHeader('Content-Type', bill.attachment_mime || 'application/octet-stream');
+    res.setHeader('Content-Length', String(buf.length));
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(buf);
   });
 
   return router;
