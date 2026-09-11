@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Importação de NF-e por XML no Kivo — a nota do fornecedor vira estoque',
+    description: 'Envie o XML da NF-e (modelo 55, versão 4.00) e o Kivo lê produtos, fornecedor, quantidades e custos. Confira linha por linha, crie ou vincule produtos, e a compra entra no estoque com custo médio. Reversível a qualquer momento.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'recursos-nfe', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <a href="/recursos">Recursos</a> <span>›</span> <span>Importação de NF-e</span></div>
+      <h1>A nota do fornecedor <br /><em>vira estoque sem digitação.</em></h1>
+      <p>
+        Recebeu a mercadoria? Envie o XML da NF-e e o Kivo lê os produtos, o
+        fornecedor, as quantidades e os custos. Você só confere e confirma —
+        nada entra no estoque antes da sua revisão.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <%- include('partials/site/shot', { name: 'compras', alt: 'Compras do Kivo com a mercadoria recebida do fornecedor e os itens da nota' }) %>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Como funciona</div>
+        <h2>Enviar, conferir, confirmar</h2>
+        <p>Três passos no lugar de redigitar a nota inteira item por item.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Envie o XML</h3>
+          <p>Escolha o arquivo da NF-e (modelo 55, versão 4.00) ou cole o conteúdo do XML direto na tela.</p>
+        </div>
+        <div class="step">
+          <h3>Confira a leitura</h3>
+          <p>O Kivo mostra fornecedor, número, total e cada item já com uma sugestão de vínculo ou cadastro.</p>
+        </div>
+        <div class="step">
+          <h3>Confirme</h3>
+          <p>A compra entra no estoque com os custos conferidos e o custo médio de cada produto é atualizado.</p>
+        </div>
+        <div class="step">
+          <h3>Desfaça se precisar</h3>
+          <p>Importou errado? A qualquer momento dá para reverter: estoque e custo voltam ao estado anterior.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Conferência linha a linha</div>
+          <h2>Nada entra no estoque sem você ver</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Cada item da nota vira uma decisão sua: vincular a um produto que já
+            existe, criar um produto novo ou ignorar a linha. O sistema sugere o
+            caminho mais provável — você só ajusta o que precisar.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Reconhecimento automático</h3>
+              <p>O Kivo casa o item com o produto existente por código de barras, SKU ou nome e já sugere o vínculo.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Avisos de divergência</h3>
+              <p>Custo diferente do cadastrado, unidade trocada, NCM divergente ou EAN em conflito — tudo sinalizado.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Criar, vincular ou ignorar</h3>
+              <p>Linha a linha, com filtros para "precisam de atenção", "reconhecidos" e "ignorados".</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Aplicar sugestões de uma vez</h3>
+              <p>Confia no sistema? Um clique aceita as sugestões de todas as linhas e você revisa só as exceções.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kivo com custo, preço e estoque atualizados pela compra' }) %>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Por que isso muda o dia a dia</div>
+        <h2>Da nota de papel ao estoque correto, sem erro de digitação</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Chega de digitar nota</h3>
+          <p>Uma nota com 50 itens deixa de ser meia hora de digitação e vira uma conferência rápida na tela.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Custo médio atualizado</h3>
+          <p>A importação entra como uma compra normal: recalcula o custo médio e alimenta o CMV do DRE.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <h3>Fornecedor e vínculos</h3>
+          <p>Cria ou atualiza o fornecedor e guarda o código dele para cada produto — a próxima nota reconhece sozinha.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <h3>Histórico de importações</h3>
+          <p>Notas importadas com número, chave de acesso, fornecedor, total e quantos itens foram aceitos.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
+          <h3>Reversível</h3>
+          <p>Errou? Desfaz a importação: o estoque e o custo voltam e o que a nota criou é removido. Pode importar de novo.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissão separada</h3>
+          <p>Uma permissão para visualizar e conferir, outra para confirmar a importação. Cada cargo com seu acesso.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="pull">
+        <p><strong>Importar nota mexe em produto, fornecedor e estoque.</strong> Por isso o recurso nasce desligado: você ativa quando quiser, em Configurações → Recursos. É opt-in consciente, não surpresa.</p>
+        <div class="who">Disponível para todos os planos, inclusive no teste grátis.</div>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Pare de digitar nota de fornecedor',
+    ctaText: 'Ative a importação de NF-e no teste grátis e envie a próxima nota que chegar. A migração do seu catálogo está inclusa.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>
