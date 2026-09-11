@@ -16,7 +16,8 @@ export class PayableRepository extends BaseRepository {
               b.notes, b.paid_at AS settled_at, b.paid_cents AS settled_cents,
               spm.name AS settle_method_name,
               b.installment_group_id, b.installment_no, b.installment_count,
-              b.dre_category_id, dc.label AS dre_category_label
+              b.dre_category_id, dc.label AS dre_category_label,
+              b.attachment_file, b.attachment_name, b.attachment_mime, b.attachment_size
        FROM payables b LEFT JOIN suppliers s ON s.id = b.supplier_id
             LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id
             LEFT JOIN dre_categories dc ON dc.id = b.dre_category_id
@@ -32,7 +33,8 @@ export class PayableRepository extends BaseRepository {
               b.paid_cents AS settled_cents, b.notes, b.updated_at,
               b.settle_payment_method_id, spm.name AS settle_method_name,
               b.installment_group_id, b.installment_no, b.installment_count,
-              b.dre_category_id, dc.label AS dre_category_label
+              b.dre_category_id, dc.label AS dre_category_label,
+              b.attachment_file, b.attachment_name, b.attachment_mime, b.attachment_size
        FROM payables b LEFT JOIN suppliers s ON s.id = b.supplier_id
             LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id
             LEFT JOIN dre_categories dc ON dc.id = b.dre_category_id
@@ -75,7 +77,8 @@ export class ReceivableRepository extends BaseRepository {
               b.notes, b.received_at AS settled_at, b.received_cents AS settled_cents,
               spm.name AS settle_method_name,
               b.installment_group_id, b.installment_no, b.installment_count,
-              b.sale_id
+              b.sale_id,
+              b.attachment_file, b.attachment_name, b.attachment_mime, b.attachment_size
        FROM receivables b LEFT JOIN customers c ON c.id = b.customer_id
             LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id
        WHERE ${where} ORDER BY b.due_date, b.id`,
@@ -90,7 +93,8 @@ export class ReceivableRepository extends BaseRepository {
               b.received_cents AS settled_cents, b.notes, b.updated_at,
               b.settle_payment_method_id, spm.name AS settle_method_name,
               b.installment_group_id, b.installment_no, b.installment_count,
-              b.sale_id
+              b.sale_id,
+              b.attachment_file, b.attachment_name, b.attachment_mime, b.attachment_size
        FROM receivables b LEFT JOIN customers c ON c.id = b.customer_id
             LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id
        WHERE b.id = ? AND b.deleted_at IS NULL`,

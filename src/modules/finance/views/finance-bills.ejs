@@ -50,6 +50,11 @@
             <td>
               <span x-text="b.description"></span>
               <span class="badge neutral" x-show="b.installment_count > 1" style="margin-left:.4rem" x-text="b.installment_no + '/' + b.installment_count"></span>
+              <a class="badge neutral" x-show="b.attachment_name" :href="api + '/' + b.id + '/attachment"
+                 :title="'Baixar documento: ' + b.attachment_name" style="margin-left:.4rem; text-decoration:none">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                anexo
+              </a>
             </td>
             <td class="muted" x-text="b.party ?? '—'"></td>
             <td x-text="brl(b.amount_cents)"></td>
@@ -58,25 +63,34 @@
             <td><span class="badge" :class="b.status === 'aberta' ? 'off' : (b.status === 'cancelada' ? 'neutral' : 'ok')" x-text="b.status"></span></td>
             <% if (bills.categoryField) { %><td class="muted" x-text="b.dre_category_label ?? '—'"></td><% } %>
             <td class="text-right" @click.stop>
-              <div class="dropdown" x-show="b.status === 'aberta'">
+              <div class="dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === b.id ? null : b.id" title="Mais ações">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
                   </svg>
                 </button>
                 <div class="dropdown-menu" x-show="openMenu === b.id" x-cloak @click.outside="openMenu = null">
+                  <button @click="openMenu = null; openDetails(b)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Detalhes
+                  </button>
+                  <a x-show="b.attachment_name" :href="api + '/' + b.id + '/attachment" @click="openMenu = null"
+                     :title="'Baixar documento: ' + b.attachment_name">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Baixar anexo
+                  </a>
                   <% if (user.permissions.has(bills.settlePerm)) { %>
-                  <button @click="openMenu = null; openSettle(b)">
+                  <button x-show="b.status === 'aberta'" @click="openMenu = null; openSettle(b)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                     <%= bills.settleLabel %>
                   </button>
                   <% } %>
                   <% if (user.permissions.has(bills.editPerm)) { %>
-                  <button @click="openMenu = null; openEdit(b)">
+                  <button x-show="b.status === 'aberta'" @click="openMenu = null; openEdit(b)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     Editar
                   </button>
-                  <button class="danger" @click="openMenu = null; cancel(b)">
+                  <button class="danger" x-show="b.status === 'aberta'" @click="openMenu = null; cancel(b)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
                     Cancelar
                   </button>
@@ -126,6 +140,21 @@
       </div>
       <% } %>
       <label>Observações</label><input type="text" x-model="form.notes" />
+      <label>Anexo (boleto, nota, comprovante)</label>
+      <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap">
+        <input type="file" x-ref="formFile" style="display:none"
+               accept=".pdf,.png,.jpg,.jpeg,.webp,.xml,.csv,.ofx,.txt"
+               @change="onFormFile($event.target.files)" />
+        <button type="button" class="btn secondary small" @click="$refs.formFile.click()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          Escolher arquivo
+        </button>
+        <span class="muted text-xs" x-text="form.attachment ? form.attachment.name : (form.attachmentName || 'Nenhum arquivo')"></span>
+        <button type="button" class="btn secondary small" x-show="form.attachment" @click="clearFormFile()">Limpar</button>
+      </div>
+      <p class="hint" x-show="form.id && form.attachmentName && !form.attachment">
+        Documento atual: <strong x-text="form.attachmentName"></strong>. Envie outro para substituir.
+      </p>
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.dlg.close()">
@@ -136,6 +165,60 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           Salvar
         </button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="detailsDlg" class="dialog-fixed" style="width:min(520px,calc(100vw - 2rem))">
+      <h1>Detalhes da conta</h1>
+      <div class="dialog-body" x-show="details">
+        <p class="muted" style="margin-top:0" x-text="details.description"></p>
+        <table style="margin:0">
+          <tbody>
+            <tr><td class="muted"><%= bills.partyLabel %></td><td x-text="details.party ?? '—'"></td></tr>
+            <tr><td class="muted">Valor</td><td x-text="brl(details.amount_cents)"></td></tr>
+            <tr><td class="muted">Emissão</td><td x-text="details.issue_date ? fmtDate(details.issue_date) : '—'"></td></tr>
+            <tr><td class="muted">Vencimento</td><td x-text="fmtDate(details.due_date)"></td></tr>
+            <tr><td class="muted">Status</td><td x-text="details.status"></td></tr>
+            <% if (bills.categoryField) { %><tr><td class="muted">Categoria</td><td x-text="details.dre_category_label ?? '—'"></td></tr><% } %>
+            <tr x-show="details.settled_at"><td class="muted">Liquidada em</td><td x-text="details.settled_at ? fmtDate(details.settled_at) : '—'"></td></tr>
+            <tr x-show="details.installment_count > 1"><td class="muted">Parcela</td><td x-text="details.installment_no + '/' + details.installment_count"></td></tr>
+            <tr x-show="details.notes"><td class="muted">Observações</td><td x-text="details.notes"></td></tr>
+          </tbody>
+        </table>
+
+        <label style="margin-top:1rem">Documento anexado</label>
+        <div style="border:1px solid var(--border); border-radius:8px; padding:.75rem">
+          <template x-if="details.attachment_name">
+            <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span x-text="details.attachment_name" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap"></span>
+              <a class="btn secondary small" :href="api + '/' + details.id + '/attachment">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Baixar
+              </a>
+              <% if (user.permissions.has(bills.editPerm) || user.permissions.has(bills.createPerm)) { %>
+              <button type="button" class="btn danger small" @click="removeAttachment(details.id)">Remover</button>
+              <% } %>
+            </div>
+          </template>
+          <template x-if="!details.attachment_name">
+            <p class="muted" style="margin:0">Nenhum documento anexado.</p>
+          </template>
+          <% if (user.permissions.has(bills.editPerm) || user.permissions.has(bills.createPerm)) { %>
+          <div style="margin-top:.6rem">
+            <input type="file" x-ref="detailsFile" style="display:none"
+                   accept=".pdf,.png,.jpg,.jpeg,.webp,.xml,.csv,.ofx,.txt"
+                   @change="detailsPickFile($event.target.files)" />
+            <button type="button" class="btn secondary small" @click="$refs.detailsFile.click()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              <span x-text="details.attachment_name ? 'Trocar documento' : 'Anexar documento'"></span>
+            </button>
+          </div>
+          <% } %>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.detailsDlg.close()">Fechar</button>
       </div>
     </dialog>
 
@@ -207,6 +290,7 @@
         ...paymentMethodsMixin(),
         ...cashRegisterInlineOpenMixin(),
         rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
+        details: null,
         catQ: '', catResults: [], catIdx: -1,
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
         settleError: '',
@@ -242,31 +326,39 @@
         openNew() {
           const def = hasCategory ? this.categories.find((c) => c.key === 'outras_despesas_operacionais') : null;
           this.form = hasCategory
-            ? { issueDate: todayLocal(), dreCategoryId: def?.id ?? null, installments: 1 }
-            : { issueDate: todayLocal(), installments: 1 };
+            ? { issueDate: todayLocal(), dreCategoryId: def?.id ?? null, installments: 1, attachment: null, attachmentName: '' }
+            : { issueDate: todayLocal(), installments: 1, attachment: null, attachmentName: '' };
           this.catQ = def?.label ?? ''; this.catResults = [];
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
         openEdit(b) {
           this.form = { id: b.id, description: b.description, amount: (b.amount_cents / 100).toFixed(2).replace('.', ','),
-            issueDate: b.issue_date ?? '', dueDate: b.due_date, notes: b.notes ?? '', dreCategoryId: b.dre_category_id ?? null };
+            issueDate: b.issue_date ?? '', dueDate: b.due_date, notes: b.notes ?? '', dreCategoryId: b.dre_category_id ?? null,
+            attachment: null, attachmentName: b.attachment_name ?? '' };
           this.catQ = b.dre_category_label ?? ''; this.catResults = [];
           this.dlgError = ''; this.$refs.dlg.showModal();
         },
         async save() {
+          let savedId = this.form.id ?? null;
           if (this.form.id) {
             const r = await fetch(`${api}/${this.form.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
                 issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
                 dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined }) });
-            if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Conta salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
-            return;
+            if (!r.ok) { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); return; }
+          } else {
+            const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
+                issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
+                dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined, installments: this.form.installments || 1 }) });
+            if (!r.ok) { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); return; }
+            savedId = (await r.json()).id;
           }
-          const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ description: this.form.description, amountCents: this.cents(this.form.amount),
-              issueDate: this.form.issueDate || undefined, dueDate: this.form.dueDate, notes: this.form.notes || undefined,
-              dreCategoryId: hasCategory ? this.form.dreCategoryId : undefined, installments: this.form.installments || 1 }) });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Conta salva.', 'success'); } else { this.dlgError = (await r.json()).error; showToast(this.dlgError, 'error'); }
+          // Anexo escolhido no formulário: sobe depois de a conta existir (nova conta só ganha id aqui).
+          if (this.form.attachment && savedId) {
+            await this.uploadAttachment(savedId, this.form.attachment);
+          }
+          this.$refs.dlg.close(); this.load(); showToast('Conta salva.', 'success');
         },
         settleOwedCents() { return this.settleForm.suggestedSettleCents || this.settleForm.amountCents; },
         settleTotalCents() { return (this.settleForm.payments || []).reduce((s, p) => s + this.cents(p.amount), 0); },
@@ -312,6 +404,63 @@
           const r = await fetch(`${api}/${b.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'cancelada' }) });
           if (r.ok) { this.load(); showToast('Conta cancelada.', 'success'); } else showToast((await r.json()).error, 'error');
+        },
+
+        // ─── Anexo de documento (boleto, nota, comprovante) ───
+        readBase64(file) {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+        },
+        attachmentTooBig(file) {
+          if (file && file.size > 5 * 1024 * 1024) { showToast('Arquivo muito grande (máximo 5MB).', 'error'); return true; }
+          return false;
+        },
+        async onFormFile(files) {
+          if (!files || !files.length) return;
+          const f = files[0];
+          if (this.attachmentTooBig(f)) { this.clearFormFile(); return; }
+          try { this.form.attachment = { base64: await this.readBase64(f), name: f.name }; }
+          catch { showToast('Não foi possível ler o arquivo.', 'error'); }
+        },
+        clearFormFile() {
+          this.form.attachment = null;
+          if (this.$refs.formFile) this.$refs.formFile.value = '';
+        },
+        async uploadAttachment(id, attachment) {
+          const r = await fetch(`${api}/${id}/attachment`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: attachment.base64, name: attachment.name }) });
+          if (!r.ok) { showToast((await r.json()).error || 'Não foi possível anexar o documento.', 'error'); return false; }
+          return true;
+        },
+        openDetails(b) {
+          this.details = { ...b };
+          this.$refs.detailsDlg.showModal();
+        },
+        refreshDetails() {
+          if (!this.details) return;
+          const fresh = this.rows.find((r) => r.id === this.details.id);
+          if (fresh) this.details = { ...fresh };
+        },
+        async detailsPickFile(files) {
+          if (!files || !files.length || !this.details) return;
+          const f = files[0];
+          if (this.attachmentTooBig(f)) { if (this.$refs.detailsFile) this.$refs.detailsFile.value = ''; return; }
+          try {
+            const base64 = await this.readBase64(f);
+            const ok = await this.uploadAttachment(this.details.id, { base64, name: f.name });
+            if (ok) { await this.load(); this.refreshDetails(); showToast('Documento anexado.', 'success'); }
+          } catch { showToast('Não foi possível ler o arquivo.', 'error'); }
+          finally { if (this.$refs.detailsFile) this.$refs.detailsFile.value = ''; }
+        },
+        async removeAttachment(id) {
+          if (!await window.confirmDlg('Remover o documento anexado?')) return;
+          const r = await fetch(`${api}/${id}/attachment`, { method: 'DELETE' });
+          if (!r.ok) { showToast((await r.json()).error || 'Não foi possível remover.', 'error'); return; }
+          await this.load(); this.refreshDetails(); showToast('Documento removido.', 'success');
         },
       };
     }

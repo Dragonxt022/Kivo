@@ -27,6 +27,7 @@ import { validateLicense, isActivated, refreshLicenseFromCloud } from './license
 import activationRoutes from './license/activationRoutes';
 import { productImagesDir, categoryImagesDir, trySubmitPending } from './catalog/submissionQueue';
 import { companyLogoDir, LOGO_SETTING_KEY } from './config/companyLogo';
+import { billAttachmentsDir } from '../modules/finance/attachments';
 import { getSqlite } from './database/connection';
 import { registerSyncTables } from './sync/registry';
 import { startSyncScheduler } from './sync/scheduler';
@@ -278,6 +279,7 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/uploads/products', express.static(productImagesDir()));
   app.use('/uploads/categories', express.static(categoryImagesDir()));
   app.use('/uploads/company', express.static(companyLogoDir()));
+  app.use('/uploads/bills', express.static(billAttachmentsDir()));
 
   // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
   app.use(responseEnvelope);

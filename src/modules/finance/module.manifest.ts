@@ -49,8 +49,12 @@ const manifest: ModuleManifest = {
   // já são congelados na própria linha, que é o que realmente importa para o histórico).
   syncTables: [
     { table: 'cash_registers', excludeColumns: ['opened_by', 'closed_by', 'edited_by'] },
-    { table: 'payables', foreignKeys: { supplier_id: 'suppliers', dre_category_id: 'dre_categories' } },
-    { table: 'receivables', foreignKeys: { customer_id: 'customers', sale_id: 'sales', agreement_company_id: 'agreement_companies' } },
+    // Anexos (0066) ficam de fora: o arquivo é desta máquina e uma referência sincronizada
+    // sem o arquivo viraria link morto no segundo computador da loja.
+    { table: 'payables', foreignKeys: { supplier_id: 'suppliers', dre_category_id: 'dre_categories' },
+      excludeColumns: ['attachment_file', 'attachment_name', 'attachment_mime', 'attachment_size'] },
+    { table: 'receivables', foreignKeys: { customer_id: 'customers', sale_id: 'sales', agreement_company_id: 'agreement_companies' },
+      excludeColumns: ['attachment_file', 'attachment_name', 'attachment_mime', 'attachment_size'] },
     {
       table: 'cash_movements',
       excludeColumns: ['ref_id', 'user_id'],
