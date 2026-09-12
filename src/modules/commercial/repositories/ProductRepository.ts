@@ -43,25 +43,25 @@ export class ProductRepository extends BaseRepository<ProductRow> {
     );
   }
 
-  search(query: string): Row[] {
-    return this.raw(
-      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+  search(query: string, limit?: number): Row[] {
+    let sql = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.deleted_at IS NULL
          AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)
          AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)
-       ORDER BY p.favorite DESC, p.name`,
-      `%${query}%`, query, query,
-    );
+       ORDER BY p.favorite DESC, p.name`;
+    const params: unknown[] = [`%${query}%`, query, query];
+    if (limit && limit > 0) { sql += ' LIMIT ?'; params.push(limit); }
+    return this.raw(sql, ...params);
   }
 
-  searchAll(query: string): Row[] {
-    return this.raw(
-      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+  searchAll(query: string, limit?: number): Row[] {
+    let sql = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.deleted_at IS NULL
          AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)
-       ORDER BY p.favorite DESC, p.name`,
-      `%${query}%`, query, query,
-    );
+       ORDER BY p.favorite DESC, p.name`;
+    const params: unknown[] = [`%${query}%`, query, query];
+    if (limit && limit > 0) { sql += ' LIMIT ?'; params.push(limit); }
+    return this.raw(sql, ...params);
   }
 
   listTopLevel(): Row[] {
@@ -93,6 +93,17 @@ export class ProductRepository extends BaseRepository<ProductRow> {
       `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.deleted_at IS NULL AND p.parent_product_id IS NULL
        ORDER BY p.favorite DESC, p.name`,
+    );
+  }
+
+  /** Vendáveis marcados como favoritos — a grade de acesso rápido do PDV. */
+  listFavorites(limit = 40): Row[] {
+    return this.raw(
+      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.deleted_at IS NULL AND p.favorite = 1
+         AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)
+       ORDER BY p.name LIMIT ?`,
+      limit,
     );
   }
 

@@ -219,6 +219,10 @@
     "description": "Testes: clientes (segmentação, extratos, filtros, exportação)",
     "run": "node scripts/test-isolated.js src/tests/customer-profile.ts"
   },
+  "test:pdv-improvements": {
+    "description": "Testes: PDV (busca, favoritos, desconto, devolução parcial, histórico)",
+    "run": "node scripts/test-isolated.js src/tests/pdv-improvements.ts"
+  },
   "test:fase8": {
     "description": "Testes: faturamento",
     "run": "tsx src/tests/fase8.ts"

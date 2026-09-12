@@ -17,15 +17,32 @@
       { value: 'concluida', label: 'Concluida', color: '#16a34a' },
       { value: 'cancelada', label: 'Cancelada', color: '#6b7280' }
     ];
+    var _canReturn = user.permissions.has('store.sales.return');
   %>
-  <main x-data="salesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; load()">
+  <main x-data="salesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; page=1; load()">
     <h1>Vendas</h1>
     <div class="toolbar">
-      <%- include('partials/search-filter', { statusOptions: _sfStatusOpts, placeholder: 'Buscar por cliente' }) %>
+      <%- include('partials/search-filter', { statusOptions: _sfStatusOpts, placeholder: 'Buscar por cliente ou #venda' }) %>
+      <select x-model="paymentMethod" @change="page=1; load()" title="Forma de pagamento">
+        <option value="">Todas as formas</option>
+        <option value="dinheiro">Dinheiro</option>
+        <option value="cartao_debito">Débito</option>
+        <option value="cartao_credito">Crédito</option>
+        <option value="pix">PIX</option>
+        <option value="prazo">A prazo</option>
+      </select>
+      <select x-model="sellerId" @change="page=1; load()" title="Vendedor">
+        <option value="">Todos os vendedores</option>
+        <template x-for="u in sellers" :key="u.id"><option :value="u.id" x-text="u.username"></option></template>
+      </select>
+      <span class="toolbar-spacer"></span>
       <% if (user.permissions.has('store.reports.view')) { %>
-        <span class="muted">Vendas: <strong x-text="filterRows(rows, filter).length"></strong> ·
-          total <strong x-text="brl(filterRows(rows, filter).reduce((s, r) => s + r.total_cents, 0))"></strong></span>
+        <span class="muted">Total: <strong x-text="brl(totalSum())"></strong></span>
       <% } %>
+      <a class="btn secondary small" :href="'/api/store/sales/export.csv' + (queryString ? '?' + queryString : '')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </a>
       <span class="error" x-text="error"></span>
     </div>
 
@@ -63,6 +80,7 @@
         <th @click="sortCycle('customer')" class="sortable">Cliente<span class="sort-arrow" x-text="sortArrow('customer')"></span></th>
         <th @click="sortCycle('payment_method')" class="sortable">Pagamento<span class="sort-arrow" x-text="sortArrow('payment_method')"></span></th>
         <th @click="sortCycle('total_cents')" class="sortable">Total<span class="sort-arrow" x-text="sortArrow('total_cents')"></span></th>
+        <th>Devolvido</th>
         <th @click="sortCycle('status')" class="sortable">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
         <th @click="sortCycle('username')" class="sortable">Vendedor<span class="sort-arrow" x-text="sortArrow('username')"></span></th>
         <th></th>
@@ -75,6 +93,7 @@
             <td class="muted" x-text="s.customer ?? '—'"></td>
             <td x-text="label(s)"></td>
             <td x-text="brl(s.total_cents)"></td>
+            <td class="muted" x-text="s.returned_cents > 0 ? brl(s.returned_cents) : '—'"></td>
             <td><span class="badge" :class="s.status === 'concluida' ? 'ok' : 'off'" x-text="s.status"></span></td>
             <td class="muted" x-text="s.username"></td>
             <td class="text-right" @click.stop>
@@ -85,6 +104,10 @@
                   </svg>
                 </button>
                 <div class="dropdown-menu" x-show="openMenu === s.id" x-cloak @click.outside="openMenu = null">
+                  <button @click="openMenu = null; openDetail(s)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Detalhes
+                  </button>
                   <button @click="openMenu = null; window.open(`/app/store/vendas/${s.id}/cupom`, '_blank', 'width=380,height=600')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                     Cupom
@@ -100,17 +123,112 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!displayRows.length"><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhuma venda registrada ainda.' }) %></td></tr>
+        <tr x-show="!pageTotal"><td colspan="9"><%- include('partials/empty-state', { message: 'Nenhuma venda encontrada.' }) %></td></tr>
       </tbody>
     </table>
     <%- include('partials/pager') %>
+
+    <dialog x-ref="detailDlg" style="width:min(820px,94vw)">
+      <h1 x-text="'Venda #' + (detail.id ?? '')"></h1>
+      <div class="dialog-body">
+        <p class="muted">
+          <span x-text="fmtDateTime(detail.created_at)"></span>
+          <span x-show="detail.customer"> · <span x-text="detail.customer"></span></span>
+          <span x-show="detail.username"> · <span x-text="detail.username"></span></span>
+        </p>
+
+        <h2 style="font-size:1rem">Itens</h2>
+        <table>
+          <thead><tr><th>Produto</th><th>Qtd</th><th class="text-right">Unit.</th><th class="text-right">Total</th></tr></thead>
+          <tbody>
+            <template x-for="(it, idx) in (detail.items || [])" :key="idx">
+              <tr>
+                <td><span x-text="it.product_name"></span><span class="muted text-xs" x-show="it.notes" x-text="' — ' + it.notes"></span></td>
+                <td x-text="it.qty"></td>
+                <td class="text-right" x-text="brl(it.unit_price_cents)"></td>
+                <td class="text-right" x-text="brl(it.total_cents)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+
+        <h2 style="font-size:1rem;margin-top:.8rem">Pagamentos</h2>
+        <table>
+          <thead><tr><th>Forma</th><th class="text-right">Valor</th><th class="text-right">Taxa</th></tr></thead>
+          <tbody>
+            <template x-for="(p, idx) in (detail.payments || [])" :key="idx">
+              <tr><td x-text="p.method_name"></td><td class="text-right" x-text="brl(p.amount_cents)"></td><td class="text-right muted" x-text="brl(p.fee_cents)"></td></tr>
+            </template>
+          </tbody>
+        </table>
+
+        <template x-if="(detail.returns || []).length">
+          <div>
+            <h2 style="font-size:1rem;margin-top:.8rem">Devoluções</h2>
+            <table>
+              <thead><tr><th>Data</th><th>Reembolso</th><th class="text-right">Valor</th><th>Obs.</th></tr></thead>
+              <tbody>
+                <template x-for="(r, idx) in detail.returns" :key="idx">
+                  <tr>
+                    <td class="muted" x-text="fmtDateTime(r.created_at)"></td>
+                    <td x-text="refundLabel(r.refund_method)"></td>
+                    <td class="text-right" x-text="brl(r.total_cents)"></td>
+                    <td class="muted" x-text="r.notes ?? '—'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+
+        <% if (_canReturn) { %>
+        <template x-if="detail.status === 'concluida' && returnLines.length">
+          <div>
+            <h2 style="font-size:1rem;margin-top:.8rem">Devolver itens</h2>
+            <table>
+              <thead><tr><th>Produto</th><th>Vendido</th><th>Já devolvido</th><th style="width:110px">Devolver</th></tr></thead>
+              <tbody>
+                <template x-for="l in returnLines" :key="l.product_id">
+                  <tr>
+                    <td x-text="l.product_name"></td>
+                    <td x-text="l.sold_qty"></td>
+                    <td class="muted" x-text="l.returned_qty"></td>
+                    <td><input type="number" min="0" step="any" :max="l.remaining_qty" x-model.number="l.qty" /></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <label style="margin-top:.6rem">Reembolso</label>
+            <select x-model="returnForm.refundMethod">
+              <option value="nenhum">Sem reembolso (só recompõe o estoque)</option>
+              <option value="dinheiro">Dinheiro (saída do caixa)</option>
+              <option value="credito_loja">Crédito de loja</option>
+            </select>
+            <label>Observação (opcional)</label>
+            <input type="text" x-model="returnForm.notes" maxlength="200" />
+            <div class="error" x-text="returnError"></div>
+          </div>
+        </template>
+        <% } %>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.detailDlg.close()">Fechar</button>
+        <% if (_canReturn) { %>
+        <button class="btn" x-show="detail.status === 'concluida' && returnLines.length" @click="submitReturn()">
+          Registrar devolução
+        </button>
+        <% } %>
+      </div>
+    </dialog>
   </main>
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
   <script nonce="<%= cspNonce %>">
     function salesPage() {
       return {
         ...tableToolkit(),
-        rows: [], report: {}, day: todayLocal(), error: '', filter: {},
+        rows: [], total: 0, report: {}, day: todayLocal(), error: '', filter: {},
+        paymentMethod: '', sellerId: '', sellers: [], pageSize: 50,
+        detail: {}, returnLines: [], returnForm: { refundMethod: 'nenhum', notes: '' }, returnError: '',
         labels: { dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito', pix: 'PIX', prazo: 'A prazo',
           credito_loja: 'Crédito Loja', fidelidade: 'Fidelidade', convenio: 'Convênio', outro: 'Outro' },
         sortGetters: {
@@ -118,9 +236,25 @@
           payment_method: (s) => s.payment_method ?? '', total_cents: (s) => s.total_cents, status: (s) => s.status ?? '',
           username: (s) => s.username ?? '',
         },
-        get displayRows() { return this.sortedRows(filterRows(this.rows, this.filter), this.sortGetters); },
-        get pageTotal() { return this.displayRows.length; },
-        get pageRows() { return this.pagedRows(this.displayRows); },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        get pageRows() { return this.displayRows; },
+        get pageTotal() { return this.total; },
+        get queryString() {
+          const p = new URLSearchParams();
+          if (this.filter.q) p.set('q', this.filter.q);
+          if (this.filter.status) p.set('status', this.filter.status);
+          if (this.filter.from) p.set('from', this.filter.from);
+          if (this.filter.to) p.set('to', this.filter.to);
+          if (this.paymentMethod) p.set('paymentMethod', this.paymentMethod);
+          if (this.sellerId) p.set('userId', this.sellerId);
+          return p.toString();
+        },
+        sortCycle(col) {
+          if (this.sortBy !== col) { this.sortBy = col; this.sortDir = 'asc'; }
+          else if (this.sortDir === 'asc') this.sortDir = 'desc';
+          else { this.sortBy = null; this.sortDir = null; }
+        },
+        goToPage(n, total) { this.page = Math.min(Math.max(1, n), this.pageCount(total)); this.load(); },
         label(s) {
           if (typeof s === 'object') {
             if (s.payment_count > 1) return s.payment_count + ' métodos';
@@ -128,12 +262,49 @@
           }
           return this.labels[s] ?? s;
         },
+        refundLabel(m) {
+          return ({ nenhum: 'Sem reembolso', dinheiro: 'Dinheiro', credito_loja: 'Crédito de loja' })[m] ?? m;
+        },
         brl(c) { return window.brl(c); },
+        totalSum() { return this.rows.reduce((s, r) => s + (r.status === 'concluida' ? r.total_cents : 0), 0); },
         async load() {
-          const r = await fetch('/api/store/sales');
-          if (r.ok) this.rows = await r.json();
+          const qs = this.queryString;
+          const offset = (this.page - 1) * this.pageSize;
+          const r = await fetch(`/api/store/sales?${qs}${qs ? '&' : ''}limit=${this.pageSize}&offset=${offset}`);
+          if (r.ok) {
+            this.rows = await r.json();
+            this.total = Number(r.headers.get('x-total-count') ?? this.rows.length);
+            this.page = Math.min(this.page, this.pageCount(this.total));
+          } else this.error = (await r.json()).error ?? 'Erro ao carregar vendas.';
           const rep = await fetch('/api/store/reports/daily?day=' + this.day);
           if (rep.ok) this.report = await rep.json();
+          if (!this.sellers.length) {
+            const s = await fetch('/api/store/sales/sellers');
+            if (s.ok) this.sellers = await s.json();
+          }
+        },
+        async openDetail(s) {
+          const r = await fetch(`/api/store/sales/${s.id}`);
+          if (!r.ok) { showToast((await r.json()).error ?? 'Erro ao abrir venda.', 'error'); return; }
+          this.detail = await r.json();
+          this.returnError = '';
+          this.returnForm = { refundMethod: 'nenhum', notes: '' };
+          this.returnLines = (this.detail.returnable || [])
+            .filter((l) => l.remaining_qty > 0)
+            .map((l) => ({ ...l, qty: 0 }));
+          this.$refs.detailDlg.showModal();
+        },
+        async submitReturn() {
+          const items = this.returnLines.filter((l) => l.qty > 0).map((l) => ({ productId: l.product_id, qty: l.qty }));
+          if (!items.length) { this.returnError = 'Informe a quantidade a devolver.'; return; }
+          const r = await fetch(`/api/store/sales/${this.detail.id}/return`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items, refundMethod: this.returnForm.refundMethod, notes: this.returnForm.notes || undefined }),
+          });
+          if (!r.ok) { this.returnError = (await r.json()).error ?? 'Erro ao registrar devolução.'; return; }
+          showToast('Devolução registrada.', 'success');
+          this.$refs.detailDlg.close();
+          this.load();
         },
         async cancel(s) {
           if (!await window.confirmDlg(`Cancelar a venda #${s.id} (${this.brl(s.total_cents)})? O estoque será devolvido` + (s.payment_method === 'dinheiro' ? ' e o dinheiro sairá da gaveta.' : '.'))) return;

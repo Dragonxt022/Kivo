@@ -153,20 +153,28 @@ function prepareProductImage(b: Record<string, unknown>): {
 router.get('/products', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const includeParents = req.query.includeParents === 'true';
+  // Limite opcional: o PDV pede uma lista curta (busca rápida) sem travar em catálogo grande.
+  const rawLimit = Number(req.query.limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 200) : undefined;
   // scope=sellable: lista sem busca que INCLUI as variantes filhas (listTopLevel as exclui).
   if (!q && req.query.scope === 'sellable') {
     res.json(productRepository.listSellable());
     return;
   }
+  // scope=favorites: grade de acesso rápido do PDV (produtos marcados como favoritos).
+  if (!q && req.query.scope === 'favorites') {
+    res.json(productRepository.listFavorites(limit ?? 40));
+    return;
+  }
   if (includeParents) {
     if (q) {
-      res.json(productRepository.searchAll(q));
+      res.json(productRepository.searchAll(q, limit));
     } else {
       res.json(productRepository.listAll());
     }
   } else {
     if (q) {
-      res.json(productRepository.search(q));
+      res.json(productRepository.search(q, limit));
     } else {
       res.json(productRepository.listTopLevel());
     }
@@ -762,7 +770,9 @@ router.post('/products/:id/duplicate', requirePermission('commercial.products.cr
   res.status(201).json(created);
 });
 
-router.get('/products/by-barcode/:code', requirePermission('commercial.products.view'), (req, res) => {
+// `search` (e não só `view`): o operador de PDV pode não ter acesso ao catálogo
+// administrativo, mas precisa bipar o código de barras.
+router.get('/products/by-barcode/:code', requireAnyPermission('commercial.products.view', 'commercial.products.search'), (req, res) => {
   const row = productRepository.findByBarcode(String(req.params.code));
   if (!row) {
     res.status(404).json({ error: 'Nenhum produto com este código.' });

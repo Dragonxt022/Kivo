@@ -9,8 +9,12 @@ const router = Router();
 router.get('/payment-methods', requirePermission('store.sales.create'), storeController.listPaymentMethods);
 router.post('/sales', requirePermission('store.sales.create'), validateBody(createSaleSchema), storeController.createSaleAction);
 router.get('/sales', requirePermission('store.sales.view'), storeController.listSales);
+// export.csv e sellers antes de /sales/:id, senão ":id" capturaria os nomes.
+router.get('/sales/export.csv', requirePermission('store.sales.view'), storeController.exportSales);
+router.get('/sales/sellers', requirePermission('store.sales.view'), storeController.listSellers);
 router.get('/sales/:id', requirePermission('store.sales.view'), storeController.getSale);
 router.post('/sales/:id/cancel', requirePermission('store.sales.cancel'), storeController.cancelSaleAction);
+router.post('/sales/:id/return', requirePermission('store.sales.return'), storeController.returnSaleAction);
 
 router.get('/quotes', requirePermission('store.quotes.view'), storeController.listQuotes);
 router.get('/quotes/:id', requirePermission('store.quotes.view'), storeController.getQuote);
