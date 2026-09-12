@@ -6,6 +6,7 @@ import licenseRoutes from './routes/license';
 import backupRoutes from './routes/backup';
 import billingRoutes from './routes/billing';
 import catalogRoutes from './routes/catalog';
+import themeRoutes from './routes/themes';
 import adminRoutes from './routes/admin';
 import wikiRoutes from './routes/wiki';
 import landingRoutes from './routes/landing';
@@ -36,6 +37,9 @@ export function createCloudServer() {
   app.use('/api/backup', backupRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/catalog', catalogRoutes);
+  // Loja de temas (pacotes de ícones): o servidor local do desktop chama com as credenciais
+  // de licença da empresa.
+  app.use('/api/themes', themeRoutes);
   // Kivo Web. As concessões e a fila vista pelo celular vivem em /api/mobile (cookie de
   // acesso); o lado do desktop fica em /api/commands (credenciais de licença).
   app.use('/api/mobile', mobileGrantsRoutes);

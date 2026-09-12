@@ -517,6 +517,50 @@
         </p>
         <p class="error" x-show="erro" x-cloak x-text="erro"></p>
       </section>
+
+      <section class="panel" x-data="themeStore()" x-init="load()">
+        <h2>Loja de temas</h2>
+        <p class="hint mt-0">
+          Temas prontos do Kivo Cloud. Os <strong>grátis</strong> você baixa e usa na hora; os
+          <strong>pagos</strong> ficam bloqueados até o suporte liberar para a sua empresa.
+        </p>
+        <p class="hint" x-show="!loading && !themes.length" x-cloak>
+          <span x-show="!configured">Nuvem não configurada nesta instalação.</span>
+          <span x-show="configured">Nenhum tema disponível no momento.</span>
+        </p>
+        <div class="theme-store-grid" x-show="themes.length" x-cloak>
+          <template x-for="t in themes" :key="'st-' + t.id">
+            <div class="icon-pack-card">
+              <div class="icon-pack-cover">
+                <template x-if="t.cover">
+                  <img :src="t.cover" :alt="'Capa de ' + t.name" loading="lazy" @error="t.cover = null" />
+                </template>
+                <div class="icon-pack-cover-fallback" x-show="!t.cover"><span x-text="t.name"></span></div>
+                <span class="icon-pack-badge" x-show="!t.available" x-cloak>Pago</span>
+              </div>
+              <div class="icon-pack-info">
+                <strong x-text="t.name"></strong>
+                <span class="muted" x-text="t.free ? 'Grátis' : ('R$ ' + brl(t.priceCents)) + (t.granted ? ' · liberado' : '')"></span>
+              </div>
+              <button type="button" class="btn small" x-show="t.available" :disabled="installing" @click="install(t)">Baixar e usar</button>
+              <button type="button" class="btn secondary small" x-show="!t.available" disabled>Bloqueado — fale com o suporte</button>
+            </div>
+          </template>
+        </div>
+        <p class="error" x-show="erro" x-cloak x-text="erro"></p>
+
+        <%# Animação de download: overlay com barra. O download acontece no servidor local
+            (proxy da nuvem), então não há progresso real — a barra "respira" até a resposta
+            e trava em 100% antes de recarregar para aplicar os ícones. %>
+        <div class="theme-download" x-show="installing" x-cloak>
+          <div class="theme-download-box">
+            <div class="theme-download-spinner" aria-hidden="true"></div>
+            <strong x-text="'Baixando ' + (installingName || 'tema') + '…'"></strong>
+            <div class="theme-download-bar"><i :style="'width:' + progress + '%'"></i></div>
+            <span class="muted" x-text="progress + '%'"></span>
+          </div>
+        </div>
+      </section>
     </div>
 
     <!-- ═══════ ABA: FINANCEIRO ═══════ -->
@@ -1231,6 +1275,61 @@
     // URL: um valor desconhecido esconderia todos os painéis e a tela ficaria em branco.
     const SETTINGS_TABS = ['license', 'empresa', 'stock', 'sales', 'financeiro', 'fidelidade',
                            'interface', 'rede', 'cardapio', 'security', 'atualizacao', 'advanced'];
+
+    /**
+     * Loja de temas. O download/instalação roda no servidor local (proxy da nuvem, com as
+     * credenciais de licença), então aqui só orquestramos a UI: buscar a lista, mostrar a
+     * animação enquanto o POST está em voo e recarregar para aplicar os ícones.
+     */
+    function themeStore() {
+      return {
+        themes: [], loading: true, configured: true, installing: false, installingName: '', progress: 0, erro: '',
+        async load() {
+          try {
+            const r = await fetch('/api/settings/theme-store');
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { this.erro = d.error || 'Não foi possível carregar a loja.'; this.configured = d.configured !== false; return; }
+            this.themes = d.themes || [];
+            this.configured = d.configured !== false;
+          } catch (e) {
+            this.erro = 'Erro de conexão ao carregar a loja.';
+          } finally {
+            this.loading = false;
+          }
+        },
+        async install(t) {
+          if (this.installing) return;
+          this.installing = true;
+          this.installingName = t.name;
+          this.progress = 0;
+          this.erro = '';
+          const timer = setInterval(() => {
+            if (this.progress < 90) this.progress += Math.max(1, Math.round((90 - this.progress) / 8));
+          }, 200);
+          try {
+            const r = await fetch('/api/settings/theme-store/install', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: t.id }),
+            });
+            if (!r.ok) {
+              const d = await r.json().catch(() => ({}));
+              this.erro = d.error || 'Não foi possível baixar o tema.';
+              clearInterval(timer);
+              this.installing = false;
+              return;
+            }
+            this.progress = 100;
+            clearInterval(timer);
+            // Recarrega para os ícones novos (renderizados no servidor) aparecerem.
+            setTimeout(() => location.reload(), 450);
+          } catch (e) {
+            clearInterval(timer);
+            this.erro = 'Erro de conexão ao baixar o tema.';
+            this.installing = false;
+          }
+        },
+      };
+    }
 
     function settingsPage() {
       return {

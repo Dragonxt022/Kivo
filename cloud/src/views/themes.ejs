@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Temas</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .theme-card { display: flex; flex-direction: column; gap: 14px; }
+    .theme-card-head { display: flex; gap: 14px; align-items: flex-start; }
+    .theme-cover { width: 120px; height: 76px; flex: none; border-radius: 10px; overflow: hidden; background: #f4f4f5; display: grid; place-items: center; border: 1px solid #e5e7eb; }
+    .theme-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .theme-cover-empty { font-size: 12px; color: #888; }
+    .theme-card-info { flex: 1; min-width: 0; }
+    .theme-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-top: 4px; }
+    .theme-grants { border-top: 1px solid #eee; padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .theme-grant-form { display: flex; gap: 8px; flex-wrap: wrap; }
+    .theme-grant-form select { min-width: 240px; }
+    .theme-granted { display: flex; flex-wrap: wrap; gap: 8px; }
+    .theme-grant-chip { display: inline-flex; align-items: center; gap: 6px; background: #f4f4f5; border: 1px solid #e5e7eb; border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 12px; }
+    .theme-grant-chip form { display: inline; margin: 0; }
+    .theme-grant-chip button { border: 0; background: transparent; cursor: pointer; font-size: 14px; line-height: 1; color: #888; padding: 0 4px; }
+    .theme-grant-chip button:hover { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'themes' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'themes' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <h1>Temas</h1>
+          <button class="btn" onclick="document.getElementById('modal-new-theme').showModal()">+ Novo tema</button>
+        </div>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="error-banner"><%= error %></div>
+        <% } %>
+        <% if (typeof ok !== 'undefined' && ok) { %>
+          <div class="success-banner">Feito: <%= ok %>.</div>
+        <% } %>
+
+        <div class="card">
+          <p class="card-intro" style="margin:0">
+            Cadastre pacotes de ícones (temas). Tema <strong>grátis</strong> fica disponível para
+            todas as empresas; tema <strong>pago</strong> só para as empresas que você liberar
+            abaixo. O cliente baixa e ativa em <em>Configurações → Interface</em>.
+          </p>
+        </div>
+
+        <% if (!themes.length) { %>
+          <div class="card"><%- include('partials/empty-state', { message: 'Nenhum tema cadastrado ainda.' }) %></div>
+        <% } %>
+
+        <% themes.forEach(function(t) { %>
+          <% var lista = grants.get(Number(t.id)) || []; %>
+          <div class="card theme-card">
+            <div class="theme-card-head">
+              <div class="theme-cover">
+                <% if (t.cover_path) { %>
+                  <img src="/admin/themes/<%= t.id %>/cover" alt="Capa de <%= t.name %>">
+                <% } else { %>
+                  <span class="theme-cover-empty">sem capa</span>
+                <% } %>
+              </div>
+              <div class="theme-card-info">
+                <h2 style="margin:0"><%= t.name %></h2>
+                <div class="theme-meta">
+                  <% if (t.price_cents > 0) { %>
+                    <span class="badge">Pago</span>
+                    <span>R$ <%= (t.price_cents / 100).toFixed(2).replace('.', ',') %></span>
+                  <% } else { %>
+                    <span class="badge paga">Grátis</span>
+                  <% } %>
+                  <span class="cell-muted">· <%= t.files_count %> ícone(s) · slug <code><%= t.slug %></code></span>
+                </div>
+                <% if (t.description) { %><p class="cell-muted" style="margin:.35rem 0 0"><%= t.description %></p><% } %>
+              </div>
+              <form method="post" action="/admin/themes/<%= t.id %>/delete" onsubmit="return confirm('Remover o tema <%= t.name %>? Empresas que já baixaram mantêm os ícones.');">
+                <button type="submit" class="btn danger small">Excluir</button>
+              </form>
+            </div>
+
+            <div class="theme-grants">
+              <% if (t.price_cents > 0) { %>
+                <form method="post" action="/admin/themes/<%= t.id %>/grant" class="theme-grant-form">
+                  <select name="companyUuid" required>
+                    <option value="">Liberar para…</option>
+                    <% companies.forEach(function(c) { %>
+                      <option value="<%= c.company_uuid %>"><%= c.name || c.company_uuid %></option>
+                    <% }); %>
+                  </select>
+                  <button type="submit" class="btn small">Liberar</button>
+                </form>
+                <div class="theme-granted">
+                  <% if (!lista.length) { %>
+                    <span class="cell-muted">Nenhuma empresa liberada.</span>
+                  <% } else { %>
+                    <% lista.forEach(function(g) { %>
+                      <span class="theme-grant-chip">
+                        <%= g.company_name || g.company_uuid %>
+                        <form method="post" action="/admin/themes/<%= t.id %>/revoke" onsubmit="return confirm('Revogar o acesso desta empresa?');">
+                          <input type="hidden" name="companyUuid" value="<%= g.company_uuid %>">
+                          <button type="submit" title="Revogar">&times;</button>
+                        </form>
+                      </span>
+                    <% }); %>
+                  <% } %>
+                </div>
+              <% } else { %>
+                <span class="cell-muted">Tema grátis — disponível para todas as empresas.</span>
+              <% } %>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="modal-new-theme">
+    <form id="new-theme-form" onsubmit="return false;">
+      <div class="modal-header">
+        <h2>Novo tema</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-theme').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nome do tema</label>
+        <input type="text" id="theme-name" required maxlength="120" placeholder="Ex.: 3D Max, Linha fina, Neon">
+
+        <label>Descrição (opcional)</label>
+        <input type="text" id="theme-desc" maxlength="500" placeholder="Uma linha explicando o estilo">
+
+        <label class="label-checkbox" style="margin-top:.5rem">
+          <input type="checkbox" id="theme-free" checked onchange="document.getElementById('theme-price-wrap').style.display = this.checked ? 'none' : 'block'">
+          Tema grátis para todos
+        </label>
+        <div id="theme-price-wrap" style="display:none">
+          <label>Preço (R$)</label>
+          <input type="text" id="theme-price" placeholder="0,00" inputmode="decimal">
+        </div>
+
+        <label>Foto de capa (jpg, png ou webp)</label>
+        <input type="file" id="theme-cover" accept="image/jpeg,image/png,image/webp">
+
+        <label>Arquivos do tema (selecione os .svg — e o manifest.json, se houver)</label>
+        <input type="file" id="theme-files" accept=".svg,.json" multiple required>
+        <p class="field-hint">Os ícones devem ter os mesmos nomes do conjunto padrão (cart, users, …) ou vir com um manifest.json mapeando os nomes.</p>
+
+        <div class="error" id="theme-error"></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-theme').close()">Cancelar</button>
+        <button type="button" class="btn" id="theme-submit" onclick="criarTema()">Cadastrar tema</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    // Aceita "19,90" e "19.90" sem ambiguidade: se há vírgula, ela é o decimal e os pontos
+    // são milhar; sem vírgula, o ponto é o decimal.
+    function parsePreco(txt) {
+      let s = String(txt || '').replace(/[^\d,.]/g, '');
+      if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+      const n = parseFloat(s);
+      return isFinite(n) ? Math.round(n * 100) : 0;
+    }
+
+    async function criarTema() {
+      const erro = document.getElementById('theme-error');
+      const btn = document.getElementById('theme-submit');
+      erro.textContent = '';
+      const name = document.getElementById('theme-name').value.trim();
+      if (name.length < 2) { erro.textContent = 'Informe o nome do tema.'; return; }
+
+      const files = {};
+      const input = document.getElementById('theme-files');
+      for (const f of Array.from(input.files || [])) {
+        const nome = f.name.toLowerCase();
+        if (!nome.endsWith('.svg') && nome !== 'manifest.json') continue;
+        files[f.name] = await f.text();
+      }
+      if (!Object.keys(files).some((f) => f.toLowerCase().endsWith('.svg'))) {
+        erro.textContent = 'Selecione ao menos um arquivo .svg.';
+        return;
+      }
+
+      let coverBase64 = '';
+      const cover = document.getElementById('theme-cover').files[0];
+      if (cover) {
+        coverBase64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result));
+          r.onerror = rej;
+          r.readAsDataURL(cover);
+        });
+      }
+
+      const free = document.getElementById('theme-free').checked;
+      const priceCents = free ? 0 : parsePreco(document.getElementById('theme-price').value);
+
+      btn.disabled = true;
+      btn.textContent = 'Cadastrando…';
+      try {
+        const resp = await fetch('/admin/themes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            description: document.getElementById('theme-desc').value.trim(),
+            free,
+            priceCents,
+            coverBase64,
+            files,
+          }),
+        });
+        if (!resp.ok) {
+          const d = await resp.json().catch(() => ({}));
+          erro.textContent = d.error || 'Não foi possível cadastrar o tema.';
+          return;
+        }
+        location.reload();
+      } catch (e) {
+        erro.textContent = 'Erro de conexão.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Cadastrar tema';
+      }
+    }
+  </script>
+</body>
+</html>

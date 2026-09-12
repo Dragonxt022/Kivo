@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS theme_grants;
+DROP TABLE IF EXISTS themes;

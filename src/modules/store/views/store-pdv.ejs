@@ -458,6 +458,28 @@
       </div>
     </dialog>
 
+    <!-- ─── MODAL: Nomear a venda ─── -->
+    <dialog x-ref="renameDlg">
+      <h1>Nome desta venda</h1>
+      <p class="muted" style="margin-top:-.3rem">
+        Deixe vazio para voltar a
+        <strong x-text="'Venda ' + String((renameDlg.idx ?? 0) + 1).padStart(2, '0')"></strong>.
+      </p>
+      <input type="text" x-ref="renameInput" x-model="renameDlg.value" maxlength="40"
+             placeholder="Ex.: Mesa 4, Cliente João…"
+             @keydown.enter.prevent="saveRenameSlot()" @keydown.escape.prevent="$refs.renameDlg.close()" />
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.renameDlg.close()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+          Cancelar (Esc)
+        </button>
+        <button class="btn" @click="saveRenameSlot()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Salvar (Enter)
+        </button>
+      </div>
+    </dialog>
+
     <% if (user.permissions.has('commercial.customers.create')) { %>
     <!-- ─── MODAL: Cadastro rápido de cliente ─── -->
     <dialog x-ref="customerDlg">
@@ -954,6 +976,7 @@
         favorites: [], customerSuggestions: [], pendingSync: 0,
         canDiscount: PDV_CAN_DISCOUNT,
         priceDlg: { idx: null, value: '', original: 0, error: '' },
+        renameDlg: { idx: null, value: '' },
         customerDlg: { name: '', document: '', phone: '', error: '', saving: false },
         get cart() { return this.slots[this.activeSlot].cart; },
         set cart(v) { this.slots[this.activeSlot].cart = v; },
@@ -1141,11 +1164,23 @@
         },
 
         renameSlot(idx) {
-          const current = this.slots[idx]?.label || '';
-          const name = window.prompt('Nome desta venda (deixe vazio para voltar a "Venda NN")', current);
-          if (name === null) return;
-          this.slots[idx].label = name.trim() || null;
+          this.renameDlg.idx = idx;
+          this.renameDlg.value = this.slots[idx]?.label || '';
+          this.$nextTick(() => {
+            this.$refs.renameDlg?.showModal();
+            this.$refs.renameInput?.focus();
+            this.$refs.renameInput?.select();
+          });
+        },
+        saveRenameSlot() {
+          const idx = this.renameDlg.idx;
+          if (idx == null || !this.slots[idx]) {
+            this.$refs.renameDlg?.close();
+            return;
+          }
+          this.slots[idx].label = this.renameDlg.value.trim() || null;
           this.persistSlots();
+          this.$refs.renameDlg?.close();
         },
 
         // ─── Inicialização ───

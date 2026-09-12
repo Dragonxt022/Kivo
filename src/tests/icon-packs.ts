@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { iconPacksDir, listIconPacks, resolveIconHelpers } from '../core/icons/service';
+import { iconPacksDir, installIconPack, listIconPacks, resolveIconHelpers } from '../core/icons/service';
 
 let failures = 0;
 function check(label: string, ok: boolean, extra = '') {
@@ -15,6 +15,7 @@ function check(label: string, ok: boolean, extra = '') {
 const SVG_MARCADO = '<svg viewBox="0 0 24 24"><path d="M1 1"/></svg>';
 const packDir = path.join(iconPacksDir(), 'teste-pack');
 const rasterDir = path.join(iconPacksDir(), 'so-png');
+const baixadoDir = path.join(iconPacksDir(), 'baixado-teste');
 
 function main() {
   fs.mkdirSync(packDir, { recursive: true });
@@ -37,9 +38,30 @@ function main() {
 
     const padrao = resolveIconHelpers('');
     check('pacote padrão não tem o override', !padrao.svgIcon('cart').includes('M1 1'));
+
+    // installIconPack: é o que a loja de temas grava em disco ao baixar da nuvem.
+    const gravados = installIconPack('baixado-teste', {
+      'cart.svg': SVG_MARCADO,
+      'users2.svg': '<svg viewBox="0 0 24 24"><path d="M2 2"/></svg>',
+      'manifest.json': JSON.stringify({ users: 'users2.svg' }),
+      'ignorar.png': 'nao-e-svg',
+    });
+    check('installIconPack grava só os ícones válidos', gravados === 2, String(gravados));
+    const hi = resolveIconHelpers('baixado-teste');
+    check('pack baixado resolve o svg', hi.svgIcon('cart').includes('M1 1'));
+    check('manifest do pack baixado vale', hi.svgIcon('users').includes('M2 2'));
+    check('installIconPack recusa o id padrão', (() => {
+      try {
+        installIconPack('padrao', {});
+        return false;
+      } catch {
+        return true;
+      }
+    })());
   } finally {
     fs.rmSync(packDir, { recursive: true, force: true });
     fs.rmSync(rasterDir, { recursive: true, force: true });
+    fs.rmSync(baixadoDir, { recursive: true, force: true });
   }
 
   console.log(failures === 0 ? '\nPacotes de ícones: TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
