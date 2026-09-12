@@ -14,6 +14,8 @@ import { getMachinePrefs, setMachinePrefs } from './machinePrefs';
 import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './companyLogo';
 import { getLicenseCredentials } from '../license/service';
 import { factoryReset } from '../reset/service';
+import { settingsRepository } from '../repositories/SettingsRepository';
+import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, invalidateIconPackCache, listIconPacks } from '../icons/service';
 import { createLogger } from '../logger';
 
 const log = createLogger('reset');
@@ -224,6 +226,54 @@ router.post('/factory-reset', requirePermission('settings.edit'), async (req, re
         `como estavam. Tente de novo daqui a pouco. Detalhe: ${resumirErro(e)}`,
     });
   }
+});
+
+/**
+ * Pacote de ícones: lista os disponíveis nesta instalação e troca o escolhido. A escolha é
+ * uma chave de `settings` (sincroniza entre as máquinas da empresa). Rota própria porque a
+ * troca precisa invalidar o cache de ícones do processo — o `PUT /:key` genérico não tem
+ * gancho para isso. Precisa vir ANTES do curinga `PUT /:key`.
+ */
+router.get('/icon-packs', requirePermission('settings.view'), (_req, res) => {
+  const { packs, ignorados } = listIconPacks();
+  res.json({
+    packs: packs.map((p) => ({
+      id: p.id,
+      name: p.name,
+      icons: p.icons,
+      // URL da capa para o card; null = card mostra o placeholder (ex.: o pacote padrão).
+      cover: p.hasCover ? `/api/settings/icon-pack-cover/${encodeURIComponent(p.id)}` : null,
+    })),
+    ignorados,
+    current: getSelectedPackId(),
+  });
+});
+
+/** Capa do pacote (capa.jpg/png/webp/svg) para o card. 404 = o card cai no placeholder. */
+router.get('/icon-pack-cover/:id', requirePermission('settings.view'), (req, res) => {
+  const cover = iconPackCover(String(req.params.id));
+  if (!cover) {
+    res.status(404).end();
+    return;
+  }
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.sendFile(cover.path, (err) => {
+    if (err && !res.headersSent) res.status(404).end();
+  });
+});
+
+router.put('/icon-pack', requirePermission('settings.edit'), (req, res) => {
+  const id = String(req.body?.id ?? '').trim();
+  const { packs } = listIconPacks();
+  if (id && !packs.some((p) => p.id === id)) {
+    res.status(400).json({ error: 'Pacote de ícones não encontrado nesta instalação.' });
+    return;
+  }
+  const before = settingsRepository.get(ICON_PACK_SETTING);
+  settingsRepository.set(ICON_PACK_SETTING, id);
+  invalidateIconPackCache();
+  audit(req, 'editar', 'setting', ICON_PACK_SETTING, before ?? null, id);
+  res.json({ id });
 });
 
 router.put('/:key', requirePermission('settings.edit'), validateBody(setSettingSchema), (req, res) => {

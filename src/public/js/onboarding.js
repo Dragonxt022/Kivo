@@ -52,6 +52,13 @@ function onboardingWizard() {
     uiInterface: (function(){ try { return localStorage.getItem('kivo-interface') || 'cards'; } catch { return 'cards'; } })(),
     uiColorTheme: (function(){ try { return localStorage.getItem('kivo-color-theme') || 'orange'; } catch { return 'orange'; } })(),
     uiCustomColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch { return '#ff8000'; } })(),
+    // Tema dos ícones (pacote). Único ajuste deste passo que vai para `settings` (vale para
+    // a empresa) em vez do localStorage; os cards são os mesmos de Configurações › Interface.
+    iconPacks: [],
+    iconPackId: 'padrao',
+    iconPackStartId: 'padrao',
+    iconPackSaving: false,
+    iconPackError: '',
     // Vira true quando o lojista escolhe uma cor com as próprias mãos — dali em diante a
     // cor do ramo não sobrescreve mais a preferência dele.
     colorTouched: false,
@@ -74,6 +81,28 @@ function onboardingWizard() {
       document.documentElement.setAttribute('data-color-theme', 'custom');
       window.__kivoApplyCustomColor(hex);
       try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch {}
+    },
+    /**
+     * Escolhe o tema dos ícones. Não recarrega a página — recarregar fecharia o assistente;
+     * os ícones trocam no próximo carregamento (ao concluir). A escolha é gravada na hora,
+     * então mesmo que o lojista pule o assistente depois, o tema fica salvo.
+     */
+    async chooseIconPack(id) {
+      if (!id || id === this.iconPackId || this.iconPackSaving) return;
+      this.iconPackSaving = true;
+      this.iconPackError = '';
+      try {
+        const r = await fetch('/api/settings/icon-pack', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        if (!r.ok) { this.iconPackError = ((await r.json()) || {}).error || 'Não foi possível aplicar o tema.'; return; }
+        this.iconPackId = id;
+      } catch {
+        this.iconPackError = 'Erro de conexão ao aplicar o tema.';
+      } finally {
+        this.iconPackSaving = false;
+      }
     },
     // Aplica a cor sugerida pelo ramo SEM marcar colorTouched: trocar de ramo ainda pode
     // re-sugerir enquanto o lojista não escolher uma cor manualmente.
@@ -145,6 +174,7 @@ function onboardingWizard() {
       this.featureKeys = [];
       this.featuresTouched = false;
       this.colorTouched = false;
+      this.iconPackError = '';
       this.open = true;
       this.$nextTick(() => {
         this.$refs.onboardingDlg?.showModal();
@@ -186,10 +216,24 @@ function onboardingWizard() {
         // sem catálogo de recursos: o passo fica vazio e o provision cai na recomendação
         // do servidor, que é o mesmo que o assistente sugeriria aqui.
       }
+      try {
+        const ri = await fetch('/api/settings/icon-packs');
+        if (ri.ok) {
+          const d = await ri.json();
+          this.iconPacks = d.packs || [];
+          this.iconPackId = d.current || 'padrao';
+          this.iconPackStartId = this.iconPackId;
+        }
+      } catch {
+        // sem catálogo de temas: a seção de tema dos ícones simplesmente não aparece
+      }
     },
     close() {
       this.open = false;
       this.$refs.onboardingDlg?.close();
+      // O tema dos ícones é renderizado no servidor: só recarregar aplica a troca. Recarrega
+      // apenas quando o lojista realmente trocou, para não piscar a tela de quem só abriu.
+      if (this.iconPackStartId !== this.iconPackId) location.reload();
     },
 
     resetScroll() {

@@ -15,15 +15,15 @@
     <h1>Produtos</h1>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.products.create')) { %>
-        <button class="btn" @click="openNew()">
+        <button class="btn" id="tour-novo-produto" @click="openNew()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Novo produto
         </button>
       <% } %>
-      <input type="text" placeholder="Buscar nome, código de barras ou SKU…" x-model="q" @input.debounce.400ms="load()"
+      <input type="text" id="tour-busca-produtos" placeholder="Buscar nome, código de barras ou SKU…" x-model="q" @input.debounce.400ms="load()"
              class="input-search" style="min-width:280px" />
       <% if (user.permissions.has('commercial.products.edit')) { %>
-      <input type="text" x-ref="scan" placeholder="Bipar código de barras (cadastro rápido)…"
+      <input type="text" id="tour-bipar-codigo" x-ref="scan" placeholder="Bipar código de barras (cadastro rápido)…"
              @keydown.enter.prevent="scanLookup($event.target.value); $event.target.value = ''"
              class="input-search" style="min-width:280px" />
       <% } %>
@@ -33,7 +33,7 @@
           campos de busca (o que se usa o dia todo) se perdia no meio. Viraram um botão só
           que abre a escolha em cartões, com ícone e uma linha dizendo o que cada um faz. %>
       <% if (user.permissions.has('commercial.products.create') || user.permissions.has('commercial.products.view')) { %>
-        <button class="btn secondary" @click="$refs.ioDlg.showModal()" title="Importar ou exportar o catálogo em planilha CSV">
+        <button class="btn secondary" id="tour-importar" @click="$refs.ioDlg.showModal()" title="Importar ou exportar o catálogo em planilha CSV">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 21 7 17 3"/><line x1="21" y1="7" x2="9" y2="7"/><polyline points="7 21 3 17 7 13"/><line x1="15" y1="17" x2="3" y2="17"/></svg>
           Importar / Exportar
         </button>
@@ -48,11 +48,14 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         </button>
       <% } %>
+      <button type="button" class="icon-btn" id="tour-rever" title="Rever o tour guiado" aria-label="Rever o tour guiado">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </button>
       <span class="toolbar-spacer"></span>
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
-    <div class="tabs product-tabs">
+    <div class="tabs product-tabs" id="tour-abas-produtos">
       <button :class="{ active: productTab === 'vendaveis' }" @click="productTab = 'vendaveis'; page = 1; clearSelection()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
         Produtos <span class="tab-count" x-text="vendaveisCount"></span>
@@ -75,7 +78,7 @@
         Cancelar
       </button>
     </div>
-      <table>
+      <table id="tour-tabela-produtos">
         <thead><tr>
           <% if (user.permissions.has('commercial.products.delete')) { %>
           <th class="col-checkbox">
@@ -129,7 +132,7 @@
             <td class="muted" x-text="p.unit"></td>
             <td @click.stop style="width:1%">
               <% if (user.permissions.has('commercial.products.edit')) { %>
-              <div class="flex-row">
+              <div class="tour-row-actions flex-row">
                 <button class="icon-btn" :class="{ active: p.favorite }" @click="toggleFavorite(p)"
                         :title="p.favorite ? 'Remover dos favoritos' : 'Marcar como favorito'">
                   <svg width="17" height="17" viewBox="0 0 24 24" :fill="p.favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -146,7 +149,7 @@
               <% } %>
             </td>
             <td class="text-right" @click.stop>
-              <div class="dropdown">
+              <div class="tour-row-menu dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === p.id ? null : p.id" title="Mais ações">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
@@ -1573,6 +1576,7 @@
     .fill-imgs-btn:hover { color: var(--text); }
     .fill-imgs-btn:disabled { opacity: .55; cursor: progress; }
   </style>
+  <script nonce="<%= cspNonce %>" src="/js/tour.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/barcode.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
@@ -1872,6 +1876,8 @@
           ]);
           if (c.ok) this.categories = await c.json();
           if (s.ok) this.appSettings = await s.json();
+          // Avisa o tour guiado que a lista carregou (ver o script no fim desta página).
+          window.dispatchEvent(new Event('kivo-products-loaded'));
         },
         /**
          * Prévia da imagem da categoria escolhida.
@@ -2651,6 +2657,46 @@
         },
       };
     }
+  </script>
+  <script nonce="<%= cspNonce %>">
+    // Tour guiado da tela de Produtos (motor em /js/tour.js). Reaproveita o padrão da
+    // novidade: uma vez por máquina (localStorage com chave versionada) e reabrível pelo
+    // botão de ajuda na barra. Passos cujo alvo não existe — sem permissão, lista vazia —
+    // são pulados pelo próprio motor.
+    (function () {
+      var TOUR_KEY = 'kivo-tour-produtos-v1';
+
+      function produtosTourSteps() {
+        return [
+          { el: '#tour-novo-produto', title: 'Cadastre um produto', body: 'Clique aqui para criar um item. Na mesma tela você escolhe o tipo (físico, serviço, kit, combo…), preço, estoque, código de barras e foto.' },
+          { el: '#tour-busca-produtos', title: 'Encontre rápido', body: 'Busque por nome, código de barras ou SKU. A lista filtra enquanto você digita.' },
+          { el: '#tour-bipar-codigo', title: 'Bipe o código de barras', body: 'Com o leitor conectado, aponte para o produto e pressione Enter: se já existir, ele abre para edição; se não, já vem preenchido para cadastro.' },
+          { el: '#tour-importar', title: 'Planilha', body: 'Importe seu catálogo em CSV ou exporte o que já está cadastrado — prático para atualizar preços em lote.' },
+          { el: '#tour-abas-produtos', title: 'Produtos e complementos', body: 'Separe o que você vende avulso do que entra como adicional (bacon, borda, extra). Cada aba tem a própria lista.' },
+          { el: '#tour-tabela-produtos', title: 'Sua lista', body: 'Clique em qualquer produto para editar. As colunas ordenam por preço, custo, estoque, categoria e unidade.' },
+          { el: '.tour-row-actions', title: 'Destaques', body: 'A estrela marca o produto como favorito (ele aparece no acesso rápido do PDV) e o globo o publica no cardápio online.' },
+          { el: '.tour-row-menu', title: 'Mais ações', body: 'Aqui você move o estoque, edita, duplica ou exclui o produto.' },
+        ];
+      }
+
+      function startProductsTour() {
+        if (!window.KivoTour) return;
+        window.KivoTour.start(produtosTourSteps());
+      }
+      window.startProductsTour = startProductsTour;
+
+      var rever = document.getElementById('tour-rever');
+      if (rever) rever.addEventListener('click', startProductsTour);
+
+      window.addEventListener('kivo-products-loaded', function () {
+        setTimeout(function () {
+          if (!window.KivoTour || window.KivoTour.isActive()) return;
+          // Não disputa a camada superior com um modal aberto (novidade/assistente).
+          if (document.querySelector('dialog[open]')) return;
+          window.KivoTour.autoStart(TOUR_KEY, produtosTourSteps());
+        }, 500);
+      });
+    })();
   </script>
 </body>
 </html>

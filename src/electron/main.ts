@@ -63,6 +63,18 @@ app.on('child-process-gone', (_event, details) => {
   recordError('child-process', `processo filho finalizado: ${details.type}/${details.reason}`, { exitCode: details.exitCode });
 });
 
+/**
+ * Segundo clique no atalho durante o boot: o lock de instância única já descartou o processo
+ * novo, então ao menos traga a janela (ou a splash) para frente — em vez de parecer que o
+ * clique não fez nada.
+ */
+app.on('second-instance', () => {
+  const janela = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
+  if (!janela) return;
+  if (janela.isMinimized()) janela.restore();
+  janela.focus();
+});
+
 const PORT = Number(process.env.KIVO_PORT ?? 3123);
 
 // Mesmo par light/dark já usado na logo da tela de login (home.ejs) — reaproveitado
@@ -250,6 +262,85 @@ function setupAutoUpdater(win: BrowserWindow): void {
   setInterval(() => void checar(), 6 * 3600e3).unref?.();
 }
 
+/**
+ * Ícone da marca (mesmas cores da logo) embutido na tela de abertura. Inline de propósito:
+ * a splash carrega por `data:` antes de o Express subir, então não pode depender de arquivo
+ * em /public (que só existe servido). `currentColor` deixa o desenho claro no tema escuro.
+ */
+const SPLASH_ICONE = `<svg viewBox="0 0 933 932" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M235 208.5V741L435.5 557L608.5 741H774L435.5 410.5L350 496V208.5H235Z" fill="currentColor"/>
+<path d="M530.5 459.5L457 383L630 208.5H775.5L530.5 459.5Z" fill="#FF8000"/>
+<path d="M710.468 111.703C516.068 -46.6968 290.802 45.7032 202.468 111.703C184.868 114.103 184.802 100.37 186.968 93.2032C426.168 -75.5968 645.968 22.8699 725.968 93.2032C731.968 103.603 718.135 109.87 710.468 111.703Z" fill="currentColor"/>
+<path d="M111.703 712.468C-46.6968 518.068 45.7032 292.802 111.703 204.468C114.103 186.868 100.37 186.802 93.2032 188.968C-75.5968 428.168 22.8699 647.968 93.2032 727.968C103.603 733.968 109.87 720.135 111.703 712.468Z" fill="currentColor"/>
+<path d="M821.278 724.468C979.678 530.068 887.278 304.802 821.278 216.468C818.878 198.868 832.611 198.802 839.778 200.968C1008.58 440.168 910.111 659.968 839.778 739.968C829.378 745.968 823.111 732.135 821.278 724.468Z" fill="currentColor"/>
+<path d="M204.968 820.278C399.368 978.678 624.635 886.278 712.968 820.278C730.568 817.878 730.635 831.611 728.468 838.778C489.268 1007.58 269.468 909.111 189.468 838.778C183.468 828.378 197.302 822.111 204.968 820.278Z" fill="currentColor"/>
+</svg>`;
+
+function splashHtml(escuro: boolean): string {
+  const bg = escuro ? '#1c1f26' : '#ffffff';
+  const fg = escuro ? '#ececf0' : '#1e1e2a';
+  const marca = escuro ? '#ececf0' : '#1e1c1a';
+  const trilha = escuro ? '#2a2d36' : '#eae8ea';
+  return `<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8" />
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; background: ${bg}; color: ${fg};
+    font-family: system-ui, -apple-system, sans-serif;
+    -webkit-user-select: none; user-select: none; overflow: hidden;
+  }
+  .logo { width: 66px; height: 66px; color: ${marca};
+    animation: kivo-pop .5s cubic-bezier(.2,.8,.3,1) both; }
+  .logo svg { width: 100%; height: 100%; display: block; }
+  .nome { font-size: 1.05rem; font-weight: 700; letter-spacing: .02em; opacity: .92;
+    animation: kivo-fade .6s .08s both; }
+  .barra { width: 176px; height: 5px; border-radius: 99px; background: ${trilha}; overflow: hidden; }
+  .barra i { display: block; width: 42%; height: 100%; border-radius: 99px; background: #FF8000;
+    animation: kivo-correr 1.1s ease-in-out infinite; }
+  @keyframes kivo-correr { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+  @keyframes kivo-pop { from { transform: scale(.82); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes kivo-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: .92; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .logo, .nome { animation: none; }
+    .barra i { animation: none; width: 100%; }
+  }
+</style></head>
+<body>
+  <div class="logo">${SPLASH_ICONE}</div>
+  <div class="nome">Kivo</div>
+  <div class="barra"><i></i></div>
+</body></html>`;
+}
+
+/**
+ * Janela de abertura. Aparece assim que o Electron fica pronto — antes de migrations,
+ * licença e servidor local, que é onde o boot passa vários segundos sem nada na tela. É o
+ * feedback de que o clique funcionou; sem ela, a sensação é de que o app não abriu.
+ */
+function criarSplash(): BrowserWindow {
+  const escuro = nativeTheme.shouldUseDarkColors;
+  const splash = new BrowserWindow({
+    width: 340,
+    height: 210,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    show: true,
+    center: true,
+    skipTaskbar: true,
+    backgroundColor: escuro ? '#1c1f26' : '#ffffff',
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  void splash.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(splashHtml(escuro)));
+  return splash;
+}
+
 async function boot() {
   if (!app.requestSingleInstanceLock()) {
     app.quit();
@@ -257,6 +348,13 @@ async function boot() {
   }
 
   Menu.setApplicationMenu(null);
+
+  // Splash primeiro: dá feedback imediato enquanto migrations/seeds/licença (trabalho
+  // pesado e, em parte, síncrono) seguram o boot. A folga de 50 ms é para o renderer
+  // pintar antes de o loop principal ficar ocupado.
+  const splash = criarSplash();
+  const splashInicio = Date.now();
+  await new Promise((r) => setTimeout(r, 50));
 
   migrateUp();
   runSeeds();
@@ -335,7 +433,16 @@ async function boot() {
     },
   });
   win.maximize();
-  win.show();
+  // A janela principal só aparece quando a primeira página já pintou — nada de tela branca
+  // no meio do caminho. A splash sai junto, com um tempo mínimo para não piscar em máquinas
+  // rápidas (e para o usuário perceber a abertura, que era o pedido).
+  win.once('ready-to-show', () => {
+    win.show();
+    const restante = Math.max(0, 700 - (Date.now() - splashInicio));
+    setTimeout(() => {
+      if (!splash.isDestroyed()) splash.destroy();
+    }, restante);
+  });
   await win.loadURL(`http://localhost:${PORT}/`);
 
   // Acompanha o tema claro/escuro do Windows em tempo real (o ícone gravado no .exe

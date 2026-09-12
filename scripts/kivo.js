@@ -95,6 +95,8 @@ function listCommands() {
       'test:product-images',
       'test:products-import',
       'test:force-update',
+      'test:icon-packs',
+      'test:icon-packs-api',
     ],
     Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
     Utilitário: ['smoke', 'postinstall'],
