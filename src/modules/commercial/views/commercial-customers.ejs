@@ -8,6 +8,16 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .filters-panel { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; margin: .5rem 0 1rem; }
+    .filters-panel label { display: flex; flex-direction: column; gap: .2rem; font-size: .72rem; color: var(--text-muted); }
+    .filters-panel select, .filters-panel input { min-width: 120px; }
+    .tag-pill { display: inline-block; background: var(--border-light); border-radius: 999px; padding: .05rem .5rem; font-size: .72rem; margin: 0 .2rem .15rem 0; }
+    @media print {
+      .toolbar, .bulk-bar, .filters-panel, .pager, th:last-child, td:last-child, .col-checkbox { display: none !important; }
+      body { background: #fff; }
+    }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
@@ -20,12 +30,79 @@
           Novo cliente
         </button>
       <% } %>
-      <input type="text" placeholder="Buscar…" x-model="q" @input.debounce.400ms="load()"
+      <input type="text" placeholder="Buscar por nome, CPF/CNPJ, telefone ou e-mail…" x-model="q" @input.debounce.400ms="load()"
              class="input-search" />
+      <button class="btn secondary small" @click="showFilters = !showFilters" :class="{ active: hasFilters }">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtros<span x-show="hasFilters"> •</span>
+      </button>
+      <span class="toolbar-spacer"></span>
+      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
+      <a class="btn secondary small" :href="'/api/commercial/customers/export.csv' + (queryString ? '?' + queryString : '')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </a>
+      <button class="btn secondary small" @click="window.print()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimir
+      </button>
       <span class="error" x-text="error"></span>
     </div>
+
+    <div class="filters-panel panel" x-show="showFilters" x-cloak>
+      <label>Situação
+        <select x-model="filters.active" @change="load()">
+          <option value="1">Ativos</option>
+          <option value="0">Inativos</option>
+          <option value="">Todos</option>
+        </select>
+      </label>
+      <label>Convênio
+        <select x-model="filters.agreement_company_id" @change="load()">
+          <option value="">Todos</option>
+          <template x-for="a in agreements" :key="a.id"><option :value="a.id" x-text="a.name"></option></template>
+        </select>
+      </label>
+      <label>Lista de preço
+        <select x-model="filters.price_list_id" @change="load()">
+          <option value="">Todas</option>
+          <template x-for="l in priceLists" :key="l.id"><option :value="l.id" x-text="l.name"></option></template>
+        </select>
+      </label>
+      <label>Etiqueta
+        <input type="text" x-model="filters.tag" @input.debounce.400ms="load()" placeholder="VIP…" />
+      </label>
+      <label>Aniversariantes do mês
+        <select x-model="filters.birthdayMonth" @change="load()">
+          <option value="">—</option>
+          <template x-for="(m, i) in monthNames" :key="i"><option :value="i + 1" x-text="m"></option></template>
+        </select>
+      </label>
+      <label>Sem compra há (dias)
+        <input type="number" min="1" x-model="filters.inactiveDays" @input.debounce.400ms="load()" placeholder="60" />
+      </label>
+      <label style="flex-direction:row;align-items:center;gap:.3rem;min-width:auto">
+        <input type="checkbox" x-model="filters.debtors" @change="load()" /> Só devedores
+      </label>
+      <button class="btn secondary small" @click="clearFilters()">Limpar filtros</button>
+    </div>
+
     <div class="bulk-bar" x-show="selectedIds.length" x-cloak>
       <span class="bulk-count" x-text="selectedIds.length + ' selecionado(s)'"></span>
+      <% if (user.permissions.has('commercial.customers.edit')) { %>
+      <button class="btn secondary small" @click="bulkSetActive(true)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Ativar
+      </button>
+      <button class="btn secondary small" @click="bulkSetActive(false)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+        Desativar
+      </button>
+      <button class="btn secondary small" @click="openBulkEdit()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+        Editar selecionados
+      </button>
+      <% } %>
       <% if (user.permissions.has('commercial.customers.delete')) { %>
       <button class="btn danger small" @click="bulkDelete('/api/commercial/customers', { label: 'cliente(s)', onDone: () => load() })">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -39,24 +116,27 @@
     </div>
     <table>
       <thead><tr>
-        <% if (user.permissions.has('commercial.customers.delete')) { %>
+        <% if (user.permissions.has('commercial.customers.delete') || user.permissions.has('commercial.customers.edit')) { %>
         <th class="col-checkbox">
-          <input type="checkbox" :checked="isAllSelected(displayRows)" @change="toggleSelectAll(displayRows)"
-                 x-effect="$el.indeterminate = selectedIds.length > 0 && !isAllSelected(displayRows)" />
+          <input type="checkbox" :checked="isAllSelected(pageRows)" @change="toggleSelectAll(pageRows)"
+                 x-effect="$el.indeterminate = selectedIds.length > 0 && !isAllSelected(pageRows)" />
         </th>
         <% } %>
         <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
         <th @click="sortCycle('document')" class="sortable">Documento<span class="sort-arrow" x-text="sortArrow('document')"></span></th>
         <th>Telefone</th>
-        <th>E-mail</th>
+        <th>Etiquetas</th>
+        <th @click="sortCycle('last_purchase')" class="sortable">Última compra<span class="sort-arrow" x-text="sortArrow('last_purchase')"></span></th>
+        <th @click="sortCycle('avg_ticket_cents')" class="sortable">Ticket médio<span class="sort-arrow" x-text="sortArrow('avg_ticket_cents')"></span></th>
         <th @click="sortCycle('store_credit_cents')" class="sortable">Crédito<span class="sort-arrow" x-text="sortArrow('store_credit_cents')"></span></th>
         <th @click="sortCycle('loyalty_points')" class="sortable">Pontos<span class="sort-arrow" x-text="sortArrow('loyalty_points')"></span></th>
+        <th>Situação</th>
         <th></th>
       </tr></thead>
       <tbody>
-        <template x-for="r in displayRows" :key="r.id">
+        <template x-for="r in pageRows" :key="r.id">
           <tr <% if (user.permissions.has('commercial.customers.view')) { %>@click="location.href = '/app/commercial/clientes/' + r.id" style="cursor:pointer"<% } %>>
-            <% if (user.permissions.has('commercial.customers.delete')) { %>
+            <% if (user.permissions.has('commercial.customers.delete') || user.permissions.has('commercial.customers.edit')) { %>
             <td class="col-checkbox" @click.stop>
               <input type="checkbox" :checked="isSelected(r.id)" @change="toggleSelect(r.id)" />
             </td>
@@ -64,9 +144,14 @@
             <td x-text="r.name"></td>
             <td class="muted" x-text="r.document ?? '—'"></td>
             <td class="muted" x-text="r.phone ?? '—'"></td>
-            <td class="muted" x-text="r.email ?? '—'"></td>
+            <td>
+              <template x-for="(t, i) in tagsOf(r)" :key="i"><span class="tag-pill" x-text="t"></span></template>
+            </td>
+            <td class="muted" x-text="r.last_purchase ? fmtDate(r.last_purchase) : '—'"></td>
+            <td x-text="r.avg_ticket_cents != null ? brl(r.avg_ticket_cents) : '—'"></td>
             <td x-text="brl(r.store_credit_cents)"></td>
             <td x-text="r.loyalty_points ?? 0"></td>
+            <td><span class="badge" :class="r.active ? 'ok' : 'off'" x-text="r.active ? 'ativo' : 'inativo'"></span></td>
             <td class="text-right" @click.stop>
               <div class="dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
@@ -87,6 +172,10 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
                     Financeiro
                   </button>
+                  <a :href="'/api/commercial/customers/' + r.id + '/export.csv'" style="display:block">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Exportar CSV
+                  </a>
                   <% if (user.permissions.has('commercial.customers.edit')) { %>
                   <button @click="openMenu = null; openEdit(r)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -104,9 +193,10 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!displayRows.length"><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhum cliente cadastrado ainda.' }) %></td></tr>
+        <tr x-show="!pageTotal"><td colspan="11"><%- include('partials/empty-state', { message: 'Nenhum cliente encontrado.' }) %></td></tr>
       </tbody>
     </table>
+    <%- include('partials/pager') %>
 
     <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar cliente' : 'Novo cliente'"></h1>
@@ -117,6 +207,8 @@
         <label>E-mail</label><input type="text" x-model="form.email" />
         <label>CEP</label><input type="text" x-model="form.cep" @input="form.cep = maskCEP(form.cep); autoCep()" placeholder="00000-000" />
         <label>Endereço</label><input type="text" x-model="form.address" placeholder="Preenchido automaticamente pelo CEP (ou digite à mão)" />
+        <label>Aniversário</label><input type="date" x-model="form.birthday" />
+        <label>Etiquetas</label><input type="text" x-model="form.tags" placeholder="VIP, atacado, bairro X" />
         <label>Observações</label><input type="text" x-model="form.notes" />
         <% if (user.permissions.has('commercial.pricelists.view')) { %>
         <label>Lista de preço</label>
@@ -132,6 +224,9 @@
           <template x-for="a in agreements" :key="a.id"><option :value="a.id" x-text="a.name"></option></template>
         </select>
         <% } %>
+        <label x-show="form.id" style="flex-direction:row;align-items:center;gap:.4rem">
+          <input type="checkbox" x-model="form.active" /> Cliente ativo
+        </label>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -145,32 +240,95 @@
         </button>
       </div>
     </dialog>
+
+    <dialog x-ref="bulkDlg" class="dialog-fixed">
+      <h1>Editar <span x-text="selectedIds.length"></span> cliente(s)</h1>
+      <div class="dialog-body">
+        <p class="hint">Deixe em “manter” o que não deve mudar.</p>
+        <% if (user.permissions.has('commercial.pricelists.view')) { %>
+        <label>Lista de preço</label>
+        <select x-model="bulkForm.price_list_id">
+          <option value="">— manter —</option>
+          <option value="null">— remover —</option>
+          <template x-for="l in priceLists" :key="l.id"><option :value="l.id" x-text="l.name"></option></template>
+        </select>
+        <% } %>
+        <% if (user.permissions.has('commercial.agreements.view')) { %>
+        <label>Convênio</label>
+        <select x-model="bulkForm.agreement_company_id">
+          <option value="">— manter —</option>
+          <option value="null">— remover —</option>
+          <template x-for="a in agreements" :key="a.id"><option :value="a.id" x-text="a.name"></option></template>
+        </select>
+        <% } %>
+        <div class="error" x-text="bulkError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.bulkDlg.close()">Cancelar</button>
+        <button class="btn" @click="saveBulkEdit()">Aplicar</button>
+      </div>
+    </dialog>
   </main>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>">
     function customersPage() {
       return {
         ...tableToolkit(),
         rows: [], form: {}, q: '', error: '', dlgError: '',
+        showFilters: false, bulkError: '',
+        filters: { active: '1', agreement_company_id: '', price_list_id: '', tag: '', birthdayMonth: '', inactiveDays: '', debtors: false },
+        bulkForm: { price_list_id: '', agreement_company_id: '' },
         priceLists: [], agreements: [],
+        monthNames: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'],
         sortGetters: {
           name: (r) => r.name, document: (r) => r.document ?? '',
           store_credit_cents: (r) => r.store_credit_cents ?? 0, loyalty_points: (r) => r.loyalty_points ?? 0,
+          last_purchase: (r) => r.last_purchase ?? '', avg_ticket_cents: (r) => r.avg_ticket_cents ?? 0,
         },
         get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
+        get hasFilters() {
+          const f = this.filters;
+          return f.active !== '1' || f.agreement_company_id || f.price_list_id || f.tag || f.birthdayMonth || f.inactiveDays || f.debtors;
+        },
+        get queryString() {
+          const p = new URLSearchParams();
+          if (this.q) p.set('q', this.q);
+          const f = this.filters;
+          if (f.active !== '') p.set('active', f.active);
+          if (f.agreement_company_id) p.set('agreement_company_id', f.agreement_company_id);
+          if (f.price_list_id) p.set('price_list_id', f.price_list_id);
+          if (f.tag) p.set('tag', f.tag);
+          if (f.birthdayMonth) p.set('birthdayMonth', f.birthdayMonth);
+          if (f.inactiveDays) p.set('inactiveDays', f.inactiveDays);
+          if (f.debtors) p.set('debtors', '1');
+          return p.toString();
+        },
         brl(c) { return window.brl(c); },
+        fmtDate(d) { return window.fmtDate(d); },
+        tagsOf(r) { return String(r.tags || '').split(',').map((t) => t.trim()).filter(Boolean); },
+        clearFilters() {
+          this.filters = { active: '1', agreement_company_id: '', price_list_id: '', tag: '', birthdayMonth: '', inactiveDays: '', debtors: false };
+          this.load();
+        },
         async load() {
-          const r = await fetch('/api/commercial/customers' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
+          this.page = 1;
+          const qs = this.queryString;
+          const r = await fetch('/api/commercial/customers' + (qs ? `?${qs}` : ''));
           if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
           else showToast((await r.json()).error, 'error');
-          const p = await fetch('/api/commercial/price-lists');
+          const [p, a] = await Promise.all([
+            fetch('/api/commercial/price-lists'),
+            fetch('/api/commercial/agreement-companies'),
+          ]);
           if (p.ok) this.priceLists = await p.json();
-          const a = await fetch('/api/commercial/agreement-companies');
           if (a.ok) this.agreements = await a.json();
         },
-        openNew() { this.form = {}; this.dlgError = ''; this.$refs.dlg.showModal(); },
-        openEdit(r) { this.form = { ...r }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openNew() { this.form = { active: true }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openEdit(r) { this.form = { ...r, active: !!r.active }; this.dlgError = ''; this.$refs.dlg.showModal(); },
         async autoCep() {
           const digits = String(this.form.cep || '').replace(/\D/g, '');
           if (digits.length !== 8) return;
@@ -199,6 +357,30 @@
           if (!await window.confirmDlg(`Excluir "${row.name}"?`)) return;
           const r = await fetch(`/api/commercial/customers/${row.id}`, { method: 'DELETE' });
           if (r.ok) { this.load(); showToast('Cliente excluído.', 'success'); } else showToast((await r.json()).error ?? 'Erro ao excluir.', 'error');
+        },
+        async bulkPatch(patch, successMessage) {
+          const r = await fetch('/api/commercial/customers/bulk-update', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: this.selectedIds, patch }),
+          });
+          if (!r.ok) { showToast((await r.json()).error ?? 'Erro ao atualizar.', 'error'); return false; }
+          this.clearSelection();
+          this.load();
+          showToast(successMessage, 'success');
+          return true;
+        },
+        async bulkSetActive(active) {
+          await this.bulkPatch({ active }, active ? 'Cliente(s) ativado(s).' : 'Cliente(s) desativado(s).');
+        },
+        openBulkEdit() { this.bulkForm = { price_list_id: '', agreement_company_id: '' }; this.bulkError = ''; this.$refs.bulkDlg.showModal(); },
+        async saveBulkEdit() {
+          const patch = {};
+          const pl = this.bulkForm.price_list_id;
+          const ac = this.bulkForm.agreement_company_id;
+          if (pl !== '') patch.price_list_id = pl === 'null' ? null : Number(pl);
+          if (ac !== '') patch.agreement_company_id = ac === 'null' ? null : Number(ac);
+          if (!Object.keys(patch).length) { this.bulkError = 'Nada para alterar.'; return; }
+          if (await this.bulkPatch(patch, 'Cliente(s) atualizado(s).')) this.$refs.bulkDlg.close();
         },
       };
     }

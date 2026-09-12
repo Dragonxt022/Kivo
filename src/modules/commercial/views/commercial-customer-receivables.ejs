@@ -21,7 +21,7 @@
       <table>
         <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th class="text-right">Valor</th><th></th></tr></thead>
         <tbody>
-          <template x-for="r in receivables.filter(r => String(r.due_date).slice(0, 7) === key)" :key="r.id">
+          <template x-for="r in pageRows" :key="r.id">
             <tr>
               <td x-text="r.description"></td>
               <td class="muted" x-text="fmtDate(r.due_date)"></td>
@@ -34,9 +34,10 @@
               </td>
             </tr>
           </template>
-          <tr x-show="!receivables.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum lançamento financeiro.' }) %></td></tr>
+          <tr x-show="!pageTotal"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum lançamento financeiro.' }) %></td></tr>
         </tbody>
       </table>
+      <%- include('partials/pager') %>
     </section>
 
     <dialog x-ref="settleDlg" class="dialog-fixed" style="width:min(480px,calc(100vw - 2rem))">
@@ -100,18 +101,23 @@
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/payment-methods.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
   <script nonce="<%= cspNonce %>">
     function receivablesPage(id) {
       const _d = new Date();
       return {
+        ...tableToolkit(),
         ...paymentMethodsMixin(),
         ...cashRegisterInlineOpenMixin(),
         id, customerName: 'Cliente', receivables: [],
         year: _d.getFullYear(), month: _d.getMonth(),
         get label() { return new Date(this.year, this.month).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', ''); },
         get key() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
-        prev() { if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
-        next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
+        get monthRows() { return this.receivables.filter((r) => String(r.due_date).slice(0, 7) === this.key); },
+        get pageTotal() { return this.monthRows.length; },
+        get pageRows() { return this.pagedRows(this.monthRows); },
+        prev() { this.page = 1; if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
+        next() { this.page = 1; if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
         settleError: '',
         brl(c) { return window.brl(c); },

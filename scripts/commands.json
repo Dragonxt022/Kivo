@@ -215,6 +215,10 @@
     "description": "Testes: financeiro (complementar)",
     "run": "tsx src/tests/fase7f.ts"
   },
+  "test:customer-profile": {
+    "description": "Testes: clientes (segmentação, extratos, filtros, exportação)",
+    "run": "node scripts/test-isolated.js src/tests/customer-profile.ts"
+  },
   "test:fase8": {
     "description": "Testes: faturamento",
     "run": "tsx src/tests/fase8.ts"
