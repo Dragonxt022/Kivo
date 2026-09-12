@@ -123,6 +123,33 @@
           </template>
           <input type="color" class="color-swatch color-swatch-custom" :value="uiCustomColor" @input="chooseCustomColor($event.target.value)" />
         </div>
+
+        <%# Tema dos ícones: os mesmos cards de Configurações › Interface, mas aqui a escolha
+            é o próprio card (o assistente é um passo de seleção, não uma tela de gestão).
+            O tema vale para a empresa e é gravado na hora; os ícones trocam no próximo
+            carregamento, quando o assistente fecha. %>
+        <div x-show="iconPacks.length" x-cloak>
+          <p class="hint" style="margin:1.25rem 0 .35rem">Tema dos ícones</p>
+          <div class="icon-pack-grid icon-pack-grid--pick">
+            <template x-for="p in iconPacks" :key="'ip-' + p.id">
+              <button type="button" class="icon-pack-card" :class="{ active: p.id === iconPackId }"
+                      @click="chooseIconPack(p.id)" :disabled="iconPackSaving">
+                <span class="icon-pack-cover">
+                  <template x-if="p.cover">
+                    <img :src="p.cover" :alt="'Capa do tema ' + p.name" loading="lazy" @error="p.cover = null" />
+                  </template>
+                  <span class="icon-pack-cover-fallback" x-show="!p.cover"><span>Kivo</span></span>
+                  <span class="icon-pack-badge" x-show="p.id === iconPackId" x-cloak>Ativado</span>
+                </span>
+                <span class="icon-pack-info">
+                  <strong x-text="p.name"></strong>
+                  <span class="muted" x-text="p.icons + ' ícones'"></span>
+                </span>
+              </button>
+            </template>
+          </div>
+          <p class="error" x-show="iconPackError" x-cloak x-text="iconPackError" style="margin-top:.5rem"></p>
+        </div>
       </div>
 
       <!-- 5: recursos -->

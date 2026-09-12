@@ -37,6 +37,7 @@ import onboardingRoutes from './onboarding/routes';
 import supportRoutes from './support/routes';
 import updaterRoutes from './updater/routes';
 import recoveryRoutes from './recovery/routes';
+import { defaultIconHelpers, getIconHelpers } from './icons/service';
 import { purgeOldChallenges } from './recovery/service';
 import { purgeExpiredSessions } from './auth/service';
 import { createLogger } from './logger';
@@ -119,6 +120,30 @@ function logoDaEmpresa(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+/**
+ * Pacote de ícones (Configurações › Interface) para esta página.
+ *
+ * Mesma razão do `logoDaEmpresa`: a escolha mora em `settings`, que SINCRONIZA entre as
+ * máquinas — então precisa ser lida a cada requisição de página, não cacheada no boot, para
+ * uma troca feita em outro terminal aparecer aqui sem reiniciar. Só requisição que vira HTML
+ * (o filtro tira /api e /uploads). O mapa em si fica em cache por pacote no serviço, então
+ * isto custa um SELECT por chave única + um lookup.
+ */
+function iconPackLocals(req: Request, res: Response, next: NextFunction): void {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+    next();
+    return;
+  }
+  try {
+    const icones = getIconHelpers();
+    res.locals.svgIcon = icones.svgIcon;
+    res.locals.svgIconMapJson = icones.mapJson;
+  } catch {
+    // Banco sem a tabela (instalação nova): vale o pacote padrão de app.locals.
+  }
+  next();
+}
+
 /** Ativação obrigatória: sem isso, nenhuma rota (exceto a própria tela de ativação) responde. */
 function requireActivation(req: Request, res: Response, next: NextFunction): void {
   if (isActivated()) {
@@ -179,19 +204,12 @@ export async function createServer(): Promise<KivoServer> {
   // view estoura em "cspNonce is not defined" em vez de renderizar.
   app.locals.cspNonce = '';
 
-  // Helper EJS: retorna o SVG inline para icones — as views usam currentColor
-  const iconsDir = path.resolve(__dirname, '..', 'public', 'icons');
-  function svgIcon(name: string, width = 24, height = 24): string {
-    try {
-      const file = path.join(iconsDir, name + '.svg');
-      return fs
-        .readFileSync(file, 'utf8')
-        .replace(/<svg\b/, `<svg width="${width}" height="${height}"`);
-    } catch {
-      return '';
-    }
-  }
-  app.locals.svgIcon = svgIcon;
+  // Helper EJS: SVG inline dos ícones. O pacote escolhido (Configurações › Interface) é
+  // resolvido por requisição em `iconPackLocals`, abaixo; aqui fica o conjunto PADRÃO, que
+  // vale para renderizações fora de uma requisição (onde não há `res.locals`).
+  const iconesPadrao = defaultIconHelpers();
+  app.locals.svgIcon = iconesPadrao.svgIcon;
+  app.locals.svgIconMapJson = iconesPadrao.mapJson;
 
   // Dinheiro nas views renderizadas no servidor (cupom, orçamento, carnê, relatório de
   // caixa, DRE impresso). Cada uma dessas telas trazia a própria cópia de `brl()` — e
@@ -199,24 +217,6 @@ export async function createServer(): Promise<KivoServer> {
   // enquanto o resto do sistema imprimia "R$ 1.234,56". Passa a existir uma implementação
   // só, a `formatBRL` de shared/money, que já é coberta por testes.
   app.locals.brl = (cents: number | null | undefined) => formatBRL(cents ?? 0);
-
-  // Mapa nome→SVG para renderização inline no Alpine.js
-  const svgMap = (() => {
-    const map: Record<string, string> = {};
-    try {
-      const files = fs.readdirSync(iconsDir);
-      for (const f of files) {
-        if (!f.endsWith('.svg')) continue;
-        const name = f.slice(0, -4);
-        const svg = fs.readFileSync(path.join(iconsDir, f), 'utf8');
-        map[name] = svg;
-      }
-    } catch {
-      /* sem icones */
-    }
-    return map;
-  })();
-  app.locals.svgIconMapJson = JSON.stringify(svgMap);
 
   // Logging de requisições HTTP
   app.use(morgan('dev'));
@@ -295,6 +295,7 @@ export async function createServer(): Promise<KivoServer> {
   app.use(attachUser);
   app.use(filterModuleMenu);
   app.use(logoDaEmpresa);
+  app.use(iconPackLocals);
 
   // Rotas públicas
   app.use('/api/auth', authRoutes);

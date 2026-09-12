@@ -449,6 +449,74 @@
           </div>
         </div>
       </section>
+
+      <section class="panel" x-data="{
+        packs: [], ignorados: [], packId: '', loading: true, saving: false, erro: '',
+        async load() {
+          try {
+            const r = await fetch('/api/settings/icon-packs');
+            if (!r.ok) { this.erro = 'Não foi possível carregar os pacotes de ícones.'; return; }
+            const d = await r.json();
+            this.packs = d.packs || [];
+            this.ignorados = d.ignorados || [];
+            this.packId = d.current || 'padrao';
+          } catch (e) {
+            this.erro = 'Erro de conexão ao carregar os pacotes.';
+          } finally { this.loading = false; }
+        },
+        async aplicar(id) {
+          this.saving = true; this.erro = '';
+          try {
+            const r = await fetch('/api/settings/icon-pack', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id }),
+            });
+            if (!r.ok) { this.erro = ((await r.json()) || {}).error || 'Não foi possível salvar.'; return; }
+            location.reload();
+          } catch (e) {
+            this.erro = 'Erro de conexão ao salvar.';
+          } finally { this.saving = false; }
+        },
+        activate(id) { if (id !== this.packId) this.aplicar(id); },
+        deactivate() { if (this.packId !== 'padrao') this.aplicar('padrao'); },
+      }" x-init="load()">
+        <h2>Pacote de ícones</h2>
+        <p class="hint mt-0">
+          Troca o conjunto de ícones de todo o sistema. Vale para <strong>toda a empresa</strong> —
+          a escolha sincroniza entre as máquinas. Só pacotes em SVG entram; os arquivos ficam em
+          <code>storage/peck-icon/&lt;pacote&gt;/</code> e a capa do card é o <code>capa.jpg</code> da pasta.
+        </p>
+
+        <div class="icon-pack-grid" x-show="packs.length" x-cloak>
+          <template x-for="p in packs" :key="p.id">
+            <div class="icon-pack-card" :class="{ active: p.id === packId }">
+              <div class="icon-pack-cover">
+                <template x-if="p.cover">
+                  <img :src="p.cover" :alt="'Capa do pacote ' + p.name" loading="lazy" @error="p.cover = null" />
+                </template>
+                <div class="icon-pack-cover-fallback" x-show="!p.cover">
+                  <span>Kivo</span>
+                </div>
+                <span class="icon-pack-badge" x-show="p.id === packId" x-cloak>Ativado</span>
+              </div>
+              <div class="icon-pack-info">
+                <strong x-text="p.name"></strong>
+                <span class="muted" x-text="p.icons + ' ícones'"></span>
+              </div>
+              <button type="button" class="btn small"
+                      :class="(p.id === packId || p.id === 'padrao') ? 'secondary' : ''"
+                      :disabled="saving || (p.id === packId && p.id === 'padrao')"
+                      @click="p.id === packId ? deactivate() : activate(p.id)"
+                      x-text="p.id === packId ? (p.id === 'padrao' ? 'Ativado' : 'Desativar') : (p.id === 'padrao' ? 'Usar padrão' : 'Ativar')"></button>
+            </div>
+          </template>
+        </div>
+
+        <p class="hint" x-show="ignorados.length" x-cloak>
+          Ignorados por não serem SVG: <span x-text="ignorados.join(', ')"></span>.
+        </p>
+        <p class="error" x-show="erro" x-cloak x-text="erro"></p>
+      </section>
     </div>
 
     <!-- ═══════ ABA: FINANCEIRO ═══════ -->

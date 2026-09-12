@@ -227,6 +227,14 @@
     "description": "Testes: atualização forçada pelo suporte (baixa em silêncio e instala ao fechar)",
     "run": "node scripts/test-isolated.js src/tests/force-update.ts"
   },
+  "test:icon-packs": {
+    "description": "Testes: pacotes de ícones (descoberta, override e fallback)",
+    "run": "node scripts/test-isolated.js src/tests/icon-packs.ts"
+  },
+  "test:icon-packs-api": {
+    "description": "Testes: pacotes de ícones via API (seleção reflete no HTML renderizado)",
+    "run": "node scripts/test-isolated.js src/tests/icon-packs-api.ts"
+  },
   "test:fase8": {
     "description": "Testes: faturamento",
     "run": "tsx src/tests/fase8.ts"

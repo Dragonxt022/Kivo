@@ -5636,3 +5636,203 @@ dialog.import-dialog > .dialog-body {
   border-radius: 99px;
   transition: width 0.3s ease;
 }
+
+/* ═══ Tour guiado (spotlight) ═══════════════════════════════════════════════════
+   Componente reutilizável — motor em public/js/tour.js. O "holofote" é um retângulo
+   posicionado sobre o alvo com um box-shadow enorme que escurece o resto da tela; o balão
+   fica ao lado. A camada de captura bloqueia cliques fora do balão.
+
+   Cores e transição saem dos tokens do tema: no modo leve `--transition` é 0s e as sombras
+   são `none`, então o tour perde animação e sombra sem precisar de regra própria. */
+.kivo-tour {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  pointer-events: none;
+}
+.kivo-tour-capture {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+}
+.kivo-tour-mask {
+  position: fixed;
+  border-radius: 10px;
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(10, 12, 18, 0.62);
+}
+.kivo-tour--pronto .kivo-tour-mask {
+  transition:
+    top var(--transition),
+    left var(--transition),
+    width var(--transition),
+    height var(--transition);
+}
+.kivo-tour-mask::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--primary);
+  border-radius: 13px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.kivo-tour-pop {
+  position: fixed;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 1rem 1.05rem 0.9rem;
+  pointer-events: auto;
+}
+.kivo-tour-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 0.35rem;
+}
+.kivo-tour-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.kivo-tour-body {
+  margin: 0 0 0.9rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.kivo-tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.kivo-tour-spacer {
+  flex: 1;
+}
+.kivo-tour-pop .btn {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+/* ═══ Pacotes de ícones (cards em Configurações › Interface) ═══════════════════
+   Cada pacote vira um card com a capa (`capa.jpg` da pasta) e um botão Ativar/
+   Desativar. O pacote ativo ganha borda de destaque e o selo "Ativado". */
+.icon-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+.icon-pack-card {
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+.icon-pack-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border-light));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.icon-pack-card.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.icon-pack-cover {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: var(--surface-hover);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.icon-pack-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Pacote sem capa (o padrão): fundo com a marca em vez de imagem quebrada. */
+.icon-pack-cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 20%, var(--surface)), var(--surface));
+}
+.icon-pack-cover-fallback span {
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--primary);
+}
+.icon-pack-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+.icon-pack-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.7rem 0.8rem 0;
+}
+.icon-pack-info strong {
+  font-size: 0.92rem;
+}
+.icon-pack-info .muted {
+  font-size: 0.78rem;
+}
+.icon-pack-card .btn {
+  margin: 0.6rem 0.8rem 0.8rem;
+  justify-content: center;
+}
+/* No modo leve o hover não deve animar (transform/transition já zerados pelo data-lite). */
+:root[data-lite='1'] .icon-pack-card:hover {
+  transform: none;
+}
+
+/* Variante do assistente de boas-vindas: o card INTEIRO é a escolha (um <button>), então
+   zera a aparência nativa do botão e o visual fica por conta do card. */
+button.icon-pack-card {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+}
+button.icon-pack-card:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.icon-pack-grid--pick {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  max-width: 480px;
+}
+.icon-pack-grid--pick .icon-pack-cover {
+  aspect-ratio: 16 / 9;
+}
+.icon-pack-grid--pick .icon-pack-info {
+  padding-bottom: 0.8rem;
+}

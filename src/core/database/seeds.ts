@@ -160,4 +160,13 @@ export function runSeeds(): void {
     `INSERT OR IGNORE INTO settings (key, value, uuid, comment) VALUES (?, ?, ?, ?)`,
   );
   for (const [key, value, comment] of pdvSettings) insertSetting.run(key, value, randomUUID(), comment);
+
+  // Pacote de ícones (tema visual) da empresa. Vazio = conjunto padrão do Kivo. Os arquivos
+  // ficam em storage/peck-icon/<pacote>/; a resolução é por requisição em core/icons/service.ts.
+  insertSetting.run(
+    'interface.pacote_icones',
+    '',
+    randomUUID(),
+    'Pacote de ícones (tema visual) aplicado em todo o sistema. Vazio = conjunto padrão do Kivo. Os pacotes ficam em storage/peck-icon/<pacote>/.',
+  );
 }
