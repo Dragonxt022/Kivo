@@ -95,7 +95,10 @@ async function loadCompanyDetail(companyUuid: string) {
     data: typeof m.data === 'string' ? safeJson(m.data) : m.data,
   }));
 
-  return { company, syncStats, backups, charges, devices, errors: errorRows, inventory };
+  // Afiliados disponíveis para vincular na aba Licença (programa de indicação).
+  const [affiliates] = await pool.query('SELECT id, name, discount_pct, active FROM affiliates ORDER BY active DESC, name');
+
+  return { company, syncStats, backups, charges, devices, errors: errorRows, inventory, affiliates };
 }
 
 // --- Autenticação ---
@@ -390,9 +393,36 @@ router.get('/', requireAdminAuth, async (_req, res) => {
   const severity: Record<string, number> = { danger: 0, warning: 1, info: 2 };
   alerts.sort((a, b) => (severity[a.type] ?? 3) - (severity[b.type] ?? 3));
 
+  // ─── Cobranças: o controle de faturamento do negócio ───
+  const [billingRows] = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN status = 'pendente' THEN amount_cents END), 0) AS pending_cents,
+       COALESCE(SUM(CASE WHEN status = 'pendente' AND due_date < CURDATE() THEN amount_cents END), 0) AS overdue_cents,
+       COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN amount_cents END), 0) AS paid_month_cents,
+       COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN discount_cents END), 0) AS discount_month_cents,
+       COUNT(CASE WHEN status = 'pendente' THEN 1 END) AS pending_count,
+       COUNT(CASE WHEN status = 'pendente' AND due_date < CURDATE() THEN 1 END) AS overdue_count`,
+  );
+  const billing = (billingRows as Record<string, number>[])[0] ?? {};
+  const [upcomingRows] = await pool.query(
+    `SELECT ch.id, ch.description, ch.amount_cents, ch.due_date, c.name AS company_name, c.company_uuid
+       FROM charges ch LEFT JOIN companies c ON c.company_uuid = ch.company_uuid
+      WHERE ch.status = 'pendente'
+      ORDER BY ch.due_date ASC LIMIT 5`,
+  );
+  const upcomingCharges = upcomingRows as {
+    id: number;
+    description: string;
+    amount_cents: number;
+    due_date: string;
+    company_name: string | null;
+    company_uuid: string;
+  }[];
+
   res.render('dashboard', {
     planTiers: PLAN_TIERS, planLabels: PLAN_LABELS,
     kpis, planDistribution, recentActivity, alerts: alerts.slice(0, 8), syncTrend, revenueTrend, commercial,
+    billing, upcomingCharges,
   });
 });
 
@@ -467,16 +497,17 @@ router.post('/companies/:uuid/profile', requireAdminAuth, async (req, res) => {
 
 router.post('/companies/:uuid/license', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  const { plan, modules, validUntil, maxDevices, licensedVersion } = req.body ?? {};
+  const { plan, modules, validUntil, maxDevices, licensedVersion, affiliateId } = req.body ?? {};
   const modulesList = parseModules(modules);
   await getPool().query(
-    'UPDATE companies SET plan = ?, modules = CAST(? AS JSON), valid_until = ?, max_devices = ?, licensed_version = ? WHERE company_uuid = ?',
+    'UPDATE companies SET plan = ?, modules = CAST(? AS JSON), valid_until = ?, max_devices = ?, licensed_version = ?, affiliate_id = ? WHERE company_uuid = ?',
     [
       plan || null,
       modulesList.length ? JSON.stringify(modulesList) : null,
       resolveValidUntil(plan || null, validUntil),
       maxDevices ? Math.max(1, Number(maxDevices)) : 1,
       textOrNull(licensedVersion),
+      affiliateId ? Number(affiliateId) : null,
       uuid,
     ],
   );
@@ -854,9 +885,14 @@ router.post('/companies/:uuid/charges', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
   const { description, amount, dueDate, instructions } = req.body ?? {};
   if (description && amount && dueDate) {
+    const amountCents = Math.round(Number(amount) * 100);
+    // Mesmo desconto de indicação da tela global: o valor informado é o cheio.
+    const { pct, discountCents } = await affiliateDiscountFor(uuid, amountCents);
     await getPool().query(
-      'INSERT INTO charges (company_uuid, description, instructions, amount_cents, due_date) VALUES (?, ?, ?, ?, ?)',
-      [uuid, description, instructions || null, Math.round(Number(amount) * 100), dueDate],
+      `INSERT INTO charges
+         (company_uuid, description, instructions, amount_cents, original_amount_cents, discount_pct, discount_cents, due_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [uuid, description, instructions || null, amountCents - discountCents, amountCents, pct, discountCents, dueDate],
     );
   }
   res.redirect(`/admin/companies/${uuid}`);
@@ -875,6 +911,148 @@ router.post('/companies/:uuid/charges/:id/cancel', requireAdminAuth, async (req,
   const uuid = String(req.params.uuid);
   await getPool().query("UPDATE charges SET status = 'cancelada' WHERE id = ? AND company_uuid = ?", [req.params.id, uuid]);
   res.redirect(`/admin/companies/${uuid}`);
+});
+
+// --- Cobranças (visão global) + Afiliados (programa de indicação) ---
+
+/**
+ * Desconto de indicação da empresa: se ela aponta para um afiliado ATIVO, devolve o
+ * percentual e o desconto em centavos sobre o valor cheio. Sem afiliado (ou inativo),
+ * zero. É a única fonte da regra — a criação da cobrança e a prévia da tela usam a mesma.
+ */
+async function affiliateDiscountFor(companyUuid: string, amountCents: number): Promise<{ pct: number; discountCents: number }> {
+  const [rows] = await getPool().query(
+    `SELECT a.discount_pct FROM companies c
+       JOIN affiliates a ON a.id = c.affiliate_id
+      WHERE c.company_uuid = ? AND a.active = 1`,
+    [companyUuid],
+  );
+  const pct = Number((rows as { discount_pct: number }[])[0]?.discount_pct || 0);
+  const discountCents = pct > 0 ? Math.round((amountCents * pct) / 100) : 0;
+  return { pct, discountCents };
+}
+
+router.get('/charges', requireAdminAuth, async (req, res) => {
+  const status = typeof req.query.status === 'string' && ['pendente', 'paga', 'cancelada'].includes(req.query.status)
+    ? req.query.status
+    : '';
+  const vencidas = req.query.vencidas === '1';
+  const pool = getPool();
+
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (status) {
+    where.push('ch.status = ?');
+    params.push(status);
+  }
+  if (vencidas) where.push("ch.status = 'pendente' AND ch.due_date < CURDATE()");
+
+  const [chargeRows] = await pool.query(
+    `SELECT ch.id, ch.company_uuid, ch.description, ch.instructions, ch.amount_cents,
+            ch.original_amount_cents, ch.discount_pct, ch.discount_cents, ch.due_date,
+            ch.status, ch.paid_at, ch.created_at,
+            c.name AS company_name, a.name AS affiliate_name
+       FROM charges ch
+       LEFT JOIN companies c ON c.company_uuid = ch.company_uuid
+       LEFT JOIN affiliates a ON a.id = c.affiliate_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY (ch.status = 'pendente') DESC, ch.due_date ASC, ch.id DESC
+      LIMIT 500`,
+    params,
+  );
+
+  const [sumRows] = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN status = 'pendente' THEN amount_cents END), 0) AS pending_cents,
+       COALESCE(SUM(CASE WHEN status = 'pendente' AND due_date < CURDATE() THEN amount_cents END), 0) AS overdue_cents,
+       COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN amount_cents END), 0) AS paid_month_cents,
+       COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN discount_cents END), 0) AS discount_month_cents`,
+  );
+  const summary = (sumRows as Record<string, number>[])[0] ?? {};
+
+  const [companies] = await pool.query(
+    `SELECT c.company_uuid, c.name, a.id AS affiliate_id, a.name AS affiliate_name, a.discount_pct
+       FROM companies c LEFT JOIN affiliates a ON a.id = c.affiliate_id
+      ORDER BY c.name`,
+  );
+  const [affiliates] = await pool.query('SELECT id, name, discount_pct, active FROM affiliates ORDER BY name');
+
+  res.render('charges', {
+    charges: chargeRows,
+    summary,
+    companies,
+    affiliates,
+    filter: { status, vencidas },
+    active: 'charges',
+  });
+});
+
+router.post('/charges', requireAdminAuth, async (req, res) => {
+  const { companyUuid, description, amount, dueDate, instructions } = req.body ?? {};
+  if (!companyUuid || !description || !amount || !dueDate) {
+    res.redirect('/admin/charges');
+    return;
+  }
+  const amountCents = Math.round(Number(amount) * 100);
+  if (!Number.isFinite(amountCents) || amountCents <= 0) {
+    res.redirect('/admin/charges');
+    return;
+  }
+  // O desconto de indicação é aplicado aqui: o valor cheio fica guardado e o que o cliente
+  // deve é amount_cents (já líquido).
+  const { pct, discountCents } = await affiliateDiscountFor(String(companyUuid), amountCents);
+  await getPool().query(
+    `INSERT INTO charges
+       (company_uuid, description, instructions, amount_cents, original_amount_cents, discount_pct, discount_cents, due_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [String(companyUuid), description, instructions || null, amountCents - discountCents, amountCents, pct, discountCents, dueDate],
+  );
+  res.redirect('/admin/charges');
+});
+
+router.post('/charges/:id/pay', requireAdminAuth, async (req, res) => {
+  await getPool().query("UPDATE charges SET status = 'paga', paid_at = NOW(3) WHERE id = ?", [req.params.id]);
+  res.redirect('/admin/charges');
+});
+
+router.post('/charges/:id/cancel', requireAdminAuth, async (req, res) => {
+  await getPool().query("UPDATE charges SET status = 'cancelada' WHERE id = ?", [req.params.id]);
+  res.redirect('/admin/charges');
+});
+
+router.get('/affiliates', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
+  const [affiliates] = await pool.query(
+    `SELECT a.id, a.name, a.contact, a.discount_pct, a.active, a.created_at,
+            (SELECT COUNT(*) FROM companies c WHERE c.affiliate_id = a.id) AS companies_count
+       FROM affiliates a ORDER BY a.active DESC, a.name`,
+  );
+  res.render('affiliates', { affiliates, active: 'affiliates' });
+});
+
+router.post('/affiliates', requireAdminAuth, async (req, res) => {
+  const { name, contact, discountPct } = req.body ?? {};
+  const cleanName = String(name ?? '').trim();
+  if (cleanName.length >= 2) {
+    await getPool().query('INSERT INTO affiliates (name, contact, discount_pct) VALUES (?, ?, ?)', [
+      cleanName,
+      textOrNull(contact),
+      Math.min(100, Math.max(0, Math.round(Number(discountPct) || 0))),
+    ]);
+  }
+  res.redirect('/admin/affiliates');
+});
+
+router.post('/affiliates/:id/toggle', requireAdminAuth, async (req, res) => {
+  await getPool().query('UPDATE affiliates SET active = 1 - active WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/affiliates');
+});
+
+router.post('/affiliates/:id/delete', requireAdminAuth, async (req, res) => {
+  // Solta as empresas antes: sem o afiliado, elas voltam a pagar o valor cheio.
+  await getPool().query('UPDATE companies SET affiliate_id = NULL WHERE affiliate_id = ?', [req.params.id]);
+  await getPool().query('DELETE FROM affiliates WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/affiliates');
 });
 
 // --- Configurações globais (contato de suporte exibido no app quando a licença vence) ---

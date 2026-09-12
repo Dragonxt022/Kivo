@@ -170,6 +170,43 @@
           </div>
         </div>
 
+        <%
+          var billingData = billing || {};
+          var hojeIso = new Date().toISOString().slice(0, 10);
+        %>
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="viz-head">
+            <h2>Cobranças</h2>
+            <a href="/admin/charges" class="card-link">Gerenciar cobranças →</a>
+          </div>
+          <div class="stat-row">
+            <div class="stat"><div class="value"><%= brl(Number(billingData.pending_cents || 0) / 100) %></div><div class="label">A receber (pendente)</div></div>
+            <div class="stat"><div class="value" style="<%= Number(billingData.overdue_cents || 0) ? 'color:#dc2626' : '' %>"><%= brl(Number(billingData.overdue_cents || 0) / 100) %></div><div class="label">Vencidas (<%= Number(billingData.overdue_count || 0) %>)</div></div>
+            <div class="stat"><div class="value"><%= brl(Number(billingData.paid_month_cents || 0) / 100) %></div><div class="label">Recebido no mês</div></div>
+            <div class="stat"><div class="value"><%= brl(Number(billingData.discount_month_cents || 0) / 100) %></div><div class="label">Descontos de indicação</div></div>
+          </div>
+          <% if (upcomingCharges && upcomingCharges.length) { %>
+          <div style="margin-top:14px">
+            <% upcomingCharges.forEach(function(ch) { var atrasada = String(ch.due_date).slice(0, 10) < hojeIso; %>
+            <div class="dash-activity-item" style="align-items:center">
+              <div class="dash-activity-dot" style="background: <%= atrasada ? '#dc2626' : '#22c55e' %>"></div>
+              <div style="flex:1; min-width:0">
+                <div class="dash-activity-text"><strong><%= ch.company_name || String(ch.company_uuid).slice(0, 8) %></strong> — <%= ch.description %></div>
+                <div class="dash-activity-time">vence <%= String(ch.due_date).slice(0, 10) %></div>
+              </div>
+              <div style="font-weight:700; white-space:nowrap"><%= brl(Number(ch.amount_cents || 0) / 100) %></div>
+            </div>
+            <% }); %>
+          </div>
+          <% } else { %>
+          <div class="dash-empty">Nenhuma cobrança pendente. <a href="/admin/charges">Registrar uma →</a></div>
+          <% } %>
+          <p class="field-hint" style="margin-top:12px">
+            Empresas com <strong>afiliado</strong> (indicação) têm o desconto do afiliado aplicado
+            automaticamente em toda cobrança. Veja <a href="/admin/affiliates">Afiliados</a>.
+          </p>
+        </div>
+
         <% if (alerts.length) { %>
         <div class="card" style="margin-bottom: 24px;">
           <h2 style="margin-bottom: 14px;">Avisos</h2>

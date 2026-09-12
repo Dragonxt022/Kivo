@@ -33,11 +33,75 @@ async function appliedNames(): Promise<Set<string>> {
   return new Set((rows as { name: string }[]).map((r) => r.name));
 }
 
+/**
+ * Quebra o arquivo em comandos por `;`, mas IGNORANDO os que estiverem dentro de comentários
+ * (de linha e de bloco) ou de literais de texto. O `split(';')` ingênuo já quebrou em produção:
+ * um comentário da 0028 tinha um `;` no meio da frase, o migrator cortou ali e tentou rodar
+ * o resto do comentário como SQL ("You have an error in your SQL syntax near 'temas pagos…'").
+ *
+ * Os comentários são MANTIDOS no comando (o MySQL aceita); só não contam como separador.
+ */
 function splitStatements(sql: string): string[] {
-  return sql
-    .split(';')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const out: string[] = [];
+  let cur = '';
+  let quote: string | null = null;
+  let i = 0;
+  const n = sql.length;
+
+  while (i < n) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    if (quote) {
+      cur += ch;
+      if (ch === '\\' && i + 1 < n) {
+        cur += next;
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i++;
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      quote = ch;
+      cur += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '-' && next === '-') {
+      while (i < n && sql[i] !== '\n') cur += sql[i++];
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      cur += ch + next;
+      i += 2;
+      while (i < n && !(sql[i] === '*' && sql[i + 1] === '/')) cur += sql[i++];
+      if (i < n) {
+        cur += '*/';
+        i += 2;
+      }
+      continue;
+    }
+
+    if (ch === ';') {
+      const stmt = cur.trim();
+      if (stmt) out.push(stmt);
+      cur = '';
+      i++;
+      continue;
+    }
+
+    cur += ch;
+    i++;
+  }
+
+  const last = cur.trim();
+  if (last) out.push(last);
+  return out;
 }
 
 export async function migrateUp(): Promise<string[]> {

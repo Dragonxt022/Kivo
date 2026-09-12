@@ -1,7 +1,7 @@
 -- 0028_themes — loja de temas (pacotes de ícones) do Kivo Cloud.
 --
 -- O admin cadastra um tema (nome, capa, grátis ou pago) e envia os SVGs. Temas grátis ficam
--- disponíveis para toda empresa; temas pagos só para quem o admin liberar em `theme_grants`.
+-- disponíveis para toda empresa, e temas pagos só para quem o admin liberar em `theme_grants`.
 --
 -- O pack é guardado como JSON (nome do arquivo -> conteúdo) para o desktop baixar tudo numa
 -- resposta só, sem depender de zip em nenhum dos lados. A capa é um arquivo em disco
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS themes (
 
 -- Liberação de tema pago por empresa. Sem FK de propósito: a 0019 mostrou que FK entre
 -- colunas CHAR com collations diferentes (herdadas do banco vs. declaradas) é recusada em
--- produção; a limpeza é feita no delete da empresa, como nas demais tabelas.
+-- produção, então a limpeza é feita no delete da empresa, como nas demais tabelas.
 CREATE TABLE IF NOT EXISTS theme_grants (
   company_uuid CHAR(36) NOT NULL,
   theme_id BIGINT UNSIGNED NOT NULL,
