@@ -100,6 +100,218 @@ function withLateInfo<T extends { status: string; amount_cents: number; due_date
   };
 }
 
+/** Configurações compartilhadas com o setup do módulo (a receber precisa liquidar via serviço). */
+export const RECEIVABLES_CONFIG: BillsConfig = {
+  table: 'receivables', entity: 'receivable', permPrefix: 'finance.receivables',
+  partyColumn: 'customer_id', partyTable: 'customers',
+  settleStatus: 'recebida', settleAction: 'receber', settleDateCol: 'received_at', settleCentsCol: 'received_cents',
+  movementType: 'recebimento', movementDirection: 'entrada', settlePermission: 'finance.receivables.receive',
+};
+
+export const PAYABLES_CONFIG: BillsConfig = {
+  table: 'payables', entity: 'payable', permPrefix: 'finance.payables',
+  partyColumn: 'supplier_id', partyTable: 'suppliers',
+  settleStatus: 'paga', settleAction: 'pagar', settleDateCol: 'paid_at', settleCentsCol: 'paid_cents',
+  movementType: 'pagamento', movementDirection: 'saida', settlePermission: 'finance.payables.pay',
+  categoryField: true,
+};
+
+export interface SettleBillInput {
+  payments: { paymentMethodId?: number; amountCents?: number }[];
+  settledAt?: string;
+}
+
+export type SettleBillResult =
+  | {
+      ok: true;
+      settledCents: number;
+      rolledOverCents: number;
+      rolloverTarget: 'existing' | 'new' | null;
+      registeredInCash: boolean;
+    }
+  | { ok: false; status: number; error: string; code?: string };
+
+/**
+ * Liquida uma conta (a pagar ou a receber).
+ *
+ * Extraído da rota para o Kivo Web poder receber pelo celular: a intenção chega como comando
+ * e roda no desktop pelo MESMO caminho da tela — caixa, rolagem de saldo e auditoria
+ * inclusive. Duplicar essa lógica no handler seria criar uma segunda verdade para dinheiro.
+ */
+export function settleBill(cfg: BillsConfig, req: Request, id: string | number, input: SettleBillInput): SettleBillResult {
+  const repo = repoForTable(cfg.table);
+  const bill = getBill(cfg, id) as BillRow | undefined;
+  if (!bill) return { ok: false, status: 404, error: 'Conta não encontrada.' };
+  if (bill.status !== 'aberta') return { ok: false, status: 400, error: `Conta já está "${bill.status}".` };
+
+  const paymentsInput = Array.isArray(input?.payments) ? input.payments : null;
+  if (!paymentsInput || !paymentsInput.length) {
+    return { ok: false, status: 400, error: 'Informe ao menos uma forma de pagamento.' };
+  }
+  const resolved: { method: { id: number; type: string }; amountCents: number }[] = [];
+  for (const p of paymentsInput) {
+    const amt = Math.round(Number(p?.amountCents));
+    if (!Number.isInteger(amt) || amt <= 0) {
+      return { ok: false, status: 400, error: 'Valor inválido em uma das formas de pagamento.' };
+    }
+    const method = paymentMethodRepository.rawOne(
+      "SELECT id, type FROM payment_methods WHERE id = ? AND active = 1 AND deleted_at IS NULL AND type != 'prazo'",
+      p?.paymentMethodId,
+    ) as { id: number; type: string } | undefined;
+    if (!method) return { ok: false, status: 400, error: 'Forma de pagamento inválida.' };
+    resolved.push({ method, amountCents: amt });
+  }
+  const totalPaidCents = resolved.reduce((s, p) => s + p.amountCents, 0);
+
+  let settledAtValue: string | null = null;
+  if (input?.settledAt) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(input.settledAt));
+    if (!m) return { ok: false, status: 400, error: 'Data do pagamento inválida (use AAAA-MM-DD).' };
+    settledAtValue = `${input.settledAt} 12:00:00`;
+  }
+
+  const { multaCents, jurosCents } = computeLateCharges(bill.amount_cents, bill.due_date);
+  const owedCents = bill.amount_cents + multaCents + jurosCents;
+
+  const hasCash = resolved.some((p) => p.method.type === 'dinheiro');
+  const cashCents = resolved.filter((p) => p.method.type === 'dinheiro').reduce((s, p) => s + p.amountCents, 0);
+  const reg = currentRegister();
+  if (hasCash && !reg) {
+    return { ok: false, status: 400, error: 'Abra o caixa antes de liquidar em dinheiro.', code: 'no_register' };
+  }
+
+  let rolledOverCents = 0;
+  let rolloverTarget: 'existing' | 'new' | null = null;
+
+  repo.transaction(() => {
+    const soleMethodId = resolved.length === 1 ? resolved[0].method.id : null;
+
+    const settleSql = settledAtValue
+      ? `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = ?, ${cfg.settleCentsCol} = ?, amount_cents = ?, settle_payment_method_id = ?, updated_at = datetime('now') WHERE id = ?`
+      : `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = datetime('now'), ${cfg.settleCentsCol} = ?, amount_cents = ?, settle_payment_method_id = ?, updated_at = datetime('now') WHERE id = ?`;
+    const settleParams = settledAtValue
+      ? [cfg.settleStatus, settledAtValue, totalPaidCents, totalPaidCents, soleMethodId, id]
+      : [cfg.settleStatus, totalPaidCents, totalPaidCents, soleMethodId, id];
+    repo.rawRun(settleSql, ...settleParams);
+
+    for (const p of resolved) {
+      billSettlementPaymentRepository.create({
+        entity: cfg.entity,
+        bill_id: id,
+        payment_method_id: p.method.id,
+        amount_cents: p.amountCents,
+      });
+    }
+
+    if (hasCash && reg && cashCents > 0) {
+      addMovement(req, reg.id, cfg.movementDirection, cfg.movementType, cashCents, bill.description, cfg.entity, id);
+    }
+
+    const shortfall = owedCents - totalPaidCents;
+    if (shortfall > 0) {
+      rolledOverCents = shortfall;
+      const currentNo = bill.installment_no ?? 1;
+      let next: { id: number } | undefined;
+      if (bill.installment_group_id) {
+        next = repo.rawOne(
+          `SELECT id FROM ${cfg.table} WHERE installment_group_id = ? AND installment_no = ? AND status = 'aberta'`,
+          bill.installment_group_id, currentNo + 1,
+        ) as { id: number } | undefined;
+      } else if (cfg.table === 'receivables' && bill.sale_id) {
+        next = receivableRepository.rawOne(
+          `SELECT id FROM receivables WHERE sale_id = ? AND installment_no = ? AND status = 'aberta'`,
+          bill.sale_id, currentNo + 1,
+        ) as { id: number } | undefined;
+      }
+
+      if (next) {
+        repo.rawRun(
+          `UPDATE ${cfg.table} SET amount_cents = amount_cents + ?, updated_at = datetime('now') WHERE id = ?`,
+          shortfall, next.id,
+        );
+        rolloverTarget = 'existing';
+      } else {
+        const groupId = bill.installment_group_id ?? randomUUID();
+        if (!bill.installment_group_id) {
+          repo.rawRun(
+            `UPDATE ${cfg.table} SET installment_group_id = ?, installment_no = 1 WHERE id = ?`,
+            groupId, id,
+          );
+        }
+        const newDue = addDays(bill.due_date, 30);
+        const newNo = currentNo + 1;
+        const cols = ['description', cfg.partyColumn, 'amount_cents', 'issue_date', 'due_date', 'notes',
+          'installment_group_id', 'installment_no', 'installment_count', 'original_amount_cents', 'uuid'];
+        if (cfg.categoryField) cols.push('dre_category_id');
+        const values: Record<string, unknown> = {
+          description: bill.description,
+          [cfg.partyColumn]: bill.party_id,
+          amount_cents: shortfall,
+          issue_date: new Date().toISOString().slice(0, 10),
+          due_date: newDue,
+          notes: bill.notes,
+          installment_group_id: groupId,
+          installment_no: newNo,
+          installment_count: null,
+          original_amount_cents: shortfall,
+          uuid: randomUUID(),
+        };
+        if (cfg.categoryField) {
+          values.dre_category_id = (bill as unknown as { dre_category_id: number | null }).dre_category_id ?? defaultCategoryId();
+        }
+        repo.create(values);
+        rolloverTarget = 'new';
+        repo.rawRun(
+          `UPDATE ${cfg.table} SET installment_count = (SELECT COUNT(*) FROM ${cfg.table} WHERE installment_group_id = ? AND deleted_at IS NULL)
+           WHERE installment_group_id = ?`,
+          groupId, groupId,
+        );
+      }
+    }
+  });
+
+  audit(req, cfg.settleAction, cfg.entity, id, bill, {
+    totalPaidCents, methods: resolved.map((p) => ({ id: p.method.id, amountCents: p.amountCents })),
+    rolledOverCents, rolloverTarget, caixa: hasCash ? reg?.id : null,
+  });
+  return { ok: true, settledCents: totalPaidCents, rolledOverCents, rolloverTarget, registeredInCash: hasCash };
+}
+
+/**
+ * Recebe o TOTAL de uma conta a receber pelo tipo da forma de pagamento.
+ *
+ * O celular manda "pix"/"dinheiro"/"credito" e o desktop resolve para a forma LOCAL daquele
+ * tipo: `payment_methods` é configuração por máquina (cada maquininha tem a própria taxa) e
+ * não sincroniza de propósito — ver module.manifest.ts. Quitar o total, e não um valor
+ * parcial, mantém a operação simples e sem rolagem de saldo pelo celular.
+ */
+export function receiveReceivableFull(
+  req: Request,
+  id: string | number,
+  input: { paymentMethodType?: string; settledAt?: string },
+): SettleBillResult {
+  const cfg = RECEIVABLES_CONFIG;
+  const bill = getBill(cfg, id) as BillRow | undefined;
+  if (!bill) return { ok: false, status: 404, error: 'Conta não encontrada.' };
+  if (bill.status !== 'aberta') return { ok: false, status: 400, error: `Conta já está "${bill.status}".` };
+
+  const type = String(input?.paymentMethodType ?? '').trim();
+  if (!type || type === 'prazo') {
+    return { ok: false, status: 400, error: 'Escolha uma forma de pagamento.' };
+  }
+  const method = paymentMethodRepository.findByType(type) as { id: number; type: string } | undefined;
+  if (!method) {
+    return { ok: false, status: 400, error: 'Esta forma de pagamento não está ativa no computador da loja.' };
+  }
+
+  const { multaCents, jurosCents } = computeLateCharges(bill.amount_cents, bill.due_date);
+  const owedCents = bill.amount_cents + multaCents + jurosCents;
+  return settleBill(cfg, req, id, {
+    payments: [{ paymentMethodId: method.id, amountCents: owedCents }],
+    settledAt: input?.settledAt,
+  });
+}
+
 export function makeBillsRouter(cfg: BillsConfig): Router {
   const router = Router();
   const repo = repoForTable(cfg.table);
@@ -234,157 +446,18 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
   });
 
   router.post('/:id/settle', requirePermission(cfg.settlePermission), validateBody(settleBillSchema), (req: Request, res) => {
-    const id = String(req.params.id);
-    const bill = getBill(cfg, id) as BillRow | undefined;
-    if (!bill) {
-      res.status(404).json({ error: 'Conta não encontrada.' });
+    const out = settleBill(cfg, req, String(req.params.id), req.body ?? {});
+    if (!out.ok) {
+      res.status(out.status).json(out.code ? { error: out.error, code: out.code } : { error: out.error });
       return;
     }
-    if (bill.status !== 'aberta') {
-      res.status(400).json({ error: `Conta já está "${bill.status}".` });
-      return;
-    }
-
-    const paymentsInput = Array.isArray(req.body?.payments) ? req.body.payments : null;
-    if (!paymentsInput || !paymentsInput.length) {
-      res.status(400).json({ error: 'Informe ao menos uma forma de pagamento.' });
-      return;
-    }
-    const resolved: { method: { id: number; type: string }; amountCents: number }[] = [];
-    for (const p of paymentsInput) {
-      const amt = Math.round(Number(p?.amountCents));
-      if (!Number.isInteger(amt) || amt <= 0) {
-        res.status(400).json({ error: 'Valor inválido em uma das formas de pagamento.' });
-        return;
-      }
-      const method = paymentMethodRepository.rawOne(
-        "SELECT id, type FROM payment_methods WHERE id = ? AND active = 1 AND deleted_at IS NULL AND type != 'prazo'",
-        p?.paymentMethodId,
-      ) as { id: number; type: string } | undefined;
-      if (!method) {
-        res.status(400).json({ error: 'Forma de pagamento inválida.' });
-        return;
-      }
-      resolved.push({ method, amountCents: amt });
-    }
-    const totalPaidCents = resolved.reduce((s, p) => s + p.amountCents, 0);
-
-    let settledAtValue: string | null = null;
-    if (req.body?.settledAt) {
-      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(req.body.settledAt));
-      if (!m) {
-        res.status(400).json({ error: 'Data do pagamento inválida (use AAAA-MM-DD).' });
-        return;
-      }
-      settledAtValue = `${req.body.settledAt} 12:00:00`;
-    }
-
-    const { multaCents, jurosCents } = computeLateCharges(bill.amount_cents, bill.due_date);
-    const owedCents = bill.amount_cents + multaCents + jurosCents;
-
-    const hasCash = resolved.some((p) => p.method.type === 'dinheiro');
-    const cashCents = resolved.filter((p) => p.method.type === 'dinheiro').reduce((s, p) => s + p.amountCents, 0);
-    const reg = currentRegister();
-    if (hasCash && !reg) {
-      res.status(400).json({ error: 'Abra o caixa antes de liquidar em dinheiro.', code: 'no_register' });
-      return;
-    }
-
-    let rolledOverCents = 0;
-    let rolloverTarget: 'existing' | 'new' | null = null;
-
-    repo.transaction(() => {
-      const soleMethodId = resolved.length === 1 ? resolved[0].method.id : null;
-
-      const settleSql = settledAtValue
-        ? `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = ?, ${cfg.settleCentsCol} = ?, amount_cents = ?, settle_payment_method_id = ?, updated_at = datetime('now') WHERE id = ?`
-        : `UPDATE ${cfg.table} SET status = ?, ${cfg.settleDateCol} = datetime('now'), ${cfg.settleCentsCol} = ?, amount_cents = ?, settle_payment_method_id = ?, updated_at = datetime('now') WHERE id = ?`;
-      const settleParams = settledAtValue
-        ? [cfg.settleStatus, settledAtValue, totalPaidCents, totalPaidCents, soleMethodId, id]
-        : [cfg.settleStatus, totalPaidCents, totalPaidCents, soleMethodId, id];
-      repo.rawRun(settleSql, ...settleParams);
-
-      for (const p of resolved) {
-        billSettlementPaymentRepository.create({
-          entity: cfg.entity,
-          bill_id: id,
-          payment_method_id: p.method.id,
-          amount_cents: p.amountCents,
-        });
-      }
-
-      if (hasCash && reg && cashCents > 0) {
-        addMovement(req, reg.id, cfg.movementDirection, cfg.movementType, cashCents, bill.description, cfg.entity, id);
-      }
-
-      const shortfall = owedCents - totalPaidCents;
-      if (shortfall > 0) {
-        rolledOverCents = shortfall;
-        const currentNo = bill.installment_no ?? 1;
-        let next: { id: number } | undefined;
-        if (bill.installment_group_id) {
-          next = repo.rawOne(
-            `SELECT id FROM ${cfg.table} WHERE installment_group_id = ? AND installment_no = ? AND status = 'aberta'`,
-            bill.installment_group_id, currentNo + 1,
-          ) as { id: number } | undefined;
-        } else if (cfg.table === 'receivables' && bill.sale_id) {
-          next = receivableRepository.rawOne(
-            `SELECT id FROM receivables WHERE sale_id = ? AND installment_no = ? AND status = 'aberta'`,
-            bill.sale_id, currentNo + 1,
-          ) as { id: number } | undefined;
-        }
-
-        if (next) {
-          repo.rawRun(
-            `UPDATE ${cfg.table} SET amount_cents = amount_cents + ?, updated_at = datetime('now') WHERE id = ?`,
-            shortfall, next.id,
-          );
-          rolloverTarget = 'existing';
-        } else {
-          const groupId = bill.installment_group_id ?? randomUUID();
-          if (!bill.installment_group_id) {
-            repo.rawRun(
-              `UPDATE ${cfg.table} SET installment_group_id = ?, installment_no = 1 WHERE id = ?`,
-              groupId, id,
-            );
-          }
-          const newDue = addDays(bill.due_date, 30);
-          const newNo = currentNo + 1;
-          const cols = ['description', cfg.partyColumn, 'amount_cents', 'issue_date', 'due_date', 'notes',
-            'installment_group_id', 'installment_no', 'installment_count', 'original_amount_cents', 'uuid'];
-          if (cfg.categoryField) cols.push('dre_category_id');
-          const values: Record<string, unknown> = {
-            description: bill.description,
-            [cfg.partyColumn]: bill.party_id,
-            amount_cents: shortfall,
-            issue_date: new Date().toISOString().slice(0, 10),
-            due_date: newDue,
-            notes: bill.notes,
-            installment_group_id: groupId,
-            installment_no: newNo,
-            installment_count: null,
-            original_amount_cents: shortfall,
-            uuid: randomUUID(),
-          };
-          if (cfg.categoryField) {
-            values.dre_category_id = (bill as unknown as { dre_category_id: number | null }).dre_category_id ?? defaultCategoryId();
-          }
-          repo.create(values);
-          rolloverTarget = 'new';
-          repo.rawRun(
-            `UPDATE ${cfg.table} SET installment_count = (SELECT COUNT(*) FROM ${cfg.table} WHERE installment_group_id = ? AND deleted_at IS NULL)
-             WHERE installment_group_id = ?`,
-            groupId, groupId,
-          );
-        }
-      }
+    res.json({
+      ok: true,
+      settledCents: out.settledCents,
+      rolledOverCents: out.rolledOverCents,
+      rolloverTarget: out.rolloverTarget,
+      registeredInCash: out.registeredInCash,
     });
-
-    audit(req, cfg.settleAction, cfg.entity, id, bill, {
-      totalPaidCents, methods: resolved.map((p) => ({ id: p.method.id, amountCents: p.amountCents })),
-      rolledOverCents, rolloverTarget, caixa: hasCash ? reg?.id : null,
-    });
-    res.json({ ok: true, settledCents: totalPaidCents, rolledOverCents, rolloverTarget, registeredInCash: hasCash });
   });
 
   // ─── Anexo de documento (boleto, nota, comprovante) ───

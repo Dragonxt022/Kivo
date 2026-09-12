@@ -13,6 +13,14 @@
   <%- include('theme-init') %>
   <title><%= titulo %> — Kivo</title>
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%# Instalável na tela inicial: o manifest deixa o painel abrir em tela cheia, sem a
+      barra do navegador, com ícone e cor próprios. O service worker (escopo /m/) só
+      acelera CSS/imagens — HTML autenticado nunca é cacheado. %>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Kivo">
   <%- include('styles') %>
   <link rel="stylesheet" href="/css/mobile.css">
   <%# Camada de componentes (KPI, folha inferior, stepper, barra de ação). Arquivo à
@@ -35,6 +43,13 @@
       <span class="m-header-company"><%= grant.companyName || 'Minha loja' %></span>
       <h1 class="m-header-title"><%= titulo %></h1>
     </div>
+    <%# Pede ao computador da loja um sync agora. O painel lê o último sync, então sem
+        isto o lojista só espera o ciclo automático (até 3 min) para ver a venda que acabou
+        de sair no caixa. %>
+    <button type="button" class="m-header-sync" id="m-sync-btn" onclick="mSincronizar()"
+            title="Pedir atualização ao computador da loja" aria-label="Atualizar dados">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+    </button>
     <a class="m-header-user" href="/m/sair" title="Sair">
       <span><%= (grant.name || grant.username).split(' ')[0] %></span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -77,6 +92,47 @@
       var d = (history.state || {}).mDepth || 1;
       if (d > 1) history.back();
       else location.href = '/m';
+    }
+  </script>
+
+  <script>
+    // PWA: escopo /m/ para o worker nunca tocar no painel admin nem nas APIs. Falha é
+    // silenciosa — o painel funciona igual sem o service worker.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js', { scope: '/m/' }).catch(function () {});
+      });
+    }
+
+    /**
+     * Pede ao desktop um sync agora e recarrega quando ele deve ter terminado. O recado de
+     * "computador desligado" vem do servidor (canal SSE aberto), não de um timeout: prometer
+     * atualização com ninguém escutando seria mentir.
+     */
+    function mSincronizar() {
+      var b = document.getElementById('m-sync-btn');
+      if (!b || b.disabled) return;
+      b.disabled = true;
+      b.classList.add('girando');
+      function parar() {
+        b.disabled = false;
+        b.classList.remove('girando');
+      }
+      fetch('/api/mobile/sync-now', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (d) {
+          if (!d.desktopOnline) {
+            parar();
+            alert('O computador da loja parece estar desligado ou sem internet. Assim que ele voltar, os dados se atualizam sozinhos.');
+            return;
+          }
+          // Dá tempo do desktop puxar/empurrar antes de reler o painel.
+          setTimeout(function () { location.reload(); }, 4000);
+        })
+        .catch(function () {
+          parar();
+          alert('Não foi possível pedir a atualização agora. Tente de novo.');
+        });
     }
   </script>
 

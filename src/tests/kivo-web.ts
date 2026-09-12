@@ -154,6 +154,73 @@ async function main(): Promise<void> {
     check('usuário desativado no desktop deixa de aplicar comandos', !usuarioInativo.ok);
     db.prepare('UPDATE users SET active = 1 WHERE id = ?').run(userId);
 
+    // ─── Comando: baixa de conta a receber pelo celular ──────────────────────────
+    // `payment_methods` é configuração por máquina e não sincroniza: o celular manda o TIPO
+    // e o desktop resolve para a forma local. Os casos de recusa vêm antes do sucesso para
+    // a conta continuar aberta enquanto são testados.
+    const recUuid = randomUUID();
+    const recId = Number(
+      db.prepare(
+        `INSERT INTO receivables (description, customer_id, amount_cents, issue_date, due_date, status, original_amount_cents, uuid)
+         VALUES ('Fiado do mês', (SELECT id FROM customers WHERE uuid = ?), 5000, '2026-01-01', '2026-01-31', 'aberta', 5000, ?)`,
+      ).run(custUuid, recUuid).lastInsertRowid,
+    );
+    const receber = {
+      id: 10,
+      kind: 'finance.receivable.receive',
+      created_by_user_uuid: userUuid,
+      payload: { receivableUuid: recUuid, methodType: 'pix' },
+    };
+
+    // 'convenio' é seedado inativo.
+    const recInativo = applyCommand({ ...receber, id: 11, payload: { receivableUuid: recUuid, methodType: 'convenio' } });
+    check('forma de pagamento inativa → erro legível',
+      !recInativo.ok && recInativo.error.includes('não está ativa'),
+      recInativo.ok ? 'passou' : recInativo.error);
+
+    const recPrazo = applyCommand({ ...receber, id: 12, payload: { receivableUuid: recUuid, methodType: 'prazo' } });
+    check('"prazo" não liquida conta a receber', !recPrazo.ok);
+
+    const recDinheiro = applyCommand({ ...receber, id: 13, payload: { receivableUuid: recUuid, methodType: 'dinheiro' } });
+    check('dinheiro sem caixa aberto → recusa orientando abrir o caixa',
+      !recDinheiro.ok && recDinheiro.error.includes('caixa'),
+      recDinheiro.ok ? 'passou' : recDinheiro.error);
+
+    const recSumiu = applyCommand({ ...receber, id: 14, payload: { receivableUuid: randomUUID(), methodType: 'pix' } });
+    check('conta inexistente → erro legível',
+      !recSumiu.ok && recSumiu.error.includes('não existe mais'),
+      recSumiu.ok ? 'passou' : recSumiu.error);
+
+    // Cargo sem a permissão: o vendedor não recebe, mesmo pedindo pelo celular.
+    const roleVend = (db.prepare("SELECT id FROM roles WHERE slug = 'vendedor'").get() as { id: number }).id;
+    const vendUuid = randomUUID();
+    db.prepare(
+      `INSERT INTO users (username, name, password_hash, role_id, active, uuid)
+       VALUES ('vendedor2', 'Vendedor Dois', ?, ?, 1, ?)`,
+    ).run(hashPassword('Kivo@2026!'), roleVend, vendUuid);
+    const recSemPerm = applyCommand({ ...receber, id: 15, created_by_user_uuid: vendUuid });
+    check('cargo sem finance.receivables.receive → recusa',
+      !recSemPerm.ok && recSemPerm.error.includes('não permite receber'),
+      recSemPerm.ok ? 'passou' : recSemPerm.error);
+
+    // Sucesso: quita o total pela forma resolvida no desktop.
+    const outRec = applyCommand({ ...receber, id: 16 });
+    check('comando de recebimento aplicado', outRec.ok, outRec.ok ? '' : outRec.error);
+    if (outRec.ok) {
+      const rec = db
+        .prepare('SELECT status, received_cents, settle_payment_method_id FROM receivables WHERE id = ?')
+        .get(recId) as { status: string; received_cents: number; settle_payment_method_id: number | null };
+      check('conta marcada como recebida pelo valor cheio',
+        rec.status === 'recebida' && rec.received_cents === 5000,
+        `${rec.status}/${rec.received_cents}`);
+      check('forma de pagamento resolvida no desktop (pix)', rec.settle_payment_method_id != null);
+      const logRec = db.prepare(
+        "SELECT username FROM audit_logs WHERE entity = 'receivable' AND entity_id = ? ORDER BY id DESC LIMIT 1",
+      ).get(String(recId)) as { username: string } | undefined;
+      check('auditoria do recebimento sai no nome de quem pediu',
+        logRec?.username === 'vendedor', logRec?.username ?? 'sem log');
+    }
+
     // ─── Concessão de acesso: o token em claro nunca é guardado ──────────────────
     const token = 'a'.repeat(64);
     db.prepare('INSERT INTO remote_access (user_id, token_hash, uuid) VALUES (?, ?, ?)')

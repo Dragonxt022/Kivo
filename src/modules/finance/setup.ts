@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import type { Request } from 'express';
 import { registerService } from '../../core/services/registry';
 import { currentRegister, addMovement, expectedCents, getRegisterById, openRegister, closeRegister } from './cash';
 import { chargeAgreementRaw, pendingTotal, generateInvoice, companiesDueForInvoice } from './agreements';
 import { startAgreementScheduler } from './agreementScheduler';
 import { paymentMethodRepository } from './repositories/PaymentMethodRepository';
 import { receivableRepository } from './repositories/BillRepository';
+import { receiveReceivableFull, type SettleBillResult } from './bills';
 
 export interface FinanceCashService {
   currentRegister: typeof currentRegister;
@@ -37,6 +39,8 @@ export interface FinanceReceivablesService {
     installmentCount?: number;
   }): number;
   listBySale(saleId: number): ReceivableRow[];
+  /** Recebe o total pelo tipo da forma de pagamento (usado pelo Kivo Web). */
+  settleFull(req: Request, id: number, input: { paymentMethodType?: string; settledAt?: string }): SettleBillResult;
 }
 
 function createReceivable(input: {
@@ -97,7 +101,11 @@ const payMethods: FinancePayMethodsService = {
 
 export default function setup(): void {
   registerService('finance.cash', { currentRegister, addMovement, expectedCents, getRegisterById, openRegister, closeRegister } satisfies FinanceCashService);
-  registerService('finance.receivables', { create: createReceivable, listBySale: listReceivablesBySale } satisfies FinanceReceivablesService);
+  registerService('finance.receivables', {
+    create: createReceivable,
+    listBySale: listReceivablesBySale,
+    settleFull: receiveReceivableFull,
+  } satisfies FinanceReceivablesService);
   registerService('finance.paymethods', payMethods);
   registerService('finance.agreements', { chargeAgreementRaw, pendingTotal, generateInvoice, companiesDueForInvoice } satisfies FinanceAgreementsService);
   startAgreementScheduler();

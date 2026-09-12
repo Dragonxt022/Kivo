@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
-import { makeBillsRouter } from './bills';
+import { makeBillsRouter, PAYABLES_CONFIG, RECEIVABLES_CONFIG } from './bills';
 import { validateBody } from '../../shared/validateBody';
 import { openRegisterSchema, closeRegisterSchema } from '../../shared/schemas';
 import { financeController } from './controllers/FinanceController';
@@ -21,19 +21,8 @@ router.post('/cash/close', requirePermission('finance.cash.close'), validateBody
 router.put('/cash/:id', requirePermission('finance.cash.edit'), financeController.editCashAction);
 router.post('/cash/movement', requirePermission('finance.cash.move'), financeController.createCashMovement);
 
-router.use('/payables', makeBillsRouter({
-  table: 'payables', entity: 'payable', permPrefix: 'finance.payables',
-  partyColumn: 'supplier_id', partyTable: 'suppliers',
-  settleStatus: 'paga', settleAction: 'pagar', settleDateCol: 'paid_at', settleCentsCol: 'paid_cents',
-  movementType: 'pagamento', movementDirection: 'saida', settlePermission: 'finance.payables.pay',
-  categoryField: true,
-}));
-router.use('/receivables', makeBillsRouter({
-  table: 'receivables', entity: 'receivable', permPrefix: 'finance.receivables',
-  partyColumn: 'customer_id', partyTable: 'customers',
-  settleStatus: 'recebida', settleAction: 'receber', settleDateCol: 'received_at', settleCentsCol: 'received_cents',
-  movementType: 'recebimento', movementDirection: 'entrada', settlePermission: 'finance.receivables.receive',
-}));
+router.use('/payables', makeBillsRouter(PAYABLES_CONFIG));
+router.use('/receivables', makeBillsRouter(RECEIVABLES_CONFIG));
 
 router.get('/agreements/:companyId/pending', requirePermission('finance.agreements.view'), financeController.getPendingAgreement);
 router.post('/agreements/:companyId/invoice', requirePermission('finance.agreements.invoice'), financeController.generateInvoiceAction);
