@@ -66,6 +66,8 @@ ssh -i "$KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${SSH_USER}@
   set +a
 
   npm run migrate
+  # Cadastra/atualiza os temas da loja (packs em seed-themes/). Idempotente.
+  npm run seed:themes
   pm2 restart ${PM2_NAME}
   sleep 2
   pm2 show ${PM2_NAME} | grep status

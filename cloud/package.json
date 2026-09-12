@@ -9,6 +9,7 @@
 "build": "tsc -p tsconfig.json && node scripts/copy-views.js",
 "migrate": "tsx -r dotenv/config src/migrate.ts up",
 "migrate:down": "tsx -r dotenv/config src/migrate.ts down",
+"seed:themes": "tsx -r dotenv/config src/seed-themes.ts",
 "reset": "tsx -r dotenv/config src/reset-db.ts"
   },
   "dependencies": {

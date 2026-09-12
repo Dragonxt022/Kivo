@@ -401,7 +401,8 @@ router.get('/', requireAdminAuth, async (_req, res) => {
        COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN amount_cents END), 0) AS paid_month_cents,
        COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN discount_cents END), 0) AS discount_month_cents,
        COUNT(CASE WHEN status = 'pendente' THEN 1 END) AS pending_count,
-       COUNT(CASE WHEN status = 'pendente' AND due_date < CURDATE() THEN 1 END) AS overdue_count`,
+       COUNT(CASE WHEN status = 'pendente' AND due_date < CURDATE() THEN 1 END) AS overdue_count
+     FROM charges`,
   );
   const billing = (billingRows as Record<string, number>[])[0] ?? {};
   const [upcomingRows] = await pool.query(
@@ -885,7 +886,7 @@ router.post('/companies/:uuid/charges', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
   const { description, amount, dueDate, instructions } = req.body ?? {};
   if (description && amount && dueDate) {
-    const amountCents = Math.round(Number(amount) * 100);
+    const amountCents = parseAmountCents(amount);
     // Mesmo desconto de indicação da tela global: o valor informado é o cheio.
     const { pct, discountCents } = await affiliateDiscountFor(uuid, amountCents);
     await getPool().query(
@@ -914,6 +915,18 @@ router.post('/companies/:uuid/charges/:id/cancel', requireAdminAuth, async (req,
 });
 
 // --- Cobranças (visão global) + Afiliados (programa de indicação) ---
+
+/**
+ * Valor em centavos a partir do que o formulário manda. Aceita "100", "100,00" e "1.234,56"
+ * (vírgula decimal) e "1234.56" — o lojista digita em português e o `Number()` cru devolvia
+ * NaN com vírgula, o que silenciosamente não criava a cobrança.
+ */
+function parseAmountCents(v: unknown): number {
+  const s = String(v ?? '').replace(/[^\d,.]/g, '');
+  const norm = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+  const n = parseFloat(norm);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
 
 /**
  * Desconto de indicação da empresa: se ela aponta para um afiliado ATIVO, devolve o
@@ -966,7 +979,8 @@ router.get('/charges', requireAdminAuth, async (req, res) => {
        COALESCE(SUM(CASE WHEN status = 'pendente' THEN amount_cents END), 0) AS pending_cents,
        COALESCE(SUM(CASE WHEN status = 'pendente' AND due_date < CURDATE() THEN amount_cents END), 0) AS overdue_cents,
        COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN amount_cents END), 0) AS paid_month_cents,
-       COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN discount_cents END), 0) AS discount_month_cents`,
+       COALESCE(SUM(CASE WHEN status = 'paga' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN discount_cents END), 0) AS discount_month_cents
+     FROM charges`,
   );
   const summary = (sumRows as Record<string, number>[])[0] ?? {};
 
@@ -993,8 +1007,8 @@ router.post('/charges', requireAdminAuth, async (req, res) => {
     res.redirect('/admin/charges');
     return;
   }
-  const amountCents = Math.round(Number(amount) * 100);
-  if (!Number.isFinite(amountCents) || amountCents <= 0) {
+  const amountCents = parseAmountCents(amount);
+  if (amountCents <= 0) {
     res.redirect('/admin/charges');
     return;
   }
