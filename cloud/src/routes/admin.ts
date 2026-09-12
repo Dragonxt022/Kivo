@@ -1752,6 +1752,81 @@ router.post('/themes', requireAdminAuth, async (req, res) => {
   res.json({ ok: true, slug });
 });
 
+/** Edita um tema: nome, descrição, preço e, opcionalmente, capa e ícones. */
+router.post('/themes/:id/update', requireAdminAuth, async (req, res) => {
+  const body = (req.body ?? {}) as {
+    name?: unknown;
+    description?: unknown;
+    free?: unknown;
+    priceCents?: unknown;
+    coverBase64?: unknown;
+    files?: unknown;
+  };
+  const id = Number(req.params.id);
+  const name = String(body.name ?? '').trim();
+  if (!Number.isInteger(id) || name.length < 2) {
+    res.status(400).json({ error: 'Informe o nome do tema.' });
+    return;
+  }
+  const pool = getPool();
+  const [rows] = await pool.query('SELECT cover_path FROM themes WHERE id = ?', [id]);
+  const atual = (rows as { cover_path: string | null }[])[0];
+  if (!atual) {
+    res.status(404).json({ error: 'Tema não encontrado.' });
+    return;
+  }
+
+  const priceCents =
+    body.free === true || body.free === '1' ? 0 : Math.max(0, Math.round(Number(body.priceCents) || 0));
+  // `edited_at` marca a edição manual: o seed pula temas editados para não desfazer nada.
+  const sets: string[] = ['name = ?', 'description = ?', 'price_cents = ?', 'edited_at = NOW(3)'];
+  const params: unknown[] = [name, textOrNull(body.description), priceCents];
+
+  // Ícones (opcional): se vierem, substituem o pacote inteiro.
+  const rawFiles = body.files && typeof body.files === 'object' ? (body.files as Record<string, unknown>) : {};
+  const files: Record<string, string> = {};
+  for (const [nome, conteudo] of Object.entries(rawFiles)) {
+    const base = path.basename(nome);
+    const ehSvg = base.toLowerCase().endsWith('.svg');
+    const ehManifest = base.toLowerCase() === 'manifest.json';
+    if ((!ehSvg && !ehManifest) || typeof conteudo !== 'string') continue;
+    files[base] = conteudo;
+  }
+  const svgCount = Object.keys(files).filter((f) => f.toLowerCase().endsWith('.svg')).length;
+  if (svgCount > 0) {
+    sets.push('pack_json = ?', 'files_count = ?');
+    params.push(JSON.stringify(files), svgCount);
+  }
+
+  // Capa (opcional): grava a nova e só depois apaga a antiga.
+  const cover = String(body.coverBase64 ?? '');
+  const m = cover.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+  let novoCover: string | null = null;
+  if (m) {
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length > 0 && buf.length <= 6 * 1024 * 1024) {
+      const mime = m[1];
+      novoCover = `theme-${id}-${randomUUID().slice(0, 8)}.${THEME_COVER_EXT[mime]}`;
+      fs.mkdirSync(THEMES_STORAGE_DIR, { recursive: true });
+      fs.writeFileSync(path.join(THEMES_STORAGE_DIR, novoCover), buf);
+      sets.push('cover_path = ?', 'cover_mime = ?');
+      params.push(novoCover, mime);
+    }
+  }
+
+  params.push(id);
+  await pool.query(`UPDATE themes SET ${sets.join(', ')} WHERE id = ?`, params);
+
+  if (novoCover && atual.cover_path && atual.cover_path !== novoCover) {
+    try {
+      fs.unlinkSync(path.join(THEMES_STORAGE_DIR, path.basename(atual.cover_path)));
+    } catch {
+      // Arquivo antigo já não existe.
+    }
+  }
+  res.json({ ok: true, id });
+});
+
 router.post('/themes/:id/delete', requireAdminAuth, async (req, res) => {
   const [rows] = await getPool().query('SELECT cover_path FROM themes WHERE id = ?', [req.params.id]);
   const row = (rows as { cover_path: string | null }[])[0];

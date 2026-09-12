@@ -81,9 +81,12 @@
                 </div>
                 <% if (t.description) { %><p class="cell-muted" style="margin:.35rem 0 0"><%= t.description %></p><% } %>
               </div>
-              <form method="post" action="/admin/themes/<%= t.id %>/delete" onsubmit="return confirm('Remover o tema <%= t.name %>? Empresas que já baixaram mantêm os ícones.');">
-                <button type="submit" class="btn danger small">Excluir</button>
-              </form>
+              <div style="display:flex; gap:8px; flex: none;">
+                <button type="button" class="btn secondary small" onclick="openEditTheme(<%= t.id %>)">Editar</button>
+                <form method="post" action="/admin/themes/<%= t.id %>/delete" onsubmit="return confirm('Remover o tema <%= t.name %>? Empresas que já baixaram mantêm os ícones.');">
+                  <button type="submit" class="btn danger small">Excluir</button>
+                </form>
+              </div>
             </div>
 
             <div class="theme-grants">
@@ -160,7 +163,51 @@
     </form>
   </dialog>
 
+  <dialog id="modal-edit-theme">
+    <form id="edit-theme-form" onsubmit="return false;">
+      <div class="modal-header">
+        <h2>Editar tema</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-edit-theme').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-theme-id">
+        <label>Nome do tema</label>
+        <input type="text" id="edit-theme-name" required maxlength="120">
+
+        <label>Descrição (opcional)</label>
+        <input type="text" id="edit-theme-desc" maxlength="500">
+
+        <label class="label-checkbox" style="margin-top:.5rem">
+          <input type="checkbox" id="edit-theme-free" onchange="document.getElementById('edit-theme-price-wrap').style.display = this.checked ? 'none' : 'block'">
+          Tema grátis para todos
+        </label>
+        <div id="edit-theme-price-wrap" style="display:none">
+          <label>Preço (R$)</label>
+          <input type="text" id="edit-theme-price" placeholder="0,00" inputmode="decimal">
+        </div>
+
+        <label>Foto de capa</label>
+        <div id="edit-theme-cover-preview" style="margin:6px 0"></div>
+        <input type="file" id="edit-theme-cover" accept="image/jpeg,image/png,image/webp">
+        <p class="field-hint">Deixe em branco para manter a capa atual.</p>
+
+        <label>Substituir os ícones (opcional)</label>
+        <input type="file" id="edit-theme-files" accept=".svg,.json" multiple>
+        <p class="field-hint">Selecione os .svg para trocar o pacote inteiro; em branco mantém os atuais.</p>
+
+        <div class="error" id="edit-theme-error"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="document.getElementById('modal-edit-theme').close()">Cancelar</button>
+        <button type="button" class="btn" id="edit-theme-submit" onclick="salvarTema()">Salvar alterações</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
+    window.KIVO_THEMES = <%- JSON.stringify(themes.map(function (t) {
+      return { id: t.id, name: t.name, description: t.description || '', price_cents: t.price_cents, cover: t.cover_path ? ('/admin/themes/' + t.id + '/cover') : null };
+    })) %>;
     // Aceita "19,90" e "19.90" sem ambiguidade: se há vírgula, ela é o decimal e os pontos
     // são milhar; sem vírgula, o ponto é o decimal.
     function parsePreco(txt) {
@@ -229,6 +276,74 @@
       } finally {
         btn.disabled = false;
         btn.textContent = 'Cadastrar tema';
+      }
+    }
+
+    function openEditTheme(id) {
+      const t = (window.KIVO_THEMES || []).find((x) => x.id === id);
+      if (!t) return;
+      document.getElementById('edit-theme-id').value = t.id;
+      document.getElementById('edit-theme-name').value = t.name;
+      document.getElementById('edit-theme-desc').value = t.description || '';
+      const free = Number(t.price_cents) === 0;
+      document.getElementById('edit-theme-free').checked = free;
+      document.getElementById('edit-theme-price-wrap').style.display = free ? 'none' : 'block';
+      document.getElementById('edit-theme-price').value = free ? '' : (Number(t.price_cents) / 100).toFixed(2).replace('.', ',');
+      document.getElementById('edit-theme-cover').value = '';
+      document.getElementById('edit-theme-files').value = '';
+      document.getElementById('edit-theme-error').textContent = '';
+      document.getElementById('edit-theme-cover-preview').innerHTML = t.cover
+        ? '<img src="' + t.cover + '" alt="" style="width:160px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb">'
+        : '<span class="cell-muted">sem capa</span>';
+      document.getElementById('modal-edit-theme').showModal();
+    }
+
+    async function salvarTema() {
+      const erro = document.getElementById('edit-theme-error');
+      const btn = document.getElementById('edit-theme-submit');
+      erro.textContent = '';
+      const id = document.getElementById('edit-theme-id').value;
+      const name = document.getElementById('edit-theme-name').value.trim();
+      if (name.length < 2) { erro.textContent = 'Informe o nome do tema.'; return; }
+
+      const files = {};
+      for (const f of Array.from(document.getElementById('edit-theme-files').files || [])) {
+        const nome = f.name.toLowerCase();
+        if (!nome.endsWith('.svg') && nome !== 'manifest.json') continue;
+        files[f.name] = await f.text();
+      }
+      let coverBase64 = '';
+      const cover = document.getElementById('edit-theme-cover').files[0];
+      if (cover) {
+        coverBase64 = await new Promise((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result));
+          r.onerror = rej;
+          r.readAsDataURL(cover);
+        });
+      }
+      const free = document.getElementById('edit-theme-free').checked;
+      const priceCents = free ? 0 : parsePreco(document.getElementById('edit-theme-price').value);
+
+      btn.disabled = true;
+      btn.textContent = 'Salvando…';
+      try {
+        const resp = await fetch('/admin/themes/' + id + '/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description: document.getElementById('edit-theme-desc').value.trim(), free, priceCents, coverBase64, files }),
+        });
+        if (!resp.ok) {
+          const d = await resp.json().catch(() => ({}));
+          erro.textContent = d.error || 'Não foi possível salvar o tema.';
+          return;
+        }
+        location.reload();
+      } catch (e) {
+        erro.textContent = 'Erro de conexão.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar alterações';
       }
     }
   </script>
