@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Afiliados</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .affiliate-note { display: flex; gap: 10px; align-items: flex-start; }
+    .affiliate-note svg { flex: none; color: var(--primary, #ff8000); margin-top: 2px; }
+    .aff-actions { display: flex; gap: 6px; }
+    .aff-actions form { display: inline; margin: 0; }
+    .aff-actions button { border: 0; background: transparent; cursor: pointer; color: #2563eb; font-size: 12px; padding: 2px 4px; }
+    .aff-actions button.danger { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'affiliates' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'affiliates' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Geral</div>
+            <h1>Afiliados</h1>
+          </div>
+          <button class="btn" onclick="document.getElementById('modal-new-affiliate').showModal()">+ Novo afiliado</button>
+        </div>
+
+        <div class="card affiliate-note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div>
+            <strong>Programa de indicação</strong>
+            <p style="margin:6px 0 0; font-size:13px; line-height:1.5;">
+              Cadastre quem indica clientes para o Kivo e defina um <strong>percentual de desconto</strong>.
+              Depois, na ficha de cada empresa (aba <em>Licença</em>), escolha o afiliado responsável.
+              A partir daí, <strong>toda cobrança daquela empresa sai com o desconto aplicado
+              automaticamente</strong> — o valor cheio e o desconto ficam registrados no histórico da
+              cobrança. Desativar um afiliado faz as empresas ligadas a ele voltarem a pagar o valor cheio.
+            </p>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 style="margin:0; font-size:1.05rem;">Afiliados cadastrados</h2>
+            <div class="table-count"><%= affiliates.length %> afiliado<%= affiliates.length === 1 ? '' : 's' %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Contato</th>
+                  <th class="text-right">Desconto</th>
+                  <th class="text-right">Empresas indicadas</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% affiliates.forEach(function(a) { %>
+                <tr>
+                  <td><strong><%= a.name %></strong></td>
+                  <td class="cell-muted"><%= a.contact || '—' %></td>
+                  <td class="text-right tabular"><%= a.discount_pct %>%</td>
+                  <td class="text-right tabular"><%= a.companies_count %></td>
+                  <td><span class="badge <%= a.active ? 'paga' : 'cancelada' %>"><%= a.active ? 'Ativo' : 'Inativo' %></span></td>
+                  <td>
+                    <div class="aff-actions">
+                      <form method="post" action="/admin/affiliates/<%= a.id %>/toggle">
+                        <button type="submit"><%= a.active ? 'Desativar' : 'Ativar' %></button>
+                      </form>
+                      <form method="post" action="/admin/affiliates/<%= a.id %>/delete"
+                            onsubmit="return confirm('Remover <%= a.name %>? As empresas ligadas a ele voltam a pagar o valor cheio.');">
+                        <button type="submit" class="danger">Excluir</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                <% }); %>
+                <% if (!affiliates.length) { %>
+                  <tr><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum afiliado cadastrado ainda.' }) %></td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="modal-new-affiliate">
+    <form method="post" action="/admin/affiliates">
+      <div class="modal-header">
+        <h2>Novo afiliado</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-affiliate').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nome</label>
+        <input type="text" name="name" required maxlength="120" placeholder="Quem indica">
+
+        <label>Contato (opcional)</label>
+        <input type="text" name="contact" maxlength="160" placeholder="WhatsApp, e-mail, chave PIX…">
+
+        <label>Desconto nas cobranças (%)</label>
+        <input type="number" name="discountPct" min="0" max="100" value="10" required>
+        <p class="field-hint">Percentual aplicado a toda cobrança das empresas indicadas por este afiliado.</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-affiliate').close()">Cancelar</button>
+        <button type="submit" class="btn">Cadastrar afiliado</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

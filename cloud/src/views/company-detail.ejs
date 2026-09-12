@@ -192,6 +192,14 @@
               </div>
               <p class="field-hint">Quantos computadores podem usar esta chave ao mesmo tempo. Para trocar de máquina além do limite, remova um dispositivo na lista abaixo.</p>
               <p class="field-hint">Versão até a qual esta licença dá direito a atualização gratuita (ex.: "0.3.0" cobre toda a linha 0.3.x). Deixe em branco se ainda não foi definida.</p>
+              <label>Afiliado (indicação)</label>
+              <select name="affiliateId" style="max-width:340px">
+                <option value="">Sem indicação</option>
+                <% (typeof affiliates !== 'undefined' ? affiliates : []).forEach(function(a) { %>
+                  <option value="<%= a.id %>" <%= Number(company.affiliate_id) === Number(a.id) ? 'selected' : '' %>><%= a.name %> — <%= a.discount_pct %>%<%= a.active ? '' : ' (inativo)' %></option>
+                <% }); %>
+              </select>
+              <p class="field-hint">Empresa indicada: toda cobrança sai com o desconto do afiliado aplicado. Gerencie em <a href="/admin/affiliates">Afiliados</a>.</p>
               <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
             </div>
 
@@ -314,7 +322,15 @@
                   <template x-for="ch in displayRows" :key="ch.id">
                     <tr>
                       <td x-text="ch.description"></td>
-                      <td class="text-right tabular" x-text="brl(ch.amount_cents)"></td>
+                      <td class="text-right tabular">
+                        <div x-text="brl(ch.amount_cents)"></div>
+                        <template x-if="Number(ch.discount_cents) > 0">
+                          <div>
+                            <span style="color:#888;text-decoration:line-through;font-size:12px" x-text="brl(ch.original_amount_cents)"></span>
+                            <span style="color:#16a34a;font-size:12px" x-text="'−' + ch.discount_pct + '%'"></span>
+                          </div>
+                        </template>
+                      </td>
                       <td>
                         <span :class="dueClass(ch)" x-text="fmtDate(ch.due_date)"></span>
                       </td>

@@ -35,7 +35,7 @@
 
       <!-- ─── COLUNA ESQUERDA (carrinho) ─── -->
       <div class="pdv-left">
-        <div class="sale-tabs-bar">
+        <div class="sale-tabs-bar" id="tour-pdv-abas">
           <div class="sale-tabs">
             <template x-for="(s, idx) in slots" :key="idx">
               <div class="sale-tab" :class="{ active: idx === activeSlot }" @click="switchSlot(idx)"
@@ -79,7 +79,7 @@
         </div>
 
         <div class="pdv-search" x-show="!slots[activeSlot].comandaId">
-          <div class="pdv-search-box">
+          <div class="pdv-search-box" id="tour-pdv-busca">
             <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
@@ -122,7 +122,7 @@
               cadastrado, o vínculo (customerId) é feito sozinho e volta a valer tabela de
               preço, crédito de loja, fidelidade e convênio. %>
           <div class="pdv-customer-suggest" @click.outside="customerSuggestions = []">
-            <div class="cart-customer" :class="customerId ? 'linked' : ''">
+            <div class="cart-customer" id="tour-pdv-cliente" :class="customerId ? 'linked' : ''">
               <span class="cart-customer-icon">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </span>
@@ -163,7 +163,7 @@
           </div>
         </div>
 
-        <div class="cart-items">
+        <div class="cart-items" id="tour-pdv-carrinho">
           <template x-for="(i, idx) in cart" :key="idx">
             <div class="cart-line" :class="{ 'cart-line-complement': i.lineGroupUuid && idx > 0 && cart[idx - 1]?.lineGroupUuid === i.lineGroupUuid }">
               <div class="cart-line-thumb">
@@ -245,7 +245,7 @@
             </div>
           </div>
 
-          <div class="pdv-actions">
+          <div class="pdv-actions" id="tour-pdv-acoes">
             <button type="button" class="pdv-action" style="--action-color:#3DA5F4" @click="printLast()"
                     :disabled="!lastSaleId" title="Imprimir última venda (F11)">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
@@ -296,7 +296,7 @@
 
           <div class="pdv-error" x-text="error"></div>
 
-          <button class="btn-finalize" :disabled="!cart.length" @click="openPay()">
+          <button class="btn-finalize" id="tour-pdv-finalizar" :disabled="!cart.length" @click="openPay()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             Finalizar venda
             <span class="sub">F2</span>
@@ -306,7 +306,7 @@
     </div>
 
     <div class="pdv-footer-bar">
-      <div class="pdv-footer-shortcuts">
+      <div class="pdv-footer-shortcuts" id="tour-pdv-atalhos">
         <span><kbd>F2</kbd>Finalizar venda</span>
         <span><kbd>F3</kbd>Calculadora</span>
         <% if (user.permissions.has('store.sales.discount')) { %>
@@ -324,6 +324,8 @@
         <span x-text="cloudOnline ? 'PDV Online' : 'PDV Offline'"></span>
         <span class="pdv-footer-sep" x-show="pendingSync > 0">|</span>
         <span x-show="pendingSync > 0" :title="'Vendas e cadastros ainda não enviados para a nuvem'" x-text="pendingSync + ' pendente(s) de sync'"></span>
+        <span class="pdv-footer-sep">|</span>
+        <button type="button" class="btn secondary small" id="tour-rever" title="Rever o tour guiado do PDV">Rever tour</button>
         <span class="pdv-footer-sep">|</span>
         <button type="button" class="btn secondary small" @click="toggleFullscreen()" title="Alternar tela cheia">Tela cheia</button>
         <span class="pdv-footer-sep">|</span>
@@ -957,6 +959,7 @@
     </dialog>
   </main>
 
+  <script nonce="<%= cspNonce %>" src="/js/tour.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/payment-methods.js"></script>
@@ -2072,6 +2075,43 @@
         },
       };
     }
+  </script>
+  <script nonce="<%= cspNonce %>">
+    // Tour guiado do PDV (motor em /js/tour.js). Aparece uma vez por máquina e pode ser
+    // reaberto pelo botão "Rever tour" no rodapé. Passos cujo alvo não existe — botão sem
+    // permissão, por exemplo — são pulados pelo próprio motor.
+    (function () {
+      var TOUR_KEY = 'kivo-tour-pdv-v1';
+
+      function pdvTourSteps() {
+        return [
+          { el: '#tour-pdv-abas', title: 'Várias vendas ao mesmo tempo', body: 'Cada aba é uma venda independente — ótimo para atender mais de um cliente sem perder o carrinho. O "+ Nova venda" abre outra e o × fecha.' },
+          { el: '#tour-pdv-busca', title: 'Bipe ou busque o produto', body: 'Passe o leitor de código de barras ou digite nome/SKU. A lista aparece enquanto você digita; setas ↑ ↓ escolhem e Enter adiciona.' },
+          { el: '#tour-pdv-carrinho', title: 'Carrinho', body: 'Os itens entram aqui. Ajuste a quantidade no +/−, remova no ×, ou clique no item para editar. Cliente e observações ficam em cada linha.' },
+          { el: '#tour-pdv-cliente', title: 'Cliente (opcional)', body: 'Digite o nome para identificar a venda. Se bater com um cliente cadastrado, o vínculo é feito sozinho e valem pontos, crédito de loja e convênio.' },
+          { el: '#tour-pdv-acoes', title: 'Desconto e acréscimo', body: 'Desconto (F4), acréscimo (F7), orçamento (F6), imprimir (F11), calculadora (F3) e limpar (F9). O desconto acima do limite pede o PIN do administrador.' },
+          { el: '#tour-pdv-finalizar', title: 'Finalizar venda (F2)', body: 'Abre o pagamento: escolha a forma, divida a conta, calcule o troco e confirme. O cupom sai na impressora configurada.' },
+          { el: '#tour-pdv-atalhos', title: 'Atalhos do teclado', body: 'Tudo o que se faz o dia inteiro tem atalho. Decorando esses, a venda sai sem tirar a mão do teclado.' },
+        ];
+      }
+
+      function startPdvTour() {
+        if (!window.KivoTour) return;
+        window.KivoTour.start(pdvTourSteps());
+      }
+      window.startPdvTour = startPdvTour;
+
+      var rever = document.getElementById('tour-rever');
+      if (rever) rever.addEventListener('click', startPdvTour);
+
+      // Os alvos do tour são estáticos (barra, busca, resumo), então não precisa esperar o
+      // init() carregar dados — só um respiro para a tela pintar.
+      setTimeout(function () {
+        if (!window.KivoTour || window.KivoTour.isActive()) return;
+        if (document.querySelector('dialog[open]')) return;
+        window.KivoTour.autoStart(TOUR_KEY, pdvTourSteps());
+      }, 900);
+    })();
   </script>
 </body>
 </html>
