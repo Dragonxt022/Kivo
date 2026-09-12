@@ -76,6 +76,14 @@ async function main(): Promise<void> {
       coverMime = COVER_MIME[ext] ?? 'application/octet-stream';
     }
 
+    // Tema editado à mão no painel tem `edited_at`: o seed NÃO mexe, para não desfazer a
+    // edição (nome, preço, capa) no próximo deploy.
+    const [existingRows] = await pool.query('SELECT edited_at FROM themes WHERE slug = ?', [meta.slug]);
+    if ((existingRows as { edited_at: string | null }[])[0]?.edited_at) {
+      console.log(`[seed-themes] ${meta.slug}: preservado (editado no painel)`);
+      continue;
+    }
+
     await pool.query(
       `INSERT INTO themes (slug, name, description, price_cents, cover_path, cover_mime, pack_json, files_count, active)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
