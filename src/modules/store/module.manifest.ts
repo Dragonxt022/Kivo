@@ -11,6 +11,7 @@ const manifest: ModuleManifest = {
     { key: 'store.sales.create', description: 'Realizar vendas (PDV)' },
     { key: 'store.sales.discount', description: 'Aplicar desconto na venda' },
     { key: 'store.sales.cancel', description: 'Cancelar vendas' },
+    { key: 'store.sales.return', description: 'Registrar devolução (total ou parcial) de venda' },
     { key: 'store.reports.view', description: 'Visualizar relatório de vendas' },
     { key: 'store.quotes.view', description: 'Visualizar orçamentos' },
     { key: 'store.quotes.create', description: 'Criar e cancelar orçamentos' },
@@ -48,6 +49,12 @@ const manifest: ModuleManifest = {
       foreignKeys: { customer_id: 'customers', sale_id: 'sales' },
       excludeColumns: ['user_id'],
       children: [{ table: 'quote_items', parentColumn: 'quote_id', foreignKeys: { product_id: 'products' } }],
+    },
+    {
+      table: 'sale_returns',
+      foreignKeys: { sale_id: 'sales', customer_id: 'customers' },
+      excludeColumns: ['user_id'],
+      children: [{ table: 'sale_return_items', parentColumn: 'return_id', foreignKeys: { product_id: 'products', sale_id: 'sales' } }],
     },
   ],
 };

@@ -9,6 +9,24 @@
   <link rel="stylesheet" href="/css/app.css" />
   <link rel="stylesheet" href="/css/pdv.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .pdv-favorites { margin: .5rem 0 1rem; }
+    .pdv-favorites h3 { font-size: .8rem; text-transform: uppercase; color: var(--text-muted); margin: 0 0 .5rem; }
+    .pdv-favorites-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }
+    .pdv-fav { display: flex; flex-direction: column; align-items: center; gap: .25rem; padding: .6rem .4rem; cursor: pointer;
+      background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius); text-align: center; }
+    .pdv-fav:hover { border-color: var(--primary); }
+    .pdv-fav img { width: 42px; height: 42px; object-fit: cover; border-radius: 6px; }
+    .pdv-fav span { font-size: .78rem; line-height: 1.15; }
+    .pdv-customer-suggest { position: relative; }
+    .pdv-customer-list { position: absolute; z-index: 30; left: 0; right: 0; background: var(--surface);
+      border: 1px solid var(--border-light); border-radius: var(--radius); box-shadow: var(--shadow-xs); max-height: 240px; overflow: auto; }
+    .pdv-customer-list button { display: flex; justify-content: space-between; width: 100%; padding: .4rem .6rem; background: none; border: 0; cursor: pointer; text-align: left; }
+    .pdv-customer-list button:hover { background: var(--border-light); }
+    .pay-quick-cash { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+    .pay-quick-cash button { padding: .25rem .6rem; border-radius: 6px; border: 1px solid var(--border-light); background: var(--surface); cursor: pointer; font-size: .8rem; }
+    .pay-quick-cash button:hover { border-color: var(--primary); }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/store/pdv' }) %>
@@ -20,10 +38,11 @@
         <div class="sale-tabs-bar">
           <div class="sale-tabs">
             <template x-for="(s, idx) in slots" :key="idx">
-              <div class="sale-tab" :class="{ active: idx === activeSlot }" @click="switchSlot(idx)">
+              <div class="sale-tab" :class="{ active: idx === activeSlot }" @click="switchSlot(idx)"
+                   @dblclick.stop="renameSlot(idx)" :title="'Duplo clique para nomear a venda' + (s.label ? ' (atual: ' + s.label + ')' : '')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                 <span class="sale-tab-info">
-                  <span class="sale-tab-name" x-text="'Venda ' + String(idx + 1).padStart(2, '0')"></span>
+                  <span class="sale-tab-name" x-text="s.label || ('Venda ' + String(idx + 1).padStart(2, '0'))"></span>
                   <span class="sale-tab-count" x-text="s.cart.length + (s.cart.length === 1 ? ' item' : ' itens')"></span>
                 </span>
                 <button type="button" class="close-tab" x-show="slots.length > 1" @click.stop="closeSlot(idx)" title="Fechar esta venda">
@@ -102,18 +121,45 @@
               identifica a venda no histórico. Se o nome digitado bater com um cliente
               cadastrado, o vínculo (customerId) é feito sozinho e volta a valer tabela de
               preço, crédito de loja, fidelidade e convênio. %>
-          <div class="cart-customer" :class="customerId ? 'linked' : ''">
-            <span class="cart-customer-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </span>
-            <input type="text" list="pdv-customer-list" x-model="customerName" @input="onCustomerNameInput()"
-                   maxlength="120" autocomplete="off" spellcheck="false"
-                   placeholder="Cliente (opcional)" title="Selecione um cliente cadastrado ou digite um nome" />
-            <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
-                    @click="customerName = ''; onCustomerNameInput()" title="Limpar cliente">×</button>
-            <datalist id="pdv-customer-list">
-              <template x-for="c in customers" :key="c.id"><option :value="c.name"></option></template>
-            </datalist>
+          <div class="pdv-customer-suggest" @click.outside="customerSuggestions = []">
+            <div class="cart-customer" :class="customerId ? 'linked' : ''">
+              <span class="cart-customer-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <input type="text" list="pdv-customer-list" x-model="customerName" @input.debounce.250ms="onCustomerInput()"
+                     @keydown.escape="customerSuggestions = []"
+                     maxlength="120" autocomplete="off" spellcheck="false"
+                     placeholder="Cliente (opcional)" title="Busque por nome, CPF/telefone ou digite um nome livre" />
+              <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
+                      @click="customerName = ''; onCustomerNameInput(); customerSuggestions = []" title="Limpar cliente">×</button>
+              <% if (user.permissions.has('commercial.customers.create')) { %>
+              <button type="button" class="cart-customer-clear" @click="openCustomerDlg()" title="Cadastrar novo cliente">+</button>
+              <% } %>
+              <datalist id="pdv-customer-list">
+                <template x-for="c in customers" :key="c.id"><option :value="c.name"></option></template>
+              </datalist>
+            </div>
+            <div class="pdv-customer-list" x-show="customerSuggestions.length" x-cloak>
+              <template x-for="c in customerSuggestions" :key="'cs' + c.id">
+                <button type="button" @click="pickCustomer(c)">
+                  <span x-text="c.name"></span>
+                  <span class="muted text-xs" x-text="c.document || c.phone || ''"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="pdv-favorites" x-show="!cart.length && !slots[activeSlot].comandaId && favorites.length" x-cloak>
+          <h3>Acesso rápido</h3>
+          <div class="pdv-favorites-grid">
+            <template x-for="f in favorites" :key="'fav' + f.id">
+              <button type="button" class="pdv-fav" @click="add(f)">
+                <img x-show="f.image_url" :src="f.image_url" alt="" />
+                <span x-text="f.name"></span>
+                <span class="muted" x-text="brl(f.price_cents)"></span>
+              </button>
+            </template>
           </div>
         </div>
 
@@ -135,6 +181,11 @@
                         @click="openNoteDlg(idx)">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   <span x-text="i.notes ? 'Editar observação' : 'Observação'"></span>
+                </button>
+                <button type="button" class="prod-note-btn" x-show="canDiscount && !slots[activeSlot].comandaId"
+                        @click="openPriceDlg(idx)" title="Alterar o preço deste item">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  <span x-text="i.priceOverridden ? 'Preço alterado' : 'Alterar preço'"></span>
                 </button>
               </div>
               <div class="qty-wrap" x-show="!slots[activeSlot].comandaId">
@@ -271,6 +322,10 @@
       <div class="pdv-footer-status">
         <span class="pdv-status-dot" :class="{ online: cloudOnline }"></span>
         <span x-text="cloudOnline ? 'PDV Online' : 'PDV Offline'"></span>
+        <span class="pdv-footer-sep" x-show="pendingSync > 0">|</span>
+        <span x-show="pendingSync > 0" :title="'Vendas e cadastros ainda não enviados para a nuvem'" x-text="pendingSync + ' pendente(s) de sync'"></span>
+        <span class="pdv-footer-sep">|</span>
+        <button type="button" class="btn secondary small" @click="toggleFullscreen()" title="Alternar tela cheia">Tela cheia</button>
         <span class="pdv-footer-sep">|</span>
         <span>Versão <%= appVersion %></span>
       </div>
@@ -348,6 +403,13 @@
              @input="valueDlg.amount = valueDlg.mode === 'valor' ? maskMoney(valueDlg.amount) : valueDlg.amount.replace(/[^0-9,]/g, '')"
              @keydown.enter.prevent="saveValue()" @keydown.escape.prevent="$refs.value.close()" />
       <p class="muted text-xs" x-show="valueDlg.mode === 'percentual' && valueDlg.amount" x-text="'≈ ' + brl(percentToCents(valueDlg.amount))"></p>
+      <label>Motivo</label>
+      <input type="text" x-model="valueDlg.reason" maxlength="200" placeholder="Ex.: cliente antigo, promoção" />
+      <div x-show="valueDlg.needPin" x-cloak>
+        <label>PIN do administrador</label>
+        <input type="password" inputmode="numeric" maxlength="6" x-model="valueDlg.pin" />
+        <p class="hint">Desconto acima de <strong x-text="maxDiscountPct()"></strong>% exige autorização.</p>
+      </div>
       <div class="error" x-text="valueDlg.error"></div>
       <div class="actions">
         <button class="btn secondary" @click="$refs.value.close()">
@@ -380,6 +442,38 @@
         </button>
       </div>
     </dialog>
+
+    <!-- ─── MODAL: Alterar preço do item ─── -->
+    <dialog x-ref="priceDlg">
+      <h1>Alterar preço do item</h1>
+      <p class="muted" x-text="cart[priceDlg.idx]?.name || ''"></p>
+      <label>Preço unitário (R$)</label>
+      <input type="text" x-ref="priceInput" x-model="priceDlg.value" @input="priceDlg.value = maskMoney(priceDlg.value)"
+             @keydown.enter.prevent="savePriceDlg()" @keydown.escape.prevent="$refs.priceDlg.close()" />
+      <p class="muted text-xs">Preço de catálogo: <span x-text="brl(priceDlg.original || 0)"></span></p>
+      <div class="error" x-text="priceDlg.error"></div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.priceDlg.close()">Cancelar (Esc)</button>
+        <button class="btn" @click="savePriceDlg()">Aplicar (Enter)</button>
+      </div>
+    </dialog>
+
+    <% if (user.permissions.has('commercial.customers.create')) { %>
+    <!-- ─── MODAL: Cadastro rápido de cliente ─── -->
+    <dialog x-ref="customerDlg">
+      <h1>Novo cliente</h1>
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="customerDlg.name" />
+        <label>CPF/CNPJ</label><input type="text" x-model="customerDlg.document" @input="customerDlg.document = maskDoc(customerDlg.document)" placeholder="000.000.000-00" />
+        <label>Telefone</label><input type="text" x-model="customerDlg.phone" @input="customerDlg.phone = maskPhone(customerDlg.phone)" placeholder="(00) 00000-0000" />
+        <div class="error" x-text="customerDlg.error"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.customerDlg.close()">Cancelar</button>
+        <button class="btn" @click="saveCustomerDlg()" :disabled="customerDlg.saving" x-text="customerDlg.saving ? 'Salvando…' : 'Cadastrar e vincular'"></button>
+      </div>
+    </dialog>
+    <% } %>
 
     <!-- ─── MODAL: Limpar carrinho (F9) ─── -->
     <dialog x-ref="clearDlg">
@@ -440,22 +534,33 @@
             convênio nem crédito de loja, mesmo à vista. É o mesmo estado do carrinho, não uma
             cópia: mexer aqui reprecifica e recarrega saldos exatamente como lá. %>
         <span class="pay-label">Cliente (opcional)</span>
-        <div class="cart-customer pay-customer" :class="customerId ? 'linked' : ''">
-          <span class="cart-customer-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </span>
-          <input type="text" list="pay-customer-list" x-model="customerName" @input="onCustomerNameInput()"
-                 maxlength="120" autocomplete="off" spellcheck="false"
-                 placeholder="Buscar cliente ou digitar um nome"
-                 title="Escolha um cliente cadastrado para usar pontos, convênio e crédito de loja" />
-          <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
-                  @click="customerName = ''; onCustomerNameInput()" title="Limpar cliente">×</button>
-          <%# Datalist próprio, dentro do <dialog>: o do carrinho fica na parte inerte da
-              página enquanto o modal está aberto, e não dá para depender de o navegador
-              resolver a lista a partir de lá. %>
-          <datalist id="pay-customer-list">
-            <template x-for="c in customers" :key="'pc' + c.id"><option :value="c.name"></option></template>
-          </datalist>
+        <div class="pdv-customer-suggest" @click.outside="customerSuggestions = []">
+          <div class="cart-customer pay-customer" :class="customerId ? 'linked' : ''">
+            <span class="cart-customer-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <input type="text" list="pay-customer-list" x-model="customerName" @input.debounce.250ms="onCustomerInput()"
+                   @keydown.escape="customerSuggestions = []"
+                   maxlength="120" autocomplete="off" spellcheck="false"
+                   placeholder="Buscar cliente ou digitar um nome"
+                   title="Escolha um cliente cadastrado para usar pontos, convênio e crédito de loja" />
+            <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
+                    @click="customerName = ''; onCustomerNameInput(); customerSuggestions = []" title="Limpar cliente">×</button>
+            <%# Datalist próprio, dentro do <dialog>: o do carrinho fica na parte inerte da
+                página enquanto o modal está aberto, e não dá para depender de o navegador
+                resolver a lista a partir de lá. %>
+            <datalist id="pay-customer-list">
+              <template x-for="c in customers" :key="'pc' + c.id"><option :value="c.name"></option></template>
+            </datalist>
+          </div>
+          <div class="pdv-customer-list" x-show="customerSuggestions.length" x-cloak>
+            <template x-for="c in customerSuggestions" :key="'pcs' + c.id">
+              <button type="button" @click="pickCustomer(c)">
+                <span x-text="c.name"></span>
+                <span class="muted text-xs" x-text="c.document || c.phone || ''"></span>
+              </button>
+            </template>
+          </div>
         </div>
         <p class="pay-customer-hint" x-show="customerId" x-cloak>
           <span x-show="(customerBalances.loyaltyPoints || 0) > 0" x-text="customerBalances.loyaltyPoints + ' pontos'"></span>
@@ -549,6 +654,14 @@
             </div>
             <span class="pay-helper-troco">Troco <strong x-text="brl(pay.changeCents)"></strong></span>
           </div>
+          <div class="pay-quick-cash">
+            <button type="button" @click="setCashExact()">Exato</button>
+            <button type="button" @click="addCash(1000)">R$10</button>
+            <button type="button" @click="addCash(2000)">R$20</button>
+            <button type="button" @click="addCash(5000)">R$50</button>
+            <button type="button" @click="addCash(10000)">R$100</button>
+            <button type="button" @click="pay.received = ''; calcChange()">Limpar</button>
+          </div>
         </div>
 
         <button class="btn secondary pay-back-btn" @click="$refs.pay.close()">
@@ -583,6 +696,12 @@
             <span x-text="remaining() >= 0 ? 'Restante' : 'Excedente'"></span>
             <span x-text="brl(Math.abs(remaining()))"></span>
           </div>
+          <div class="pay-recap-row" x-show="paidFees() > 0">
+            <span>Taxas</span><span x-text="'- ' + brl(paidFees())"></span>
+          </div>
+          <div class="pay-recap-row" x-show="paidFees() > 0">
+            <span>Líquido</span><span x-text="brl(paidSum() - paidFees())"></span>
+          </div>
 
           <div class="pay-ready-banner" x-show="remaining() === 0">Venda pronta para finalizar</div>
           <div class="pay-pending-banner" x-show="remaining() !== 0" x-text="remaining() > 0 ? 'Falta ' + brl(remaining()) : 'Excedente de ' + brl(Math.abs(remaining()))"></div>
@@ -615,8 +734,8 @@
         </label>
         <template x-if="prazoForm.mode === 'parcelado'">
           <div>
-            <label>Número de parcelas (2 a 12)</label>
-            <input type="number" min="2" max="12" x-model.number="prazoForm.installments" class="input-narrow-sm" />
+            <label>Número de parcelas (2 a <span x-text="prazoMax()"></span>)</label>
+            <input type="number" min="2" :max="prazoMax()" x-model.number="prazoForm.installments" class="input-narrow-sm" />
           </div>
         </template>
         <label>Primeiro vencimento</label>
@@ -820,30 +939,37 @@
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/payment-methods.js"></script>
   <script nonce="<%= cspNonce %>">
+    const PDV_CAN_DISCOUNT = <%= user.permissions.has('store.sales.discount') %>;
     function pdvPage() {
       return {
         // ─── Estado ───
         // Vendas simultâneas (até 4 "guichês" no mesmo PDV — atender outro cliente sem
         // perder o carrinho do anterior) + persistência em localStorage (sobrevive a
         // navegar pra outra tela e voltar, ou recarregar a página sem querer).
-        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null }],
+        slots: [{ cart: [], discountCents: 0, surchargeCents: 0, discountReason: '', lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null, label: null }],
         justClosedComandaId: null,
         activeSlot: 0,
         q: '', results: [], customers: [], methods: [],
         highlightIdx: -1, searching: false,
+        favorites: [], customerSuggestions: [], pendingSync: 0,
+        canDiscount: PDV_CAN_DISCOUNT,
+        priceDlg: { idx: null, value: '', original: 0, error: '' },
+        customerDlg: { name: '', document: '', phone: '', error: '', saving: false },
         get cart() { return this.slots[this.activeSlot].cart; },
         set cart(v) { this.slots[this.activeSlot].cart = v; },
         get discountCents() { return this.slots[this.activeSlot].discountCents; },
         set discountCents(v) { this.slots[this.activeSlot].discountCents = v; },
         get surchargeCents() { return this.slots[this.activeSlot].surchargeCents; },
         set surchargeCents(v) { this.slots[this.activeSlot].surchargeCents = v; },
+        get discountReason() { return this.slots[this.activeSlot].discountReason ?? ''; },
+        set discountReason(v) { this.slots[this.activeSlot].discountReason = v; },
         get lastSaleId() { return this.slots[this.activeSlot].lastSaleId; },
         set lastSaleId(v) { this.slots[this.activeSlot].lastSaleId = v; },
         get customerId() { return this.slots[this.activeSlot].customerId ?? ''; },
         set customerId(v) { this.slots[this.activeSlot].customerId = v; },
         get customerName() { return this.slots[this.activeSlot].customerName ?? ''; },
         set customerName(v) { this.slots[this.activeSlot].customerName = v; },
-        valueDlg: { kind: 'desconto', amount: '', mode: 'valor', error: '' },
+        valueDlg: { kind: 'desconto', amount: '', mode: 'valor', reason: '', pin: '', needPin: false, error: '' },
         pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, clientRequestId: '' },
         showSplit: false, showCashReceived: false,
         error: '', payError: '', saving: false, appSettings: [],
@@ -938,6 +1064,43 @@
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         focusSearch() { this.$nextTick(() => { this.$refs.search?.focus(); }); },
         methodIcon: paymentMethodIcon,
+        // Sinal sonoro do PDV (Web Audio, sem arquivo): curto e distinto para sucesso/erro.
+        pdvSomEnabled() { return this.appSettings?.find((s) => s.key === 'pdv.som')?.value !== '0'; },
+        beep(ok = true) {
+          if (!this.pdvSomEnabled()) return;
+          try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            this._audioCtx = this._audioCtx || new Ctx();
+            const ctx = this._audioCtx;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = ok ? 880 : 220;
+            gain.gain.setValueAtTime(0.06, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.12);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.13);
+          } catch (e) { /* áudio indisponível: segue sem som */ }
+        },
+        // Termo de busca sem o prefixo de quantidade ("3*789" → "789").
+        cleanQuery() { return this.q.trim().replace(/^(\d+(?:[.,]\d+)?)\s*[*x]\s*/i, ''); },
+        parseQtyPrefix() {
+          const m = /^(\d+(?:[.,]\d+)?)\s*[*x]\s*/i.exec(this.q.trim());
+          const n = m ? parseFloat(m[1].replace(',', '.')) : 1;
+          return Number.isFinite(n) && n > 0 ? n : 1;
+        },
+        async toggleFullscreen() {
+          try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else await document.documentElement.requestFullscreen();
+          } catch (e) { /* navegador bloqueou — sem problema */ }
+        },
+        async loadFavorites() {
+          const r = await fetch('/api/commercial/products?scope=favorites&limit=24');
+          if (r.ok) this.favorites = await r.json();
+        },
 
         // ─── Vendas simultâneas + persistência ───
         persistSlots() {
@@ -956,7 +1119,7 @@
         },
         addSlot() {
           if (this.slots.length >= 4) return;
-          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
+          this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, discountReason: '', lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null, label: null });
           this.activeSlot = this.slots.length - 1;
           this.persistSlots();
           this.focusSearch();
@@ -974,6 +1137,14 @@
           this.slots.splice(idx, 1);
           if (this.activeSlot >= this.slots.length) this.activeSlot = this.slots.length - 1;
           else if (this.activeSlot > idx) this.activeSlot -= 1;
+          this.persistSlots();
+        },
+
+        renameSlot(idx) {
+          const current = this.slots[idx]?.label || '';
+          const name = window.prompt('Nome desta venda (deixe vazio para voltar a "Venda NN")', current);
+          if (name === null) return;
+          this.slots[idx].label = name.trim() || null;
           this.persistSlots();
         },
 
@@ -1021,6 +1192,7 @@
           if (this.customerId) this.loadCustomerBalances();
           this.focusSearch();
           this.$watch('slots', () => this.persistSlots());
+          this.loadFavorites();
           this.checkOnline();
           setInterval(() => this.checkOnline(), 25000);
           document.addEventListener('keydown', (e) => {
@@ -1076,11 +1248,11 @@
           }));
           const needsNewSlot = this.slots[this.activeSlot].cart.length > 0 || this.slots[this.activeSlot].comandaId;
           if (needsNewSlot) {
-            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
+            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, discountReason: '', lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null, label: null });
             this.activeSlot = this.slots.length - 1;
           }
           this.slots[this.activeSlot] = {
-            cart, discountCents: 0, surchargeCents: 0, lastSaleId: null,
+            cart, discountCents: 0, surchargeCents: 0, discountReason: '', lastSaleId: null,
             customerId: c.customer_id || '', customerName: c.customer_name || '',
             comandaId: id, tableLabel: c.table_label || null,
           };
@@ -1106,7 +1278,7 @@
           }));
           const slot = this.slots[this.activeSlot];
           if (slot.cart.length || slot.comandaId || slot.quoteId) {
-            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null });
+            this.slots.push({ cart: [], discountCents: 0, surchargeCents: 0, discountReason: '', lastSaleId: null, customerId: '', customerName: '', comandaId: null, tableLabel: null, quoteId: null, quoteLabel: null, label: null });
             this.activeSlot = this.slots.length - 1;
           }
           this.slots[this.activeSlot] = {
@@ -1194,6 +1366,7 @@
             const r = await fetch('/api/sync/status');
             const d = r.ok ? await r.json() : null;
             this.cloudOnline = !!(d && d.online);
+            this.pendingSync = Number(d?.pending ?? 0);
           } catch {
             this.cloudOnline = false;
           }
@@ -1201,12 +1374,25 @@
 
         // ─── Busca ───
         async search() {
-          if (!this.q.trim()) { this.results = []; this.highlightIdx = -1; return; }
+          const term = this.cleanQuery();
+          if (!term) { this.results = []; this.highlightIdx = -1; return; }
           this.searching = true;
           this.highlightIdx = -1;
+          // Cancela a busca anterior: sem isso, digitar rápido deixa respostas fora de
+          // ordem sobrescrevendo a lista atual.
+          if (this._searchAbort) this._searchAbort.abort();
+          this._searchAbort = new AbortController();
+          const signal = this._searchAbort.signal;
           try {
-            const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(this.q.trim()));
+            // Código de barras/SKU exato primeiro (bipe), depois busca textual limitada.
+            if (!/\s/.test(term)) {
+              const b = await fetch('/api/commercial/products/by-barcode/' + encodeURIComponent(term), { signal });
+              if (b.ok) { this.results = [await b.json()]; return; }
+            }
+            const r = await fetch('/api/commercial/products?limit=20&q=' + encodeURIComponent(term), { signal });
             if (r.ok) this.results = await r.json();
+          } catch (e) {
+            if (e?.name !== 'AbortError') this.results = [];
           } finally {
             this.searching = false;
           }
@@ -1252,19 +1438,21 @@
           if (el) el.scrollIntoView({ block: 'nearest' });
         },
         async quickAdd() {
-          if (this.results.length === 1) { await this.add(this.results[0]); }
+          const qty = this.parseQtyPrefix();
+          const term = this.cleanQuery();
+          if (this.results.length === 1) { await this.add(this.results[0], qty); }
           else if (this.results.length > 1) {
             if (this.highlightIdx >= 0) {
-              await this.add(this.results[this.highlightIdx]);
+              await this.add(this.results[this.highlightIdx], qty);
               return;
             }
-            const exact = this.results.find((p) => p.barcode === this.q.trim() || p.sku === this.q.trim());
-            if (exact) await this.add(exact);
+            const exact = this.results.find((p) => p.barcode === term || p.sku === term);
+            if (exact) await this.add(exact, qty);
           }
         },
-        async add(p) {
+        async add(p, qty = 1) {
           const existing = this.cart.find((i) => i.productId === p.id && !i.lineGroupUuid);
-          if (existing) { existing.qty += 1; this.persistSlots(); this.repriceCart(); return; }
+          if (existing) { existing.qty += qty; this.persistSlots(); this.repriceCart(); this.beep(true); return; }
           // Checar se produto tem complementos
           const r = await fetch(`/api/commercial/products/${p.id}/complement-groups`);
           const groups = r.ok ? await r.json() : [];
@@ -1272,7 +1460,7 @@
             this.openComplementDlg(p, groups);
             return;
           }
-          this.addToCart(p, 1, null, null);
+          this.addToCart(p, qty, null, null);
         },
         addToCart(p, qty, lineGroupUuid, notes) {
           this.cart.push({
@@ -1284,6 +1472,7 @@
           this.focusSearch();
           this.persistSlots();
           this.repriceCart();
+          this.beep(true);
         },
         // ─── Observação por item (ex.: "sem cebola, com provolone") ───
         openNoteDlg(idx) {
@@ -1364,8 +1553,24 @@
         total() { return Math.max(0, this.subtotal() - this.discountCents + this.surchargeCents); },
 
         // ─── Desconto / Acréscimo ───
+        maxDiscountPct() {
+          const n = Number(this.appSettings?.find((s) => s.key === 'pdv.desconto_maximo_percentual')?.value ?? 0);
+          return Number.isFinite(n) && n > 0 ? n : 0;
+        },
+        discountRequiresReason() {
+          return this.appSettings?.find((s) => s.key === 'pdv.desconto_exige_motivo')?.value === '1';
+        },
+        async verifyPin(pin) {
+          if (!pin) return false;
+          try {
+            const r = await fetch('/api/security/pin/verify', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }),
+            });
+            return r.ok && (await r.json()).ok === true;
+          } catch { return false; }
+        },
         openValue(kind) {
-          this.valueDlg = { kind, amount: '', mode: 'valor', error: '' };
+          this.valueDlg = { kind, amount: '', mode: 'valor', reason: '', pin: '', needPin: false, error: '' };
           this.$refs.value.showModal();
           this.$nextTick(() => this.$refs.valueInput.focus());
         },
@@ -1379,15 +1584,26 @@
           if (isNaN(p) || p <= 0) return 0;
           return Math.round(this.subtotal() * (p / 100));
         },
-        saveValue() {
+        async saveValue() {
           const v = this.valueDlg.mode === 'valor' ? this.cents(this.valueDlg.amount) : this.percentToCents(this.valueDlg.amount);
           if (v < 0) { this.valueDlg.error = 'Valor inválido.'; return; }
+          const reason = (this.valueDlg.reason || '').trim();
           if (this.valueDlg.kind === 'desconto') {
             if (v > this.subtotal() + this.surchargeCents) { this.valueDlg.error = 'Desconto maior que o total.'; return; }
+            if (this.discountRequiresReason() && !reason) { this.valueDlg.error = 'Informe o motivo do desconto.'; return; }
+            const maxPct = this.maxDiscountPct();
+            const pct = this.subtotal() > 0 ? (v / this.subtotal()) * 100 : 0;
+            if (maxPct > 0 && pct > maxPct + 0.001) {
+              this.valueDlg.needPin = true;
+              if (!this.valueDlg.pin) { this.valueDlg.error = `Desconto acima de ${maxPct}% — informe o PIN do administrador.`; return; }
+              if (!(await this.verifyPin(this.valueDlg.pin))) { this.valueDlg.error = 'PIN incorreto.'; return; }
+            }
             this.discountCents = v;
           } else {
+            if (this.discountRequiresReason() && !reason) { this.valueDlg.error = 'Informe o motivo do acréscimo.'; return; }
             this.surchargeCents = v;
           }
+          this.discountReason = reason;
           this.$refs.value.close();
           this.focusSearch();
           this.persistSlots();
@@ -1400,7 +1616,7 @@
           this.$nextTick(() => this.$refs.clearConfirm.focus());
         },
         doClear() {
-          this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
+          this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.discountReason = ''; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
           // Limpar o carrinho desfaz o vínculo com o orçamento reaberto — o que sobra é um
           // carrinho vazio, não um orçamento sem itens. O orçamento em si continua aberto.
           this.slots[this.activeSlot].quoteId = null;
@@ -1461,6 +1677,63 @@
           this.customerId = nextId;
           this.repriceCart();
           this.loadCustomerBalances();
+        },
+        // Busca de cliente por nome/CPF/telefone (a API de clientes já cobre os três).
+        async onCustomerInput() {
+          this.onCustomerNameInput();
+          const term = (this.customerName || '').trim();
+          if (term.length < 2) { this.customerSuggestions = []; return; }
+          const r = await fetch('/api/commercial/customers?limit=6&active=1&q=' + encodeURIComponent(term));
+          if (r.ok) this.customerSuggestions = await r.json();
+        },
+        pickCustomer(c) {
+          this.customerId = c.id;
+          this.customerName = c.name;
+          this.customerSuggestions = [];
+          this.repriceCart();
+          this.loadCustomerBalances();
+        },
+        openCustomerDlg() {
+          this.customerDlg = { name: (this.customerName || '').trim(), document: '', phone: '', error: '', saving: false };
+          this.$refs.customerDlg.showModal();
+        },
+        async saveCustomerDlg() {
+          if (!this.customerDlg.name.trim()) { this.customerDlg.error = 'Informe o nome.'; return; }
+          this.customerDlg.saving = true; this.customerDlg.error = '';
+          const r = await fetch('/api/commercial/customers', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: this.customerDlg.name.trim(),
+              document: this.customerDlg.document || undefined,
+              phone: this.customerDlg.phone || undefined,
+            }),
+          });
+          this.customerDlg.saving = false;
+          if (!r.ok) { this.customerDlg.error = (await r.json()).error ?? 'Erro ao cadastrar.'; return; }
+          const c = await r.json();
+          this.customers.push(c);
+          this.pickCustomer(c);
+          this.$refs.customerDlg.close();
+          showToast('Cliente cadastrado.', 'success');
+        },
+        // ─── Preço por item (desconto/acréscimo na linha) ───
+        openPriceDlg(idx) {
+          const i = this.cart[idx];
+          if (!i) return;
+          this.priceDlg = { idx, value: (i.price_cents / 100).toFixed(2).replace('.', ','), original: i.price_cents, error: '' };
+          this.$refs.priceDlg.showModal();
+          this.$nextTick(() => this.$refs.priceInput?.focus());
+        },
+        savePriceDlg() {
+          const i = this.cart[this.priceDlg.idx];
+          if (!i) { this.$refs.priceDlg.close(); return; }
+          const cents = this.cents(this.priceDlg.value);
+          if (cents < 0) { this.priceDlg.error = 'Valor inválido.'; return; }
+          i.price_cents = cents;
+          i.priceOverridden = true;
+          this.persistSlots();
+          this.$refs.priceDlg.close();
+          this.focusSearch();
         },
         async loadCustomerBalances() {
           if (!this.customerId) { this.customerBalances = {}; return; }
@@ -1531,6 +1804,29 @@
             .reduce((a, p) => a + p.amountCents, 0);
           this.pay.changeCents = Math.max(0, this.cents(this.pay.received) - cashDue);
         },
+        paidFees() {
+          return this.pay.list.reduce((s, p) => {
+            const m = this.methods.find((x) => x.id === p.methodId);
+            return s + (m ? Math.round((p.amountCents * m.fee_bps) / 10000) : 0);
+          }, 0);
+        },
+        cashDue() {
+          return this.pay.list.filter((p) => this.methodType(p.methodId) === 'dinheiro')
+            .reduce((a, p) => a + p.amountCents, 0);
+        },
+        setCashExact() {
+          this.pay.received = (this.cashDue() / 100).toFixed(2).replace('.', ',');
+          this.calcChange();
+        },
+        addCash(cents) {
+          const cur = this.cents(this.pay.received);
+          this.pay.received = ((cur + cents) / 100).toFixed(2).replace('.', ',');
+          this.calcChange();
+        },
+        prazoMax() {
+          const n = Number(this.appSettings?.find((s) => s.key === 'pdv.parcelas_max')?.value ?? 12);
+          return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 24) : 12;
+        },
 
         // ─── Venda a prazo (parcelamento) ───
         openPrazoDlg() {
@@ -1576,7 +1872,7 @@
         confirmPrazoDlg() {
           if (!this.prazoForm.customerId) { this.prazoError = 'Selecione o cliente.'; return; }
           const count = this.prazoForm.mode === 'parcelado' ? Number(this.prazoForm.installments) : 1;
-          if (this.prazoForm.mode === 'parcelado' && (count < 2 || count > 12)) { this.prazoError = 'Parcelamento deve ser de 2 a 12 vezes.'; return; }
+          if (this.prazoForm.mode === 'parcelado' && (count < 2 || count > this.prazoMax())) { this.prazoError = `Parcelamento deve ser de 2 a ${this.prazoMax()} vezes.`; return; }
           if (!this.prazoForm.firstDueDate) { this.prazoError = 'Informe o vencimento.'; return; }
           const prazoMethod = this.methods.find((m) => m.type === 'prazo');
           if (!prazoMethod) { this.prazoError = 'Nenhuma forma de pagamento "a prazo" ativa.'; return; }
@@ -1663,9 +1959,15 @@
             payments,
             discountCents: this.discountCents || undefined,
             surchargeCents: this.surchargeCents || undefined,
+            discountReason: this.discountReason || undefined,
             customerId: this.customerId || undefined,
             customerName: freeName,
-            items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined })),
+            items: this.cart.map((i) => ({
+              productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined,
+              // Só envia o preço da linha quando o operador o alterou de propósito (desconto
+              // por item). Sem isso, o servidor re-resolve o preço de catálogo.
+              unitPriceCents: i.priceOverridden ? i.price_cents : undefined,
+            })),
             clientRequestId: this.pay.clientRequestId || undefined,
           };
           if (comandaId) {
@@ -1691,7 +1993,8 @@
             this.lastSaleId = comandaId ? d.saleId : d.id;
             this.lastSaleHasCarne = hasCarne;
             this.$refs.pay.close();
-            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
+            this.beep(true);
+            this.cart = []; this.discountCents = 0; this.surchargeCents = 0; this.discountReason = ''; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
             if (comandaId) { this.slots[this.activeSlot].comandaId = null; this.justClosedComandaId = comandaId; }
             if (quoteId) {
               this.slots[this.activeSlot].quoteId = null;
@@ -1700,9 +2003,13 @@
             }
             this.persistSlots();
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
-            if (exibir !== '0') this.$refs.postSale.showModal(); else this.onPostSaleClose();
+            const autoPrint = this.appSettings?.find(s => s.key === 'pdv.imprimir_automatico')?.value === '1';
+            if (exibir === '0') { this.onPostSaleClose(); }
+            else if (autoPrint) { this.printLast(); this.onPostSaleClose(); }
+            else this.$refs.postSale.showModal();
           } else {
             const err = (await r.json()).error ?? 'Erro ao registrar a venda.';
+            this.beep(false);
             this.payError = err;
             <% if (user.permissions.has('finance.cash.open')) { %>
             if (err.includes('Abra o caixa')) this.$refs.cashClosedWarnDlg.showModal();

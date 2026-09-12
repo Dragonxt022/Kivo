@@ -79,6 +79,7 @@ export const createSaleSchema = z.object({
   dueDate: z.string().optional(),
   discountCents: z.number().int().min(0).optional().default(0),
   surchargeCents: z.number().int().min(0).optional().default(0),
+  discountReason: z.string().max(200, 'Motivo do desconto muito longo.').optional(),
   clientRequestId: z.string().optional(),
 }).refine(
   (data) => data.payments?.length || data.paymentMethod,

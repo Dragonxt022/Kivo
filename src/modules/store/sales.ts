@@ -47,6 +47,8 @@ export interface SaleInput {
   paidCents?: number;
   discountCents?: number;
   surchargeCents?: number;
+  /** Motivo do desconto/acréscimo, para auditoria (ver pdv.desconto_exige_motivo). */
+  discountReason?: string;
   customerId?: number;
   /** Nome livre de quem comprou, para quem não está (ou não quer estar) cadastrado. */
   customerName?: string;
@@ -353,6 +355,7 @@ export function createSale(
         subtotal_cents: subtotal,
         discount_cents: discount,
         surcharge_cents: surcharge,
+        discount_reason: typeof input.discountReason === 'string' ? input.discountReason.trim().slice(0, 200) || null : null,
         total_cents: total,
         payment_method: legacyLabel[primaryMethod] ?? 'pix',
         paid_cents: resolved[0].receivedCents,
@@ -627,4 +630,145 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
     }
   } catch (e) { log.error('falha ao cancelar tickets de cozinha', e); }
   return { ok: true };
+}
+
+/* ---------- Devolução parcial ---------- */
+
+export interface SaleReturnItemInput { productId: number; qty: number }
+export interface SaleReturnInput {
+  items: SaleReturnItemInput[];
+  /** 'nenhum' só recompõe estoque; 'dinheiro' devolve da gaveta; 'credito_loja' gera vale. */
+  refundMethod?: 'nenhum' | 'dinheiro' | 'credito_loja';
+  notes?: string;
+}
+
+interface SoldLine { product_id: number; product_name: string; qty: number; unit_price_cents: number }
+
+/** Linhas devolvíveis da venda: só as de preço > 0 (componentes/insumos entram por expansão). */
+export function soldLines(saleId: number): SoldLine[] {
+  return saleRepository.raw(
+    `SELECT product_id, product_name, SUM(qty) AS qty, MAX(unit_price_cents) AS unit_price_cents
+       FROM sale_items WHERE sale_id = ? AND unit_price_cents > 0
+      GROUP BY product_id ORDER BY product_name`,
+    saleId,
+  ) as unknown as SoldLine[];
+}
+
+export function returnedQtyByProduct(saleId: number): Map<number, number> {
+  const rows = saleRepository.raw(
+    `SELECT product_id, COALESCE(SUM(qty), 0) AS qty FROM sale_return_items
+      WHERE sale_id = ? AND deleted_at IS NULL GROUP BY product_id`,
+    saleId,
+  ) as unknown as { product_id: number; qty: number }[];
+  return new Map(rows.map((r) => [r.product_id, r.qty]));
+}
+
+/**
+ * Devolve total ou parcialmente itens de uma venda concluída. Recompõe o estoque (incluindo
+ * componentes de kit e insumos de ficha técnica, espelhando o que a venda consumiu) e,
+ * quando pedido, devolve o valor em dinheiro (saída do caixa) ou em crédito de loja.
+ * A venda original não é alterada: o histórico guarda venda + devoluções.
+ */
+export function returnSale(
+  req: Request,
+  saleId: number,
+  input: SaleReturnInput,
+): { ok: true; returnId: number; totalCents: number; refundMethod: string } | { ok: false; error: string } {
+  assertAuth(req);
+  const sale = saleRepository.findFull(saleId) as { id: number; status: string; customer_id: number | null } | undefined;
+  if (!sale) return { ok: false, error: 'Venda não encontrada.' };
+  if (sale.status !== 'concluida') return { ok: false, error: 'Só é possível devolver itens de uma venda concluída.' };
+
+  const requested = (input.items ?? []).filter((i) => i && i.productId && i.qty > 0);
+  if (!requested.length) return { ok: false, error: 'Selecione ao menos um item para devolver.' };
+
+  const stock = getService<CommercialStockService>('commercial.stock');
+  const cash = getService<FinanceCashService>('finance.cash');
+  const storeCredit = getService<CommercialStoreCreditService>('commercial.storeCredit');
+
+  const soldById = new Map(soldLines(saleId).map((l) => [l.product_id, l]));
+  const alreadyReturned = returnedQtyByProduct(saleId);
+
+  let totalCents = 0;
+  const resolvedItems: { productId: number; name: string; qty: number; unitCents: number }[] = [];
+  for (const it of requested) {
+    const line = soldById.get(Number(it.productId));
+    if (!line) return { ok: false, error: 'Item não pertence a esta venda.' };
+    const remaining = line.qty - (alreadyReturned.get(line.product_id) ?? 0);
+    const qty = Math.round(Number(it.qty) * 1e6) / 1e6;
+    if (qty > remaining + 1e-6) {
+      return { ok: false, error: `Quantidade de "${line.product_name}" maior que a disponível para devolução (${remaining}).` };
+    }
+    resolvedItems.push({ productId: line.product_id, name: line.product_name, qty, unitCents: line.unit_price_cents });
+    totalCents += Math.round(line.unit_price_cents * qty);
+  }
+
+  const refundMethod = input.refundMethod ?? 'nenhum';
+  if (refundMethod === 'dinheiro' && !cash.currentRegister()) {
+    return { ok: false, error: 'Abra o caixa para devolver em dinheiro.' };
+  }
+  if (refundMethod === 'credito_loja' && !sale.customer_id) {
+    return { ok: false, error: 'Venda sem cliente cadastrado — devolva em dinheiro ou escolha "sem reembolso".' };
+  }
+
+  let returnId = 0;
+  let error: string | null = null;
+  try {
+    saleRepository.transaction(() => {
+      returnId = Number(
+        saleRepository.rawRun(
+          `INSERT INTO sale_returns (sale_id, customer_id, refund_method, total_cents, notes, user_id, uuid)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          saleId, sale.customer_id, refundMethod, totalCents,
+          typeof input.notes === 'string' ? input.notes.trim().slice(0, 200) || null : null,
+          req.user.id, randomUUID(),
+        ).lastInsertRowid,
+      );
+
+      for (const it of resolvedItems) {
+        saleRepository.rawRun(
+          `INSERT INTO sale_return_items (return_id, sale_id, product_id, product_name, qty, unit_price_cents, total_cents, uuid)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          returnId, saleId, it.productId, it.name, it.qty, it.unitCents, Math.round(it.unitCents * it.qty), randomUUID(),
+        );
+
+        const p = productRepository.rawOne('SELECT id, product_type FROM products WHERE id = ?', it.productId) as
+          | { id: number; product_type: string } | undefined;
+        const move = stock.moveRaw(req, it.productId, 'entrada', it.qty, 'devolução', 'sale_return', returnId, true);
+        if (!move.ok) throw new Error(move.error);
+
+        if (p && (p.product_type === 'kit' || p.product_type === 'combo')) {
+          const comps = kitItemRepository.findComponentsByProduct(it.productId) as { compQty: number; id: number }[];
+          for (const c of comps) {
+            const r = stock.moveRaw(req, c.id, 'entrada', c.compQty * it.qty, 'devolução (componente)', 'sale_return', returnId, true);
+            if (!r.ok) throw new Error(r.error);
+          }
+        }
+        if (p && p.product_type === 'produzido') {
+          const recipe = recipeItemRepository.findRecipeByProduct(it.productId) as { recipeQty: number; id: number }[];
+          for (const ri of recipe) {
+            const q = Math.round(ri.recipeQty * it.qty * 1e6) / 1e6;
+            const r = stock.moveRaw(req, ri.id, 'entrada', q, 'devolução (insumo)', 'sale_return', returnId, true);
+            if (!r.ok) throw new Error(r.error);
+          }
+        }
+      }
+
+      if (totalCents > 0 && refundMethod === 'credito_loja') {
+        const r = storeCredit.grantRaw(req, sale.customer_id!, totalCents, `Devolução venda #${saleId}`, 'sale_return', returnId);
+        if (!r.ok) throw new Error(r.error);
+      }
+      if (totalCents > 0 && refundMethod === 'dinheiro') {
+        const reg = cash.currentRegister()!;
+        cash.addMovement(req, reg.id, 'saida', 'pagamento', totalCents, `Devolução venda #${saleId}`, 'sale_return', returnId);
+      }
+    });
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+
+  if (error) return { ok: false, error };
+  audit(req, 'venda_devolver', 'sale', saleId, null, { returnId, totalCents, refundMethod, items: resolvedItems });
+  scheduleSyncSoon();
+  return { ok: true, returnId, totalCents, refundMethod };
 }

@@ -271,6 +271,37 @@
             Lembrar de fechar o caixa quando ficar aberto por mais de 24h
           </label>
         </div>
+      </section>
+
+      <section class="panel">
+        <h2>Preferências do PDV</h2>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="sales.pdvSom" />
+            Tocar sinal sonoro ao adicionar item e finalizar venda
+          </label>
+        </div>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="sales.pdvImprimirAuto" />
+            Imprimir o cupom automaticamente ao finalizar (sem perguntar)
+          </label>
+        </div>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="sales.pdvDescontoMotivo" />
+            Exigir motivo ao aplicar desconto/acréscimo
+          </label>
+        </div>
+        <div class="field">
+          <label>Desconto máximo sem PIN (%)</label>
+          <input class="input input-narrow" type="text" x-model="sales.pdvDescontoMax" placeholder="0" />
+          <p class="hint">Acima desse percentual o PDV pede o PIN do administrador. Use <strong>0</strong> para não limitar.</p>
+        </div>
+        <div class="field">
+          <label>Máximo de parcelas na venda a prazo</label>
+          <input class="input input-narrow" type="number" min="1" max="24" x-model.number="sales.pdvParcelasMax" />
+        </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
           <button class="btn" @click="saveSales()">
@@ -1149,7 +1180,7 @@
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
         licenseThanks: { sync: null, syncError: null },
         stock: { autoSku: true, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
-        sales: { exibirCupom: true, lembreteCaixa24h: true }, savingSales: false, salesSaved: '',
+        sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
         financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
         savingFinanceiro: false, financeiroSaved: '',
         empresa: { nome: '', razaoSocial: '', documento: '', ie: '', email: '', telefone: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
@@ -1223,6 +1254,11 @@
           this.sales.exibirCupom = cupom?.value !== '0';
           const lembrete = this.settings.find(s => s.key === 'caixa.lembrete_24h');
           this.sales.lembreteCaixa24h = lembrete?.value !== '0';
+          this.sales.pdvSom = this.settings.find(s => s.key === 'pdv.som')?.value !== '0';
+          this.sales.pdvImprimirAuto = this.settings.find(s => s.key === 'pdv.imprimir_automatico')?.value === '1';
+          this.sales.pdvDescontoMotivo = this.settings.find(s => s.key === 'pdv.desconto_exige_motivo')?.value === '1';
+          this.sales.pdvDescontoMax = this.settings.find(s => s.key === 'pdv.desconto_maximo_percentual')?.value ?? '0';
+          this.sales.pdvParcelasMax = Number(this.settings.find(s => s.key === 'pdv.parcelas_max')?.value ?? 12);
           this.financeiro.multaAtiva = this.settings.find(s => s.key === 'financeiro.multa_atraso.ativa')?.value === '1';
           const multaPct = this.settings.find(s => s.key === 'financeiro.multa_atraso.percentual')?.value;
           this.financeiro.multaPercentual = (multaPct != null ? Number(multaPct) : 2).toFixed(2).replace('.', ',');
@@ -1442,6 +1478,11 @@
           const results = await Promise.all([
             upsert('vendas.exibir_cupom_fiscal', this.sales.exibirCupom ? '1' : '0'),
             upsert('caixa.lembrete_24h', this.sales.lembreteCaixa24h ? '1' : '0'),
+            upsert('pdv.som', this.sales.pdvSom ? '1' : '0'),
+            upsert('pdv.imprimir_automatico', this.sales.pdvImprimirAuto ? '1' : '0'),
+            upsert('pdv.desconto_exige_motivo', this.sales.pdvDescontoMotivo ? '1' : '0'),
+            upsert('pdv.desconto_maximo_percentual', String(this.sales.pdvDescontoMax || '0').replace(',', '.')),
+            upsert('pdv.parcelas_max', String(this.sales.pdvParcelasMax || 12)),
           ]);
           this.savingSales = false;
           this.salesSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';

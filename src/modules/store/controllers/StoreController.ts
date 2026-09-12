@@ -1,9 +1,11 @@
 import type { Request, Response } from 'express';
 import { getService } from '../../../core/services/registry';
+import { audit } from '../../../core/audit/service';
 import type { FinancePayMethodsService } from '../../finance/setup';
-import { createSale, cancelSale } from '../sales';
+import { createSale, cancelSale, returnSale, soldLines, returnedQtyByProduct } from '../sales';
 import { createQuote, convertQuote, cancelQuote, updateQuote } from '../quotes';
 import { cashRegisterReport, revenueTrend, type RevenueTrendPeriod } from '../reports';
+import { toCsv } from '../../commercial/productsImport';
 import { saleRepository, salePaymentRepository } from '../repositories/SaleRepository';
 import { quoteRepository } from '../repositories/QuoteRepository';
 
@@ -18,34 +20,108 @@ function canOverridePrice(req: Request): boolean {
   return req.user?.permissions.has('store.sales.discount') ?? false;
 }
 
+/** Filtros da listagem/exportação de vendas, montados a partir da query string. */
+function buildSalesWhere(req: Request): { whereSql: string; params: unknown[] } {
+  const where: string[] = ['s.deleted_at IS NULL'];
+  const params: unknown[] = [];
+  const day = String(req.query.day ?? '').trim();
+  const from = String(req.query.from ?? '').trim();
+  const to = String(req.query.to ?? '').trim();
+  const status = String(req.query.status ?? '').trim();
+  const paymentMethod = String(req.query.paymentMethod ?? '').trim();
+  const customerId = Number(req.query.customerId);
+  const userId = Number(req.query.userId);
+  const q = String(req.query.q ?? '').trim();
+
+  if (day) { where.push('date(s.created_at) = ?'); params.push(day); }
+  if (from) { where.push('date(s.created_at) >= ?'); params.push(from); }
+  if (to) { where.push('date(s.created_at) <= ?'); params.push(to); }
+  if (status) { where.push('s.status = ?'); params.push(status); }
+  if (paymentMethod) { where.push('s.payment_method = ?'); params.push(paymentMethod); }
+  if (Number.isInteger(customerId) && customerId > 0) { where.push('s.customer_id = ?'); params.push(customerId); }
+  if (Number.isInteger(userId) && userId > 0) { where.push('s.user_id = ?'); params.push(userId); }
+  if (q) {
+    where.push('(CAST(s.id AS TEXT) = ? OR COALESCE(s.customer_name, c.name) LIKE ?)');
+    params.push(q, `%${q}%`);
+  }
+  return { whereSql: where.join(' AND '), params };
+}
+
+// COALESCE: o nome congelado na venda manda; o JOIN só cobre vendas anteriores à migration
+// 0058, que não têm snapshot. `returned_cents` alimenta a coluna de devoluções.
+const SALE_LIST_SELECT = `SELECT s.id, s.status, s.total_cents, s.discount_cents, s.payment_method, s.change_cents,
+       COALESCE(s.customer_name, c.name) AS customer, u.username, s.created_at,
+       (SELECT COUNT(*) FROM sale_payments sp WHERE sp.sale_id = s.id) AS payment_count,
+       (SELECT COALESCE(SUM(sr.total_cents), 0) FROM sale_returns sr WHERE sr.sale_id = s.id AND sr.deleted_at IS NULL) AS returned_cents
+  FROM sales s
+  LEFT JOIN customers c ON c.id = s.customer_id
+  LEFT JOIN users u ON u.id = s.user_id`;
+
 export const storeController = {
   listPaymentMethods(_req: Request, res: Response) {
     res.json(getService<FinancePayMethodsService>('finance.paymethods').listActive());
   },
 
   createSaleAction(req: Request, res: Response) {
-    const result = createSale(req, req.body);
+    // Quem pode dar desconto também pode ajustar o preço de uma linha (desconto por item).
+    const result = createSale(req, req.body, { allowPriceOverride: canOverridePrice(req) });
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.status(201).json(result);
+  },
+
+  returnSaleAction(req: Request, res: Response) {
+    const result = returnSale(req, Number(req.params.id), req.body ?? {});
     if (!result.ok) { res.status(400).json(result); return; }
     res.status(201).json(result);
   },
 
   listSales(req: Request, res: Response) {
-    const day = String(req.query.day ?? '');
-    const customerId = req.query.customerId ? Number(req.query.customerId) : undefined;
-    const conditions = [day ? 'AND date(s.created_at) = ?' : '', customerId ? 'AND s.customer_id = ?' : ''].filter(Boolean).join(' ');
-    const params: unknown[] = [];
-    if (day) params.push(day);
-    if (customerId) params.push(customerId);
-    // COALESCE: o nome congelado na venda manda; o JOIN só cobre vendas anteriores à
-    // migration 0058, que não têm snapshot. Ver o comentário da migration.
-    const sql = `SELECT s.id, s.status, s.total_cents, s.discount_cents, s.payment_method, s.change_cents,
-                         COALESCE(s.customer_name, c.name) AS customer, u.username, s.created_at,
-                         (SELECT COUNT(*) FROM sale_payments sp WHERE sp.sale_id = s.id) AS payment_count
-                  FROM sales s
-                  LEFT JOIN customers c ON c.id = s.customer_id
-                  LEFT JOIN users u ON u.id = s.user_id
-                  WHERE s.deleted_at IS NULL ${conditions} ORDER BY s.id DESC LIMIT 200`;
+    const { whereSql, params } = buildSalesWhere(req);
+    const countRow = saleRepository.rawOne(
+      `SELECT COUNT(*) AS cnt FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE ${whereSql}`,
+      ...params,
+    ) as { cnt: number };
+
+    let sql = `${SALE_LIST_SELECT} WHERE ${whereSql} ORDER BY s.id DESC`;
+    const limit = Number(req.query.limit);
+    if (Number.isFinite(limit) && limit > 0) {
+      sql += ' LIMIT ?';
+      params.push(Math.min(Math.floor(limit), 500));
+      const offset = Number(req.query.offset);
+      if (Number.isFinite(offset) && offset > 0) { sql += ' OFFSET ?'; params.push(Math.floor(offset)); }
+    } else {
+      sql += ' LIMIT 200';
+    }
+    res.setHeader('X-Total-Count', String(countRow.cnt));
     res.json(saleRepository.raw(sql, ...params));
+  },
+
+  listSellers(_req: Request, res: Response) {
+    res.json(saleRepository.raw(
+      `SELECT DISTINCT u.id, u.username FROM sales s JOIN users u ON u.id = s.user_id
+        WHERE s.deleted_at IS NULL ORDER BY u.username`,
+    ));
+  },
+
+  exportSales(req: Request, res: Response) {
+    const { whereSql, params } = buildSalesWhere(req);
+    const rows = saleRepository.raw(
+      `${SALE_LIST_SELECT} WHERE ${whereSql} ORDER BY s.id DESC LIMIT 5000`,
+      ...params,
+    ) as unknown as Record<string, unknown>[];
+    const cents = (c: unknown): string => (Number(c ?? 0) / 100).toFixed(2).replace('.', ',');
+    const csv = toCsv([
+      ['#', 'Data', 'Cliente', 'Situação', 'Pagamento', 'Vendedor', 'Total (R$)', 'Devolvido (R$)'],
+      ...rows.map((r) => [
+        r.id as number, String(r.created_at), String(r.customer ?? ''), String(r.status),
+        String(r.payment_method), String(r.username ?? ''), cents(r.total_cents), cents(r.returned_cents),
+      ]),
+    ]);
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="vendas-${stamp}.csv"`);
+    audit(req, 'exportar', 'sale', 0, null, { total: rows.length });
+    res.send(csv);
   },
 
   getSale(req: Request, res: Response) {
@@ -58,9 +134,25 @@ export const storeController = {
       id,
     );
     if (!sale) { res.status(404).json({ error: 'Venda não encontrada.' }); return; }
-    const items = saleRepository.raw('SELECT product_name, qty, unit_price_cents, total_cents FROM sale_items WHERE sale_id = ?', id);
+    const items = saleRepository.raw(
+      'SELECT id, product_name, qty, unit_price_cents, total_cents, notes, line_group_uuid FROM sale_items WHERE sale_id = ?',
+      id,
+    );
     const payments = salePaymentRepository.raw('SELECT method_name, method_type, amount_cents, fee_cents, received_cents, change_cents FROM sale_payments WHERE sale_id = ?', id);
-    res.json({ ...sale, items, payments });
+    const returns = saleRepository.raw(
+      'SELECT id, refund_method, total_cents, notes, created_at FROM sale_returns WHERE sale_id = ? AND deleted_at IS NULL ORDER BY id DESC',
+      id,
+    );
+    const returned = returnedQtyByProduct(Number(id));
+    const returnable = soldLines(Number(id)).map((l) => ({
+      product_id: l.product_id,
+      product_name: l.product_name,
+      sold_qty: l.qty,
+      unit_price_cents: l.unit_price_cents,
+      returned_qty: returned.get(l.product_id) ?? 0,
+      remaining_qty: l.qty - (returned.get(l.product_id) ?? 0),
+    }));
+    res.json({ ...sale, items, payments, returns, returnable });
   },
 
   cancelSaleAction(req: Request, res: Response) {

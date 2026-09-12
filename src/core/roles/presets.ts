@@ -58,7 +58,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       'finance.receivables.view', 'finance.receivables.create', 'finance.receivables.edit', 'finance.receivables.receive',
       'finance.reports.view', 'finance.paymethods.view', 'finance.paymethods.edit',
       'finance.agreements.view', 'finance.agreements.invoice', 'finance.reconciliation.view',
-      'store.sales.view', 'store.sales.create', 'store.sales.discount', 'store.sales.cancel',
+      'store.sales.view', 'store.sales.create', 'store.sales.discount', 'store.sales.cancel', 'store.sales.return',
       'store.quotes.view', 'store.quotes.create', 'store.quotes.edit', 'store.reports.view',
       'comandas.view', 'comandas.manage', 'comandas.tables.manage',
       'fiscal.config.view', 'fiscal.documents.view', 'fiscal.emit', 'fiscal.cancel',
@@ -71,7 +71,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     description: 'Atende e vende: PDV, orçamentos, comandas e cadastro de cliente. Não abre nem fecha caixa.',
     icon: 'cart',
     permissions: [
-      'store.sales.view', 'store.sales.create',
+      'store.sales.view', 'store.sales.create', 'store.sales.return',
       'store.quotes.view', 'store.quotes.create', 'store.quotes.edit',
       'commercial.products.search', 'commercial.products.view',
       'commercial.customers.view', 'commercial.customers.create', 'commercial.customers.edit',
@@ -84,7 +84,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     description: 'Opera o PDV e o caixa: abre, sangra, fecha e emite a nota do consumidor.',
     icon: 'wallet',
     permissions: [
-      'store.sales.view', 'store.sales.create',
+      'store.sales.view', 'store.sales.create', 'store.sales.return',
       'finance.cash.view', 'finance.cash.open', 'finance.cash.close', 'finance.cash.move',
       'finance.paymethods.view',
       'commercial.products.search', 'commercial.customers.view', 'commercial.customers.create',
