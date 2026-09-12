@@ -1670,6 +1670,23 @@ router.get('/themes', requireAdminAuth, async (req, res) => {
   });
 });
 
+/** Ícones do tema, para a pré-visualização no painel. */
+router.get('/themes/:id/icons', requireAdminAuth, async (req, res) => {
+  const [rows] = await getPool().query('SELECT name, pack_json FROM themes WHERE id = ?', [req.params.id]);
+  const row = (rows as { name: string; pack_json: string }[])[0];
+  if (!row) {
+    res.status(404).json({ error: 'Tema não encontrado.' });
+    return;
+  }
+  let icons: Record<string, string> = {};
+  try {
+    icons = JSON.parse(row.pack_json) as Record<string, string>;
+  } catch {
+    // pack corrompido: devolve vazio e a tela mostra "sem ícones"
+  }
+  res.json({ name: row.name, icons });
+});
+
 /** Capa do tema para a listagem do painel. */
 router.get('/themes/:id/cover', requireAdminAuth, async (req, res) => {
   const [rows] = await getPool().query('SELECT cover_path, cover_mime FROM themes WHERE id = ?', [req.params.id]);
