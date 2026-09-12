@@ -9,6 +9,7 @@ import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
 import { expectedResponse } from '../recoveryCodes';
 import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } from './catalog';
+import { THEMES_STORAGE_DIR } from './themes';
 import {
   hasAnyAdmin,
   verifyAdminCredentials,
@@ -707,6 +708,7 @@ router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
     await conn.query('DELETE FROM trial_registry WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_mobile_grants WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_commands WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM theme_grants WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_devices WHERE company_uuid = ?', [uuid]);
     await conn.query('UPDATE catalog_images SET company_uuid = NULL WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM companies WHERE company_uuid = ?', [uuid]);
@@ -1428,6 +1430,171 @@ router.post('/support/:id/status', requireAdminAuth, async (req, res) => {
   if (!(TICKET_STATUSES as readonly string[]).includes(status)) return res.status(400).send('Status inválido.');
   await getPool().query('UPDATE support_tickets SET status = ? WHERE id = ?', [status, Number(req.params.id)]);
   res.redirect(`/admin/support/${Number(req.params.id)}`);
+});
+
+// --- Loja de temas (pacotes de ícones) ---
+
+/** Slug de URL a partir do nome: sem acento, minúsculo, só hífens. */
+function slugifyTheme(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+const THEME_COVER_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+router.get('/themes', requireAdminAuth, async (req, res) => {
+  const pool = getPool();
+  const [themes] = await pool.query(
+    `SELECT id, slug, name, description, price_cents, cover_path, files_count, active, created_at
+       FROM themes ORDER BY active DESC, name ASC`,
+  );
+  const [grantRows] = await pool.query(
+    `SELECT g.theme_id, g.company_uuid, c.name AS company_name
+       FROM theme_grants g LEFT JOIN companies c ON c.company_uuid = g.company_uuid
+      ORDER BY g.granted_at DESC`,
+  );
+  const [companyRows] = await pool.query('SELECT company_uuid, name FROM companies ORDER BY name');
+
+  // Agrupa as liberações por tema para a view não varrer a lista toda por linha.
+  const grants = new Map<number, { company_uuid: string; company_name: string | null }[]>();
+  for (const g of grantRows as { theme_id: number; company_uuid: string; company_name: string | null }[]) {
+    const list = grants.get(Number(g.theme_id)) ?? [];
+    list.push({ company_uuid: g.company_uuid, company_name: g.company_name });
+    grants.set(Number(g.theme_id), list);
+  }
+
+  res.render('themes', {
+    themes,
+    companies: companyRows,
+    grants,
+    active: 'themes',
+    error: typeof req.query.error === 'string' ? req.query.error : null,
+    ok: typeof req.query.ok === 'string' ? req.query.ok : null,
+  });
+});
+
+/** Capa do tema para a listagem do painel. */
+router.get('/themes/:id/cover', requireAdminAuth, async (req, res) => {
+  const [rows] = await getPool().query('SELECT cover_path, cover_mime FROM themes WHERE id = ?', [req.params.id]);
+  const row = (rows as { cover_path: string | null; cover_mime: string | null }[])[0];
+  const filePath = row?.cover_path ? path.join(THEMES_STORAGE_DIR, path.basename(row.cover_path)) : null;
+  if (!filePath || !fs.existsSync(filePath)) {
+    res.status(404).end();
+    return;
+  }
+  res.setHeader('Content-Type', row!.cover_mime || 'image/jpeg');
+  res.send(fs.readFileSync(filePath));
+});
+
+/**
+ * Cadastra um tema. O corpo vem em JSON (não multipart): os SVGs são texto e a capa vai como
+ * data URL base64 — assim não é preciso biblioteca de upload nem de zip em lugar nenhum.
+ */
+router.post('/themes', requireAdminAuth, async (req, res) => {
+  const body = (req.body ?? {}) as {
+    name?: unknown;
+    description?: unknown;
+    free?: unknown;
+    priceCents?: unknown;
+    coverBase64?: unknown;
+    files?: unknown;
+  };
+  const name = String(body.name ?? '').trim();
+  if (name.length < 2) {
+    res.status(400).json({ error: 'Informe o nome do tema.' });
+    return;
+  }
+
+  // `files` = { "cart.svg": "<svg…>", "manifest.json": "{…}" }. Só SVG e manifest entram.
+  const rawFiles = body.files && typeof body.files === 'object' ? (body.files as Record<string, unknown>) : {};
+  const files: Record<string, string> = {};
+  for (const [nome, conteudo] of Object.entries(rawFiles)) {
+    const base = path.basename(nome);
+    const ehSvg = base.toLowerCase().endsWith('.svg');
+    const ehManifest = base.toLowerCase() === 'manifest.json';
+    if ((!ehSvg && !ehManifest) || typeof conteudo !== 'string') continue;
+    files[base] = conteudo;
+  }
+  const svgCount = Object.keys(files).filter((f) => f.toLowerCase().endsWith('.svg')).length;
+  if (!svgCount) {
+    res.status(400).json({ error: 'Envie ao menos um arquivo .svg do tema.' });
+    return;
+  }
+
+  const priceCents =
+    body.free === true || body.free === '1' ? 0 : Math.max(0, Math.round(Number(body.priceCents) || 0));
+
+  const pool = getPool();
+  const baseSlug = slugifyTheme(name) || 'tema';
+  let slug = baseSlug;
+  for (let i = 2; i < 200; i++) {
+    const [ex] = await pool.query('SELECT id FROM themes WHERE slug = ?', [slug]);
+    if (!(ex as unknown[]).length) break;
+    slug = `${baseSlug}-${i}`;
+  }
+
+  let coverPath: string | null = null;
+  let coverMime: string | null = null;
+  const cover = String(body.coverBase64 ?? '');
+  const m = cover.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+  if (m) {
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length > 0 && buf.length <= 6 * 1024 * 1024) {
+      coverMime = m[1];
+      coverPath = `${slug}-${randomUUID().slice(0, 8)}.${THEME_COVER_EXT[coverMime]}`;
+      fs.mkdirSync(THEMES_STORAGE_DIR, { recursive: true });
+      fs.writeFileSync(path.join(THEMES_STORAGE_DIR, coverPath), buf);
+    }
+  }
+
+  await pool.query(
+    `INSERT INTO themes (slug, name, description, price_cents, cover_path, cover_mime, pack_json, files_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [slug, name, textOrNull(body.description), priceCents, coverPath, coverMime, JSON.stringify(files), svgCount],
+  );
+  res.json({ ok: true, slug });
+});
+
+router.post('/themes/:id/delete', requireAdminAuth, async (req, res) => {
+  const [rows] = await getPool().query('SELECT cover_path FROM themes WHERE id = ?', [req.params.id]);
+  const row = (rows as { cover_path: string | null }[])[0];
+  if (row?.cover_path) {
+    try {
+      fs.unlinkSync(path.join(THEMES_STORAGE_DIR, path.basename(row.cover_path)));
+    } catch {
+      // Arquivo já não existe — o registro some mesmo assim.
+    }
+  }
+  await getPool().query('DELETE FROM theme_grants WHERE theme_id = ?', [req.params.id]);
+  await getPool().query('DELETE FROM themes WHERE id = ?', [req.params.id]);
+  res.redirect('/admin/themes?ok=removido');
+});
+
+router.post('/themes/:id/grant', requireAdminAuth, async (req, res) => {
+  const companyUuid = String(req.body?.companyUuid ?? '').trim();
+  if (!companyUuid) {
+    res.redirect('/admin/themes?error=Selecione+uma+empresa');
+    return;
+  }
+  await getPool().query(
+    `INSERT INTO theme_grants (company_uuid, theme_id) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE granted_at = granted_at`,
+    [companyUuid, req.params.id],
+  );
+  res.redirect('/admin/themes?ok=liberado');
+});
+
+router.post('/themes/:id/revoke', requireAdminAuth, async (req, res) => {
+  await getPool().query('DELETE FROM theme_grants WHERE company_uuid = ? AND theme_id = ?', [
+    String(req.body?.companyUuid ?? ''),
+    req.params.id,
+  ]);
+  res.redirect('/admin/themes?ok=revogado');
 });
 
 export default router;

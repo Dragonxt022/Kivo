@@ -446,13 +446,21 @@
       <div class="dashboard-chart-panel">
         <div class="dashboard-chart-header">
           <h2>Evolução do negócio</h2>
-          <div class="period-toggle">
-            <button type="button" :class="{ active: period === 'week' }" @click="setPeriod('week')">Semana</button>
-            <button type="button" :class="{ active: period === 'month' }" @click="setPeriod('month')">Mês</button>
-            <button type="button" :class="{ active: period === 'year' }" @click="setPeriod('year')">Ano</button>
+          <div class="dashboard-chart-tools">
+            <div class="period-toggle" x-show="!chartHidden" x-cloak>
+              <button type="button" :class="{ active: period === 'week' }" @click="setPeriod('week')">Semana</button>
+              <button type="button" :class="{ active: period === 'month' }" @click="setPeriod('month')">Mês</button>
+              <button type="button" :class="{ active: period === 'year' }" @click="setPeriod('year')">Ano</button>
+            </div>
+            <button type="button" class="chart-toggle-btn" @click="toggleChart()"
+                    :title="chartHidden ? 'Mostrar gráfico' : 'Ocultar gráfico'"
+                    :aria-label="chartHidden ? 'Mostrar gráfico' : 'Ocultar gráfico'">
+              <svg x-show="!chartHidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg x-show="chartHidden" x-cloak width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+            </button>
           </div>
         </div>
-        <div class="bar-chart">
+        <div class="bar-chart" x-show="!chartHidden" x-cloak>
           <template x-for="(b, idx) in trend" :key="period + '-' + b.key">
             <div class="bar-col" @mouseenter="hoverBar = idx" @mouseleave="hoverBar = null">
               <div class="bar-tooltip" x-show="hoverBar === idx" x-text="b.label + ': ' + brl(b.totalCents)"></div>
@@ -1132,6 +1140,13 @@
         period: 'week',
         trend: [],
         hoverBar: null,
+        // O gráfico pode ser ocultado (preferência desta máquina). Oculto, o painel fica só
+        // com o título e o botão de mostrar de novo.
+        chartHidden: (function () { try { return localStorage.getItem('kivo-dash-chart-hidden') === '1'; } catch { return false; } })(),
+        toggleChart() {
+          this.chartHidden = !this.chartHidden;
+          try { localStorage.setItem('kivo-dash-chart-hidden', this.chartHidden ? '1' : '0'); } catch {}
+        },
         brl(c) { return window.brl(c); },
         get maxTrend() { return Math.max(1, ...this.trend.map((b) => b.totalCents)); },
         async loadTrend() {

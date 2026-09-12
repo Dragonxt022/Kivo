@@ -15,7 +15,8 @@ import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './comp
 import { getLicenseCredentials } from '../license/service';
 import { factoryReset } from '../reset/service';
 import { settingsRepository } from '../repositories/SettingsRepository';
-import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, invalidateIconPackCache, listIconPacks } from '../icons/service';
+import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, installIconPack, invalidateIconPackCache, listIconPacks } from '../icons/service';
+import { cloudAuthHeaders, cloudBaseUrl } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
 
 const log = createLogger('reset');
@@ -274,6 +275,94 @@ router.put('/icon-pack', requirePermission('settings.edit'), (req, res) => {
   invalidateIconPackCache();
   audit(req, 'editar', 'setting', ICON_PACK_SETTING, before ?? null, id);
   res.json({ id });
+});
+
+/**
+ * Loja de temas: o desktop fala com o cloud pelo SERVIDOR (não pelo navegador — a CSP só
+ * deixa `connect-src 'self'`). O servidor local já tem as credenciais de licença, então
+ * estas rotas são um proxy fino: listar, servir a capa e baixar+instalar o pacote.
+ *
+ * O install baixa o pack, grava em storage/peck-icon/<slug>/ e JÁ ATIVA o tema — o cliente
+ * só precisa recarregar a página para os ícones novos aparecerem.
+ */
+router.get('/theme-store', requirePermission('settings.view'), async (_req, res) => {
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  if (!base || !auth) {
+    res.json({ configured: false, themes: [] });
+    return;
+  }
+  try {
+    const r = await fetch(`${base}/api/themes`, { headers: auth, signal: AbortSignal.timeout(10000) });
+    if (!r.ok) {
+      res.status(502).json({ configured: true, themes: [], error: `A nuvem respondeu ${r.status}.` });
+      return;
+    }
+    const data = (await r.json()) as { themes: { id: number; cover: string | null }[] };
+    // A capa vem apontando para a nuvem; reescreve para o proxy local.
+    const themes = (data.themes ?? []).map((t) => ({
+      ...t,
+      cover: t.cover ? `/api/settings/theme-store/${t.id}/cover` : null,
+    }));
+    res.json({ configured: true, themes });
+  } catch {
+    res.status(502).json({ configured: true, themes: [], error: 'Não foi possível falar com a nuvem.' });
+  }
+});
+
+router.get('/theme-store/:id/cover', requirePermission('settings.view'), async (req, res) => {
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  if (!base || !auth) {
+    res.status(404).end();
+    return;
+  }
+  try {
+    const r = await fetch(`${base}/api/themes/${encodeURIComponent(String(req.params.id))}/cover`, {
+      headers: auth,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) {
+      res.status(404).end();
+      return;
+    }
+    res.setHeader('Content-Type', r.headers.get('content-type') || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch {
+    res.status(404).end();
+  }
+});
+
+router.post('/theme-store/install', requirePermission('settings.edit'), async (req, res) => {
+  const id = Number(req.body?.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'Tema inválido.' });
+    return;
+  }
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  if (!base || !auth) {
+    res.status(400).json({ error: 'A nuvem não está configurada nesta instalação.' });
+    return;
+  }
+  try {
+    const r = await fetch(`${base}/api/themes/${id}/pack`, { headers: auth, signal: AbortSignal.timeout(30000) });
+    if (!r.ok) {
+      const d = (await r.json().catch(() => ({}))) as { error?: string };
+      res.status(r.status === 403 ? 403 : 502).json({ error: d.error || `A nuvem respondeu ${r.status}.` });
+      return;
+    }
+    const pack = (await r.json()) as { slug: string; name: string; files: Record<string, string> };
+    const count = installIconPack(pack.slug, pack.files ?? {});
+    const before = settingsRepository.get(ICON_PACK_SETTING);
+    settingsRepository.set(ICON_PACK_SETTING, pack.slug);
+    invalidateIconPackCache();
+    audit(req, 'editar', 'setting', ICON_PACK_SETTING, before ?? null, pack.slug);
+    res.json({ slug: pack.slug, name: pack.name, icons: count });
+  } catch {
+    res.status(502).json({ error: 'Falha ao baixar o tema da nuvem.' });
+  }
 });
 
 router.put('/:key', requirePermission('settings.edit'), validateBody(setSettingSchema), (req, res) => {

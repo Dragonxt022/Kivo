@@ -92,7 +92,15 @@ function readSvgs(dir: string): Record<string, string> {
     return map;
   }
 
-  // manifest.json (opcional): permite que o pacote use nomes de arquivo próprios.
+  // Base: cada SVG vale pelo próprio nome (contrato canônico: cart.svg → "cart").
+  for (const f of files) {
+    if (!f.toLowerCase().endsWith('.svg')) continue;
+    map[f.slice(0, -4)] = fs.readFileSync(path.join(dir, f), 'utf8');
+  }
+
+  // manifest.json (opcional) sobrepõe/adiciona nomes lógicos — é o que permite um pacote
+  // usar nomes de arquivo próprios (ex.: "carrinho.svg" servindo "cart"). Antes, um pacote
+  // com manifest IGNORAVA os SVGs fora dele; agora os dois modos convivem.
   const manifestPath = path.join(dir, 'manifest.json');
   if (fs.existsSync(manifestPath)) {
     try {
@@ -103,15 +111,9 @@ function readSvgs(dir: string): Record<string, string> {
         const filePath = path.join(dir, path.basename(file));
         if (fs.existsSync(filePath)) map[logical] = fs.readFileSync(filePath, 'utf8');
       }
-      return map;
     } catch {
-      // Manifest ilegível: cai no modo por nome de arquivo, abaixo.
+      // Manifest ilegível: vale só o modo por nome de arquivo.
     }
-  }
-
-  for (const f of files) {
-    if (!f.toLowerCase().endsWith('.svg')) continue;
-    map[f.slice(0, -4)] = fs.readFileSync(path.join(dir, f), 'utf8');
   }
   return map;
 }
@@ -137,7 +139,15 @@ export function listIconPacks(): { packs: IconPackInfo[]; ignorados: string[] } 
   }
   for (const d of dirs) {
     if (d.name === DEFAULT_PACK_ID) continue; // id reservado ao padrão
-    const count = Object.keys(readSvgs(path.join(iconPacksDir(), d.name))).length;
+    // Conta ARQUIVOS .svg, não chaves do mapa: com manifest, cada arquivo pode responder por
+    // mais de um nome lógico, e o card deve dizer quantos ícones o pacote traz de verdade.
+    let svgs: string[] = [];
+    try {
+      svgs = fs.readdirSync(path.join(iconPacksDir(), d.name)).filter((f) => f.toLowerCase().endsWith('.svg'));
+    } catch {
+      // Pasta ilegível: trata como pacote vazio.
+    }
+    const count = svgs.length;
     if (count > 0) packs.push({ id: d.name, name: d.name, icons: count, hasCover: !!iconPackCover(d.name) });
     else ignorados.push(d.name);
   }
@@ -186,4 +196,34 @@ export function getIconHelpers(): IconHelpers {
 
 export function invalidateIconPackCache(): void {
   cache = null;
+}
+
+/**
+ * Instala um pacote baixado da loja em `storage/peck-icon/<slug>/`, sobrescrevendo o que
+ * houver com o mesmo nome. Grava só `.svg` e `manifest.json` — é o formato que o cloud
+ * aceita. Escreve num diretório temporário e só então troca, para uma falha no meio não
+ * deixar o tema atual pela metade. Devolve quantos ícones foram gravados.
+ */
+export function installIconPack(slug: string, files: Record<string, string>): number {
+  const id = safePackId(slug);
+  if (!id || isDefaultPack(id)) throw new Error('Nome de pacote inválido.');
+  const dir = path.join(iconPacksDir(), id);
+  const tmp = `${dir}.tmp`;
+  fs.rmSync(tmp, { recursive: true, force: true });
+  fs.mkdirSync(tmp, { recursive: true });
+
+  let count = 0;
+  for (const [nome, conteudo] of Object.entries(files)) {
+    const base = path.basename(nome);
+    const ehSvg = base.toLowerCase().endsWith('.svg');
+    const ehManifest = base.toLowerCase() === 'manifest.json';
+    if ((!ehSvg && !ehManifest) || typeof conteudo !== 'string') continue;
+    fs.writeFileSync(path.join(tmp, base), conteudo);
+    if (ehSvg) count++;
+  }
+
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.renameSync(tmp, dir);
+  invalidateIconPackCache();
+  return count;
 }
