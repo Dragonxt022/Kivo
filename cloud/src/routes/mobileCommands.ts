@@ -19,6 +19,7 @@ import { emitToCompany, addClient, connectedCount } from '../events';
 /** Permissões que cada tipo de comando exige de quem pediu — as mesmas chaves do desktop. */
 const PERMISSAO_POR_TIPO: Record<string, string> = {
   'store.quote.create': 'store.quotes.create',
+  'finance.receivable.receive': 'finance.receivables.receive',
 };
 
 // ─── Lado do celular — montado em /api/mobile ──────────────────────────────────
@@ -68,6 +69,38 @@ mobileSide.get('/commands/:id', requireMobileAuth, async (req: MobileRequest, re
 
 mobileSide.get('/events', requireMobileAuth, (req: MobileRequest, res) => {
   addClient(req.grant!.companyUuid, res);
+});
+
+/**
+ * "Sincronizar agora" pelo celular. Não é uma escrita de domínio: só enfileira o mesmo
+ * `support.sync_now` que o suporte já dispara (`commands.ts` no desktop), que apenas agenda
+ * um ciclo de sync. Por isso não passa pela tabela de permissões de comando — qualquer
+ * acesso ao Kivo Web pode pedir, e pedir não altera dado nenhum.
+ *
+ * Se já existe um pedido pendente, devolve o mesmo em vez de empilhar: o botão da tela pode
+ * ser tocado várias vezes enquanto o desktop ainda não respondeu.
+ */
+mobileSide.post('/sync-now', requireMobileAuth, async (req: MobileRequest, res) => {
+  const company = req.grant!.companyUuid;
+  const [pendentes] = await getPool().query(
+    `SELECT id FROM company_commands
+      WHERE company_uuid = ? AND kind = 'support.sync_now' AND status = 'pendente'
+      ORDER BY id LIMIT 1`,
+    [company],
+  );
+  const jaPendente = (pendentes as { id: number }[])[0];
+  if (jaPendente) {
+    res.status(202).json({ id: jaPendente.id, desktopOnline: connectedCount(company) > 0, jaPendente: true });
+    return;
+  }
+  const [result] = await getPool().query(
+    `INSERT INTO company_commands (company_uuid, kind, payload, created_by_user_uuid)
+     VALUES (?, 'support.sync_now', CAST(? AS JSON), ?)`,
+    [company, JSON.stringify({ origem: 'kivo-web' }), req.grant!.userUuid],
+  );
+  const id = (result as { insertId: number }).insertId;
+  emitToCompany(company, 'command', { id, kind: 'support.sync_now' });
+  res.status(202).json({ id, desktopOnline: connectedCount(company) > 0 });
 });
 
 // ─── Lado do desktop — montado em /api/commands ────────────────────────────────

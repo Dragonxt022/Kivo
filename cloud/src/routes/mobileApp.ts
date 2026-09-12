@@ -9,6 +9,7 @@ import {
   type QuotePayload, type CustomerPayload,
 } from '../mobileData';
 import { calcular, PERIODOS, type Periodo } from '../mobileAnalytics';
+import { createRateLimiter } from '../rateLimit';
 
 /**
  * Kivo Web — o app que o lojista abre no celular. Montado em `/m`.
@@ -26,6 +27,39 @@ function hojeISO(): string {
 
 function brl(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/**
+ * Texto de cobrança para o WhatsApp. O lojista abre a conversa já escrita e só revisa:
+ * é o passo que sobra entre "sei quanto ele deve" e "pedi o pagamento". O tom muda conforme
+ * o caso — só vencido, parte vencida, ou ainda a vencer com data — porque uma cobrança
+ * genérica ("você deve X") soa mal para quem está em dia.
+ */
+function mensagemCobranca(opts: {
+  nome: string;
+  empresa: string;
+  abertoCents: number;
+  vencidoCents: number;
+  vencimento?: string | null;
+}): string {
+  const primeiroNome = (opts.nome || '').trim().split(' ')[0] || opts.nome;
+  const partes: string[] = [`Olá, ${primeiroNome}! Aqui é da ${opts.empresa}.`];
+  if (opts.vencidoCents > 0 && opts.vencidoCents >= opts.abertoCents) {
+    partes.push(`Passando para lembrar que há R$ ${brl(opts.abertoCents)} em aberto, já vencido.`);
+  } else if (opts.vencidoCents > 0) {
+    partes.push(
+      `Você tem R$ ${brl(opts.abertoCents)} em aberto, sendo R$ ${brl(opts.vencidoCents)} já vencido.`,
+    );
+  } else if (opts.vencimento) {
+    partes.push(
+      `Passando para lembrar do seu saldo de R$ ${brl(opts.abertoCents)}, ` +
+        `com vencimento em ${opts.vencimento.split('-').reverse().join('/')}.`,
+    );
+  } else {
+    partes.push(`Passando para lembrar do seu saldo de R$ ${brl(opts.abertoCents)} em aberto.`);
+  }
+  partes.push('Podemos acertar? Fico à disposição. Obrigado!');
+  return partes.join(' ');
 }
 
 /**
@@ -50,7 +84,18 @@ async function baseLocals(req: MobileRequest) {
 // ─── Pareamento ────────────────────────────────────────────────────────────────
 // Antes de qualquer `requireMobileAuth`: é justamente o que cria a sessão.
 
-router.get('/entrar', (_req, res) => {
+/**
+ * Freio nas duas rotas públicas do Kivo Web. O token do link é longo o bastante para não
+ * ser adivinhado, mas o limite evita que alguém martele a rota e encha o log/banco de
+ * tentativas. Por IP, não por token: é a única identidade que existe antes do login.
+ */
+const acessoLimitado = createRateLimiter({ windowMs: 15 * 60e3, max: 40, keyPrefix: 'm-acesso:' });
+
+router.get('/entrar', (req, res) => {
+  if (acessoLimitado(req.ip ?? 'desconhecido')) {
+    res.status(429).render('mobile-entrar', { erro: 'Muitas tentativas seguidas. Aguarde alguns minutos.' });
+    return;
+  }
   res.render('mobile-entrar');
 });
 
@@ -65,6 +110,11 @@ router.get('/sair', (_req, res) => {
  * `Referer` de qualquer link externo aberto depois.
  */
 router.get('/acesso/:token', async (req, res) => {
+  if (acessoLimitado(req.ip ?? 'desconhecido')) {
+    clearMobileCookie(res);
+    res.status(429).render('mobile-entrar', { erro: 'Muitas tentativas seguidas. Aguarde alguns minutos.' });
+    return;
+  }
   const grant = await loadGrantByToken(req.params.token);
   if (!grant) {
     clearMobileCookie(res);
@@ -262,6 +312,7 @@ router.get('/clientes/:uuid', async (req: MobileRequest, res) => {
   if (!req.grant!.permissions.includes('commercial.customers.view')) return res.redirect('/m');
   const company = req.grant!.companyUuid;
   const podeCobranca = req.grant!.permissions.includes('finance.receivables.view');
+  const podeReceber = req.grant!.permissions.includes('finance.receivables.receive');
   const uuid = String(req.params.uuid);
   const hoje = hojeISO();
 
@@ -302,6 +353,24 @@ router.get('/clientes/:uuid', async (req: MobileRequest, res) => {
     .sort((a, b) => (b.payload.created_at ?? '').localeCompare(a.payload.created_at ?? ''))
     .slice(0, 10);
 
+  const abertoCents = abertas.reduce((s, r) => s + r.saldoCents, 0);
+  const vencidoCents = abertas.filter((r) => r.vencida).reduce((s, r) => s + r.saldoCents, 0);
+  // Link de cobrança: só faz sentido com telefone e saldo. `abertas` já está ordenada por
+  // vencimento, então a primeira é a conta mais antiga — a data que interessa citar.
+  const telefoneDigitos = String(cliente.payload.phone ?? '').replace(/\D/g, '');
+  const cobrancaWa =
+    telefoneDigitos && abertoCents > 0
+      ? `https://wa.me/55${telefoneDigitos}?text=${encodeURIComponent(
+          mensagemCobranca({
+            nome: cliente.payload.name,
+            empresa: req.grant!.companyName || 'sua loja',
+            abertoCents,
+            vencidoCents,
+            vencimento: abertas[0]?.vencimento ?? null,
+          }),
+        )}`
+      : null;
+
   res.render('mobile-cliente', {
     ...(await baseLocals(req)),
     c: cliente.payload,
@@ -310,8 +379,10 @@ router.get('/clientes/:uuid', async (req: MobileRequest, res) => {
     quitadas,
     compras,
     podeCobranca,
-    abertoCents: abertas.reduce((s, r) => s + r.saldoCents, 0),
-    vencidoCents: abertas.filter((r) => r.vencida).reduce((s, r) => s + r.saldoCents, 0),
+    podeReceber,
+    abertoCents,
+    vencidoCents,
+    cobrancaWa,
   });
 });
 

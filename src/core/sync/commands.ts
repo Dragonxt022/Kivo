@@ -62,6 +62,57 @@ interface StoreQuotesService {
   ) => { ok: true; id: number; totalCents: number } | { ok: false; error: string };
 }
 
+/** Serviço de contas a receber exposto pelo módulo finance. */
+interface FinanceReceivablesService {
+  settleFull: (
+    req: import('express').Request,
+    id: number,
+    input: { paymentMethodType?: string; settledAt?: string },
+  ) =>
+    | {
+        ok: true;
+        settledCents: number;
+        rolledOverCents: number;
+        rolloverTarget: 'existing' | 'new' | null;
+        registeredInCash: boolean;
+      }
+    | { ok: false; status: number; error: string; code?: string };
+}
+
+interface ReceiveCommandPayload {
+  receivableUuid?: string;
+  methodType?: string;
+  settledAt?: string;
+}
+
+/**
+ * "Receber conta" pedido pelo celular. A conta vem por uuid (o id local não vale entre
+ * máquinas) e a forma de pagamento vem por TIPO — o desktop resolve para a forma local
+ * daquele tipo, porque `payment_methods` é configuração por máquina e não sincroniza.
+ */
+function handleReceivableReceive(cmd: PendingCommand): HandlerResult {
+  const req = impersonate(localIdByUuid('users', cmd.created_by_user_uuid) ?? 0);
+  if (!req) return { ok: false, error: 'O usuário que pediu não existe mais nesta máquina ou está inativo.' };
+  if (!req.user.permissions.has('finance.receivables.receive')) {
+    return { ok: false, error: 'O cargo deste usuário não permite receber contas.' };
+  }
+  const p = cmd.payload as ReceiveCommandPayload;
+  const id = localIdByUuid('receivables', p.receivableUuid);
+  if (!id) return { ok: false, error: 'A conta não existe mais neste computador.' };
+
+  const receivables = getService<FinanceReceivablesService>('finance.receivables');
+  const out = receivables.settleFull(req, id, { paymentMethodType: p.methodType, settledAt: p.settledAt });
+  if (!out.ok) return { ok: false, error: out.error };
+  return {
+    ok: true,
+    result: {
+      settledCents: out.settledCents,
+      rolledOverCents: out.rolledOverCents,
+      registeredInCash: out.registeredInCash,
+    },
+  };
+}
+
 function db() {
   return getSqlite();
 }
@@ -133,6 +184,7 @@ function handleQuoteCreate(cmd: PendingCommand): HandlerResult {
 
 const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {
   'store.quote.create': handleQuoteCreate,
+  'finance.receivable.receive': handleReceivableReceive,
 
   // Comandos de SUPORTE (o painel cloud dispara; não dependem do plano nem de usuário).
   // "Forçar sincronização": agenda um ciclo agora — o resultado real sai no próximo sync.

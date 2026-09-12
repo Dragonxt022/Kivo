@@ -42,6 +42,15 @@
       <span class="m-kpi-sub"><%= vencidoCents > 0 ? 'em atraso' : 'em dia' %></span>
     </div>
   </div>
+
+  <%# A mensagem vai pronta (valor, vencimento, tom conforme o atraso): o lojista só
+      revisa e envia. É o passo que separava "sei quanto ele deve" de "cobrei". %>
+  <% if (cobrancaWa) { %>
+  <a class="m-btn m-btn-cobrar" target="_blank" rel="noopener" href="<%= cobrancaWa %>">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    Cobrar R$ <%= brl(abertoCents) %> no WhatsApp
+  </a>
+  <% } %>
   <% } %>
 
   <h3 class="m-sec-titulo">Contas em aberto</h3>
@@ -65,11 +74,19 @@
         <span class="m-conta-parcial">de R$ <%= brl(r.totalCents) %></span>
         <% } %>
       </div>
+      <%# Recebimento pelo celular: o pedido vai para a fila e o computador da loja executa
+          a baixa pelo mesmo caminho da tela (caixa, multa/juros, auditoria). %>
+      <% if (podeReceber) { %>
+      <button type="button" class="m-btn m-btn-sec m-conta-receber"
+              data-receber-uuid="<%= r.uuid %>"
+              data-receber-valor="<%= r.saldoCents %>"
+              data-receber-desc="<%= r.descricao || 'Conta a receber' %>">
+        Receber R$ <%= brl(r.saldoCents) %>
+      </button>
+      <% } %>
     </div>
     <% }) %>
-    <%# O recebimento acontece no computador da loja: o Kivo Web é leitura, e dizer isso
-        aqui evita a pessoa procurar um botão de "dar baixa" que não existe. %>
-    <p class="m-note">Para dar baixa, use o computador da loja — aqui o valor é só consulta.</p>
+    <p class="m-note">O recebimento roda no computador da loja. Se a forma for dinheiro, o caixa precisa estar aberto lá.</p>
   <% } %>
 
   <% if (quitadas.length) { %>
@@ -114,6 +131,134 @@
   </div>
 </a>
 <% }) %>
+<% } %>
+
+<%# ── Folha: escolher a forma de pagamento do recebimento ── %>
+<div class="m-sheet" id="sheet-receber" hidden>
+  <div class="m-sheet-box">
+    <div class="m-sheet-head">
+      <h2>Receber</h2>
+      <button type="button" class="m-sheet-close" data-fechar="sheet-receber">&times;</button>
+    </div>
+    <div class="m-sheet-body">
+      <p class="m-receber-info" id="receber-info"></p>
+      <div id="receber-metodos">
+        <button type="button" class="m-pick" data-metodo="pix">
+          <span class="m-pick-body"><span class="m-pick-name">Pix</span></span>
+        </button>
+        <button type="button" class="m-pick" data-metodo="dinheiro">
+          <span class="m-pick-body"><span class="m-pick-name">Dinheiro</span></span>
+        </button>
+        <button type="button" class="m-pick" data-metodo="debito">
+          <span class="m-pick-body"><span class="m-pick-name">Cartão de débito</span></span>
+        </button>
+        <button type="button" class="m-pick" data-metodo="credito">
+          <span class="m-pick-body"><span class="m-pick-name">Cartão de crédito</span></span>
+        </button>
+      </div>
+      <div id="receber-status" hidden style="text-align:center;padding:1rem 0">
+        <div class="m-status-spinner"></div>
+        <p class="m-card-sub" id="receber-status-texto">Enviando para o computador da loja…</p>
+      </div>
+      <p class="m-note" id="receber-erro" hidden></p>
+    </div>
+  </div>
+</div>
+
+<% if (podeReceber) { %>
+<script>
+  (function () {
+    var el = function (id) { return document.getElementById(id); };
+    var brl = function (c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+    var conta = null;
+    var pronto = false;
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fechar]'), function (b) {
+      b.addEventListener('click', function () { el(b.getAttribute('data-fechar')).hidden = true; });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.m-sheet'), function (s) {
+      s.addEventListener('click', function (e) { if (e.target === s) s.hidden = true; });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-receber-uuid]'), function (b) {
+      b.addEventListener('click', function () {
+        conta = {
+          uuid: b.getAttribute('data-receber-uuid'),
+          desc: b.getAttribute('data-receber-desc'),
+          valor: +b.getAttribute('data-receber-valor'),
+        };
+        el('receber-info').textContent = conta.desc + ' — ' + brl(conta.valor);
+        el('receber-metodos').hidden = false;
+        el('receber-status').hidden = true;
+        el('receber-erro').hidden = true;
+        el('sheet-receber').hidden = false;
+      });
+    });
+
+    function acompanhar(id) {
+      function checar() {
+        if (pronto) return;
+        fetch('/api/mobile/commands/' + id).then(function (r) { return r.json(); }).then(function (d) {
+          if (!d || d.status === 'pendente') return;
+          pronto = true;
+          el('receber-status').hidden = true;
+          if (d.status === 'aplicado') {
+            el('receber-erro').hidden = false;
+            el('receber-erro').style.color = 'var(--ok, #00a37a)';
+            el('receber-erro').textContent = 'Recebido! Atualizando a ficha…';
+            setTimeout(function () { location.reload(); }, 1200);
+          } else {
+            el('receber-erro').hidden = false;
+            el('receber-erro').style.color = 'var(--danger)';
+            el('receber-erro').textContent = (d.result && d.result.error) || 'O computador da loja recusou o recebimento.';
+            el('receber-metodos').hidden = false;
+          }
+        }).catch(function () {});
+      }
+      try {
+        var es = new EventSource('/api/mobile/events');
+        es.addEventListener('command-done', function () { checar(); });
+      } catch (e) { /* navegador sem SSE: o polling cobre */ }
+      var t = setInterval(function () { if (pronto) clearInterval(t); else checar(); }, 4000);
+      checar();
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-metodo]'), function (b) {
+      b.addEventListener('click', function () {
+        if (!conta || pronto) return;
+        el('receber-metodos').hidden = true;
+        el('receber-status').hidden = false;
+        el('receber-erro').hidden = true;
+        fetch('/api/mobile/commands', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'finance.receivable.receive',
+            payload: { receivableUuid: conta.uuid, methodType: b.getAttribute('data-metodo') },
+          }),
+        }).then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        }).then(function (res) {
+          if (!res.ok) {
+            el('receber-status').hidden = true;
+            el('receber-erro').hidden = false;
+            el('receber-erro').style.color = 'var(--danger)';
+            el('receber-erro').textContent = res.d.error || 'Falha ao enviar o recebimento.';
+            el('receber-metodos').hidden = false;
+            return;
+          }
+          acompanhar(res.d.id);
+        }).catch(function () {
+          el('receber-status').hidden = true;
+          el('receber-erro').hidden = false;
+          el('receber-erro').style.color = 'var(--danger)';
+          el('receber-erro').textContent = 'Sem conexão. Tente de novo.';
+          el('receber-metodos').hidden = false;
+        });
+      });
+    });
+  })();
+</script>
 <% } %>
 
 <%- include('partials/mobile-foot', { grant, ativo: 'clientes' }) %>

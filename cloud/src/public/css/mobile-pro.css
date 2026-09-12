@@ -946,6 +946,17 @@
   gap: 0.4rem;
   text-decoration: none;
 }
+/* Cobrança: ação principal da ficha de quem deve, na cor do WhatsApp para ser reconhecida
+   de longe. Vem logo abaixo dos números, antes da lista de contas. */
+.m-btn-cobrar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  background: #25d366;
+  text-decoration: none;
+}
 
 /* ─── Conta a receber ─── */
 .m-conta {
@@ -964,6 +975,17 @@
 }
 .m-conta.quitada {
   opacity: 0.7;
+}
+/* Botão de receber dentro da linha da conta: ação secundária, não compete com o valor. */
+.m-conta-receber {
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+}
+.m-receber-info {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 .m-conta-linha {
   display: flex;
