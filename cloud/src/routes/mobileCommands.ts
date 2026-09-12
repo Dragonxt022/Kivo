@@ -75,12 +75,17 @@ mobileSide.get('/events', requireMobileAuth, (req: MobileRequest, res) => {
 export const desktopSide = Router();
 
 desktopSide.get('/pending', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  // `target_machine_id` isola comandos disparados para uma máquina específica (ex.: forçar
+  // atualização, que vira uma linha por dispositivo). Sem o cabeçalho — versão antiga do
+  // desktop — só os comandos sem alvo são entregues, o que é a degradação correta.
+  const machineId = (req.header('X-Kivo-Machine-Id') ?? '').trim();
   const [rows] = await getPool().query(
     `SELECT id, kind, payload, created_by_user_uuid
        FROM company_commands
       WHERE company_uuid = ? AND status = 'pendente'
+        AND (target_machine_id IS NULL OR target_machine_id = ?)
       ORDER BY id LIMIT 50`,
-    [req.companyUuid],
+    [req.companyUuid, machineId],
   );
   res.json({
     commands: (rows as { id: number; kind: string; payload: string | object; created_by_user_uuid: string }[]).map((c) => ({

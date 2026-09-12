@@ -412,6 +412,11 @@
                 <input type="hidden" name="kind" value="support.diagnostics" />
                 <button type="submit" class="btn secondary">Pedir diagnóstico</button>
               </form>
+              <form method="post" action="/admin/companies/<%= company.company_uuid %>/commands"
+                    onsubmit="return confirm('Enviar a atualização para todas as máquinas desta empresa? Elas baixam em silêncio e aplicam ao fechar o Kivo.');">
+                <input type="hidden" name="kind" value="support.force_update" />
+                <button type="submit" class="btn secondary">Forçar atualização</button>
+              </form>
             </div>
             <div class="table-scroll" style="margin-top:14px;">
               <table>
@@ -584,12 +589,14 @@
         },
         label(kind) {
           return kind === 'support.sync_now' ? 'Forçar sincronização'
-            : kind === 'support.diagnostics' ? 'Diagnóstico' : kind;
+            : kind === 'support.diagnostics' ? 'Diagnóstico'
+            : kind === 'support.force_update' ? 'Forçar atualização' : kind;
         },
         summary(c) {
           if (!c.result) return c.status === 'pendente' ? 'aguardando o computador…' : '—';
           const r = c.result;
           if (r.error) return r.error;
+          if (r.acao === 'atualizacao') return 'Atualização agendada';
           if (r.agendado) return 'Sincronização agendada';
           if (r.os) return [r.os, r.cpu, r.ramGb ? r.ramGb + ' GB' : null].filter(Boolean).join(' · ');
           try { return JSON.stringify(r).slice(0, 140); } catch (e) { return '—'; }

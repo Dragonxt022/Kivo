@@ -4,6 +4,8 @@ import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
 import { getService } from '../services/registry';
 import { createLogger } from '../logger';
 import { flushTelemetry, getMachineInventory } from '../telemetry/service';
+import { machineId } from '../license/service';
+import { forcarAtualizacaoSilenciosa, getUpdateState } from '../updater';
 
 const log = createLogger('commands');
 
@@ -156,6 +158,20 @@ const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {
       },
     };
   },
+  // "Forçar atualização": baixa a versão nova em silêncio e deixa o instalador rodar quando o
+  // Kivo for fechado (sem reiniciar no meio de uma venda). O download é longo, então dispara
+  // em fire-and-forget e confirma o comando na hora; o desfecho fica na aba Atualização.
+  'support.force_update': () => {
+    const estado = getUpdateState();
+    if (!estado.suportado) {
+      return { ok: false, error: estado.motivo ?? 'Atualização automática indisponível nesta instalação.' };
+    }
+    void forcarAtualizacaoSilenciosa().then((r) => {
+      if (r.ok) log.info(`atualização ${r.versao ?? ''} baixada; será instalada ao fechar o Kivo.`);
+      else log.error('atualização forçada falhou', { erro: r.error });
+    });
+    return { ok: true, result: { agendado: true, acao: 'atualizacao' } };
+  },
 };
 
 /**
@@ -197,7 +213,11 @@ export async function drainCommands(): Promise<{ aplicados: number; erros: numbe
   let aplicados = 0;
   let erros = 0;
   try {
-    const r = await fetch(`${base}/api/commands/pending`, { headers: auth, signal: AbortSignal.timeout(10000) });
+    const r = await fetch(`${base}/api/commands/pending`, {
+      // A nuvem usa o machine id para entregar comandos com alvo (ex.: forçar atualização).
+      headers: { ...auth, 'X-Kivo-Machine-Id': machineId() },
+      signal: AbortSignal.timeout(10000),
+    });
     if (!r.ok) return null;
     const { commands } = (await r.json()) as { commands: PendingCommand[] };
 

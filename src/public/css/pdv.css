@@ -90,6 +90,9 @@ body:has(.pdv) {
 .pdv {
   display: grid;
   grid-template-columns: 62fr 38fr;
+  /* minmax(0, 1fr): uma única linha do tamanho exato do main. Sem isto a linha é
+     auto e cresce até o max-content do carrinho — a lista nunca chega a rolar. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 1.25rem;
   align-items: stretch;
   flex: 1;
@@ -101,6 +104,9 @@ body:has(.pdv) {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  /* Deixa a coluna encolher abaixo do conteúdo: é o que permite o .cart-items
+     (flex: 1) parar de crescer e ativar a própria barra de rolagem. */
+  min-height: 0;
 }
 
 /* ─── Barra de abas de venda simultânea ─── */
@@ -730,10 +736,14 @@ body:has(.pdv) {
   position: sticky;
   top: 1rem;
   height: 100%;
+  min-height: 0;
 }
 .pdv-card {
   position: relative;
-  overflow: hidden;
+  /* overflow-x hidden preserva o recorte do brilho; overflow-y auto deixa o resumo
+     rolar sozinho em telas baixas, em vez de cortar o botão de finalizar. */
+  overflow-x: hidden;
+  overflow-y: auto;
   border-radius: var(--radius-lg);
   background: var(--pdv-glass-strong);
   -webkit-backdrop-filter: blur(var(--pdv-blur)) saturate(180%);
@@ -1368,13 +1378,15 @@ dialog.pay-modal[open] {
 }
 
 /* ─── Rodapé: atalhos + status de conexão ─── */
-/* main vira coluna flex que preenche a altura da tela (descontando header + espaços do
-   body) — assim o rodapé desce com margin-top:auto e fica colado no fim da janela mesmo
-   com o carrinho vazio, sem esticar as colunas do meio. */
+/* main vira coluna flex com ALTURA fixa (o que sobra da janela depois do header),
+   não só min-height: com apenas uma altura mínima, um carrinho com muitos itens
+   empurrava o main para baixo e a página inteira crescia. Fixando a altura, o
+   carrinho rola por dentro e o rodapé fica sempre colado no fim da janela. */
 main:has(.pdv-footer-bar) {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - var(--header-height) - 24px);
+  height: calc(100vh - var(--header-height) - 24px);
+  min-height: 0;
 }
 .pdv-footer-bar {
   margin-top: auto;
@@ -1434,8 +1446,15 @@ main:has(.pdv-footer-bar) {
 
 /* ─── Responsivo ─── */
 @media (max-width: 1080px) {
+  /* Colunas empilhadas: a altura fixa do main espremeria as duas numa tela só.
+     Volta a crescer com o conteúdo e a rolar junto com a página. */
+  main:has(.pdv-footer-bar) {
+    height: auto;
+    min-height: calc(100vh - var(--header-height) - 24px);
+  }
   .pdv {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
     gap: 1rem;
   }
   .pdv-right {
