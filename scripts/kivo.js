@@ -94,6 +94,7 @@ function listCommands() {
       'test:onboarding',
       'test:product-images',
       'test:products-import',
+      'test:force-update',
     ],
     Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
     Utilitário: ['smoke', 'postinstall'],

@@ -147,6 +147,10 @@ function setupAutoUpdater(win: BrowserWindow): void {
   };
 
   autoUpdater.autoDownload = false;
+  // Depois de baixada, a atualização entra sozinha quando o Kivo fecha (isSilent, sem
+  // reabrir) — é o "instalar ao fechar" do comando de atualização forçada do suporte.
+  // Continua valendo para o fluxo manual: baixar e fechar atualiza do mesmo jeito.
+  autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => {
     logUpdate('verificando atualização...');
@@ -202,7 +206,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
       erro: null,
     });
     avisarNaTela(
-      `Kivo ${info.version} baixado. Clique em Atualizar em Configurações › Atualização quando puder reiniciar.`,
+      `Kivo ${info.version} baixado. Ele será instalado quando você fechar o Kivo — ou clique em Atualizar para reiniciar agora.`,
       'success',
     );
   });

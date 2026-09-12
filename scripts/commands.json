@@ -223,6 +223,10 @@
     "description": "Testes: PDV (busca, favoritos, desconto, devolução parcial, histórico)",
     "run": "node scripts/test-isolated.js src/tests/pdv-improvements.ts"
   },
+  "test:force-update": {
+    "description": "Testes: atualização forçada pelo suporte (baixa em silêncio e instala ao fechar)",
+    "run": "node scripts/test-isolated.js src/tests/force-update.ts"
+  },
   "test:fase8": {
     "description": "Testes: faturamento",
     "run": "tsx src/tests/fase8.ts"

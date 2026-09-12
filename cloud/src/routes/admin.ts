@@ -778,7 +778,7 @@ router.post('/companies/:uuid/recovery-code', requireAdminAuth, async (req: Admi
 // --- Comandos de suporte (fila company_commands, executada pelo desktop) ---
 
 /** Só estes tipos podem ser disparados pelo painel — evita virar um executor genérico. */
-const SUPPORT_COMMANDS = new Set(['support.sync_now', 'support.diagnostics']);
+const SUPPORT_COMMANDS = new Set(['support.sync_now', 'support.diagnostics', 'support.force_update']);
 
 router.post('/companies/:uuid/commands', requireAdminAuth, async (req: AdminRequest, res) => {
   const uuid = String(req.params.uuid);
@@ -787,10 +787,45 @@ router.post('/companies/:uuid/commands', requireAdminAuth, async (req: AdminRequ
     res.status(400).send('Comando de suporte inválido.');
     return;
   }
+
+  const payload = JSON.stringify({ by: req.adminUsername ?? 'admin' });
+  const bySystem = '00000000-0000-0000-0000-000000000000';
+
+  /**
+   * Forçar atualização é para TODAS as máquinas da empresa: como o ack encerra o comando
+   * (status sai de 'pendente'), uma linha só seria consumida pela primeira máquina que
+   * respondesse. Então grava uma linha por dispositivo ativo, cada uma com o seu alvo.
+   *
+   * Sem dispositivo conhecido (empresa recém-criada, nenhuma validação de licença ainda),
+   * cai no comando sem alvo: qualquer máquina que consultar pega.
+   */
+  if (kind === 'support.force_update') {
+    const [deviceRows] = await getPool().query(
+      'SELECT machine_id FROM company_devices WHERE company_uuid = ? AND removed_at IS NULL',
+      [uuid],
+    );
+    const machines = (deviceRows as { machine_id: string }[]).map((d) => d.machine_id);
+    const alvos: (string | null)[] = machines.length ? machines : [null];
+
+    let primeiroId: number | null = null;
+    for (const machine of alvos) {
+      const [result] = await getPool().query(
+        `INSERT INTO company_commands (company_uuid, kind, payload, created_by_user_uuid, target_machine_id)
+         VALUES (?, ?, CAST(? AS JSON), ?, ?)`,
+        [uuid, kind, payload, bySystem, machine],
+      );
+      if (primeiroId === null) primeiroId = (result as { insertId: number }).insertId;
+    }
+    // Um único aviso já acorda todas as máquinas da empresa — elas consultam e filtram.
+    if (primeiroId !== null) emitToCompany(uuid, 'command', { id: primeiroId, kind });
+    res.redirect(`/admin/companies/${uuid}#diagnostico`);
+    return;
+  }
+
   const [result] = await getPool().query(
     `INSERT INTO company_commands (company_uuid, kind, payload, created_by_user_uuid)
      VALUES (?, ?, CAST(? AS JSON), ?)`,
-    [uuid, kind, JSON.stringify({ by: req.adminUsername ?? 'admin' }), '00000000-0000-0000-0000-000000000000'],
+    [uuid, kind, payload, bySystem],
   );
   // Acorda o desktop na hora, se o canal SSE dele estiver conectado.
   emitToCompany(uuid, 'command', { id: (result as { insertId: number }).insertId, kind });

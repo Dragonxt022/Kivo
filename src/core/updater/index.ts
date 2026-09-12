@@ -159,3 +159,51 @@ export function instalarAtualizacao(): Acao {
   driver!.instalar();
   return { ok: true };
 }
+
+/** Espera o estado sair de um passo em andamento, até um dos alvos ou o timeout. */
+function esperarStatus(alvos: UpdateStatus[], timeoutMs: number): Promise<UpdateStatus> {
+  return new Promise((resolve) => {
+    const inicio = Date.now();
+    const timer = setInterval(() => {
+      const atual = state.status;
+      if (alvos.includes(atual) || Date.now() - inicio >= timeoutMs) {
+        clearInterval(timer);
+        resolve(atual);
+      }
+    }, 500);
+    timer.unref?.();
+  });
+}
+
+/**
+ * Atualização forçada pelo suporte, em silêncio: verifica, baixa e deixa o instalador rodar
+ * sozinho quando o Kivo for fechado (electron-updater com `autoInstallOnAppQuit`, `isSilent`).
+ * Não reinicia a máquina no meio de uma venda — o lojista escolhe a hora de fechar.
+ *
+ * Roda em fire-and-forget: o download leva minutos e não pode segurar o ack do comando.
+ * O desfecho fica no próprio estado (aba Configurações › Atualização) e no log.
+ */
+export async function forcarAtualizacaoSilenciosa(): Promise<Acao & { versao?: string }> {
+  const guarda = exigirDriver();
+  if (!guarda.ok) return guarda;
+
+  if (state.status === 'baixado') {
+    return { ok: true, versao: state.versaoDisponivel ?? undefined };
+  }
+
+  if (!state.versaoDisponivel) {
+    await verificarAtualizacao();
+    const disp = await esperarStatus(['disponivel', 'ocioso', 'erro'], 60_000);
+    if (disp === 'erro') return { ok: false, error: state.erro ?? 'Falha ao verificar a atualização.' };
+    if (disp !== 'disponivel' || !state.versaoDisponivel) {
+      return { ok: false, error: 'Nenhuma atualização disponível no momento.' };
+    }
+  }
+
+  const inicio = await baixarAtualizacao();
+  if (!inicio.ok) return inicio;
+  const fim = await esperarStatus(['baixado', 'erro'], 15 * 60_000);
+  if (fim !== 'baixado') return { ok: false, error: state.erro ?? 'O download da atualização não terminou.' };
+
+  return { ok: true, versao: state.versaoDisponivel ?? undefined };
+}
