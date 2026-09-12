@@ -9,13 +9,14 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    .balance-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 1rem 0; max-width: 100%; }
+    .balance-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin: 1rem 0; max-width: 100%; }
     .balance-card {
       min-width: 0; background: var(--surface); border: 1.5px solid var(--border-light);
       border-radius: var(--radius); padding: .9rem 1.1rem; box-sizing: border-box;
     }
     .balance-card .label { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: .3rem; }
     .balance-card .value { font-size: 1.3rem; font-weight: 700; }
+    .balance-card.warn .value { color: var(--warning-text); }
     .bar-chart { display: flex; align-items: flex-end; gap: .5rem; height: 160px; padding: .5rem .5rem 0; border-bottom: 1px solid var(--border-light); margin-bottom: .3rem; }
     .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative; }
     .bar-fill { width: 65%; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 2px; transition: height .2s; }
@@ -24,22 +25,44 @@
       position: absolute; bottom: 100%; margin-bottom: 4px; background: var(--surface); border: 1px solid var(--border-light);
       border-radius: 6px; padding: .25rem .5rem; font-size: .75rem; white-space: nowrap; box-shadow: var(--shadow-xs); z-index: 5;
     }
+    .tag-pill { display: inline-block; background: var(--border-light); border-radius: 999px; padding: .05rem .5rem; font-size: .72rem; margin: 0 .2rem .15rem 0; }
+    .type-out { color: var(--warning-text); }
+    .type-in { color: var(--success-text, var(--primary)); }
+    @media print {
+      .no-print, .pager { display: none !important; }
+      body { background: #fff; }
+      .panel { break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
   <main x-data="customerFichaPage(<%= customerId %>)" x-init="load()" @month-change.window="buildMonthly()">
-    <a href="/app/commercial/clientes" class="muted text-sm">← Voltar para clientes</a>
+    <a href="/app/commercial/clientes" class="muted text-sm no-print">← Voltar para clientes</a>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
       <h1 x-text="customer.name ?? 'Cliente'" style="margin:0"></h1>
-      <%- include('partials/month-nav') %>
+      <div class="no-print" style="display:flex;gap:.4rem;align-items:center">
+        <a class="btn secondary small" :href="'/api/commercial/customers/' + id + '/export.csv'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar CSV
+        </a>
+        <button class="btn secondary small" @click="window.print()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Imprimir
+        </button>
+        <%- include('partials/month-nav') %>
+      </div>
     </div>
     <p class="muted">
       <span x-text="customer.document ?? ''"></span>
       <span x-show="customer.phone"> · <span x-text="customer.phone"></span></span>
       <span x-show="customer.email"> · <span x-text="customer.email"></span></span>
+      <span x-show="customer.birthday"> · Aniversário: <span x-text="fmtDate(customer.birthday)"></span></span>
     </p>
     <p class="muted" x-show="customer.address" x-text="customer.address"></p>
+    <p x-show="tags.length">
+      <template x-for="(t, i) in tags" :key="i"><span class="tag-pill" x-text="t"></span></template>
+    </p>
     <p class="muted" x-show="agreementName"> Convênio: <strong x-text="agreementName"></strong></p>
 
     <div class="balance-cards">
@@ -51,10 +74,30 @@
         <div class="label">Pontos de fidelidade</div>
         <div class="value" x-text="(customer.loyalty_points ?? 0) + ' pts'"></div>
       </div>
+      <div class="balance-card">
+        <div class="label">Total gasto</div>
+        <div class="value" x-text="brl(stats.purchases.total_cents)"></div>
+        <div class="muted text-xs" x-text="(stats.purchases.count ?? 0) + ' compra(s)'"></div>
+      </div>
+      <div class="balance-card">
+        <div class="label">Ticket médio</div>
+        <div class="value" x-text="brl(stats.purchases.avg_ticket_cents)"></div>
+        <div class="muted text-xs" x-text="stats.purchases.last_purchase ? 'última: ' + fmtDate(stats.purchases.last_purchase) : 'sem compras'"></div>
+      </div>
+      <div class="balance-card">
+        <div class="label">Em aberto</div>
+        <div class="value" x-text="brl(stats.receivables.total_cents)"></div>
+        <div class="muted text-xs" x-text="(stats.receivables.count ?? 0) + ' parcela(s)'"></div>
+      </div>
+      <div class="balance-card" :class="{ warn: stats.overdue.count > 0 }">
+        <div class="label">Vencido</div>
+        <div class="value" x-text="brl(stats.overdue.total_cents)"></div>
+        <div class="muted text-xs" x-text="(stats.overdue.count ?? 0) + ' parcela(s)'"></div>
+      </div>
     </div>
 
     <% if (user.permissions.has('commercial.customers.creditgrant')) { %>
-    <section class="panel">
+    <section class="panel no-print">
       <h2>Conceder crédito de troca</h2>
       <div class="toolbar">
         <input type="text" placeholder="Valor (R$)" x-model="creditForm.amountCents" @input="creditForm.amountCents = maskMoney(creditForm.amountCents)" class="input-search" />
@@ -84,7 +127,7 @@
     <section class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <h2 style="margin:0">Histórico de compras</h2>
-        <a :href="'/app/commercial/clientes/' + id + '/compras'" class="text-sm muted" style="text-decoration:none">ver tudo &rarr;</a>
+        <a :href="'/app/commercial/clientes/' + id + '/compras'" class="text-sm muted no-print" style="text-decoration:none">ver tudo &rarr;</a>
       </div>
       <table>
         <thead><tr><th>#</th><th>Data</th><th>Status</th><th>Forma</th><th class="text-right">Total</th></tr></thead>
@@ -106,7 +149,7 @@
     <section class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <h2 style="margin:0">Histórico financeiro</h2>
-        <a :href="'/app/commercial/clientes/' + id + '/financeiro'" class="text-sm muted" style="text-decoration:none">ver tudo &rarr;</a>
+        <a :href="'/app/commercial/clientes/' + id + '/financeiro'" class="text-sm muted no-print" style="text-decoration:none">ver tudo &rarr;</a>
       </div>
       <table>
         <thead><tr><th>Descrição</th><th>Vencimento</th><th>Situação</th><th class="text-right">Valor</th><th></th></tr></thead>
@@ -117,7 +160,7 @@
               <td class="muted" x-text="fmtDate(r.due_date)"></td>
               <td><span class="badge" :class="r.status === 'recebida' ? 'ok' : (r.status === 'cancelada' ? 'off' : '')" x-text="r.status"></span></td>
               <td class="text-right" x-text="brl(r.amount_cents)"></td>
-              <td class="text-right">
+              <td class="text-right no-print">
                 <% if (user.permissions.has('finance.receivables.receive')) { %>
                 <button class="btn small" x-show="r.status === 'aberta'" @click="openSettle(r)">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -132,7 +175,45 @@
       </table>
     </section>
 
-    <dialog x-ref="settleDlg" class="dialog-fixed" style="width:min(480px,calc(100vw - 2rem))">
+    <section class="panel">
+      <h2>Extrato de crédito de troca</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Tipo</th><th class="text-right">Valor</th><th class="text-right">Saldo após</th><th>Motivo</th></tr></thead>
+        <tbody>
+          <template x-for="m in creditMovements" :key="m.id">
+            <tr>
+              <td class="muted" x-text="fmtDateTime(m.created_at)"></td>
+              <td><span :class="movementIn(m.type) ? 'type-in' : 'type-out'" x-text="creditTypeLabel(m.type)"></span></td>
+              <td class="text-right" x-text="brl(m.amount)"></td>
+              <td class="text-right muted" x-text="brl(m.balance_after)"></td>
+              <td class="muted" x-text="m.reason ?? '—'"></td>
+            </tr>
+          </template>
+          <tr x-show="!creditMovements.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma movimentação de crédito.' }) %></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Extrato de pontos</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Tipo</th><th class="text-right">Pontos</th><th class="text-right">Saldo após</th><th>Motivo</th></tr></thead>
+        <tbody>
+          <template x-for="m in loyaltyMovements" :key="m.id">
+            <tr>
+              <td class="muted" x-text="fmtDateTime(m.created_at)"></td>
+              <td><span :class="movementIn(m.type) ? 'type-in' : 'type-out'" x-text="loyaltyTypeLabel(m.type)"></span></td>
+              <td class="text-right" x-text="m.amount"></td>
+              <td class="text-right muted" x-text="m.balance_after"></td>
+              <td class="muted" x-text="m.reason ?? '—'"></td>
+            </tr>
+          </template>
+          <tr x-show="!loyaltyMovements.length"><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma movimentação de pontos.' }) %></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <dialog x-ref="settleDlg" class="dialog-fixed no-print" style="width:min(480px,calc(100vw - 2rem))">
       <h1>Receber</h1>
       <div class="dialog-body">
         <p class="muted" x-text="settleForm.description"></p>
@@ -200,25 +281,44 @@
         ...paymentMethodsMixin(),
         ...cashRegisterInlineOpenMixin(),
         id, customer: {}, purchases: [], receivables: [], monthly: [], maxMonthly: 1, hoverBar: null, agreementName: '',
+        creditMovements: [], loyaltyMovements: [],
+        stats: { purchases: {}, receivables: {}, overdue: {} },
+        monthlyMap: {},
         year: _d.getFullYear(), month: _d.getMonth(),
         get label() { return new Date(this.year, this.month).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', ''); },
         get key() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
+        get tags() { return String(this.customer.tags || '').split(',').map((t) => t.trim()).filter(Boolean); },
         prev() { if (this.month === 0) { this.month = 11; this.year--; } else this.month--; },
         next() { if (this.month === 11) { this.month = 0; this.year++; } else this.month++; },
         creditForm: { amountCents: '', reason: '' }, creditError: '', savingCredit: false,
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
         settleError: '',
         brl(c) { return window.brl(c); },
+        fmtDate(d) { return window.fmtDate(d); },
+        fmtDateTime(d) { return window.fmtDateTime(d); },
+        movementIn(type) { return ['concessao', 'ganho', 'estorno_resgate'].includes(type); },
+        creditTypeLabel(t) { return ({ concessao: 'Concessão', resgate: 'Resgate', estorno_resgate: 'Estorno de resgate', estorno_ganho: 'Estorno de ganho' })[t] ?? t; },
+        loyaltyTypeLabel(t) { return ({ ganho: 'Ganho', resgate: 'Resgate', estorno_resgate: 'Estorno de resgate', estorno_ganho: 'Estorno de ganho' })[t] ?? t; },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         async load() {
-          const [c, p, r] = await Promise.all([
+          const [c, s, p, r, cm, lm] = await Promise.all([
             fetch(`/api/commercial/customers/${this.id}`),
+            fetch(`/api/commercial/customers/${this.id}/summary`),
             fetch(`/api/store/sales?customerId=${this.id}`),
             fetch(`/api/finance/receivables?partyId=${this.id}`),
+            fetch(`/api/commercial/customers/${this.id}/credit-movements?limit=100`),
+            fetch(`/api/commercial/customers/${this.id}/loyalty-movements?limit=100`),
           ]);
           if (c.ok) this.customer = await c.json();
+          if (s.ok) {
+            const data = await s.json();
+            this.stats = { purchases: data.purchases ?? {}, receivables: data.receivables ?? {}, overdue: data.overdue ?? {} };
+            this.monthlyMap = Object.fromEntries((data.monthly ?? []).map((m) => [m.month, m.total_cents]));
+          }
           if (p.ok) this.purchases = await p.json();
           if (r.ok) this.receivables = await r.json();
+          if (cm.ok) this.creditMovements = await cm.json();
+          if (lm.ok) this.loyaltyMovements = await lm.json();
           if (this.customer.agreement_company_id) {
             const ac = await fetch('/api/commercial/agreement-companies');
             if (ac.ok) {
@@ -232,13 +332,12 @@
           const months = [];
           for (let i = 0; i < 12; i++) {
             const d = new Date(this.year, this.month + i, 1);
-            months.push({ key: d.toISOString().slice(0, 7), short: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''), total: 0 });
-          }
-          for (const s of this.purchases) {
-            if (s.status === 'cancelada') continue;
-            const key = String(s.created_at).slice(0, 7);
-            const m = months.find((mm) => mm.key === key);
-            if (m) m.total += s.total_cents;
+            const key = d.toISOString().slice(0, 7);
+            months.push({
+              key,
+              short: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
+              total: this.monthlyMap[key] ?? 0,
+            });
           }
           this.monthly = months;
           this.maxMonthly = Math.max(1, ...months.map((m) => m.total));

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { requirePermission, requireAnyPermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
 import { audit } from '../../core/audit/service';
@@ -9,9 +9,11 @@ import { createCategorySchema, updateCategorySchema, deleteCategorySchema, grant
 import { validateBody } from '../../shared/validateBody';
 import productsRouter from './productsRoutes';
 import productsImportRouter from './productsImportRoutes';
+import { toCsv } from './productsImport';
 import stockRouter from './stockRoutes';
-import { makeCrudRouter } from './crud';
-import { grant as grantStoreCredit } from './storeCredit';
+import { makeCrudRouter, buildCrudListWhere, type CrudConfig } from './crud';
+import { grant as grantStoreCredit, listCreditMovements } from './storeCredit';
+import { listLoyaltyMovements } from './loyalty';
 import purchasesRouter from './purchasesRoutes';
 import { categoryRepository } from './repositories/CategoryRepository';
 import { customerRepository } from './repositories/CustomerRepository';
@@ -22,12 +24,214 @@ import { saveLocalCategoryImage, categoryImagesDir } from '../../core/catalog/su
 
 const router = Router();
 
-// ---------- Clientes e fornecedores (CRUD via fábrica) ----------
-router.use('/customers', makeCrudRouter({
+// ---------- Clientes (CRUD via fábrica + ficha/segmentação) ----------
+
+/**
+ * Filtros de segmentação que não são simples igualdade: devedores (recebível em aberto),
+ * aniversariantes do mês, sem compra há N dias e etiqueta. Combinam com a busca (`q`) e os
+ * filtros exatos tratados pela fábrica de CRUD.
+ */
+function customerExtraWhere(req: Request): { sql: string; params: unknown[] } | null {
+  const clauses: string[] = [];
+  const params: unknown[] = [];
+
+  if (req.query.debtors === '1' || req.query.debtors === 'true') {
+    clauses.push(`EXISTS (SELECT 1 FROM receivables r WHERE r.customer_id = t.id AND r.deleted_at IS NULL AND r.status = 'aberta')`);
+  }
+
+  const birthdayMonth = Number(req.query.birthdayMonth);
+  if (Number.isInteger(birthdayMonth) && birthdayMonth >= 1 && birthdayMonth <= 12) {
+    clauses.push(`substr(t.birthday, 6, 2) = ?`);
+    params.push(String(birthdayMonth).padStart(2, '0'));
+  }
+
+  const inactiveDays = Number(req.query.inactiveDays);
+  if (Number.isFinite(inactiveDays) && inactiveDays > 0) {
+    clauses.push(
+      `NOT EXISTS (SELECT 1 FROM sales s WHERE s.customer_id = t.id AND s.deleted_at IS NULL
+         AND s.status = 'concluida' AND s.created_at >= datetime('now', ?))`,
+    );
+    params.push(`-${Math.floor(inactiveDays)} days`);
+  }
+
+  const tag = String(req.query.tag ?? '').trim();
+  if (tag) {
+    clauses.push(`(',' || REPLACE(COALESCE(t.tags, ''), ' ', '') || ',') LIKE ?`);
+    params.push(`%,${tag},%`);
+  }
+
+  return clauses.length ? { sql: clauses.join(' AND '), params } : null;
+}
+
+const CUSTOMERS_CRUD: CrudConfig = {
   table: 'customers', entity: 'customer', permPrefix: 'commercial.customers',
-  fields: ['name', 'document', 'email', 'phone', 'address', 'notes', 'price_list_id', 'cep', 'agreement_company_id'],
-  required: ['name'], readOnlyFields: ['store_credit_cents', 'loyalty_points'],
-}));
+  fields: ['name', 'document', 'email', 'phone', 'address', 'notes', 'price_list_id', 'cep', 'agreement_company_id', 'birthday', 'tags'],
+  required: ['name'],
+  readOnlyFields: ['store_credit_cents', 'loyalty_points'],
+  searchFields: ['name', 'document', 'phone', 'email'],
+  digitSearchFields: ['document', 'phone'],
+  filterFields: ['active', 'price_list_id', 'agreement_company_id'],
+  dateFields: ['birthday'],
+  uniqueDocument: true,
+  bulkUpdateFields: ['active', 'price_list_id', 'agreement_company_id'],
+  // Métricas calculadas usadas na listagem (última compra, ticket médio, nº de compras).
+  computedSelect: [
+    `(SELECT MAX(s.created_at) FROM sales s WHERE s.customer_id = t.id AND s.deleted_at IS NULL AND s.status = 'concluida') AS last_purchase`,
+    `(SELECT CAST(AVG(s.total_cents) AS INTEGER) FROM sales s WHERE s.customer_id = t.id AND s.deleted_at IS NULL AND s.status = 'concluida') AS avg_ticket_cents`,
+    `(SELECT COUNT(*) FROM sales s WHERE s.customer_id = t.id AND s.deleted_at IS NULL AND s.status = 'concluida') AS purchase_count`,
+  ],
+  customListWhere: (req) => customerExtraWhere(req),
+};
+
+// Exportação precisa vir ANTES do CRUD genérico: a rota `/:id` capturaria "export.csv".
+router.get('/customers/export.csv', requirePermission('commercial.customers.view'), (req, res) => {
+  const { where, params } = buildCrudListWhere(CUSTOMERS_CRUD, req);
+  const rows = customerRepository.raw(
+    `SELECT t.name, t.document, t.phone, t.email, t.cep, t.address, t.birthday, t.tags,
+            pl.name AS price_list, ac.name AS agreement,
+            t.store_credit_cents, t.loyalty_points, t.active,
+            (SELECT MAX(s.created_at) FROM sales s WHERE s.customer_id = t.id AND s.deleted_at IS NULL AND s.status = 'concluida') AS last_purchase,
+            (SELECT CAST(AVG(s.total_cents) AS INTEGER) FROM sales s WHERE s.customer_id = t.id AND s.deleted_at IS NULL AND s.status = 'concluida') AS avg_ticket_cents
+       FROM customers t
+       LEFT JOIN price_lists pl ON pl.id = t.price_list_id
+       LEFT JOIN agreement_companies ac ON ac.id = t.agreement_company_id
+      WHERE ${where}
+      ORDER BY t.name`,
+    ...params,
+  ) as unknown as {
+    name: string; document: string | null; phone: string | null; email: string | null;
+    cep: string | null; address: string | null; birthday: string | null; tags: string | null;
+    price_list: string | null; agreement: string | null;
+    store_credit_cents: number; loyalty_points: number; active: number;
+    last_purchase: string | null; avg_ticket_cents: number | null;
+  }[];
+
+  const cents = (c: unknown): string => (Number(c ?? 0) / 100).toFixed(2).replace('.', ',');
+  const csv = toCsv([
+    ['Nome', 'Documento', 'Telefone', 'E-mail', 'CEP', 'Endereço', 'Aniversário', 'Etiquetas',
+      'Lista de preço', 'Convênio', 'Crédito (R$)', 'Pontos', 'Última compra', 'Ticket médio (R$)', 'Situação'],
+    ...rows.map((r) => [
+      r.name, r.document ?? '', r.phone ?? '', r.email ?? '', r.cep ?? '', r.address ?? '',
+      r.birthday ?? '', r.tags ?? '', r.price_list ?? '', r.agreement ?? '',
+      cents(r.store_credit_cents), String(r.loyalty_points ?? 0),
+      r.last_purchase ?? '', r.avg_ticket_cents != null ? cents(r.avg_ticket_cents) : '',
+      r.active ? 'ativo' : 'inativo',
+    ]),
+  ]);
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="clientes-${stamp}.csv"`);
+  audit(req, 'exportar', 'customer', 0, null, { total: rows.length });
+  res.send(csv);
+});
+
+router.use('/customers', makeCrudRouter(CUSTOMERS_CRUD));
+
+/**
+ * Resumo da ficha: agrega no servidor o que antes a tela calculava carregando todas as
+ * compras e recebíveis do cliente. `monthly` traz o histórico completo (uma linha por mês,
+ * barato) para o gráfico; a tela só recorta a janela de 12 meses que quer mostrar.
+ */
+router.get('/customers/:id/summary', requirePermission('commercial.customers.view'), (req, res) => {
+  const id = Number(req.params.id);
+  if (!customerRepository.findById(id)) {
+    res.status(404).json({ error: 'Cliente não encontrado.' });
+    return;
+  }
+  const purchases = customerRepository.rawOne(
+    `SELECT COUNT(*) AS count, COALESCE(SUM(total_cents), 0) AS total_cents,
+            COALESCE(CAST(AVG(total_cents) AS INTEGER), 0) AS avg_ticket_cents,
+            MAX(created_at) AS last_purchase
+       FROM sales WHERE customer_id = ? AND deleted_at IS NULL AND status = 'concluida'`,
+    id,
+  );
+  const openReceivables = customerRepository.rawOne(
+    `SELECT COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS total_cents
+       FROM receivables WHERE customer_id = ? AND deleted_at IS NULL AND status = 'aberta'`,
+    id,
+  );
+  const overdueReceivables = customerRepository.rawOne(
+    `SELECT COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS total_cents
+       FROM receivables WHERE customer_id = ? AND deleted_at IS NULL AND status = 'aberta' AND due_date < date('now')`,
+    id,
+  );
+  const monthly = customerRepository.raw(
+    `SELECT substr(created_at, 1, 7) AS month, COALESCE(SUM(total_cents), 0) AS total_cents, COUNT(*) AS count
+       FROM sales WHERE customer_id = ? AND deleted_at IS NULL AND status = 'concluida'
+      GROUP BY month ORDER BY month`,
+    id,
+  );
+  res.json({ purchases, receivables: openReceivables, overdue: overdueReceivables, monthly });
+});
+
+router.get('/customers/:id/credit-movements', requirePermission('commercial.customers.view'), (req, res) => {
+  const id = Number(req.params.id);
+  if (!customerRepository.findById(id)) {
+    res.status(404).json({ error: 'Cliente não encontrado.' });
+    return;
+  }
+  const limit = Math.min(Number(req.query.limit ?? 100) || 100, 500);
+  res.json(listCreditMovements(id, limit));
+});
+
+router.get('/customers/:id/loyalty-movements', requirePermission('commercial.customers.view'), (req, res) => {
+  const id = Number(req.params.id);
+  if (!customerRepository.findById(id)) {
+    res.status(404).json({ error: 'Cliente não encontrado.' });
+    return;
+  }
+  const limit = Math.min(Number(req.query.limit ?? 100) || 100, 500);
+  res.json(listLoyaltyMovements(id, limit));
+});
+
+/** Exportação da ficha em CSV (dados do cliente + compras + financeiro + extratos). */
+router.get('/customers/:id/export.csv', requirePermission('commercial.customers.view'), (req, res) => {
+  const id = Number(req.params.id);
+  const customer = customerRepository.findById(id) as Record<string, unknown> | undefined;
+  if (!customer) {
+    res.status(404).json({ error: 'Cliente não encontrado.' });
+    return;
+  }
+  const cents = (c: unknown): string => (Number(c ?? 0) / 100).toFixed(2).replace('.', ',');
+  const purchases = customerRepository.raw(
+    `SELECT id, created_at, status, payment_method, total_cents FROM sales
+      WHERE customer_id = ? AND deleted_at IS NULL ORDER BY id DESC`,
+    id,
+  ) as Record<string, unknown>[];
+  const receivables = customerRepository.raw(
+    `SELECT description, due_date, status, amount_cents FROM receivables
+      WHERE customer_id = ? AND deleted_at IS NULL ORDER BY due_date DESC`,
+    id,
+  ) as Record<string, unknown>[];
+  const credit = listCreditMovements(id, 500) as Record<string, unknown>[];
+  const loyalty = listLoyaltyMovements(id, 500) as Record<string, unknown>[];
+
+  const rows: (string | number)[][] = [
+    ['Cliente'], ['Nome', String(customer.name ?? '')], ['Documento', String(customer.document ?? '')],
+    ['Telefone', String(customer.phone ?? '')], ['E-mail', String(customer.email ?? '')],
+    ['Aniversário', String(customer.birthday ?? '')], ['Etiquetas', String(customer.tags ?? '')],
+    ['Crédito de troca (R$)', cents(customer.store_credit_cents)], ['Pontos', String(customer.loyalty_points ?? 0)],
+    [],
+    ['Compras'], ['#', 'Data', 'Situação', 'Forma', 'Total (R$)'],
+    ...purchases.map((p) => [p.id as number, String(p.created_at), String(p.status), String(p.payment_method), cents(p.total_cents)]),
+    [],
+    ['Financeiro'], ['Descrição', 'Vencimento', 'Situação', 'Valor (R$)'],
+    ...receivables.map((r) => [String(r.description), String(r.due_date ?? ''), String(r.status), cents(r.amount_cents)]),
+    [],
+    ['Extrato de crédito'], ['Data', 'Tipo', 'Valor (R$)', 'Saldo após', 'Motivo'],
+    ...credit.map((m) => [String(m.created_at), String(m.type), cents(m.amount), cents(m.balance_after), String(m.reason ?? '')]),
+    [],
+    ['Extrato de pontos'], ['Data', 'Tipo', 'Pontos', 'Saldo após', 'Motivo'],
+    ...loyalty.map((m) => [String(m.created_at), String(m.type), String(m.amount), String(m.balance_after), String(m.reason ?? '')]),
+  ];
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="cliente-${id}-${stamp}.csv"`);
+  audit(req, 'exportar', 'customer', id, null, { compras: purchases.length, recebiveis: receivables.length });
+  res.send(toCsv(rows));
+});
 router.use('/suppliers', makeCrudRouter({
   table: 'suppliers', entity: 'supplier', permPrefix: 'commercial.suppliers',
   fields: ['name', 'trade_name', 'document', 'email', 'phone', 'address', 'notes'], required: ['name'],
