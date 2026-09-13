@@ -176,12 +176,17 @@ export async function openBrowser(): Promise<Browser> {
  */
 export async function newContext(
   browser: Browser,
-  opts: { mobile?: boolean } = {},
+  opts: { mobile?: boolean; viewport?: { width: number; height: number } } = {},
 ): Promise<BrowserContext> {
   const context = await browser.newContext(
     opts.mobile
-      ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
-      : { viewport: { width: 1400, height: 900 } },
+      ? {
+          viewport: opts.viewport ?? { width: 390, height: 844 },
+          isMobile: true,
+          hasTouch: true,
+          deviceScaleFactor: 2,
+        }
+      : { viewport: opts.viewport ?? { width: 1400, height: 900 } },
   );
   await context.addInitScript(() => {
     try {
@@ -195,7 +200,10 @@ export async function newContext(
   return context;
 }
 
-export async function newPage(browser: Browser, opts: { mobile?: boolean } = {}): Promise<Page> {
+export async function newPage(
+  browser: Browser,
+  opts: { mobile?: boolean; viewport?: { width: number; height: number } } = {},
+): Promise<Page> {
   const context = await newContext(browser, opts);
   return context.newPage();
 }

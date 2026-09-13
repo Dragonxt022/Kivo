@@ -114,6 +114,11 @@ async function fillModel(page: Page, model: string, value: string) {
   await page.locator(sel).fill(value);
 }
 
+// Unidade é um <select>, não um <input>: `fill()` recusa. Escolhe a opção pelo value.
+async function selectModel(page: Page, model: string, value: string) {
+  await page.locator(`[x-model="${model}"]`).selectOption(value);
+}
+
 
 // ─── 1. Criar categoria inline + produto simples ──────────────────────────
 async function testCriarProdutoSimples(page: Page) {
@@ -137,7 +142,7 @@ async function testCriarProdutoSimples(page: Page) {
   // Preencher formulário
   await fillModel(page, 'form.name', 'Coca-Cola 350ml');
   await fillModel(page, 'form.sku', 'SKU-001');
-  await fillModel(page, 'form.unit', 'un');
+  await selectModel(page, 'form.unit', 'un');
   await fillModel(page, 'form.price', '49,90');
   await fillModel(page, 'form.cost', '25,00');
   await fillModel(page, 'form.minStock', '10');
@@ -260,7 +265,7 @@ async function testProdutoVariantes(page: Page) {
 
   await fillModel(page, 'form.name', 'Camiseta Básica');
   await fillModel(page, 'form.price', '89,90');
-  await fillModel(page, 'form.unit', 'un');
+  await selectModel(page, 'form.unit', 'un');
 
   // Selecionar tipo "Produto com variantes". O seletor era um <select x-model="form.productType">
   // e virou uma fileira de botões `.product-type-btn` — o teste continuou apontando para o
@@ -530,6 +535,17 @@ async function main() {
   try {
     browser = await chromium.launch({ headless: true });
     const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+    // Tour guiado da tela de produtos (kivo-tour-produtos-v1) e aviso de novidade cobrem a
+    // página e interceptam o clique em "Novo produto" — sem desligá-los o teste trava
+    // esperando um clique que nunca chega ao botão.
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem('kivo-tour-produtos-v1', '1');
+        localStorage.setItem('kivo-novidade-seen', 'web-v1');
+      } catch {
+        /* localStorage indisponível: sem consequência para o teste */
+      }
+    });
     const page = await ctx.newPage();
 
     page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });

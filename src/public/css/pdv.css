@@ -1556,6 +1556,13 @@ main:has(.pdv-footer-bar) {
     align-items: flex-start;
     gap: 0.45rem;
   }
+  /* `align-items: flex-start` deixa os filhos com largura de conteúdo — o bloco de atalhos
+     vira uma linha só de ~7 itens e passa da tela. Largura cheia faz o flex-wrap agir. */
+  .pdv-footer-shortcuts,
+  .pdv-footer-status {
+    width: 100%;
+    flex-wrap: wrap;
+  }
   .pdv-footer-shortcuts {
     gap: 0.5rem 0.9rem;
   }

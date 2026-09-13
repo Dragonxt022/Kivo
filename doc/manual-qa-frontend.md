@@ -34,6 +34,7 @@ faz essa checagem sozinho ao rodar qualquer `test:*`.
 | `node scripts/kivo test:e2e:pdv` | PDV: busca, carrinho, pagamento, venda |
 | `node scripts/kivo test:e2e:caixa` | Caixa: abrir, suprimento, sangria, fechamento |
 | `node scripts/kivo test:e2e:compras` | Compras: lançar, receber, entrada no estoque |
+| `node scripts/kivo test:e2e:mobile` | Layout mobile: 27 telas em 390px sem estourar a largura |
 | `node scripts/kivo test:e2e:kivo-web-mobile` | Kivo Web no celular (exige MySQL/Docker) |
 
 Os comandos também aparecem em `node scripts/kivo` (seção **Testes E2E**).

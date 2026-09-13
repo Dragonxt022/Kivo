@@ -106,6 +106,7 @@ function listCommands() {
       'test:e2e:caixa',
       'test:e2e:compras',
       'test:e2e:kivo-web-mobile',
+      'test:e2e:mobile',
     ],
     Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
     Utilitário: ['smoke', 'postinstall'],
