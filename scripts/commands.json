@@ -311,6 +311,10 @@
     "description": "QA E2E (Playwright): Kivo Web no celular (exige MySQL do docker)",
     "run": "node scripts/test-isolated.js src/tests/e2e/kivo-web-mobile.ts"
   },
+  "test:e2e:mobile": {
+    "description": "QA E2E (Playwright): layout mobile — telas não estouram a largura em 390px",
+    "run": "node scripts/test-isolated.js src/tests/e2e/mobile-layout.ts"
+  },
   "cloud:install": {
     "description": "Instalar dependências do cloud/",
     "run": "npm --prefix cloud install"

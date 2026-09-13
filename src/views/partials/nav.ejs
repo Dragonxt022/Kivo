@@ -803,3 +803,46 @@
     Não injeta nada na página até alguém chamar window.abrirCalculadora(). %>
 <script nonce="<%= cspNonce %>" defer src="/js/calculadora.js"></script>
 <% } %>
+
+<script nonce="<%= cspNonce %>">
+  // Tabelas largas no celular: embrulha cada <table> de `main` num contêiner com rolagem
+  // horizontal (.table-scroll, ver app.css). Sem isso, uma listagem de muitas colunas
+  // empurra a página além da tela e o navegador do celular dá zoom-out, encolhendo o app
+  // inteiro. Por JS e não por CSS: `display:block` numa tabela quebraria o alinhamento das
+  // colunas; e por JS e não à mão porque são dezenas de tabelas espalhadas pelas telas.
+  //
+  // O MutationObserver cobre as tabelas que só existem depois do Alpine: as telas de caixa,
+  // por exemplo, montam a tabela dentro de um <template x-if> que aparece quando o fetch
+  // responde — embrulhar só no DOMContentLoaded deixaria essas de fora.
+  (function () {
+    function envolver(t) {
+      if (!t || (t.parentElement && t.parentElement.classList.contains('table-scroll'))) return;
+      var w = document.createElement('div');
+      w.className = 'table-scroll';
+      t.parentNode.insertBefore(w, t);
+      w.appendChild(t);
+    }
+    function envolverTodas(raiz) {
+      var lista = (raiz || document).querySelectorAll('main table');
+      for (var i = 0; i < lista.length; i++) envolver(lista[i]);
+    }
+    function iniciar() {
+      envolverTodas(document);
+      var main = document.querySelector('main');
+      if (!main || !window.MutationObserver) return;
+      new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var added = muts[i].addedNodes;
+          for (var j = 0; j < added.length; j++) {
+            var n = added[j];
+            if (n.nodeType !== 1) continue;
+            if (n.tagName === 'TABLE') envolver(n);
+            else if (n.querySelector && n.querySelector('table')) envolverTodas(n);
+          }
+        }
+      }).observe(main, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+    else iniciar();
+  })();
+</script>

@@ -1247,6 +1247,28 @@ tr:last-child td:last-child {
 .sortable:hover {
   color: var(--text);
 }
+
+/* ─── Rolagem horizontal das tabelas em telas estreitas ───
+   O Kivo é acessado pelo celular na rede local. As listagens têm muitas colunas e não
+   encolhem abaixo do conteúdo: a tabela empurra a página inteira e o navegador do celular
+   dá zoom-out, deixando tudo minúsculo. O contêiner `.table-scroll` (criado por
+   partials/nav.ejs, que embrulha cada <table> de `main`) deixa a tabela rolar na horizontal
+   dentro da largura da tela, sem perder o alinhamento das colunas. Envolver por JS, e não
+   com `display:block` na tabela, porque `display:block` destrói o alinhamento; e por JS, e
+   não à mão, porque são dezenas de tabelas em dezenas de telas. */
+.table-scroll {
+  width: 100%;
+}
+/* A rolagem só entra em telas estreitas. No desktop, `overflow` num contêiner que envolve a
+   tabela recortaria os menus dropdown das colunas de ações (o `overflow-x:auto` força o
+   `overflow-y` a auto também); em 390px o recorte é aceitável e a rolagem é o que evita o
+   zoom-out. */
+@media (max-width: 820px) {
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 .sort-arrow {
   font-size: 0.6rem;
   margin-left: 0.15rem;
@@ -1257,6 +1279,13 @@ tr:last-child td:last-child {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* `.truncate` só tem efeito em elemento de bloco/flex. Num `<code>` (inline) o max-width e
+   o overflow são ignorados, e um caminho de backup longo empurra a página no celular. */
+code.truncate {
+  display: inline-block;
+  max-width: min(320px, 100%);
+  vertical-align: bottom;
 }
 .actions-cell {
   white-space: nowrap;
@@ -3330,6 +3359,17 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   display: grid;
   gap: 0.4rem;
   align-items: end;
+}
+
+/* Grades de formulário com colunas definidas em style="" inline (ex.: `1fr 1fr`) não
+   encolhem abaixo do conteúdo e, no celular, empurram a página. `!important` porque o
+   estilo inline vence qualquer media query; o seletor por atributo evita mexer nas grades
+   que não declaram colunas próprias. */
+@media (max-width: 640px) {
+  .form-grid[style*='grid-template-columns'],
+  .dialog-body[style*='grid-template-columns'] {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* ─── Form row ─── */

@@ -92,6 +92,8 @@ jobs:
         run: node scripts/kivo test:e2e:caixa
       - name: QA — compras e estoque
         run: node scripts/kivo test:e2e:compras
+      - name: QA — layout mobile
+        run: node scripts/kivo test:e2e:mobile
       - name: Screenshots da execução
         if: always()
         uses: actions/upload-artifact@v4
