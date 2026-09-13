@@ -120,6 +120,17 @@ async function main() {
   // ─── 2. Abrir navegador ───────────────────────────────────────────────────
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+  // Tour guiado do PDV e aviso de novidade cobrem a tela e interceptam o clique no
+  // "Cancelar" do banner da comanda — sem desligá-los o teste trava esperando um clique
+  // que nunca chega ao botão. Mesma proteção do harness dos QAs novos.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('kivo-tour-pdv-v1', '1');
+      localStorage.setItem('kivo-novidade-seen', 'web-v1');
+    } catch {
+      /* localStorage indisponível: sem consequência para o teste */
+    }
+  });
   await login(page);
 
   // ─── 3. Teste A: Fluxo feliz — abrir comanda, adicionar, fechar pelo PDV ──

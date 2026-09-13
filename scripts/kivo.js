@@ -98,6 +98,15 @@ function listCommands() {
       'test:icon-packs',
       'test:icon-packs-api',
     ],
+    'Testes E2E (Playwright)': [
+      'test:e2e',
+      'test:e2e:comandas',
+      'test:e2e:login',
+      'test:e2e:pdv',
+      'test:e2e:caixa',
+      'test:e2e:compras',
+      'test:e2e:kivo-web-mobile',
+    ],
     Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
     Utilitário: ['smoke', 'postinstall'],
   };
