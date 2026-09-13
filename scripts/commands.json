@@ -285,11 +285,31 @@
   },
   "test:e2e": {
     "description": "E2E (Playwright): fluxo completo de cadastro de produtos",
-    "run": "tsx src/tests/e2e/product-fluxo-completo.ts"
+    "run": "node scripts/test-isolated.js src/tests/e2e/product-fluxo-completo.ts"
   },
   "test:e2e:comandas": {
     "description": "E2E (Playwright): fluxo completo de Comandas & Mesas",
-    "run": "tsx src/tests/e2e/comandas-fluxo-completo.ts"
+    "run": "node scripts/test-isolated.js src/tests/e2e/comandas-fluxo-completo.ts"
+  },
+  "test:e2e:login": {
+    "description": "QA E2E (Playwright): primeiro acesso, login, logout e credencial inválida",
+    "run": "node scripts/test-isolated.js src/tests/e2e/login-onboarding.ts"
+  },
+  "test:e2e:pdv": {
+    "description": "QA E2E (Playwright): PDV — buscar, carrinho, pagamento e venda",
+    "run": "node scripts/test-isolated.js src/tests/e2e/pdv-venda.ts"
+  },
+  "test:e2e:caixa": {
+    "description": "QA E2E (Playwright): caixa — abrir, suprimento, sangria e fechamento",
+    "run": "node scripts/test-isolated.js src/tests/e2e/financeiro-caixa.ts"
+  },
+  "test:e2e:compras": {
+    "description": "QA E2E (Playwright): compras — lançar, receber e entrada no estoque",
+    "run": "node scripts/test-isolated.js src/tests/e2e/estoque-compras.ts"
+  },
+  "test:e2e:kivo-web-mobile": {
+    "description": "QA E2E (Playwright): Kivo Web no celular (exige MySQL do docker)",
+    "run": "node scripts/test-isolated.js src/tests/e2e/kivo-web-mobile.ts"
   },
   "cloud:install": {
     "description": "Instalar dependências do cloud/",
