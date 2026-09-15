@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Gerador de Etiquetas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .labels-grid { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.1fr); gap: 1rem; align-items: start; }
+    @media (max-width: 900px) { .labels-grid { grid-template-columns: 1fr; } }
+    .labels-col { display: flex; flex-direction: column; gap: 1rem; }
+    .qty-input { width: 64px; }
+    .preview-box { display: flex; align-items: center; justify-content: center; min-height: 96px;
+      background: var(--surface-hover); border: 1px dashed var(--border); border-radius: var(--radius);
+      padding: .6rem; overflow: hidden; }
+    .preview-box svg { max-width: 100%; max-height: 90px; }
+    .label-sample { border: 1px solid var(--border); border-radius: 6px; padding: .5rem; background: #fff;
+      color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .15rem; overflow: hidden; }
+    .label-sample .ls-name { font-size: .8rem; font-weight: 600; text-align: center; line-height: 1.1; }
+    .label-sample .ls-price { font-size: 1rem; font-weight: 700; }
+    .label-sample .ls-sku { font-size: .7rem; color: #444; }
+    .sheet-list { width: 100%; border-collapse: collapse; }
+    .sheet-list td, .sheet-list th { padding: .35rem .4rem; }
+    .selected-empty { color: var(--text-muted); font-size: .85rem; padding: .6rem 0; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/labels' }) %>
+  <main x-data="labelsPage()" x-init="load()">
+    <h1>Gerador de Etiquetas</h1>
+    <p class="hint">Escolha os produtos, o modelo de folha e imprima etiquetas com código de barras e preço.</p>
+
+    <div class="labels-grid">
+      <!-- Produtos -->
+      <section class="panel labels-col">
+        <h2>Produtos</h2>
+        <input type="text" placeholder="Buscar por nome, código de barras ou SKU…" x-model="q"
+               @input.debounce.350ms="search()" class="input-search" style="width:100%" />
+        <div style="max-height:320px;overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th style="width:90px" class="text-right">Preço</th>
+                <th style="width:60px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="p in results" :key="p.id">
+                <tr>
+                  <td>
+                    <div x-text="p.name"></div>
+                    <div class="muted text-xs" x-text="p.barcode || p.sku || 'sem código'"></div>
+                  </td>
+                  <td class="text-right" x-text="brl(p.price_cents)"></td>
+                  <td class="text-right">
+                    <button class="btn small secondary" @click="add(p)">Adicionar</button>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!results.length"><td colspan="3"><%- include('partials/empty-state', { message: 'Nenhum produto encontrado.' }) %></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 style="margin-top:.6rem">Selecionados <span class="muted text-xs" x-text="'(' + totalLabels + ' etiqueta(s))'"></span></h2>
+        <p class="selected-empty" x-show="!selected.length">Nenhum produto selecionado ainda.</p>
+        <table x-show="selected.length">
+          <tbody>
+            <template x-for="s in selected" :key="s.id">
+              <tr>
+                <td>
+                  <div x-text="s.name"></div>
+                  <div class="muted text-xs" x-text="s.barcode || 'código interno'"></div>
+                </td>
+                <td style="width:90px">
+                  <input type="number" min="1" max="1000" class="qty-input" x-model.number="s.qty" />
+                </td>
+                <td style="width:40px" class="text-right">
+                  <button class="icon-btn" title="Remover" @click="remove(s)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Configuração -->
+      <section class="panel labels-col">
+        <h2>Configuração</h2>
+
+        <label>Modelo de folha</label>
+        <div style="display:flex;gap:.4rem">
+          <select x-model.number="sheetId" @change="preview()" style="flex:1">
+            <template x-for="s in sheets" :key="s.id">
+              <option :value="s.id" x-text="s.name"></option>
+            </template>
+          </select>
+          <% if (user.permissions.has('labels.sheets.manage')) { %>
+          <button class="btn secondary" @click="$refs.sheetsDlg.showModal()" title="Gerenciar modelos de folha">Modelos</button>
+          <% } %>
+        </div>
+
+        <label>Simbologia do código</label>
+        <select x-model="symbology" @change="preview()">
+          <option value="ean13">EAN-13 / UPC (cai para Code128 se o código não for válido)</option>
+          <option value="code128">Code128 (aceita texto/SKU livre)</option>
+          <option value="qrcode">QR Code</option>
+          <option value="none">Sem código de barras</option>
+        </select>
+
+        <label>Conteúdo da etiqueta</label>
+        <div style="display:flex;flex-wrap:wrap;gap:.9rem">
+          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.name" @change="preview()" /> Nome</label>
+          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.price" @change="preview()" /> Preço</label>
+          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.sku" @change="preview()" /> SKU</label>
+          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.company" @change="preview()" /> Empresa</label>
+        </div>
+
+        <label>Prévia</label>
+        <div class="preview-box">
+          <div class="label-sample" :style="sampleStyle">
+            <div class="ls-name" x-show="fields.company" x-text="companyName"></div>
+            <div class="ls-name" x-show="fields.name" x-text="previewName"></div>
+            <div class="ls-sku" x-show="fields.sku" x-text="previewSku"></div>
+            <div class="ls-price" x-show="fields.price" x-text="previewPrice"></div>
+            <div x-show="symbology !== 'none'" x-html="previewSvg" style="width:100%;display:flex;justify-content:center"></div>
+          </div>
+        </div>
+        <p class="muted text-xs" x-show="previewNote" x-text="previewNote"></p>
+
+        <div class="actions">
+          <button class="btn" @click="print()" :disabled="!selected.length || !sheetId">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Gerar e imprimir
+          </button>
+        </div>
+        <div class="error" x-text="error"></div>
+      </section>
+    </div>
+
+    <form x-ref="printForm" method="post" action="/app/labels/imprimir" target="_blank" style="display:none">
+      <input type="hidden" name="payload" x-ref="payload" />
+    </form>
+
+    <% if (user.permissions.has('labels.sheets.manage')) { %>
+    <dialog x-ref="sheetsDlg" class="dialog-fixed">
+      <h1>Modelos de folha</h1>
+      <div class="dialog-body" style="display:block">
+        <table class="sheet-list">
+          <thead><tr><th>Modelo</th><th>Grade</th><th>Etiqueta (mm)</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="s in sheets" :key="s.id">
+              <tr>
+                <td>
+                  <span x-text="s.name"></span>
+                  <span class="badge" x-show="s.is_preset" title="Modelo de fábrica">fábrica</span>
+                </td>
+                <td class="muted text-xs" x-text="s.cols + '×' + s.rows"></td>
+                <td class="muted text-xs" x-text="fmt(s.label_w_mm) + ' × ' + fmt(s.label_h_mm)"></td>
+                <td class="text-right" x-show="!s.is_preset">
+                  <button class="icon-btn" title="Editar" @click="editSheet(s)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button class="icon-btn danger" title="Excluir" @click="removeSheet(s)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+
+        <h2 style="margin-top:1rem" x-text="sheetForm.id ? 'Editar modelo' : 'Novo modelo'"></h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+          <div><label>Nome</label><input type="text" x-model="sheetForm.name" /></div>
+          <div><label>Marca</label><input type="text" x-model="sheetForm.brand" placeholder="Ex.: Pimaco" /></div>
+          <div><label>Código</label><input type="text" x-model="sheetForm.code" placeholder="Ex.: 6187" /></div>
+          <div><label>Colunas</label><input type="number" min="1" x-model.number="sheetForm.cols" /></div>
+          <div><label>Linhas</label><input type="number" min="1" x-model.number="sheetForm.rows" /></div>
+          <div><label>Página (largura × altura mm)</label>
+            <div style="display:flex;gap:.4rem">
+              <input type="number" step="0.1" x-model.number="sheetForm.page_w_mm" />
+              <input type="number" step="0.1" x-model.number="sheetForm.page_h_mm" />
+            </div>
+          </div>
+          <div><label>Etiqueta (largura × altura mm)</label>
+            <div style="display:flex;gap:.4rem">
+              <input type="number" step="0.1" x-model.number="sheetForm.label_w_mm" />
+              <input type="number" step="0.1" x-model.number="sheetForm.label_h_mm" />
+            </div>
+          </div>
+          <div><label>Margem topo / esquerda (mm)</label>
+            <div style="display:flex;gap:.4rem">
+              <input type="number" step="0.1" x-model.number="sheetForm.margin_top_mm" />
+              <input type="number" step="0.1" x-model.number="sheetForm.margin_left_mm" />
+            </div>
+          </div>
+          <div><label>Espaço entre colunas / linhas (mm)</label>
+            <div style="display:flex;gap:.4rem">
+              <input type="number" step="0.1" x-model.number="sheetForm.gutter_x_mm" />
+              <input type="number" step="0.1" x-model.number="sheetForm.gutter_y_mm" />
+            </div>
+          </div>
+        </div>
+        <div class="error" x-text="sheetError" style="margin-top:.4rem"></div>
+        <div class="actions">
+          <button class="btn secondary" @click="resetSheetForm()">Limpar</button>
+          <button class="btn" @click="saveSheet()">Salvar modelo</button>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:.6rem">
+        <button class="btn secondary" @click="$refs.sheetsDlg.close()">Fechar</button>
+      </div>
+    </dialog>
+    <% } %>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    function labelsPage() {
+      const EMPTY_SHEET = {
+        id: null, name: '', brand: '', code: '',
+        page_w_mm: 210, page_h_mm: 297, label_w_mm: 63.5, label_h_mm: 33.9,
+        cols: 3, rows: 8, margin_top_mm: 0, margin_left_mm: 0, gutter_x_mm: 0, gutter_y_mm: 0,
+      };
+      return {
+        q: '', results: [], selected: [], sheets: [], sheetId: null,
+        symbology: 'ean13',
+        fields: { name: true, price: true, sku: false, company: false },
+        previewSvg: '', previewNote: '', error: '',
+        sheetForm: { ...EMPTY_SHEET }, sheetError: '',
+        companyName: <%- JSON.stringify(companyName) %>,
+
+        get currentSheet() { return this.sheets.find(s => s.id === this.sheetId) || null; },
+        get totalLabels() { return this.selected.reduce((n, s) => n + (Number(s.qty) || 0), 0); },
+        get firstSelected() { return this.selected[0] || null; },
+        get previewName() { return this.firstSelected ? this.firstSelected.name : 'Nome do produto'; },
+        get previewSku() { return this.firstSelected ? (this.firstSelected.sku || 'SKU') : 'SKU'; },
+        get previewPrice() { return this.firstSelected ? brl(this.firstSelected.price_cents) : brl(1290); },
+        get sampleStyle() {
+          const s = this.currentSheet;
+          if (!s) return 'width:180px;height:60px';
+          const maxW = 200;
+          const ratio = s.label_h_mm / s.label_w_mm;
+          const w = Math.min(maxW, s.label_w_mm * 2);
+          return 'width:' + Math.round(w) + 'px;height:' + Math.round(w * ratio) + 'px';
+        },
+
+        fmt(n) { return (Math.round(Number(n) * 10) / 10).toString().replace('.', ','); },
+
+        async load() {
+          await this.loadSheets();
+          await this.search();
+          this.preview();
+        },
+
+        async loadSheets() {
+          const r = await fetch('/api/labels/sheets');
+          this.sheets = r.ok ? await r.json() : [];
+          if (!this.sheetId && this.sheets.length) this.sheetId = this.sheets[0].id;
+        },
+
+        async search() {
+          const r = await fetch('/api/labels/products?q=' + encodeURIComponent(this.q || ''));
+          this.results = r.ok ? await r.json() : [];
+        },
+
+        add(p) {
+          const existing = this.selected.find(s => s.id === p.id);
+          if (existing) { existing.qty += 1; }
+          else { this.selected.push({ id: p.id, name: p.name, sku: p.sku, barcode: p.barcode, price_cents: p.price_cents, qty: 1 }); }
+          this.preview();
+        },
+
+        remove(s) {
+          this.selected = this.selected.filter(x => x.id !== s.id);
+          this.preview();
+        },
+
+        async preview() {
+          const s = this.firstSelected;
+          if (!s || this.symbology === 'none') { this.previewSvg = ''; this.previewNote = ''; return; }
+          const code = s.barcode || '';
+          const r = await fetch('/api/labels/barcode-preview?symbology=' + encodeURIComponent(this.symbology) + '&text=' + encodeURIComponent(code));
+          if (!r.ok) { this.previewSvg = ''; return; }
+          const data = await r.json();
+          this.previewSvg = data.svg || '';
+          this.previewNote = data.note || (code ? '' : 'Produto sem código: será gerado um EAN interno ao imprimir.');
+        },
+
+        print() {
+          this.error = '';
+          if (!this.selected.length) { this.error = 'Selecione ao menos um produto.'; return; }
+          if (!this.sheetId) { this.error = 'Escolha um modelo de folha.'; return; }
+          const payload = {
+            items: this.selected.map(s => ({ id: s.id, qty: Math.max(1, Math.floor(Number(s.qty) || 1)) })),
+            sheetId: this.sheetId,
+            symbology: this.symbology,
+            fields: this.fields,
+          };
+          this.$refs.payload.value = JSON.stringify(payload);
+          this.$refs.printForm.submit();
+        },
+
+        resetSheetForm() { this.sheetForm = { ...EMPTY_SHEET }; this.sheetError = ''; },
+
+        editSheet(s) {
+          this.sheetForm = {
+            id: s.id, name: s.name, brand: s.brand || '', code: s.code || '',
+            page_w_mm: s.page_w_mm, page_h_mm: s.page_h_mm,
+            label_w_mm: s.label_w_mm, label_h_mm: s.label_h_mm,
+            cols: s.cols, rows: s.rows,
+            margin_top_mm: s.margin_top_mm, margin_left_mm: s.margin_left_mm,
+            gutter_x_mm: s.gutter_x_mm, gutter_y_mm: s.gutter_y_mm,
+          };
+          this.sheetError = '';
+        },
+
+        async saveSheet() {
+          this.sheetError = '';
+          const f = this.sheetForm;
+          const body = {
+            name: (f.name || '').trim(), brand: f.brand || null, code: f.code || null,
+            page_w_mm: Number(f.page_w_mm), page_h_mm: Number(f.page_h_mm),
+            label_w_mm: Number(f.label_w_mm), label_h_mm: Number(f.label_h_mm),
+            cols: Number(f.cols), rows: Number(f.rows),
+            margin_top_mm: Number(f.margin_top_mm) || 0, margin_left_mm: Number(f.margin_left_mm) || 0,
+            gutter_x_mm: Number(f.gutter_x_mm) || 0, gutter_y_mm: Number(f.gutter_y_mm) || 0,
+          };
+          const url = f.id ? '/api/labels/sheets/' + f.id : '/api/labels/sheets';
+          const r = await fetch(url, { method: f.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          if (!r.ok) { this.sheetError = (await r.json()).error || 'Erro ao salvar.'; return; }
+          const saved = await r.json();
+          await this.loadSheets();
+          if (!f.id && saved && saved.id) this.sheetId = saved.id;
+          this.resetSheetForm();
+          window.showToast('Modelo salvo.', 'success');
+        },
+
+        async removeSheet(s) {
+          const ok = await window.confirmDlg('Excluir o modelo "' + s.name + '"?');
+          if (!ok) return;
+          const r = await fetch('/api/labels/sheets/' + s.id, { method: 'DELETE' });
+          if (!r.ok) { window.showToast((await r.json()).error || 'Erro ao excluir.', 'error'); return; }
+          if (this.sheetId === s.id) this.sheetId = null;
+          await this.loadSheets();
+        },
+      };
+    }
+  </script>
+</body>
+</html>

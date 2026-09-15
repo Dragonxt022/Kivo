@@ -87,6 +87,7 @@ const SITE_PAGES: Record<string, string> = {
   '/recursos/cardapio-online': 'recursos-cardapio',
   '/recursos/importacao-nfe': 'recursos-nfe',
   '/recursos/fiscal': 'recursos-fiscal',
+  '/recursos/etiquetas': 'recursos-etiquetas',
   '/planos': 'planos',
   '/contato': 'contato',
 };
