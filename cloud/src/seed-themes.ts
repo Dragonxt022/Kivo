@@ -50,14 +50,20 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // Pack = todos os .svg, menos a capa.
+    // Pack = todos os .svg (menos a capa) + o `manifest.json`, quando existir. O manifest
+    // traduz nome lógico → arquivo (ex.: "cart" → "carrinho.svg") e é o que permite um pack
+    // usar nomes de arquivo próprios; sem ele, os ícones não seriam encontrados no app.
     const files: Record<string, string> = {};
+    let count = 0;
     for (const f of fs.readdirSync(dir)) {
-      if (!f.toLowerCase().endsWith('.svg')) continue;
-      if (f.toLowerCase().startsWith('capa')) continue;
+      const lower = f.toLowerCase();
+      if (lower.startsWith('capa')) continue;
+      const isSvg = lower.endsWith('.svg');
+      const isManifest = lower === 'manifest.json';
+      if (!isSvg && !isManifest) continue;
       files[f] = fs.readFileSync(path.join(dir, f), 'utf8');
+      if (isSvg) count++;
     }
-    const count = Object.keys(files).length;
     if (!count) {
       console.warn(`[seed-themes] ${meta.slug}: sem ícones — ignorado`);
       continue;

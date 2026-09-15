@@ -84,10 +84,20 @@ router.get('/:id/cover', requireCompanyAuth, async (req, res) => {
 router.get('/:id/pack', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const pool = getPool();
   const [rows] = await pool.query(
-    'SELECT id, slug, name, price_cents, pack_json FROM themes WHERE id = ? AND active = 1',
+    'SELECT id, slug, name, price_cents, pack_json, cover_path, cover_mime FROM themes WHERE id = ? AND active = 1',
     [req.params.id],
   );
-  const row = (rows as { id: number; slug: string; name: string; price_cents: number; pack_json: string }[])[0];
+  const row = (
+    rows as {
+      id: number;
+      slug: string;
+      name: string;
+      price_cents: number;
+      pack_json: string;
+      cover_path: string | null;
+      cover_mime: string | null;
+    }[]
+  )[0];
   if (!row) {
     res.status(404).json({ error: 'Tema não encontrado.' });
     return;
@@ -109,7 +119,16 @@ router.get('/:id/pack', requireCompanyAuth, async (req: AuthedRequest, res) => {
     res.status(500).json({ error: 'Pacote do tema corrompido no servidor.' });
     return;
   }
-  res.json({ id: Number(row.id), slug: row.slug, name: row.name, files });
+  // A capa viaja à parte (o pack só tem os SVGs): o desktop grava como `capa.<ext>` e o card
+  // do pacote instalado passa a mostrar a imagem certa em vez do placeholder genérico.
+  let cover: { mime: string; base64: string } | null = null;
+  if (row.cover_path) {
+    const coverFile = path.join(THEMES_STORAGE_DIR, path.basename(row.cover_path));
+    if (fs.existsSync(coverFile)) {
+      cover = { mime: row.cover_mime || 'image/jpeg', base64: fs.readFileSync(coverFile).toString('base64') };
+    }
+  }
+  res.json({ id: Number(row.id), slug: row.slug, name: row.name, files, cover });
 });
 
 export default router;

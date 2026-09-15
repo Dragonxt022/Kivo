@@ -227,3 +227,30 @@ export function installIconPack(slug: string, files: Record<string, string>): nu
   invalidateIconPackCache();
   return count;
 }
+
+const COVER_EXT_BY_MIME: Record<string, string> = {
+  'image/svg+xml': 'svg',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+/**
+ * Grava a capa de um pacote já instalado (`capa.<ext>`) a partir do que a nuvem mandou.
+ *
+ * A capa NÃO viaja dentro do pack de ícones (só os SVGs + manifest), então sem isto o card
+ * do pacote recém-baixado caía no placeholder genérico — o `capa.jpg` do tema nunca chegava
+ * ao `storage/peck-icon/<slug>/`. Remove capas antigas de outra extensão para não acumular.
+ */
+export function saveIconPackCover(slug: string, mime: string, base64: string): boolean {
+  const id = safePackId(slug);
+  if (!id || isDefaultPack(id)) return false;
+  const ext = COVER_EXT_BY_MIME[mime.split(';')[0].trim().toLowerCase()];
+  if (!ext || !base64) return false;
+  const dir = path.join(iconPacksDir(), id);
+  if (!fs.existsSync(dir)) return false;
+  for (const nome of COVER_NAMES) fs.rmSync(path.join(dir, nome), { force: true });
+  fs.writeFileSync(path.join(dir, `capa.${ext}`), Buffer.from(base64, 'base64'));
+  invalidateIconPackCache();
+  return true;
+}
