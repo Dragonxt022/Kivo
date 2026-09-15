@@ -46,8 +46,8 @@
                   <td><a :href="'/admin/companies/' + d.company_uuid" x-text="d.company_name || d.company_uuid"></a></td>
                   <td><span class="badge plan" x-show="d.company_plan" x-text="planLabels[d.company_plan] || d.company_plan"></span><span x-show="!d.company_plan">—</span></td>
                   <td class="muted" x-text="d.machine_id.slice(0, 16) + '…'"></td>
-                  <td x-text="d.first_seen_at"></td>
-                  <td x-text="d.last_seen_at"></td>
+                  <td x-text="fmtDateTime(d.first_seen_at)"></td>
+                  <td x-text="fmtDateTime(d.last_seen_at)"></td>
                   <td><span class="badge" :class="d.removed_at ? 'cancelada' : 'paga'" x-text="d.removed_at ? 'removido' : 'ativo'"></span></td>
                   <td class="text-right">
                     <form method="post" :action="'/admin/companies/' + d.company_uuid + '/devices/' + d.id + '/delete'"
@@ -90,7 +90,7 @@
                     <a x-show="t.company_exists" :href="'/admin/companies/' + t.company_uuid" x-text="t.company_name || t.company_uuid"></a>
                     <span x-show="!t.company_exists" class="badge cancelada">empresa excluída</span>
                   </td>
-                  <td x-text="t.claimed_at"></td>
+                  <td x-text="fmtDateTime(t.claimed_at)"></td>
                   <td class="text-right">
                     <form method="post" :action="'/admin/trials/' + encodeURIComponent(t.machine_id_hash) + '/release'"
                           @submit.prevent="if (confirm('Liberar o teste grátis desta máquina? Ela poderá solicitar os 15 dias de avaliação novamente.')) $el.submit()">

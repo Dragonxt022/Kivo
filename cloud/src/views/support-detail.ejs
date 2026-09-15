@@ -63,7 +63,7 @@
             </div>
             <div class="ticket-meta-body">
               <span class="label">Criado em</span>
-              <span class="value"><%= String(ticket.created_at).slice(0, 16) %></span>
+              <span class="value"><%= fmtDateTimeBr(ticket.created_at) %></span>
             </div>
           </div>
           <a href="/admin/support" class="back-link">← Voltar para a lista</a>
@@ -79,7 +79,7 @@
                   <div x-show="m.attachment">
                     <a :href="m.attachment" target="_blank" rel="noopener"><img :src="m.attachment" alt="Print anexado" style="max-width: 260px; max-height: 260px; border-radius: 8px; display: block; margin-top: .4rem;"></a>
                   </div>
-                  <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte' : 'Cliente') + (m.sender_name ? ' · ' + m.sender_name : '') + ' · ' + (m.created_at || '').slice(0, 16)"></div>
+                  <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte' : 'Cliente') + (m.sender_name ? ' · ' + m.sender_name : '') + ' · ' + fmtDateTime(m.created_at)"></div>
                 </div>
               </div>
             </template>

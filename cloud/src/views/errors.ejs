@@ -51,7 +51,7 @@
                   </td>
                   <td x-text="e.total"></td>
                   <td x-text="e.devices"></td>
-                  <td x-text="e.last_seen_at"></td>
+                  <td x-text="fmtDateTime(e.last_seen_at)"></td>
                   <td class="text-right">
                     <button type="button" class="btn small" @click="toggle(e)"
                             x-text="isOpen(e) ? 'Ocultar' : 'Ver stack'"></button>

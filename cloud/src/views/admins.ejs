@@ -39,7 +39,7 @@
               <template x-for="a in displayRows" :key="a.id">
                 <tr>
                   <td x-text="a.username"></td>
-                  <td x-text="a.created_at"></td>
+                  <td x-text="fmtDateTime(a.created_at)"></td>
                   <td style="text-align: right;">
                     <form method="post" :action="'/admin/admins/' + a.id + '/delete'"
                           @submit.prevent="if (confirm('Excluir o administrador \'' + a.username + '\'?')) $el.submit()">

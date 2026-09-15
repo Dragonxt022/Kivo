@@ -49,7 +49,7 @@
             <tbody>
               <template x-for="l in displayRows" :key="l.id">
                 <tr>
-                  <td class="muted" x-text="(l.created_at || '').slice(0, 16)"></td>
+                  <td class="muted" x-text="fmtDateTime(l.created_at)"></td>
                   <td><strong x-text="l.name"></strong><div class="muted" x-show="l.email" x-text="l.email"></div></td>
                   <td><a :href="'https://wa.me/55' + l.whatsapp.replace(/\D/g, '')" target="_blank" rel="noopener" x-text="l.whatsapp"></a></td>
                   <td x-text="l.business || '—'"></td>

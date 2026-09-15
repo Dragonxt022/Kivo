@@ -278,8 +278,8 @@
                   <% devices.forEach(function(d) { %>
                   <tr>
                     <td class="cell-sub"><%= d.machine_id.slice(0, 16) %>…</td>
-                    <td><%= d.first_seen_at %></td>
-                    <td><%= d.last_seen_at %></td>
+                    <td><%= fmtDateTimeBr(d.first_seen_at) %></td>
+                    <td><%= fmtDateTimeBr(d.last_seen_at) %></td>
                     <td class="text-right">
                       <form method="post" action="/admin/companies/<%= company.company_uuid %>/devices/<%= d.id %>/delete"
                             onsubmit="return confirm('Remover este dispositivo? Ele será bloqueado imediatamente na próxima tentativa de uso.')">
@@ -404,7 +404,7 @@
                     <td class="cell-sub"><%= b.uuid %></td>
                     <td class="cell-muted"><%= b.machine_id %></td>
                     <td class="text-right tabular"><%= (b.size_bytes/1024).toFixed(1) %> KB</td>
-                    <td class="cell-muted"><%= b.created_at %></td>
+                    <td class="cell-muted"><%= fmtDateTimeBr(b.created_at) %></td>
                   </tr>
                   <% }) %>
                   <% if (!backups.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum backup ainda.' }) %></td></tr><% } %>
@@ -443,7 +443,7 @@
                       <td x-text="label(c.kind)"></td>
                       <td><span class="badge" :class="c.status === 'aplicado' ? 'paga' : (c.status === 'erro' ? 'cancelada' : '')" x-text="c.status"></span></td>
                       <td class="cell-muted" x-text="summary(c)"></td>
-                      <td class="cell-muted" x-text="c.created_at"></td>
+                      <td class="cell-muted" x-text="fmtDateTime(c.created_at)"></td>
                     </tr>
                   </template>
                   <tr x-show="!commands.length"><td colspan="4" class="cell-muted">Nenhum comando enviado ainda.</td></tr>
@@ -470,7 +470,7 @@
                     <td class="cell-muted"><%= g ? (g.status + (g.software ? ' (software)' : '')) : '—' %></td>
                     <td class="cell-muted"><%= s ? (s.width + '×' + s.height + (s.scaleFactor && s.scaleFactor !== 1 ? ' @' + s.scaleFactor + 'x' : '')) : '—' %></td>
                     <td class="cell-muted"><%= m.app_version || '—' %></td>
-                    <td class="cell-muted"><%= m.last_seen_at %></td>
+                    <td class="cell-muted"><%= fmtDateTimeBr(m.last_seen_at) %></td>
                   </tr>
                   <% }) %>
                   <% if (!inventory.length) { %><tr><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhum inventário recebido ainda.' }) %></td></tr><% } %>
@@ -499,7 +499,7 @@
                     </td>
                     <td class="text-right tabular"><%= e.total %></td>
                     <td class="text-right tabular"><%= e.devices %></td>
-                    <td class="cell-muted"><%= e.last_seen_at %></td>
+                    <td class="cell-muted"><%= fmtDateTimeBr(e.last_seen_at) %></td>
                   </tr>
                   <% }) %>
                   <% if (!errors.length) { %><tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum erro reportado por esta empresa.' }) %></td></tr><% } %>
