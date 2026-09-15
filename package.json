@@ -1,6 +1,6 @@
 {
   "name": "Kivo",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Kivo — plataforma comercial modular desktop-first",
   "author": "Kivo",
   "private": true,
@@ -22,6 +22,7 @@
     "alpinejs": "^3.14.0",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.11.1",
+    "bwip-js": "^4.11.4",
     "drizzle-orm": "^0.44.0",
     "ejs": "^3.1.10",
     "electron-updater": "^6.8.9",

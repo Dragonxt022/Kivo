@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Kivo — Etiquetas</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* A folha de impressão é o próprio tamanho do modelo (ex.: A4), sem margem do driver:
+       cada etiqueta é posicionada em mm absolutos, então qualquer margem extra desalinharia. */
+    @page { size: <%= sheet.page_w_mm %>mm <%= sheet.page_h_mm %>mm; margin: 0; }
+    html, body { background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; }
+    .sheet {
+      position: relative;
+      width: <%= sheet.page_w_mm %>mm;
+      height: <%= sheet.page_h_mm %>mm;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+    }
+    .sheet:last-child { page-break-after: auto; break-after: auto; }
+    .label {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+      padding: 0.8mm;
+      gap: 0.3mm;
+    }
+    .l-company { font-size: 5.5pt; text-transform: uppercase; letter-spacing: 0.02em; color: #333; }
+    .l-name { font-size: 7.5pt; font-weight: 600; line-height: 1.05; max-width: 100%; }
+    .l-sku { font-size: 6pt; color: #333; }
+    .l-price { font-size: 11pt; font-weight: 700; line-height: 1; }
+    .l-code { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .l-code svg { width: 100%; height: 100%; }
+    .no-print { position: fixed; bottom: 12px; right: 12px; z-index: 10; display: flex; gap: 8px; }
+    .no-print button { padding: 8px 16px; font-size: 13px; cursor: pointer; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button id="btn-imprimir">Imprimir</button>
+    <button id="btn-fechar">Fechar</button>
+  </div>
+
+  <% pages.forEach(function (page) { %>
+    <div class="sheet">
+      <% page.labels.forEach(function (l) { %>
+        <div class="label" style="left:<%= l.leftMm %>mm; top:<%= l.topMm %>mm; width:<%= sheet.label_w_mm %>mm; height:<%= sheet.label_h_mm %>mm">
+          <% if (fields.company) { %><div class="l-company"><%= company %></div><% } %>
+          <% if (fields.name) { %><div class="l-name"><%= l.name %></div><% } %>
+          <% if (fields.sku && l.sku) { %><div class="l-sku"><%= l.sku %></div><% } %>
+          <% if (fields.price) { %><div class="l-price"><%= brl(l.priceCents) %></div><% } %>
+          <% if (l.barcodeSvg) { %><div class="l-code"><%- l.barcodeSvg %></div><% } %>
+        </div>
+      <% }) %>
+    </div>
+  <% }) %>
+
+  <script nonce="<%= cspNonce %>">
+    window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 350); });
+  </script>
+  <script nonce="<%= cspNonce %>">
+    document.getElementById('btn-imprimir')?.addEventListener('click', function () { window.print(); });
+    document.getElementById('btn-fechar')?.addEventListener('click', function () { window.close(); });
+  </script>
+</body>
+</html>

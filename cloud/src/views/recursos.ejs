@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <%- include('partials/site/head', {
-    title: 'Recursos e módulos do Kivo — PDV, estoque, financeiro, mesas e cardápio',
-    description: 'Conheça todos os módulos do Kivo: PDV, catálogo de produtos, estoque e compras, financeiro com DRE, mesas e cozinha, cardápio online, clientes e fidelidade. Ative só o que o seu negócio precisa.'
+    title: 'Recursos e módulos do Kivo — PDV, estoque, etiquetas, financeiro, mesas e cardápio',
+    description: 'Conheça todos os módulos do Kivo: PDV, catálogo de produtos, estoque e compras, gerador de etiquetas com código de barras, financeiro com DRE, mesas e cozinha, cardápio online, clientes e fidelidade. Ative só o que o seu negócio precisa.'
   }) %>
 </head>
 <body>
@@ -23,7 +23,7 @@
   <section class="sec-tight">
     <div class="wrap">
       <div class="stat-band">
-        <div class="stat-item"><div class="n">8</div><div class="l">módulos integrados</div></div>
+        <div class="stat-item"><div class="n">9</div><div class="l">módulos integrados</div></div>
         <div class="stat-item"><div class="n">100%</div><div class="l">funciona offline</div></div>
         <div class="stat-item"><div class="n">11</div><div class="l">tipos de produto</div></div>
         <div class="stat-item"><div class="n">24/7</div><div class="l">suporte e treinamento</div></div>
@@ -74,6 +74,18 @@
             <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Reversível a qualquer momento</li>
           </ul>
           <span class="mod-more">Ver a importação de NF-e →</span>
+        </a>
+
+        <a class="mod-card" href="/recursos/etiquetas">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></div>
+          <h3>Gerador de Etiquetas</h3>
+          <p>Monte folhas de etiqueta de produto com código de barras e preço, nos modelos Pimaco, prontas para imprimir.</p>
+          <ul>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> EAN-13, Code128 e QR Code</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Modelos Pimaco prontos + folha própria</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Gera código interno se o produto não tiver</li>
+          </ul>
+          <span class="mod-more">Ver o gerador de etiquetas →</span>
         </a>
 
         <a class="mod-card" href="/recursos/financeiro">

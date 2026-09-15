@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Gerador de etiquetas do Kivo — código de barras e preço em folha A4',
+    description: 'Monte folhas de etiqueta de produto com código de barras (EAN-13, Code128 ou QR Code) e preço, nos modelos Pimaco prontos ou num modelo de folha seu. Se o produto não tiver código, o Kivo gera um EAN interno. Imprime direto, sem programa à parte.'
+  }) %>
+</head>
+<body>
+  <%- include('partials/site/topbar', { page: 'recursos-etiquetas', downloadUrl: downloadUrl }) %>
+
+  <section class="page-head">
+    <div class="wrap">
+      <div class="crumb"><a href="/">Início</a> <span>›</span> <a href="/recursos">Recursos</a> <span>›</span> <span>Gerador de Etiquetas</span></div>
+      <h1>A etiqueta do seu produto <br /><em>sai pronta daqui.</em></h1>
+      <p>
+        Escolha os produtos, o modelo de folha e imprima etiquetas com código de
+        barras e preço. Sem abrir outro programa, sem redigitar preço e sem
+        depender de gráfica para uma etiqueta simples.
+      </p>
+    </div>
+  </section>
+
+  <section class="sec-tight">
+    <div class="wrap">
+      <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kivo, de onde o gerador de etiquetas puxa nome, preço e código de barras' }) %>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Como funciona</div>
+        <h2>Escolher, ajustar, imprimir</h2>
+        <p>Três passos e a folha sai na impressora comum que você já tem.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <h3>Escolha os produtos</h3>
+          <p>Busque por nome, código de barras ou SKU e defina quantas etiquetas de cada produto você quer.</p>
+        </div>
+        <div class="step">
+          <h3>Escolha a folha e o código</h3>
+          <p>Modelos Pimaco prontos (6180, 6181, 6182, 6183, 6184, 6187 e folha A4 genérica) ou um modelo próprio. EAN-13, Code128 ou QR Code.</p>
+        </div>
+        <div class="step">
+          <h3>Imprima</h3>
+          <p>A folha abre posicionada em milímetros, com nome, preço e código de barras. É só confirmar na impressora.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div>
+          <div class="kicker">Do catálogo para a folha</div>
+          <h2>Preço e código vêm do cadastro do produto</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            O gerador não tem cadastro paralelo: ele lê o mesmo catálogo do PDV.
+            Mudou o preço no sistema? A etiqueta já sai com o valor novo — sem
+            digitar de novo e sem risco de etiqueta desatualizada na gôndola.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Código de barras de verdade</h3>
+              <p>EAN-13 e UPC quando o produto tem código válido, Code128 para qualquer código, ou QR Code.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> EAN interno automático</h3>
+              <p>Produto sem código de fábrica? O Kivo gera um código interno com dígito verificador e usa na etiqueta.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Modelos Pimaco prontos</h3>
+              <p>Os modelos de folha mais comuns já vêm configurados, com a grade e as medidas certas de cada um.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Seu modelo, se precisar</h3>
+              <p>Usa outra marca de folha? Crie um modelo com as medidas da página, da etiqueta e as margens.</p>
+            </div>
+          </div>
+        </div>
+        <%- include('partials/site/shot', { name: 'produtos', alt: 'Produtos com preço e código de barras usados nas etiquetas' }) %>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="center">
+        <div class="kicker">Por que facilita o dia a dia</div>
+        <h2>Etiqueta na hora, do jeito que a loja precisa</h2>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></div>
+          <h3>Impressora comum</h3>
+          <p>Folha A4 e impressora de escritório, sem comprar impressora térmica nem equipamento especial.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h12"/></svg></div>
+          <h3>Preço sempre certo</h3>
+          <p>A etiqueta lê o preço do cadastro. Remarcou o produto? Reimprime e acabou a etiqueta com valor velho.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+          <h3>Lote inteiro de uma vez</h3>
+          <p>Vários produtos na mesma folha, cada um com sua quantidade — a folha é dividida em páginas sozinha.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Permissão separada</h3>
+          <p>Uma permissão para gerar etiquetas e outra para criar modelos de folha. Cada cargo com seu acesso.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="pull">
+        <p><strong>Etiqueta é detalhe de operação, não de venda.</strong> Por isso o gerador nasce desligado: você ativa quando precisar, em Configurações → Recursos. Sem menu a mais para quem não usa.</p>
+        <div class="who">Disponível para todos os planos, inclusive no teste grátis.</div>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Etiquete seus produtos hoje mesmo',
+    ctaText: 'Ative o gerador de etiquetas no teste grátis, escolha os produtos e imprima a primeira folha em minutos.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>
