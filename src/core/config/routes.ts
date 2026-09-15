@@ -15,7 +15,7 @@ import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './comp
 import { getLicenseCredentials } from '../license/service';
 import { factoryReset } from '../reset/service';
 import { settingsRepository } from '../repositories/SettingsRepository';
-import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, installIconPack, invalidateIconPackCache, listIconPacks } from '../icons/service';
+import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, installIconPack, saveIconPackCover, invalidateIconPackCache, listIconPacks } from '../icons/service';
 import { cloudAuthHeaders, cloudBaseUrl } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
 
@@ -353,8 +353,15 @@ router.post('/theme-store/install', requirePermission('settings.edit'), async (r
       res.status(r.status === 403 ? 403 : 502).json({ error: d.error || `A nuvem respondeu ${r.status}.` });
       return;
     }
-    const pack = (await r.json()) as { slug: string; name: string; files: Record<string, string> };
+    const pack = (await r.json()) as {
+      slug: string;
+      name: string;
+      files: Record<string, string>;
+      cover?: { mime: string; base64: string } | null;
+    };
     const count = installIconPack(pack.slug, pack.files ?? {});
+    // A capa não vem no pack: grava à parte, senão o card do pacote instalado fica sem imagem.
+    if (pack.cover?.base64) saveIconPackCover(pack.slug, pack.cover.mime, pack.cover.base64);
     const before = settingsRepository.get(ICON_PACK_SETTING);
     settingsRepository.set(ICON_PACK_SETTING, pack.slug);
     invalidateIconPackCache();
