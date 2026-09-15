@@ -141,8 +141,33 @@ export function companyName(): string {
 }
 
 /**
+ * Código a imprimir para um produto, GRAVANDO o EAN interno quando ele não tem código.
+ *
+ * Sem isso a etiqueta de produto sem código de fábrica nasceria "morta": o PDV resolve o
+ * bipe por `products.barcode = <número lido>`, então um código só impresso (nunca salvo)
+ * nunca acharia o produto. O UPDATE é condicional (`barcode` ainda vazio) para não
+ * sobrescrever um código que outra ação tenha gravado no meio do caminho; relemos o valor
+ * final para a folha imprimir exatamente o que ficou no cadastro.
+ */
+function ensureBarcode(p: LabelProduct): string {
+  const existing = (p.barcode ?? '').trim();
+  if (existing) return existing;
+  const code = generateInternalBarcode(p.id);
+  const db = getSqlite();
+  db.prepare(
+    "UPDATE products SET barcode = ?, updated_at = datetime('now') WHERE id = ? AND (barcode IS NULL OR barcode = '')",
+  ).run(code, p.id);
+  const row = db.prepare('SELECT barcode FROM products WHERE id = ?').get(p.id) as
+    | { barcode: string | null }
+    | undefined;
+  return (row?.barcode ?? code).trim();
+}
+
+/**
  * Expande os itens em etiquetas (uma por cópia). O código de barras de cada código
  * distinto é gerado UMA vez (cache) — repetir o mesmo produto na folha não re-renderiza.
+ * Produto sem código de fábrica ganha um EAN interno que fica SALVO no cadastro (ver
+ * `ensureBarcode`), para a etiqueta ser escaneável no PDV.
  */
 export function buildLabels(items: LabelRequestItem[], symbology: Symbology): LabelData[] {
   const products = loadProducts(items.map((i) => i.id));
@@ -153,7 +178,7 @@ export function buildLabels(items: LabelRequestItem[], symbology: Symbology): La
     const p = products.get(item.id);
     if (!p) continue;
     const internalCode = !(p.barcode ?? '').trim();
-    const code = internalCode ? generateInternalBarcode(p.id) : (p.barcode ?? '').trim();
+    const code = ensureBarcode(p);
     const key = `${symbology}|${code}`;
     let svg = cache.get(key);
     if (!svg) {

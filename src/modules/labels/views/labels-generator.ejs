@@ -9,23 +9,35 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    .labels-grid { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.1fr); gap: 1rem; align-items: start; }
+    .labels-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(340px, 1fr); gap: 1rem; align-items: start; }
     @media (max-width: 900px) { .labels-grid { grid-template-columns: 1fr; } }
-    .labels-col { display: flex; flex-direction: column; gap: 1rem; }
-    .qty-input { width: 64px; }
-    .preview-box { display: flex; align-items: center; justify-content: center; min-height: 96px;
+    .labels-col { min-width: 0; }
+    /* Fora de <dialog> o app só estiliza campo com .field + .input/.select; o .field padrão
+       limita a 480px — aqui a coluna inteira é o campo. */
+    .labels-col .field { max-width: none; margin-bottom: 1.05rem; }
+    .lbl-row { display: flex; gap: .5rem; align-items: stretch; }
+    .lbl-row .select { flex: 1; min-width: 0; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: .5rem .9rem; }
+    /* Rótulo de grupo que NÃO é <label> de input — evita a regra .field label, que forçaria
+       display:block nos rótulos de checkbox (.label-checkbox-sm) e desalinharia a caixinha. */
+    .cfg-label { display: block; font-size: .85rem; margin-bottom: .4rem; color: var(--text-muted); }
+    .qty-input { width: 72px; }
+    .prod-scroll { max-height: 300px; overflow: auto; margin-top: .2rem; }
+    .selected-empty { color: var(--text-muted); font-size: .85rem; padding: .5rem 0; }
+    .preview-box { display: flex; align-items: center; justify-content: center; min-height: 112px;
       background: var(--surface-hover); border: 1px dashed var(--border); border-radius: var(--radius);
-      padding: .6rem; overflow: hidden; }
-    .preview-box svg { max-width: 100%; max-height: 90px; }
+      padding: .75rem; overflow: hidden; }
+    .preview-box svg { max-width: 100%; max-height: 100px; }
     .label-sample { border: 1px solid var(--border); border-radius: 6px; padding: .5rem; background: #fff;
       color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: .15rem; overflow: hidden; }
     .label-sample .ls-name { font-size: .8rem; font-weight: 600; text-align: center; line-height: 1.1; }
     .label-sample .ls-price { font-size: 1rem; font-weight: 700; }
     .label-sample .ls-sku { font-size: .7rem; color: #444; }
+    .print-bar { margin-top: .25rem; }
+    .print-meta { font-size: .8rem; color: var(--text-muted); text-align: center; margin-top: .45rem; }
     .sheet-list { width: 100%; border-collapse: collapse; }
     .sheet-list td, .sheet-list th { padding: .35rem .4rem; }
-    .selected-empty { color: var(--text-muted); font-size: .85rem; padding: .6rem 0; }
   </style>
 </head>
 <body>
@@ -38,9 +50,10 @@
       <!-- Produtos -->
       <section class="panel labels-col">
         <h2>Produtos</h2>
-        <input type="text" placeholder="Buscar por nome, código de barras ou SKU…" x-model="q"
-               @input.debounce.350ms="search()" class="input-search" style="width:100%" />
-        <div style="max-height:320px;overflow:auto">
+        <input type="text" placeholder="Buscar ou bipar — Enter adiciona…" x-model="q"
+               @input.debounce.350ms="search()" @keydown.enter.prevent="addFirst()"
+               class="input-search" style="width:100%" />
+        <div class="prod-scroll">
           <table>
             <thead>
               <tr>
@@ -58,7 +71,8 @@
                   </td>
                   <td class="text-right" x-text="brl(p.price_cents)"></td>
                   <td class="text-right">
-                    <button class="btn small secondary" @click="add(p)">Adicionar</button>
+                    <button class="btn small secondary" @click="add(p)"
+                            x-text="qtyOf(p.id) ? '+1' : 'Adicionar'"></button>
                   </td>
                 </tr>
               </template>
@@ -67,79 +81,96 @@
           </table>
         </div>
 
-        <h2 style="margin-top:.6rem">Selecionados <span class="muted text-xs" x-text="'(' + totalLabels + ' etiqueta(s))'"></span></h2>
-        <p class="selected-empty" x-show="!selected.length">Nenhum produto selecionado ainda.</p>
-        <table x-show="selected.length">
-          <tbody>
-            <template x-for="s in selected" :key="s.id">
-              <tr>
-                <td>
-                  <div x-text="s.name"></div>
-                  <div class="muted text-xs" x-text="s.barcode || 'código interno'"></div>
-                </td>
-                <td style="width:90px">
-                  <input type="number" min="1" max="1000" class="qty-input" x-model.number="s.qty" />
-                </td>
-                <td style="width:40px" class="text-right">
-                  <button class="icon-btn" title="Remover" @click="remove(s)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
-                  </button>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+        <div class="toolbar" style="margin-top:.5rem; margin-bottom:.2rem">
+          <h2 style="margin:0">Selecionados <span class="muted text-xs" x-text="'(' + totalLabels + ' etiqueta(s))'"></span></h2>
+          <span class="toolbar-spacer"></span>
+          <button class="btn secondary small" x-show="selected.length" @click="clearSelection()">Limpar</button>
+        </div>
+        <p class="selected-empty" x-show="!selected.length">Nenhum produto selecionado. Busque ao lado, bipe o código ou pressione Enter para adicionar.</p>
+        <div class="prod-scroll" x-show="selected.length">
+          <table>
+            <tbody>
+              <template x-for="s in selected" :key="s.id">
+                <tr>
+                  <td>
+                    <div x-text="s.name"></div>
+                    <div class="muted text-xs" x-text="s.barcode || 'sem código — EAN interno gerado ao imprimir'"></div>
+                  </td>
+                  <td style="width:96px">
+                    <input type="number" min="1" max="1000" class="input qty-input" x-model.number="s.qty" />
+                  </td>
+                  <td style="width:40px" class="text-right">
+                    <button class="icon-btn" title="Remover" @click="remove(s)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <!-- Configuração -->
       <section class="panel labels-col">
         <h2>Configuração</h2>
 
-        <label>Modelo de folha</label>
-        <div style="display:flex;gap:.4rem">
-          <select x-model.number="sheetId" @change="preview()" style="flex:1">
-            <template x-for="s in sheets" :key="s.id">
-              <option :value="s.id" x-text="s.name"></option>
-            </template>
+        <div class="field">
+          <label>Modelo de folha</label>
+          <div class="lbl-row">
+            <select class="select" x-model.number="sheetId" @change="preview()">
+              <template x-for="s in sheets" :key="s.id">
+                <option :value="s.id" x-text="s.name"></option>
+              </template>
+            </select>
+            <% if (user.permissions.has('labels.sheets.manage')) { %>
+            <button class="btn secondary" @click="$refs.sheetsDlg.showModal()" title="Criar ou editar modelos de folha">Modelos</button>
+            <% } %>
+          </div>
+          <p class="hint" x-text="sheetHint"></p>
+        </div>
+
+        <div class="field">
+          <label>Simbologia do código</label>
+          <select class="select" x-model="symbology" @change="preview()">
+            <option value="ean13">EAN-13 / UPC — cai para Code128 se não for válido</option>
+            <option value="code128">Code128 — aceita texto/SKU livre</option>
+            <option value="qrcode">QR Code — precisa de leitor 2D</option>
+            <option value="none">Sem código de barras</option>
           </select>
-          <% if (user.permissions.has('labels.sheets.manage')) { %>
-          <button class="btn secondary" @click="$refs.sheetsDlg.showModal()" title="Gerenciar modelos de folha">Modelos</button>
-          <% } %>
+          <p class="hint" x-text="symbologyHint"></p>
         </div>
 
-        <label>Simbologia do código</label>
-        <select x-model="symbology" @change="preview()">
-          <option value="ean13">EAN-13 / UPC (cai para Code128 se o código não for válido)</option>
-          <option value="code128">Code128 (aceita texto/SKU livre)</option>
-          <option value="qrcode">QR Code</option>
-          <option value="none">Sem código de barras</option>
-        </select>
-
-        <label>Conteúdo da etiqueta</label>
-        <div style="display:flex;flex-wrap:wrap;gap:.9rem">
-          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.name" @change="preview()" /> Nome</label>
-          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.price" @change="preview()" /> Preço</label>
-          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.sku" @change="preview()" /> SKU</label>
-          <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.company" @change="preview()" /> Empresa</label>
-        </div>
-
-        <label>Prévia</label>
-        <div class="preview-box">
-          <div class="label-sample" :style="sampleStyle">
-            <div class="ls-name" x-show="fields.company" x-text="companyName"></div>
-            <div class="ls-name" x-show="fields.name" x-text="previewName"></div>
-            <div class="ls-sku" x-show="fields.sku" x-text="previewSku"></div>
-            <div class="ls-price" x-show="fields.price" x-text="previewPrice"></div>
-            <div x-show="symbology !== 'none'" x-html="previewSvg" style="width:100%;display:flex;justify-content:center"></div>
+        <div class="field">
+          <span class="cfg-label">Conteúdo da etiqueta</span>
+          <div class="chip-row">
+            <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.name" @change="preview()" /> Nome</label>
+            <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.price" @change="preview()" /> Preço</label>
+            <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.sku" @change="preview()" /> SKU</label>
+            <label class="label-checkbox-sm"><input type="checkbox" x-model="fields.company" @change="preview()" /> Empresa</label>
           </div>
         </div>
-        <p class="muted text-xs" x-show="previewNote" x-text="previewNote"></p>
 
-        <div class="actions">
-          <button class="btn" @click="print()" :disabled="!selected.length || !sheetId">
+        <div class="field">
+          <label>Prévia</label>
+          <div class="preview-box">
+            <div class="label-sample" :style="sampleStyle">
+              <div class="ls-name" x-show="fields.company" x-text="companyName"></div>
+              <div class="ls-name" x-show="fields.name" x-text="previewName"></div>
+              <div class="ls-sku" x-show="fields.sku" x-text="previewSku"></div>
+              <div class="ls-price" x-show="fields.price" x-text="previewPrice"></div>
+              <div x-show="symbology !== 'none'" x-html="previewSvg" style="width:100%;display:flex;justify-content:center"></div>
+            </div>
+          </div>
+          <p class="hint" x-show="previewNote" x-text="previewNote"></p>
+        </div>
+
+        <div class="print-bar">
+          <button class="btn btn-full" @click="print()" :disabled="!selected.length || !sheetId">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Gerar e imprimir
+            Gerar e imprimir<span x-show="totalLabels" x-text="' (' + totalLabels + ')'"></span>
           </button>
+          <p class="print-meta" x-show="selected.length" x-text="printMeta"></p>
         </div>
         <div class="error" x-text="error"></div>
       </section>
@@ -251,8 +282,38 @@
           const w = Math.min(maxW, s.label_w_mm * 2);
           return 'width:' + Math.round(w) + 'px;height:' + Math.round(w * ratio) + 'px';
         },
+        get sheetHint() {
+          const s = this.currentSheet;
+          if (!s) return '';
+          const per = s.cols * s.rows;
+          return s.cols + '×' + s.rows + ' = ' + per + ' por folha · etiqueta '
+            + this.fmt(s.label_w_mm) + ' × ' + this.fmt(s.label_h_mm) + ' mm · página '
+            + this.fmt(s.page_w_mm) + ' × ' + this.fmt(s.page_h_mm) + ' mm';
+        },
+        get symbologyHint() {
+          return {
+            ean13: 'Recomendado: usa o EAN do produto ou gera um código interno se não tiver.',
+            code128: 'Para código livre (SKU, código interno). Lido por leitor a laser comum.',
+            qrcode: 'Precisa de leitor 2D — um leitor a laser 1D não lê QR.',
+            none: 'Imprime só nome e preço, sem código de barras.',
+          }[this.symbology] || '';
+        },
+        get pagesCount() {
+          const s = this.currentSheet;
+          if (!s || !this.totalLabels) return 0;
+          return Math.ceil(this.totalLabels / Math.max(1, s.cols * s.rows));
+        },
+        get printMeta() {
+          const n = this.totalLabels;
+          if (!n) return '';
+          const semCodigo = this.selected.filter((s) => !s.barcode).reduce((a, s) => a + (Number(s.qty) || 0), 0);
+          let t = n + ' etiqueta(s) em ' + this.pagesCount + ' folha(s)';
+          if (semCodigo) t += ' · ' + semCodigo + ' sem código ganham EAN interno';
+          return t;
+        },
 
         fmt(n) { return (Math.round(Number(n) * 10) / 10).toString().replace('.', ','); },
+        qtyOf(id) { const s = this.selected.find((x) => x.id === id); return s ? s.qty : 0; },
 
         async load() {
           await this.loadSheets();
@@ -278,10 +339,15 @@
           this.preview();
         },
 
+        // Enter no campo de busca adiciona o primeiro resultado: bipe o produto e Enter.
+        addFirst() { if (this.results.length) this.add(this.results[0]); },
+
         remove(s) {
           this.selected = this.selected.filter(x => x.id !== s.id);
           this.preview();
         },
+
+        clearSelection() { this.selected = []; this.preview(); },
 
         async preview() {
           const s = this.firstSelected;
@@ -291,7 +357,7 @@
           if (!r.ok) { this.previewSvg = ''; return; }
           const data = await r.json();
           this.previewSvg = data.svg || '';
-          this.previewNote = data.note || (code ? '' : 'Produto sem código: será gerado um EAN interno ao imprimir.');
+          this.previewNote = data.note || (code ? '' : 'Sem código: um EAN interno será gerado e salvo no produto ao imprimir.');
         },
 
         print() {
