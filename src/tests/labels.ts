@@ -15,7 +15,7 @@ import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
-import { eanCheckDigit } from '../shared/barcode';
+import { eanCheckDigit, generateInternalBarcode, validateBarcode } from '../shared/barcode';
 
 const PORT = Number(process.env.KIVO_PORT ?? 3831);
 const base = `http://localhost:${PORT}`;
@@ -123,6 +123,13 @@ async function main(): Promise<void> {
     check('folha traz nome e preço', html.includes('Refrigerante 350ml') && html.includes('R$ 6,00') && html.includes('R$ 8,50'));
     check('folha traz código de barras', html.includes('<svg') && html.includes('class="l-code"'));
     check('posiciona em mm', html.includes('left:') && html.includes('mm;'));
+
+    // Opção B: produto sem código ganha um EAN interno SALVO no cadastro, senão o bipe no PDV
+    // nunca acharia o produto (o PDV resolve por products.barcode).
+    const p2Row = db.prepare('SELECT barcode FROM products WHERE id = ?').get(p2) as { barcode: string | null };
+    check('EAN interno salvo no produto sem código', !!p2Row?.barcode && p2Row.barcode === generateInternalBarcode(p2) && validateBarcode(p2Row.barcode), String(p2Row?.barcode));
+    const p1Row = db.prepare('SELECT barcode FROM products WHERE id = ?').get(p1) as { barcode: string | null };
+    check('código de fábrica não foi alterado', p1Row?.barcode === ean, String(p1Row?.barcode));
 
     // Modelo custom: cria, edita e exclui.
     const createRes = await api('/api/labels/sheets', {

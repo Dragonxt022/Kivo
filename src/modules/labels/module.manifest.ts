@@ -9,8 +9,10 @@ import type { ModuleManifest } from '../../core/modules/types';
  * Recursos (local) ou no provisionamento da licença (nuvem). Imprimir etiquetas é
  * opt-in: quem nunca usou não ganha um item de menu a mais.
  *
- * Só LÊ o catálogo do módulo commercial (nome, preço, código de barras) para montar a
- * folha — não cria nem altera produto, por isso não registra syncTables.
+ * Lê o catálogo do módulo commercial (nome, preço, código de barras) e, ao imprimir,
+ * preenche o código de barras dos produtos que não têm — gravando o EAN interno no
+ * cadastro para a etiqueta ser escaneável no PDV (ver `ensureBarcode` em labels.ts).
+ * Não cria produto nem registra syncTables: `products` já sincroniza pelo commercial.
  */
 const manifest: ModuleManifest = {
   id: 'labels',
