@@ -18,6 +18,7 @@ import mobileAppRoutes from './routes/mobileApp';
 import quotePublicRoutes from './routes/quotePublic';
 import telemetryRoutes, { startTelemetryRetention } from './routes/telemetry';
 import { purgeExpiredAdminSessions } from './adminAuth';
+import { fmtDateBr, fmtDateTimeBr } from './format';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -28,6 +29,12 @@ export function createCloudServer() {
   app.use(express.static(path.resolve(__dirname, 'public')));
   app.use(express.json({ limit: '8mb' }));
   app.use(express.urlencoded({ extended: true }));
+  // Helpers de data/hora disponíveis em toda view renderizada no servidor (formato BR).
+  app.use((_req, res, next) => {
+    res.locals.fmtDateBr = fmtDateBr;
+    res.locals.fmtDateTimeBr = fmtDateTimeBr;
+    next();
+  });
   app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'kivo-cloud' }));
   app.use('/', landingRoutes);
   app.use('/wiki', wikiRoutes);

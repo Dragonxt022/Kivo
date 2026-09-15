@@ -78,7 +78,7 @@
               <tr>
                 <td><strong><%= d.term %></strong></td>
                 <td class="text-right tabular"><%= d.misses %></td>
-                <td class="cell-muted"><%= d.last_seen_at %></td>
+                <td class="cell-muted"><%= fmtDateTimeBr(d.last_seen_at) %></td>
                 <td class="text-right">
                   <form method="post" action="/admin/catalog/demand/<%= d.id %>/delete" style="display:inline;"
                         onsubmit="return confirm('Remover este termo da lista de demanda?');">
@@ -146,7 +146,7 @@
                   <td x-text="img.product_name"></td>
                   <td style="font-size:0.78rem;color:var(--muted)" x-text="img.origin"></td>
                   <td style="font-size:0.78rem;color:var(--muted)" x-text="img.width + '×' + img.height + 'px · ' + img.sizeLabel + ' · ' + img.format"></td>
-                  <td style="font-size:0.78rem;color:var(--muted)" x-text="img.created_at"></td>
+                  <td style="font-size:0.78rem;color:var(--muted)" x-text="fmtDateTime(img.created_at)"></td>
                   <td class="text-right">
                     <div style="display:flex;gap:4px;justify-content:flex-end;">
                       <a :href="'/admin/catalog/' + img.id + '/image'" download class="btn small secondary" title="Baixar">

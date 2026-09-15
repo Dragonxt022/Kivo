@@ -170,7 +170,7 @@
 
     <dialog x-ref="detailsDlg" class="dialog-fixed" style="width:min(520px,calc(100vw - 2rem))">
       <h1>Detalhes da conta</h1>
-      <div class="dialog-body" x-show="details">
+      <div class="dialog-body" x-show="details.id">
         <p class="muted" style="margin-top:0" x-text="details.description"></p>
         <table style="margin:0">
           <tbody>
@@ -290,7 +290,7 @@
         ...paymentMethodsMixin(),
         ...cashRegisterInlineOpenMixin(),
         rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
-        details: null,
+        details: {},
         catQ: '', catResults: [], catIdx: -1,
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
         settleError: '',
@@ -441,12 +441,12 @@
           this.$refs.detailsDlg.showModal();
         },
         refreshDetails() {
-          if (!this.details) return;
+          if (!this.details?.id) return;
           const fresh = this.rows.find((r) => r.id === this.details.id);
           if (fresh) this.details = { ...fresh };
         },
         async detailsPickFile(files) {
-          if (!files || !files.length || !this.details) return;
+          if (!files || !files.length || !this.details?.id) return;
           const f = files[0];
           if (this.attachmentTooBig(f)) { if (this.$refs.detailsFile) this.$refs.detailsFile.value = ''; return; }
           try {

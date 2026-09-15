@@ -192,7 +192,7 @@
               <div class="dash-activity-dot" style="background: <%= atrasada ? '#dc2626' : '#22c55e' %>"></div>
               <div style="flex:1; min-width:0">
                 <div class="dash-activity-text"><strong><%= ch.company_name || String(ch.company_uuid).slice(0, 8) %></strong> — <%= ch.description %></div>
-                <div class="dash-activity-time">vence <%= String(ch.due_date).slice(0, 10) %></div>
+                <div class="dash-activity-time">vence <%= fmtDateBr(ch.due_date) %></div>
               </div>
               <div style="font-weight:700; white-space:nowrap"><%= brl(Number(ch.amount_cents || 0) / 100) %></div>
             </div>
@@ -485,7 +485,7 @@
                     <strong><%= a.name || a.company_uuid.slice(0, 8) %></strong>
                     sincronizou <strong><%= a.entity_type %></strong>
                   </div>
-                  <div class="dash-activity-time"><%= a.server_received_at %></div>
+                  <div class="dash-activity-time"><%= fmtDateTimeBr(a.server_received_at) %></div>
                 </div>
               </div>
               <% }) %>

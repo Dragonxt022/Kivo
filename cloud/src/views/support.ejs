@@ -48,7 +48,7 @@
             <tbody>
               <template x-for="t in displayRows" :key="t.id">
                 <tr>
-                  <td class="muted" x-text="(t.last_message_at || '').slice(0, 16)"></td>
+                  <td class="muted" x-text="fmtDateTime(t.last_message_at)"></td>
                   <td>
                     <a :href="'/admin/companies/' + t.company_uuid" x-text="t.company_name || t.company_uuid.slice(0, 8) + '…'"></a>
                     <span class="badge pendente" x-show="t.admin_unread > 0" x-text="t.admin_unread + ' nova(s)'" style="margin-left:.4rem"></span>

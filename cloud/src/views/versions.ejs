@@ -77,7 +77,7 @@
                   </td>
                   <td class="cell-muted"><%= d.licensed_version || '—' %></td>
                   <td class="cell-muted" title="<%= d.machine_id %>"><%= String(d.machine_id).slice(0, 16) %>…</td>
-                  <td class="cell-muted"><%= d.last_seen_at %></td>
+                  <td class="cell-muted"><%= fmtDateTimeBr(d.last_seen_at) %></td>
                 </tr>
                 <% }) %>
                 <% if (!devices.length) { %><tr><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma instalação registrada ainda.' }) %></td></tr><% } %>
