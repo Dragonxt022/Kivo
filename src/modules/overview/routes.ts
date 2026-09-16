@@ -1,8 +1,21 @@
 import { Router, type Request } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
+import { getService, hasService } from '../../core/services/registry';
 import { toCsv } from '../../shared/csv';
-import { cashReport, isStockFilter, overviewKpis, stockReport, type CashReportRow, type StockFilter } from './data';
+import type { DreReportsService } from '../dre/setup';
+import type { StoreReportsService } from '../store/setup';
+import {
+  cashReport,
+  cashflowReport,
+  isStockFilter,
+  overviewKpis,
+  salesBreakdown,
+  stockReport,
+  upcomingBills,
+  type CashReportRow,
+  type StockFilter,
+} from './data';
 
 /** API do Painel (montada em /api/overview). Só leitura + exportação. */
 const router = Router();
@@ -10,6 +23,50 @@ const view = requirePermission('overview.view');
 
 router.get('/kpis', view, (_req, res) => {
   res.json(overviewKpis());
+});
+
+// Evolução do faturamento por semana/mês/ano (gráfico de barras). Vem do serviço do
+// módulo store; se ele não estiver disponível, devolve baldes vazios em vez de quebrar.
+router.get('/revenue-trend', view, (req, res) => {
+  const raw = String(req.query.period ?? 'month');
+  const period = raw === 'week' || raw === 'year' ? raw : 'month';
+  if (!hasService('store.reports')) { res.json({ period, buckets: [] }); return; }
+  res.json(getService<StoreReportsService>('store.reports').revenueTrend(period));
+});
+
+// Quebra das vendas do período: totais, formas de pagamento e produtos mais vendidos.
+router.get('/sales', view, (req, res) => {
+  const { from, to } = period(req);
+  res.json(salesBreakdown(from, to));
+});
+
+// Fluxo de caixa (entradas/saídas) por dia no período.
+router.get('/cashflow', view, (req, res) => {
+  const { from, to } = period(req);
+  res.json(cashflowReport(from, to));
+});
+
+// Contas em aberto com vencimento nos próximos 7 dias (inclui vencidas).
+router.get('/upcoming', view, (_req, res) => {
+  res.json(upcomingBills(7));
+});
+
+// Resumo do DRE do período. Gated por `dre.view`: se o módulo DRE não estiver no plano,
+// a permissão não vale e o bloco simplesmente não é exibido no Painel.
+router.get('/dre', requirePermission('dre.view'), (req, res) => {
+  const { from, to } = period(req);
+  if (!hasService('dre.reports')) { res.status(503).json({ error: 'DRE indisponível.' }); return; }
+  const t = getService<DreReportsService>('dre.reports').report(from, to).totals;
+  res.json({
+    from,
+    to,
+    receitaBrutaCents: t.receitaBrutaReal,
+    receitaLiquidaCents: t.receitaLiquidaReal,
+    cmvCents: t.receitaLiquidaReal - t.lucroBrutoReal,
+    lucroBrutoCents: t.lucroBrutoReal,
+    resultadoOperacionalCents: t.resultadoOperacionalReal,
+    resultadoLiquidoCents: t.resultadoLiquidoReal,
+  });
 });
 
 router.get('/stock', view, (req, res) => {

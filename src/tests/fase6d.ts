@@ -165,8 +165,8 @@ async function main(): Promise<void> {
     const companyUuid = uuidMatch![1];
     const licenseKey = keyMatch![1];
 
-    const dashboardBody = await (await api(cloudUrl, '/admin', {}, adminCookie!)).text();
-    check('empresa aparece no dashboard', dashboardBody.includes('Loja Teste 6d'));
+    const companiesBody = await (await api(cloudUrl, '/admin/companies', {}, adminCookie!)).text();
+    check('empresa aparece na lista de empresas', companiesBody.includes('Loja Teste 6d'));
 
     // --- Instalação cliente de verdade: gera atividade real de sync/backup ---
     // Ativa o banco (sem credenciais de licença) antes do boot: o gate

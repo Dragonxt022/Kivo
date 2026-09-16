@@ -17,7 +17,7 @@ const manifest: ModuleManifest = {
   version: '0.1.0',
   requiresCore: '>=0.1.0',
   alwaysEnabled: true,
-  dependsOn: ['commercial', 'finance', 'store'],
+  dependsOn: ['commercial', 'finance', 'store', 'dre'],
   permissions: [
     { key: 'overview.view', description: 'Visualizar o Painel de Controle (KPIs, estoque e caixas) e exportar os relatórios' },
   ],

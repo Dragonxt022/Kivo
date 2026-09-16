@@ -17,12 +17,36 @@ export interface DueInfo {
   dueSoonCents: number;
 }
 
+export interface SalesTotals {
+  count: number;
+  totalCents: number;
+}
+
 export interface OverviewKpis {
   cash: { open: boolean; registerId: number | null; openedAt: string | null; expectedCents: number };
-  salesToday: { count: number; totalCents: number };
+  salesToday: SalesTotals;
+  salesYesterday: SalesTotals;
+  salesMonth: SalesTotals;
+  salesPrevMonth: SalesTotals;
   stock: { lowCount: number; zeroCount: number };
   receivables: DueInfo;
   payables: DueInfo;
+}
+
+function localYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Vendas concluídas no intervalo [from, to] (datas locais YYYY-MM-DD). */
+function salesRange(from: string, to: string): SalesTotals {
+  const row = getSqlite()
+    .prepare(
+      `SELECT COUNT(*) AS count, COALESCE(SUM(total_cents), 0) AS total_cents
+       FROM sales WHERE status = 'concluida' AND deleted_at IS NULL
+         AND date(created_at, 'localtime') BETWEEN ? AND ?`,
+    )
+    .get(from, to) as { count: number; total_cents: number };
+  return { count: row.count, totalCents: row.total_cents };
 }
 
 /** Contas em aberto (status 'aberta') de payables/receivables, com vencidas e a vencer em 7 dias. */
@@ -70,13 +94,13 @@ export function overviewKpis(): OverviewKpis {
     // sem serviço de caixa: mantém o padrão
   }
 
-  const sales = getSqlite()
-    .prepare(
-      `SELECT COUNT(*) AS count, COALESCE(SUM(total_cents), 0) AS total_cents
-       FROM sales WHERE status = 'concluida' AND deleted_at IS NULL
-         AND date(created_at, 'localtime') = date('now', 'localtime')`,
-    )
-    .get() as { count: number; total_cents: number };
+  // Vendas: hoje x ontem (para a tendência) e mês corrente x mês anterior.
+  const now = new Date();
+  const today = localYmd(now);
+  const yesterday = localYmd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  const monthStart = localYmd(new Date(now.getFullYear(), now.getMonth(), 1));
+  const prevMonthStart = localYmd(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const prevMonthEnd = localYmd(new Date(now.getFullYear(), now.getMonth(), 0));
 
   const stock = getSqlite()
     .prepare(
@@ -89,7 +113,10 @@ export function overviewKpis(): OverviewKpis {
 
   return {
     cash,
-    salesToday: { count: sales.count, totalCents: sales.total_cents },
+    salesToday: salesRange(today, today),
+    salesYesterday: salesRange(yesterday, yesterday),
+    salesMonth: salesRange(monthStart, today),
+    salesPrevMonth: salesRange(prevMonthStart, prevMonthEnd),
     stock: { lowCount: stock.low_count ?? 0, zeroCount: stock.zero_count ?? 0 },
     receivables: dueInfo('receivables'),
     payables: dueInfo('payables'),
@@ -160,4 +187,159 @@ export function cashReport(from: string, to: string): CashReportRow[] {
        ORDER BY r.opened_at DESC`,
     )
     .all(from, to) as CashReportRow[];
+}
+
+export interface PaymentRow {
+  method: string;
+  count: number;
+  totalCents: number;
+  feeCents: number;
+}
+
+export interface TopProductRow {
+  name: string;
+  qty: number;
+  totalCents: number;
+}
+
+export interface SalesBreakdown {
+  from: string;
+  to: string;
+  totals: {
+    count: number;
+    totalCents: number;
+    discountCents: number;
+    surchargeCents: number;
+    feeCents: number;
+    ticketCents: number;
+  };
+  byPayment: PaymentRow[];
+  topProducts: TopProductRow[];
+}
+
+/** Vendas concluídas do período, com quebra por forma de pagamento e produtos mais vendidos. */
+export function salesBreakdown(from: string, to: string): SalesBreakdown {
+  const db = getSqlite();
+  const totals = db
+    .prepare(
+      `SELECT COUNT(*) AS count, COALESCE(SUM(total_cents), 0) AS total_cents,
+              COALESCE(SUM(discount_cents), 0) AS discount_cents,
+              COALESCE(SUM(surcharge_cents), 0) AS surcharge_cents
+       FROM sales WHERE status = 'concluida' AND deleted_at IS NULL
+         AND date(created_at, 'localtime') BETWEEN ? AND ?`,
+    )
+    .get(from, to) as { count: number; total_cents: number; discount_cents: number; surcharge_cents: number };
+
+  const fee = db
+    .prepare(
+      `SELECT COALESCE(SUM(p.fee_cents), 0) AS fee_cents
+       FROM sale_payments p JOIN sales s ON s.id = p.sale_id
+       WHERE s.status = 'concluida' AND s.deleted_at IS NULL
+         AND date(s.created_at, 'localtime') BETWEEN ? AND ?`,
+    )
+    .get(from, to) as { fee_cents: number };
+
+  const byPayment = db
+    .prepare(
+      `SELECT p.method_name AS method, COUNT(*) AS count,
+              COALESCE(SUM(p.amount_cents), 0) AS total_cents,
+              COALESCE(SUM(p.fee_cents), 0) AS fee_cents
+       FROM sale_payments p JOIN sales s ON s.id = p.sale_id
+       WHERE s.status = 'concluida' AND s.deleted_at IS NULL
+         AND date(s.created_at, 'localtime') BETWEEN ? AND ?
+       GROUP BY p.method_name ORDER BY total_cents DESC`,
+    )
+    .all(from, to) as { method: string; count: number; total_cents: number; fee_cents: number }[];
+
+  const topProducts = db
+    .prepare(
+      `SELECT i.product_name AS name, SUM(i.qty) AS qty, COALESCE(SUM(i.total_cents), 0) AS total_cents
+       FROM sale_items i JOIN sales s ON s.id = i.sale_id
+       WHERE s.status = 'concluida' AND s.deleted_at IS NULL
+         AND date(s.created_at, 'localtime') BETWEEN ? AND ?
+       GROUP BY i.product_name ORDER BY total_cents DESC LIMIT 10`,
+    )
+    .all(from, to) as { name: string; qty: number; total_cents: number }[];
+
+  return {
+    from,
+    to,
+    totals: {
+      count: totals.count,
+      totalCents: totals.total_cents,
+      discountCents: totals.discount_cents,
+      surchargeCents: totals.surcharge_cents,
+      feeCents: fee.fee_cents,
+      ticketCents: totals.count > 0 ? Math.round(totals.total_cents / totals.count) : 0,
+    },
+    byPayment: byPayment.map((p) => ({ method: p.method, count: p.count, totalCents: p.total_cents, feeCents: p.fee_cents })),
+    topProducts: topProducts.map((p) => ({ name: p.name, qty: p.qty, totalCents: p.total_cents })),
+  };
+}
+
+export interface CashflowDay {
+  day: string;
+  entradas: number;
+  saidas: number;
+  saldo: number;
+}
+
+export interface CashflowReport {
+  from: string;
+  to: string;
+  days: CashflowDay[];
+  totals: { entradas: number; saidas: number; saldo: number };
+}
+
+/** Movimentações de caixa (entradas/saídas) por dia, no intervalo informado. */
+export function cashflowReport(from: string, to: string): CashflowReport {
+  const days = getSqlite()
+    .prepare(
+      `SELECT date(created_at, 'localtime') AS day,
+              COALESCE(SUM(CASE WHEN direction = 'entrada' THEN amount_cents END), 0) AS entradas,
+              COALESCE(SUM(CASE WHEN direction = 'saida' THEN amount_cents END), 0) AS saidas
+       FROM cash_movements WHERE date(created_at, 'localtime') BETWEEN ? AND ?
+       GROUP BY date(created_at, 'localtime') ORDER BY day`,
+    )
+    .all(from, to) as { day: string; entradas: number; saidas: number }[];
+
+  const totals = days.reduce(
+    (acc, d) => ({ entradas: acc.entradas + d.entradas, saidas: acc.saidas + d.saidas }),
+    { entradas: 0, saidas: 0 },
+  );
+  return {
+    from,
+    to,
+    days: days.map((d) => ({ ...d, saldo: d.entradas - d.saidas })),
+    totals: { ...totals, saldo: totals.entradas - totals.saidas },
+  };
+}
+
+export interface BillRow {
+  id: number;
+  description: string;
+  amount_cents: number;
+  due_date: string;
+}
+
+export interface UpcomingBills {
+  payables: BillRow[];
+  receivables: BillRow[];
+}
+
+/** Contas em aberto com vencimento até `windowDays` dias (inclui as já vencidas). */
+export function upcomingBills(windowDays = 7): UpcomingBills {
+  const limit = new Date();
+  limit.setDate(limit.getDate() + windowDays);
+  const limitStr = localYmd(limit);
+  const db = getSqlite();
+  const query = (table: 'payables' | 'receivables'): BillRow[] =>
+    db
+      .prepare(
+        `SELECT id, description, amount_cents, due_date FROM ${table}
+         WHERE status = 'aberta' AND deleted_at IS NULL AND due_date <= ?
+         ORDER BY due_date LIMIT 20`,
+      )
+      .all(limitStr) as BillRow[];
+  return { payables: query('payables'), receivables: query('receivables') };
 }
