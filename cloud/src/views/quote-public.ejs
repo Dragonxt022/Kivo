@@ -3,7 +3,7 @@
   var itens = q.quote_items || [];
   var subtotal = q.subtotal_cents != null ? q.subtotal_cents : q.total_cents;
   var acrescimo = q.surcharge_cents || 0;
-  var hoje = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  var hoje = new Date().toLocaleDateString('en-CA');
   var venceu = q.valid_until && q.valid_until < hoje;
   var dataBR = function (iso) {
     if (!iso) return '';

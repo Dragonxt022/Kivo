@@ -131,6 +131,17 @@ async function main(): Promise<void> {
     const p1Row = db.prepare('SELECT barcode FROM products WHERE id = ?').get(p1) as { barcode: string | null };
     check('código de fábrica não foi alterado', p1Row?.barcode === ean, String(p1Row?.barcode));
 
+    // O código salvo tem de aparecer na tela de Produtos (é de lá que o "editar produto" lê).
+    const list = await jsonData<{ id: number; barcode: string | null }[]>(await api('/api/commercial/products?includeParents=true'));
+    check('editar produto vê o código salvo', list.find((p) => p.id === p2)?.barcode === generateInternalBarcode(p2));
+
+    // Histórico de impressões (com resumo por produto para reimpressão).
+    const hist = await jsonData<{ totalLabels: number; sheetName: string; summary: { id: number; qty: number }[] }[]>(
+      await api('/api/labels/history'),
+    );
+    check('histórico registra a impressão', hist.length >= 1 && hist[0].totalLabels === 3, `${hist.length} registro(s)`);
+    check('histórico tem resumo por produto', (hist[0].summary || []).length === 2 && hist[0].summary.some((s) => s.id === p2 && s.qty === 1));
+
     // Modelo custom: cria, edita e exclui.
     const createRes = await api('/api/labels/sheets', {
       method: 'POST',

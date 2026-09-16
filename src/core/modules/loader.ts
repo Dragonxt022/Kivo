@@ -138,7 +138,12 @@ function registerPermissions(m: ModuleManifest): void {
  * `filterModuleMenu`), não travado no que valia no boot. */
 export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
   return modules.flatMap((m) =>
-    (m.manifest.menu ?? []).map((item) => ({ ...item, moduleId: m.manifest.id, moduleName: m.manifest.name })),
+    (m.manifest.menu ?? []).map((item) => ({
+      ...item,
+      moduleId: m.manifest.id,
+      moduleName: m.manifest.name,
+      alwaysEnabled: m.manifest.alwaysEnabled,
+    })),
   );
 }
 
@@ -154,7 +159,7 @@ export function filterModuleMenu(req: Request, res: Response, next: NextFunction
   const all = (req.app.locals.moduleMenu ?? []) as ModuleMenuItem[];
   res.locals.moduleMenu = all.filter(
     (item) =>
-      (!item.moduleId || isModuleEntitled(item.moduleId)) &&
+      (item.alwaysEnabled || !item.moduleId || isModuleEntitled(item.moduleId)) &&
       (!item.capability || hasCapability(item.capability)),
   );
   next();
@@ -164,9 +169,9 @@ export function filterModuleMenu(req: Request, res: Response, next: NextFunction
  * Bloqueia acesso a um módulo fora do plano contratado — checado a cada requisição
  * (não só no boot), então mudar de plano faz efeito imediato para quem estiver online.
  */
-function requireModuleEntitlement(moduleId: string, kind: 'api' | 'page') {
+function requireModuleEntitlement(moduleId: string, kind: 'api' | 'page', alwaysEnabled = false) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (isModuleEntitled(moduleId)) {
+    if (alwaysEnabled || isModuleEntitled(moduleId)) {
       next();
       return;
     }
@@ -249,11 +254,12 @@ export async function loadModules(app: Express): Promise<LoadedModule[]> {
       }
     }
 
+    const always = !!manifest.alwaysEnabled;
     const router = manifest.routes ? await importRouter(dir, manifest.routes) : undefined;
-    if (router) app.use(`/api/${manifest.id}`, requireModuleEntitlement(manifest.id, 'api'), router);
+    if (router) app.use(`/api/${manifest.id}`, requireModuleEntitlement(manifest.id, 'api', always), router);
 
     const pagesRouter = manifest.pages ? await importRouter(dir, manifest.pages) : undefined;
-    if (pagesRouter) app.use(`/app/${manifest.id}`, requireModuleEntitlement(manifest.id, 'page'), pagesRouter);
+    if (pagesRouter) app.use(`/app/${manifest.id}`, requireModuleEntitlement(manifest.id, 'page', always), pagesRouter);
 
     const viewsDir = manifest.views ? path.join(dir, manifest.views) : undefined;
 

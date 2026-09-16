@@ -11,6 +11,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ff8000">
   <%- include('theme-init') %>
+  <script>
+    // Grava o fuso do DISPOSITIVO num cookie: o servidor da nuvem não sabe onde o lojista
+    // está, então as telas que calculam "hoje" (vencidos, validade) usam este valor.
+    (function () {
+      try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz && document.cookie.indexOf('kivo_tz=') === -1) {
+          document.cookie = 'kivo_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; SameSite=Lax';
+        }
+      } catch (e) {}
+    })();
+  </script>
   <title><%= titulo %> — Kivo</title>
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%# Instalável na tela inicial: o manifest deixa o painel abrir em tela cheia, sem a

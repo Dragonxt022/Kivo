@@ -7,6 +7,7 @@ import path from 'node:path';
 import { assertAuth } from '../shared/auth';
 import { responseEnvelope } from '../shared/responseEnvelope';
 import { formatBRL } from '../shared/money';
+import { appTimezone } from '../shared/datetime';
 import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
@@ -217,6 +218,10 @@ export async function createServer(): Promise<KivoServer> {
   // enquanto o resto do sistema imprimia "R$ 1.234,56". Passa a existir uma implementação
   // só, a `formatBRL` de shared/money, que já é coberta por testes.
   app.locals.brl = (cents: number | null | undefined) => formatBRL(cents ?? 0);
+
+  // Fuso da máquina (de quem está usando), para as views de impressão formatarem data/hora
+  // no lugar certo — ver shared/datetime.ts.
+  app.locals.appTimezone = appTimezone();
 
   // Logging de requisições HTTP
   app.use(morgan('dev'));

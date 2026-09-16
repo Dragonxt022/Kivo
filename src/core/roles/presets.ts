@@ -42,6 +42,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     description: 'Toca o dia a dia da loja inteira: vendas, estoque, compras, financeiro e relatórios. Não mexe em licença nem restaura backup.',
     icon: 'user-cog',
     permissions: [
+      'overview.view',
       'users.view', 'users.create', 'users.edit', 'users.remote.manage', 'roles.view', 'audit.view',
       'settings.view', 'backup.view', 'backup.run', 'sync.run', 'billing.view', 'license.view',
       'commercial.customers.view', 'commercial.customers.create', 'commercial.customers.edit',

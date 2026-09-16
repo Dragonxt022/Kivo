@@ -598,7 +598,7 @@
           Nome livre: identifica a venda, mas não usa pontos nem convênio. Escolha um cliente da lista para isso.
         </p>
 
-        <span class="pay-label">Valor do pagamento</span>
+        <span class="pay-label pay-label--sep">Valor do pagamento</span>
         <div class="pay-value-box">
           <span class="prefix">R$</span>
           <input type="text" x-model="pay.amount" placeholder="0,00"
@@ -606,7 +606,7 @@
                  @keydown.enter.prevent="remaining() === 0 ? finish() : addPayment()" />
         </div>
 
-        <span class="pay-label">Forma de pagamento</span>
+        <span class="pay-label pay-label--sep">Forma de pagamento</span>
         <div class="pay-method-row">
           <%# Mesma regra dos botões: sem cliente vinculado (ou sem saldo), a opção fica
               desabilitada em vez de ser oferecida e falhar no servidor ao confirmar. %>

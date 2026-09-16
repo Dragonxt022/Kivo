@@ -31,7 +31,7 @@
         var vencidas = Number(summary.overdue_cents || 0);
         var recebidoMes = Number(summary.paid_month_cents || 0);
         var descontoMes = Number(summary.discount_month_cents || 0);
-        var hoje = new Date().toISOString().slice(0, 10);
+        var hoje = new Date().toLocaleDateString('en-CA');
         function ehVencida(ch) { return ch.status === 'pendente' && String(ch.due_date).slice(0, 10) < hoje; }
         function statusBadge(ch) {
           if (ch.status === 'paga') return { cls: 'paga', label: 'Paga' };

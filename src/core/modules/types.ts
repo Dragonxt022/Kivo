@@ -13,6 +13,8 @@ export interface ModuleMenuItem {
   icon?: string;
   /** Preenchido por collectMenu() — usado para filtrar o menu por entitlement a cada requisição. */
   moduleId?: string;
+  /** Módulo de sistema: aparece mesmo fora do plano (ver `alwaysEnabled` no manifesto). */
+  alwaysEnabled?: boolean;
   /** Nome do módulo dono (manifest.name), ex.: 'Comercial (cadastros e estoque)' —
    * usado para agrupar o menu por seção na sidebar persistente. */
   moduleName?: string;
@@ -44,6 +46,9 @@ export interface ModuleManifest {
   menu?: ModuleMenuItem[];
   /** Módulos dos quais este depende (devem carregar/setup antes deste). */
   dependsOn?: string[];
+  /** Módulo de SISTEMA: ignora o entitlement do plano e fica sempre acessível (ex.: o
+   *  Painel). Continua respeitando permissão (`permissions`) e capability, se houver. */
+  alwaysEnabled?: boolean;
   /** Tabelas sincronizáveis deste módulo (motor de sync da Fase 6a, KIVO_PLANO.md §6). */
   syncTables?: SyncTableSpec[];
 }

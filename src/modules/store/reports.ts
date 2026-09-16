@@ -100,9 +100,9 @@ export function revenueTrend(period: RevenueTrendPeriod): RevenueTrendReport {
   const from = buckets[0].from;
   const to = buckets[buckets.length - 1].to;
   const rows = saleRepository.raw(
-    `SELECT date(created_at) AS day, COALESCE(SUM(total_cents), 0) AS total_cents
-     FROM sales WHERE status = 'concluida' AND deleted_at IS NULL AND date(created_at) BETWEEN ? AND ?
-     GROUP BY date(created_at)`,
+    `SELECT date(created_at, 'localtime') AS day, COALESCE(SUM(total_cents), 0) AS total_cents
+     FROM sales WHERE status = 'concluida' AND deleted_at IS NULL AND date(created_at, 'localtime') BETWEEN ? AND ?
+     GROUP BY date(created_at, 'localtime')`,
     from, to,
   ) as { day: string; total_cents: number }[];
 

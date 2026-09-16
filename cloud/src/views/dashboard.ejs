@@ -172,7 +172,7 @@
 
         <%
           var billingData = billing || {};
-          var hojeIso = new Date().toISOString().slice(0, 10);
+          var hojeIso = new Date().toLocaleDateString('en-CA');
         %>
         <div class="card" style="margin-bottom: 24px;">
           <div class="viz-head">

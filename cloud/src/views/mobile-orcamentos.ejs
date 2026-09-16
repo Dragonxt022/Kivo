@@ -1,7 +1,7 @@
 <%- include('partials/mobile-head', { titulo: 'Orçamentos', grant, fresh }) %>
 
 <%
-  var hoje = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  var hoje = new Date().toLocaleDateString('en-CA');
   var abertos = quotes.filter(function (q) { return q.payload.status === 'aberto'; });
   var somaAbertos = abertos.reduce(function (s, q) { return s + (q.payload.total_cents || 0); }, 0);
   var dataBR = function (iso) { return iso ? iso.slice(0, 10).split('-').reverse().join('/') : ''; };

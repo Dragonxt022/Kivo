@@ -1,9 +1,16 @@
 /**
  * Datas/horas no banco são sempre UTC (datetime('now') do SQLite) — necessário pra
- * sincronização entre máquinas em fusos diferentes. Aqui só a EXIBIÇÃO converte pro
- * fuso da loja (Porto Velho/Amazonas, sem horário de verão desde 2019).
+ * sincronização entre máquinas. A EXIBIÇÃO usa o fuso da MÁQUINA (de quem está usando):
+ * o Kivo roda no computador da loja, então o fuso do navegador é o do usuário. Espelhado
+ * em `shared/datetime.ts` do lado servidor.
  */
-const KIVO_TIMEZONE = 'America/Porto_Velho';
+const KIVO_TIMEZONE = (function () {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Porto_Velho';
+  } catch (_e) {
+    return 'America/Porto_Velho';
+  }
+})();
 
 /** Timestamp completo (created_at, opened_at, paid_at...) — é um instante, precisa converter fuso. */
 function fmtDateTime(raw) {

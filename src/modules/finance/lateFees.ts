@@ -1,4 +1,5 @@
 import { settingsRepository } from '../../core/repositories/SettingsRepository';
+import { todayLocalIso } from '../../shared/datetime';
 
 export interface LateFeeConfig {
   multaAtiva: boolean;
@@ -35,7 +36,7 @@ export interface LateCharges {
 }
 
 export function computeLateCharges(baseCents: number, dueDate: string): LateCharges {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalIso();
   const dias = Math.floor(
     (new Date(`${today}T00:00:00Z`).getTime() - new Date(`${dueDate}T00:00:00Z`).getTime()) / 86400000,
   );

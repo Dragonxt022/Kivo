@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { getService } from '../../../core/services/registry';
 import { audit } from '../../../core/audit/service';
+import { todayLocalIso } from '../../../shared/datetime';
 import type { FinancePayMethodsService } from '../../finance/setup';
 import { createSale, cancelSale, returnSale, soldLines, returnedQtyByProduct } from '../sales';
 import { createQuote, convertQuote, cancelQuote, updateQuote } from '../quotes';
@@ -33,9 +34,9 @@ function buildSalesWhere(req: Request): { whereSql: string; params: unknown[] } 
   const userId = Number(req.query.userId);
   const q = String(req.query.q ?? '').trim();
 
-  if (day) { where.push('date(s.created_at) = ?'); params.push(day); }
-  if (from) { where.push('date(s.created_at) >= ?'); params.push(from); }
-  if (to) { where.push('date(s.created_at) <= ?'); params.push(to); }
+  if (day) { where.push("date(s.created_at, 'localtime') = ?"); params.push(day); }
+  if (from) { where.push("date(s.created_at, 'localtime') >= ?"); params.push(from); }
+  if (to) { where.push("date(s.created_at, 'localtime') <= ?"); params.push(to); }
   if (status) { where.push('s.status = ?'); params.push(status); }
   if (paymentMethod) { where.push('s.payment_method = ?'); params.push(paymentMethod); }
   if (Number.isInteger(customerId) && customerId > 0) { where.push('s.customer_id = ?'); params.push(customerId); }
@@ -223,12 +224,12 @@ export const storeController = {
   },
 
   dailyReport(req: Request, res: Response) {
-    const day = String(req.query.day ?? new Date().toISOString().slice(0, 10));
+    const day = String(req.query.day ?? todayLocalIso());
     const byPayment = salePaymentRepository.raw(
       `SELECT p.method_name AS payment_method, COUNT(*) AS vendas,
               SUM(p.amount_cents) AS total_cents, SUM(p.fee_cents) AS fee_cents
        FROM sale_payments p JOIN sales s ON s.id = p.sale_id
-       WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at) = ?
+       WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at, 'localtime') = ?
        GROUP BY p.method_name ORDER BY total_cents DESC`,
       day,
     );
@@ -237,14 +238,14 @@ export const storeController = {
               COALESCE(SUM(discount_cents), 0) AS discount_cents,
               COALESCE(SUM(surcharge_cents), 0) AS surcharge_cents,
               COALESCE((SELECT SUM(p.fee_cents) FROM sale_payments p JOIN sales s2 ON s2.id = p.sale_id
-                        WHERE s2.status = 'concluida' AND s2.deleted_at IS NULL AND date(s2.created_at) = ?), 0) AS fee_cents
-       FROM sales WHERE status = 'concluida' AND deleted_at IS NULL AND date(created_at) = ?`,
+                        WHERE s2.status = 'concluida' AND s2.deleted_at IS NULL AND date(s2.created_at, 'localtime') = ?), 0) AS fee_cents
+       FROM sales WHERE status = 'concluida' AND deleted_at IS NULL AND date(created_at, 'localtime') = ?`,
       day, day,
     );
     const topProducts = saleRepository.raw(
       `SELECT i.product_name, SUM(i.qty) AS qty, SUM(i.total_cents) AS total_cents
        FROM sale_items i JOIN sales s ON s.id = i.sale_id
-       WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at) = ?
+       WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at, 'localtime') = ?
        GROUP BY i.product_name ORDER BY total_cents DESC LIMIT 10`,
       day,
     );

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Painel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin-bottom: 1.2rem; }
+    .kpi { background: var(--glass-strong); border: 1px solid var(--glass-border); border-radius: var(--radius);
+      padding: .9rem 1rem; box-shadow: var(--shadow-xs); }
+    .kpi-label { font-size: .78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+    .kpi-value { font-size: 1.35rem; font-weight: 700; margin-top: .2rem; }
+    .kpi-sub { font-size: .8rem; color: var(--text-muted); margin-top: .15rem; }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .seg button { background: transparent; border: 0; padding: .35rem .7rem; cursor: pointer; color: var(--text-muted); font-size: .82rem; }
+    .seg button.active { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
+    .period-row { display: flex; gap: .6rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
+    .period-row .field { margin-bottom: 0; }
+    .period-row input[type='date'] { width: auto; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/overview' }) %>
+  <main x-data="overviewPage()" x-init="load()">
+    <h1>Painel</h1>
+    <p class="hint">Visão geral da operação. Os relatórios abaixo saem em CSV para a planilha.</p>
+
+    <!-- ─── KPIs ─── -->
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Caixa</div>
+        <div class="kpi-value" x-text="kpis.cash.open ? brl(kpis.cash.expectedCents) : 'Fechado'"></div>
+        <div class="kpi-sub" x-text="kpis.cash.open ? 'Aberto ' + fmtDateTime(kpis.cash.openedAt) : 'Nenhum caixa aberto'"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Vendas de hoje</div>
+        <div class="kpi-value" x-text="brl(kpis.salesToday.totalCents)"></div>
+        <div class="kpi-sub" x-text="kpis.salesToday.count + ' venda(s)'"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Estoque</div>
+        <div class="kpi-value" x-text="kpis.stock.lowCount + ' abaixo do mínimo'"></div>
+        <div class="kpi-sub" x-text="kpis.stock.zeroCount + ' zerado(s)'"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">A pagar em aberto</div>
+        <div class="kpi-value" x-text="brl(kpis.payables.openCents)"></div>
+        <div class="kpi-sub" x-text="kpis.payables.overdueCount + ' vencida(s) · ' + kpis.payables.dueSoonCount + ' a vencer (7d)'"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">A receber em aberto</div>
+        <div class="kpi-value" x-text="brl(kpis.receivables.openCents)"></div>
+        <div class="kpi-sub" x-text="kpis.receivables.overdueCount + ' vencida(s) · ' + kpis.receivables.dueSoonCount + ' a vencer (7d)'"></div>
+      </div>
+    </div>
+
+    <!-- ─── Estoque ─── -->
+    <section class="panel">
+      <div class="toolbar">
+        <h2 style="margin:0">Estoque</h2>
+        <div class="seg">
+          <button :class="{ active: stock.filter === 'all' }" @click="setStockFilter('all')">Todos</button>
+          <button :class="{ active: stock.filter === 'low' }" @click="setStockFilter('low')">Abaixo do mínimo</button>
+          <button :class="{ active: stock.filter === 'zero' }" @click="setStockFilter('zero')">Zerados</button>
+        </div>
+        <span class="toolbar-spacer"></span>
+        <span class="muted" x-text="stock.rows.length + ' produto(s)'"></span>
+        <a class="btn secondary small" :href="stockExportUrl" download>Exportar CSV</a>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Código</th>
+              <th class="num">Estoque</th>
+              <th class="num">Mínimo</th>
+              <th class="num">Custo</th>
+              <th class="num">Preço</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="p in stock.rows" :key="p.id">
+              <tr>
+                <td x-text="p.name"></td>
+                <td class="muted text-xs" x-text="p.barcode || p.sku || '—'"></td>
+                <td class="num" :class="{ 'text-danger': p.stock_qty <= 0 }" x-text="fmtQty(p.stock_qty)"></td>
+                <td class="num muted" x-text="fmtQty(p.min_stock)"></td>
+                <td class="num" x-text="brl(p.cost_cents)"></td>
+                <td class="num" x-text="brl(p.price_cents)"></td>
+              </tr>
+            </template>
+            <tr x-show="!stock.rows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum produto neste filtro.' }) %></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── Caixas ─── -->
+    <section class="panel">
+      <div class="toolbar">
+        <h2 style="margin:0">Caixas</h2>
+        <span class="toolbar-spacer"></span>
+        <span class="muted" x-text="cash.totals.count + ' caixa(s)'"></span>
+        <a class="btn secondary small" :href="cashExportUrl" download>Exportar CSV</a>
+      </div>
+
+      <div class="period-row">
+        <div class="field"><label>De</label><input type="date" class="input" x-model="cash.from" /></div>
+        <div class="field"><label>Até</label><input type="date" class="input" x-model="cash.to" /></div>
+        <button class="btn secondary" @click="loadCash()">Aplicar período</button>
+      </div>
+
+      <p class="hint" x-text="cashSummary"></p>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Caixa</th>
+              <th>Aberto em</th>
+              <th>Fechado em</th>
+              <th>Situação</th>
+              <th class="num">Abertura</th>
+              <th class="num">Entradas</th>
+              <th class="num">Saídas</th>
+              <th class="num">Esperado</th>
+              <th class="num">Contado</th>
+              <th class="num">Diferença</th>
+              <th class="num">Vendas</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="r in cash.rows" :key="r.id">
+              <tr>
+                <td x-text="'#' + r.id"></td>
+                <td x-text="fmtDateTime(r.opened_at)"></td>
+                <td x-text="r.closed_at ? fmtDateTime(r.closed_at) : '—'"></td>
+                <td><span class="badge" :class="r.status === 'aberto' ? 'paga' : 'neutral'" x-text="r.status"></span></td>
+                <td class="num" x-text="brl(r.opening_cents)"></td>
+                <td class="num" x-text="brl(r.entradas)"></td>
+                <td class="num" x-text="brl(r.saidas)"></td>
+                <td class="num" x-text="r.expected_cents != null ? brl(r.expected_cents) : '—'"></td>
+                <td class="num" x-text="r.counted_cents != null ? brl(r.counted_cents) : '—'"></td>
+                <td class="num" :class="{ 'text-danger': (r.difference_cents || 0) !== 0 }" x-text="r.difference_cents != null ? brl(r.difference_cents) : '—'"></td>
+                <td class="num" x-text="r.vendas + ' · ' + brl(r.vendas_cents)"></td>
+              </tr>
+            </template>
+            <tr x-show="!cash.rows.length"><td colspan="11"><%- include('partials/empty-state', { message: 'Nenhum caixa no período selecionado.' }) %></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function overviewPage() {
+      return {
+        kpis: {
+          cash: { open: false, expectedCents: 0, openedAt: null },
+          salesToday: { count: 0, totalCents: 0 },
+          stock: { lowCount: 0, zeroCount: 0 },
+          receivables: { openCount: 0, openCents: 0, overdueCount: 0, dueSoonCount: 0 },
+          payables: { openCount: 0, openCents: 0, overdueCount: 0, dueSoonCount: 0 },
+        },
+        stock: { filter: 'low', rows: [] },
+        cash: { from: '', to: '', rows: [], totals: { count: 0, entradas: 0, saidas: 0, vendas: 0, vendasCents: 0, differenceCents: 0 } },
+
+        async load() {
+          await Promise.all([this.loadKpis(), this.loadStock(), this.loadCash()]);
+        },
+        async loadKpis() {
+          const r = await fetch('/api/overview/kpis');
+          if (r.ok) this.kpis = await r.json();
+        },
+        async loadStock() {
+          const r = await fetch('/api/overview/stock?filter=' + encodeURIComponent(this.stock.filter));
+          if (r.ok) { const d = await r.json(); this.stock.filter = d.filter; this.stock.rows = d.rows; }
+        },
+        async loadCash() {
+          const q = new URLSearchParams();
+          if (this.cash.from) q.set('from', this.cash.from);
+          if (this.cash.to) q.set('to', this.cash.to);
+          const r = await fetch('/api/overview/cash?' + q.toString());
+          if (r.ok) { const d = await r.json(); this.cash.from = d.from; this.cash.to = d.to; this.cash.rows = d.rows; this.cash.totals = d.totals; }
+        },
+        setStockFilter(f) { this.stock.filter = f; this.loadStock(); },
+        get stockExportUrl() { return '/api/overview/stock/export.csv?filter=' + encodeURIComponent(this.stock.filter); },
+        get cashExportUrl() {
+          const q = new URLSearchParams();
+          if (this.cash.from) q.set('from', this.cash.from);
+          if (this.cash.to) q.set('to', this.cash.to);
+          return '/api/overview/cash/export.csv?' + q.toString();
+        },
+        get cashSummary() {
+          const t = this.cash.totals;
+          return t.count + ' caixa(s) · entradas ' + brl(t.entradas) + ' · saídas ' + brl(t.saidas)
+            + ' · vendas ' + t.vendas + ' (' + brl(t.vendasCents) + ') · diferença ' + brl(t.differenceCents);
+        },
+        fmtQty(n) { return String(n ?? 0).replace('.', ','); },
+      };
+    }
+  </script>
+</body>
+</html>

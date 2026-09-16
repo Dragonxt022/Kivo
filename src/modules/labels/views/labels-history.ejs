@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Histórico de Etiquetas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .hist-items { display: flex; flex-direction: column; gap: .3rem; padding: .4rem 0 .2rem; }
+    .hist-item { display: flex; align-items: center; gap: .6rem; }
+    .hist-item .code { font-family: var(--font-mono, monospace); }
+    .hist-item .badge { margin-left: auto; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/labels/historico' }) %>
+  <main x-data="labelsHistory()" x-init="load()">
+    <h1>Histórico de etiquetas</h1>
+    <p class="hint">Folhas geradas, com quem imprimiu e quando. Dá para reimprimir exatamente a mesma folha.</p>
+
+    <div class="toolbar">
+      <input type="text" class="input-search" placeholder="Buscar por modelo, usuário, código…" x-model="q" style="min-width:280px" />
+      <span class="toolbar-spacer"></span>
+      <span class="muted" x-text="filtered.length + ' impressão(ões)'"></span>
+      <button class="btn secondary small" @click="load()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        Atualizar
+      </button>
+    </div>
+
+    <div class="panel" style="padding:0">
+      <table>
+        <thead>
+          <tr>
+            <th>Quando</th>
+            <th>Usuário</th>
+            <th>Modelo de folha</th>
+            <th>Código</th>
+            <th class="text-right">Etiquetas</th>
+            <th class="text-right">Folhas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="j in filtered" :key="j.id">
+            <tr>
+              <td x-text="fmtDateTime(j.createdAt)"></td>
+              <td x-text="j.userName || '—'"></td>
+              <td x-text="j.sheetName"></td>
+              <td><span class="badge" x-text="symbologyLabel(j.symbology)"></span></td>
+              <td class="text-right" x-text="j.totalLabels"></td>
+              <td class="text-right" x-text="j.pages"></td>
+              <td class="text-right" style="white-space:nowrap">
+                <button class="btn small secondary" @click="toggle(j)" x-text="isOpen(j) ? 'Ocultar' : 'Detalhes'"></button>
+                <button class="btn small" @click="reprint(j)" :disabled="!j.payload">Reimprimir</button>
+              </td>
+            </tr>
+            <tr x-show="isOpen(j)">
+              <td colspan="7" style="background:var(--surface-hover)">
+                <div class="hist-items">
+                  <template x-for="it in (j.summary || [])" :key="it.id">
+                    <div class="hist-item">
+                      <span x-text="it.name"></span>
+                      <span class="muted text-xs code" x-text="it.code"></span>
+                      <span class="badge" x-text="'×' + it.qty"></span>
+                    </div>
+                  </template>
+                  <p class="muted text-xs" x-show="!(j.summary || []).length">Sem detalhes desta impressão.</p>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!filtered.length">
+            <td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma impressão registrada ainda.' }) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <form x-ref="printForm" method="post" action="/app/labels/imprimir" target="_blank" style="display:none">
+      <input type="hidden" name="payload" x-ref="payload" />
+    </form>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function labelsHistory() {
+      return {
+        rows: [], q: '', expanded: new Set(),
+
+        async load() {
+          const r = await fetch('/api/labels/history?limit=100');
+          this.rows = r.ok ? await r.json() : [];
+        },
+        get filtered() {
+          const q = this.q.trim().toLowerCase();
+          if (!q) return this.rows;
+          return this.rows.filter((j) =>
+            [j.sheetName, j.userName, j.symbology, ...(j.summary || []).map((i) => i.name + ' ' + i.code)]
+              .some((v) => String(v ?? '').toLowerCase().includes(q)),
+          );
+        },
+        isOpen(j) { return this.expanded.has(j.id); },
+        toggle(j) {
+          const s = new Set(this.expanded);
+          if (s.has(j.id)) s.delete(j.id); else s.add(j.id);
+          this.expanded = s;
+        },
+        symbologyLabel(s) {
+          return { ean13: 'EAN-13', code128: 'Code128', qrcode: 'QR Code', none: 'Sem código' }[s] || s;
+        },
+        reprint(j) {
+          if (!j.payload) { window.showToast('Esta impressão não tem os dados para reimprimir.', 'error'); return; }
+          this.$refs.payload.value = JSON.stringify(j.payload);
+          this.$refs.printForm.submit();
+        },
+      };
+    }
+  </script>
+</body>
+</html>

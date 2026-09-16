@@ -153,7 +153,7 @@ router.get('/customers/:id/summary', requirePermission('commercial.customers.vie
   );
   const overdueReceivables = customerRepository.rawOne(
     `SELECT COUNT(*) AS count, COALESCE(SUM(amount_cents), 0) AS total_cents
-       FROM receivables WHERE customer_id = ? AND deleted_at IS NULL AND status = 'aberta' AND due_date < date('now')`,
+       FROM receivables WHERE customer_id = ? AND deleted_at IS NULL AND status = 'aberta' AND due_date < date('now', 'localtime')`,
     id,
   );
   const monthly = customerRepository.raw(

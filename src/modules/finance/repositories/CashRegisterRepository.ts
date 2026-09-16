@@ -92,12 +92,12 @@ export class CashMovementRepository extends BaseRepository {
 
   cashflow(from: string, to: string): Row[] {
     return this.raw(
-      `SELECT date(created_at) AS day,
+      `SELECT date(created_at, 'localtime') AS day,
               COALESCE(SUM(CASE WHEN direction = 'entrada' THEN amount_cents END), 0) AS entradas,
               COALESCE(SUM(CASE WHEN direction = 'saida' THEN amount_cents END), 0) AS saidas
        FROM cash_movements
-       WHERE date(created_at) BETWEEN ? AND ?
-       GROUP BY date(created_at) ORDER BY day`,
+       WHERE date(created_at, 'localtime') BETWEEN ? AND ?
+       GROUP BY date(created_at, 'localtime') ORDER BY day`,
       from, to,
     );
   }

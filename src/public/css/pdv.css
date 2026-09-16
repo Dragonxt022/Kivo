@@ -969,8 +969,8 @@ body:has(.pdv) {
 dialog.pay-modal[open] {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  width: 780px;
+  gap: 1.75rem;
+  width: 880px;
   max-width: 96vw;
 }
 /* Coluna em flex para o "Voltar" cair no rodapé com margin-top:auto, em vez de
@@ -999,6 +999,13 @@ dialog.pay-modal[open] {
   color: var(--text-muted);
   display: block;
   margin: 0 0 0.4rem;
+}
+/* Divisor entre os blocos do modal (Valor / Forma de pagamento): dá a leitura em etapas
+   que faltava — sem ele os campos todos pareciam um bloco só. */
+.pay-label--sep {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
 }
 /* O mesmo campo de cliente do carrinho, repetido dentro do modal de pagamento — lá ele é
    estreito ao lado do título "Carrinho"; aqui ocupa a coluna inteira. */
@@ -1236,7 +1243,7 @@ dialog.pay-modal[open] {
   background: var(--surface-hover);
   border: 1.5px solid var(--border-light);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem;
+  padding: 1.15rem 1.25rem;
 }
 .pay-summary-card .title {
   font-size: 0.72rem;

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
+import { localIso } from '../../../shared/datetime';
 import { openRegister, closeRegister, currentRegister, expectedCents, addMovement, editClosedRegister } from '../cash';
 import { pendingTotal, generateInvoice } from '../agreements';
 import { paymentMethodRepository } from '../repositories/PaymentMethodRepository';
@@ -171,7 +172,7 @@ export const financeController = {
     const WINDOW_DAYS = 3;
     const limit = new Date();
     limit.setDate(limit.getDate() + WINDOW_DAYS);
-    const limitStr = limit.toISOString().slice(0, 10);
+    const limitStr = localIso(limit);
     const payables = canPayables ? payableRepository.raw(
       `SELECT id, description, amount_cents, due_date FROM payables
        WHERE status = 'aberta' AND deleted_at IS NULL AND due_date <= ? ORDER BY due_date LIMIT 20`,
