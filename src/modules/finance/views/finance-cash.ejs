@@ -9,6 +9,37 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <style>
+    /* ─── Modal de fechamento de caixa ─── */
+    .cash-close-dlg { width: min(560px, 96vw); }
+    .cc-head { display: flex; gap: .75rem; align-items: flex-start; padding: 1.25rem 1.5rem .35rem; }
+    .cc-head-icon { flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+      background: var(--primary-bg); color: var(--primary); }
+    .cc-head-text h1 { font-size: 1.15rem; margin: 0 0 .15rem; }
+    .cc-head-text p { margin: 0; font-size: .82rem; }
+    .cc-expected { display: flex; justify-content: space-between; align-items: center; gap: .75rem;
+      background: var(--surface-hover); border: 1px solid var(--border-light); border-radius: 10px;
+      padding: .7rem .95rem; margin-bottom: 1rem; }
+    .cc-expected-label { font-size: .82rem; color: var(--text-muted); }
+    .cc-expected-value { font-size: 1.4rem; font-weight: 800; letter-spacing: -.01em; }
+    .cc-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 1rem; }
+    .cc-seg button { background: transparent; border: 0; padding: .45rem .9rem; cursor: pointer; color: var(--text-muted);
+      font-size: .85rem; font-family: inherit; }
+    .cc-seg button.active { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
+    .cc-denom-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .45rem 1rem; margin-bottom: 1rem; }
+    .cc-denom { display: flex; align-items: center; gap: .5rem; }
+    .cc-denom-label { flex: 1; font-size: .85rem; }
+    .cc-denom input { width: 72px; }
+    .cc-denom-sub { width: 76px; text-align: right; font-size: .78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .cc-diff { display: flex; justify-content: space-between; align-items: center; gap: .75rem;
+      border: 1px solid var(--border-light); border-radius: 10px; padding: .7rem .95rem; margin-bottom: 1rem; font-weight: 600; }
+    .cc-diff.zero { background: var(--success-bg); color: var(--success-text); border-color: transparent; }
+    .cc-diff.pos { background: var(--primary-bg); color: var(--primary); border-color: transparent; }
+    .cc-diff.neg { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
+    .cc-diff-label { font-size: .82rem; }
+    .cc-diff-value { font-size: 1.1rem; font-weight: 800; }
+    @media (max-width: 520px) { .cc-denom-grid { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/finance/caixa' }) %>
@@ -105,14 +136,27 @@
       </div>
     </dialog>
 
-    <dialog x-ref="close" class="dialog-fixed">
-      <h1>Fechar caixa</h1>
-      <div class="dialog-body">
-        <p class="muted">Esperado: <strong x-text="brl(expected)"></strong></p>
+    <dialog x-ref="close" class="dialog-fixed cash-close-dlg">
+      <div class="cc-head">
+        <div class="cc-head-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="22" height="14" rx="2"/><path d="M1 10h22"/><circle cx="12" cy="14" r="2"/></svg>
+        </div>
+        <div class="cc-head-text">
+          <h1>Fechar caixa</h1>
+          <p class="muted">Confira o valor na gaveta antes de fechar a sessão.</p>
+        </div>
+      </div>
 
-        <label class="label-checkbox-sm" style="margin:.6rem 0">
-          <input type="checkbox" x-model="countMode" @change="counts = {}" /> Contar notas e moedas
-        </label>
+      <div class="dialog-body">
+        <div class="cc-expected">
+          <span class="cc-expected-label">Esperado na gaveta</span>
+          <span class="cc-expected-value" x-text="brl(expected)"></span>
+        </div>
+
+        <div class="cc-seg" role="group" aria-label="Como informar o valor contado">
+          <button type="button" :class="{ active: !countMode }" @click="countMode = false; counts = {}">Digitar total</button>
+          <button type="button" :class="{ active: countMode }" @click="countMode = true; counts = {}">Contar notas e moedas</button>
+        </div>
 
         <template x-if="!countMode">
           <div>
@@ -122,24 +166,24 @@
         </template>
 
         <template x-if="countMode">
-          <div>
-            <table>
-              <thead><tr><th>Denominação</th><th style="width:80px">Qtd.</th><th class="text-right">Subtotal</th></tr></thead>
-              <tbody>
-                <template x-for="d in denominations" :key="d.cents">
-                  <tr>
-                    <td x-text="d.label"></td>
-                    <td><input type="number" min="0" step="1" x-model.number="counts[d.cents]" style="width:70px" /></td>
-                    <td class="muted text-right" x-text="brl((counts[d.cents] || 0) * d.cents)"></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-            <p class="text-right" style="margin-top:.5rem">Total contado: <strong x-text="brl(countTotal)"></strong></p>
+          <div class="cc-denom-grid">
+            <template x-for="d in denominations" :key="d.cents">
+              <div class="cc-denom">
+                <span class="cc-denom-label" x-text="d.label"></span>
+                <input type="number" min="0" step="1" inputmode="numeric" x-model.number="counts[d.cents]" aria-label="Quantidade" />
+                <span class="cc-denom-sub" x-text="brl((counts[d.cents] || 0) * d.cents)"></span>
+              </div>
+            </template>
           </div>
         </template>
 
-        <label>Observações</label><input type="text" x-model="closeNotes" />
+        <div class="cc-diff" :class="closeDifference === 0 ? 'zero' : (closeDifference < 0 ? 'neg' : 'pos')">
+          <span class="cc-diff-label">Diferença (contado − esperado)</span>
+          <strong class="cc-diff-value" x-text="(closeDifference > 0 ? '+' : '') + brl(closeDifference)"></strong>
+        </div>
+
+        <label>Observações (opcional)</label>
+        <input type="text" x-model="closeNotes" placeholder="Ex.: quebra de troco, sangria não lançada…" />
         <div class="error" x-text="closeError"></div>
       </div>
       <div class="actions">
@@ -149,7 +193,7 @@
         </button>
         <button class="btn" @click="closeCash()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          Fechar
+          Confirmar fechamento
         </button>
       </div>
     </dialog>
@@ -290,6 +334,8 @@
         get countTotal() {
           return this.denominations.reduce((sum, d) => sum + (Number(this.counts[d.cents]) || 0) * d.cents, 0);
         },
+        get closeCountedCents() { return this.countMode ? this.countTotal : this.cents(this.counted); },
+        get closeDifference() { return this.closeCountedCents - this.expected; },
         brl(c) { return window.brl(c); },
         printReport(id) { if (id) window.open(`/app/finance/caixa/${id}/relatorio`, '_blank', 'width=800,height=900'); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },

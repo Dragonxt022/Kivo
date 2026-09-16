@@ -58,19 +58,19 @@ export function demonstrativoResultado(from: string, to: string): DreReport {
 
   const salesRevenueReal = (db.prepare(
     `SELECT COALESCE(SUM(total_cents), 0) AS v FROM sales
-     WHERE status = 'concluida' AND deleted_at IS NULL AND date(created_at) BETWEEN ? AND ?`,
+     WHERE status = 'concluida' AND deleted_at IS NULL AND date(created_at, 'localtime') BETWEEN ? AND ?`,
   ).get(from, to) as { v: number }).v;
 
   const cogsReal = (db.prepare(
     `SELECT COALESCE(SUM(i.qty * i.cost_cents), 0) AS v
      FROM sale_items i JOIN sales s ON s.id = i.sale_id
-     WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at) BETWEEN ? AND ?`,
+     WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at, 'localtime') BETWEEN ? AND ?`,
   ).get(from, to) as { v: number }).v;
 
   const cardFeesReal = (db.prepare(
     `SELECT COALESCE(SUM(sp.fee_cents), 0) AS v
      FROM sale_payments sp JOIN sales s ON s.id = sp.sale_id
-     WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at) BETWEEN ? AND ?`,
+     WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at, 'localtime') BETWEEN ? AND ?`,
   ).get(from, to) as { v: number }).v;
 
   const manualByCategory = new Map<number, number>();

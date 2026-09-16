@@ -6,6 +6,7 @@ import { requireCapability } from '../../core/capabilities/middleware';
 import { validateBody } from '../../shared/validateBody';
 import { audit } from '../../core/audit/service';
 import { labelSheetRepository, type LabelSheetRow } from './repositories/LabelSheetRepository';
+import { labelPrintJobRepository } from './repositories/LabelPrintJobRepository';
 import { labelSheetSchema, updateLabelSheetSchema } from './schemas';
 import { searchProducts } from './labels';
 import { barcodeSvg, isSymbology } from './services/barcode';
@@ -13,6 +14,15 @@ import { barcodeSvg, isSymbology } from './services/barcode';
 /** API do módulo labels (montada em /api/labels). Tudo atrás da capability. */
 const router = Router();
 router.use(requireCapability('labels.generator'));
+
+/** JSON guardado em coluna TEXT pode estar corrompido; a lista não pode quebrar por isso. */
+function safeParse(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
 
 router.get('/sheets', requirePermission('labels.generate'), (_req, res) => {
   res.json(labelSheetRepository.listAll());
@@ -54,6 +64,26 @@ router.get('/products', requirePermission('labels.generate'), (req, res) => {
 router.get('/barcode-preview', requirePermission('labels.generate'), (req, res) => {
   const symbology = isSymbology(req.query.symbology) ? req.query.symbology : 'ean13';
   res.json(barcodeSvg(symbology, String(req.query.text ?? '')));
+});
+
+/** Histórico de impressões. Devolve o payload salvo para a tela poder REIMPRIMIR a folha. */
+router.get('/history', requirePermission('labels.generate'), (req, res) => {
+  const limit = Number(req.query.limit);
+  res.json(
+    labelPrintJobRepository.listRecent(Number.isFinite(limit) ? limit : 50).map((r) => ({
+      id: r.id,
+      sheetId: r.sheet_id,
+      sheetName: r.sheet_name,
+      symbology: r.symbology,
+      totalLabels: r.total_labels,
+      pages: r.pages,
+      userName: r.user_name,
+      createdAt: r.created_at,
+      fields: safeParse(r.fields_json),
+      summary: safeParse(r.summary_json ?? ''),
+      payload: safeParse(r.payload_json),
+    })),
+  );
 });
 
 export default router;

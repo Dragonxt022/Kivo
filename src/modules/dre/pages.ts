@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getSqlite } from '../../core/database/connection';
 import { assertAuth } from '../../shared/auth';
+import { appTimezone } from '../../shared/datetime';
 import { demonstrativoResultado } from './report';
 
 /** Páginas do módulo dre (montadas em /app/dre, já autenticadas). */
@@ -36,7 +37,7 @@ router.get('/relatorio/imprimir', (req, res) => {
   const to = String(req.query.to || '9999-12-31');
   const report = demonstrativoResultado(from, to);
   const generatedAt = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Porto_Velho', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: appTimezone(), day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(new Date());
   res.render('dre-report-print', { report, company: companyInfo(), generatedAt });
 });

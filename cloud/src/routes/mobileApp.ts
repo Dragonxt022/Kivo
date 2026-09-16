@@ -10,6 +10,7 @@ import {
 } from '../mobileData';
 import { calcular, PERIODOS, type Periodo } from '../mobileAnalytics';
 import { createRateLimiter } from '../rateLimit';
+import { clientTimezone, dateInTz } from '../tz';
 
 /**
  * Kivo Web — o app que o lojista abre no celular. Montado em `/m`.
@@ -20,9 +21,9 @@ import { createRateLimiter } from '../rateLimit';
  */
 const router = Router();
 
-/** Hoje no fuso de Porto Velho (America/Porto_Velho), o mesmo usado no relógio do desktop. */
-function hojeISO(): string {
-  return new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+/** Hoje no fuso do DISPOSITIVO (cookie `kivo_tz`), não num fixo. */
+function hojeISO(req: MobileRequest): string {
+  return dateInTz(clientTimezone(req));
 }
 
 function brl(cents: number): string {
@@ -132,7 +133,7 @@ router.use(requireMobileAuth);
 
 router.get('/', async (req: MobileRequest, res) => {
   const company = req.grant!.companyUuid;
-  const hoje = hojeISO();
+  const hoje = hojeISO(req);
   const [sales, registers] = await Promise.all([
     listEntity<SalePayload>(company, 'store.sales', { limit: 500 }),
     listEntity<CashRegisterPayload>(company, 'finance.cash_registers', { limit: 5 }),
@@ -203,7 +204,7 @@ router.get('/financeiro', async (req: MobileRequest, res) => {
       .sort((a, b) => (a.payload.due_date ?? '').localeCompare(b.payload.due_date ?? ''));
   res.render('mobile-financeiro', {
     ...(await baseLocals(req)),
-    hoje: hojeISO(),
+    hoje: hojeISO(req),
     payables: emAberto(payables).slice(0, 50),
     receivables: emAberto(receivables).slice(0, 50),
     podePagar, podeReceber,
@@ -250,7 +251,7 @@ router.get('/clientes', async (req: MobileRequest, res) => {
   if (!req.grant!.permissions.includes('commercial.customers.view')) return res.redirect('/m');
   const company = req.grant!.companyUuid;
   const podeCobranca = req.grant!.permissions.includes('finance.receivables.view');
-  const hoje = hojeISO();
+  const hoje = hojeISO(req);
 
   const [customers, receivables] = await Promise.all([
     listEntity<CustomerPayload>(company, 'commercial.customers', { limit: 5000 }),
@@ -314,7 +315,7 @@ router.get('/clientes/:uuid', async (req: MobileRequest, res) => {
   const podeCobranca = req.grant!.permissions.includes('finance.receivables.view');
   const podeReceber = req.grant!.permissions.includes('finance.receivables.receive');
   const uuid = String(req.params.uuid);
-  const hoje = hojeISO();
+  const hoje = hojeISO(req);
 
   const cliente = await findEntity<CustomerPayload>(company, 'commercial.customers', uuid);
   if (!cliente) return res.redirect('/m/clientes');
@@ -405,7 +406,7 @@ router.get('/orcamentos/novo', async (req: MobileRequest, res) => {
   ]);
   // Validade em 15 dias: é o padrão do comércio e poupa um toque no calendário do
   // celular, que é o campo mais chato de preencher com o dedo.
-  const validade = new Date(Date.now() - 4 * 3600e3 + 15 * 86400e3).toISOString().slice(0, 10);
+  const validade = dateInTz(clientTimezone(req), 15);
   res.render('mobile-orcamento-novo', {
     ...(await baseLocals(req)),
     validadeSugerida: validade,

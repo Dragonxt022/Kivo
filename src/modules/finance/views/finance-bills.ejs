@@ -126,7 +126,7 @@
       <label>Categoria (DRE)</label>
       <div class="combo-wrap" @click.outside="catResults = []">
         <input type="text" placeholder="Buscar categoria…" x-model="catQ"
-               @focus="searchCategories()" @input="searchCategories()"
+               @focus="onCategoryFocus($event)" @input="searchCategories()"
                @keydown.enter.prevent="quickPickCategory()"
                @keydown.down.prevent="catIdx = Math.min(catIdx + 1, catResults.length - 1)"
                @keydown.up.prevent="catIdx = Math.max(catIdx - 1, 0)" />
@@ -138,6 +138,7 @@
           </template>
         </div>
       </div>
+      <p class="hint">Categorias vêm de <strong>DRE › Categorias</strong>. Clique no campo para ver todas; digite para filtrar.</p>
       <% } %>
       <label>Observações</label><input type="text" x-model="form.notes" />
       <label>Anexo (boleto, nota, comprovante)</label>
@@ -311,9 +312,17 @@
           const r = await fetch('/api/dre/categories?manualOnly=1');
           if (r.ok) this.categories = await r.json();
         },
-        searchCategories() {
-          const q = (this.catQ || '').trim().toLowerCase();
-          this.catResults = (q ? this.categories.filter((c) => c.label.toLowerCase().includes(q)) : this.categories).slice(0, 8);
+        // Ao FOCAR, mostra todas as categorias e seleciona o texto. O campo abre pré-preenchido
+        // com a categoria padrão; sem isso, o filtro rodava com esse texto (o dropdown mostrava
+        // só a padrão) e digitar EMENDAVA o rótulo ("Outras Despesas OperacionaisCombustível"),
+        // zerando os resultados — parecia que as categorias criadas no DRE não existiam.
+        onCategoryFocus(ev) {
+          this.searchCategories(true);
+          try { ev.target.select(); } catch (e) { /* sem seleção: só o filtro vale */ }
+        },
+        searchCategories(showAll = false) {
+          const q = showAll ? '' : (this.catQ || '').trim().toLowerCase();
+          this.catResults = (q ? this.categories.filter((c) => c.label.toLowerCase().includes(q)) : this.categories).slice(0, 12);
           this.catIdx = this.catResults.length ? 0 : -1;
         },
         pickCategory(c) {

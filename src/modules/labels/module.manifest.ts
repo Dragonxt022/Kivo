@@ -41,7 +41,18 @@ const manifest: ModuleManifest = {
       description: 'Imprima etiquetas de produto com código de barras e preço.',
       icon: 'tag',
     },
+    {
+      label: 'Histórico de etiquetas',
+      href: '/app/labels/historico',
+      permission: 'labels.generate',
+      capability: 'labels.generator',
+      description: 'Veja e reimprima as folhas de etiqueta já geradas.',
+      icon: 'file-text',
+    },
   ],
+  // Histórico NÃO sincroniza de propósito: `sheet_id` e os ids de produto do payload são
+  // locais — em outra máquina apontariam para registros diferentes e a reimpressão sairia
+  // errada. É um log da própria instalação. (Para sincronizar um dia, guarde UUIDs.)
 };
 
 export default manifest;
