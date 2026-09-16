@@ -13,6 +13,7 @@ const manifest: ModuleManifest = {
   pages: './pages',
   views: './views',
   migrations: './migrations',
+  setup: './setup',
   menu: [
     { label: 'DRE', href: '/app/dre/relatorio', permission: 'dre.view', description: 'Demonstrativo de Resultado do Exercício, por categoria.', icon: 'chart-column-stacked' },
   ],

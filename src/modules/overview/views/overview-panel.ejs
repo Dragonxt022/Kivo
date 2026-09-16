@@ -9,67 +9,378 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin-bottom: 1.2rem; }
-    .kpi { background: var(--glass-strong); border: 1px solid var(--glass-border); border-radius: var(--radius);
-      padding: .9rem 1rem; box-shadow: var(--shadow-xs); }
-    .kpi-label { font-size: .78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
-    .kpi-value { font-size: 1.35rem; font-weight: 700; margin-top: .2rem; }
-    .kpi-sub { font-size: .8rem; color: var(--text-muted); margin-top: .15rem; }
+    /* ─── Cabeçalho do painel ─── */
+    .ov-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .ov-head h1 { margin-bottom: .25rem; }
+    .ov-head-actions { display: flex; align-items: center; gap: .6rem; }
+
+    /* ─── Atalhos rápidos ─── */
+    .ov-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0 1.5rem; }
+    .ov-actions .btn { text-decoration: none; }
+
+    /* ─── KPIs ─── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: .85rem; margin-bottom: 1.5rem; }
+    .stat-tile { cursor: pointer; }
+    .kpi-tile-top { display: flex; align-items: center; gap: .55rem; }
+    .kpi-tile-icon {
+      display: grid; place-items: center; width: 30px; height: 30px; flex: none;
+      border-radius: 9px; background: var(--primary-bg); color: var(--primary);
+    }
+    .kpi-tile-icon.danger { background: var(--danger-bg); color: var(--danger-text); }
+    .kpi-tile-icon.warn { background: var(--warning-bg); color: var(--warning-text); }
+    .kpi-delta { font-size: .76rem; font-weight: 600; }
+    .kpi-delta.good { color: var(--success-text); }
+    .kpi-delta.warning { color: var(--warning-text); }
+    .kpi-delta.muted { color: var(--text-muted); }
+
+    /* ─── Seções em colunas ─── */
+    .ov-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 1.25rem; align-items: start; }
+    .ov-cols .panel { margin-bottom: 0; }
+    .section-head { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+    .section-head h2 { margin: 0; font-size: 1rem; }
+    .section-head .section-icon { color: var(--primary); display: grid; place-items: center; }
+    .section-head .toolbar-spacer { flex: 1 1 auto; }
+
+    /* ─── Período ─── */
+    .ov-period { display: flex; gap: .75rem; align-items: flex-end; flex-wrap: wrap; margin: 1.25rem 0; }
+    .ov-period .field { margin-bottom: 0; }
+    .ov-period input[type='date'] { width: auto; }
     .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     .seg button { background: transparent; border: 0; padding: .35rem .7rem; cursor: pointer; color: var(--text-muted); font-size: .82rem; }
     .seg button.active { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
-    .period-row { display: flex; gap: .6rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
-    .period-row .field { margin-bottom: 0; }
-    .period-row input[type='date'] { width: auto; }
+
+    /* ─── Ranking (produtos) ─── */
+    .rank-row { display: flex; align-items: center; gap: .65rem; padding: .45rem 0; border-bottom: 1px solid var(--border-light); }
+    .rank-row:last-child { border-bottom: 0; }
+    .rank-pos {
+      display: grid; place-items: center; width: 22px; height: 22px; flex: none;
+      border-radius: 7px; background: var(--surface-hover); color: var(--text-muted);
+      font-size: .74rem; font-weight: 700;
+    }
+    .rank-body { flex: 1; min-width: 0; }
+    .rank-name { font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-bar { height: 5px; border-radius: 99px; background: var(--surface-hover); margin-top: .3rem; overflow: hidden; }
+    .rank-bar-fill { height: 100%; border-radius: 99px; background: var(--primary); }
+    .rank-value { font-size: .82rem; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+    .rank-sub { font-size: .72rem; color: var(--text-muted); text-align: right; }
+
+    /* ─── Formas de pagamento ─── */
+    .pay-row { margin-bottom: .7rem; }
+    .pay-row:last-child { margin-bottom: 0; }
+    .pay-head { display: flex; justify-content: space-between; gap: .5rem; font-size: .84rem; margin-bottom: .3rem; }
+    .pay-head strong { font-variant-numeric: tabular-nums; }
+    .pay-bar { height: 7px; border-radius: 99px; background: var(--surface-hover); overflow: hidden; }
+    .pay-bar-fill { height: 100%; border-radius: 99px; background: var(--primary); }
+    .pay-sub { font-size: .72rem; color: var(--text-muted); margin-top: .2rem; }
+
+    /* ─── Financeiro ─── */
+    .money-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin-bottom: 1rem; }
+    .money-card { border: 1px solid var(--border-light); border-radius: 10px; padding: .65rem .75rem; background: var(--surface-hover); }
+    .money-card span { display: block; font-size: .72rem; color: var(--text-muted); }
+    .money-card strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
+    .money-card strong.negative { color: var(--danger); }
+    .bill-list { max-height: 260px; overflow-y: auto; }
+    .bill-row {
+      display: flex; align-items: center; gap: .6rem; padding: .5rem .25rem;
+      border-bottom: 1px solid var(--border-light); text-decoration: none; color: var(--text); font-size: .85rem;
+    }
+    .bill-row:last-child { border-bottom: 0; }
+    .bill-row:hover { background: var(--surface-hover); }
+    .bill-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bill-due { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+    .bill-amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    /* ─── DRE ─── */
+    .dre-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; }
+    .dre-item { border: 1px solid var(--border-light); border-radius: 10px; padding: .7rem .8rem; background: var(--surface-hover); }
+    .dre-item span { display: block; font-size: .74rem; color: var(--text-muted); margin-bottom: .2rem; }
+    .dre-item strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+    .dre-item.result strong { color: var(--primary); }
+
     .num { text-align: right; font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/overview' }) %>
-  <main x-data="overviewPage()" x-init="load()">
-    <h1>Painel</h1>
-    <p class="hint">Visão geral da operação. Os relatórios abaixo saem em CSV para a planilha.</p>
-
-    <!-- ─── KPIs ─── -->
-    <div class="kpi-grid">
-      <div class="kpi">
-        <div class="kpi-label">Caixa</div>
-        <div class="kpi-value" x-text="kpis.cash.open ? brl(kpis.cash.expectedCents) : 'Fechado'"></div>
-        <div class="kpi-sub" x-text="kpis.cash.open ? 'Aberto ' + fmtDateTime(kpis.cash.openedAt) : 'Nenhum caixa aberto'"></div>
+  <main x-data="overviewPage()" x-init="init()">
+    <div class="ov-head">
+      <div>
+        <h1>Painel</h1>
+        <p class="hint">Visão geral da operação: caixa, vendas, contas e resultado. Os relatórios saem em CSV.</p>
       </div>
-      <div class="kpi">
-        <div class="kpi-label">Vendas de hoje</div>
-        <div class="kpi-value" x-text="brl(kpis.salesToday.totalCents)"></div>
-        <div class="kpi-sub" x-text="kpis.salesToday.count + ' venda(s)'"></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Estoque</div>
-        <div class="kpi-value" x-text="kpis.stock.lowCount + ' abaixo do mínimo'"></div>
-        <div class="kpi-sub" x-text="kpis.stock.zeroCount + ' zerado(s)'"></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">A pagar em aberto</div>
-        <div class="kpi-value" x-text="brl(kpis.payables.openCents)"></div>
-        <div class="kpi-sub" x-text="kpis.payables.overdueCount + ' vencida(s) · ' + kpis.payables.dueSoonCount + ' a vencer (7d)'"></div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">A receber em aberto</div>
-        <div class="kpi-value" x-text="brl(kpis.receivables.openCents)"></div>
-        <div class="kpi-sub" x-text="kpis.receivables.overdueCount + ' vencida(s) · ' + kpis.receivables.dueSoonCount + ' a vencer (7d)'"></div>
+      <div class="ov-head-actions">
+        <span class="muted text-xs" x-show="updatedAt" x-cloak x-text="'Atualizado ' + updatedAt"></span>
+        <button type="button" class="btn secondary small" @click="refresh()" :disabled="loading">
+          <%- svgIcon('refresh-cw', 15, 15) %>Atualizar
+        </button>
       </div>
     </div>
 
+    <!-- ─── Atalhos rápidos (respeitam a permissão) ─── -->
+    <div class="ov-actions">
+      <% if (user.permissions.has('store.sales.create')) { %>
+      <a class="btn small" href="/app/store/pdv"><%- svgIcon('cart', 15, 15) %>Nova venda</a>
+      <% } %>
+      <% if (user.permissions.has('finance.cash.open')) { %>
+      <a class="btn secondary small" href="/app/finance/caixa"><%- svgIcon('wallet', 15, 15) %>Abrir caixa</a>
+      <% } %>
+      <% if (user.permissions.has('finance.payables.create')) { %>
+      <a class="btn secondary small" href="/app/finance/pagar"><%- svgIcon('credit-card', 15, 15) %>Nova conta a pagar</a>
+      <% } %>
+      <% if (user.permissions.has('store.quotes.create')) { %>
+      <a class="btn secondary small" href="/app/store/orcamentos"><%- svgIcon('clipboard', 15, 15) %>Novo orçamento</a>
+      <% } %>
+      <% if (user.permissions.has('commercial.products.create')) { %>
+      <a class="btn secondary small" href="/app/commercial/produtos"><%- svgIcon('package', 15, 15) %>Novo produto</a>
+      <% } %>
+      <% if (user.permissions.has('comandas.view')) { %>
+      <a class="btn secondary small" href="/app/comandas/mesas"><%- svgIcon('utensils', 15, 15) %>Mesas</a>
+      <% } %>
+    </div>
+
+    <!-- ─── KPIs ─── -->
+    <div class="kpi-grid">
+      <a href="/app/finance/caixa" class="stat-tile">
+        <div class="kpi-tile-top">
+          <span class="kpi-tile-icon" :class="kpis.cash.open ? '' : 'warn'"><%- svgIcon('wallet', 16, 16) %></span>
+          <span class="stat-tile-label">Caixa</span>
+        </div>
+        <div class="stat-tile-value" x-text="loading ? '…' : (kpis.cash.open ? brl(kpis.cash.expectedCents) : 'Fechado')"></div>
+        <div class="stat-tile-status" :class="kpis.cash.open ? 'good' : 'muted'"
+             x-text="kpis.cash.open ? 'Aberto ' + fmtDateTime(kpis.cash.openedAt) : 'Nenhum caixa aberto'"></div>
+      </a>
+
+      <a href="/app/store/vendas" class="stat-tile">
+        <div class="kpi-tile-top">
+          <span class="kpi-tile-icon"><%- svgIcon('cart', 16, 16) %></span>
+          <span class="stat-tile-label">Vendas hoje</span>
+        </div>
+        <div class="stat-tile-value" x-text="loading ? '…' : brl(kpis.salesToday.totalCents)"></div>
+        <div class="kpi-delta" :class="salesTodayDelta.class" x-text="salesTodayDelta.text"></div>
+      </a>
+
+      <a href="/app/store/vendas" class="stat-tile">
+        <div class="kpi-tile-top">
+          <span class="kpi-tile-icon"><%- svgIcon('chart', 16, 16) %></span>
+          <span class="stat-tile-label">Vendas do mês</span>
+        </div>
+        <div class="stat-tile-value" x-text="loading ? '…' : brl(kpis.salesMonth.totalCents)"></div>
+        <div class="kpi-delta" :class="salesMonthDelta.class" x-text="salesMonthDelta.text"></div>
+      </a>
+
+      <a href="/app/store/vendas" class="stat-tile">
+        <div class="kpi-tile-top">
+          <span class="kpi-tile-icon"><%- svgIcon('receipt', 16, 16) %></span>
+          <span class="stat-tile-label">Ticket médio (mês)</span>
+        </div>
+        <div class="stat-tile-value" x-text="loading ? '…' : brl(ticketMedio)"></div>
+        <div class="stat-tile-status muted" x-text="kpis.salesMonth.count + ' venda(s) no mês'"></div>
+      </a>
+
+      <a href="/app/finance/pagar" class="stat-tile">
+        <div class="kpi-tile-top">
+          <span class="kpi-tile-icon danger"><%- svgIcon('credit-card', 16, 16) %></span>
+          <span class="stat-tile-label">A pagar em aberto</span>
+        </div>
+        <div class="stat-tile-value" x-text="loading ? '…' : brl(kpis.payables.openCents)"></div>
+        <div class="stat-tile-status" :class="kpis.payables.overdueCount > 0 ? 'warning' : 'muted'"
+             x-text="kpis.payables.overdueCount + ' vencida(s) · ' + kpis.payables.dueSoonCount + ' a vencer (7d)'"></div>
+      </a>
+
+      <a href="/app/finance/receber" class="stat-tile">
+        <div class="kpi-tile-top">
+          <span class="kpi-tile-icon"><%- svgIcon('hand-coins', 16, 16) %></span>
+          <span class="stat-tile-label">A receber em aberto</span>
+        </div>
+        <div class="stat-tile-value" x-text="loading ? '…' : brl(kpis.receivables.openCents)"></div>
+        <div class="stat-tile-status" :class="kpis.receivables.overdueCount > 0 ? 'warning' : 'muted'"
+             x-text="kpis.receivables.overdueCount + ' vencida(s) · ' + kpis.receivables.dueSoonCount + ' a vencer (7d)'"></div>
+      </a>
+
+      <a href="#estoque" class="stat-tile">
+        <div class="kpi-tile-top">
+          <span class="kpi-tile-icon" :class="kpis.stock.zeroCount > 0 ? 'danger' : (kpis.stock.lowCount > 0 ? 'warn' : '')"><%- svgIcon('package', 16, 16) %></span>
+          <span class="stat-tile-label">Estoque crítico</span>
+        </div>
+        <div class="stat-tile-value" x-text="loading ? '…' : kpis.stock.lowCount + ' abaixo do mínimo'"></div>
+        <div class="stat-tile-status" :class="kpis.stock.zeroCount > 0 ? 'warning' : 'muted'" x-text="kpis.stock.zeroCount + ' zerado(s)'"></div>
+      </a>
+    </div>
+
+    <!-- ─── Evolução do faturamento ─── -->
+    <div class="dashboard-chart-panel">
+      <div class="dashboard-chart-header">
+        <h2>Evolução do faturamento</h2>
+        <div class="dashboard-chart-tools">
+          <div class="period-toggle" x-show="!chartHidden" x-cloak>
+            <button type="button" :class="{ active: trend.period === 'week' }" @click="setTrendPeriod('week')">Semana</button>
+            <button type="button" :class="{ active: trend.period === 'month' }" @click="setTrendPeriod('month')">Mês</button>
+            <button type="button" :class="{ active: trend.period === 'year' }" @click="setTrendPeriod('year')">Ano</button>
+          </div>
+          <button type="button" class="chart-toggle-btn" @click="chartHidden = !chartHidden"
+                  :title="chartHidden ? 'Mostrar gráfico' : 'Ocultar gráfico'"
+                  :aria-label="chartHidden ? 'Mostrar gráfico' : 'Ocultar gráfico'">
+            <svg x-show="!chartHidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg x-show="chartHidden" x-cloak width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="bar-chart" x-show="!chartHidden" x-cloak>
+        <template x-for="(b, idx) in trend.buckets" :key="trend.period + '-' + b.key">
+          <div class="bar-col" @mouseenter="hoverBar = idx" @mouseleave="hoverBar = null">
+            <div class="bar-tooltip" x-show="hoverBar === idx" x-text="b.label + ': ' + brl(b.totalCents)"></div>
+            <div class="bar-fill" :style="{ height: (maxTrend ? (b.totalCents / maxTrend * 100) : 0) + '%' }"></div>
+            <span class="bar-label" x-text="b.label"></span>
+          </div>
+        </template>
+        <p class="muted text-xs" x-show="!loading && !trend.buckets.length" style="align-self:center;margin:auto">Sem vendas no período.</p>
+      </div>
+    </div>
+
+    <!-- ─── Período (manda em: vendas, fluxo, DRE e caixas) ─── -->
+    <div class="ov-period">
+      <div class="seg">
+        <button type="button" :class="{ active: period.preset === 'hoje' }" @click="setPreset('hoje')">Hoje</button>
+        <button type="button" :class="{ active: period.preset === '7d' }" @click="setPreset('7d')">7 dias</button>
+        <button type="button" :class="{ active: period.preset === 'mes' }" @click="setPreset('mes')">Este mês</button>
+        <button type="button" :class="{ active: period.preset === 'mes_passado' }" @click="setPreset('mes_passado')">Mês passado</button>
+        <button type="button" :class="{ active: period.preset === 'ano' }" @click="setPreset('ano')">Este ano</button>
+      </div>
+      <div class="field"><label>De</label><input type="date" class="input" x-model="period.from" @change="period.preset = 'custom'"></div>
+      <div class="field"><label>Até</label><input type="date" class="input" x-model="period.to" @change="period.preset = 'custom'"></div>
+      <button type="button" class="btn secondary" @click="reloadPeriod()">Aplicar</button>
+    </div>
+
+    <!-- ─── Vendas do período: produtos e formas de pagamento ─── -->
+    <div class="ov-cols">
+      <section class="panel">
+        <div class="section-head">
+          <span class="section-icon"><%- svgIcon('trophy', 18, 18) %></span>
+          <h2>Produtos mais vendidos</h2>
+          <span class="toolbar-spacer"></span>
+          <span class="muted text-xs" x-text="sales.totals.count + ' venda(s)'"></span>
+        </div>
+        <template x-for="(p, i) in sales.topProducts" :key="p.name">
+          <div class="rank-row">
+            <span class="rank-pos" x-text="i + 1"></span>
+            <div class="rank-body">
+              <div class="rank-name" x-text="p.name"></div>
+              <div class="rank-bar"><div class="rank-bar-fill" :style="{ width: (p.totalCents / maxTopProduct * 100) + '%' }"></div></div>
+            </div>
+            <div>
+              <div class="rank-value" x-text="brl(p.totalCents)"></div>
+              <div class="rank-sub" x-text="fmtQty(p.qty) + ' un.'"></div>
+            </div>
+          </div>
+        </template>
+        <p class="muted text-xs" x-show="!loading && !sales.topProducts.length">Nenhuma venda no período.</p>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <span class="section-icon"><%- svgIcon('credit-card', 18, 18) %></span>
+          <h2>Formas de pagamento</h2>
+          <span class="toolbar-spacer"></span>
+          <span class="muted text-xs" x-text="'Taxas ' + brl(sales.totals.feeCents)"></span>
+        </div>
+        <template x-for="p in sales.byPayment" :key="p.method">
+          <div class="pay-row">
+            <div class="pay-head"><span x-text="p.method"></span><strong x-text="brl(p.totalCents)"></strong></div>
+            <div class="pay-bar"><div class="pay-bar-fill" :style="{ width: (p.totalCents / maxPayment * 100) + '%' }"></div></div>
+            <div class="pay-sub" x-text="p.count + ' venda(s)' + (p.feeCents ? ' · taxa ' + brl(p.feeCents) : '')"></div>
+          </div>
+        </template>
+        <p class="muted text-xs" x-show="!loading && !sales.byPayment.length">Nenhum pagamento no período.</p>
+        <div class="muted text-xs" style="margin-top:1rem;padding-top:.7rem;border-top:1px solid var(--border-light)">
+          Descontos <strong x-text="brl(sales.totals.discountCents)"></strong> ·
+          Acréscimos <strong x-text="brl(sales.totals.surchargeCents)"></strong>
+        </div>
+      </section>
+    </div>
+
+    <!-- ─── Financeiro: fluxo de caixa + vencimentos ─── -->
+    <div class="ov-cols" style="margin-top:1.25rem">
+      <section class="panel">
+        <div class="section-head">
+          <span class="section-icon"><%- svgIcon('chart', 18, 18) %></span>
+          <h2>Movimento de caixa</h2>
+        </div>
+        <div class="money-cards">
+          <div class="money-card"><span>Entradas</span><strong x-text="brl(cashflow.totals.entradas)"></strong></div>
+          <div class="money-card"><span>Saídas</span><strong x-text="brl(cashflow.totals.saidas)"></strong></div>
+          <div class="money-card"><span>Saldo</span><strong :class="{ negative: cashflow.totals.saldo < 0 }" x-text="brl(cashflow.totals.saldo)"></strong></div>
+        </div>
+        <div class="table-scroll" style="max-height:220px;overflow-y:auto">
+          <table>
+            <thead><tr><th>Dia</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo</th></tr></thead>
+            <tbody>
+              <template x-for="d in cashflow.days" :key="d.day">
+                <tr>
+                  <td x-text="fmtDate(d.day)"></td>
+                  <td class="num" x-text="brl(d.entradas)"></td>
+                  <td class="num" x-text="brl(d.saidas)"></td>
+                  <td class="num" :class="{ 'text-danger': d.saldo < 0 }" x-text="brl(d.saldo)"></td>
+                </tr>
+              </template>
+              <tr x-show="!loading && !cashflow.days.length"><td colspan="4" class="muted text-xs" style="text-align:center;padding:1rem">Sem movimentações no período.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <span class="section-icon"><%- svgIcon('credit-card', 18, 18) %></span>
+          <h2>Próximos vencimentos</h2>
+          <span class="toolbar-spacer"></span>
+          <span class="muted text-xs">7 dias</span>
+        </div>
+        <div class="bill-list">
+          <template x-for="b in upcomingList" :key="b.kind + '-' + b.id">
+            <a class="bill-row" :href="b.kind === 'payable' ? '/app/finance/pagar' : '/app/finance/receber'">
+              <span class="bill-desc" x-text="b.description"></span>
+              <span class="bill-due" :class="{ 'text-danger': b.overdue }" x-text="fmtDate(b.due_date)"></span>
+              <span class="bill-amt" x-text="brl(b.amount_cents)"></span>
+            </a>
+          </template>
+          <p class="muted text-xs" x-show="!loading && !upcomingList.length">Nenhuma conta vencendo nos próximos dias.</p>
+        </div>
+      </section>
+    </div>
+
+    <% if (user.permissions.has('dre.view')) { %>
+    <!-- ─── DRE do período ─── -->
+    <section class="panel" style="margin-top:1.25rem">
+      <div class="section-head">
+        <span class="section-icon"><%- svgIcon('chart-column-stacked', 18, 18) %></span>
+        <h2>Resultado do período (DRE)</h2>
+        <span class="toolbar-spacer"></span>
+        <a class="btn secondary small" href="/app/dre/relatorio">Ver DRE completo</a>
+      </div>
+      <div class="dre-grid" x-show="dre" x-cloak>
+        <div class="dre-item"><span>Receita bruta</span><strong x-text="brl(dre.receitaBrutaCents)"></strong></div>
+        <div class="dre-item"><span>Receita líquida</span><strong x-text="brl(dre.receitaLiquidaCents)"></strong></div>
+        <div class="dre-item"><span>CMV</span><strong x-text="brl(dre.cmvCents)"></strong></div>
+        <div class="dre-item"><span>Lucro bruto</span><strong x-text="brl(dre.lucroBrutoCents)"></strong></div>
+        <div class="dre-item"><span>Resultado operacional</span><strong x-text="brl(dre.resultadoOperacionalCents)"></strong></div>
+        <div class="dre-item result"><span>Resultado líquido</span><strong x-text="brl(dre.resultadoLiquidoCents)"></strong></div>
+      </div>
+      <p class="muted text-xs" x-show="!dre">Calculando…</p>
+    </section>
+    <% } %>
+
     <!-- ─── Estoque ─── -->
-    <section class="panel">
-      <div class="toolbar">
-        <h2 style="margin:0">Estoque</h2>
+    <section class="panel" id="estoque" style="margin-top:1.25rem">
+      <div class="section-head">
+        <span class="section-icon"><%- svgIcon('package', 18, 18) %></span>
+        <h2>Estoque</h2>
         <div class="seg">
-          <button :class="{ active: stock.filter === 'all' }" @click="setStockFilter('all')">Todos</button>
-          <button :class="{ active: stock.filter === 'low' }" @click="setStockFilter('low')">Abaixo do mínimo</button>
-          <button :class="{ active: stock.filter === 'zero' }" @click="setStockFilter('zero')">Zerados</button>
+          <button type="button" :class="{ active: stock.filter === 'all' }" @click="setStockFilter('all')">Todos</button>
+          <button type="button" :class="{ active: stock.filter === 'low' }" @click="setStockFilter('low')">Abaixo do mínimo</button>
+          <button type="button" :class="{ active: stock.filter === 'zero' }" @click="setStockFilter('zero')">Zerados</button>
         </div>
         <span class="toolbar-spacer"></span>
-        <span class="muted" x-text="stock.rows.length + ' produto(s)'"></span>
+        <span class="muted text-xs" x-text="stock.rows.length + ' produto(s)'"></span>
         <a class="btn secondary small" :href="stockExportUrl" download>Exportar CSV</a>
       </div>
       <div class="table-scroll">
@@ -95,7 +406,7 @@
                 <td class="num" x-text="brl(p.price_cents)"></td>
               </tr>
             </template>
-            <tr x-show="!stock.rows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum produto neste filtro.' }) %></td></tr>
+            <tr x-show="!loading && !stock.rows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum produto neste filtro.' }) %></td></tr>
           </tbody>
         </table>
       </div>
@@ -103,17 +414,12 @@
 
     <!-- ─── Caixas ─── -->
     <section class="panel">
-      <div class="toolbar">
-        <h2 style="margin:0">Caixas</h2>
+      <div class="section-head">
+        <span class="section-icon"><%- svgIcon('wallet', 18, 18) %></span>
+        <h2>Caixas do período</h2>
         <span class="toolbar-spacer"></span>
-        <span class="muted" x-text="cash.totals.count + ' caixa(s)'"></span>
+        <span class="muted text-xs" x-text="cash.totals.count + ' caixa(s)'"></span>
         <a class="btn secondary small" :href="cashExportUrl" download>Exportar CSV</a>
-      </div>
-
-      <div class="period-row">
-        <div class="field"><label>De</label><input type="date" class="input" x-model="cash.from" /></div>
-        <div class="field"><label>Até</label><input type="date" class="input" x-model="cash.to" /></div>
-        <button class="btn secondary" @click="loadCash()">Aplicar período</button>
       </div>
 
       <p class="hint" x-text="cashSummary"></p>
@@ -151,7 +457,7 @@
                 <td class="num" x-text="r.vendas + ' · ' + brl(r.vendas_cents)"></td>
               </tr>
             </template>
-            <tr x-show="!cash.rows.length"><td colspan="11"><%- include('partials/empty-state', { message: 'Nenhum caixa no período selecionado.' }) %></td></tr>
+            <tr x-show="!loading && !cash.rows.length"><td colspan="11"><%- include('partials/empty-state', { message: 'Nenhum caixa no período selecionado.' }) %></td></tr>
           </tbody>
         </table>
       </div>
@@ -161,43 +467,158 @@
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>">
     function overviewPage() {
+      const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const HAS_DRE = <%= user.permissions.has('dre.view') ? 'true' : 'false' %>;
+
       return {
+        period: { from: '', to: '', preset: 'mes' },
         kpis: {
           cash: { open: false, expectedCents: 0, openedAt: null },
           salesToday: { count: 0, totalCents: 0 },
+          salesYesterday: { count: 0, totalCents: 0 },
+          salesMonth: { count: 0, totalCents: 0 },
+          salesPrevMonth: { count: 0, totalCents: 0 },
           stock: { lowCount: 0, zeroCount: 0 },
           receivables: { openCount: 0, openCents: 0, overdueCount: 0, dueSoonCount: 0 },
           payables: { openCount: 0, openCents: 0, overdueCount: 0, dueSoonCount: 0 },
         },
-        stock: { filter: 'low', rows: [] },
-        cash: { from: '', to: '', rows: [], totals: { count: 0, entradas: 0, saidas: 0, vendas: 0, vendasCents: 0, differenceCents: 0 } },
-
-        async load() {
-          await Promise.all([this.loadKpis(), this.loadStock(), this.loadCash()]);
+        trend: { period: 'month', buckets: [] },
+        chartHidden: false,
+        hoverBar: null,
+        sales: {
+          totals: { count: 0, totalCents: 0, discountCents: 0, surchargeCents: 0, feeCents: 0, ticketCents: 0 },
+          byPayment: [],
+          topProducts: [],
         },
+        cashflow: { totals: { entradas: 0, saidas: 0, saldo: 0 }, days: [] },
+        upcoming: { payables: [], receivables: [] },
+        dre: null,
+        stock: { filter: 'low', rows: [] },
+        cash: { rows: [], totals: { count: 0, entradas: 0, saidas: 0, vendas: 0, vendasCents: 0, differenceCents: 0 } },
+        loading: true,
+        updatedAt: '',
+
+        async init() {
+          this.applyPreset('mes');
+          await this.refresh();
+        },
+
+        // ─── Período ───
+        applyPreset(key) {
+          const now = new Date();
+          let from, to;
+          if (key === 'hoje') { from = to = ymd(now); }
+          else if (key === '7d') { from = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)); to = ymd(now); }
+          else if (key === 'mes_passado') { from = ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)); to = ymd(new Date(now.getFullYear(), now.getMonth(), 0)); }
+          else if (key === 'ano') { from = ymd(new Date(now.getFullYear(), 0, 1)); to = ymd(now); }
+          else { key = 'mes'; from = ymd(new Date(now.getFullYear(), now.getMonth(), 1)); to = ymd(now); }
+          this.period = { from, to, preset: key };
+        },
+        setPreset(key) { this.applyPreset(key); this.reloadPeriod(); },
+        qs() {
+          const q = new URLSearchParams();
+          if (this.period.from) q.set('from', this.period.from);
+          if (this.period.to) q.set('to', this.period.to);
+          return q.toString();
+        },
+
+        // ─── Carga ───
+        async refresh() {
+          this.loading = true;
+          await Promise.all([
+            this.loadKpis(),
+            this.loadTrend(),
+            this.loadUpcoming(),
+            this.loadStock(),
+            this.loadPeriod(),
+          ]);
+          this.updatedAt = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          this.loading = false;
+        },
+        loadPeriod() {
+          const jobs = [this.loadSales(), this.loadCashflow(), this.loadCash()];
+          if (HAS_DRE) jobs.push(this.loadDre());
+          return Promise.all(jobs);
+        },
+        reloadPeriod() { return this.loadPeriod(); },
+
         async loadKpis() {
           const r = await fetch('/api/overview/kpis');
           if (r.ok) this.kpis = await r.json();
+        },
+        async loadTrend() {
+          const r = await fetch('/api/overview/revenue-trend?period=' + this.trend.period);
+          if (r.ok) { const d = await r.json(); this.trend.period = d.period; this.trend.buckets = d.buckets; }
+        },
+        async loadSales() {
+          const r = await fetch('/api/overview/sales?' + this.qs());
+          if (r.ok) this.sales = await r.json();
+        },
+        async loadCashflow() {
+          const r = await fetch('/api/overview/cashflow?' + this.qs());
+          if (r.ok) this.cashflow = await r.json();
+        },
+        async loadUpcoming() {
+          const r = await fetch('/api/overview/upcoming');
+          if (r.ok) this.upcoming = await r.json();
+        },
+        async loadDre() {
+          const r = await fetch('/api/overview/dre?' + this.qs());
+          if (r.ok) this.dre = await r.json();
         },
         async loadStock() {
           const r = await fetch('/api/overview/stock?filter=' + encodeURIComponent(this.stock.filter));
           if (r.ok) { const d = await r.json(); this.stock.filter = d.filter; this.stock.rows = d.rows; }
         },
         async loadCash() {
-          const q = new URLSearchParams();
-          if (this.cash.from) q.set('from', this.cash.from);
-          if (this.cash.to) q.set('to', this.cash.to);
-          const r = await fetch('/api/overview/cash?' + q.toString());
-          if (r.ok) { const d = await r.json(); this.cash.from = d.from; this.cash.to = d.to; this.cash.rows = d.rows; this.cash.totals = d.totals; }
+          const r = await fetch('/api/overview/cash?' + this.qs());
+          if (r.ok) { const d = await r.json(); this.cash.rows = d.rows; this.cash.totals = d.totals; }
         },
         setStockFilter(f) { this.stock.filter = f; this.loadStock(); },
-        get stockExportUrl() { return '/api/overview/stock/export.csv?filter=' + encodeURIComponent(this.stock.filter); },
-        get cashExportUrl() {
-          const q = new URLSearchParams();
-          if (this.cash.from) q.set('from', this.cash.from);
-          if (this.cash.to) q.set('to', this.cash.to);
-          return '/api/overview/cash/export.csv?' + q.toString();
+        setTrendPeriod(p) { this.trend.period = p; this.loadTrend(); },
+
+        // ─── Derivados ───
+        get maxTrend() { return Math.max(1, ...this.trend.buckets.map((b) => b.totalCents)); },
+        get maxPayment() { return Math.max(1, ...this.sales.byPayment.map((p) => p.totalCents)); },
+        get maxTopProduct() { return Math.max(1, ...this.sales.topProducts.map((p) => p.totalCents)); },
+        get ticketMedio() {
+          const s = this.kpis.salesMonth;
+          return s.count > 0 ? Math.round(s.totalCents / s.count) : 0;
         },
+        deltaPct(cur, prev) {
+          if (!prev) return null;
+          return Math.round(((cur - prev) / prev) * 100);
+        },
+        deltaText(cur, prev, base) {
+          const d = this.deltaPct(cur, prev);
+          if (d === null) return 'sem base de comparação';
+          return (d > 0 ? '+' : '') + d + '% vs ' + base;
+        },
+        deltaClass(cur, prev) {
+          const d = this.deltaPct(cur, prev);
+          if (d === null) return 'muted';
+          return d >= 0 ? 'good' : 'warning';
+        },
+        get salesTodayDelta() {
+          return {
+            text: this.loading ? '' : this.deltaText(this.kpis.salesToday.totalCents, this.kpis.salesYesterday.totalCents, 'ontem'),
+            class: this.deltaClass(this.kpis.salesToday.totalCents, this.kpis.salesYesterday.totalCents),
+          };
+        },
+        get salesMonthDelta() {
+          return {
+            text: this.loading ? '' : this.deltaText(this.kpis.salesMonth.totalCents, this.kpis.salesPrevMonth.totalCents, 'mês anterior'),
+            class: this.deltaClass(this.kpis.salesMonth.totalCents, this.kpis.salesPrevMonth.totalCents),
+          };
+        },
+        get upcomingList() {
+          const today = todayLocal();
+          const mk = (kind, arr) => arr.map((b) => ({ ...b, kind, overdue: b.due_date < today }));
+          return [...mk('payable', this.upcoming.payables), ...mk('receivable', this.upcoming.receivables)]
+            .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+        },
+        get stockExportUrl() { return '/api/overview/stock/export.csv?filter=' + encodeURIComponent(this.stock.filter); },
+        get cashExportUrl() { return '/api/overview/cash/export.csv?' + this.qs(); },
         get cashSummary() {
           const t = this.cash.totals;
           return t.count + ' caixa(s) · entradas ' + brl(t.entradas) + ' · saídas ' + brl(t.saidas)

@@ -110,9 +110,9 @@
   checkCloudStatus() {
     fetch('/api/sync/status').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.cloudStatus = data; }).catch(() => { this.cloudStatus = { configured: true, online: false }; });
   },
-  // Revalida o "caixa aberto há mais de 24h" e LIMPA o alerta quando o caixa já foi fechado.
+  // Revalida o 'caixa aberto há mais de 24h' e LIMPA o alerta quando o caixa já foi fechado.
   // Sem o clear, o estado antigo do Alpine voltava junto ao retornar para uma página em
-  // bfcache (depois de fechar o caixa), e a modal reaparecia até clicar em "Depois".
+  // bfcache (depois de fechar o caixa), e a modal reaparecia até clicar em 'Depois'.
   loadCashAlert() {
     return fetch('/api/finance/cash/current')
       .then((r) => (r.ok ? r.json() : null))

@@ -1,11 +1,12 @@
 import { registerService } from '../../core/services/registry';
-import { cashRegisterReport } from './reports';
+import { cashRegisterReport, revenueTrend } from './reports';
 import { createSale, cancelSale } from './sales';
 import { createQuote } from './quotes';
 
 /** Serviços que o módulo store oferece aos outros Apps (via Core). */
 export interface StoreReportsService {
   cashRegisterReport: typeof cashRegisterReport;
+  revenueTrend: typeof revenueTrend;
 }
 export interface StoreSalesService {
   createSale: typeof createSale;
@@ -20,7 +21,7 @@ export interface StoreQuotesService {
 }
 
 export default function setup(): void {
-  registerService('store.reports', { cashRegisterReport } satisfies StoreReportsService);
+  registerService('store.reports', { cashRegisterReport, revenueTrend } satisfies StoreReportsService);
   registerService('store.sales', { createSale, cancelSale } satisfies StoreSalesService);
   registerService('store.quotes', { createQuote } satisfies StoreQuotesService);
 }
