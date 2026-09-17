@@ -139,7 +139,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     slug: 'operador',
     name: 'Operador',
     description: 'Começa sem nenhuma permissão, de propósito: use como base para montar um cargo do zero.',
-    icon: 'key-round',
+    icon: 'key',
     permissions: [],
   },
 ];

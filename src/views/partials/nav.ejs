@@ -439,9 +439,7 @@
   </div>
   <nav class="apps-drawer-list">
     <a href="/" class="apps-drawer-item <%= page === 'home' ? 'active' : '' %>" @click="appsOpen = false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-        <path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
-      </svg>
+      <%- svgIcon('home', 18, 18) %>
       Início
     </a>
     <% (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) { %>
@@ -457,7 +455,7 @@
       var adminItems = [];
       if (user.permissions.has('users.view')) adminItems.push({ label: 'Usuários', href: '/admin/usuarios', icon: 'user-cog', page: 'users' });
       if (user.permissions.has('roles.view')) adminItems.push({ label: 'Cargos', href: '/admin/cargos', icon: 'key', page: 'roles' });
-      if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'shield-check', page: 'audit' });
+      if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'audit', page: 'audit' });
       if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', page: 'backup' });
       if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', page: 'settings' });
       if (user.permissions.has('settings.capabilities.edit')) adminItems.push({ label: 'Recursos', href: '/admin/recursos', icon: 'sparkles', page: 'recursos' });
@@ -512,9 +510,7 @@
   </div>
   <nav class="app-sidebar-list">
     <a href="/" class="app-sidebar-item <%= page === 'home' ? 'active' : '' %>" @click="appsOpen = false" :title="sidebarCollapsed ? 'Início' : null">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-        <path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
-      </svg>
+      <%- svgIcon('home', 18, 18) %>
       <span class="app-sidebar-item-label">Início</span>
     </a>
     <template x-for="g in sidebarGroups" :key="g.group">

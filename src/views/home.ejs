@@ -504,7 +504,7 @@
         var adminItems = [];
         if (user.permissions.has('users.view')) adminItems.push({ label: 'Usuários', href: '/admin/usuarios', icon: 'user-cog', description: 'Contas, cargos e acesso.' });
         if (user.permissions.has('roles.view')) adminItems.push({ label: 'Cargos', href: '/admin/cargos', icon: 'key', description: 'Permissões por cargo.' });
-        if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'shield-check', description: 'Quem fez o quê, quando e de onde.' });
+        if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'audit', description: 'Quem fez o quê, quando e de onde.' });
         if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', description: 'Cópias de segurança do banco.' });
         if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', description: 'Parâmetros do sistema e licença.' });
         visibleItems = visibleItems.concat(adminItems);
