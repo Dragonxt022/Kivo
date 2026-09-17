@@ -14,7 +14,7 @@ const manifest: ModuleManifest = {
   // nenhum produto tinha sido roteado — não havia como descobrir que esse passo existia.
   menu: [
     { label: 'Cozinha', href: '/app/foodservice/cozinha', permission: 'foodservice.kitchen.view', description: 'Painel de producao da cozinha.', icon: 'chef-hat' },
-    { label: 'Enviar para a cozinha', href: '/app/foodservice/roteamento', permission: 'foodservice.routing.manage', description: 'Escolha quais produtos geram pedido na cozinha.', icon: 'utensils' },
+    { label: 'Enviar para a cozinha', href: '/app/foodservice/roteamento', permission: 'foodservice.routing.manage', description: 'Escolha quais produtos geram pedido na cozinha.', icon: 'send-horizontal' },
   ],
   syncTables: [
     { table: 'kitchen_routing', foreignKeys: { product_id: 'products' } },

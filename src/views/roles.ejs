@@ -158,7 +158,7 @@
         get modelPresets() { return this.presets.filter((p) => p.permissions !== '*'); },
         iconSvg(r) {
           const preset = this.presetFor(r);
-          return SVG_ICONS[(preset && preset.icon) || 'key-round'] || SVG_ICONS['user-cog'] || '';
+          return SVG_ICONS[(preset && preset.icon) || 'key'] || SVG_ICONS['user-cog'] || '';
         },
         describe(r) {
           const preset = this.presetFor(r);
