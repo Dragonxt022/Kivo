@@ -216,7 +216,7 @@
               A chave só aparece uma vez, no momento em que é gerada — o servidor guarda apenas o hash dela.
               Se o cliente perdeu a chave, gere outra.
             </p>
-            <button type="button" class="btn danger" onclick="document.getElementById('modal-rotate-key').showModal()">Gerar nova chave de licença</button>
+            <button type="button" class="btn danger" onclick="window.document.getElementById('modal-rotate-key').showModal()">Gerar nova chave de licença</button>
           </div>
 
           <%# Resgate de senha do Kivo local. O lojista liga, dita o código que aparece na
@@ -307,7 +307,7 @@
                 <button type="button" class="chip" :class="{ active: statusFilter === 'cancelada' }" @click="statusFilter = 'cancelada'">Canceladas</button>
               </div>
               <div class="table-count" x-text="totalsLabel"></div>
-              <button class="btn small" onclick="document.getElementById('modal-new-charge').showModal()">+ Nova cobrança</button>
+              <button class="btn small" onclick="window.document.getElementById('modal-new-charge').showModal()">+ Nova cobrança</button>
             </div>
             <div class="table-scroll">
               <table>
@@ -517,7 +517,7 @@
               Apaga a empresa e todo o histórico de sincronização, backups e cobranças associados. Imagens que ela enviou
               ao banco de imagens permanecem lá (sem vínculo). Essa ação não pode ser desfeita.
             </p>
-            <button type="button" class="btn danger" onclick="document.getElementById('modal-delete-company').showModal()">Excluir empresa definitivamente</button>
+            <button type="button" class="btn danger" onclick="window.document.getElementById('modal-delete-company').showModal()">Excluir empresa definitivamente</button>
           </div>
         </section>
       </div>
@@ -528,7 +528,7 @@
     <form method="post" action="/admin/companies/<%= company.company_uuid %>/charges">
       <div class="modal-header">
         <h2>Nova cobrança</h2>
-        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-charge').close()">&times;</button>
+        <button type="button" class="modal-close" onclick="window.document.getElementById('modal-new-charge').close()">&times;</button>
       </div>
       <div class="modal-body">
         <label>Descrição</label>
@@ -541,7 +541,7 @@
         <textarea name="instructions" rows="3" placeholder="ex.: chave PIX, dados bancários, como enviar o comprovante..."></textarea>
         <p class="field-hint">Aparece para o cliente na tela de Cobranças do app instalado.</p>
         <div class="modal-actions">
-          <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-charge').close()">Cancelar</button>
+          <button type="button" class="btn secondary" onclick="window.document.getElementById('modal-new-charge').close()">Cancelar</button>
           <button type="submit" class="btn">Registrar cobrança</button>
         </div>
       </div>
@@ -552,12 +552,12 @@
     <form method="post" action="/admin/companies/<%= company.company_uuid %>/rotate-key">
       <div class="modal-header">
         <h2>Gerar nova chave?</h2>
-        <button type="button" class="modal-close" onclick="document.getElementById('modal-rotate-key').close()">&times;</button>
+        <button type="button" class="modal-close" onclick="window.document.getElementById('modal-rotate-key').close()">&times;</button>
       </div>
       <div class="modal-body">
         <p style="margin-top:0;">A chave de licença atual desta empresa deixará de funcionar imediatamente. Todas as instalações do cliente precisarão ser reconfiguradas com a nova chave.</p>
         <div class="modal-actions">
-          <button type="button" class="btn secondary" onclick="document.getElementById('modal-rotate-key').close()">Cancelar</button>
+          <button type="button" class="btn secondary" onclick="window.document.getElementById('modal-rotate-key').close()">Cancelar</button>
           <button type="submit" class="btn danger">Sim, gerar nova chave</button>
         </div>
       </div>
@@ -568,7 +568,7 @@
     <form method="post" action="/admin/companies/<%= company.company_uuid %>/delete">
       <div class="modal-header">
         <h2>Excluir empresa?</h2>
-        <button type="button" class="modal-close" onclick="document.getElementById('modal-delete-company').close()">&times;</button>
+        <button type="button" class="modal-close" onclick="window.document.getElementById('modal-delete-company').close()">&times;</button>
       </div>
       <div class="modal-body">
         <p style="margin-top:0;">
@@ -578,7 +578,7 @@
         </p>
         <input type="text" id="delete-confirm-input" placeholder="Digite o nome da empresa" autocomplete="off">
         <div class="modal-actions">
-          <button type="button" class="btn secondary" onclick="document.getElementById('modal-delete-company').close()">Cancelar</button>
+          <button type="button" class="btn secondary" onclick="window.document.getElementById('modal-delete-company').close()">Cancelar</button>
           <button type="submit" class="btn danger" id="delete-confirm-submit" disabled>Sim, excluir de vez</button>
         </div>
       </div>
@@ -675,8 +675,8 @@
 
     (function () {
       var expected = <%- JSON.stringify(company.name || company.company_uuid) %>;
-      var input = document.getElementById('delete-confirm-input');
-      var submitBtn = document.getElementById('delete-confirm-submit');
+      var input = window.document.getElementById('delete-confirm-input');
+      var submitBtn = window.document.getElementById('delete-confirm-submit');
       input.addEventListener('input', function () {
         submitBtn.disabled = input.value !== expected;
       });

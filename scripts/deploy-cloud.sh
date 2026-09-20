@@ -68,6 +68,18 @@ ssh -i "$KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${SSH_USER}@
   npm run migrate
   # Cadastra/atualiza os temas da loja (packs em seed-themes/). Idempotente.
   npm run seed:themes
+
+  # Rotação dos logs do PM2: sem isto o kivo-cloud-out.log/-error.log cresce para sempre na
+  # VPS (foi a origem dos arquivos de dezenas de GB). Idempotente: instala na primeira vez e
+  # reaplica os limites nas seguintes.
+  if ! pm2 describe pm2-logrotate >/dev/null 2>&1; then
+    pm2 install pm2-logrotate
+  fi
+  pm2 set pm2-logrotate:max_size 50M
+  pm2 set pm2-logrotate:retain 14
+  pm2 set pm2-logrotate:compress true
+  pm2 set pm2-logrotate:workerInterval 60
+
   pm2 restart ${PM2_NAME}
   sleep 2
   pm2 show ${PM2_NAME} | grep status

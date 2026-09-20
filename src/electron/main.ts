@@ -36,9 +36,29 @@ function errorLogPath(): string {
   return path.join(process.cwd(), 'error.log');
 }
 
+const ERROR_LOG_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Grava o erro em `error.log`, rotacionando ao passar de 5 MB (vira `error.1.log`). Sem
+ * isto um erro em laço enche o disco da loja — o arquivo era só `appendFileSync` sem teto.
+ */
 function appendErrorLog(msg: string): void {
   try {
-    fs.appendFileSync(errorLogPath(), `${new Date().toISOString()} ${msg}\n`);
+    const arquivo = errorLogPath();
+    try {
+      if (fs.statSync(arquivo).size >= ERROR_LOG_MAX_BYTES) {
+        const anterior = arquivo.replace(/\.log$/, '.1.log');
+        try {
+          fs.unlinkSync(anterior);
+        } catch {
+          // sem geração anterior
+        }
+        fs.renameSync(arquivo, anterior);
+      }
+    } catch {
+      // arquivo ainda não existe — nada a rotacionar
+    }
+    fs.appendFileSync(arquivo, `${new Date().toISOString()} ${msg}\n`);
   } catch {
     // best-effort
   }

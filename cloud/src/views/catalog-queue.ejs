@@ -9,8 +9,7 @@
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
   <style>
-    .cat-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-    .cat-filters .input-search { flex: 1; min-width: 220px; }
+    .cat-filters { margin-bottom: 14px; }
     .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
     .cat-card { border: 1.5px solid var(--border-light, #e5e7eb); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
     .cat-card.selected { border-color: var(--primary, #ff8000); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #ff8000) 25%, transparent); }
@@ -120,7 +119,7 @@
             Nomes que as empresas procuraram e não acharam (anônimo). Adicione uma imagem para o termo e marque "Resolvido".
           </p>
 
-          <form method="get" action="/admin/catalog" class="cat-filters" style="margin-top:10px;">
+          <form method="get" action="/admin/catalog" class="toolbar cat-filters" style="margin-top:10px;">
             <input type="hidden" name="tab" value="demanda">
             <input type="search" class="input-search" name="q" value="<%= q %>" placeholder="Buscar termo…">
             <button type="submit" class="btn small">Buscar</button>
@@ -164,7 +163,7 @@
           <span class="cell-muted" style="font-size:0.82rem;"><%= totalImages %> imagem(ns) · página <%= page %> de <%= totalPages %></span>
         </div>
 
-        <form method="get" action="/admin/catalog" class="cat-filters">
+        <form method="get" action="/admin/catalog" class="toolbar cat-filters">
           <input type="hidden" name="tab" value="imagens">
           <input type="hidden" name="status" value="<%= activeStatus %>">
           <input type="search" class="input-search" name="q" value="<%= q %>" placeholder="Buscar por nome, palavra-chave ou código de barras…">

@@ -200,6 +200,14 @@ export function runSeeds(): void {
     'Cor de destaque personalizada (hex) usada quando interface.cor_destaque = "custom".',
   );
 
+  // Retenção da trilha de auditoria: sem isto `audit_logs` cresce para sempre. "0" desliga.
+  insertSetting.run(
+    'auditoria.retencao_dias',
+    '365',
+    randomUUID(),
+    'Quantos dias de trilha de auditoria (audit_logs) ficam no banco. "0" = nunca apaga (a tabela cresce sem limite). Padrão 365.',
+  );
+
   // Sincronização automática ligada por padrão a cada 3 minutos. A semente acima já cobre
   // instalações novas; este resgate único devolve o padrão a instalações antigas que
   // ficaram com "0" (desligado). A flag impede que a semente reative o sync em todo boot —
