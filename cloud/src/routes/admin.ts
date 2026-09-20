@@ -6,6 +6,8 @@ import { getPool } from '../db';
 import { hashLicenseKey } from '../auth';
 import { emitToCompany } from '../events';
 import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
+import { accrueCommissionForCharge, affiliateSummary, createPayoutFromAvailable, payPayout, cancelPayout } from '../affiliates';
+import { hashAffiliatePassword } from '../affiliateAuth';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
 import { expectedResponse } from '../recoveryCodes';
 import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } from './catalog';
@@ -95,8 +97,11 @@ async function loadCompanyDetail(companyUuid: string) {
     data: typeof m.data === 'string' ? safeJson(m.data) : m.data,
   }));
 
-  // Afiliados disponíveis para vincular na aba Licença (programa de indicação).
-  const [affiliates] = await pool.query('SELECT id, name, discount_pct, active FROM affiliates ORDER BY active DESC, name');
+  // Afiliados disponíveis para vincular na aba Licença (programa de indicação):
+  // o desconto é para a empresa, a comissão é o que o afiliado ganha.
+  const [affiliates] = await pool.query(
+    'SELECT id, name, city, discount_pct, commission_pct, active FROM affiliates ORDER BY active DESC, name',
+  );
 
   return { company, syncStats, backups, charges, devices, errors: errorRows, inventory, affiliates };
 }
@@ -420,10 +425,47 @@ router.get('/', requireAdminAuth, async (_req, res) => {
     company_uuid: string;
   }[];
 
+  // ─── Afiliados: comissões a pagar e previsão ───
+  const [affRows] = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM affiliates WHERE active = 1) AS active_affiliates,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM affiliate_commissions WHERE status = 'disponivel') AS available_cents,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM affiliate_commissions WHERE status = 'solicitado') AS requested_cents,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM affiliate_commissions
+         WHERE status = 'pago' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01')) AS paid_month_cents,
+       (SELECT COUNT(*) FROM affiliate_payouts WHERE status = 'solicitado') AS requested_count,
+       (SELECT COALESCE(SUM(ROUND(ch.amount_cents * a.commission_pct / 100)), 0)
+          FROM companies c JOIN affiliates a ON a.id = c.affiliate_id
+          JOIN charges ch ON ch.company_uuid = c.company_uuid AND ch.status = 'pendente') AS forecast_cents`,
+  );
+  const affiliateStats = (affRows as Record<string, number>[])[0] ?? {};
+
+  const [payoutAlerts] = await pool.query(
+    `SELECT p.id, p.amount_cents, a.name AS affiliate_name
+       FROM affiliate_payouts p LEFT JOIN affiliates a ON a.id = p.affiliate_id
+      WHERE p.status = 'solicitado' ORDER BY p.id DESC LIMIT 5`,
+  );
+  for (const p of payoutAlerts as { id: number; amount_cents: number; affiliate_name: string | null }[]) {
+    alerts.push({
+      type: 'warning', icon: 'money',
+      title: `Pagamento a ${p.affiliate_name || 'afiliado'}`,
+      detail: `R$ ${(Number(p.amount_cents) / 100).toFixed(2)} aguardando confirmação`,
+      link: '/admin/payouts',
+    });
+  }
+  if (Number(affiliateStats.available_cents || 0) > 0) {
+    alerts.push({
+      type: 'info', icon: 'money',
+      title: 'Comissões de afiliados disponíveis',
+      detail: `R$ ${(Number(affiliateStats.available_cents) / 100).toFixed(2)} a pagar`,
+      link: '/admin/commissions?status=disponivel',
+    });
+  }
+
   res.render('dashboard', {
     planTiers: PLAN_TIERS, planLabels: PLAN_LABELS,
     kpis, planDistribution, recentActivity, alerts: alerts.slice(0, 8), syncTrend, revenueTrend, commercial,
-    billing, upcomingCharges,
+    billing, upcomingCharges, affiliateStats,
   });
 });
 
@@ -905,6 +947,8 @@ router.post('/companies/:uuid/charges/:id/pay', requireAdminAuth, async (req, re
     req.params.id,
     uuid,
   ]);
+  // Recebeu: lança o crédito de comissão do afiliado que indicou a empresa (se houver).
+  await accrueCommissionForCharge(Number(req.params.id));
   res.redirect(`/admin/companies/${uuid}`);
 });
 
@@ -985,11 +1029,11 @@ router.get('/charges', requireAdminAuth, async (req, res) => {
   const summary = (sumRows as Record<string, number>[])[0] ?? {};
 
   const [companies] = await pool.query(
-    `SELECT c.company_uuid, c.name, a.id AS affiliate_id, a.name AS affiliate_name, a.discount_pct
+    `SELECT c.company_uuid, c.name, a.id AS affiliate_id, a.name AS affiliate_name, a.discount_pct, a.commission_pct
        FROM companies c LEFT JOIN affiliates a ON a.id = c.affiliate_id
       ORDER BY c.name`,
   );
-  const [affiliates] = await pool.query('SELECT id, name, discount_pct, active FROM affiliates ORDER BY name');
+  const [affiliates] = await pool.query('SELECT id, name, discount_pct, commission_pct, active FROM affiliates ORDER BY name');
 
   res.render('charges', {
     charges: chargeRows,
@@ -1026,6 +1070,8 @@ router.post('/charges', requireAdminAuth, async (req, res) => {
 
 router.post('/charges/:id/pay', requireAdminAuth, async (req, res) => {
   await getPool().query("UPDATE charges SET status = 'paga', paid_at = NOW(3) WHERE id = ?", [req.params.id]);
+  // Recebeu: lança o crédito de comissão do afiliado que indicou a empresa (se houver).
+  await accrueCommissionForCharge(Number(req.params.id));
   res.redirect('/admin/charges');
 });
 
@@ -1034,27 +1080,166 @@ router.post('/charges/:id/cancel', requireAdminAuth, async (req, res) => {
   res.redirect('/admin/charges');
 });
 
-router.get('/affiliates', requireAdminAuth, async (_req, res) => {
+/** Percentual inteiro de 0 a 100, tolerante a vazio/valor inválido. */
+function parsePct(v: unknown): number {
+  return Math.min(100, Math.max(0, Math.round(Number(v) || 0)));
+}
+
+/** Campos comuns do cadastro/edição do afiliado, já normalizados. */
+function affiliateFields(b: Record<string, unknown>) {
+  return {
+    name: String(b.name ?? '').trim(),
+    city: textOrNull(b.city),
+    contact: textOrNull(b.contact),
+    document: textOrNull(b.document),
+    discountPct: parsePct(b.discountPct),
+    commissionPct: parsePct(b.commissionPct),
+    pixKey: textOrNull(b.pixKey),
+    notes: textOrNull(b.notes),
+    portalUser: textOrNull(b.portalUser),
+  };
+}
+
+router.get('/affiliates', requireAdminAuth, async (req, res) => {
   const pool = getPool();
   const [affiliates] = await pool.query(
-    `SELECT a.id, a.name, a.contact, a.discount_pct, a.active, a.created_at,
-            (SELECT COUNT(*) FROM companies c WHERE c.affiliate_id = a.id) AS companies_count
+    `SELECT a.id, a.name, a.city, a.contact, a.discount_pct, a.commission_pct, a.active,
+            a.created_at, a.username,
+            (SELECT COUNT(*) FROM companies c WHERE c.affiliate_id = a.id) AS companies_count,
+            (SELECT COALESCE(SUM(ac.amount_cents),0) FROM affiliate_commissions ac
+              WHERE ac.affiliate_id = a.id AND ac.status = 'disponivel') AS available_cents,
+            (SELECT COALESCE(SUM(ac.amount_cents),0) FROM affiliate_commissions ac
+              WHERE ac.affiliate_id = a.id AND ac.status = 'solicitado') AS requested_cents,
+            (SELECT COALESCE(SUM(ac.amount_cents),0) FROM affiliate_commissions ac
+              WHERE ac.affiliate_id = a.id AND ac.status = 'pago') AS paid_cents
        FROM affiliates a ORDER BY a.active DESC, a.name`,
   );
-  res.render('affiliates', { affiliates, active: 'affiliates' });
+  const totals = (affiliates as Record<string, unknown>[]).reduce<{
+    available: number;
+    requested: number;
+    paid: number;
+    activeCount: number;
+  }>(
+    (acc, a) => {
+      acc.available += Number(a.available_cents) || 0;
+      acc.requested += Number(a.requested_cents) || 0;
+      acc.paid += Number(a.paid_cents) || 0;
+      if (a.active) acc.activeCount += 1;
+      return acc;
+    },
+    { available: 0, requested: 0, paid: 0, activeCount: 0 },
+  );
+  res.render('affiliates', {
+    affiliates,
+    totals,
+    active: 'affiliates',
+    ok: typeof req.query.ok === 'string' ? 'Operação realizada com sucesso.' : null,
+    error: typeof req.query.error === 'string' ? req.query.error : null,
+  });
 });
 
 router.post('/affiliates', requireAdminAuth, async (req, res) => {
-  const { name, contact, discountPct } = req.body ?? {};
-  const cleanName = String(name ?? '').trim();
-  if (cleanName.length >= 2) {
-    await getPool().query('INSERT INTO affiliates (name, contact, discount_pct) VALUES (?, ?, ?)', [
-      cleanName,
-      textOrNull(contact),
-      Math.min(100, Math.max(0, Math.round(Number(discountPct) || 0))),
-    ]);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const f = affiliateFields(b);
+  if (f.name.length < 2) {
+    res.redirect('/admin/affiliates?error=Informe+o+nome+do+afiliado');
+    return;
   }
-  res.redirect('/admin/affiliates');
+  const password = String(b.portalPassword ?? '').trim();
+  const passwordHash = f.portalUser && password ? hashAffiliatePassword(password) : null;
+  try {
+    await getPool().query(
+      `INSERT INTO affiliates
+         (name, city, contact, document, discount_pct, commission_pct, pix_key, notes, username, password_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [f.name, f.city, f.contact, f.document, f.discountPct, f.commissionPct, f.pixKey, f.notes, f.portalUser, passwordHash],
+    );
+  } catch {
+    res.redirect('/admin/affiliates?error=Usu%C3%A1rio+do+portal+j%C3%A1+est%C3%A1+em+uso');
+    return;
+  }
+  res.redirect('/admin/affiliates?ok=criado');
+});
+
+router.get('/affiliates/:id', requireAdminAuth, async (req, res) => {
+  const pool = getPool();
+  const affiliateId = Number(req.params.id);
+  const [rows] = await pool.query(
+    `SELECT a.*,
+            (SELECT COUNT(*) FROM companies c WHERE c.affiliate_id = a.id) AS companies_count
+       FROM affiliates a WHERE a.id = ?`,
+    [affiliateId],
+  );
+  const affiliate = (rows as Record<string, unknown>[])[0];
+  if (!affiliate) {
+    res.status(404).send('Afiliado não encontrado.');
+    return;
+  }
+  const summary = await affiliateSummary(affiliateId);
+  const [companies] = await pool.query(
+    `SELECT c.company_uuid, c.name, c.plan, c.valid_until, c.city, c.state,
+            (SELECT COALESCE(SUM(ch.amount_cents),0) FROM charges ch
+              WHERE ch.company_uuid = c.company_uuid AND ch.status = 'pendente') AS pending_cents,
+            (SELECT COALESCE(SUM(ch.amount_cents),0) FROM charges ch
+              WHERE ch.company_uuid = c.company_uuid AND ch.status = 'paga') AS paid_cents
+       FROM companies c WHERE c.affiliate_id = ? ORDER BY c.name`,
+    [affiliateId],
+  );
+  const [commissions] = await pool.query(
+    `SELECT ac.id, ac.amount_cents, ac.base_cents, ac.pct, ac.status, ac.created_at, ac.paid_at,
+            c.name AS company_name, c.company_uuid, ch.description AS charge_description
+       FROM affiliate_commissions ac
+       LEFT JOIN companies c ON c.company_uuid = ac.company_uuid
+       LEFT JOIN charges ch ON ch.id = ac.charge_id
+      WHERE ac.affiliate_id = ? ORDER BY ac.id DESC LIMIT 200`,
+    [affiliateId],
+  );
+  const [payouts] = await pool.query(
+    `SELECT id, amount_cents, status, method, notes, requested_by, requested_at, paid_at, paid_by
+       FROM affiliate_payouts WHERE affiliate_id = ? ORDER BY id DESC`,
+    [affiliateId],
+  );
+  res.render('affiliate-detail', {
+    affiliate,
+    summary,
+    companies,
+    commissions,
+    payouts,
+    active: 'affiliates',
+    ok: typeof req.query.ok === 'string' ? req.query.ok : null,
+    error: typeof req.query.error === 'string' ? req.query.error : null,
+  });
+});
+
+router.post('/affiliates/:id/update', requireAdminAuth, async (req, res) => {
+  const affiliateId = Number(req.params.id);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const f = affiliateFields(b);
+  if (f.name.length < 2) {
+    res.redirect(`/admin/affiliates/${affiliateId}?error=Informe+o+nome+do+afiliado`);
+    return;
+  }
+  const sets = [
+    'name = ?', 'city = ?', 'contact = ?', 'document = ?', 'discount_pct = ?',
+    'commission_pct = ?', 'pix_key = ?', 'notes = ?', 'username = ?',
+  ];
+  const params: unknown[] = [f.name, f.city, f.contact, f.document, f.discountPct, f.commissionPct, f.pixKey, f.notes, f.portalUser];
+  // Senha só muda quando o campo vem preenchido; usuário vazio remove o acesso ao portal.
+  const password = String(b.portalPassword ?? '').trim();
+  if (password) {
+    sets.push('password_hash = ?');
+    params.push(hashAffiliatePassword(password));
+  } else if (!f.portalUser) {
+    sets.push('password_hash = NULL');
+  }
+  params.push(affiliateId);
+  try {
+    await getPool().query(`UPDATE affiliates SET ${sets.join(', ')} WHERE id = ?`, params);
+  } catch {
+    res.redirect(`/admin/affiliates/${affiliateId}?error=Usu%C3%A1rio+do+portal+j%C3%A1+est%C3%A1+em+uso`);
+    return;
+  }
+  res.redirect(`/admin/affiliates/${affiliateId}?ok=salvo`);
 });
 
 router.post('/affiliates/:id/toggle', requireAdminAuth, async (req, res) => {
@@ -1063,10 +1248,123 @@ router.post('/affiliates/:id/toggle', requireAdminAuth, async (req, res) => {
 });
 
 router.post('/affiliates/:id/delete', requireAdminAuth, async (req, res) => {
+  const affiliateId = Number(req.params.id);
+  // Com histórico financeiro, excluir apagaria o rastro das comissões. Aí só desativa.
+  const [histRows] = await getPool().query(
+    'SELECT (SELECT COUNT(*) FROM affiliate_commissions WHERE affiliate_id = ?) + (SELECT COUNT(*) FROM affiliate_payouts WHERE affiliate_id = ?) AS n',
+    [affiliateId, affiliateId],
+  );
+  if (Number((histRows as { n: number }[])[0]?.n || 0) > 0) {
+    res.redirect('/admin/affiliates?error=Afiliado+tem+hist%C3%B3rico+de+comiss%C3%B5es.+Desative+em+vez+de+excluir.');
+    return;
+  }
   // Solta as empresas antes: sem o afiliado, elas voltam a pagar o valor cheio.
-  await getPool().query('UPDATE companies SET affiliate_id = NULL WHERE affiliate_id = ?', [req.params.id]);
-  await getPool().query('DELETE FROM affiliates WHERE id = ?', [req.params.id]);
-  res.redirect('/admin/affiliates');
+  await getPool().query('UPDATE companies SET affiliate_id = NULL WHERE affiliate_id = ?', [affiliateId]);
+  await getPool().query('DELETE FROM affiliates WHERE id = ?', [affiliateId]);
+  res.redirect('/admin/affiliates?ok=excluido');
+});
+
+// --- Comissões e pagamentos (visão global) ---
+
+router.get('/commissions', requireAdminAuth, async (req, res) => {
+  const status = typeof req.query.status === 'string' &&
+    ['disponivel', 'solicitado', 'pago', 'cancelado'].includes(req.query.status)
+    ? req.query.status
+    : '';
+  const affiliateId = Number(req.query.affiliateId) || 0;
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (status) {
+    where.push('ac.status = ?');
+    params.push(status);
+  }
+  if (affiliateId) {
+    where.push('ac.affiliate_id = ?');
+    params.push(affiliateId);
+  }
+  const pool = getPool();
+  const [commissions] = await pool.query(
+    `SELECT ac.id, ac.amount_cents, ac.base_cents, ac.pct, ac.status, ac.created_at, ac.paid_at,
+            a.id AS affiliate_id, a.name AS affiliate_name,
+            c.name AS company_name, c.company_uuid, ch.description AS charge_description
+       FROM affiliate_commissions ac
+       LEFT JOIN affiliates a ON a.id = ac.affiliate_id
+       LEFT JOIN companies c ON c.company_uuid = ac.company_uuid
+       LEFT JOIN charges ch ON ch.id = ac.charge_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY ac.id DESC LIMIT 500`,
+    params,
+  );
+  const [sumRows] = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN status = 'disponivel' THEN amount_cents END),0) AS available_cents,
+       COALESCE(SUM(CASE WHEN status = 'solicitado' THEN amount_cents END),0) AS requested_cents,
+       COALESCE(SUM(CASE WHEN status = 'pago' THEN amount_cents END),0) AS paid_cents,
+       COUNT(*) AS total_count
+     FROM affiliate_commissions`,
+  );
+  const summary = (sumRows as Record<string, number>[])[0] ?? {};
+  const [affiliates] = await pool.query('SELECT id, name FROM affiliates ORDER BY name');
+  res.render('commissions', {
+    commissions,
+    summary,
+    affiliates,
+    filter: { status, affiliateId },
+    active: 'commissions',
+  });
+});
+
+router.get('/payouts', requireAdminAuth, async (req, res) => {
+  const status = typeof req.query.status === 'string' &&
+    ['solicitado', 'pago', 'cancelado'].includes(req.query.status)
+    ? req.query.status
+    : '';
+  const pool = getPool();
+  const [payouts] = await pool.query(
+    `SELECT p.id, p.affiliate_id, p.amount_cents, p.method, p.notes, p.status, p.requested_by,
+            p.requested_at, p.paid_at, p.paid_by, a.name AS affiliate_name, a.pix_key
+       FROM affiliate_payouts p LEFT JOIN affiliates a ON a.id = p.affiliate_id
+      ${status ? 'WHERE p.status = ?' : ''}
+      ORDER BY (p.status = 'solicitado') DESC, p.id DESC LIMIT 500`,
+    status ? [status] : [],
+  );
+  const [sumRows] = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN status = 'solicitado' THEN amount_cents END),0) AS requested_cents,
+       COUNT(CASE WHEN status = 'solicitado' THEN 1 END) AS requested_count,
+       COALESCE(SUM(CASE WHEN status = 'pago' AND paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN amount_cents END),0) AS paid_month_cents
+     FROM affiliate_payouts`,
+  );
+  const summary = (sumRows as Record<string, number>[])[0] ?? {};
+  res.render('payouts', { payouts, summary, filter: { status }, active: 'payouts' });
+});
+
+router.post('/affiliates/:id/payouts', requireAdminAuth, async (req: AdminRequest, res) => {
+  const affiliateId = Number(req.params.id);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const markPaid = b.markPaid === '1' || b.markPaid === true;
+  const result = await createPayoutFromAvailable({
+    affiliateId,
+    method: textOrNull(b.method),
+    notes: textOrNull(b.notes),
+    requestedBy: req.adminUsername ?? 'admin',
+    markPaid,
+  });
+  if (!result) {
+    res.redirect(`/admin/affiliates/${affiliateId}?error=Sem+cr%C3%A9dito+dispon%C3%ADvel+para+pagar`);
+    return;
+  }
+  res.redirect(`/admin/affiliates/${affiliateId}?ok=${markPaid ? 'pagamento+confirmado' : 'pedido+de+pagamento+criado'}`);
+});
+
+router.post('/payouts/:id/pay', requireAdminAuth, async (req: AdminRequest, res) => {
+  await payPayout(Number(req.params.id), req.adminUsername ?? 'admin');
+  res.redirect('/admin/payouts');
+});
+
+router.post('/payouts/:id/cancel', requireAdminAuth, async (req, res) => {
+  await cancelPayout(Number(req.params.id));
+  res.redirect('/admin/payouts');
 });
 
 // --- Configurações globais (contato de suporte exibido no app quando a licença vence) ---
@@ -1186,6 +1484,7 @@ interface CatalogImageRow {
   company_uuid: string | null;
   product_name: string;
   keywords: string;
+  barcode: string | null;
   image_path: string;
   format: 'jpeg' | 'png' | 'webp' | 'avif';
   width: number;
@@ -1194,18 +1493,57 @@ interface CatalogImageRow {
   status: 'pendente' | 'aprovada' | 'rejeitada';
   source: 'submissao' | 'manual';
   created_at: string;
+  reviewed_at?: string | null;
+}
+
+const CATALOG_PAGE_SIZE = 48;
+const DEMAND_PAGE_SIZE = 50;
+
+function clampPage(v: unknown): number {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+/** Janela de páginas com reticências (1 … 4 5 [6] 7 8 … 20). */
+function pageWindow(page: number, totalPages: number): (number | '…')[] {
+  const out: (number | '…')[] = [];
+  const start = Math.max(1, page - 2);
+  const end = Math.min(totalPages, page + 2);
+  if (start > 1) {
+    out.push(1);
+    if (start > 2) out.push('…');
+  }
+  for (let i = start; i <= end; i++) out.push(i);
+  if (end < totalPages) {
+    if (end < totalPages - 1) out.push('…');
+    out.push(totalPages);
+  }
+  return out;
+}
+
+/** Aceita `ids` como array (campos repetidos) ou string "1,2,3". */
+function parseCatalogIds(raw: unknown): number[] {
+  const list = Array.isArray(raw) ? raw : String(raw ?? '').split(',');
+  return [...new Set(list.map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0))];
 }
 
 router.get('/catalog', requireAdminAuth, async (req, res) => {
   const pool = getPool();
   const activeTab = req.query.tab === 'demanda' ? 'demanda' : 'imagens';
   const activeStatus = req.query.status === 'aprovada' ? 'aprovada' : 'pendente';
-  const orderBy = activeStatus === 'aprovada' ? 'reviewed_at DESC' : 'created_at ASC';
-  const [images] = await pool.query(
-    `SELECT id, company_uuid, product_name, keywords, image_path, format, width, height, size_bytes, status, source, created_at
-     FROM catalog_images WHERE status = ? ORDER BY ${orderBy}`,
-    [activeStatus],
-  );
+  const q = String(req.query.q ?? '').trim().slice(0, 80);
+  const source =
+    req.query.source === 'manual' ? 'manual' : req.query.source === 'empresa' ? 'empresa' : '';
+  const format = ['jpeg', 'png', 'webp', 'avif'].includes(String(req.query.format))
+    ? String(req.query.format)
+    : '';
+  const sort = ['recentes', 'antigas', 'nome'].includes(String(req.query.sort))
+    ? String(req.query.sort)
+    : activeStatus === 'aprovada'
+      ? 'recentes'
+      : 'antigas';
+
+  // ─── Estatísticas gerais (independem do filtro) ───
   const [statsRows] = await pool.query(
     `SELECT
        SUM(status = 'pendente') AS pending,
@@ -1215,11 +1553,64 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
        SUM(CASE WHEN status IN ('pendente', 'aprovada') THEN size_bytes ELSE 0 END) AS storage_bytes
      FROM catalog_images`,
   );
-  const stats = (statsRows as { pending: number | null; approved: number | null; rejected: number | null; storage_bytes: number | null }[])[0];
+  const stats = (
+    statsRows as { pending: number | null; approved: number | null; rejected: number | null; storage_bytes: number | null }[]
+  )[0];
 
-  // Aprendizado do catálogo: termos procurados sem imagem (demanda) e aliases aprendidos.
+  // ─── Imagens (paginadas, com busca e filtros no servidor) ───
+  const where: string[] = ['status = ?'];
+  const params: unknown[] = [activeStatus];
+  if (q) {
+    where.push('(product_name LIKE ? OR keywords LIKE ? OR barcode LIKE ?)');
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  if (source === 'manual') where.push("source = 'manual'");
+  else if (source === 'empresa') where.push("source <> 'manual'");
+  if (format) {
+    where.push('format = ?');
+    params.push(format);
+  }
+  const orderBy =
+    sort === 'nome'
+      ? 'product_name ASC'
+      : sort === 'recentes'
+        ? activeStatus === 'aprovada'
+          ? 'reviewed_at DESC'
+          : 'created_at DESC'
+        : activeStatus === 'aprovada'
+          ? 'reviewed_at ASC'
+          : 'created_at ASC';
+
+  const [countRows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM catalog_images WHERE ${where.join(' AND ')}`,
+    params,
+  );
+  const totalImages = Number((countRows as { total: number }[])[0]?.total ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalImages / CATALOG_PAGE_SIZE));
+  const page = Math.min(clampPage(req.query.page), totalPages);
+  const offset = (page - 1) * CATALOG_PAGE_SIZE;
+  const [images] = await pool.query(
+    `SELECT id, company_uuid, product_name, keywords, barcode, image_path, format, width, height, size_bytes, status, source, created_at, reviewed_at
+       FROM catalog_images WHERE ${where.join(' AND ')}
+      ORDER BY ${orderBy} LIMIT ${CATALOG_PAGE_SIZE} OFFSET ${offset}`,
+    params,
+  );
+
+  // ─── Demanda (paginada, com busca) ───
+  const demandWhere = q ? 'WHERE term LIKE ?' : '';
+  const demandParams = q ? [`%${q}%`] : [];
+  const [demandCountRows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM catalog_demand ${demandWhere}`,
+    demandParams,
+  );
+  const demandTotal = Number((demandCountRows as { total: number }[])[0]?.total ?? 0);
+  const demandTotalPages = Math.max(1, Math.ceil(demandTotal / DEMAND_PAGE_SIZE));
+  const demandPage = Math.min(clampPage(req.query.page), demandTotalPages);
+  const demandOffset = (demandPage - 1) * DEMAND_PAGE_SIZE;
   const [demandRows] = await pool.query(
-    'SELECT id, term, misses, last_seen_at FROM catalog_demand ORDER BY misses DESC, last_seen_at DESC LIMIT 30',
+    `SELECT id, term, misses, last_seen_at FROM catalog_demand ${demandWhere}
+      ORDER BY misses DESC, last_seen_at DESC LIMIT ${DEMAND_PAGE_SIZE} OFFSET ${demandOffset}`,
+    demandParams,
   );
   const [aliasStatsRows] = await pool.query(
     'SELECT COUNT(*) AS total, COALESCE(SUM(occurrences), 0) AS hits FROM catalog_image_aliases',
@@ -1230,11 +1621,25 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
     images: images as CatalogImageRow[],
     activeStatus,
     activeTab,
+    q,
+    source,
+    format,
+    sort,
+    page,
+    totalImages,
+    totalPages,
+    pageWindow: pageWindow(page, totalPages),
+    demand: demandRows,
+    demandPage,
+    demandTotal,
+    demandTotalPages,
+    demandPageWindow: pageWindow(demandPage, demandTotalPages),
     stats: {
-      pending: stats?.pending ?? 0, approved: stats?.approved ?? 0, rejected: stats?.rejected ?? 0,
+      pending: stats?.pending ?? 0,
+      approved: stats?.approved ?? 0,
+      rejected: stats?.rejected ?? 0,
       storageBytes: stats?.storage_bytes ?? 0,
     },
-    demand: demandRows,
     aliasStats: { total: Number(aliasStats.total), hits: Number(aliasStats.hits) },
     error: null,
     deleted: req.query.deleted ? Number(req.query.deleted) : null,
@@ -1244,7 +1649,7 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
 /** Tira um termo da lista de demanda (já atendido / irrelevante). */
 router.post('/catalog/demand/:id/delete', requireAdminAuth, async (req, res) => {
   await getPool().query('DELETE FROM catalog_demand WHERE id = ?', [req.params.id]);
-  res.redirect('/admin/catalog');
+  res.redirect('/admin/catalog?tab=demanda');
 });
 
 /** Miniatura no painel de curadoria — serve qualquer status (a pública em /api/catalog/image só serve aprovada). */
@@ -1293,8 +1698,8 @@ router.post('/catalog/:id/reject', requireAdminAuth, async (req: AdminRequest, r
 });
 
 router.post('/catalog/batch-approve', requireAdminAuth, async (req: AdminRequest, res) => {
-  const ids = req.body?.ids;
-  if (!Array.isArray(ids) || !ids.length) {
+  const ids = parseCatalogIds(req.body?.ids);
+  if (!ids.length) {
     res.redirect('/admin/catalog');
     return;
   }
@@ -1307,8 +1712,8 @@ router.post('/catalog/batch-approve', requireAdminAuth, async (req: AdminRequest
 });
 
 router.post('/catalog/batch-reject', requireAdminAuth, async (req: AdminRequest, res) => {
-  const ids = req.body?.ids;
-  if (!Array.isArray(ids) || !ids.length) {
+  const ids = parseCatalogIds(req.body?.ids);
+  if (!ids.length) {
     res.redirect('/admin/catalog');
     return;
   }
@@ -1389,6 +1794,7 @@ router.post('/catalog/delete-all', requireAdminAuth, async (req: AdminRequest, r
  */
 router.post('/catalog/manual', rawCatalogImage, requireAdminAuth, async (req: AdminRequest, res) => {
   const productName = req.header('X-Kivo-Product-Name');
+  const barcode = String(req.header('X-Kivo-Product-Barcode') ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, 64) || null;
   const body = req.body as Buffer;
 
   if (!productName || !Buffer.isBuffer(body) || !body.length) {
@@ -1412,11 +1818,26 @@ router.post('/catalog/manual', rawCatalogImage, requireAdminAuth, async (req: Ad
   fs.writeFileSync(path.join(CATALOG_STORAGE_DIR, filename), body);
   const [info] = await getPool().query(
     `INSERT INTO catalog_images
-       (company_uuid, product_name, keywords, image_path, sha256, width, height, format, size_bytes, status, source, reviewed_by, reviewed_at)
-     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'aprovada', 'manual', ?, NOW(3))`,
-    [productName, normalizeKeywords(productName), filename, hash, check.width, check.height, check.format, body.length, req.adminUsername],
+       (company_uuid, product_name, keywords, barcode, image_path, sha256, width, height, format, size_bytes, status, source, reviewed_by, reviewed_at)
+     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aprovada', 'manual', ?, NOW(3))`,
+    [productName, normalizeKeywords(productName), barcode, filename, hash, check.width, check.height, check.format, body.length, req.adminUsername],
   );
   res.status(201).json({ ok: true, catalogImageId: (info as { insertId: number }).insertId });
+});
+
+/**
+ * Define/limpa o código de barras de uma imagem já no catálogo. O nome do arquivo raramente
+ * traz o EAN; deixar o admin entrar/corrigir o código é o que faz a busca casar exato.
+ */
+router.post('/catalog/:id/barcode', requireAdminAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'Imagem inválida.' });
+    return;
+  }
+  const barcode = String(req.body?.barcode ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, 64) || null;
+  await getPool().query('UPDATE catalog_images SET barcode = ? WHERE id = ?', [barcode, id]);
+  res.json({ ok: true, barcode });
 });
 
 // --- Leads do formulário de contato da landing ---
@@ -1519,11 +1940,19 @@ router.get('/api/notifications', requireAdminAuth, async (_req, res) => {
       ORDER BY created_at DESC
       LIMIT 5`,
   );
+  const [payoutRows] = await pool.query(
+    `SELECT p.id, p.amount_cents, a.name AS affiliate_name
+       FROM affiliate_payouts p LEFT JOIN affiliates a ON a.id = p.affiliate_id
+      WHERE p.status = 'solicitado'
+      ORDER BY p.id DESC LIMIT 5`,
+  );
   res.json({
     unreadTickets: Number((ticketRows as { cnt: number }[])[0]?.cnt ?? 0),
     newLeads: Number((leadRows as { cnt: number }[])[0]?.cnt ?? 0),
+    pendingPayouts: Number((payoutRows as unknown[]).length),
     recentTickets: recentTickets as { id: number; subject: string; admin_unread: number; last_message_at: string; company_name: string | null }[],
     recentLeads: recentLeads as { id: number; name: string; whatsapp: string; created_at: string }[],
+    recentPayouts: payoutRows as { id: number; amount_cents: number; affiliate_name: string | null }[],
   });
 });
 

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — <%= affiliate.name %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .aff-actions form { display: inline; margin: 0; }
+    .aff-actions button { border: 0; background: transparent; cursor: pointer; color: #2563eb; font-size: 12px; padding: 2px 4px; }
+    .aff-actions button.danger { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'affiliates' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'affiliates' }) %>
+
+      <%
+        function brl(c) { return (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+        function commBadge(s) {
+          if (s === 'disponivel') return { cls: 'paga', label: 'Disponível' };
+          if (s === 'solicitado') return { cls: 'pendente', label: 'Solicitado' };
+          if (s === 'pago') return { cls: 'plan', label: 'Pago' };
+          return { cls: 'cancelada', label: 'Cancelado' };
+        }
+        function payBadge(s) {
+          if (s === 'pago') return { cls: 'paga', label: 'Pago' };
+          if (s === 'solicitado') return { cls: 'pendente', label: 'Aguardando' };
+          return { cls: 'cancelada', label: 'Cancelado' };
+        }
+      %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb"><a href="/admin/affiliates">Afiliados</a> / Detalhe</div>
+            <h1><%= affiliate.name %> <span class="badge <%= affiliate.active ? 'paga' : 'cancelada' %>" style="vertical-align:middle"><%= affiliate.active ? 'Ativo' : 'Inativo' %></span></h1>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <form method="post" action="/admin/affiliates/<%= affiliate.id %>/toggle" style="margin:0">
+              <button type="submit" class="btn secondary"><%= affiliate.active ? 'Desativar' : 'Ativar' %></button>
+            </form>
+          </div>
+        </div>
+
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
+        <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
+
+        <div class="card">
+          <div class="stat-row">
+            <div class="stat"><div class="value"><%= summary.companiesCount %></div><div class="label">Empresas indicadas</div></div>
+            <div class="stat"><div class="value"><%= brl(summary.availableCents) %></div><div class="label">Comissões disponíveis</div></div>
+            <div class="stat"><div class="value"><%= brl(summary.requestedCents) %></div><div class="label">Aguardando pagamento</div></div>
+            <div class="stat"><div class="value"><%= brl(summary.paidCents) %></div><div class="label">Já pago</div></div>
+            <div class="stat"><div class="value"><%= brl(summary.forecastCents) %></div><div class="label">Previsão (pendentes)</div></div>
+          </div>
+        </div>
+
+        <!-- Pagamento -->
+        <div class="card">
+          <h2>Pagamento de comissões</h2>
+          <p class="card-intro">
+            <%= brl(summary.availableCents) %> disponível para pagamento.
+            Criar o pedido reserva todos os créditos disponíveis; a confirmação baixa como pago.
+          </p>
+          <% if (summary.availableCents > 0) { %>
+          <form method="post" action="/admin/affiliates/<%= affiliate.id %>/payouts">
+            <div class="form-grid">
+              <div class="field col-4">
+                <label>Forma de pagamento</label>
+                <input type="text" name="method" maxlength="40" placeholder="PIX, transferência…" value="PIX">
+              </div>
+              <div class="field col-8">
+                <label>Observações</label>
+                <input type="text" name="notes" maxlength="255" placeholder="Comprovante, referência…">
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button type="submit" name="markPaid" value="0" class="btn secondary">Criar pedido (aguardar)</button>
+              <button type="submit" name="markPaid" value="1" class="btn">Confirmar pagamento agora</button>
+            </div>
+          </form>
+          <% } else { %>
+          <p class="field-hint" style="margin:0">Não há comissão disponível para pagar agora.</p>
+          <% } %>
+        </div>
+
+        <!-- Dados cadastrais -->
+        <div class="card">
+          <h2>Dados do afiliado</h2>
+          <form method="post" action="/admin/affiliates/<%= affiliate.id %>/update">
+            <div class="form-grid">
+              <div class="field col-6">
+                <label>Nome</label>
+                <input type="text" name="name" value="<%= affiliate.name || '' %>" required maxlength="120">
+              </div>
+              <div class="field col-6">
+                <label>Cidade</label>
+                <input type="text" name="city" value="<%= affiliate.city || '' %>" maxlength="120">
+              </div>
+              <div class="field col-6">
+                <label>Contato</label>
+                <input type="text" name="contact" value="<%= affiliate.contact || '' %>" maxlength="160">
+              </div>
+              <div class="field col-6">
+                <label>Documento</label>
+                <input type="text" name="document" value="<%= affiliate.document || '' %>" maxlength="40">
+              </div>
+              <div class="field col-4">
+                <label>Desconto cliente (%)</label>
+                <input type="number" name="discountPct" min="0" max="100" value="<%= affiliate.discount_pct || 0 %>">
+              </div>
+              <div class="field col-4">
+                <label>Comissão (%)</label>
+                <input type="number" name="commissionPct" min="0" max="100" value="<%= affiliate.commission_pct || 0 %>">
+              </div>
+              <div class="field col-4">
+                <label>Chave PIX</label>
+                <input type="text" name="pixKey" value="<%= affiliate.pix_key || '' %>" maxlength="160">
+              </div>
+              <div class="field col-12">
+                <label>Observações</label>
+                <input type="text" name="notes" value="<%= affiliate.notes || '' %>" maxlength="255">
+              </div>
+            </div>
+
+            <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+            <strong style="font-size:.9rem">Acesso ao portal</strong>
+            <p class="field-hint">Usuário em branco remove o acesso. A senha só muda se você preencher uma nova.</p>
+            <div class="form-grid">
+              <div class="field col-6">
+                <label>Usuário</label>
+                <input type="text" name="portalUser" value="<%= affiliate.username || '' %>" maxlength="60" autocomplete="off">
+              </div>
+              <div class="field col-6">
+                <label>Nova senha (opcional)</label>
+                <input type="text" name="portalPassword" maxlength="60" autocomplete="off" placeholder="deixe vazio para manter">
+              </div>
+            </div>
+
+            <div class="form-actions-bar">
+              <span class="actions-hint">Salva os dados e o acesso do afiliado.</span>
+              <div class="spacer"></div>
+              <button type="submit" class="btn">Salvar</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Empresas indicadas -->
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 style="margin:0; font-size:1.05rem;">Empresas indicadas</h2>
+            <div class="table-count"><%= companies.length %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Empresa</th><th>Cidade</th><th>Plano</th><th class="text-right">A receber</th><th class="text-right">Recebido</th></tr></thead>
+              <tbody>
+                <% companies.forEach(function(c) { %>
+                <tr>
+                  <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.name || String(c.company_uuid).slice(0, 8) %></a></td>
+                  <td class="cell-muted"><%= c.city || '—' %><%= c.state ? ('/' + c.state) : '' %></td>
+                  <td class="cell-muted"><%= c.plan || '—' %></td>
+                  <td class="text-right tabular"><%= brl(c.pending_cents) %></td>
+                  <td class="text-right tabular"><%= brl(c.paid_cents) %></td>
+                </tr>
+                <% }); %>
+                <% if (!companies.length) { %><tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma empresa indicada ainda.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Comissões -->
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 style="margin:0; font-size:1.05rem;">Comissões</h2>
+            <div class="table-count"><%= commissions.length %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Data</th><th>Empresa</th><th>Cobrança</th><th class="text-right">Base</th><th class="text-right">%</th><th class="text-right">Comissão</th><th>Status</th></tr></thead>
+              <tbody>
+                <% commissions.forEach(function(c) { var b = commBadge(c.status); %>
+                <tr>
+                  <td class="cell-muted"><%= fmtDateBr(c.created_at) %></td>
+                  <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.company_name || '—' %></a></td>
+                  <td class="cell-muted"><%= c.charge_description || ('#' + c.id) %></td>
+                  <td class="text-right tabular"><%= brl(c.base_cents) %></td>
+                  <td class="text-right tabular"><%= c.pct %>%</td>
+                  <td class="text-right tabular"><strong><%= brl(c.amount_cents) %></strong></td>
+                  <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
+                </tr>
+                <% }); %>
+                <% if (!commissions.length) { %><tr><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma comissão gerada ainda.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Pagamentos -->
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 style="margin:0; font-size:1.05rem;">Pagamentos</h2>
+            <a href="/admin/payouts" class="card-link">Ver todos →</a>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>#</th><th class="text-right">Valor</th><th>Forma</th><th>Status</th><th>Solicitado</th><th>Pago em</th><th></th></tr></thead>
+              <tbody>
+                <% payouts.forEach(function(p) { var b = payBadge(p.status); %>
+                <tr>
+                  <td class="cell-muted">#<%= p.id %></td>
+                  <td class="text-right tabular"><strong><%= brl(p.amount_cents) %></strong></td>
+                  <td class="cell-muted"><%= p.method || '—' %></td>
+                  <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
+                  <td class="cell-muted"><%= fmtDateTimeBr(p.requested_at) %></td>
+                  <td class="cell-muted"><%= p.paid_at ? fmtDateTimeBr(p.paid_at) : '—' %></td>
+                  <td>
+                    <% if (p.status === 'solicitado') { %>
+                    <div class="aff-actions">
+                      <form method="post" action="/admin/payouts/<%= p.id %>/pay"><button type="submit">Confirmar</button></form>
+                      <form method="post" action="/admin/payouts/<%= p.id %>/cancel"><button type="submit" class="danger">Cancelar</button></form>
+                    </div>
+                    <% } %>
+                  </td>
+                </tr>
+                <% }); %>
+                <% if (!payouts.length) { %><tr><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum pagamento registrado ainda.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

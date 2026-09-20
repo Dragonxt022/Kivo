@@ -70,3 +70,20 @@ export function emitToCompany(companyUuid: string, event: string, data: unknown 
 export function connectedCount(companyUuid: string): number {
   return clients.get(companyUuid)?.size ?? 0;
 }
+
+/**
+ * Avisa TODAS as empresas conectadas — usado quando o admin publica uma mensagem para
+ * "todas". É só um empurrãozinho: quem estiver offline recebe no próximo ciclo de sync.
+ */
+export function emitToAll(event: string, data: unknown = {}): void {
+  const frame = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const set of clients.values()) {
+    for (const res of set) {
+      try {
+        res.write(frame);
+      } catch {
+        set.delete(res);
+      }
+    }
+  }
+}

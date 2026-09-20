@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Afiliados — Entrar</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+  <div class="card login-card">
+    <div class="brand"><img id="brand-logo" src="/logo_kivo-icon.svg" alt=""> Kivo Afiliados</div>
+    <% if (error) { %><p class="error-banner"><%= error %></p><% } %>
+    <form method="post" action="/afiliado/login">
+      <label>Usuário</label>
+      <input type="text" name="username" required autofocus autocomplete="username">
+      <label>Senha</label>
+      <input type="password" name="password" required autocomplete="current-password">
+      <button type="submit" class="btn">Entrar</button>
+    </form>
+    <p class="field-hint" style="text-align:center; margin-top:14px">
+      Acesso fornecido pelo administrador Kivo.
+    </p>
+  </div>
+  <script>
+    if (document.documentElement.getAttribute('data-theme') === 'dark') {
+      document.getElementById('brand-logo').src = '/logo_kivo-icon_branco.svg';
+    }
+  </script>
+</body>
+</html>

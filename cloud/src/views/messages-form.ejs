@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — <%= msg ? 'Editar mensagem' : 'Nova mensagem' %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .mf-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
+    .mf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 720px) { .mf-row { grid-template-columns: 1fr; } }
+    .editor-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .editor-toolbar button { min-width: 34px; padding: 6px 9px; font-size: 13px; }
+    .editor-area { min-height: 260px; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; background: #fff; overflow-y: auto; }
+    .editor-area:focus { outline: none; border-color: var(--primary, #ff8000); }
+    .editor-area h2 { font-size: 1.25rem; }
+    .editor-area ul, .editor-area ol { padding-left: 1.4rem; }
+    .target-box { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; margin-top: 4px; }
+    .target-box select { min-width: 260px; min-height: 90px; }
+    .img-preview { margin-top: 8px; }
+    .img-preview img { max-width: 280px; border-radius: 10px; border: 1px solid #e5e7eb; display: block; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'messages' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'messages' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <h1><%= msg ? 'Editar mensagem' : 'Nova mensagem' %></h1>
+          <a class="btn secondary" href="/admin/messages">Voltar</a>
+        </div>
+
+        <div class="card">
+          <div class="mf-grid">
+            <label>Título</label>
+            <input type="text" id="f-title" maxlength="200" placeholder="Ex.: Novidade: acompanhe a loja pelo celular">
+
+            <label>Subtítulo (opcional)</label>
+            <input type="text" id="f-subtitle" maxlength="300" placeholder="Uma linha de apoio">
+
+            <div class="mf-row">
+              <div>
+                <label>Categoria</label>
+                <select id="f-category">
+                  <% categories.forEach(function(c) { %>
+                    <option value="<%= c %>"><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+                  <% }); %>
+                </select>
+              </div>
+              <div style="display:flex; align-items:flex-end">
+                <label class="label-checkbox" style="margin:0">
+                  <input type="checkbox" id="f-urgent">
+                  Urgente (abre como aviso na tela inicial da loja)
+                </label>
+              </div>
+            </div>
+
+            <label style="margin-top:.5rem">Destino</label>
+            <div class="target-box">
+              <label class="label-checkbox" style="margin:0">
+                <input type="radio" name="target" id="f-all" value="all" checked onchange="toggleTargets()">
+                Todas as empresas
+              </label>
+              <label class="label-checkbox" style="margin:.4rem 0 0">
+                <input type="radio" name="target" id="f-specific" value="specific" onchange="toggleTargets()">
+                Empresas específicas
+              </label>
+              <div id="f-targets-wrap" style="display:none; margin-top:.6rem">
+                <select id="f-targets" multiple>
+                  <% companies.forEach(function(c) { %>
+                    <option value="<%= c.company_uuid %>"><%= c.name || c.company_uuid %></option>
+                  <% }); %>
+                </select>
+                <p class="cell-muted" style="margin:.35rem 0 0; font-size:12px">Segure Ctrl (ou Cmd) para escolher mais de uma.</p>
+              </div>
+            </div>
+
+            <label style="margin-top:.6rem">Imagem de destaque (opcional, até 3MB)</label>
+            <label class="file-pick">
+              <input type="file" id="f-image" accept="image/jpeg,image/png,image/webp,image/gif" class="file-pick-input">
+              <span class="file-pick-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                Escolher imagem
+              </span>
+              <span class="file-pick-name" id="f-image-name">Nenhum arquivo escolhido</span>
+            </label>
+            <label class="label-checkbox" id="f-remove-wrap" style="display:none; margin:.2rem 0 0">
+              <input type="checkbox" id="f-remove-image"> Remover a imagem atual
+            </label>
+            <div class="img-preview" id="f-image-preview" style="display:none"><img id="f-image-img" alt="Prévia da imagem"></div>
+
+            <label style="margin-top:.6rem">Mensagem</label>
+            <div class="editor-toolbar">
+              <button type="button" class="btn secondary small" data-cmd="bold" title="Negrito"><b>B</b></button>
+              <button type="button" class="btn secondary small" data-cmd="italic" title="Itálico"><i>I</i></button>
+              <button type="button" class="btn secondary small" data-cmd="underline" title="Sublinhado"><u>U</u></button>
+              <button type="button" class="btn secondary small" data-block="H2" title="Título">Título</button>
+              <button type="button" class="btn secondary small" data-block="P" title="Texto normal">Texto</button>
+              <button type="button" class="btn secondary small" data-cmd="insertUnorderedList" title="Lista">• Lista</button>
+              <button type="button" class="btn secondary small" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+              <button type="button" class="btn secondary small" data-link="1" title="Link">Link</button>
+              <button type="button" class="btn secondary small" data-cmd="removeFormat" title="Limpar formatação">Limpar</button>
+            </div>
+            <div class="editor-area" id="f-editor" contenteditable="true"></div>
+
+            <div id="f-error" class="error-banner" style="display:none; margin-top:.75rem"></div>
+            <div style="margin-top:1rem; display:flex; gap:10px">
+              <button type="button" class="btn" id="f-save">Salvar</button>
+              <a class="btn secondary" href="/admin/messages">Cancelar</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    var MSG = <%- (msg ? JSON.stringify(msg) : 'null').replace(/</g, '\\u003c') %>;
+    var imageData = null;
+
+    function toggleTargets() {
+      var especifico = document.getElementById('f-specific').checked;
+      document.getElementById('f-targets-wrap').style.display = especifico ? 'block' : 'none';
+    }
+
+    (function () {
+      var editor = document.getElementById('f-editor');
+
+      document.querySelectorAll('.editor-toolbar button').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          editor.focus();
+          if (btn.dataset.block) {
+            document.execCommand('formatBlock', false, btn.dataset.block);
+          } else if (btn.dataset.link) {
+            var url = prompt('Endereço do link (https://…)');
+            if (url) document.execCommand('createLink', false, url);
+          } else if (btn.dataset.cmd) {
+            document.execCommand(btn.dataset.cmd, false, null);
+          }
+        });
+      });
+
+      if (MSG) {
+        document.getElementById('f-title').value = MSG.title || '';
+        document.getElementById('f-subtitle').value = MSG.subtitle || '';
+        document.getElementById('f-category').value = MSG.category || 'comunicado';
+        document.getElementById('f-urgent').checked = !!MSG.is_urgent;
+        editor.innerHTML = MSG.body_html || '';
+        if (MSG.target_all) {
+          document.getElementById('f-all').checked = true;
+        } else {
+          document.getElementById('f-specific').checked = true;
+          var sel = document.getElementById('f-targets');
+          (MSG.targets || []).forEach(function (uuid) {
+            for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === uuid) sel.options[i].selected = true;
+          });
+        }
+        if (MSG.has_image) {
+          document.getElementById('f-remove-wrap').style.display = 'block';
+          var img = document.getElementById('f-image-img');
+          img.src = '/admin/messages/' + MSG.uuid + '/image';
+          document.getElementById('f-image-preview').style.display = 'block';
+        }
+        toggleTargets();
+      }
+
+      document.getElementById('f-image').addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (!file) return;
+        if (file.size > 3 * 1024 * 1024) {
+          showError('Imagem maior que 3MB.');
+          this.value = '';
+          return;
+        }
+        document.getElementById('f-image-name').textContent = file.name;
+        var reader = new FileReader();
+        reader.onload = function () {
+          imageData = reader.result;
+          document.getElementById('f-image-img').src = imageData;
+          document.getElementById('f-image-preview').style.display = 'block';
+          document.getElementById('f-remove-image').checked = false;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById('f-save').addEventListener('click', save);
+    })();
+
+    function showError(msg) {
+      var el = document.getElementById('f-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    async function save() {
+      var title = document.getElementById('f-title').value.trim();
+      if (title.length < 2) { showError('Informe o título da mensagem.'); return; }
+      var targetAll = document.getElementById('f-all').checked;
+      var sel = document.getElementById('f-targets');
+      var targets = Array.prototype.map.call(sel.selectedOptions, function (o) { return o.value; });
+      if (!targetAll && !targets.length) { showError('Escolha ao menos uma empresa ou marque "todas".'); return; }
+
+      var payload = {
+        uuid: MSG ? MSG.uuid : undefined,
+        title: title,
+        subtitle: document.getElementById('f-subtitle').value,
+        category: document.getElementById('f-category').value,
+        bodyHtml: document.getElementById('f-editor').innerHTML,
+        urgent: document.getElementById('f-urgent').checked,
+        targetAll: targetAll,
+        targets: targets,
+        imageBase64: imageData || undefined,
+        removeImage: document.getElementById('f-remove-image').checked,
+      };
+      var btn = document.getElementById('f-save');
+      btn.disabled = true;
+      try {
+        var r = await fetch('/admin/messages/save', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        var d = await r.json().catch(function () { return {}; });
+        if (!r.ok) { showError(d.error || 'Não foi possível salvar.'); btn.disabled = false; return; }
+        location.href = '/admin/messages';
+      } catch (e) {
+        showError('Erro de conexão ao salvar.');
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

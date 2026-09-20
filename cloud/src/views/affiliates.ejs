@@ -11,7 +11,7 @@
   <style>
     .affiliate-note { display: flex; gap: 10px; align-items: flex-start; }
     .affiliate-note svg { flex: none; color: var(--primary, #ff8000); margin-top: 2px; }
-    .aff-actions { display: flex; gap: 6px; }
+    .aff-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .aff-actions form { display: inline; margin: 0; }
     .aff-actions button { border: 0; background: transparent; cursor: pointer; color: #2563eb; font-size: 12px; padding: 2px 4px; }
     .aff-actions button.danger { color: #dc2626; }
@@ -23,6 +23,11 @@
     <main class="content">
       <%- include('partials/navbar', { active: 'affiliates' }) %>
 
+      <%
+        function brl(c) { return (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+        var t = totals || { available: 0, requested: 0, paid: 0, activeCount: 0 };
+      %>
+
       <div class="page">
         <div class="page-header">
           <div>
@@ -32,16 +37,28 @@
           <button class="btn" onclick="document.getElementById('modal-new-affiliate').showModal()">+ Novo afiliado</button>
         </div>
 
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner">Operação realizada com sucesso.</p><% } %>
+        <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
+
+        <div class="card">
+          <div class="stat-row">
+            <div class="stat"><div class="value"><%= t.activeCount %></div><div class="label">Afiliados ativos</div></div>
+            <div class="stat"><div class="value"><%= brl(t.available) %></div><div class="label">Comissões disponíveis</div></div>
+            <div class="stat"><div class="value"><%= brl(t.requested) %></div><div class="label">Aguardando pagamento</div></div>
+            <div class="stat"><div class="value"><%= brl(t.paid) %></div><div class="label">Já pago (total)</div></div>
+          </div>
+        </div>
+
         <div class="card affiliate-note">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           <div>
-            <strong>Programa de indicação</strong>
+            <strong>Como funciona o afiliado</strong>
             <p style="margin:6px 0 0; font-size:13px; line-height:1.5;">
-              Cadastre quem indica clientes para o Kivo e defina um <strong>percentual de desconto</strong>.
-              Depois, na ficha de cada empresa (aba <em>Licença</em>), escolha o afiliado responsável.
-              A partir daí, <strong>toda cobrança daquela empresa sai com o desconto aplicado
-              automaticamente</strong> — o valor cheio e o desconto ficam registrados no histórico da
-              cobrança. Desativar um afiliado faz as empresas ligadas a ele voltarem a pagar o valor cheio.
+              Cadastre cada representante (por cidade) e defina o <strong>percentual de comissão</strong> que ele
+              ganha sobre o que for recebido das empresas que indicar. Na ficha da empresa (aba <em>Licença</em>)
+              você escolhe o afiliado responsável. Toda cobrança marcada como <strong>paga</strong> lança
+              automaticamente o crédito de comissão. O pagamento é feito em <a href="/admin/payouts">Pagamentos</a>,
+              e o afiliado pode acompanhar tudo pelo próprio portal em <code>/afiliado</code>.
             </p>
           </div>
         </div>
@@ -56,9 +73,12 @@
               <thead>
                 <tr>
                   <th>Nome</th>
-                  <th>Contato</th>
+                  <th>Cidade</th>
                   <th class="text-right">Desconto</th>
-                  <th class="text-right">Empresas indicadas</th>
+                  <th class="text-right">Comissão</th>
+                  <th class="text-right">Empresas</th>
+                  <th class="text-right">Disponível</th>
+                  <th>Portal</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
@@ -66,13 +86,22 @@
               <tbody>
                 <% affiliates.forEach(function(a) { %>
                 <tr>
-                  <td><strong><%= a.name %></strong></td>
-                  <td class="cell-muted"><%= a.contact || '—' %></td>
+                  <td>
+                    <a href="/admin/affiliates/<%= a.id %>"><strong><%= a.name %></strong></a>
+                    <% if (a.contact) { %><div class="cell-sub"><%= a.contact %></div><% } %>
+                  </td>
+                  <td class="cell-muted"><%= a.city || '—' %></td>
                   <td class="text-right tabular"><%= a.discount_pct %>%</td>
+                  <td class="text-right tabular"><strong><%= a.commission_pct %>%</strong></td>
                   <td class="text-right tabular"><%= a.companies_count %></td>
+                  <td class="text-right tabular"><%= brl(a.available_cents) %></td>
+                  <td>
+                    <% if (a.username) { %><span class="badge paga">Sim</span><% } else { %><span class="cell-muted">—</span><% } %>
+                  </td>
                   <td><span class="badge <%= a.active ? 'paga' : 'cancelada' %>"><%= a.active ? 'Ativo' : 'Inativo' %></span></td>
                   <td>
                     <div class="aff-actions">
+                      <a href="/admin/affiliates/<%= a.id %>" style="font-size:12px;color:#2563eb;padding:2px 4px;">Ver</a>
                       <form method="post" action="/admin/affiliates/<%= a.id %>/toggle">
                         <button type="submit"><%= a.active ? 'Desativar' : 'Ativar' %></button>
                       </form>
@@ -85,7 +114,7 @@
                 </tr>
                 <% }); %>
                 <% if (!affiliates.length) { %>
-                  <tr><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum afiliado cadastrado ainda.' }) %></td></tr>
+                  <tr><td colspan="9"><%- include('partials/empty-state', { message: 'Nenhum afiliado cadastrado ainda.' }) %></td></tr>
                 <% } %>
               </tbody>
             </table>
@@ -103,14 +132,53 @@
       </div>
       <div class="modal-body">
         <label>Nome</label>
-        <input type="text" name="name" required maxlength="120" placeholder="Quem indica">
+        <input type="text" name="name" required maxlength="120" placeholder="Quem indica / representa">
+
+        <div class="form-grid">
+          <div class="field col-6">
+            <label>Cidade</label>
+            <input type="text" name="city" maxlength="120" placeholder="Cidade de atuação">
+          </div>
+          <div class="field col-6">
+            <label>Documento (opcional)</label>
+            <input type="text" name="document" maxlength="40" placeholder="CPF/CNPJ">
+          </div>
+        </div>
 
         <label>Contato (opcional)</label>
-        <input type="text" name="contact" maxlength="160" placeholder="WhatsApp, e-mail, chave PIX…">
+        <input type="text" name="contact" maxlength="160" placeholder="WhatsApp, e-mail…">
 
-        <label>Desconto nas cobranças (%)</label>
-        <input type="number" name="discountPct" min="0" max="100" value="10" required>
-        <p class="field-hint">Percentual aplicado a toda cobrança das empresas indicadas por este afiliado.</p>
+        <div class="form-grid">
+          <div class="field col-6">
+            <label>Desconto para o cliente (%)</label>
+            <input type="number" name="discountPct" min="0" max="100" value="0" required>
+          </div>
+          <div class="field col-6">
+            <label>Comissão do afiliado (%)</label>
+            <input type="number" name="commissionPct" min="0" max="100" value="10" required>
+          </div>
+        </div>
+        <p class="field-hint">O desconto é aplicado à cobrança da empresa indicada; a comissão é o quanto o afiliado ganha quando essa cobrança é recebida.</p>
+
+        <label>Chave PIX (opcional)</label>
+        <input type="text" name="pixKey" maxlength="160" placeholder="Para pagamento das comissões">
+
+        <label>Observações (opcional)</label>
+        <input type="text" name="notes" maxlength="255" placeholder="Anotações internas">
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        <strong style="font-size:.9rem">Acesso ao portal (opcional)</strong>
+        <p class="field-hint">Se preencher usuário e senha, o afiliado entra em <code>/afiliado</code> e acompanha as indicações e comissões dele.</p>
+        <div class="form-grid">
+          <div class="field col-6">
+            <label>Usuário</label>
+            <input type="text" name="portalUser" maxlength="60" autocomplete="off" placeholder="ex.: joao.centro">
+          </div>
+          <div class="field col-6">
+            <label>Senha</label>
+            <input type="text" name="portalPassword" maxlength="60" autocomplete="off" placeholder="mínimo 6 caracteres">
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-affiliate').close()">Cancelar</button>

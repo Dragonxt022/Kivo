@@ -1,8 +1,11 @@
 import type { Request, Response } from 'express';
-import { NfeImportError, buildImportPreview, commitImport } from '../nfeImport';
+import { NfeImportError, buildImportPreview, commitImport, NFE_MARKUP_SETTING } from '../nfeImport';
 import { revertImport } from '../nfeRevert';
 import { productRepository } from '../../commercial/repositories/ProductRepository';
+import { categoryRepository } from '../../commercial/repositories/CategoryRepository';
 import { purchaseInvoiceRepository } from '../repositories/NfeRepository';
+import { settingsRepository } from '../../../core/repositories/SettingsRepository';
+import { audit } from '../../../core/audit/service';
 
 function wrap(handler: (req: Request, res: Response) => void) {
   return (req: Request, res: Response): void => {
@@ -38,16 +41,22 @@ export const nfeController = {
     const q = String(req.query.q ?? '').trim();
     if (q.length < 2) { res.json([]); return; }
     const rows = productRepository.raw(
-      `SELECT id, name, sku, barcode, unit, cost_cents
+      `SELECT id, name, sku, barcode, unit, cost_cents, price_cents
          FROM products
         WHERE deleted_at IS NULL
           AND product_type != 'complemento'
           AND product_type != 'variante'
-          AND (name LIKE ? OR barcode = ? OR sku = ?)
+          AND (name LIKE ? OR barcode = ? OR sku = ?
+               OR EXISTS (SELECT 1 FROM product_barcodes pb
+                           WHERE pb.product_id = products.id AND pb.barcode = ? AND pb.deleted_at IS NULL))
         ORDER BY name LIMIT 12`,
-      `%${q}%`, q, q,
+      `%${q}%`, q, q, q,
     );
     res.json(rows);
+  }),
+
+  listCategories: wrap((_req, res) => {
+    res.json(categoryRepository.listAll());
   }),
 
   listInvoices: wrap((_req, res) => {
@@ -68,5 +77,18 @@ export const nfeController = {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Importação inválida.' }); return; }
     res.json(revertImport(req, id));
+  }),
+
+  /** Markup global de sugestão de preço (basis points; 10000 = 100%). */
+  setMarkup: wrap((req, res) => {
+    const bps = Number(req.body?.markupBps);
+    if (!Number.isInteger(bps) || bps < 0 || bps > 100000) {
+      res.status(400).json({ error: 'Markup inválido (use 0 a 100000 basis points, ou seja, até 1000%).' });
+      return;
+    }
+    const before = settingsRepository.get(NFE_MARKUP_SETTING);
+    settingsRepository.set(NFE_MARKUP_SETTING, String(bps));
+    audit(req, 'editar', 'setting', NFE_MARKUP_SETTING, before, { markupBps: bps });
+    res.json({ markupBps: bps });
   }),
 };

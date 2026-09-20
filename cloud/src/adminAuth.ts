@@ -87,6 +87,11 @@ async function loadNotifications(): Promise<{ count: number; items: Notification
     );
     const [pendingRows] = await pool.query("SELECT COUNT(*) AS total FROM catalog_images WHERE status = 'pendente'");
     const pendingTotal = (pendingRows as { total: number }[])[0]?.total ?? 0;
+    const [payoutRows] = await pool.query(
+      `SELECT p.id, p.amount_cents, a.name FROM affiliate_payouts p
+        LEFT JOIN affiliates a ON a.id = p.affiliate_id
+       WHERE p.status = 'solicitado' ORDER BY p.id DESC LIMIT 5`,
+    );
 
     const items: NotificationItem[] = (
       companyRows as { company_uuid: string; name: string | null; valid_until: string }[]
@@ -104,6 +109,13 @@ async function loadNotifications(): Promise<{ count: number; items: Notification
         title: `${pendingTotal} imagem(ns) aguardando curadoria`,
         meta: 'Banco de imagens',
         link: '/admin/catalog',
+      });
+    }
+    for (const p of payoutRows as { id: number; amount_cents: number; name: string | null }[]) {
+      items.push({
+        title: `Pagamento a ${p.name || 'afiliado'}: R$ ${(Number(p.amount_cents) / 100).toFixed(2)}`,
+        meta: 'Pedido de pagamento de afiliado',
+        link: '/admin/payouts',
       });
     }
     return { count: items.length, items };

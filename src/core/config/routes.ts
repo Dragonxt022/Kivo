@@ -15,6 +15,7 @@ import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './comp
 import { getLicenseCredentials } from '../license/service';
 import { factoryReset } from '../reset/service';
 import { settingsRepository } from '../repositories/SettingsRepository';
+import { restartSyncScheduler } from '../sync/scheduler';
 import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, installIconPack, saveIconPackCover, invalidateIconPackCache, listIconPacks } from '../icons/service';
 import { cloudAuthHeaders, cloudBaseUrl } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
@@ -22,6 +23,31 @@ import { createLogger } from '../logger';
 const log = createLogger('reset');
 
 const router = Router();
+
+/** Nomes de adaptador que não são a rede física da loja (VMware/VirtualBox/Hyper-V/WSL,
+ * Docker, VPNs, Bluetooth, loopback…). Filtrados da lista de endereços de acesso. */
+const VIRTUAL_IFACE_RE =
+  /(virtual|vmware|virtualbox|vbox|hyper-?v|vethernet|wsl|docker|loopback|bluetooth|tailscale|zerotier|hamachi|radmin|wireguard|openvpn|\btap\b|\btun\b|npcap|bridge)/i;
+
+/** Faixas privadas de LAN (RFC 1918). 169.254.x (APIPA) fica de fora: é o endereço que
+ * a máquina dá a si mesma quando o cabo/Wi-Fi não conseguiu DHCP — não alcança ninguém. */
+function isPrivateIPv4(ip: string): boolean {
+  const p = ip.split('.').map(Number);
+  if (p.length !== 4 || p.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+  if (p[0] === 10) return true;
+  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
+  if (p[0] === 192 && p[1] === 168) return true;
+  return false;
+}
+
+/** Ordem de exibição: 192.168.x (roteador/Wi-Fi doméstico) → 10.x → 172.16-31.x → resto. */
+function rankIPv4(ip: string): number {
+  const p = ip.split('.').map(Number);
+  if (p[0] === 192 && p[1] === 168) return 0;
+  if (p[0] === 10) return 1;
+  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return 2;
+  return 3;
+}
 
 router.get('/', requirePermission('settings.view'), (_req, res) => {
   const rows = getSqlite()
@@ -37,19 +63,45 @@ router.get('/', requirePermission('settings.view'), (_req, res) => {
  * client-side — mesmo espírito 100% offline do resto do app. */
 router.get('/network-info', requirePermission('settings.view'), async (req, res) => {
   const port = Number(process.env.KIVO_PORT ?? 3123);
-  const rawUrls: string[] = [];
-  for (const addrs of Object.values(os.networkInterfaces())) {
+  const candidatos: { iface: string; address: string }[] = [];
+  for (const [nome, addrs] of Object.entries(os.networkInterfaces())) {
+    // Adaptadores virtuais (VMware, VirtualBox, Hyper-V/WSL, Docker, VPNs…) aparecem como
+    // IPv4 não-interno e enchiam a tela com endereços que ninguém alcança. Ignoramos pelo
+    // nome da interface.
+    if (VIRTUAL_IFACE_RE.test(nome)) continue;
     for (const addr of addrs ?? []) {
-      if (addr.family === 'IPv4' && !addr.internal) rawUrls.push(`http://${addr.address}:${port}`);
+      if (addr.family !== 'IPv4' || addr.internal) continue;
+      if (!isPrivateIPv4(addr.address)) continue;
+      candidatos.push({ iface: nome, address: addr.address });
     }
+  }
+  // Rede incomum (IP público, faixa não coberta): melhor mostrar todos do que nenhum —
+  // exceto 169.254.x, que é o endereço de emergência sem DHCP e não alcança ninguém.
+  if (!candidatos.length) {
+    for (const [nome, addrs] of Object.entries(os.networkInterfaces())) {
+      if (VIRTUAL_IFACE_RE.test(nome)) continue;
+      for (const addr of addrs ?? []) {
+        if (addr.family !== 'IPv4' || addr.internal || addr.address.startsWith('169.254.')) continue;
+        candidatos.push({ iface: nome, address: addr.address });
+      }
+    }
+  }
+  // 192.168.x costuma ser o roteador/Wi-Fi da loja; ordena para o endereço mais provável
+  // aparecer primeiro, e sem repetir o mesmo IP de duas interfaces.
+  const vistos = new Set<string>();
+  const rawUrls: string[] = [];
+  for (const c of candidatos.sort((a, b) => rankIPv4(a.address) - rankIPv4(b.address) || a.iface.localeCompare(b.iface))) {
+    if (vistos.has(c.address)) continue;
+    vistos.add(c.address);
+    rawUrls.push(`http://${c.address}:${port}`);
   }
   const urls = await Promise.all(
     rawUrls.map(async (url) => ({ url, qr: await QRCode.toDataURL(url, { margin: 1, width: 160 }) })),
   );
-  // Em que host o servidor REALMENTE subiu neste boot (electron/main.ts grava ao escutar).
-  // A chave `rede.acesso_local` só entra em vigor no próximo início; comparar as duas é o
-  // que permite a tela dizer "já vale" ou "falta reiniciar" em vez de deixar o lojista
-  // adivinhando por que o celular não abre.
+  // Em que host o servidor REALMENTE está escutando agora (electron/main.ts grava ao
+  // escutar e atualiza no rebind a quente). A tela compara com a chave salva para dizer
+  // "já vale" ou "ativando…" em vez de deixar o lojista adivinhando por que o celular
+  // não abre.
   const lanAtivo = typeof req.app.locals.lanAtivo === 'boolean' ? (req.app.locals.lanAtivo as boolean) : null;
   res.json({ urls, port, lanAtivo });
 });
@@ -384,6 +436,17 @@ router.put('/:key', requirePermission('settings.edit'), validateBody(setSettingS
   const after = db.prepare('SELECT key, value FROM settings WHERE key = ?').get(key);
   audit(req, 'editar', 'setting', key, before ?? null, after);
   res.json(after);
+  // Efeitos que valem sem reiniciar o app, aplicados DEPOIS de a resposta sair do fio:
+  // - acesso pela rede local: troca o host do servidor em execução (o Electron registra
+  //   `rebindLan`; em dev/testes não existe e o servidor já escuta em todas as interfaces).
+  //   Ao desligar, quem está conectado pela rede perde a conexão — comportamento esperado.
+  // - intervalo de sync: remonta o ciclo automático com o novo valor.
+  if (key === 'rede.acesso_local') {
+    const rebind = req.app.locals.rebindLan as ((ligado: boolean) => Promise<boolean>) | undefined;
+    if (rebind) res.on('finish', () => void rebind(value === '1'));
+  } else if (key === 'sync.intervalo_minutos') {
+    restartSyncScheduler();
+  }
 });
 
 export default router;

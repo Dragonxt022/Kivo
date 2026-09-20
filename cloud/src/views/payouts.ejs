@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Pagamentos de afiliados</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .pay-actions form { display: inline; margin: 0; }
+    .pay-actions button { border: 0; background: transparent; cursor: pointer; color: #2563eb; font-size: 12px; padding: 2px 4px; }
+    .pay-actions button.danger { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'payouts' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'payouts' }) %>
+
+      <%
+        function brl(c) { return (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+        function payBadge(s) {
+          if (s === 'pago') return { cls: 'paga', label: 'Pago' };
+          if (s === 'solicitado') return { cls: 'pendente', label: 'Aguardando' };
+          return { cls: 'cancelada', label: 'Cancelado' };
+        }
+      %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Geral</div>
+            <h1>Pagamentos de afiliados</h1>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stat-row">
+            <div class="stat"><div class="value"><%= brl(summary.requested_cents) %></div><div class="label">Aguardando confirmação</div></div>
+            <div class="stat"><div class="value"><%= Number(summary.requested_count || 0) %></div><div class="label">Pedidos pendentes</div></div>
+            <div class="stat"><div class="value"><%= brl(summary.paid_month_cents) %></div><div class="label">Pago no mês</div></div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <div class="tabs" style="margin:0">
+              <a class="tab <%= !filter.status ? 'active' : '' %>" href="/admin/payouts">Todos</a>
+              <a class="tab <%= filter.status === 'solicitado' ? 'active' : '' %>" href="/admin/payouts?status=solicitado">Aguardando</a>
+              <a class="tab <%= filter.status === 'pago' ? 'active' : '' %>" href="/admin/payouts?status=pago">Pagos</a>
+              <a class="tab <%= filter.status === 'cancelado' ? 'active' : '' %>" href="/admin/payouts?status=cancelado">Cancelados</a>
+            </div>
+            <div class="table-count"><%= payouts.length %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Afiliado</th>
+                  <th class="text-right">Valor</th>
+                  <th>Forma</th>
+                  <th>PIX</th>
+                  <th>Status</th>
+                  <th>Solicitado</th>
+                  <th>Pago em</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% payouts.forEach(function(p) { var b = payBadge(p.status); %>
+                <tr>
+                  <td class="cell-muted">#<%= p.id %></td>
+                  <td><a href="/admin/affiliates/<%= p.affiliate_id %>"><%= p.affiliate_name || '—' %></a></td>
+                  <td class="text-right tabular"><strong><%= brl(p.amount_cents) %></strong></td>
+                  <td class="cell-muted"><%= p.method || '—' %></td>
+                  <td class="cell-muted"><%= p.pix_key || '—' %></td>
+                  <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
+                  <td class="cell-muted"><%= fmtDateTimeBr(p.requested_at) %><% if (p.requested_by) { %> · <%= p.requested_by %><% } %></td>
+                  <td class="cell-muted"><%= p.paid_at ? fmtDateTimeBr(p.paid_at) : '—' %></td>
+                  <td>
+                    <% if (p.status === 'solicitado') { %>
+                    <div class="pay-actions">
+                      <form method="post" action="/admin/payouts/<%= p.id %>/pay"><button type="submit">Confirmar pagamento</button></form>
+                      <form method="post" action="/admin/payouts/<%= p.id %>/cancel"><button type="submit" class="danger">Cancelar</button></form>
+                    </div>
+                    <% } %>
+                  </td>
+                </tr>
+                <% }); %>
+                <% if (!payouts.length) { %><tr><td colspan="9"><%- include('partials/empty-state', { message: 'Nenhum pagamento nesse filtro.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

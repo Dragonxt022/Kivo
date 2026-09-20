@@ -24,6 +24,10 @@
       <span class="sidebar-label">Suporte</span>
       <span class="sidebar-badge" id="support-badge" style="display:none">0</span>
     </a>
+    <a href="/admin/messages" class="sidebar-link <%= activeKey === 'messages' ? 'active' : '' %>" title="Mensagens">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="sidebar-label">Mensagens</span>
+    </a>
     <a href="/admin/catalog" class="sidebar-link <%= activeKey === 'catalog' ? 'active' : '' %>" title="Banco de imagens">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
       <span class="sidebar-label">Banco de imagens</span>
@@ -39,6 +43,15 @@
     <a href="/admin/affiliates" class="sidebar-link <%= activeKey === 'affiliates' ? 'active' : '' %>" title="Afiliados">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span class="sidebar-label">Afiliados</span>
+    </a>
+    <a href="/admin/commissions" class="sidebar-link <%= activeKey === 'commissions' ? 'active' : '' %>" title="Comissões">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span class="sidebar-label">Comissões</span>
+    </a>
+    <a href="/admin/payouts" class="sidebar-link <%= activeKey === 'payouts' ? 'active' : '' %>" title="Pagamentos de afiliados">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M6 15h4"/><path d="M17 14l2 2-2 2"/></svg>
+      <span class="sidebar-label">Pagamentos</span>
+      <span class="sidebar-badge" id="payouts-badge" style="display:none">0</span>
     </a>
   </div>
 
@@ -136,8 +149,9 @@
     if (!isAdminPage) return;
     var supportBadge = document.getElementById('support-badge');
     var leadsBadge = document.getElementById('leads-badge');
+    var payoutsBadge = document.getElementById('payouts-badge');
     var notifBadge = document.querySelector('#notif-btn .notif-badge');
-    if (!supportBadge && !leadsBadge) return;
+    if (!supportBadge && !leadsBadge && !payoutsBadge) return;
 
     var lastNotifTickets = 0;
     var lastNotifLeads = 0;
@@ -148,7 +162,8 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (d) {
           if (!d) return;
-          var total = d.unreadTickets + d.newLeads;
+          var pendingPayouts = d.pendingPayouts || 0;
+          var total = d.unreadTickets + d.newLeads + pendingPayouts;
           // Suporte
           if (supportBadge) {
             supportBadge.style.display = d.unreadTickets > 0 ? 'inline-flex' : 'none';
@@ -158,6 +173,11 @@
           if (leadsBadge) {
             leadsBadge.style.display = d.newLeads > 0 ? 'inline-flex' : 'none';
             leadsBadge.textContent = d.newLeads > 9 ? '9+' : d.newLeads;
+          }
+          // Pagamentos de afiliados aguardando confirmação
+          if (payoutsBadge) {
+            payoutsBadge.style.display = pendingPayouts > 0 ? 'inline-flex' : 'none';
+            payoutsBadge.textContent = pendingPayouts > 9 ? '9+' : pendingPayouts;
           }
           // Navbar bell badge
           if (notifBadge) {
@@ -180,6 +200,13 @@
                 html += '<a href="/admin/leads" class="notif-item">' +
                   '<div class="notif-title">Novo lead: ' + l.name + '</div>' +
                   '<div class="notif-meta">' + l.whatsapp + ' · ' + (l.created_at || '').slice(0, 16) + '</div>' +
+                  '</a>';
+              });
+              (d.recentPayouts || []).forEach(function (p) {
+                var valor = (Number(p.amount_cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                html += '<a href="/admin/payouts" class="notif-item">' +
+                  '<div class="notif-title">Pagamento de afiliado: ' + (p.affiliate_name || 'afiliado') + '</div>' +
+                  '<div class="notif-meta">' + valor + ' aguardando confirmação</div>' +
                   '</a>';
               });
             }

@@ -200,7 +200,8 @@ async function fillFromCloud(rows: ProductImageRow[]): Promise<{
         filled++;
         continue;
       }
-      const search = await fetch(`${base}/api/catalog/search?q=${encodeURIComponent(name)}`, {
+      const barcodeParam = row.barcode ? `&barcode=${encodeURIComponent(row.barcode)}` : '';
+      const search = await fetch(`${base}/api/catalog/search?q=${encodeURIComponent(name)}${barcodeParam}`, {
         headers: auth, signal: AbortSignal.timeout(8000),
       });
       if (!search.ok) {

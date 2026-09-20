@@ -64,15 +64,17 @@
       s.setProperty('--primary-bg', 'color-mix(in srgb, ' + hex + ' ' + (isDark ? 16 : 8) + '%, transparent)');
     };
 
-    var colorTheme = localStorage.getItem('kivo-color-theme') || 'orange';
+    var colorTheme = <%- JSON.stringify(typeof corDestaque !== 'undefined' && corDestaque ? corDestaque : 'orange') %>;
+    var customHex = <%- JSON.stringify(typeof corCustom !== 'undefined' && corCustom ? corCustom : '#ff8000') %>;
+    window.__kivoColor = { theme: colorTheme, custom: customHex };
+
+    // Cor de destaque: configuração da EMPRESA, aplicada no servidor (res.locals.corDestaque/
+    // corCustom — ver core/config/themeColor.ts) para valer em qualquer aparelho que abra
+    // este Kivo, inclusive pelo celular na rede local. Antes vivia só no localStorage e o
+    // celular mostrava o laranja padrão, ignorando a escolha da loja.
     if (colorTheme === 'custom') {
-      var custom = localStorage.getItem('kivo-color-custom');
-      if (custom) {
-        document.documentElement.setAttribute('data-color-theme', 'custom');
-        window.__kivoApplyCustomColor(custom);
-      } else {
-        document.documentElement.setAttribute('data-color-theme', 'orange');
-      }
+      document.documentElement.setAttribute('data-color-theme', 'custom');
+      window.__kivoApplyCustomColor(customHex);
     } else {
       document.documentElement.setAttribute('data-color-theme', colorTheme);
     }

@@ -369,7 +369,7 @@
                 </div>
                 <div class="pm-field">
                   <label>Unidade</label>
-                  <select x-model="form.unit">
+                  <select x-model="form.unit" @change="onUnitSelect()">
                     <option value="un">un — Unidade</option>
                     <option value="kg">kg — Quilograma</option>
                     <option value="g">g — Grama</option>
@@ -381,9 +381,28 @@
                     <option value="dz">dz — Dúzia</option>
                     <option value="par">par — Par</option>
                     <option value="m">m — Metro</option>
-                    <option x-show="form.unit && !['un','kg','g','L','ml','cx','pct','porcao','dz','par','m'].includes(form.unit)" :value="form.unit" x-text="form.unit + ' (atual)'"></option>
+                    <option x-show="form.unit && !['un','kg','g','L','ml','cx','pct','porcao','dz','par','m','__custom__'].includes(form.unit)" :value="form.unit" x-text="form.unit + ' (atual)'"></option>
+                    <option value="__custom__">Outra unidade…</option>
                   </select>
+                  <!-- Unidade livre (ex.: FD, RL, SC): o leiaute da NF-e aceita siglas próprias
+                       do fornecedor, e o importador preserva o que não é canônico. -->
+                  <input type="text" x-show="form.unit === '__custom__'" x-model="form.unitCustom"
+                         @input="form.unitCustom = String(form.unitCustom || '').toUpperCase().slice(0, 6)"
+                         maxlength="6" placeholder="Ex.: FD, RL, SC" style="margin-top:.35rem" />
                 </div>
+              </div>
+              <!-- Conversão de compra gravada pelo importador de NF-e: o produto vende em
+                   `unit` mas é comprado em `purchase_unit` (ex.: 1 CX = 12 un). -->
+              <div class="muted text-xs" style="margin-top:.4rem" x-show="form.purchase_unit && form.purchase_unit !== form.unit">
+                Compra em <strong x-text="form.purchase_unit"></strong>
+                <template x-if="form.purchase_unit_qty"> — 1 <span x-text="form.purchase_unit"></span> = <span x-text="form.purchase_unit_qty"></span> <span x-text="form.unit"></span></template>
+              </div>
+              <div class="muted text-xs" style="margin-top:.4rem" x-show="form.barcodes && form.barcodes.length">
+                Códigos extras:
+                <template x-for="b in form.barcodes" :key="b.id">
+                  <span class="badge neutral" style="margin-left:.25rem"
+                        x-text="b.kind + ' ' + b.barcode + (b.pack_qty ? ' (' + b.pack_qty + ' un)' : '')"></span>
+                </template>
               </div>
             </div>
           </div>
@@ -436,10 +455,10 @@
                     </button>
                   </template>
                 </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
         <template x-if="form.id && form.productType !== 'variante'">
           <div class="pm-section">
@@ -1996,9 +2015,10 @@
         async searchCatalogImages() {
           const q = (this.form.name || '').trim();
           if (q.length < 3) { this.imgSearchResults = []; return; }
+          const barcode = (this.form.barcode || '').trim();
           this.imgSearching = true;
           try {
-            const r = await fetch('/api/commercial/products/image-search?q=' + encodeURIComponent(q));
+            const r = await fetch('/api/commercial/products/image-search?q=' + encodeURIComponent(q) + (barcode ? '&barcode=' + encodeURIComponent(barcode) : ''));
             const data = r.ok ? await r.json() : { results: [] };
             this.imgSearchResults = data.results || [];
             this.imgSearchOffline = !!data.offline;
@@ -2105,7 +2125,7 @@
         },
 
         openNew() {
-          this.form = { unit: 'un', productType: 'fisico', noStockControl: false }; this.dlgError = ''; this.resetImageState();
+          this.form = { unit: 'un', productType: 'fisico', noStockControl: false, unitCustom: null }; this.dlgError = ''; this.resetImageState();
           this.selectedCategoryImage = '';
           const autoSku = this.appSettings?.find(s => s.key === 'estoque.auto_sku')?.value;
           if (autoSku === '1') this.form.sku = 'SKU-' + String(Date.now()).slice(-8);
@@ -2119,7 +2139,9 @@
         },
         openEdit(p) {
           this.form = { id: p.id, name: p.name, barcode: p.barcode ?? '', sku: p.sku ?? '', unit: p.unit,
+            unitCustom: null,
             categoryId: p.category_id ?? '',
+            purchase_unit: p.purchase_unit ?? null, purchase_unit_qty: p.purchase_unit_qty ?? null, barcodes: [],
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
             minStock: p.min_stock, productType: p.product_type ?? 'fisico', noStockControl: !p.track_stock,
             stockQty: p.stock_qty, description: p.description ?? '' };
@@ -2135,6 +2157,7 @@
           this.complementGroups = [];
           this.$refs.dlg.showModal();
           if (!this.form.imageUrl) this.searchCatalogImages();
+          this.loadBarcodes(p.id);
           if (p.product_type === 'variante') this.loadVariants(p.id);
           if (p.product_type === 'kit' || p.product_type === 'combo') this.loadKitComponents(p.id);
           if (p.product_type === 'produzido') this.loadRecipeComponents(p.id);
@@ -2145,6 +2168,21 @@
         checkBarcode(code) {
           if (!code) return '';
           return validateBarcodeClient(code) ? '' : 'Dígito verificador não confere.';
+        },
+        onUnitSelect() {
+          if (this.form.unit === '__custom__') {
+            if (this.form.unitCustom == null) this.form.unitCustom = '';
+          } else {
+            this.form.unitCustom = null;
+          }
+        },
+        async loadBarcodes(id) {
+          this.form.barcodes = [];
+          if (!id) return;
+          try {
+            const r = await fetch(`/api/commercial/products/${id}/barcodes`);
+            if (r.ok) this.form.barcodes = await r.json();
+          } catch { /* sem códigos secundários */ }
         },
         async scanLookup(code) {
           code = (code || '').trim();
@@ -2160,9 +2198,12 @@
           else { this.dlgError = (await r.json()).error ?? 'Erro ao gerar código.'; showToast(this.dlgError, 'error'); }
         },
         async save() {
+          const unit = this.form.unit === '__custom__'
+            ? (String(this.form.unitCustom || '').trim() || 'un')
+            : (this.form.unit || 'un');
           const body = { name: this.form.name, description: this.form.description || null,
             barcode: this.form.barcode || null, sku: this.form.sku || null,
-            unit: this.form.unit || 'un', minStock: this.form.minStock ? Number(this.form.minStock) : undefined,
+            unit, minStock: this.form.minStock ? Number(this.form.minStock) : undefined,
             categoryId: this.form.categoryId || null,
             productType: this.form.productType || 'fisico',
             trackStock: !this.form.noStockControl,

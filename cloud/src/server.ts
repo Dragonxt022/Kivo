@@ -7,7 +7,9 @@ import backupRoutes from './routes/backup';
 import billingRoutes from './routes/billing';
 import catalogRoutes from './routes/catalog';
 import themeRoutes from './routes/themes';
+import messageRoutes from './routes/messages';
 import adminRoutes from './routes/admin';
+import adminMessagesRoutes from './routes/adminMessages';
 import wikiRoutes from './routes/wiki';
 import landingRoutes from './routes/landing';
 import supportRoutes from './routes/support';
@@ -17,7 +19,9 @@ import { mobileSide as mobileCommandsRoutes, desktopSide as desktopCommandsRoute
 import mobileAppRoutes from './routes/mobileApp';
 import quotePublicRoutes from './routes/quotePublic';
 import telemetryRoutes, { startTelemetryRetention } from './routes/telemetry';
+import affiliateRoutes from './routes/affiliate';
 import { purgeExpiredAdminSessions } from './adminAuth';
+import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
@@ -47,6 +51,9 @@ export function createCloudServer() {
   // Loja de temas (pacotes de ícones): o servidor local do desktop chama com as credenciais
   // de licença da empresa.
   app.use('/api/themes', themeRoutes);
+  // Central de mensagens: o servidor local busca a caixa de entrada e a imagem de destaque
+  // com as credenciais de licença (o navegador não fala com a nuvem — a CSP do app é 'self').
+  app.use('/api/messages', messageRoutes);
   // Kivo Web. As concessões e a fila vista pelo celular vivem em /api/mobile (cookie de
   // acesso); o lado do desktop fica em /api/commands (credenciais de licença).
   app.use('/api/mobile', mobileGrantsRoutes);
@@ -58,6 +65,9 @@ export function createCloudServer() {
   app.use('/', quotePublicRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/api/telemetry', telemetryRoutes);
+  // Portal do afiliado (representante): login próprio e visão restrita às indicações dele.
+  app.use('/afiliado', affiliateRoutes);
+  app.use('/admin/messages', adminMessagesRoutes);
   app.use('/admin', adminRoutes);
 
   // Middleware de erro global: captura falhas de conexão com o banco de dados
@@ -78,8 +88,13 @@ export function createCloudServer() {
 if (require.main === module) {
   const app = createCloudServer();
   startTelemetryRetention();
-  // Sessões do painel vivem no banco agora — limpa as vencidas no boot e a cada 6h.
+  // Sessões do painel e do portal do afiliado vivem no banco — limpa as vencidas no
+  // boot e a cada 6h.
   purgeExpiredAdminSessions();
-  setInterval(() => purgeExpiredAdminSessions(), 6 * 3600e3).unref?.();
+  purgeExpiredAffiliateSessions();
+  setInterval(() => {
+    purgeExpiredAdminSessions();
+    purgeExpiredAffiliateSessions();
+  }, 6 * 3600e3).unref?.();
   app.listen(PORT, () => console.log(`[kivo-cloud] ouvindo em http://localhost:${PORT}`));
 }

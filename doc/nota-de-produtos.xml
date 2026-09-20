@@ -1,0 +1,611 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  NF-e DE TESTE — sem validade fiscal. Fixture de simulação da importação no Kivo.
+
+  Cenários cobertos por item (nItem):
+    1  UN  com EAN de unidade válido
+    2  UN  com EAN de unidade válido
+    3  UN  sem GTIN
+    4  UN  com EAN de unidade válido
+    5  UN  sem GTIN
+    6  UN  com EAN de unidade válido
+    7  CX  compra em caixa, venda em UN via uTrib (1 CX = 12 UN) + EAN da caixa (GTIN-14)
+    8  CX  compra em caixa, venda em UN via uTrib (1 CX = 12 UN) + EAN da caixa (GTIN-14)
+    9  PCT (pacote) vendido como pacote
+   10  KG  com quantidade fracionada (2,5)
+   11  KG  com quantidade fracionada (5,2)
+   12  UN  sem GTIN
+   13  FD  unidade livre (fardo) — preservada pelo importador
+   14  RL  unidade livre (rolo) — preservada pelo importador
+   15  L   litro
+   16  DZ  dúzia
+   17  UN  com EAN de unidade válido
+   18  PCT vendido como pacote
+   19  PCT vendido como pacote
+   20  UN  com EAN de unidade válido
+
+  Para reimportar depois de testar, use "Desfazer" no histórico (libera a chave).
+-->
+<ns0:NFe xmlns:ns0="http://www.portalfiscal.inf.br/nfe">
+  <ns0:infNFe versao="4.00" Id="NFe41260912345678000199550010000000011000000016">
+    <ns0:ide>
+      <ns0:cUF>41</ns0:cUF>
+      <ns0:cNF>00000001</ns0:cNF>
+      <ns0:natOp>VENDA DE MERCADORIA</ns0:natOp>
+      <ns0:mod>55</ns0:mod>
+      <ns0:serie>1</ns0:serie>
+      <ns0:nNF>1</ns0:nNF>
+      <ns0:dhEmi>2026-09-19T18:00:00-04:00</ns0:dhEmi>
+      <ns0:tpNF>1</ns0:tpNF>
+      <ns0:idDest>1</ns0:idDest>
+      <ns0:cMunFG>1100031</ns0:cMunFG>
+      <ns0:tpImp>1</ns0:tpImp>
+      <ns0:tpEmis>1</ns0:tpEmis>
+      <ns0:cDV>6</ns0:cDV>
+      <ns0:tpAmb>2</ns0:tpAmb>
+      <ns0:finNFe>1</ns0:finNFe>
+      <ns0:indFinal>1</ns0:indFinal>
+      <ns0:indPres>1</ns0:indPres>
+      <ns0:procEmi>0</ns0:procEmi>
+      <ns0:verProc>Kivo Teste 1.0</ns0:verProc>
+    </ns0:ide>
+    <ns0:emit>
+      <ns0:CNPJ>12345678000199</ns0:CNPJ>
+      <ns0:xNome>COMERCIO TESTE LTDA</ns0:xNome>
+      <ns0:xFant>MERCADO TESTE</ns0:xFant>
+      <ns0:IE>123456789112</ns0:IE>
+      <ns0:enderEmit>
+        <ns0:xLgr>AVENIDA BRASIL</ns0:xLgr>
+        <ns0:nro>1000</ns0:nro>
+        <ns0:xBairro>CENTRO</ns0:xBairro>
+        <ns0:cMun>1100031</ns0:cMun>
+        <ns0:xMun>CABIXI</ns0:xMun>
+        <ns0:UF>RO</ns0:UF>
+        <ns0:CEP>76994000</ns0:CEP>
+        <ns0:cPais>1058</ns0:cPais>
+        <ns0:xPais>BRASIL</ns0:xPais>
+        <ns0:fone>69999999999</ns0:fone>
+      </ns0:enderEmit>
+      <ns0:CRT>1</ns0:CRT>
+    </ns0:emit>
+    <ns0:dest>
+      <ns0:CNPJ>98765432000188</ns0:CNPJ>
+      <ns0:xNome>CLIENTE TESTE LTDA</ns0:xNome>
+      <ns0:enderDest>
+        <ns0:xLgr>RUA DAS FLORES</ns0:xLgr>
+        <ns0:nro>250</ns0:nro>
+        <ns0:xBairro>CENTRO</ns0:xBairro>
+        <ns0:cMun>1100031</ns0:cMun>
+        <ns0:xMun>CABIXI</ns0:xMun>
+        <ns0:UF>RO</ns0:UF>
+        <ns0:CEP>76994000</ns0:CEP>
+        <ns0:cPais>1058</ns0:cPais>
+        <ns0:xPais>BRASIL</ns0:xPais>
+      </ns0:enderDest>
+      <ns0:indIEDest>1</ns0:indIEDest>
+      <ns0:IE>987654321</ns0:IE>
+    </ns0:dest>
+
+    <ns0:det nItem="1">
+      <ns0:prod>
+        <ns0:cProd>7890000000011</ns0:cProd>
+        <ns0:cEAN>7891000100011</ns0:cEAN>
+        <ns0:cEANTrib>7891000100011</ns0:cEANTrib>
+        <ns0:xProd>ARROZ TIPO 1 5KG</ns0:xProd>
+        <ns0:NCM>10063021</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>10</ns0:qCom>
+        <ns0:vUnCom>32.90</ns0:vUnCom>
+        <ns0:vProd>329.00</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>10</ns0:qTrib>
+        <ns0:vUnTrib>32.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="2">
+      <ns0:prod>
+        <ns0:cProd>7890000000028</ns0:cProd>
+        <ns0:cEAN>7891000100028</ns0:cEAN>
+        <ns0:cEANTrib>7891000100028</ns0:cEANTrib>
+        <ns0:xProd>FEIJAO CARIOCA 1KG</ns0:xProd>
+        <ns0:NCM>07133329</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>20</ns0:qCom>
+        <ns0:vUnCom>8.90</ns0:vUnCom>
+        <ns0:vProd>178.00</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>20</ns0:qTrib>
+        <ns0:vUnTrib>8.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="3">
+      <ns0:prod>
+        <ns0:cProd>7890000000035</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>ACUCAR CRISTAL 2KG</ns0:xProd>
+        <ns0:NCM>17019900</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>15</ns0:qCom>
+        <ns0:vUnCom>7.50</ns0:vUnCom>
+        <ns0:vProd>112.50</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>15</ns0:qTrib>
+        <ns0:vUnTrib>7.50</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="4">
+      <ns0:prod>
+        <ns0:cProd>7890000000042</ns0:cProd>
+        <ns0:cEAN>7891000100035</ns0:cEAN>
+        <ns0:cEANTrib>7891000100035</ns0:cEANTrib>
+        <ns0:xProd>CAFE TORRADO E MOIDO 500G</ns0:xProd>
+        <ns0:NCM>09012100</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>12</ns0:qCom>
+        <ns0:vUnCom>16.90</ns0:vUnCom>
+        <ns0:vProd>202.80</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>12</ns0:qTrib>
+        <ns0:vUnTrib>16.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="5">
+      <ns0:prod>
+        <ns0:cProd>7890000000059</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>OLEO DE SOJA 900ML</ns0:xProd>
+        <ns0:NCM>15079011</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>18</ns0:qCom>
+        <ns0:vUnCom>7.20</ns0:vUnCom>
+        <ns0:vProd>129.60</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>18</ns0:qTrib>
+        <ns0:vUnTrib>7.20</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="6">
+      <ns0:prod>
+        <ns0:cProd>7890000000066</ns0:cProd>
+        <ns0:cEAN>7891000100042</ns0:cEAN>
+        <ns0:cEANTrib>7891000100042</ns0:cEANTrib>
+        <ns0:xProd>LEITE UHT INTEGRAL 1L</ns0:xProd>
+        <ns0:NCM>04012010</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>24</ns0:qCom>
+        <ns0:vUnCom>5.49</ns0:vUnCom>
+        <ns0:vProd>131.76</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>24</ns0:qTrib>
+        <ns0:vUnTrib>5.49</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <!-- Compra em CAIXA (CX), venda em UNIDADE (UN): 1 CX = 12 UN. EAN comercial = caixa
+         (GTIN-14), EAN tributável = unidade. O importador converte e não deixa o EAN da
+         caixa virar o código do produto. -->
+    <ns0:det nItem="7">
+      <ns0:prod>
+        <ns0:cProd>CX-REFRIG</ns0:cProd>
+        <ns0:cEAN>17891000100018</ns0:cEAN>
+        <ns0:cEANTrib>7891000100059</ns0:cEANTrib>
+        <ns0:xProd>REFRIGERANTE COLA 2L</ns0:xProd>
+        <ns0:NCM>22021000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>CX</ns0:uCom>
+        <ns0:qCom>2</ns0:qCom>
+        <ns0:vUnCom>60.00</ns0:vUnCom>
+        <ns0:vProd>120.00</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>24</ns0:qTrib>
+        <ns0:vUnTrib>5.00</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="8">
+      <ns0:prod>
+        <ns0:cProd>CX-CERVEJA</ns0:cProd>
+        <ns0:cEAN>17891000100025</ns0:cEAN>
+        <ns0:cEANTrib>7891000100066</ns0:cEANTrib>
+        <ns0:xProd>CERVEJA LATA 350ML</ns0:xProd>
+        <ns0:NCM>22030000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>CX</ns0:uCom>
+        <ns0:qCom>4</ns0:qCom>
+        <ns0:vUnCom>48.00</ns0:vUnCom>
+        <ns0:vProd>192.00</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>48</ns0:qTrib>
+        <ns0:vUnTrib>4.00</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="9">
+      <ns0:prod>
+        <ns0:cProd>7890000000097</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>PAPEL HIGIENICO 12UN</ns0:xProd>
+        <ns0:NCM>48181000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>PCT</ns0:uCom>
+        <ns0:qCom>6</ns0:qCom>
+        <ns0:vUnCom>18.90</ns0:vUnCom>
+        <ns0:vProd>113.40</ns0:vProd>
+        <ns0:uTrib>PCT</ns0:uTrib>
+        <ns0:qTrib>6</ns0:qTrib>
+        <ns0:vUnTrib>18.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <!-- KG com quantidade fracionada -->
+    <ns0:det nItem="10">
+      <ns0:prod>
+        <ns0:cProd>KG-MUSSARELA</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>QUEIJO MUSSARELA</ns0:xProd>
+        <ns0:NCM>04061010</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>KG</ns0:uCom>
+        <ns0:qCom>2.5</ns0:qCom>
+        <ns0:vUnCom>38.00</ns0:vUnCom>
+        <ns0:vProd>95.00</ns0:vProd>
+        <ns0:uTrib>KG</ns0:uTrib>
+        <ns0:qTrib>2.5</ns0:qTrib>
+        <ns0:vUnTrib>38.00</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="11">
+      <ns0:prod>
+        <ns0:cProd>KG-BANANA</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>BANANA PRATA</ns0:xProd>
+        <ns0:NCM>08039000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>KG</ns0:uCom>
+        <ns0:qCom>5.2</ns0:qCom>
+        <ns0:vUnCom>7.50</ns0:vUnCom>
+        <ns0:vProd>39.00</ns0:vProd>
+        <ns0:uTrib>KG</ns0:uTrib>
+        <ns0:qTrib>5.2</ns0:qTrib>
+        <ns0:vUnTrib>7.50</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="12">
+      <ns0:prod>
+        <ns0:cProd>7890000000127</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>DETERGENTE LIQUIDO 500ML</ns0:xProd>
+        <ns0:NCM>34025000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>15</ns0:qCom>
+        <ns0:vUnCom>3.29</ns0:vUnCom>
+        <ns0:vProd>49.35</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>15</ns0:qTrib>
+        <ns0:vUnTrib>3.29</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <!-- Unidades livres: FD (fardo) e RL (rolo) — preservadas pelo importador -->
+    <ns0:det nItem="13">
+      <ns0:prod>
+        <ns0:cProd>FD-GUARDANAPO</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>GUARDANAPO FARDO</ns0:xProd>
+        <ns0:NCM>48183000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>FD</ns0:uCom>
+        <ns0:qCom>3</ns0:qCom>
+        <ns0:vUnCom>20.00</ns0:vUnCom>
+        <ns0:vProd>60.00</ns0:vProd>
+        <ns0:uTrib>FD</ns0:uTrib>
+        <ns0:qTrib>3</ns0:qTrib>
+        <ns0:vUnTrib>20.00</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="14">
+      <ns0:prod>
+        <ns0:cProd>RL-COPO</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>COPO DESCARTAVEL ROLO</ns0:xProd>
+        <ns0:NCM>39241000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>RL</ns0:uCom>
+        <ns0:qCom>5</ns0:qCom>
+        <ns0:vUnCom>9.90</ns0:vUnCom>
+        <ns0:vProd>49.50</ns0:vProd>
+        <ns0:uTrib>RL</ns0:uTrib>
+        <ns0:qTrib>5</ns0:qTrib>
+        <ns0:vUnTrib>9.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="15">
+      <ns0:prod>
+        <ns0:cProd>L-VINHO</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>VINHO TINTO SECO 750ML</ns0:xProd>
+        <ns0:NCM>22042100</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>L</ns0:uCom>
+        <ns0:qCom>6</ns0:qCom>
+        <ns0:vUnCom>25.00</ns0:vUnCom>
+        <ns0:vProd>150.00</ns0:vProd>
+        <ns0:uTrib>L</ns0:uTrib>
+        <ns0:qTrib>6</ns0:qTrib>
+        <ns0:vUnTrib>25.00</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="16">
+      <ns0:prod>
+        <ns0:cProd>DZ-OVO</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>OVOS BRANCOS DUZIA</ns0:xProd>
+        <ns0:NCM>04072100</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>DZ</ns0:uCom>
+        <ns0:qCom>10</ns0:qCom>
+        <ns0:vUnCom>12.00</ns0:vUnCom>
+        <ns0:vProd>120.00</ns0:vProd>
+        <ns0:uTrib>DZ</ns0:uTrib>
+        <ns0:qTrib>10</ns0:qTrib>
+        <ns0:vUnTrib>12.00</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="17">
+      <ns0:prod>
+        <ns0:cProd>7890000000172</ns0:cProd>
+        <ns0:cEAN>7891000100073</ns0:cEAN>
+        <ns0:cEANTrib>7891000100073</ns0:cEANTrib>
+        <ns0:xProd>SABAO EM PO 1KG</ns0:xProd>
+        <ns0:NCM>34025000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>10</ns0:qCom>
+        <ns0:vUnCom>11.90</ns0:vUnCom>
+        <ns0:vProd>119.00</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>10</ns0:qTrib>
+        <ns0:vUnTrib>11.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="18">
+      <ns0:prod>
+        <ns0:cProd>7890000000189</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>ESPONJA DE ACO 8UN</ns0:xProd>
+        <ns0:NCM>73231000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>PCT</ns0:uCom>
+        <ns0:qCom>10</ns0:qCom>
+        <ns0:vUnCom>4.90</ns0:vUnCom>
+        <ns0:vProd>49.00</ns0:vProd>
+        <ns0:uTrib>PCT</ns0:uTrib>
+        <ns0:qTrib>10</ns0:qTrib>
+        <ns0:vUnTrib>4.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="19">
+      <ns0:prod>
+        <ns0:cProd>7890000000196</ns0:cProd>
+        <ns0:cEAN>SEM GTIN</ns0:cEAN>
+        <ns0:cEANTrib>SEM GTIN</ns0:cEANTrib>
+        <ns0:xProd>SACO PARA LIXO 30L 30UN</ns0:xProd>
+        <ns0:NCM>39232190</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>PCT</ns0:uCom>
+        <ns0:qCom>7</ns0:qCom>
+        <ns0:vUnCom>12.90</ns0:vUnCom>
+        <ns0:vProd>90.30</ns0:vProd>
+        <ns0:uTrib>PCT</ns0:uTrib>
+        <ns0:qTrib>7</ns0:qTrib>
+        <ns0:vUnTrib>12.90</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:det nItem="20">
+      <ns0:prod>
+        <ns0:cProd>7890000000202</ns0:cProd>
+        <ns0:cEAN>7891000100080</ns0:cEAN>
+        <ns0:cEANTrib>7891000100080</ns0:cEANTrib>
+        <ns0:xProd>AGUA MINERAL 1,5L</ns0:xProd>
+        <ns0:NCM>22011000</ns0:NCM>
+        <ns0:CFOP>5102</ns0:CFOP>
+        <ns0:uCom>UN</ns0:uCom>
+        <ns0:qCom>24</ns0:qCom>
+        <ns0:vUnCom>3.50</ns0:vUnCom>
+        <ns0:vProd>84.00</ns0:vProd>
+        <ns0:uTrib>UN</ns0:uTrib>
+        <ns0:qTrib>24</ns0:qTrib>
+        <ns0:vUnTrib>3.50</ns0:vUnTrib>
+        <ns0:indTot>1</ns0:indTot>
+      </ns0:prod>
+      <ns0:imposto>
+        <ns0:ICMS><ns0:ICMSSN102><ns0:orig>0</ns0:orig><ns0:CSOSN>102</ns0:CSOSN></ns0:ICMSSN102></ns0:ICMS>
+        <ns0:PIS><ns0:PISNT><ns0:CST>07</ns0:CST></ns0:PISNT></ns0:PIS>
+        <ns0:COFINS><ns0:COFINSNT><ns0:CST>07</ns0:CST></ns0:COFINSNT></ns0:COFINS>
+      </ns0:imposto>
+    </ns0:det>
+
+    <ns0:total>
+      <ns0:ICMSTot>
+        <ns0:vBC>0.00</ns0:vBC>
+        <ns0:vICMS>0.00</ns0:vICMS>
+        <ns0:vICMSDeson>0.00</ns0:vICMSDeson>
+        <ns0:vFCP>0.00</ns0:vFCP>
+        <ns0:vBCST>0.00</ns0:vBCST>
+        <ns0:vST>0.00</ns0:vST>
+        <ns0:vFCPST>0.00</ns0:vFCPST>
+        <ns0:vFCPSTRet>0.00</ns0:vFCPSTRet>
+        <ns0:vProd>2414.21</ns0:vProd>
+        <ns0:vFrete>0.00</ns0:vFrete>
+        <ns0:vSeg>0.00</ns0:vSeg>
+        <ns0:vDesc>0.00</ns0:vDesc>
+        <ns0:vII>0.00</ns0:vII>
+        <ns0:vIPI>0.00</ns0:vIPI>
+        <ns0:vIPIDevol>0.00</ns0:vIPIDevol>
+        <ns0:vPIS>0.00</ns0:vPIS>
+        <ns0:vCOFINS>0.00</ns0:vCOFINS>
+        <ns0:vOutro>0.00</ns0:vOutro>
+        <ns0:vNF>2414.21</ns0:vNF>
+      </ns0:ICMSTot>
+    </ns0:total>
+    <ns0:transp>
+      <ns0:modFrete>9</ns0:modFrete>
+    </ns0:transp>
+    <ns0:pag>
+      <ns0:detPag>
+        <ns0:indPag>0</ns0:indPag>
+        <ns0:tPag>01</ns0:tPag>
+        <ns0:vPag>2414.21</ns0:vPag>
+      </ns0:detPag>
+    </ns0:pag>
+    <ns0:infAdic>
+      <ns0:infCpl>DOCUMENTO DE TESTE - SEM VALIDADE FISCAL. Fixture de simulacao da importacao no Kivo: itens 1-6 UN com/sem EAN; itens 7-8 compra em CX com conversao para UN via uTrib (1 CX = 12 UN) e EAN de caixa; itens 9/18/19 PCT; itens 10/11 KG fracionado; item 13 FD; item 14 RL; item 15 L; item 16 DZ; itens 17/20 UN com EAN.</ns0:infCpl>
+    </ns0:infAdic>
+  </ns0:infNFe>
+</ns0:NFe>

@@ -12,16 +12,26 @@ export class ProductSupplierRepository extends BaseRepository {
     super('product_suppliers');
   }
 
-  /** Códigos que este fornecedor usa (cProd) por produto — p/ montar o índice de match. */
-  activeCodesForSupplier(supplierId: number): { product_id: number; supplier_code: string }[] {
+  /** Códigos que este fornecedor usa (cProd) por produto — p/ montar o índice de match.
+   *  Traz também a conversão de compra já conhecida (pack_qty/pack_unit). */
+  activeCodesForSupplier(supplierId: number): { product_id: number; supplier_code: string; pack_qty: number | null; pack_unit: string | null }[] {
     return this.raw(
-      'SELECT product_id, supplier_code FROM product_suppliers WHERE supplier_id = ? AND deleted_at IS NULL',
+      `SELECT product_id, supplier_code, pack_qty, pack_unit
+         FROM product_suppliers WHERE supplier_id = ? AND deleted_at IS NULL`,
       supplierId,
-    ) as { product_id: number; supplier_code: string }[];
+    ) as { product_id: number; supplier_code: string; pack_qty: number | null; pack_unit: string | null }[];
   }
 
   /** Reativa ou cria o vínculo produto × fornecedor com os dados da importação. */
-  upsertLink(supplierId: number, productId: number, code: string | null, supplierName: string | null, costCents: number): void {
+  upsertLink(
+    supplierId: number,
+    productId: number,
+    code: string | null,
+    supplierName: string | null,
+    costCents: number,
+    packQty: number | null = null,
+    packUnit: string | null = null,
+  ): void {
     const existing = this.rawOne(
       'SELECT id FROM product_suppliers WHERE product_id = ? AND supplier_id = ? AND deleted_at IS NULL',
       productId, supplierId,
@@ -30,9 +40,10 @@ export class ProductSupplierRepository extends BaseRepository {
     if (existing) {
       this.rawRun(
         `UPDATE product_suppliers
-            SET supplier_code = ?, supplier_name = ?, last_cost_cents = ?, last_purchase_at = ?, updated_at = ?
+            SET supplier_code = ?, supplier_name = ?, last_cost_cents = ?, last_purchase_at = ?,
+                pack_qty = COALESCE(?, pack_qty), pack_unit = COALESCE(?, pack_unit), updated_at = ?
           WHERE id = ?`,
-        code, supplierName, costCents, now, existing.id,
+        code, supplierName, costCents, now, packQty, packUnit, now, existing.id,
       );
       return;
     }
@@ -43,6 +54,8 @@ export class ProductSupplierRepository extends BaseRepository {
       supplier_name: supplierName,
       last_cost_cents: costCents,
       last_purchase_at: now,
+      pack_qty: packQty,
+      pack_unit: packUnit,
       uuid: randomUUID(),
       origin_machine: null,
     });

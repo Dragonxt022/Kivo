@@ -16,7 +16,7 @@
       <div>
         <a href="/app/comandas/mesas" class="back-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          Mesas
+          <%= comandasLabels.plural %>
         </a>
         <h1 x-text="comanda ? 'Comanda #' + comanda.id + (comanda.table_label ? ' — ' + comanda.table_label : '') : 'Carregando…'"></h1>
         <p class="muted" x-show="comanda?.notes" x-text="'Obs.: ' + (comanda?.notes ?? '')"></p>
@@ -162,15 +162,15 @@
 
     <!-- Dialog Transferir -->
     <dialog x-ref="transferDlg">
-      <h1>Transferir para mesa</h1>
-      <p class="dialog-text">Escolha a mesa de destino:</p>
+      <h1><%= comandasLabels.transferirTitulo %></h1>
+      <p class="dialog-text"><%= comandasLabels.transferirTexto %></p>
       <div class="tables-mini-grid">
         <template x-for="t in availableTables" :key="t.id">
           <button type="button" class="mini-table" :class="{ selected: transferTarget === t.id }" @click="transferTarget = t.id">
             <span x-text="t.label"></span>
           </button>
         </template>
-        <p class="muted text-sm" x-show="!availableTables.length">Nenhuma mesa livre no momento.</p>
+        <p class="muted text-sm" x-show="!availableTables.length"><%= comandasLabels.nenhumaLivre %></p>
       </div>
       <div class="error" x-text="dlgError"></div>
       <div class="actions">

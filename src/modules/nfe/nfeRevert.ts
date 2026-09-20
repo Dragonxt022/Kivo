@@ -16,6 +16,7 @@ import type { Request } from 'express';
 import { audit } from '../../core/audit/service';
 import { moveStockRaw } from '../commercial/stock';
 import { productRepository } from '../commercial/repositories/ProductRepository';
+import { productBarcodeRepository } from '../commercial/repositories/ProductBarcodeRepository';
 import { supplierRepository } from '../commercial/repositories/SupplierRepository';
 import { purchaseRepository, purchaseItemRepository } from '../commercial/repositories/PurchaseRepository';
 import {
@@ -29,6 +30,7 @@ export interface NfeRevertResult {
   invoiceId: number;
   stockReversed: number;
   costRestored: number;
+  priceRestored: number;
   productsDeleted: number;
   linksRemoved: number;
   supplierDeleted: boolean;
@@ -49,6 +51,9 @@ interface ItemRow {
   qty: number;
   status: string;
   prev_cost_cents: number | null;
+  prev_price_cents: number | null;
+  ean: string | null;
+  ean_box: string | null;
 }
 
 /**
@@ -87,7 +92,7 @@ export function revertImport(req: Request, invoiceId: number): NfeRevertResult {
   if (!invoice) throw new NfeImportError('Importação não encontrada (talvez já tenha sido revertida).');
 
   const items = purchaseInvoiceItemRepository.raw(
-    `SELECT id, product_id, qty, status, prev_cost_cents
+    `SELECT id, product_id, qty, status, prev_cost_cents, prev_price_cents, ean, ean_box
        FROM purchase_invoice_items WHERE purchase_invoice_id = ? AND deleted_at IS NULL ORDER BY line`,
     invoiceId,
   ) as unknown as ItemRow[];
@@ -105,6 +110,7 @@ export function revertImport(req: Request, invoiceId: number): NfeRevertResult {
 
   let stockReversed = 0;
   let costRestored = 0;
+  let priceRestored = 0;
   let productsDeleted = 0;
   let linksRemoved = 0;
   let supplierDeleted = false;
@@ -137,6 +143,30 @@ export function revertImport(req: Request, invoiceId: number): NfeRevertResult {
       restored.add(it.product_id);
       productRepository.updateCost(it.product_id, Number(it.prev_cost_cents));
       costRestored++;
+    }
+
+    // 2b. Restaura o preço anterior dos produtos VINCULADOS (produto criado é apagado).
+    const restoredPrice = new Set<number>();
+    for (const it of items) {
+      if (it.product_id == null || it.prev_price_cents == null || it.status === 'criado' || restoredPrice.has(it.product_id)) continue;
+      restoredPrice.add(it.product_id);
+      productRepository.rawRun(
+        "UPDATE products SET price_cents = ?, updated_at = datetime('now') WHERE id = ?",
+        Number(it.prev_price_cents), it.product_id,
+      );
+      priceRestored++;
+    }
+
+    // 2c. Remove códigos de barras secundários (caixa/lastro) que esta nota criou. Sem isso
+    //     o índice único de product_barcodes impediria reimportar o mesmo EAN depois.
+    for (const it of items) {
+      if (it.product_id == null) continue;
+      if (it.status === 'criado') {
+        productBarcodeRepository.softDeleteWhere({ product_id: it.product_id });
+        continue;
+      }
+      if (it.ean) productBarcodeRepository.softDeleteWhere({ product_id: it.product_id, barcode: it.ean });
+      if (it.ean_box) productBarcodeRepository.softDeleteWhere({ product_id: it.product_id, barcode: it.ean_box });
     }
 
     // 3. Apaga os produtos criados pela importação que não têm uso fora dela.
@@ -180,7 +210,7 @@ export function revertImport(req: Request, invoiceId: number): NfeRevertResult {
 
   audit(req, 'reverter_nfe', 'purchase_invoice', invoiceId, null, {
     accessKey: invoice.access_key,
-    stockReversed, costRestored, productsDeleted, linksRemoved, supplierDeleted, purchaseDeleted,
+    stockReversed, costRestored, priceRestored, productsDeleted, linksRemoved, supplierDeleted, purchaseDeleted,
   });
-  return { invoiceId, stockReversed, costRestored, productsDeleted, linksRemoved, supplierDeleted, purchaseDeleted };
+  return { invoiceId, stockReversed, costRestored, priceRestored, productsDeleted, linksRemoved, supplierDeleted, purchaseDeleted };
 }

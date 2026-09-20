@@ -21,6 +21,15 @@ export interface NfeEmitente {
   cnpj: string;
   nome: string | null;
   fantasia: string | null;
+  ie: string | null;
+  phone: string | null;
+  cep: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
 }
 
 export interface NfeDetItem {
@@ -34,6 +43,12 @@ export interface NfeDetItem {
   qty: number;
   unitCostCents: number;
   totalCents: number;
+  /** Unidade tributável (uTrib) — costuma ser a unidade de VENDA quando uCom é caixa. */
+  unitTrib: string | null;
+  /** EAN tributável (cEANTrib) — quando difere de cEAN, indica embalagem. */
+  eanTrib: string | null;
+  qtyTrib: number | null;
+  unitCostTribCents: number | null;
 }
 
 export interface NfeParsed {
@@ -63,9 +78,7 @@ export function centsFromNumber(value: number | string | null | undefined): numb
 }
 
 /** Dígito verificador da chave de acesso (módulo 11, pesos 2..9 da direita p/ esquerda). */
-function accessKeyValid(key: string): boolean {
-  if (!/^\d{44}$/.test(key)) return false;
-  const base = key.slice(0, 43);
+function accessKeyCheckDigit(base: string): number {
   let sum = 0;
   let weight = 2;
   for (let idx = base.length - 1; idx >= 0; idx--) {
@@ -73,8 +86,12 @@ function accessKeyValid(key: string): boolean {
     weight = weight === 9 ? 2 : weight + 1;
   }
   const dv = 11 - (sum % 11);
-  const check = dv >= 10 ? 0 : dv;
-  return check === Number(key[43]);
+  return dv >= 10 ? 0 : dv;
+}
+
+function accessKeyValid(key: string): boolean {
+  if (!/^\d{44}$/.test(key)) return false;
+  return accessKeyCheckDigit(key.slice(0, 43)) === Number(key[43]);
 }
 
 function requiredChildText(scope: ReturnType<typeof xmlChild>, field: string): string {
@@ -110,7 +127,14 @@ export function parseNfeDocument(xml: string): NfeParsed {
   const idAttr = xmlAttr(infNFe, 'Id') ?? '';
   const keyDigits = idAttr.replace(/\D/g, '');
   if (keyDigits.length !== 44) throw new NfeDocumentError('Chave de acesso da NF-e ausente ou incompleta.');
-  if (!accessKeyValid(keyDigits)) throw new NfeDocumentError('Chave de acesso da NF-e com dígito verificador inválido.');
+  if (!accessKeyValid(keyDigits)) {
+    const esperado = accessKeyCheckDigit(keyDigits.slice(0, 43));
+    throw new NfeDocumentError(
+      `Chave de acesso da NF-e com dígito verificador inválido: o arquivo traz ${keyDigits[43]}, ` +
+      `mas o correto para esta chave é ${esperado}. O XML pode ter sido gerado sem calcular o DV ` +
+      '(ferramenta de teste) ou estar corrompido — confira com o emitente.',
+    );
+  }
   const accessKey = keyDigits;
 
   const emit = xmlChild(infNFe, 'emit');
@@ -158,6 +182,10 @@ export function parseNfeDocument(xml: string): NfeParsed {
       qty,
       unitCostCents: unitCost,
       totalCents: total ?? Math.round(unitCost * qty),
+      unitTrib: xmlChildText(prod, 'uTrib')?.trim() || null,
+      eanTrib: normalizeEan(xmlChildText(prod, 'cEANTrib')),
+      qtyTrib: xmlNumberText(prod, 'qTrib'),
+      unitCostTribCents: centsFromNumber(xmlNumberText(prod, 'vUnTrib')),
     });
   }
 
@@ -166,6 +194,12 @@ export function parseNfeDocument(xml: string): NfeParsed {
   const totalTag = xmlChild(xmlChild(infNFe, 'total'), 'ICMSTot');
   const declaredTotal = centsFromNumber(xmlNumberText(totalTag, 'vNF'));
   const totalCents = declaredTotal ?? items.reduce((acc, it) => acc + it.totalCents, 0);
+
+  const ender = xmlChild(emit, 'enderEmit');
+  const emitField = (tag: string): string | null => {
+    const v = ender ? xmlChildText(ender, tag) : null;
+    return v?.trim() || null;
+  };
 
   return {
     version,
@@ -177,6 +211,15 @@ export function parseNfeDocument(xml: string): NfeParsed {
       cnpj,
       nome: xmlChildText(emit, 'xNome')?.trim() ?? null,
       fantasia: xmlChildText(emit, 'xFant')?.trim() ?? null,
+      ie: xmlChildText(emit, 'IE')?.trim() || null,
+      phone: xmlChildText(emit, 'fone')?.trim() || null,
+      cep: emitField('CEP'),
+      street: emitField('xLgr'),
+      number: emitField('nro'),
+      complement: emitField('xCpl'),
+      district: emitField('xBairro'),
+      city: emitField('xMun'),
+      state: emitField('UF'),
     },
     totalCents,
     items,

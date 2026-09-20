@@ -240,7 +240,7 @@
         </div>
         <div class="field">
           <label>Valor padrão para estoque mínimo</label>
-          <input class="input input-narrow" type="number" min="0" x-model="stock.minStockPadrao" placeholder="0" />
+          <input class="input input-narrow" type="number" min="0" x-model="stock.minStockPadrao" placeholder="5" />
           <p class="hint">Todo produto novo será cadastrado com este valor como estoque mínimo.</p>
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
@@ -271,6 +271,31 @@
             Lembrar de fechar o caixa quando ficar aberto por mais de 24h
           </label>
         </div>
+      </section>
+
+      <section class="panel">
+        <h2>Mesas e balcão</h2>
+        <p class="hint mt-0">
+          Define como o módulo de comandas aparece no menu e na tela inicial. Uma loja que
+          atende só no balcão usa "Balcão" (com outro ícone) no lugar de "Mesas". Vale para
+          todos os aparelhos que abrem este Kivo pela rede.
+        </p>
+        <div class="field">
+          <label>Como chamar</label>
+          <select class="select" x-model="comandas.rotulo">
+            <option value="mesa">Mesas</option>
+            <option value="balcao">Balcão</option>
+          </select>
+        </div>
+        <% if (user.permissions.has('settings.edit')) { %>
+        <div class="toolbar">
+          <button class="btn" @click="saveComandas()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <span x-text="savingComandas ? 'Salvando…' : 'Salvar'"></span>
+          </button>
+          <span class="muted" x-show="comandasSaved" x-text="comandasSaved"></span>
+        </div>
+        <% } %>
       </section>
 
       <section class="panel">
@@ -406,24 +431,38 @@
           location.reload();
         },
         colorTheme: document.documentElement.getAttribute('data-color-theme') || 'orange',
-        customColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch(e){ return '#ff8000'; } })(),
+        customColor: (window.__kivoColor && window.__kivoColor.custom) || '#ff8000',
+        // A cor de destaque é configuração da EMPRESA (tabela `settings`): grava no servidor
+        // para valer em todos os aparelhos que abrem este Kivo — inclusive pelo celular na
+        // rede local. Antes ficava só no localStorage e o celular mostrava o laranja padrão.
+        async persistColor(key, value) {
+          try {
+            await fetch('/api/settings/' + encodeURIComponent(key), {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value }),
+            });
+          } catch (e) {}
+        },
         setColorTheme(id) {
           this.colorTheme = id;
           var s = document.documentElement.style;
           s.removeProperty('--primary'); s.removeProperty('--icon-color');
           s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
           document.documentElement.setAttribute('data-color-theme', id);
-          try { localStorage.setItem('kivo-color-theme', id); } catch (e) {}
+          if (window.__kivoColor) window.__kivoColor.theme = id;
+          this.persistColor('interface.cor_destaque', id);
         },
         setCustomColor(hex) {
           this.customColor = hex; this.colorTheme = 'custom';
           document.documentElement.setAttribute('data-color-theme', 'custom');
           window.__kivoApplyCustomColor(hex);
-          try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch (e) {}
+          window.__kivoColor = { theme: 'custom', custom: hex };
+          this.persistColor('interface.cor_custom', hex);
+          this.persistColor('interface.cor_destaque', 'custom');
         },
       }">
         <h2>Interface e cores</h2>
-        <p class="hint mt-0">Esta preferência vale só neste computador.</p>
+        <p class="hint mt-0">A tela inicial e o menu lateral valem só neste computador; a cor de destaque vale para toda a empresa.</p>
 
         <div class="field">
           <label>Tela inicial</label>
@@ -663,22 +702,24 @@
             Permitir acesso pela rede local
           </label>
           <p class="hint">
-            Desligado por padrão. <strong>Não precisa salvar</strong> — a chave grava sozinha ao marcar.
+            Desligado por padrão. <strong>Não precisa salvar</strong> — a chave grava sozinha
+            ao marcar e passa a valer na hora, <strong>sem reiniciar o Kivo</strong>.
           </p>
           <p class="hint" x-show="redeSaved" x-cloak x-text="redeSaved"></p>
         </div>
 
-        <%# Estado REAL de agora (em que host o servidor subiu neste boot) x o que está
-            salvo: é o que responde "liguei e mesmo assim o celular não abre". %>
+        <%# Estado REAL de agora (em que host o servidor está escutando) x o que está
+            salvo: a troca vale sem reiniciar, então um descasamento é passageiro (enquanto
+            o servidor reabre) ou indica que o firewall recusou a porta. %>
         <div class="field" x-show="networkInfo.lanAtivo !== null && networkInfo.lanAtivo !== undefined" x-cloak>
           <template x-if="rede.acessoLocal && networkInfo.lanAtivo">
             <p class="hint mt-0"><span class="badge ok">Ativo agora</span> Outros aparelhos da mesma rede já conseguem abrir o Kivo nos endereços abaixo.</p>
           </template>
           <template x-if="rede.acessoLocal && !networkInfo.lanAtivo">
-            <p class="hint mt-0"><span class="badge neutral">Falta reiniciar</span> Está ligado e salvo, mas só passa a valer quando você fechar e abrir o Kivo.</p>
+            <p class="hint mt-0"><span class="badge neutral">Ativando…</span> Aplicando o acesso pela rede. Se continuar assim, verifique o firewall do Windows.</p>
           </template>
           <template x-if="!rede.acessoLocal && networkInfo.lanAtivo">
-            <p class="hint mt-0"><span class="badge neutral">Falta reiniciar</span> Está desligado e salvo, mas continua acessível até você fechar e abrir o Kivo.</p>
+            <p class="hint mt-0"><span class="badge neutral">Desligando…</span> Fechando o acesso pela rede.</p>
           </template>
           <template x-if="!rede.acessoLocal && !networkInfo.lanAtivo">
             <p class="hint mt-0"><span class="badge off">Desligado</span> Só este computador consegue abrir o Kivo.</p>
@@ -719,14 +760,14 @@
         </p>
         <div class="field">
           <label>Intervalo</label>
-          <select x-model.number="rede.syncIntervalo">
+          <select class="select" x-model.number="rede.syncIntervalo">
             <option :value="0">Desligado (só manual)</option>
             <option :value="1">A cada 1 minuto</option>
             <option :value="3">A cada 3 minutos (recomendado)</option>
             <option :value="10">A cada 10 minutos</option>
             <option :value="30">A cada 30 minutos</option>
           </select>
-          <p class="hint">Exige plano com sincronização em nuvem. <strong>Requer reiniciar o Kivo</strong> para valer.</p>
+          <p class="hint">Exige plano com sincronização em nuvem. Vale na hora, <strong>sem reiniciar</strong>.</p>
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
@@ -1346,8 +1387,9 @@
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
         licenseThanks: { sync: null, syncError: null },
-        stock: { autoSku: true, minStockPadrao: 0 }, savingStock: false, stockSaved: '',
+        stock: { autoSku: false, minStockPadrao: 5 }, savingStock: false, stockSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
+        comandas: { rotulo: 'mesa' }, savingComandas: false, comandasSaved: '',
         financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
         savingFinanceiro: false, financeiroSaved: '',
         empresa: { nome: '', razaoSocial: '', documento: '', ie: '', email: '', telefone: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
@@ -1414,9 +1456,9 @@
         },
         syncSettings() {
           const auto = this.settings.find(s => s.key === 'estoque.auto_sku');
-          this.stock.autoSku = auto?.value !== '0';
+          this.stock.autoSku = auto?.value === '1';
           const minStock = this.settings.find(s => s.key === 'estoque.min_stock_padrao');
-          this.stock.minStockPadrao = minStock?.value ? Number(minStock.value) : 0;
+          this.stock.minStockPadrao = minStock?.value ? Number(minStock.value) : 5;
           const cupom = this.settings.find(s => s.key === 'vendas.exibir_cupom_fiscal');
           this.sales.exibirCupom = cupom?.value !== '0';
           const lembrete = this.settings.find(s => s.key === 'caixa.lembrete_24h');
@@ -1426,6 +1468,7 @@
           this.sales.pdvDescontoMotivo = this.settings.find(s => s.key === 'pdv.desconto_exige_motivo')?.value === '1';
           this.sales.pdvDescontoMax = this.settings.find(s => s.key === 'pdv.desconto_maximo_percentual')?.value ?? '0';
           this.sales.pdvParcelasMax = Number(this.settings.find(s => s.key === 'pdv.parcelas_max')?.value ?? 12);
+          this.comandas.rotulo = this.settings.find(s => s.key === 'comandas.rotulo')?.value === 'balcao' ? 'balcao' : 'mesa';
           this.financeiro.multaAtiva = this.settings.find(s => s.key === 'financeiro.multa_atraso.ativa')?.value === '1';
           const multaPct = this.settings.find(s => s.key === 'financeiro.multa_atraso.percentual')?.value;
           this.financeiro.multaPercentual = (multaPct != null ? Number(multaPct) : 2).toFixed(2).replace('.', ',');
@@ -1656,6 +1699,16 @@
           const r = await fetch('/api/settings');
           if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
         },
+        async saveComandas() {
+          this.savingComandas = true; this.comandasSaved = '';
+          const r = await fetch('/api/settings/comandas.rotulo', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: this.comandas.rotulo }),
+          });
+          this.savingComandas = false;
+          this.comandasSaved = r.ok ? 'Salvo.' : 'Falha ao salvar.';
+          if (r.ok) showToast('Rótulo salvo — o menu e a tela inicial já usam o novo nome.', 'success');
+        },
         async saveFinanceiro() {
           this.savingFinanceiro = true; this.financeiroSaved = '';
           const pct = (s) => { const n = parseFloat(String(s || '0').replace(',', '.')); return isNaN(n) ? 0 : n; };
@@ -1724,15 +1777,26 @@
             });
             if (!r.ok) throw new Error('falhou');
             this.redeSaved = alvo
-              ? 'Ligado e salvo. Feche e abra o Kivo para os outros aparelhos alcançarem este computador.'
-              : 'Desligado e salvo. Feche e abra o Kivo para fechar o acesso.';
+              ? 'Ligado. Já está valendo — outros aparelhos da mesma rede podem abrir o Kivo.'
+              : 'Desligado. O acesso pela rede já foi encerrado.';
             showToast(this.redeSaved, 'success');
+            // A troca do host roda no servidor logo depois desta resposta; relê o estado
+            // real para a tela sair do "Ativando…" sem o lojista precisar recarregar.
+            setTimeout(() => this.atualizarNetworkInfo(), 900);
           } catch (e) {
             this.rede.acessoLocal = anterior;
             this.redeSaved = '';
             showToast('Não foi possível salvar o acesso pela rede local. Tente de novo.', 'error');
           } finally {
             this.savingRede = false;
+          }
+        },
+        async atualizarNetworkInfo() {
+          try {
+            const n = await fetch('/api/settings/network-info');
+            if (n.ok) this.networkInfo = await n.json();
+          } catch (e) {
+            // Ao desligar o acesso estando conectado pela rede, esta leitura cai — normal.
           }
         },
         // ─── Atualização do app ───
@@ -1834,7 +1898,7 @@
             body: JSON.stringify({ value: String(this.rede.syncIntervalo) }),
           });
           this.savingSync = false;
-          this.syncSaved = r.ok ? 'Salvo — reinicie o Kivo para aplicar.' : 'Falha ao salvar.';
+          this.syncSaved = r.ok ? 'Salvo — já vale sem reiniciar.' : 'Falha ao salvar.';
         },
         async saveTelemetria() {
           this.savingTelemetria = true; this.telemetriaSaved = '';

@@ -8,87 +8,297 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .msg-layout { display: grid; grid-template-columns: 240px 1fr; gap: 1.25rem; align-items: start; }
+    @media (max-width: 820px) { .msg-layout { grid-template-columns: 1fr; } }
+    .msg-sidebar { position: sticky; top: 1rem; }
+    .msg-side-group { margin-bottom: 1rem; }
+    .msg-side-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 0 0 .4rem .4rem; }
+    .msg-side-link {
+      display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
+      padding: .45rem .6rem; border-radius: 8px; border: 0; background: transparent;
+      color: var(--text); cursor: pointer; font-size: .88rem;
+    }
+    .msg-side-link:hover { background: var(--surface-hover); }
+    .msg-side-link.active { background: var(--primary-bg, color-mix(in srgb, var(--primary) 10%, transparent)); color: var(--primary); font-weight: 600; }
+    .msg-side-link .count { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
+    .msg-side-del { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; padding: 0 .2rem; }
+    .msg-side-del:hover { color: var(--danger); }
+    .msg-card { display: flex; gap: .75rem; align-items: flex-start; padding: .8rem .9rem; border: 1.5px solid var(--border-light); border-radius: 12px; margin-bottom: .6rem; background: var(--surface); }
+    .msg-card.unread { border-color: var(--primary); }
+    .msg-card.dragging { opacity: .5; }
+    .msg-drag { cursor: grab; color: var(--text-muted); flex: none; padding-top: .2rem; }
+    .msg-body { flex: 1; min-width: 0; cursor: pointer; }
+    .msg-title { font-weight: 600; margin: 0; }
+    .msg-sub { margin: .15rem 0 0; color: var(--text-muted); font-size: .85rem; }
+    .msg-meta { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: .35rem; font-size: .75rem; color: var(--text-muted); }
+    .msg-actions { display: flex; gap: .25rem; flex: none; }
+    .msg-actions button { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; padding: .25rem; border-radius: 6px; }
+    .msg-actions button:hover { background: var(--surface-hover); color: var(--text); }
+    .msg-actions button.on { color: var(--primary); }
+    .msg-read img { max-width: 100%; border-radius: 10px; margin: .5rem 0; }
+    .msg-read h2 { font-size: 1.15rem; }
+    .msg-read ul, .msg-read ol { padding-left: 1.4rem; }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'notifications' }) %>
-  <main x-data="notificationsPage()" x-init="init()">
+  <main x-data="messagesPage()" x-init="init()">
     <h1>Notificações</h1>
 
-    <div class="tabs product-tabs">
-      <button type="button" :class="{ active: activeTab === 'all' }" @click="activeTab = 'all'">
-        Todas <span class="tab-count" x-text="notifications.length"></span>
-      </button>
-      <template x-for="cat in categories" :key="cat.type">
-        <button type="button" :class="{ active: activeTab === cat.type }" @click="activeTab = cat.type" x-show="countByType(cat.type)">
-          <span x-text="cat.label"></span> <span class="tab-count" x-text="countByType(cat.type)"></span>
-        </button>
-      </template>
-    </div>
-
-    <div class="toolbar" style="margin-bottom:1rem">
-      <button class="btn secondary small" @click="markAllRead()" :disabled="!unreadCount">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        Marcar todas como lidas
-      </button>
-      <span class="muted" x-show="notifications.length" x-text="unreadCount + ' não lida(s) de ' + notifications.length"></span>
-    </div>
-
-    <div class="notif-list">
-      <template x-if="loading">
-        <p class="muted">Carregando…</p>
-      </template>
-      <template x-if="!loading && !notifications.length">
-        <p class="muted muted-block">Nenhuma notificação por aqui.</p>
-      </template>
-      <template x-if="!loading && notifications.length && !filteredNotifications.length">
-        <p class="muted muted-block">Nenhuma notificação nesta categoria.</p>
-      </template>
-      <template x-for="n in filteredNotifications" :key="n.id">
-        <div class="notif-row" :class="{ unread: !n.read }">
-          <span class="notif-icon" x-html="notifIconSvg(n.type)"></span>
-          <a :href="n.link" class="notif-msg" @click="markRead(n.id)" x-text="n.message"></a>
-          <div class="notif-actions">
-            <button type="button" @click="markRead(n.id)" x-show="!n.read" title="Marcar como lida" aria-label="Marcar como lida">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            </button>
-            <button type="button" @click="dismiss(n.id)" title="Excluir" aria-label="Excluir notificação">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
+    <div class="msg-layout">
+      <aside class="msg-sidebar panel">
+        <div class="msg-side-group">
+          <button class="msg-side-link" :class="{ active: active === 'all' }" @click="active = 'all'">
+            <span>Todas</span><span class="count" x-text="messages.length"></span>
+          </button>
+          <button class="msg-side-link" :class="{ active: active === 'unread' }" @click="active = 'unread'">
+            <span>Não lidas</span><span class="count" x-text="unreadCount"></span>
+          </button>
+          <button class="msg-side-link" :class="{ active: active === 'favorites' }" @click="active = 'favorites'">
+            <span>Favoritas</span><span class="count" x-text="favoriteCount"></span>
+          </button>
         </div>
-      </template>
+
+        <div class="msg-side-group">
+          <p class="msg-side-title">Categorias</p>
+          <template x-for="c in fixedCategories" :key="c.slug">
+            <button class="msg-side-link" :class="{ active: active === 'cat:' + c.slug }" @click="active = 'cat:' + c.slug" x-show="countCat(c.slug)">
+              <span x-text="c.label"></span><span class="count" x-text="countCat(c.slug)"></span>
+            </button>
+          </template>
+          <button class="msg-side-link" :class="{ active: active === 'sistema' }" @click="active = 'sistema'">
+            <span>Avisos do sistema</span><span class="count" x-text="systemNotifications.length"></span>
+          </button>
+        </div>
+
+        <div class="msg-side-group">
+          <p class="msg-side-title">Minhas categorias</p>
+          <template x-for="c in categories" :key="c.id">
+            <div style="display:flex;align-items:center">
+              <button class="msg-side-link" :class="{ active: active === 'my:' + c.id }" @click="active = 'my:' + c.id" style="flex:1">
+                <span x-text="c.name"></span><span class="count" x-text="countCustom(c.id)"></span>
+              </button>
+              <button class="msg-side-del" @click="removeCategory(c)" title="Excluir categoria" aria-label="Excluir categoria">&times;</button>
+            </div>
+          </template>
+          <form @submit.prevent="addCategory()" style="display:flex;gap:.35rem;margin-top:.35rem">
+            <input class="input" style="padding:.35rem .5rem;font-size:.82rem" x-model="newCategory" placeholder="Nova categoria" maxlength="60">
+            <button class="btn secondary small" type="submit" :disabled="!newCategory.trim()">+</button>
+          </form>
+        </div>
+      </aside>
+
+      <section>
+        <div class="toolbar" style="margin-bottom:1rem">
+          <button class="btn secondary small" @click="markAllRead()" :disabled="!unreadCount">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Marcar todas como lidas
+          </button>
+          <span class="muted" x-show="active === 'all'" x-text="unreadCount + ' não lida(s) de ' + messages.length"></span>
+        </div>
+
+        <template x-if="loading">
+          <p class="muted">Carregando…</p>
+        </template>
+
+        <template x-if="!loading && active === 'sistema'">
+          <div class="notif-list">
+            <template x-if="!systemNotifications.length">
+              <p class="muted muted-block">Nenhum aviso do sistema por aqui.</p>
+            </template>
+            <template x-for="n in systemNotifications" :key="n.id">
+              <div class="notif-row" :class="{ unread: !n.read }">
+                <span class="notif-icon" x-html="notifIconSvg(n.type)"></span>
+                <a :href="n.link" class="notif-msg" @click="markSystemRead(n.id)" x-text="n.message"></a>
+                <div class="notif-actions">
+                  <button type="button" @click="dismissSystem(n.id)" title="Excluir" aria-label="Excluir aviso">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="!loading && active !== 'sistema'">
+          <div>
+            <p class="muted muted-block" x-show="!filtered.length">Nenhuma mensagem nesta categoria.</p>
+            <template x-for="m in filtered" :key="m.uuid">
+              <div class="msg-card" :class="{ unread: !m.read, dragging: dragUuid === m.uuid }"
+                   :draggable="active === 'all'" @dragstart="onDragStart($event, m)" @dragover.prevent @drop="onDrop($event, m)">
+                <span class="msg-drag" x-show="active === 'all'" title="Arrastar para reordenar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
+                </span>
+                <div class="msg-body" @click="open(m)">
+                  <p class="msg-title" x-text="m.title"></p>
+                  <p class="msg-sub" x-show="m.subtitle" x-text="m.subtitle"></p>
+                  <div class="msg-meta">
+                    <span class="badge" x-text="categoryLabel(m.category)"></span>
+                    <span class="badge off" x-show="m.urgent">Urgente</span>
+                    <span x-text="fmtDate(m.publishedAt)"></span>
+                  </div>
+                </div>
+                <div class="msg-actions">
+                  <button type="button" :class="{ on: m.favorite }" @click="toggleFavorite(m)" :title="m.favorite ? 'Remover dos favoritos' : 'Favoritar'" aria-label="Favoritar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" :fill="m.favorite ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  </button>
+                  <button type="button" @click="dismissMessage(m)" title="Excluir" aria-label="Excluir mensagem">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
     </div>
+
+    <dialog x-ref="readDlg" style="max-width:640px;width:92vw">
+      <div x-show="openMessage">
+        <h1 x-text="openMessage && openMessage.title" style="margin-bottom:.25rem"></h1>
+        <p class="muted" x-show="openMessage && openMessage.subtitle" x-text="openMessage && openMessage.subtitle"></p>
+        <div class="msg-meta" style="margin-bottom:.75rem">
+          <span class="badge" x-text="openMessage && categoryLabel(openMessage.category)"></span>
+          <span class="badge off" x-show="openMessage && openMessage.urgent">Urgente</span>
+          <span x-text="openMessage && fmtDate(openMessage.publishedAt)"></span>
+        </div>
+        <img x-show="openMessage && openMessage.hasImage" :src="openMessage ? '/api/messages/image/' + openMessage.uuid : ''" alt="Imagem da mensagem" />
+        <div class="msg-read" x-html="openMessage ? openMessage.bodyHtml : ''"></div>
+        <div class="actions" style="margin-top:1rem">
+          <select class="select" x-model="openCategoryId" @change="assignCategory(openMessage)">
+            <option :value="null">Sem categoria própria</option>
+            <template x-for="c in categories" :key="'opt' + c.id">
+              <option :value="c.id" x-text="c.name"></option>
+            </template>
+          </select>
+          <button type="button" class="btn secondary" @click="$refs.readDlg.close()">Fechar</button>
+          <button type="button" class="btn" @click="toggleFavorite(openMessage)"><span x-text="openMessage && openMessage.favorite ? 'Remover dos favoritos' : 'Favoritar'"></span></button>
+        </div>
+      </div>
+    </dialog>
   </main>
 
   <script nonce="<%= cspNonce %>">
     const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
 
-    function notificationsPage() {
+    function messagesPage() {
       return {
         loading: true,
-        activeTab: 'all',
-        categories: [
-          { type: 'payable', label: 'A pagar' },
-          { type: 'receivable', label: 'A receber' },
-          { type: 'cash', label: 'Caixa' },
-          { type: 'billing', label: 'Cobranças' },
-          { type: 'trial', label: 'Sistema' },
-          { type: 'novidade', label: 'Novidades' },
-        ],
-        countByType(type) { return this.notifications.filter((n) => n.type === type).length; },
-        get filteredNotifications() {
-          return this.activeTab === 'all' ? this.notifications : this.notifications.filter((n) => n.type === this.activeTab);
-        },
-        billingAlert: null,
-        licenseStatus: null,
-        cashAlert: null,
-        atualizacao: null,
-        upcomingBills: null,
-        notifUserKey: <%- JSON.stringify(user ? user.username : '') %>,
-        notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles' },
-        notifRead: [],
-        notifDismissed: [],
+        messages: [],
+        categories: [],
+        fixedCategories: [],
+        active: 'all',
+        dragUuid: null,
+        openMessage: null,
+        openCategoryId: null,
+        newCategory: '',
 
+        // ─── Avisos do sistema (a antiga lista) ───
+        billingAlert: null, licenseStatus: null, cashAlert: null, atualizacao: null, upcomingBills: null,
+        notifUserKey: <%- JSON.stringify(user ? user.username : '') %>,
+        notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles', atualizacao: 'refresh-cw' },
+        notifRead: [], notifDismissed: [],
+
+        categoryLabel(slug) {
+          const c = this.fixedCategories.find((x) => x.slug === slug);
+          return c ? c.label : (slug || 'Mensagem');
+        },
+        fmtDate(iso) {
+          if (!iso) return '';
+          const d = new Date(iso);
+          return isNaN(d) ? '' : d.toLocaleDateString('pt-BR');
+        },
+        get unreadCount() { return this.messages.filter((m) => !m.read).length; },
+        get favoriteCount() { return this.messages.filter((m) => m.favorite).length; },
+        countCat(slug) { return this.messages.filter((m) => m.category === slug).length; },
+        countCustom(id) { return this.messages.filter((m) => m.customCategoryId === id).length; },
+        get filtered() {
+          if (this.active === 'unread') return this.messages.filter((m) => !m.read);
+          if (this.active === 'favorites') return this.messages.filter((m) => m.favorite);
+          if (this.active.indexOf('cat:') === 0) return this.messages.filter((m) => m.category === this.active.slice(4));
+          if (this.active.indexOf('my:') === 0) return this.messages.filter((m) => m.customCategoryId === Number(this.active.slice(3)));
+          return this.messages;
+        },
+
+        async load() {
+          const r = await fetch('/api/messages');
+          if (r.ok) {
+            const d = await r.json();
+            this.messages = d.messages || [];
+            this.categories = d.categories || [];
+            this.fixedCategories = d.fixedCategories || [];
+          }
+        },
+        async open(m) {
+          this.openMessage = m;
+          this.openCategoryId = m.customCategoryId;
+          this.$refs.readDlg.showModal();
+          if (!m.read) await this.setRead(m, true);
+        },
+        async setRead(m, read) {
+          m.read = read;
+          await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/read', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read }),
+          }).catch(() => {});
+          window.dispatchEvent(new CustomEvent('kivo-messages-changed'));
+        },
+        async markAllRead() {
+          for (const m of this.messages) if (!m.read) await this.setRead(m, true);
+        },
+        async toggleFavorite(m) {
+          if (!m) return;
+          m.favorite = !m.favorite;
+          await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/favorite', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ favorite: m.favorite }),
+          }).catch(() => {});
+        },
+        async dismissMessage(m) {
+          if (!await window.confirmDlg('Excluir esta mensagem? Ela sai da sua lista.')) return;
+          this.messages = this.messages.filter((x) => x.uuid !== m.uuid);
+          if (this.openMessage && this.openMessage.uuid === m.uuid) { this.openMessage = null; this.$refs.readDlg.close(); }
+          await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/dismiss', { method: 'POST' }).catch(() => {});
+          window.dispatchEvent(new CustomEvent('kivo-messages-changed'));
+        },
+        async assignCategory(m) {
+          if (!m) return;
+          m.customCategoryId = this.openCategoryId;
+          await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/category', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId: this.openCategoryId }),
+          }).catch(() => {});
+        },
+        async addCategory() {
+          const name = this.newCategory.trim();
+          if (!name) return;
+          const r = await fetch('/api/messages/categories', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+          });
+          if (r.ok) { const c = await r.json(); this.categories.push(c); this.newCategory = ''; }
+          else { const d = await r.json().catch(() => ({})); showToast(d.error || 'Não foi possível criar a categoria.', 'error'); }
+        },
+        async removeCategory(c) {
+          if (!await window.confirmDlg('Excluir a categoria "' + c.name + '"? As mensagens continuam na lista.')) return;
+          this.categories = this.categories.filter((x) => x.id !== c.id);
+          this.messages.forEach((m) => { if (m.customCategoryId === c.id) m.customCategoryId = null; });
+          if (this.active === 'my:' + c.id) this.active = 'all';
+          await fetch('/api/messages/categories/' + c.id, { method: 'DELETE' }).catch(() => {});
+        },
+        onDragStart(ev, m) { this.dragUuid = m.uuid; },
+        async onDrop(_ev, target) {
+          if (!this.dragUuid || this.dragUuid === target.uuid) { this.dragUuid = null; return; }
+          const from = this.messages.findIndex((m) => m.uuid === this.dragUuid);
+          const to = this.messages.findIndex((m) => m.uuid === target.uuid);
+          this.dragUuid = null;
+          if (from < 0 || to < 0) return;
+          const [item] = this.messages.splice(from, 1);
+          this.messages.splice(to, 0, item);
+          await fetch('/api/messages/reorder', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uuids: this.messages.map((m) => m.uuid) }),
+          }).catch(() => {});
+        },
+
+        // ─── Avisos do sistema (mesma lógica da lista antiga) ───
         notifIconSvg(type) {
           const name = this.notifIconMap[type];
           return (name && SVG_ICONS[name]) || '';
@@ -97,9 +307,7 @@
           const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ''));
           return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
         },
-        notifKey(kind) {
-          return 'kivo-notif-' + kind + ':' + (this.notifUserKey || 'anon');
-        },
+        notifKey(kind) { return 'kivo-notif-' + kind + ':' + (this.notifUserKey || 'anon'); },
         loadNotifState() {
           try { this.notifRead = JSON.parse(localStorage.getItem(this.notifKey('read')) || '[]'); } catch (e) { this.notifRead = []; }
           try { this.notifDismissed = JSON.parse(localStorage.getItem(this.notifKey('dismissed')) || '[]'); } catch (e) { this.notifDismissed = []; }
@@ -109,74 +317,38 @@
           try { localStorage.setItem(this.notifKey('dismissed'), JSON.stringify(this.notifDismissed)); } catch (e) {}
           window.dispatchEvent(new CustomEvent('kivo-notif-changed'));
         },
-        rawNotifications() {
+        rawSystem() {
           const list = [];
           if (this.upcomingBills) {
-            for (const p of this.upcomingBills.payables || []) {
-              list.push({ id: 'p' + p.id, type: 'payable', message: `A pagar: ${p.description} — vence ${this.fmtDueDate(p.due_date)}`, link: '/app/finance/pagar' });
-            }
-            for (const r of this.upcomingBills.receivables || []) {
-              list.push({ id: 'r' + r.id, type: 'receivable', message: `A receber: ${r.description} — vence ${this.fmtDueDate(r.due_date)}`, link: '/app/finance/receber' });
-            }
+            for (const p of this.upcomingBills.payables || []) list.push({ id: 'p' + p.id, type: 'payable', message: `A pagar: ${p.description} — vence ${this.fmtDueDate(p.due_date)}`, link: '/app/finance/pagar' });
+            for (const r of this.upcomingBills.receivables || []) list.push({ id: 'r' + r.id, type: 'receivable', message: `A receber: ${r.description} — vence ${this.fmtDueDate(r.due_date)}`, link: '/app/finance/receber' });
           }
           if (this.cashAlert) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
-          // Espelha o item do sino (partials/nav.ejs) — manter os dois em sincronia.
           if (this.atualizacao && this.atualizacao.versaoDisponivel) {
-            const msgAtu = this.atualizacao.status === 'baixado'
-              ? `Kivo ${this.atualizacao.versaoDisponivel} baixado — clique para instalar`
-              : `Nova versão do Kivo disponível (${this.atualizacao.versaoDisponivel})`;
+            const msgAtu = this.atualizacao.status === 'baixado' ? `Kivo ${this.atualizacao.versaoDisponivel} baixado — clique para instalar` : `Nova versão do Kivo disponível (${this.atualizacao.versaoDisponivel})`;
             list.push({ id: 'atualizacao-' + this.atualizacao.versaoDisponivel, type: 'atualizacao', message: msgAtu, link: '/admin/configuracoes#atualizacao' });
           }
-          if (this.billingAlert && this.billingAlert.count) {
-            list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
-          }
+          if (this.billingAlert && this.billingAlert.count) list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
           if (this.licenseStatus && this.licenseStatus.plan === 'trial' && this.licenseStatus.status !== 'expirada') {
             const d = this.licenseStatus.daysRemaining;
             const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
             list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
           }
-          // Espelha o item do sino (partials/nav.ejs): anúncio fixo desta versão, com id
-          // versionado para o "dispensar" valer só para ele. Manter os dois em sincronia.
-          list.push({
-            id: 'novidade-web-v1', type: 'novidade',
-            message: 'Kivo Web: acompanhe a loja e faça orçamento pelo celular',
-            link: '/?novidade=web-v1',
-          });
+          list.push({ id: 'novidade-web-v1', type: 'novidade', message: 'Kivo Web: acompanhe a loja e faça orçamento pelo celular', link: '/?novidade=web-v1' });
           return list;
         },
-        get notifications() {
-          return this.rawNotifications()
+        get systemNotifications() {
+          return this.rawSystem()
             .filter((n) => !this.notifDismissed.includes(n.id))
             .map((n) => ({ ...n, read: this.notifRead.includes(n.id) }));
         },
-        get unreadCount() {
-          return this.notifications.filter((n) => !n.read).length;
-        },
-        pruneNotifState() {
-          const ids = new Set(this.rawNotifications().map((n) => n.id));
-          const nextRead = this.notifRead.filter((id) => ids.has(id));
-          const nextDismissed = this.notifDismissed.filter((id) => ids.has(id));
-          if (nextRead.length !== this.notifRead.length || nextDismissed.length !== this.notifDismissed.length) {
-            this.notifRead = nextRead;
-            this.notifDismissed = nextDismissed;
-            this.saveNotifState();
-          }
-        },
-        markRead(id) {
-          if (!this.notifRead.includes(id)) { this.notifRead.push(id); this.saveNotifState(); }
-        },
-        markAllRead() {
-          this.notifRead = this.rawNotifications().map((n) => n.id);
-          this.saveNotifState();
-        },
-        dismiss(id) {
-          if (!this.notifDismissed.includes(id)) { this.notifDismissed.push(id); this.saveNotifState(); }
-        },
+        markSystemRead(id) { if (!this.notifRead.includes(id)) { this.notifRead.push(id); this.saveNotifState(); } },
+        dismissSystem(id) { if (!this.notifDismissed.includes(id)) { this.notifDismissed.push(id); this.saveNotifState(); } },
 
         async init() {
           this.loadNotifState();
           window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
-          const jobs = [];
+          const jobs = [this.load()];
           <% if (user.permissions.has('billing.view')) { %>
           jobs.push(fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.count) this.billingAlert = d; }).catch(() => {}));
           <% } %>
@@ -191,7 +363,6 @@
           jobs.push(fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((d) => { if (d) this.upcomingBills = d; }).catch(() => {}));
           <% } %>
           await Promise.all(jobs);
-          this.pruneNotifState();
           this.loading = false;
         },
       };

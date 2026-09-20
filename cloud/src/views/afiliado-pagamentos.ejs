@@ -1,0 +1,108 @@
+<%- include('partials/afiliado-head', { title: 'Pagamentos', active: active, affiliateName: affiliateName }) %>
+
+<%
+  function brl(c) { return (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  function payBadge(s) {
+    if (s === 'pago') return { cls: 'paga', label: 'Pago' };
+    if (s === 'solicitado') return { cls: 'pendente', label: 'Aguardando' };
+    return { cls: 'cancelada', label: 'Cancelado' };
+  }
+%>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="breadcrumb">Portal do afiliado</div>
+      <h1>Pagamentos</h1>
+    </div>
+  </div>
+
+  <% if (ok) { %><p class="success-banner"><%= ok %></p><% } %>
+  <% if (error) { %><p class="error-banner"><%= error %></p><% } %>
+
+  <div class="card">
+    <div class="stat-row">
+      <div class="stat"><div class="value"><%= brl(summary.availableCents) %></div><div class="label">Disponível para solicitar</div></div>
+      <div class="stat"><div class="value"><%= brl(summary.requestedCents) %></div><div class="label">Aguardando confirmação</div></div>
+      <div class="stat"><div class="value"><%= brl(summary.paidCents) %></div><div class="label">Já recebido</div></div>
+      <div class="stat"><div class="value"><%= brl(summary.forecastCents) %></div><div class="label">Previsão (pendentes)</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Solicitar pagamento</h2>
+    <% if (summary.availableCents > 0) { %>
+    <p class="card-intro">O pedido reserva todo o seu crédito disponível (<strong><%= brl(summary.availableCents) %></strong>) e aguarda a confirmação do administrador.</p>
+    <form method="post" action="/afiliado/pagamentos/solicitar">
+      <div class="form-grid">
+        <div class="field col-4">
+          <label>Forma de pagamento</label>
+          <input type="text" name="method" maxlength="40" value="PIX" placeholder="PIX, transferência…">
+        </div>
+        <div class="field col-8">
+          <label>Observações (opcional)</label>
+          <input type="text" name="notes" maxlength="255" placeholder="Chave PIX, dados bancários…">
+        </div>
+      </div>
+      <div class="form-actions-bar">
+        <span class="actions-hint">Você recebe quando o administrador confirmar.</span>
+        <div class="spacer"></div>
+        <button type="submit" class="btn">Solicitar pagamento</button>
+      </div>
+    </form>
+    <% } else { %>
+    <p class="field-hint" style="margin:0">Você não tem crédito disponível agora. Assim que uma cobrança das suas indicações for recebida, o valor libera aqui.</p>
+    <% } %>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-toolbar">
+      <h2 style="margin:0; font-size:1.05rem;">Histórico de pagamentos</h2>
+      <div class="table-count"><%= payouts.length %></div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>#</th><th class="text-right">Valor</th><th>Forma</th><th>Status</th><th>Solicitado</th><th>Pago em</th></tr></thead>
+        <tbody>
+          <% payouts.forEach(function(p) { var b = payBadge(p.status); %>
+          <tr>
+            <td class="cell-muted">#<%= p.id %></td>
+            <td class="text-right tabular"><strong><%= brl(p.amount_cents) %></strong></td>
+            <td class="cell-muted"><%= p.method || '—' %></td>
+            <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
+            <td class="cell-muted"><%= fmtDateTimeBr(p.requested_at) %></td>
+            <td class="cell-muted"><%= p.paid_at ? fmtDateTimeBr(p.paid_at) : '—' %></td>
+          </tr>
+          <% }); %>
+          <% if (!payouts.length) { %><tr><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum pagamento solicitado ainda.' }) %></td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-toolbar">
+      <h2 style="margin:0; font-size:1.05rem;">Previsão de lucro</h2>
+      <div class="table-count">cobranças pendentes das suas indicações</div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Empresa</th><th>Cobrança</th><th class="text-right">Valor</th><th>Vencimento</th><th class="text-right">Comissão prevista</th></tr></thead>
+        <tbody>
+          <% pendingCharges.forEach(function(c) { %>
+          <tr>
+            <td><%= c.company_name || '—' %></td>
+            <td class="cell-muted"><%= c.description %></td>
+            <td class="text-right tabular"><%= brl(c.amount_cents) %></td>
+            <td class="cell-muted"><%= fmtDateBr(c.due_date) %></td>
+            <td class="text-right tabular"><strong><%= brl(c.forecast_cents) %></strong></td>
+          </tr>
+          <% }); %>
+          <% if (!pendingCharges.length) { %><tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma cobrança pendente no momento.' }) %></td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/afiliado-foot') %>

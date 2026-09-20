@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS affiliate_sessions;
+DROP TABLE IF EXISTS affiliate_payouts;
+DROP TABLE IF EXISTS affiliate_commissions;
+DROP INDEX uq_affiliates_username ON affiliates;
+ALTER TABLE affiliates DROP COLUMN last_login_at;
+ALTER TABLE affiliates DROP COLUMN password_hash;
+ALTER TABLE affiliates DROP COLUMN username;
+ALTER TABLE affiliates DROP COLUMN notes;
+ALTER TABLE affiliates DROP COLUMN pix_key;
+ALTER TABLE affiliates DROP COLUMN commission_pct;
+ALTER TABLE affiliates DROP COLUMN document;
+ALTER TABLE affiliates DROP COLUMN city;

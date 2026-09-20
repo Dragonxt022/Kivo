@@ -555,6 +555,10 @@
   <% } %>
 
   <% if (user) { %>
+  <%- include('partials/urgent-message') %>
+  <% } %>
+
+  <% if (user) { %>
   <div x-data="helpChat()" x-init="init()">
     <button type="button" class="fab" title="Ajuda e suporte" @click="open()">
       <%- svgIcon('chat', 22, 22) %>

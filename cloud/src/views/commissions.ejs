@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Comissões</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'commissions' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'commissions' }) %>
+
+      <%
+        function brl(c) { return (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+        function commBadge(s) {
+          if (s === 'disponivel') return { cls: 'paga', label: 'Disponível' };
+          if (s === 'solicitado') return { cls: 'pendente', label: 'Solicitado' };
+          if (s === 'pago') return { cls: 'plan', label: 'Pago' };
+          return { cls: 'cancelada', label: 'Cancelado' };
+        }
+        var qs = function (status) {
+          var p = [];
+          if (status) p.push('status=' + status);
+          if (filter.affiliateId) p.push('affiliateId=' + filter.affiliateId);
+          return '/admin/commissions' + (p.length ? '?' + p.join('&') : '');
+        };
+      %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Geral</div>
+            <h1>Comissões de afiliados</h1>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="stat-row">
+            <div class="stat"><div class="value"><%= brl(summary.available_cents) %></div><div class="label">Disponíveis</div></div>
+            <div class="stat"><div class="value"><%= brl(summary.requested_cents) %></div><div class="label">Aguardando pagamento</div></div>
+            <div class="stat"><div class="value"><%= brl(summary.paid_cents) %></div><div class="label">Pagas</div></div>
+            <div class="stat"><div class="value"><%= Number(summary.total_count || 0) %></div><div class="label">Lançamentos</div></div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <div class="tabs" style="margin:0">
+              <a class="tab <%= !filter.status ? 'active' : '' %>" href="<%= qs('') %>">Todas</a>
+              <a class="tab <%= filter.status === 'disponivel' ? 'active' : '' %>" href="<%= qs('disponivel') %>">Disponíveis</a>
+              <a class="tab <%= filter.status === 'solicitado' ? 'active' : '' %>" href="<%= qs('solicitado') %>">Solicitadas</a>
+              <a class="tab <%= filter.status === 'pago' ? 'active' : '' %>" href="<%= qs('pago') %>">Pagas</a>
+              <a class="tab <%= filter.status === 'cancelado' ? 'active' : '' %>" href="<%= qs('cancelado') %>">Canceladas</a>
+            </div>
+            <form method="get" action="/admin/commissions" style="margin:0">
+              <% if (filter.status) { %><input type="hidden" name="status" value="<%= filter.status %>"><% } %>
+              <select name="affiliateId" onchange="this.form.submit()">
+                <option value="">Todos os afiliados</option>
+                <% affiliates.forEach(function(a) { %>
+                  <option value="<%= a.id %>" <%= Number(filter.affiliateId) === Number(a.id) ? 'selected' : '' %>><%= a.name %></option>
+                <% }); %>
+              </select>
+            </form>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Afiliado</th>
+                  <th>Empresa</th>
+                  <th>Cobrança</th>
+                  <th class="text-right">Base</th>
+                  <th class="text-right">%</th>
+                  <th class="text-right">Comissão</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% commissions.forEach(function(c) { var b = commBadge(c.status); %>
+                <tr>
+                  <td class="cell-muted"><%= fmtDateBr(c.created_at) %></td>
+                  <td><a href="/admin/affiliates/<%= c.affiliate_id %>"><%= c.affiliate_name || '—' %></a></td>
+                  <td><a href="/admin/companies/<%= c.company_uuid %>"><%= c.company_name || '—' %></a></td>
+                  <td class="cell-muted"><%= c.charge_description || ('#' + c.id) %></td>
+                  <td class="text-right tabular"><%= brl(c.base_cents) %></td>
+                  <td class="text-right tabular"><%= c.pct %>%</td>
+                  <td class="text-right tabular"><strong><%= brl(c.amount_cents) %></strong></td>
+                  <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
+                </tr>
+                <% }); %>
+                <% if (!commissions.length) { %><tr><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhuma comissão nesse filtro.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

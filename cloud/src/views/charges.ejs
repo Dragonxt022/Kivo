@@ -149,8 +149,8 @@
         <select name="companyUuid" id="charge-company" required onchange="previewDiscount()">
           <option value="">Selecione…</option>
           <% companies.forEach(function(c) { %>
-            <option value="<%= c.company_uuid %>" data-affiliate="<%= c.affiliate_name || '' %>" data-pct="<%= c.discount_pct || 0 %>">
-              <%= c.name || c.company_uuid %><%= c.affiliate_name ? (' — ' + c.affiliate_name + ' (' + c.discount_pct + '%)') : '' %>
+            <option value="<%= c.company_uuid %>" data-affiliate="<%= c.affiliate_name || '' %>" data-pct="<%= c.discount_pct || 0 %>" data-commission="<%= c.commission_pct || 0 %>">
+              <%= c.name || c.company_uuid %><%= c.affiliate_name ? (' — ' + c.affiliate_name + ' (desconto ' + c.discount_pct + '% · comissão ' + c.commission_pct + '%)') : '' %>
             </option>
           <% }); %>
         </select>
@@ -186,18 +186,22 @@
       var sel = document.getElementById('charge-company');
       var opt = sel.options[sel.selectedIndex];
       var pct = opt ? Number(opt.getAttribute('data-pct') || 0) : 0;
+      var commission = opt ? Number(opt.getAttribute('data-commission') || 0) : 0;
       var affiliate = opt ? opt.getAttribute('data-affiliate') : '';
       var valor = parseMoney(document.getElementById('charge-amount').value);
       var hint = document.getElementById('charge-discount-hint');
-      if (!affiliate || pct <= 0) {
+      var brl = function (v) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); };
+      if (!affiliate || (pct <= 0 && commission <= 0)) {
         hint.textContent = 'Empresa sem afiliado ativo — paga o valor cheio.';
         return;
       }
       var desconto = valor * pct / 100;
       var liquido = valor - desconto;
-      hint.innerHTML = 'Indicação de <strong>' + affiliate + '</strong>: −' + pct + '% (' +
-        desconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '). O cliente pagará <strong>' +
-        liquido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) + '</strong>.';
+      var texto = 'Indicação de <strong>' + affiliate + '</strong>';
+      if (pct > 0) texto += ': −' + pct + '% (' + brl(desconto) + '). O cliente pagará <strong>' + brl(liquido) + '</strong>.';
+      else texto += '. O cliente pagará <strong>' + brl(liquido) + '</strong>.';
+      if (commission > 0) texto += ' Quando paga, gera <strong>' + brl(liquido * commission / 100) + '</strong> de comissão (' + commission + '%).';
+      hint.innerHTML = texto;
     }
   </script>
 </body>

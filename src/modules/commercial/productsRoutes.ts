@@ -21,6 +21,7 @@ import {
 } from '../../core/catalog/submissionQueue';
 import { getWebImageConfig, searchWebImages, fetchExternalImage } from '../../core/catalog/webImageSearch';
 import { productRepository } from './repositories/ProductRepository';
+import { productBarcodeRepository } from './repositories/ProductBarcodeRepository';
 import { kitItemRepository } from './repositories/KitRepository';
 import { recipeItemRepository } from './repositories/RecipeRepository';
 import { productAttributeRepository, productAttributeValueRepository, productVariantValueRepository } from './repositories/AttributeRepository';
@@ -41,7 +42,7 @@ const router = Router();
 const FISCAL_FIELDS = ['ncm', 'cest', 'csosn', 'cst', 'origem', 'unit_fiscal'] as const;
 
 function autoSkuEnabled(): boolean {
-  return settingsRepository.getBool('estoque.auto_sku', true);
+  return settingsRepository.getBool('estoque.auto_sku', false);
 }
 
 /**
@@ -210,9 +211,10 @@ function webImageProxyUrl(u: string): string {
 
 /** Busca as imagens aprovadas do banco de imagens do Kivo Cloud (o "sugestor local"). */
 async function fetchCloudCatalog(
-  base: string, auth: Record<string, string>, q: string,
+  base: string, auth: Record<string, string>, q: string, barcode?: string,
 ): Promise<ImageSuggestion[]> {
-  const r = await fetch(`${base}/api/catalog/search?q=${encodeURIComponent(q)}`, {
+  const barcodeParam = barcode ? `&barcode=${encodeURIComponent(barcode)}` : '';
+  const r = await fetch(`${base}/api/catalog/search?q=${encodeURIComponent(q)}${barcodeParam}`, {
     headers: auth, signal: AbortSignal.timeout(8000),
   });
   if (!r.ok) {
@@ -257,6 +259,8 @@ router.get('/products/image-search', requirePermission('commercial.products.view
     res.json({ results: [], error: 'Digite ao menos 3 letras para buscar.' });
     return;
   }
+  // Código de barras do produto que está sendo editado: casa a foto exata, sem depender do nome.
+  const barcode = String(req.query.barcode ?? '').trim();
 
   const base = cloudBaseUrl();
   const auth = cloudAuthHeaders();
@@ -271,7 +275,7 @@ router.get('/products/image-search', requirePermission('commercial.products.view
   if (base && auth) {
     try {
       [catalog, webCached] = await Promise.all([
-        fetchCloudCatalog(base, auth, q),
+        fetchCloudCatalog(base, auth, q, barcode),
         fetchCloudWebPicks(base, auth, q),
       ]);
     } catch (e) {
@@ -481,7 +485,7 @@ router.post('/products', requirePermission('commercial.products.create'), valida
   }
   const newId = Number(info.lastInsertRowid);
   if (img.buf && img.submit) {
-    queueProductImageSubmission(newId, String(b.name), img.imageUrl!, img.buf);
+    queueProductImageSubmission(newId, String(b.name), img.imageUrl!, img.buf, b.barcode ?? null);
     trySubmitPending().catch((e) => log.error('erro ao enviar imagem', e));
   }
   if (!b.sku && autoSkuEnabled()) {
@@ -652,7 +656,14 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
     deleteLocalImageIfOwned(before.image_url);
   }
   if (img.buf && img.submit) {
-    queueProductImageSubmission(Number(id), String(b.name ?? (before as unknown as { name: string }).name), img.imageUrl!, img.buf);
+    const beforeBarcode = (before as unknown as { barcode: string | null }).barcode;
+    queueProductImageSubmission(
+      Number(id),
+      String(b.name ?? (before as unknown as { name: string }).name),
+      img.imageUrl!,
+      img.buf,
+      b.barcode ?? beforeBarcode,
+    );
     trySubmitPending().catch((e) => log.error('erro ao enviar imagem', e));
   }
   const after = productRepository.findDetailed(id);
@@ -779,6 +790,12 @@ router.get('/products/by-barcode/:code', requireAnyPermission('commercial.produc
     return;
   }
   res.json(row);
+});
+
+/** Códigos de barras secundários (caixa/lastro) do produto — gravados pelo importador de
+ *  NF-e. Só leitura: o código principal é o `products.barcode`. */
+router.get('/products/:id/barcodes', requirePermission('commercial.products.view'), (req, res) => {
+  res.json(productBarcodeRepository.listByProduct(Number(req.params.id)));
 });
 
 router.post('/products/:id/barcode/generate', requirePermission('commercial.products.edit'), (req, res) => {

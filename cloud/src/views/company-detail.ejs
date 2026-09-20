@@ -196,10 +196,10 @@
               <select name="affiliateId" style="max-width:340px">
                 <option value="">Sem indicação</option>
                 <% (typeof affiliates !== 'undefined' ? affiliates : []).forEach(function(a) { %>
-                  <option value="<%= a.id %>" <%= Number(company.affiliate_id) === Number(a.id) ? 'selected' : '' %>><%= a.name %> — <%= a.discount_pct %>%<%= a.active ? '' : ' (inativo)' %></option>
+                  <option value="<%= a.id %>" <%= Number(company.affiliate_id) === Number(a.id) ? 'selected' : '' %>><%= a.name %><%= a.city ? (' (' + a.city + ')') : '' %> — desconto <%= a.discount_pct %>% · comissão <%= a.commission_pct %>%<%= a.active ? '' : ' (inativo)' %></option>
                 <% }); %>
               </select>
-              <p class="field-hint">Empresa indicada: toda cobrança sai com o desconto do afiliado aplicado. Gerencie em <a href="/admin/affiliates">Afiliados</a>.</p>
+              <p class="field-hint">Empresa indicada: toda cobrança sai com o desconto do afiliado aplicado e, quando paga, gera a comissão do afiliado. Gerencie em <a href="/admin/affiliates">Afiliados</a>.</p>
               <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
             </div>
 

@@ -234,7 +234,14 @@ router.get('/customers/:id/export.csv', requirePermission('commercial.customers.
 });
 router.use('/suppliers', makeCrudRouter({
   table: 'suppliers', entity: 'supplier', permPrefix: 'commercial.suppliers',
-  fields: ['name', 'trade_name', 'document', 'email', 'phone', 'address', 'notes'], required: ['name'],
+  fields: [
+    'name', 'trade_name', 'document', 'email', 'phone', 'address', 'notes',
+    'ie', 'cep', 'street', 'number', 'complement', 'district', 'city', 'state',
+    'contact_name', 'contact_phone', 'contact_email', 'default_markup_bps',
+  ],
+  required: ['name'],
+  searchFields: ['name', 'trade_name', 'document', 'email', 'phone', 'city'],
+  digitSearchFields: ['document', 'phone', 'cep'],
 }));
 router.use('/agreement-companies', makeCrudRouter({
   table: 'agreement_companies', entity: 'agreement_company', permPrefix: 'commercial.agreements',

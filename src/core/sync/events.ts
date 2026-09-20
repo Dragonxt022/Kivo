@@ -1,5 +1,6 @@
 import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
 import { drainCommands } from './commands';
+import { fetchInbox } from '../messages/service';
 import { hasCloudIssue } from '../license/service';
 import { createLogger } from '../logger';
 
@@ -30,6 +31,9 @@ let controller: AbortController | null = null;
 function onEvent(name: string): void {
   if (name === 'command') {
     void drainCommands();
+  } else if (name === 'message') {
+    // O suporte publicou uma mensagem: busca na hora, sem esperar o ciclo de sync.
+    void fetchInbox();
   } else if (name === 'sync') {
     // Reservado: permite à nuvem pedir um ciclo (ex.: depois de mexer no plano da empresa).
     void import('./scheduler').then((m) => m.scheduleSyncSoon());

@@ -47,9 +47,11 @@ export class ProductRepository extends BaseRepository<ProductRow> {
     let sql = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.deleted_at IS NULL
          AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)
-         AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)
+         AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?
+              OR EXISTS (SELECT 1 FROM product_barcodes pb
+                          WHERE pb.product_id = p.id AND pb.barcode = ? AND pb.deleted_at IS NULL))
        ORDER BY p.favorite DESC, p.name`;
-    const params: unknown[] = [`%${query}%`, query, query];
+    const params: unknown[] = [`%${query}%`, query, query, query];
     if (limit && limit > 0) { sql += ' LIMIT ?'; params.push(limit); }
     return this.raw(sql, ...params);
   }
@@ -57,9 +59,11 @@ export class ProductRepository extends BaseRepository<ProductRow> {
   searchAll(query: string, limit?: number): Row[] {
     let sql = `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.deleted_at IS NULL
-         AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?)
+         AND (p.name LIKE ? OR p.barcode = ? OR p.sku = ?
+              OR EXISTS (SELECT 1 FROM product_barcodes pb
+                          WHERE pb.product_id = p.id AND pb.barcode = ? AND pb.deleted_at IS NULL))
        ORDER BY p.favorite DESC, p.name`;
-    const params: unknown[] = [`%${query}%`, query, query];
+    const params: unknown[] = [`%${query}%`, query, query, query];
     if (limit && limit > 0) { sql += ' LIMIT ?'; params.push(limit); }
     return this.raw(sql, ...params);
   }
@@ -108,10 +112,22 @@ export class ProductRepository extends BaseRepository<ProductRow> {
   }
 
   findByBarcode(barcode: string): Row | undefined {
+    const direct = this.rawOne(
+      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.barcode = ? AND p.deleted_at IS NULL
+          AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)`,
+      barcode,
+    );
+    if (direct) return direct;
+    // Código secundário (caixa/lastro/inner): o produto é o mesmo — bipar a caixa acha o
+    // produto. A quantidade por embalagem fica em product_barcodes.pack_qty para uma
+    // futura multiplicação no PDV.
     return this.rawOne(
       `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
-       WHERE p.barcode = ? AND p.deleted_at IS NULL
-         AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)`,
+         JOIN product_barcodes pb ON pb.product_id = p.id
+        WHERE pb.barcode = ? AND pb.deleted_at IS NULL AND p.deleted_at IS NULL
+          AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)
+        LIMIT 1`,
       barcode,
     );
   }

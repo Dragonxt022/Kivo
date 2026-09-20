@@ -79,8 +79,12 @@
           <strong x-text="preview ? (preview.supplier.name || '—') : ''"></strong>
           <div class="nfe-head-sub">
             <span class="muted text-xs" x-text="preview ? ('CNPJ ' + preview.supplier.cnpj) : ''"></span>
-            <span class="badge" :class="preview && preview.supplier.exists ? 'ok' : 'neutral'"
-                  x-text="preview ? (preview.supplier.exists ? 'Cadastrado' : 'Novo (será criado)') : ''"></span>
+            <span class="badge neutral nfe-badge-info" x-show="preview && !preview.supplier.exists"
+                  title="O fornecedor ainda não existe no Kivo. Ele será cadastrado automaticamente com os dados da nota (razão social, CNPJ, IE e endereço).">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Fornecedor novo — será cadastrado
+            </span>
+            <span class="badge ok" x-show="preview && preview.supplier.exists">Fornecedor cadastrado</span>
           </div>
         </div>
         <div class="nfe-head-meta">
@@ -115,10 +119,28 @@
           </button>
         </div>
         <span class="toolbar-spacer"></span>
+        <button type="button" class="btn small secondary" @click="criarTodosNovos()" :disabled="newCount === 0"
+                :title="newCount ? 'Marca todos os itens novos para criar' : 'Nenhum item novo'">
+          <span x-text="newCount ? 'Criar todos os novos (' + newCount + ')' : 'Criar todos os novos'"></span>
+        </button>
+        <label class="nfe-markup" title="Markup aplicado sobre o custo para sugerir o preço de venda">
+          <span class="muted text-xs">Markup sugerido</span>
+          <input type="text" inputmode="decimal" class="input nfe-input-sm" x-model="markupPct"
+                 @change="onMarkupChange()" :disabled="!canRun" />
+          <span class="muted text-xs">%</span>
+        </label>
         <button type="button" class="btn small secondary" @click="applySuggestions()" :disabled="suggestionDiffCount === 0"
                 :title="suggestionDiffCount ? 'Devolve as linhas à sugestão do sistema' : 'Nenhuma linha divergindo da sugestão'">
           <span x-text="suggestionDiffCount ? 'Aplicar sugestões (' + suggestionDiffCount + ')' : 'Aplicar sugestões'"></span>
         </button>
+      </div>
+
+      <%# Progresso da conferência: reforça o status do rodapé e dá noção de quanto falta. %>
+      <div class="nfe-progress" x-show="rows.length" x-cloak>
+        <div class="nfe-progress-track"><span :style="'width:' + progressPct + '%'"></span></div>
+        <span class="muted text-xs" x-text="acceptedCount + ' de ' + rows.length + ' itens marcados para importar'"></span>
+        <span class="muted text-xs" x-show="conflictCount">· <strong x-text="conflictCount"></strong> com conflito a revisar</span>
+        <span class="muted text-xs" x-show="novosTotal">· <strong x-text="novosTotal"></strong> produto(s) novo(s)</span>
       </div>
 
       <div class="nfe-table-card">
@@ -128,17 +150,24 @@
             <th>#</th>
             <th>Item da nota</th>
             <th>Produto no Kivo / ação</th>
-            <th>Qtd.</th>
-            <th>Custo unit. (R$)</th>
+            <th>Qtd. e conversão</th>
+            <th>Custo</th>
+            <th>Preço de venda</th>
             <th class="num">Total</th>
           </tr>
         </thead>
         <tbody>
           <template x-for="row in visibleRows" :key="row.line">
-            <tr :class="{ 'nfe-ignored': row.action === 'ignore', 'nfe-attention': (row.flags.length > 0 || row.error) && row.action !== 'ignore' }">
+            <tr :class="{ 'nfe-ignored': row.action === 'ignore', 'nfe-attention': (row.flags.length > 0 || row.error || rowNeedsConversion(row)) && row.action !== 'ignore' }">
               <td class="muted" x-text="row.line"></td>
-              <td style="min-width:220px">
-                <div style="font-weight:600" x-text="row.description"></div>
+              <td style="min-width:200px">
+                <div class="nfe-item-head">
+                  <span class="badge nfe-reason" :class="'nfe-reason-' + rowReason(row).tone"
+                        x-show="rowReason(row).label" :title="rowReason(row).hint">
+                    <span x-text="rowReason(row).icon"></span><span x-text="rowReason(row).label"></span>
+                  </span>
+                  <span style="font-weight:600" x-text="row.description"></span>
+                </div>
                 <div class="muted text-xs" x-text="'Cód. ' + row.cProd + (row.ean ? ' · EAN ' + row.ean : '')"></div>
                 <div class="muted text-xs" x-text="[row.ncm && ('NCM ' + row.ncm), row.cfop && ('CFOP ' + row.cfop), row.unit].filter(Boolean).join(' · ')"></div>
                 <div style="margin-top:.2rem">
@@ -146,9 +175,10 @@
                     <span class="badge nfe-flag" x-text="flagLabel(f)" :title="flagLabel(f)"></span>
                   </template>
                   <span class="badge neutral" x-show="row.error" x-text="row.error"></span>
+                  <span class="badge nfe-flag" x-show="row.eanBox" title="EAN da caixa — não vira o código do produto">EAN de caixa</span>
                 </div>
               </td>
-              <td style="min-width:300px">
+              <td style="min-width:270px">
                 <div class="nfe-acts">
                   <button type="button" class="btn small" :class="row.action === 'link' ? 'active' : ''"
                           @click="setAction(row, 'link')" :disabled="row.kind === 'invalid'">Vincular</button>
@@ -165,16 +195,48 @@
                   <button type="button" class="btn small secondary" @click="openSearch(row)">Buscar produto…</button>
                 </div>
                 <div x-show="row.action === 'create'" class="text-sm" style="margin-top:.35rem">
-                  <span class="badge module">Novo produto: <span x-text="row.description"></span></span>
+                  <span class="muted text-xs">Novo produto · venda em <strong x-text="row.saleUnit"></strong></span>
+                  <div class="nfe-conv" x-show="categories.length">
+                    <span class="muted text-xs">Categoria</span>
+                    <select class="input nfe-input-sm" style="width:auto" x-model="row.categoryId">
+                      <option value="">Sem categoria</option>
+                      <template x-for="c in categories" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
+                    </select>
+                  </div>
                 </div>
                 <div x-show="row.action === 'ignore'" class="muted text-sm">linha ignorada — não vira compra</div>
               </td>
-              <td style="min-width:110px">
-                <input type="number" min="0" step="any" x-model="row.qty" :disabled="row.action === 'ignore'" class="input nfe-input" />
+              <td style="min-width:135px">
+                <div class="nfe-qty-line">
+                  <input type="number" min="0" step="any" x-model="row.qty" :disabled="row.action === 'ignore'" class="input nfe-input" />
+                  <span class="muted text-xs" x-text="row.unit || 'un'"></span>
+                </div>
+                <template x-if="row.action !== 'ignore' && (row.conversionUnit || row.conversionSource === 'needs_input')">
+                  <div class="nfe-conv">
+                    <span class="muted text-xs">1 <span x-text="(row.conversionUnit || row.unit || '').toUpperCase()"></span> =</span>
+                    <input type="number" min="0" step="any" class="input nfe-input-sm" x-model="row.conversionQty"
+                           @input="row.conversionManual = true" placeholder="?" />
+                    <span class="muted text-xs" x-text="row.saleUnit"></span>
+                    <div class="text-xs" :class="rowNeedsConversion(row) ? 'error' : 'muted'"
+                         x-text="rowNeedsConversion(row) ? 'informe quantas unidades vêm na embalagem' : ('= ' + fmtQty(rowSaleQty(row)) + ' ' + row.saleUnit)"></div>
+                  </div>
+                </template>
               </td>
-              <td style="min-width:120px">
+              <td style="min-width:130px">
                 <input type="text" inputmode="decimal" x-model="row.cost" :disabled="row.action === 'ignore'"
                        class="input nfe-input" @input="row.cost = maskMoney(row.cost)" />
+                <div class="muted text-xs" x-show="row.action !== 'ignore'"
+                     x-text="'= ' + brl(rowCostSaleCents(row)) + '/' + row.saleUnit"></div>
+              </td>
+              <td style="min-width:140px">
+                <input type="text" inputmode="decimal" x-model="row.price" :disabled="row.action === 'ignore'"
+                       class="input nfe-input" @input="row.price = maskMoney(row.price); row.priceTouched = true" />
+                <div class="text-xs">
+                  <button type="button" class="btn-link" x-show="row.action !== 'ignore' && row.suggestedPrice !== row.price"
+                          @click="row.price = row.suggestedPrice; row.priceTouched = false"
+                          title="Usar o preço sugerido pelo markup">sugerido <span x-text="row.suggestedPrice"></span></button>
+                </div>
+                <div class="muted text-xs" x-show="margemLabel(row)" x-text="margemLabel(row)"></div>
               </td>
               <td class="num" style="min-width:110px">
                 <span x-text="brl(lineTotal(row))"></span>
@@ -184,11 +246,11 @@
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="5" class="num muted">Total conferido (linhas aceitas)</td>
+            <td colspan="6" class="num muted">Total conferido (linhas aceitas)</td>
             <td class="num" style="font-weight:600" x-text="brl(acceptedTotal)"></td>
           </tr>
           <tr>
-            <td colspan="5" class="num muted">Total da nota</td>
+            <td colspan="6" class="num muted">Total da nota</td>
             <td class="num muted" x-text="preview ? brl(preview.totalCents) : ''"></td>
           </tr>
         </tfoot>
@@ -243,9 +305,13 @@
   </main>
 
   <style>
-    /* Página mais larga: a conferência tem 6 colunas e ficava apertada em 1100px. */
-    main { max-width: 1280px; }
-
+    /* Mantém a largura padrão das outras telas (main = 1100px, alinhada ao nav). A
+       conferência tem 7 colunas: quando não couber, o card da tabela rola na horizontal
+       (overflow-x:auto), em vez de alargar a página inteira. */
+    /* Laranja escurecido para texto pequeno sobre fundo claro (contraste AA); no tema
+       escuro, clareia para manter a leitura. */
+    main { --nfe-accent-text: color-mix(in srgb, var(--primary) 68%, #000); }
+    :root[data-theme='dark'] main { --nfe-accent-text: color-mix(in srgb, var(--primary) 72%, #fff); }
     .nfe-section-title { margin: 1.75rem 0 .75rem; }
 
     /* Passo 1 — upload */
@@ -290,8 +356,19 @@
 
     /* Passo 2 — tabela */
     .nfe-table-card { background:var(--surface); border:1px solid var(--border-light);
-      border-radius:var(--radius); overflow-x:auto; }
-    .nfe-table { width:100%; border-collapse:collapse; }
+      border-radius:var(--radius); overflow-x:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+    /* Barra de rolagem horizontal sempre visível/óbvia quando a tabela não couber. */
+    .nfe-table-card::-webkit-scrollbar { height:10px; }
+    .nfe-table-card::-webkit-scrollbar-track { background:transparent; }
+    .nfe-table-card::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; border:2px solid var(--surface); }
+    .nfe-table-card::-webkit-scrollbar-thumb:hover { background:var(--text-muted); }
+    /* min-width garante que as colunas não sejam esmagadas (texto truncado); a tabela rola. */
+    .nfe-table { width:100%; min-width:1040px; border-collapse:collapse; }
+    /* Coluna de Total fixa à direita: continua legível ao rolar na horizontal. */
+    .nfe-table th:last-child, .nfe-table td:last-child { position:sticky; right:0; background:var(--surface);
+      box-shadow:inset 1px 0 0 var(--border-light); }
+    .nfe-table thead th:last-child { background:var(--surface-hover); }
+    .nfe-table tfoot td:last-child { background:var(--surface-hover); }
     .nfe-table th { text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
       color:var(--text-muted); padding:.7rem .9rem; background:var(--surface-hover); border-bottom:1px solid var(--border); }
     .nfe-table td { padding:.85rem .9rem; border-bottom:1px solid var(--border-light); vertical-align:top; }
@@ -303,16 +380,44 @@
     /* Ação por linha — controle segmentado */
     .nfe-acts { display:inline-flex; gap:.15rem; padding:.2rem; background:var(--surface-hover);
       border:1px solid var(--border-light); border-radius:9px; }
-    .nfe-acts .btn { border:0; background:transparent; color:var(--text-secondary); padding:.3rem .7rem; border-radius:7px; }
+    /* A ação selecionada usa tom suave (contorno + fundo tingido). O laranja SÓLIDO fica
+       reservado para o CTA principal "Confirmar importação" — antes, toda linha "Criar"
+       saía laranja cheio e competia com o botão de confirmar. */
+    .nfe-acts .btn { border:1px solid transparent; background:transparent; color:var(--text-secondary);
+      padding:.45rem .85rem; border-radius:7px; min-height:2.1rem; }
     .nfe-acts .btn:hover:not(:disabled) { background:var(--surface); color:var(--text); }
-    .nfe-acts .btn.active, .nfe-acts .btn.active:hover { background:var(--primary); color:#fff; }
-    .nfe-acts .btn.active.danger, .nfe-acts .btn.active.danger:hover { background:var(--danger); color:#fff; }
+    .nfe-acts .btn.active, .nfe-acts .btn.active:hover {
+      background:var(--primary-bg); color:var(--nfe-accent-text); border-color:var(--primary); }
+    .nfe-acts .btn.active.danger, .nfe-acts .btn.active.danger:hover {
+      background:var(--danger-bg); color:var(--danger-text); border-color:var(--danger); }
+
+    /* Motivo de "precisam de atenção" por linha (ícone + rótulo + tooltip) */
+    .nfe-item-head { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+    .nfe-reason { display:inline-flex; align-items:center; gap:.25rem; font-weight:600; }
+    .nfe-reason-primary { background:var(--primary-bg); color:var(--nfe-accent-text); }
+    .nfe-reason-warning { background:var(--warning-bg); color:var(--warning-text); }
+    .nfe-reason-danger { background:var(--danger-bg); color:var(--danger-text); }
+    .nfe-badge-info { display:inline-flex; align-items:center; gap:.3rem; }
+
+    /* Progresso da conferência */
+    .nfe-progress { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin:.1rem 0 .75rem; }
+    .nfe-progress-track { flex:0 0 220px; max-width:40%; height:6px; border-radius:99px;
+      background:var(--border-light); overflow:hidden; }
+    .nfe-progress-track > span { display:block; height:100%; background:var(--primary); border-radius:99px;
+      transition:width .25s ease; }
 
     tr.nfe-ignored td { opacity:.5; }
     tr.nfe-attention td:first-child { box-shadow: inset 3px 0 0 var(--warning-text); }
     .nfe-flag { background:var(--warning-bg); color:var(--warning-text); margin-right:.2rem; }
     .nfe-input { width:100%; padding:.45rem .55rem; box-sizing:border-box; }
-    .btn-link { background:none; border:0; color:var(--primary); cursor:pointer; padding:0 .2rem; font-size:.8rem; text-decoration:underline; }
+    .nfe-input-sm { width:4.5rem; padding:.35rem .45rem; box-sizing:border-box; }
+    .nfe-qty-line { display:flex; align-items:center; gap:.4rem; }
+    .nfe-qty-line .nfe-input { flex:1 1 auto; }
+    .nfe-conv { display:flex; align-items:center; gap:.3rem; flex-wrap:wrap; margin-top:.3rem; }
+    .nfe-conv > .text-xs { flex-basis:100%; }
+    .nfe-markup { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .5rem;
+      border:1px solid var(--border-light); border-radius:9px; background:var(--surface-hover); }
+    .btn-link { background:none; border:0; color:var(--nfe-accent-text); cursor:pointer; padding:.15rem .2rem; font-size:.8rem; text-decoration:underline; }
     .row-option { display:flex; flex-direction:column; align-items:flex-start; width:100%; text-align:left;
       background:var(--surface); border:1px solid var(--border-light); border-radius:var(--radius);
       padding:.55rem .7rem; margin-top:.35rem; cursor:pointer; }
@@ -326,10 +431,18 @@
         parsing: false, committing: false,
         preview: null, rows: [], filter: 'revisar',
         error: '', commitError: '',
+        markupPct: '100',
         history: [], reverting: null,
+        categories: [],
         searchOpenRow: null, searchQ: '', searchResults: [],
         brl: (c) => window.brl(c),
-        async init() { await this.loadHistory(); },
+        async init() { await this.loadHistory(); this.loadCategories(); },
+        async loadCategories() {
+          try {
+            const r = await fetch('/api/nfe/categories');
+            if (r.ok) this.categories = await r.json();
+          } catch { /* sem categorias: o produto novo entra sem categoria */ }
+        },
         async loadHistory() {
           const r = await fetch('/api/nfe/invoices');
           if (r.ok) this.history = await r.json();
@@ -379,6 +492,7 @@
             if (!r.ok) { this.error = d.error; this.preview = null; this.rows = []; return; }
             this.xml = xml;
             this.preview = d;
+            this.markupPct = String((d.markupBps ?? 10000) / 100).replace('.', ',');
             this.rows = d.items.map((it) => this.rowFromPreview(it));
             this.filter = 'revisar';
             this.error = '';
@@ -393,14 +507,98 @@
           const productName = selected ? selected.name : '';
           return {
             line: it.line, description: it.description, cProd: it.cProd, ean: it.ean,
-            ncm: it.ncm, cfop: it.cfop, unit: it.unit,
+            ncm: it.ncm, cfop: it.cfop, unit: it.unit, unitTrib: it.unitTrib,
             flags: it.flags, error: it.error, kind: it.kind,
             candidates: it.candidates || [],
             action, productId, productName,
+            categoryId: '',
             suggestedAction: action, suggestedProductId: productId, suggestedProductName: productName,
             qty: String(it.qty),
             cost: it.unitCostCents > 0 ? maskMoney(String(it.unitCostCents)) : '0,00',
+            saleUnit: it.saleUnit || it.unit || 'un',
+            conversionQty: it.conversionQty != null ? String(it.conversionQty) : '',
+            conversionUnit: it.conversionUnit || null,
+            conversionSource: it.conversionSource || 'same_unit',
+            conversionManual: false,
+            suggestedSaleUnit: it.saleUnit || it.unit || 'un',
+            suggestedConversionQty: it.conversionQty != null ? String(it.conversionQty) : '',
+            suggestedConversionUnit: it.conversionUnit || null,
+            suggestedConversionSource: it.conversionSource || 'same_unit',
+            costSaleCents: it.costSaleCents || it.unitCostCents,
+            suggestedPrice: maskMoney(String(it.suggestedPriceCents || 0)),
+            defaultPrice: maskMoney(String(it.salePriceCents || 0)),
+            price: maskMoney(String(it.salePriceCents || 0)),
+            priceTouched: false,
+            eanBox: it.eanBox || null, eanUnit: it.eanUnit || null,
           };
+        },
+        num(v) {
+          const n = Number(String(v ?? '').replace(',', '.'));
+          return Number.isFinite(n) ? n : 0;
+        },
+        rowFactor(row) {
+          const f = this.num(row.conversionQty);
+          return f > 0 ? f : 1;
+        },
+        rowNeedsConversion(row) {
+          if (row.action === 'ignore') return false;
+          const relevant = row.conversionUnit || row.conversionSource === 'needs_input';
+          return !!relevant && !(this.num(row.conversionQty) > 0);
+        },
+        rowSaleQty(row) {
+          const f = this.rowNeedsConversion(row) ? 1 : this.rowFactor(row);
+          return this.num(row.qty) * f;
+        },
+        rowCostSaleCents(row) {
+          const f = this.rowNeedsConversion(row) ? 1 : this.rowFactor(row);
+          return Math.round(this.brlToCents(row.cost) / (f > 0 ? f : 1));
+        },
+        fmtQty(n) {
+          const v = Number(n) || 0;
+          return (Number.isInteger(v) ? String(v) : v.toFixed(3).replace(/0+$/, '').replace(/\.$/, ''))
+            .replace('.', ',');
+        },
+        margemLabel(row) {
+          const price = this.brlToCents(row.price);
+          const cost = this.rowCostSaleCents(row);
+          if (!(price > 0) || !(cost > 0)) return '';
+          const pct = Math.round(((price - cost) / price) * 1000) / 10;
+          return 'margem ' + String(pct).replace('.', ',') + '%';
+        },
+        async onMarkupChange() {
+          const pct = this.num(this.markupPct);
+          for (const row of this.rows) {
+            row.costSaleCents = this.rowCostSaleCents(row);
+            row.suggestedPrice = maskMoney(String(Math.round(row.costSaleCents * (1 + pct / 100))));
+            if (!row.priceTouched) row.price = row.suggestedPrice;
+          }
+          if (!this.canRun) return;
+          try {
+            await fetch('/api/nfe/markup', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ markupBps: Math.max(0, Math.round(pct * 100)) }),
+            });
+          } catch { /* preferência local: falha ao salvar não bloqueia a conferência */ }
+        },
+        applyProductToRow(row, product) {
+          row.action = 'link';
+          row.productId = product.id;
+          row.productName = product.name;
+          const saleUnit = product.unit || 'un';
+          row.saleUnit = saleUnit;
+          const noteUnit = String(row.unit || '').trim().toUpperCase();
+          const tribUnit = String(row.unitTrib || '').trim().toUpperCase();
+          const sale = String(saleUnit).trim().toUpperCase();
+          if (noteUnit === sale || (tribUnit && tribUnit === sale)) {
+            row.conversionQty = '1'; row.conversionUnit = null; row.conversionSource = 'same_unit';
+          } else {
+            row.conversionQty = ''; row.conversionUnit = row.unit || saleUnit; row.conversionSource = 'needs_input';
+          }
+          row.costSaleCents = this.rowCostSaleCents(row);
+          const pct = this.num(this.markupPct);
+          row.suggestedPrice = maskMoney(String(Math.round(row.costSaleCents * (1 + pct / 100))));
+          row.defaultPrice = row.suggestedPrice;
+          if (!row.priceTouched) row.price = row.suggestedPrice;
         },
         flagLabel(f) {
           return { ean_conflict: 'EAN diferente do cadastrado', ean_invalid: 'EAN da nota com dígito verificador inválido',
@@ -408,12 +606,44 @@
                    supplier_code_conflict: 'Código do fornecedor ambíguo', unit_conflict: 'Unidade diferente',
                    ncm_conflict: 'NCM diferente do cadastrado', price_changed: 'Custo diferente do cadastrado' }[f] || f;
         },
+        /** Por que esta linha aparece em "Precisam de atenção" (ícone + motivo + dica). */
+        rowReason(row) {
+          if (row.action === 'ignore') return { icon: '', label: '', tone: 'ok', hint: '' };
+          if (row.kind === 'invalid' || row.error) {
+            return { icon: '!', label: 'Inválido', tone: 'danger', hint: row.error || 'Item com dados insuficientes.' };
+          }
+          if (this.rowNeedsConversion(row)) {
+            return { icon: '!', label: 'Conversão', tone: 'warning', hint: 'Informe quantas unidades de venda vêm na embalagem da nota.' };
+          }
+          if (row.kind === 'new') {
+            return { icon: '+', label: 'Novo', tone: 'primary', hint: 'Não existe no catálogo — será criado como produto novo.' };
+          }
+          if (row.flags.length) {
+            return { icon: '!', label: 'Conflito', tone: 'warning', hint: row.flags.map((f) => this.flagLabel(f)).join('; ') };
+          }
+          if (row.kind === 'possible') {
+            return { icon: '?', label: 'Sem vínculo', tone: 'warning', hint: 'Encontrado por semelhança — confirme o produto, crie ou ignore.' };
+          }
+          return { icon: '', label: '', tone: 'ok', hint: '' };
+        },
+        get novosTotal() {
+          return this.rows.filter((r) => r.kind === 'new').length;
+        },
+        get conflictCount() {
+          return this.rows.filter((r) => {
+            const t = this.rowReason(r).tone;
+            return t === 'warning' || t === 'danger';
+          }).length;
+        },
+        get progressPct() {
+          return this.rows.length ? Math.round((this.acceptedCount / this.rows.length) * 100) : 0;
+        },
         setAction(row, action) {
           row.action = action;
           if (action !== 'link') return;
           if (row.productId) return;
           const first = (row.candidates && row.candidates[0]);
-          if (first) { row.productId = first.id; row.productName = first.name; }
+          if (first) this.applyProductToRow(row, first);
         },
         async openSearch(row) {
           this.searchOpenRow = row;
@@ -429,11 +659,17 @@
         },
         pickSearchResult(r) {
           const row = this.searchOpenRow;
-          if (row) { row.action = 'link'; row.productId = r.id; row.productName = r.name; }
+          if (row) this.applyProductToRow(row, r);
           this.$refs.searchDlg.close();
         },
         get acceptedCount() {
           return this.rows.filter((r) => r.action !== 'ignore').length;
+        },
+        get newCount() {
+          return this.rows.filter((r) => r.kind === 'new' && r.action !== 'create').length;
+        },
+        criarTodosNovos() {
+          for (const row of this.rows) if (row.kind === 'new') row.action = 'create';
         },
         get ignoredCount() {
           return this.rows.filter((r) => r.action === 'ignore').length;
@@ -458,6 +694,12 @@
             row.action = row.suggestedAction;
             row.productId = row.suggestedProductId;
             row.productName = row.suggestedProductName;
+            row.saleUnit = row.suggestedSaleUnit;
+            row.conversionQty = row.suggestedConversionQty;
+            row.conversionUnit = row.suggestedConversionUnit;
+            row.conversionSource = row.suggestedConversionSource;
+            row.price = row.defaultPrice;
+            row.priceTouched = false;
           }
           showToast('Sugestões do sistema aplicadas a todas as linhas.', 'success');
         },
@@ -476,15 +718,25 @@
             this.commitError = 'Vincule um produto às linhas ' + semProduto.map((r) => r.line).join(', ') + ' ou crie/ignore.';
             return;
           }
-          if (!window.confirmDlg || !(await window.confirmDlg('Confirmar a importação? Produtos novos serão criados e a compra entrará no estoque com os custos conferidos.'))) return;
+          const semConversao = this.rows.filter((r) => this.rowNeedsConversion(r));
+          if (semConversao.length) {
+            this.commitError = 'Informe a conversão de unidade (quantas unidades de venda vêm na embalagem) nas linhas ' +
+              semConversao.map((r) => r.line).join(', ') + '.';
+            return;
+          }
+          if (!window.confirmDlg || !(await window.confirmDlg('Confirmar a importação? Produtos novos serão criados e a compra entrará no estoque com os custos e preços conferidos.'))) return;
           this.committing = true;
           try {
             const decisions = this.rows.map((r) => ({
               line: r.line,
               action: r.action,
               productId: r.action === 'link' ? r.productId : null,
-              qty: Number(String(r.qty).replace(',', '.')),
+              qty: this.num(r.qty),
               unitCostCents: this.brlToCents(r.cost),
+              salePriceCents: this.brlToCents(r.price),
+              conversionQty: r.conversionQty === '' || r.conversionQty == null ? null : this.num(r.conversionQty),
+              unit: r.saleUnit,
+              categoryId: r.action === 'create' && r.categoryId !== '' ? Number(r.categoryId) : null,
             }));
             const r = await fetch('/api/nfe/commit', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },

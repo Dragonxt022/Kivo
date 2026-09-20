@@ -68,7 +68,10 @@ function nfeXml(accessKey: string, firstEan: string): string {
   <NFe>
     <infNFe Id="NFe${accessKey}" versao="4.00">
       <ide><cUF>35</cUF><mod>55</mod><serie>1</serie><nNF>101</nNF><dhEmi>2026-03-02T14:10:00-03:00</dhEmi></ide>
-      <emit><CNPJ>11222333000181</CNPJ><xNome>Distribuidora Teste LTDA</xNome><xFant>Dist Teste</xFant></emit>
+      <emit><CNPJ>11222333000181</CNPJ><xNome>Distribuidora Teste LTDA</xNome><xFant>Dist Teste</xFant>
+        <IE>123456789</IE><fone>1130001000</fone>
+        <enderEmit><xLgr>Rua das Flores</xLgr><nro>100</nro><xBairro>Centro</xBairro><xMun>Sao Paulo</xMun><UF>SP</UF><CEP>01000000</CEP></enderEmit>
+      </emit>
       <dest><CNPJ>22333444000199</CNPJ><xNome>Mercado Dois Irmaos</xNome></dest>
       <det nItem="1"><prod>
         <cProd>001</cProd><cEAN>${firstEan}</cEAN><xProd>Refrigerante Cola Lata 350ml</xProd>
@@ -79,6 +82,61 @@ function nfeXml(accessKey: string, firstEan: string): string {
         <NCM>19059000</NCM><CFOP>2101</CFOP><uCom>UN</uCom><qCom>10</qCom><vUnCom>8.50</vUnCom><vProd>85.00</vProd>
       </prod></det>
       <total><ICMSTot><vNF>565.00</vNF></ICMSTot></total>
+    </infNFe>
+  </NFe>
+</nfeProc>`;
+}
+
+/**
+ * NF-e faturada em CAIXA: cEAN é o código da caixa (GTIN-14), cEANTrib é o código da
+ * unidade, uCom=CX com uTrib=UN (12 un por caixa). É o cenário que antes lançava estoque
+ * e custo errados e gravava o EAN da caixa como código do produto.
+ */
+function nfeXmlBox(accessKey: string, boxEan: string, unitEan: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe>
+    <infNFe Id="NFe${accessKey}" versao="4.00">
+      <ide><cUF>35</cUF><mod>55</mod><serie>1</serie><nNF>202</nNF><dhEmi>2026-03-05T10:00:00-03:00</dhEmi></ide>
+      <emit><CNPJ>11222333000181</CNPJ><xNome>Distribuidora Teste LTDA</xNome></emit>
+      <dest><CNPJ>22333444000199</CNPJ><xNome>Mercado Dois Irmaos</xNome></dest>
+      <det nItem="1"><prod>
+        <cProd>CX-COLA</cProd><cEAN>${boxEan}</cEAN><cEANTrib>${unitEan}</cEANTrib>
+        <xProd>Refrigerante Cola Lata 350ml</xProd>
+        <NCM>22021000</NCM><CFOP>2101</CFOP>
+        <uCom>CX</uCom><qCom>2</qCom><vUnCom>60.00</vUnCom><vProd>120.00</vProd>
+        <uTrib>UN</uTrib><qTrib>24</qTrib><vUnTrib>5.00</vUnTrib>
+      </prod></det>
+      <total><ICMSTot><vNF>120.00</vNF></ICMSTot></total>
+    </infNFe>
+  </NFe>
+</nfeProc>`;
+}
+
+/**
+ * NF-e com siglas de unidade FORA do conjunto canônico do catálogo: 'FD' (fardo) e 'KG'
+ * com quantidade fracionada. O importador deve aceitar e preservar a sigla — não existe
+ * lista fixa que rejeite unidade (o leiaute da NF-e aceita siglas livres).
+ */
+function nfeXmlUnits(accessKey: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe>
+    <infNFe Id="NFe${accessKey}" versao="4.00">
+      <ide><cUF>35</cUF><mod>55</mod><serie>1</serie><nNF>303</nNF><dhEmi>2026-03-07T09:00:00-03:00</dhEmi></ide>
+      <emit><CNPJ>11222333000181</CNPJ><xNome>Distribuidora Teste LTDA</xNome></emit>
+      <dest><CNPJ>22333444000199</CNPJ><xNome>Mercado Dois Irmaos</xNome></dest>
+      <det nItem="1"><prod>
+        <cProd>FD-1</cProd><cEAN>SEM GTIN</cEAN><xProd>Guardanapo Fardo</xProd>
+        <NCM>48181000</NCM><CFOP>5102</CFOP><uCom>FD</uCom><qCom>3</qCom><vUnCom>20.00</vUnCom><vProd>60.00</vProd>
+        <uTrib>FD</uTrib><qTrib>3</qTrib><vUnTrib>20.00</vUnTrib>
+      </prod></det>
+      <det nItem="2"><prod>
+        <cProd>KG-1</cProd><cEAN>SEM GTIN</cEAN><xProd>Queijo Mussarela</xProd>
+        <NCM>04061010</NCM><CFOP>5102</CFOP><uCom>KG</uCom><qCom>2.5</qCom><vUnCom>38.00</vUnCom><vProd>95.00</vProd>
+        <uTrib>KG</uTrib><qTrib>2.5</qTrib><vUnTrib>38.00</vUnTrib>
+      </prod></det>
+      <total><ICMSTot><vNF>155.00</vNF></ICMSTot></total>
     </infNFe>
   </NFe>
 </nfeProc>`;
@@ -145,8 +203,9 @@ async function main(): Promise<void> {
 
     const invoice = db.prepare('SELECT * FROM purchase_invoices WHERE id = ?').get(result.invoiceId) as { access_key: string; supplier_id: number; total_cents: number };
     check('NF-e registrada com a chave', invoice?.access_key === accessKey && invoice.total_cents === 56500);
-    const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(invoice.supplier_id) as { name: string; document: string };
+    const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(invoice.supplier_id) as { name: string; document: string; ie: string | null; city: string | null; state: string | null };
     check('fornecedor criado pelo CNPJ do XML', supplier.document === '11222333000181' && supplier.name.includes('Distribuidora Teste'));
+    check('fornecedor recebeu IE e endereço do XML', supplier.ie === '123456789' && supplier.city === 'Sao Paulo' && supplier.state === 'SP');
 
     const prod = db.prepare('SELECT * FROM products WHERE id = ?').get(existingProductId) as { cost_cents: number; stock_qty: number };
     check('estoque do produto existente entrou (20)', prod.stock_qty === 20, `saldo=${prod.stock_qty}`);
@@ -208,6 +267,63 @@ async function main(): Promise<void> {
       decisions: [{ line: 1, action: 'ignore', qty: 1, unitCostCents: 2400 }, { line: 2, action: 'ignore', qty: 1, unitCostCents: 850 }],
     }) }, cookie);
     check('mesma chave pode ser reimportada após reverter', reimportR.status === 200, `status=${reimportR.status}`);
+
+    // ── Preço sugerido + conversão un/cx + EAN de caixa ──
+    const boxEan = '17891000100100';
+    const unitEan = '7891000100100';
+    const boxKey = makeAccessKey();
+    const boxXml = nfeXmlBox(boxKey, boxEan, unitEan);
+
+    const boxPrevR = await api('/api/nfe/preview', { method: 'POST', body: JSON.stringify({ xml: boxXml }) }, cookie);
+    const boxPrev = await unwrap<{ markupBps: number; items: {
+      kind: string; saleUnit: string; conversionQty: number | null; conversionSource: string;
+      costSaleCents: number; suggestedPriceCents: number; salePriceCents: number;
+      eanBox: string | null; eanUnit: string | null;
+    }[] }>(boxPrevR);
+    const bl = boxPrev.items[0];
+    check('preview box: reconhecido por nome', bl.kind === 'possible' || bl.kind === 'matched', `kind=${bl.kind}`);
+    check('preview box: unidade de venda = un', bl.saleUnit === 'un');
+    check('preview box: conversão 12 (uTrib)', bl.conversionQty === 12 && bl.conversionSource === 'trib', `qty=${bl.conversionQty} src=${bl.conversionSource}`);
+    check('preview box: custo convertido 5,00/un', bl.costSaleCents === 500, `custo=${bl.costSaleCents}`);
+    check('preview box: preço sugerido = markup 100%', bl.suggestedPriceCents === 1000, `sug=${bl.suggestedPriceCents}`);
+    check('preview box: EAN da caixa separado do da unidade', bl.eanBox === boxEan && bl.eanUnit === unitEan, `box=${bl.eanBox} un=${bl.eanUnit}`);
+
+    const boxCommitR = await api('/api/nfe/commit', { method: 'POST', body: JSON.stringify({
+      xml: boxXml,
+      decisions: [{ line: 1, action: 'link', productId: existingProductId, qty: 2, unitCostCents: 6000, salePriceCents: 999, conversionQty: 12, unit: 'un' }],
+    }) }, cookie);
+    check('commit box responde', boxCommitR.status === 200, `status=${boxCommitR.status}`);
+    const boxProd = db.prepare('SELECT cost_cents, stock_qty, price_cents, barcode FROM products WHERE id = ?').get(existingProductId) as
+      { cost_cents: number; stock_qty: number; price_cents: number; barcode: string | null };
+    check('conversão lançou 24 unidades no estoque', boxProd.stock_qty === 24, `saldo=${boxProd.stock_qty}`);
+    check('custo convertido gravado (5,00/un)', boxProd.cost_cents === 500, `custo=${boxProd.cost_cents}`);
+    check('preço de venda conferido foi gravado', boxProd.price_cents === 999, `preco=${boxProd.price_cents}`);
+    check('EAN da caixa NÃO virou o código do produto', boxProd.barcode === unitEan, `barcode=${boxProd.barcode}`);
+    const boxLink = db.prepare('SELECT kind, pack_qty FROM product_barcodes WHERE barcode = ?').get(boxEan) as { kind: string; pack_qty: number } | undefined;
+    check('EAN da caixa guardado como código secundário', boxLink?.kind === 'caixa' && boxLink.pack_qty === 12, `kind=${boxLink?.kind} pack=${boxLink?.pack_qty}`);
+
+    // ── Unidades livres (FD) e fracionadas (KG) ──
+    const unitsKey = makeAccessKey();
+    const unitsXml = nfeXmlUnits(unitsKey);
+    const unitsPrevR = await api('/api/nfe/preview', { method: 'POST', body: JSON.stringify({ xml: unitsXml }) }, cookie);
+    const unitsPrev = await unwrap<{ items: { line: number; kind: string; saleUnit: string }[] }>(unitsPrevR);
+    check('preview aceita unidade FD (não canônica)', unitsPrev.items[0].kind === 'new' && unitsPrev.items[0].saleUnit === 'FD', `unit=${unitsPrev.items[0]?.saleUnit}`);
+    check('preview aceita unidade KG', unitsPrev.items[1].saleUnit === 'kg', `unit=${unitsPrev.items[1]?.saleUnit}`);
+
+    const unitsCommitR = await api('/api/nfe/commit', { method: 'POST', body: JSON.stringify({
+      xml: unitsXml,
+      decisions: [
+        { line: 1, action: 'create', productId: null, qty: 3, unitCostCents: 2000, salePriceCents: 3000, unit: 'FD' },
+        { line: 2, action: 'create', productId: null, qty: 2.5, unitCostCents: 3800, salePriceCents: 5000, unit: 'kg' },
+      ],
+    }) }, cookie);
+    check('commit com unidades livres responde', unitsCommitR.status === 200, `status=${unitsCommitR.status}`);
+    const fdProd = db.prepare("SELECT unit, stock_qty, cost_cents FROM products WHERE name = 'Guardanapo Fardo'").get() as { unit: string; stock_qty: number; cost_cents: number };
+    check('produto criado preserva a sigla FD', fdProd?.unit === 'FD', `unit=${fdProd?.unit}`);
+    check('estoque do fardo = 3', fdProd?.stock_qty === 3, `saldo=${fdProd?.stock_qty}`);
+    const kgProd = db.prepare("SELECT unit, stock_qty, cost_cents FROM products WHERE name = 'Queijo Mussarela'").get() as { unit: string; stock_qty: number; cost_cents: number };
+    check('produto KG normalizado para kg', kgProd?.unit === 'kg', `unit=${kgProd?.unit}`);
+    check('estoque fracionado = 2.5', kgProd?.stock_qty === 2.5, `saldo=${kgProd?.stock_qty}`);
 
     // ── Capability desligada bloqueia a API de novo ──
     check('desliga capability nfe.import',

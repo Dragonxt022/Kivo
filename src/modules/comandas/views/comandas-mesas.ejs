@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Mesas</title>
+  <title>Kivo — <%= comandasLabels.plural %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
@@ -11,13 +11,13 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/comandas/mesas' }) %>
-  <main x-data="mesasPage(<%- JSON.stringify(user.permissions.has('comandas.tables.manage')) %>)" x-init="init()">
-    <h1>Mesas</h1>
+  <main x-data="mesasPage(<%- JSON.stringify(user.permissions.has('comandas.tables.manage')) %>, <%- JSON.stringify(comandasLabels) %>)" x-init="init()">
+    <h1><%= comandasLabels.plural %></h1>
     <div class="toolbar">
       <% if (user.permissions.has('comandas.tables.manage')) { %>
       <button class="btn" @click="openNew()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-        Nova mesa
+        <%= comandasLabels.novo %>
       </button>
       <% } %>
       <%# Som de "pedido pronto": quando a cozinha marca um pedido pronto, a grade toca
@@ -41,7 +41,7 @@
              @pointerdown="onCardPointerDown($event, t)">
           <% if (user.permissions.has('comandas.tables.manage')) { %>
           <button type="button" class="icon-btn table-remove" x-show="t.status === 'livre'"
-                  @pointerdown.stop @click.stop="removeTable(t)" title="Remover mesa">
+                  @pointerdown.stop @click.stop="removeTable(t)" title="<%= comandasLabels.removerTitulo %>">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </button>
           <% } %>
@@ -74,13 +74,13 @@
     </div>
 
     <div x-show="!tables.length" x-cloak>
-      <%- include('partials/empty-state', { message: 'Nenhuma mesa cadastrada ainda.' }) %>
+      <%- include('partials/empty-state', { message: comandasLabels.vazia }) %>
     </div>
 
     <dialog x-ref="addTableDlg">
-      <h1>Nova mesa</h1>
+      <h1><%= comandasLabels.novoDialogo %></h1>
       <label>Nome ou número</label>
-      <input type="text" x-ref="tableInput" x-model="newTableLabel" placeholder="Ex.: Mesa 5"
+      <input type="text" x-ref="tableInput" x-model="newTableLabel" placeholder="<%= comandasLabels.placeholder %>"
              @keydown.enter.prevent="createTable" />
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
@@ -185,8 +185,9 @@
     }
   </style>
   <script nonce="<%= cspNonce %>">
-    function mesasPage(canManage) {
+    function mesasPage(canManage, labels) {
       return {
+        labels: labels,
         tables: [],
         newTableLabel: '',
         error: '', dlgError: '',
@@ -208,7 +209,7 @@
         async load() {
           if (this.dragId !== null) return;
           const r = await fetch('/api/comandas/tables/status');
-          if (!r.ok) { window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar mesas.'); return; }
+          if (!r.ok) { window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar ' + this.labels.plural.toLowerCase() + '.'); return; }
           const next = await r.json();
           // Detecta mesas que ACABARAM de ficar com pedido pronto: pisca o card sempre;
           // o som e o toast só quando a página estava aberta (knownReady já setado) —
@@ -374,14 +375,14 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ label: this.newTableLabel.trim() }),
           });
-          if (r.ok) { this.$refs.addTableDlg.close(); await this.load(); showToast('Mesa criada.', 'success'); }
-          else { this.dlgError = (await r.json()).error ?? 'Erro ao criar mesa.'; showToast(this.dlgError, 'error'); }
+          if (r.ok) { this.$refs.addTableDlg.close(); await this.load(); showToast(this.labels.criada, 'success'); }
+          else { this.dlgError = (await r.json()).error ?? 'Erro ao criar registro.'; showToast(this.dlgError, 'error'); }
         },
         async removeTable(t) {
-          if (!await window.confirmDlg(`Remover a mesa "${t.label}"?`)) return;
+          if (!await window.confirmDlg(this.labels.removerTitulo + ` "${t.label}"?`)) return;
           const r = await fetch('/api/comandas/tables/' + t.id, { method: 'DELETE' });
-          if (r.ok) { await this.load(); showToast('Mesa removida.', 'success'); }
-          else showToast((await r.json()).error ?? 'Erro ao remover mesa.', 'error');
+          if (r.ok) { await this.load(); showToast(this.labels.removida, 'success'); }
+          else showToast((await r.json()).error ?? 'Erro ao remover registro.', 'error');
         },
       };
     }

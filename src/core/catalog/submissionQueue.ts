@@ -65,14 +65,15 @@ export function queueProductImageSubmission(
   productName: string,
   localPath: string,
   buf: Buffer,
+  barcode?: string | null,
 ): void {
   const absPath = path.join(productImagesDir(), path.basename(localPath));
   getSqlite()
     .prepare(
-      `INSERT INTO product_image_submissions (product_id, local_path, sha256, product_name, status)
-       VALUES (?, ?, ?, ?, 'pendente_envio')`,
+      `INSERT INTO product_image_submissions (product_id, local_path, sha256, product_name, barcode, status)
+       VALUES (?, ?, ?, ?, ?, 'pendente_envio')`,
     )
-    .run(productId, absPath, sha256(buf), productName);
+    .run(productId, absPath, sha256(buf), productName, barcode ? String(barcode).slice(0, 64) : null);
 }
 
 export function cloudBaseUrl(): string | null {
@@ -91,6 +92,7 @@ interface PendingRow {
   local_path: string;
   sha256: string;
   product_name: string;
+  barcode: string | null;
 }
 
 /**
@@ -105,7 +107,7 @@ export async function trySubmitPending(): Promise<void> {
 
   const db = getSqlite();
   const pending = db
-    .prepare(`SELECT id, local_path, sha256, product_name FROM product_image_submissions WHERE status = 'pendente_envio' LIMIT 20`)
+    .prepare(`SELECT id, local_path, sha256, product_name, barcode FROM product_image_submissions WHERE status = 'pendente_envio' LIMIT 20`)
     .all() as PendingRow[];
 
   for (const row of pending) {
@@ -128,6 +130,7 @@ export async function trySubmitPending(): Promise<void> {
           'X-Kivo-Product-Name': row.product_name,
           'X-Kivo-Submission-Uuid': randomUUID(),
           'X-Kivo-Machine-Id': machineId(),
+          ...(row.barcode ? { 'X-Kivo-Product-Barcode': row.barcode } : {}),
         },
         body: buf,
         signal: AbortSignal.timeout(15000),

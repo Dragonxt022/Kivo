@@ -1,0 +1,52 @@
+<%- include('partials/afiliado-head', { title: 'Indicações', active: active, affiliateName: affiliateName }) %>
+
+<%
+  function brl(c) { return (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+%>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="breadcrumb">Portal do afiliado</div>
+      <h1>Minhas indicações</h1>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-toolbar">
+      <h2 style="margin:0; font-size:1.05rem;">Empresas que você indicou</h2>
+      <div class="table-count"><%= companies.length %></div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Contato</th>
+            <th>Cidade</th>
+            <th>Plano</th>
+            <th>Validade</th>
+            <th class="text-right">A receber</th>
+            <th class="text-right">Recebido</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% companies.forEach(function(c) { %>
+          <tr>
+            <td><strong><%= c.name || String(c.company_uuid).slice(0, 8) %></strong></td>
+            <td class="cell-muted"><%= c.phone || c.email || '—' %></td>
+            <td class="cell-muted"><%= c.city || '—' %><%= c.state ? ('/' + c.state) : '' %></td>
+            <td class="cell-muted"><%= c.plan || '—' %></td>
+            <td class="cell-muted"><%= c.valid_until ? fmtDateBr(c.valid_until) : '—' %></td>
+            <td class="text-right tabular"><%= brl(c.pending_cents) %></td>
+            <td class="text-right tabular"><%= brl(c.paid_cents) %></td>
+          </tr>
+          <% }); %>
+          <% if (!companies.length) { %><tr><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma empresa indicada ainda.' }) %></td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/afiliado-foot') %>

@@ -9,6 +9,7 @@ import { paymentMethodRepository } from '../../modules/finance/repositories/Paym
 import { createLogger } from '../logger';
 import { createDemoCatalog } from './demoCatalog';
 import type { DemoFlags } from './demoCatalog';
+import { setComandasRotulo } from '../config/businessLabels';
 
 const log = createLogger('onboarding');
 
@@ -317,6 +318,9 @@ function buildDemoFlags(active: Set<string>): DemoFlags {
 export function provision(req: Request, input: ProvisionInput): ProvisionResult {
   settingsRepository.set(USAGE_KEY, input.usage);
   settingsRepository.set(BUSINESS_TYPE_KEY, input.businessType);
+  // O rótulo do módulo acompanha a resposta: quem atende só no balcão vê "Balcão" (e outro
+  // ícone) no lugar de "Mesas". Dá para trocar depois em Configurações → Vendas.
+  setComandasRotulo(input.usage === 'balcao' ? 'balcao' : 'mesa');
 
   // O nome do negócio mora na MESMA chave da tela de Configurações → Empresa, e não numa
   // `onboarding.*` própria: é o nome que sai no cabeçalho do cupom e do orçamento, então
