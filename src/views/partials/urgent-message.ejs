@@ -1,0 +1,62 @@
+<%# Aviso de mensagem urgente. Só na tela inicial de propósito: abrir no meio de uma venda
+    (dentro de um módulo) atrapalharia o operador. Aparece uma vez por mensagem/usuário. %>
+<div x-data="urgentMessages()" x-init="init()" x-cloak>
+  <style>
+    .urgent-read img { max-width: 100%; border-radius: 10px; margin: .5rem 0; }
+    .urgent-read h2 { font-size: 1.15rem; }
+    .urgent-read ul, .urgent-read ol { padding-left: 1.4rem; }
+  </style>
+  <dialog x-ref="dlg" style="max-width:560px;width:92vw">
+    <div x-show="current">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+        <span class="badge off">Urgente</span>
+        <span class="badge" x-text="categoryLabel(current && current.category)"></span>
+      </div>
+      <h1 x-text="current && current.title" style="margin-bottom:.25rem"></h1>
+      <p class="muted" x-show="current && current.subtitle" x-text="current && current.subtitle"></p>
+      <img x-show="current && current.hasImage" :src="current ? '/api/messages/image/' + current.uuid : ''" alt="Imagem da mensagem" />
+      <div class="urgent-read" x-html="current ? current.bodyHtml : ''"></div>
+      <div class="actions" style="margin-top:1rem">
+        <button type="button" class="btn" @click="ack()">Entendi</button>
+      </div>
+    </div>
+  </dialog>
+</div>
+<script nonce="<%= cspNonce %>">
+  function urgentMessages() {
+    return {
+      list: [], current: null,
+      categoryLabel(slug) {
+        const map = { atualizacao: 'Atualizações', comunicado: 'Comunicados', tutorial: 'Tutoriais', dica: 'Dicas', novidade: 'Novidades', sistema: 'Sistema' };
+        return map[slug] || (slug || 'Mensagem');
+      },
+      async init() {
+        try {
+          // Só depois do assistente de boas-vindas: durante o primeiro acesso ele já está
+          // aberto e dois diálogos disputando a tela seria confuso.
+          const s = await fetch('/api/onboarding/status');
+          if (s.ok) {
+            const st = await s.json();
+            if (!st.completed) return;
+          }
+          const r = await fetch('/api/messages/urgent');
+          if (!r.ok) return;
+          const d = await r.json();
+          this.list = d.messages || [];
+          if (this.list.length) { this.current = this.list[0]; this.$refs.dlg.showModal(); }
+        } catch (e) { /* sem conexão: não atrapalha a home */ }
+      },
+      async ack() {
+        const m = this.current;
+        if (m) {
+          await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/read', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read: true }),
+          }).catch(() => {});
+        }
+        this.list.shift();
+        if (this.list.length) this.current = this.list[0];
+        else { this.current = null; this.$refs.dlg.close(); }
+      },
+    };
+  }
+</script>

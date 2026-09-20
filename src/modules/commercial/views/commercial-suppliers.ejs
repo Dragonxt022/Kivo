@@ -48,6 +48,7 @@
         <th @click="sortCycle('name')" class="sortable">Razão social<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
         <th @click="sortCycle('trade_name')" class="sortable">Fantasia<span class="sort-arrow" x-text="sortArrow('trade_name')"></span></th>
         <th @click="sortCycle('document')" class="sortable">CNPJ/CPF<span class="sort-arrow" x-text="sortArrow('document')"></span></th>
+        <th @click="sortCycle('city')" class="sortable">Cidade/UF<span class="sort-arrow" x-text="sortArrow('city')"></span></th>
         <th>Telefone</th>
         <th></th>
       </tr></thead>
@@ -62,6 +63,7 @@
             <td x-text="r.name"></td>
             <td class="muted" x-text="r.trade_name ?? '—'"></td>
             <td class="muted" x-text="r.document ?? '—'"></td>
+            <td class="muted" x-text="[r.city, r.state].filter(Boolean).join('/') || '—'"></td>
             <td class="muted" x-text="r.phone ?? '—'"></td>
             <td class="text-right" @click.stop>
               <div class="dropdown">
@@ -98,9 +100,39 @@
         <label>Razão social</label><input type="text" x-model="form.name" />
         <label>Nome fantasia</label><input type="text" x-model="form.trade_name" />
         <label>CNPJ/CPF</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="00.000.000/0000-00" />
-        <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
-        <label>E-mail</label><input type="text" x-model="form.email" />
-        <label>Endereço</label><input type="text" x-model="form.address" />
+        <label>Inscrição estadual</label><input type="text" x-model="form.ie" placeholder="Isento ou nº" />
+        <div class="pm-grid">
+          <div><label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" /></div>
+          <div><label>E-mail</label><input type="text" x-model="form.email" /></div>
+        </div>
+
+        <h2 class="pm-section-title" style="margin-top:.75rem">Endereço</h2>
+        <div class="pm-grid">
+          <div><label>CEP</label><input type="text" x-model="form.cep" @input="form.cep = maskCEP(form.cep)" placeholder="00000-000" /></div>
+          <div><label>UF</label><input type="text" x-model="form.state" maxlength="2" placeholder="SP" style="text-transform:uppercase" /></div>
+        </div>
+        <label>Logradouro</label><input type="text" x-model="form.street" />
+        <div class="pm-grid">
+          <div><label>Número</label><input type="text" x-model="form.number" /></div>
+          <div><label>Complemento</label><input type="text" x-model="form.complement" /></div>
+        </div>
+        <div class="pm-grid">
+          <div><label>Bairro</label><input type="text" x-model="form.district" /></div>
+          <div><label>Cidade</label><input type="text" x-model="form.city" /></div>
+        </div>
+
+        <h2 class="pm-section-title" style="margin-top:.75rem">Contato</h2>
+        <div class="pm-grid">
+          <div><label>Nome</label><input type="text" x-model="form.contact_name" /></div>
+          <div><label>Telefone</label><input type="text" x-model="form.contact_phone" @input="form.contact_phone = maskPhone(form.contact_phone)" /></div>
+        </div>
+        <label>E-mail do contato</label><input type="text" x-model="form.contact_email" />
+
+        <h2 class="pm-section-title" style="margin-top:.75rem">Compras</h2>
+        <label>Markup sugerido de venda (%)</label>
+        <input type="text" inputmode="decimal" x-model="form.markupPct" placeholder="Ex.: 100 (100% sobre o custo)" />
+        <span class="muted text-xs">Usado para sugerir o preço de venda ao importar NF-e deste fornecedor. Em branco, usa o padrão geral.</span>
+        <label>Observações</label><textarea x-model="form.notes" rows="2"></textarea>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -120,13 +152,23 @@
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
   <script nonce="<%= cspNonce %>">
     function suppliersPage() {
+      const base = crudPage('/api/commercial/suppliers');
+      const pctFromBps = (bps) => (Number(bps) > 0 ? String(Number(bps) / 100).replace('.', ',') : '');
       return {
-        ...crudPage('/api/commercial/suppliers'),
+        ...base,
         ...tableToolkit(),
         sortGetters: {
-          name: (r) => r.name, trade_name: (r) => r.trade_name ?? '', document: (r) => r.document ?? '',
+          name: (r) => r.name, trade_name: (r) => r.trade_name ?? '',
+          document: (r) => r.document ?? '', city: (r) => r.city ?? '',
         },
         get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        openNew() { base.openNew.call(this); this.form.markupPct = ''; },
+        openEdit(r) { base.openEdit.call(this, r); this.form.markupPct = pctFromBps(r.default_markup_bps); },
+        async save() {
+          const pct = Number(String(this.form.markupPct ?? '').replace(',', '.'));
+          this.form.default_markup_bps = Number.isFinite(pct) && pct > 0 ? Math.round(pct * 100) : 0;
+          return base.save.call(this);
+        },
         async load() {
           const r = await fetch('/api/commercial/suppliers' + (this.q ? `?q=${encodeURIComponent(this.q)}` : ''));
           if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }

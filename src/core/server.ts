@@ -18,6 +18,8 @@ import rolesRoutes from './roles/routes';
 import auditRoutes from './audit/routes';
 import settingsRoutes from './config/routes';
 import { getMachinePrefs } from './config/machinePrefs';
+import { businessLabelsLocals } from './config/businessLabels';
+import { themeColorLocals } from './config/themeColor';
 import backupRoutes from './backup/routes';
 import licenseRoutes from './license/routes';
 import syncRoutes from './sync/routes';
@@ -37,6 +39,8 @@ import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
 import supportRoutes from './support/routes';
 import updaterRoutes from './updater/routes';
+import messagesRoutes from './messages/routes';
+import { fetchInbox } from './messages/service';
 import recoveryRoutes from './recovery/routes';
 import { defaultIconHelpers, getIconHelpers } from './icons/service';
 import { purgeOldChallenges } from './recovery/service';
@@ -286,6 +290,10 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/uploads/company', express.static(companyLogoDir()));
   app.use('/uploads/bills', express.static(billAttachmentsDir()));
 
+  // Cor de destaque da empresa: entra em res.locals já aqui para valer na tela de ativação
+  // e no login, antes de qualquer rota autenticada.
+  app.use(themeColorLocals);
+
   // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
   app.use(responseEnvelope);
 
@@ -299,6 +307,9 @@ export async function createServer(): Promise<KivoServer> {
 
   app.use(attachUser);
   app.use(filterModuleMenu);
+  // Rótulos da empresa (ex.: chamar o módulo de comandas de "Balcão") — depois de
+  // filterModuleMenu, que preenche res.locals.moduleMenu.
+  app.use(businessLabelsLocals);
   app.use(logoDaEmpresa);
   app.use(iconPackLocals);
 
@@ -328,6 +339,8 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/api/onboarding', requireAuth, onboardingRoutes);
   app.use('/api/support', requireAuth, supportRoutes);
   app.use('/api/updates', requireAuth, updaterRoutes);
+  // Central de mensagens (suporte -> loja): qualquer usuário lê; o estado é por usuário.
+  app.use('/api/messages', requireAuth, messagesRoutes);
 
   // Páginas do Core
   app.get('/', page('home'));
@@ -388,6 +401,8 @@ export async function createServer(): Promise<KivoServer> {
   startEventChannel();
   // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
   trySubmitPending().catch((e) => logCatalogo.error('erro ao enviar fotos pendentes', e));
+  // Mensagens do suporte: primeira busca no boot; o ciclo de sync e o evento SSE atualizam depois.
+  fetchInbox().catch((e) => logCatalogo.error('erro ao buscar mensagens', e));
   // Desafios de resgate vencidos não servem para nada depois; limpa no boot.
   try {
     purgeOldChallenges();

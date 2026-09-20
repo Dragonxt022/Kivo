@@ -1,0 +1,56 @@
+<%- include('partials/afiliado-head', { title: 'Perfil', active: active, affiliateName: me.name }) %>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="breadcrumb">Portal do afiliado</div>
+      <h1>Meu perfil</h1>
+    </div>
+  </div>
+
+  <% if (success) { %><p class="success-banner"><%= success %></p><% } %>
+  <% if (error) { %><p class="error-banner"><%= error %></p><% } %>
+
+  <div class="card">
+    <h2>Dados</h2>
+    <div class="form-grid">
+      <div class="field col-6"><label>Nome</label><div><%= me.name %></div></div>
+      <div class="field col-6"><label>Cidade</label><div><%= me.city || '—' %></div></div>
+      <div class="field col-6"><label>Contato</label><div><%= me.contact || '—' %></div></div>
+      <div class="field col-6"><label>Documento</label><div><%= me.document || '—' %></div></div>
+      <div class="field col-4"><label>Comissão</label><div><strong><%= me.commission_pct %>%</strong></div></div>
+      <div class="field col-4"><label>Desconto p/ cliente</label><div><%= me.discount_pct %>%</div></div>
+      <div class="field col-4"><label>Chave PIX</label><div><%= me.pix_key || '—' %></div></div>
+      <div class="field col-6"><label>Usuário</label><div><%= me.username || '—' %></div></div>
+      <div class="field col-6"><label>Último acesso</label><div><%= me.last_login_at ? fmtDateTimeBr(me.last_login_at) : '—' %></div></div>
+    </div>
+    <p class="field-hint">Para alterar seus dados cadastrais, fale com o administrador Kivo.</p>
+  </div>
+
+  <div class="card">
+    <h2>Alterar senha</h2>
+    <form method="post" action="/afiliado/perfil/password">
+      <div class="form-grid">
+        <div class="field col-4">
+          <label>Senha atual</label>
+          <input type="password" name="currentPassword" required autocomplete="current-password">
+        </div>
+        <div class="field col-4">
+          <label>Nova senha</label>
+          <input type="password" name="newPassword" required autocomplete="new-password">
+        </div>
+        <div class="field col-4">
+          <label>Confirmar nova senha</label>
+          <input type="password" name="confirmPassword" required autocomplete="new-password">
+        </div>
+      </div>
+      <div class="form-actions-bar">
+        <span class="actions-hint">Mínimo de 6 caracteres.</span>
+        <div class="spacer"></div>
+        <button type="submit" class="btn">Alterar senha</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('partials/afiliado-foot') %>

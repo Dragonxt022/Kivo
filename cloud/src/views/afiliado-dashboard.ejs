@@ -1,0 +1,96 @@
+<%- include('partials/afiliado-head', { title: 'Início', active: active, affiliateName: me.name }) %>
+
+<%
+  function brl(c) { return (Number(c || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  function commBadge(s) {
+    if (s === 'disponivel') return { cls: 'paga', label: 'Disponível' };
+    if (s === 'solicitado') return { cls: 'pendente', label: 'Solicitado' };
+    if (s === 'pago') return { cls: 'plan', label: 'Pago' };
+    return { cls: 'cancelada', label: 'Cancelado' };
+  }
+%>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="breadcrumb">Portal do afiliado</div>
+      <h1>Olá, <%= me.name %></h1>
+    </div>
+    <a href="/afiliado/pagamentos" class="btn">Solicitar pagamento</a>
+  </div>
+
+  <% if (alerts && alerts.length) { %>
+  <div class="card">
+    <% alerts.forEach(function(a) { %>
+    <div class="dash-alert-card <%= a.type %>">
+      <div class="dash-alert-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </div>
+      <div>
+        <div class="dash-alert-text"><strong><%= a.title %></strong> — <%= a.detail %></div>
+        <% if (a.link) { %><div class="dash-alert-action"><a href="<%= a.link %>">Ver →</a></div><% } %>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <% } %>
+
+  <div class="card">
+    <div class="stat-row">
+      <div class="stat"><div class="value"><%= brl(summary.availableCents) %></div><div class="label">Crédito disponível</div></div>
+      <div class="stat"><div class="value"><%= brl(summary.requestedCents) %></div><div class="label">Aguardando pagamento</div></div>
+      <div class="stat"><div class="value"><%= brl(summary.paidCents) %></div><div class="label">Já recebido</div></div>
+      <div class="stat"><div class="value"><%= brl(summary.forecastCents) %></div><div class="label">Previsão (cobranças pendentes)</div></div>
+      <div class="stat"><div class="value"><%= summary.companiesCount %></div><div class="label">Empresas indicadas</div></div>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-toolbar">
+      <h2 style="margin:0; font-size:1.05rem;">Comissões recentes</h2>
+      <a href="/afiliado/comissoes" class="card-link">Ver todas →</a>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Data</th><th>Empresa</th><th class="text-right">Comissão</th><th>Status</th></tr></thead>
+        <tbody>
+          <% recentCommissions.forEach(function(c) { var b = commBadge(c.status); %>
+          <tr>
+            <td class="cell-muted"><%= fmtDateBr(c.created_at) %></td>
+            <td><%= c.company_name || '—' %></td>
+            <td class="text-right tabular"><strong><%= brl(c.amount_cents) %></strong></td>
+            <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
+          </tr>
+          <% }); %>
+          <% if (!recentCommissions.length) { %><tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhuma comissão ainda. Assim que uma cobrança das suas indicações for paga, ela aparece aqui.' }) %></td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-toolbar">
+      <h2 style="margin:0; font-size:1.05rem;">Minhas empresas</h2>
+      <a href="/afiliado/indicacoes" class="card-link">Ver todas →</a>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Empresa</th><th>Cidade</th><th>Plano</th><th class="text-right">A receber</th><th class="text-right">Recebido</th></tr></thead>
+        <tbody>
+          <% companies.slice(0, 8).forEach(function(c) { %>
+          <tr>
+            <td><%= c.name || String(c.company_uuid).slice(0, 8) %></td>
+            <td class="cell-muted"><%= c.city || '—' %><%= c.state ? ('/' + c.state) : '' %></td>
+            <td class="cell-muted"><%= c.plan || '—' %></td>
+            <td class="text-right tabular"><%= brl(c.pending_cents) %></td>
+            <td class="text-right tabular"><%= brl(c.paid_cents) %></td>
+          </tr>
+          <% }); %>
+          <% if (!companies.length) { %><tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma empresa indicada ainda.' }) %></td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/afiliado-foot') %>

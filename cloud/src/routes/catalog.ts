@@ -32,6 +32,14 @@ export const CATALOG_SEARCH_LIMIT = 6;
 /** Um termo com menos que isso não descreve produto nenhum. */
 const MIN_TERM_LEN = 3;
 
+/**
+ * Código de barras (EAN/UPC ou código interno) — só dígitos e letras, no máximo 64. É o
+ * identificador mais preciso do produto: casa a foto sem depender do nome.
+ */
+function sanitizeBarcode(raw: unknown): string {
+  return String(raw ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, 64);
+}
+
 /** URL de imagem aceita no /web-pick (guarda contra payload gigante no MySQL). */
 const MAX_URL_LEN = 1000;
 
@@ -54,6 +62,7 @@ interface CatalogImageRow {
 router.post('/submit', rawImage, requireCompanyAuth, async (req: AuthedRequest, res) => {
   const productName = req.header('X-Kivo-Product-Name');
   const submissionUuid = req.header('X-Kivo-Submission-Uuid');
+  const barcode = sanitizeBarcode(req.header('X-Kivo-Product-Barcode')) || null;
   const body = req.body as Buffer;
   if (!productName || !submissionUuid || !Buffer.isBuffer(body) || !body.length) {
     res.status(400).json({ error: 'Cabeçalhos obrigatórios: X-Kivo-Product-Name, X-Kivo-Submission-Uuid, corpo binário (imagem).' });
@@ -84,9 +93,9 @@ router.post('/submit', rawImage, requireCompanyAuth, async (req: AuthedRequest, 
 
   const [info] = await getPool().query(
     `INSERT INTO catalog_images
-       (company_uuid, product_name, keywords, image_path, sha256, width, height, format, size_bytes, status, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente', 'submissao')`,
-    [req.companyUuid, productName, normalizeKeywords(productName), filename, hash, check.width, check.height, check.format, body.length],
+       (company_uuid, product_name, keywords, barcode, image_path, sha256, width, height, format, size_bytes, status, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente', 'submissao')`,
+    [req.companyUuid, productName, normalizeKeywords(productName), barcode, filename, hash, check.width, check.height, check.format, body.length],
   );
   const catalogImageId = (info as { insertId: number }).insertId;
   res.status(201).json({ status: 'pendente', catalogImageId });
@@ -100,6 +109,8 @@ router.get('/search', requireCompanyAuth, async (req: AuthedRequest, res) => {
   }
   const pool = getPool();
   const norm = normalizeKeywords(q);
+  // Código de barras: explícito no `barcode`, ou o próprio `q` quando parece um código.
+  const barcode = sanitizeBarcode(req.query.barcode) || (/^\d{8,}$/.test(q) ? q : '');
 
   const seen = new Set<number>();
   const results: { id: number; product_name: string }[] = [];
@@ -111,6 +122,17 @@ router.get('/search', requireCompanyAuth, async (req: AuthedRequest, res) => {
       results.push(r);
     }
   };
+
+  // 0. Código de barras exato — o casamento mais confiável (não depende do nome).
+  if (barcode) {
+    const [bcRows] = await pool.query(
+      `SELECT id, product_name FROM catalog_images
+        WHERE status = 'aprovada' AND barcode = ?
+        ORDER BY pick_count DESC LIMIT 10`,
+      [barcode],
+    );
+    add(bcRows as { id: number; product_name: string }[]);
+  }
 
   // 1. FULLTEXT no nome/keywords cadastrados. O desempate por `pick_count` faz as fotos
   //    que mais foram escolhidas subirem quando a relevância textual empata.
@@ -151,9 +173,10 @@ router.get('/search', requireCompanyAuth, async (req: AuthedRequest, res) => {
   // 4. Demanda anônima: busca sem resultado vira sinal para a curadoria (sem empresa).
   if (!results.length && norm) {
     await pool.query(
-      `INSERT INTO catalog_demand (term) VALUES (?)
-       ON DUPLICATE KEY UPDATE misses = misses + 1, last_seen_at = CURRENT_TIMESTAMP(3)`,
-      [norm.slice(0, 255)],
+      `INSERT INTO catalog_demand (term, barcode) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE misses = misses + 1, last_seen_at = CURRENT_TIMESTAMP(3),
+         barcode = COALESCE(VALUES(barcode), barcode)`,
+      [norm.slice(0, 255), barcode || null],
     );
   }
 

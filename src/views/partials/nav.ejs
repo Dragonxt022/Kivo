@@ -7,13 +7,16 @@
   cashAlert: null,
   upcomingBills: null,
   notifOpen: false,
+  // Mensagens da central (suporte -> loja). O sino soma as não lidas delas com os avisos
+  // do sistema; a lista completa vive em /notificacoes.
+  messages: [],
   cloudStatus: { configured: false, online: false },
   fmtDueDate(raw) {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ''));
     return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
   },
   notifUserKey: <%= JSON.stringify(user ? user.username : '') %>,
-  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles', atualizacao: 'refresh-cw', licenca: 'shield-check' },
+  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles', atualizacao: 'refresh-cw', licenca: 'shield-check', mensagem: 'chat' },
   atualizacao: null,
   notifIconSvg(type) {
     const name = this.notifIconMap[type];
@@ -107,6 +110,28 @@
   dismissNotif(id) {
     if (!this.notifDismissed.includes(id)) { this.notifDismissed.push(id); this.saveNotifState(); }
   },
+  async loadMessages() {
+    try {
+      const r = await fetch('/api/messages');
+      if (r.ok) { const d = await r.json(); this.messages = d.messages || []; }
+    } catch (e) { /* sem conexão: mantém o que já tem */ }
+  },
+  get unreadMessages() {
+    return this.messages.filter((m) => !m.read);
+  },
+  // Soma do sino: avisos do sistema + mensagens não lidas da central.
+  get totalUnread() {
+    return this.unreadCount + this.unreadMessages.length;
+  },
+  markAllMessagesRead() {
+    for (const m of this.unreadMessages) {
+      m.read = true;
+      fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/read', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read: true }),
+      }).catch(() => {});
+    }
+    window.dispatchEvent(new CustomEvent('kivo-messages-changed'));
+  },
   checkCloudStatus() {
     fetch('/api/sync/status').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.cloudStatus = data; }).catch(() => { this.cloudStatus = { configured: true, online: false }; });
   },
@@ -129,6 +154,11 @@
     this.loadNotifState();
     window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
     const jobs = [];
+    // Mensagens: busca no boot da página e revalida quando a central avisa que mudou
+    // (marcou lida/excluiu) ou quando a página volta do bfcache.
+    jobs.push(this.loadMessages());
+    window.addEventListener('kivo-messages-changed', () => this.loadMessages());
+    window.addEventListener('pageshow', () => this.loadMessages());
     <% if (user && user.permissions.has('billing.view')) { %>
     jobs.push(fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; }).catch(() => {}));
     <% } %>
@@ -163,7 +193,7 @@
     document.documentElement.setAttribute('data-theme', this.theme);
     try { localStorage.setItem('kivo-theme', this.theme); } catch (e) {}
     if (document.documentElement.getAttribute('data-color-theme') === 'custom') {
-      var c = localStorage.getItem('kivo-color-custom');
+      var c = window.__kivoColor && window.__kivoColor.custom;
       if (c) window.__kivoApplyCustomColor(c);
     }
   },
@@ -245,16 +275,23 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-        <span x-show="unreadCount > 0" x-cloak class="notif-badge" x-text="unreadCount"></span>
+        <span x-show="totalUnread > 0" x-cloak class="notif-badge" x-text="totalUnread > 9 ? '9+' : totalUnread"></span>
       </button>
       <div class="dropdown-menu notif-dropdown" style="width:320px;max-height:400px" x-show="notifOpen" x-cloak @click.outside="notifOpen = false">
         <div class="notif-dropdown-header">
           <span>Notificações</span>
-          <button type="button" @click="markAllNotifRead()" x-show="unreadCount > 0">Marcar lidas</button>
+          <button type="button" @click="markAllNotifRead(); markAllMessagesRead()" x-show="totalUnread > 0">Marcar lidas</button>
         </div>
         <div style="max-height:280px;overflow-y:auto">
-          <template x-if="!notifications.length">
+          <template x-if="!notifications.length && !unreadMessages.length">
             <p class="muted text-xs" style="padding:.9rem .6rem">Nenhuma notificação no momento.</p>
+          </template>
+          <template x-for="m in unreadMessages" :key="'msg-' + m.uuid">
+            <a href="/notificacoes" class="notif-row unread" @click="notifOpen = false">
+              <span class="notif-icon" x-html="notifIconSvg('mensagem')"></span>
+              <span class="notif-msg" x-text="m.title"></span>
+              <span class="notif-dot"></span>
+            </a>
           </template>
           <template x-for="n in notifications" :key="n.id">
             <a :href="n.link" class="notif-row" :class="{ unread: !n.read }" @click="markNotifRead(n.id); notifOpen = false">
@@ -731,6 +768,12 @@
     var p = location.pathname;
     return p === '/' || p === '' || p === '/app' || p.indexOf('/login') === 0 || p.indexOf('/ativacao') === 0;
   }
+  // Telas densas/transacionais onde os balões de "páginas recentes" cobrem conteúdo (a
+  // conferência da NF-e tem tabela larga + rodapé fixo). Nelas o histórico continua sendo
+  // registrado, mas os balões não são montados.
+  function fabSuppressed(){
+    return location.pathname.indexOf('/app/nfe/importar') === 0;
+  }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
   // ─── Mapa de URL → ícone do módulo ───
@@ -760,11 +803,7 @@
     write(list.slice(0, STORE_MAX));
   }
 
-  if (!enabled()) return;
-  // Modo leve: o histórico continua sendo registrado acima (nada se perde ao desligar o
-  // modo), mas os balões não são construídos — são nós extras + entrada escalonada em cada
-  // carregamento de página, puro enfeite.
-  if (document.documentElement.getAttribute('data-lite') === '1') return;
+  if (!enabled() || fabSuppressed()) return;
 
   // 2) Monta os balões: as páginas mais recentes, exceto a atual.
   var recents = read().filter(function(e){ return e && e.href && e.href !== here(); }).slice(0, SHOW_MAX);

@@ -77,6 +77,9 @@ const manifest: ModuleManifest = {
       table: 'product_variant_values',
       foreignKeys: { product_id: 'products', attribute_id: 'product_attributes', attribute_value_id: 'product_attribute_values' },
     },
+    // Códigos de barras secundários (caixa/lastro) — viajam com o produto para que a
+    // outra máquina também encontre o produto ao bipar a embalagem.
+    { table: 'product_barcodes', foreignKeys: { product_id: 'products', supplier_id: 'suppliers' } },
     {
       table: 'customers',
       foreignKeys: { price_list_id: 'price_lists', agreement_company_id: 'agreement_companies' },

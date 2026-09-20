@@ -161,6 +161,74 @@ export function runSeeds(): void {
   );
   for (const [key, value, comment] of pdvSettings) insertSetting.run(key, value, randomUUID(), comment);
 
+  // Padrões do cadastro de produtos. Ficam explícitos aqui (e não só no código) para a
+  // tela de Configurações mostrar a escolha real e o cadastro preencher igual.
+  insertSetting.run(
+    'estoque.auto_sku',
+    '0',
+    randomUUID(),
+    'Gera automaticamente um SKU ao cadastrar produto sem código. "1" = gerar; "0" = deixar o campo em branco (padrão).',
+  );
+  insertSetting.run(
+    'estoque.min_stock_padrao',
+    '5',
+    randomUUID(),
+    'Valor de estoque mínimo sugerido ao cadastrar um produto novo. Padrão 5.',
+  );
+
+  // Rótulo do módulo de comandas: a loja que atende só no balcão vê "Balcão" (e outro
+  // ícone) no lugar de "Mesas". O assistente grava conforme a resposta; aqui fica o padrão.
+  insertSetting.run(
+    'comandas.rotulo',
+    'mesa',
+    randomUUID(),
+    'Como a empresa chama o módulo de comandas: "mesa" ou "balcao". Muda o rótulo e o ícone no menu e na tela inicial.',
+  );
+
+  // Cor de destaque da empresa. Fica na tabela `settings` (e não no localStorage) para
+  // valer em qualquer aparelho que abra este Kivo pela rede local.
+  insertSetting.run(
+    'interface.cor_destaque',
+    'orange',
+    randomUUID(),
+    'Cor de destaque da empresa: blue, green, orange, pink, black ou custom. Vale em todos os aparelhos que abrem este Kivo.',
+  );
+  insertSetting.run(
+    'interface.cor_custom',
+    '#ff8000',
+    randomUUID(),
+    'Cor de destaque personalizada (hex) usada quando interface.cor_destaque = "custom".',
+  );
+
+  // Sincronização automática ligada por padrão a cada 3 minutos. A semente acima já cobre
+  // instalações novas; este resgate único devolve o padrão a instalações antigas que
+  // ficaram com "0" (desligado). A flag impede que a semente reative o sync em todo boot —
+  // se o dono desligar de propósito depois, a escolha é respeitada.
+  const SYNC_DEFAULT_KEY = 'seeds.sync_intervalo_padrao_3';
+  const syncDefaultDone = db.prepare('SELECT value FROM settings WHERE key = ?').get(SYNC_DEFAULT_KEY);
+  if (!syncDefaultDone) {
+    const atual = db
+      .prepare("SELECT value FROM settings WHERE key = 'sync.intervalo_minutos' AND deleted_at IS NULL")
+      .get() as { value: string | null } | undefined;
+    if (!atual || atual.value == null || atual.value === '' || atual.value === '0') {
+      db.prepare(
+        `INSERT INTO settings (key, value, uuid, comment) VALUES (?, '3', ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = '3', updated_at = datetime('now'), deleted_at = NULL`,
+      ).run(
+        'sync.intervalo_minutos',
+        randomUUID(),
+        'Intervalo em minutos do ciclo automático de sincronização com a nuvem. "0" desliga (só sincroniza no clique manual). É o que mantém atual o acompanhamento pelo celular (Kivo Web).',
+      );
+    }
+    db.prepare(
+      `INSERT OR IGNORE INTO settings (key, value, uuid, comment) VALUES (?, '1', ?, ?)`,
+    ).run(
+      SYNC_DEFAULT_KEY,
+      randomUUID(),
+      'Marca que o intervalo de sincronização já foi ajustado para o padrão de 3 minutos. Impede que as seeds reativem o sync que o administrador desligou de propósito.',
+    );
+  }
+
   // Pacote de ícones (tema visual) da empresa. Vazio = conjunto padrão do Kivo. Os arquivos
   // ficam em storage/peck-icon/<pacote>/; a resolução é por requisição em core/icons/service.ts.
   insertSetting.run(

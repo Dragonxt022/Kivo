@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Mensagens</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .msg-card { display: flex; gap: 14px; align-items: flex-start; }
+    .msg-card-body { flex: 1; min-width: 0; }
+    .msg-card-body h2 { margin: 0; font-size: 17px; }
+    .msg-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-top: 6px; }
+    .msg-actions { display: flex; gap: 8px; flex: none; flex-wrap: wrap; }
+    .msg-actions form { margin: 0; }
+    .badge.urgent { background: #fee2e2; color: #b91c1c; }
+    .badge.pub { background: #dcfce7; color: #15803d; }
+    .badge.draft { background: #f4f4f5; color: #52525b; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'messages' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'messages' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <h1>Mensagens</h1>
+          <a class="btn" href="/admin/messages/new">+ Nova mensagem</a>
+        </div>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="error-banner"><%= error %></div>
+        <% } %>
+        <% if (typeof ok !== 'undefined' && ok) { %>
+          <div class="success-banner">Feito: <%= ok %>.</div>
+        <% } %>
+
+        <div class="card">
+          <p class="card-intro" style="margin:0">
+            Escreva comunicados, tutoriais e dicas para as lojas. A mensagem aparece na tela
+            <strong>Notificações</strong> do Kivo. Marque <strong>urgente</strong> para ela abrir
+            como aviso na tela inicial. A entrega é automática — a loja recebe no próximo sync.
+          </p>
+        </div>
+
+        <% if (!messages.length) { %>
+          <div class="card"><%- include('partials/empty-state', { message: 'Nenhuma mensagem criada ainda.' }) %></div>
+        <% } %>
+
+        <% messages.forEach(function(m) { %>
+          <% var lista = targets.get(Number(m.id)) || []; %>
+          <div class="card">
+            <div class="msg-card">
+              <div class="msg-card-body">
+                <h2><%= m.title %></h2>
+                <% if (m.subtitle) { %><p class="cell-muted" style="margin:.2rem 0 0"><%= m.subtitle %></p><% } %>
+                <div class="msg-meta">
+                  <span class="badge"><%= m.category %></span>
+                  <% if (m.is_urgent) { %><span class="badge urgent">Urgente</span><% } %>
+                  <% if (m.status === 'publicada') { %>
+                    <span class="badge pub">Publicada</span>
+                  <% } else { %>
+                    <span class="badge draft">Rascunho</span>
+                  <% } %>
+                  <span class="cell-muted">
+                    · <%= m.target_all ? 'Todas as empresas' : (lista.length + ' empresa(s)') %>
+                    · criada em <%= String(m.created_at).slice(0, 16) %>
+                  </span>
+                </div>
+                <% if (!m.target_all && lista.length) { %>
+                  <p class="cell-muted" style="margin:.35rem 0 0; font-size:12px">
+                    Para: <%= lista.map(function(t){ return t.company_name || t.company_uuid; }).join(', ') %>
+                  </p>
+                <% } %>
+              </div>
+              <div class="msg-actions">
+                <a class="btn secondary small" href="/admin/messages/<%= m.uuid %>/edit">Editar</a>
+                <% if (m.status === 'publicada') { %>
+                  <form method="post" action="/admin/messages/<%= m.uuid %>/unpublish">
+                    <button type="submit" class="btn secondary small">Despublicar</button>
+                  </form>
+                <% } else { %>
+                  <form method="post" action="/admin/messages/<%= m.uuid %>/publish">
+                    <button type="submit" class="btn small">Publicar</button>
+                  </form>
+                <% } %>
+                <form method="post" action="/admin/messages/<%= m.uuid %>/delete" onsubmit="return confirm('Excluir a mensagem \"<%= m.title %>\"?');">
+                  <button type="submit" class="btn danger small">Excluir</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

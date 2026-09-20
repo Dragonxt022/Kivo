@@ -1,0 +1,66 @@
+<%
+  var pageTitle = typeof title !== 'undefined' ? title : 'Portal do afiliado';
+  var navActive = typeof active !== 'undefined' ? active : '';
+  var nome = typeof affiliateName !== 'undefined' && affiliateName ? affiliateName : '';
+%>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('theme-init') %>
+  <title><%= pageTitle %> — Kivo Afiliados</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('styles') %>
+  <style>
+    .aff-shell { min-height: 100vh; background: var(--bg); }
+    .aff-topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 20px; background: var(--glass-bg-strong);
+      border-bottom: 1px solid var(--glass-border); position: sticky; top: 0; z-index: 20;
+      backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    }
+    .aff-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; color: inherit; }
+    .aff-brand img { height: 26px; }
+    .aff-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+    .aff-nav a {
+      text-decoration: none; color: var(--muted); font-size: .88rem; font-weight: 600;
+      padding: 7px 12px; border-radius: 8px;
+    }
+    .aff-nav a:hover { background: var(--surface-hover); color: var(--text); }
+    .aff-nav a.active { background: var(--primary-soft, rgba(255,128,0,.12)); color: var(--primary, #ff8000); }
+    .aff-user { display: flex; align-items: center; gap: 10px; font-size: .85rem; }
+    .aff-user .avatar {
+      width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--primary, #ff8000); color: #fff; font-weight: 700;
+    }
+    .aff-user form { margin: 0; }
+    .aff-user button { border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: .82rem; }
+    .aff-user button:hover { color: var(--text); }
+    @media (max-width: 720px) {
+      .aff-topbar { flex-wrap: wrap; }
+      .aff-nav { order: 3; width: 100%; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="aff-shell">
+    <header class="aff-topbar">
+      <a href="/afiliado" class="aff-brand">
+        <img src="/logo_kivo-icon.svg" alt="Kivo">
+        <span>Portal do Afiliado</span>
+      </a>
+      <nav class="aff-nav">
+        <a href="/afiliado" class="<%= navActive === 'dashboard' ? 'active' : '' %>">Início</a>
+        <a href="/afiliado/indicacoes" class="<%= navActive === 'indicacoes' ? 'active' : '' %>">Indicações</a>
+        <a href="/afiliado/comissoes" class="<%= navActive === 'comissoes' ? 'active' : '' %>">Comissões</a>
+        <a href="/afiliado/pagamentos" class="<%= navActive === 'pagamentos' ? 'active' : '' %>">Pagamentos</a>
+        <a href="/afiliado/perfil" class="<%= navActive === 'perfil' ? 'active' : '' %>">Perfil</a>
+      </nav>
+      <div class="aff-user">
+        <span class="avatar"><%= nome.charAt(0).toUpperCase() %></span>
+        <span><%= nome %></span>
+        <form method="post" action="/afiliado/logout"><button type="submit">Sair</button></form>
+      </div>
+    </header>

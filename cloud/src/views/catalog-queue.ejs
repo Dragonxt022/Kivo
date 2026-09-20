@@ -8,6 +8,27 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .cat-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .cat-filters .input-search { flex: 1; min-width: 220px; }
+    .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+    .cat-card { border: 1.5px solid var(--border-light, #e5e7eb); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+    .cat-card.selected { border-color: var(--primary, #ff8000); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #ff8000) 25%, transparent); }
+    .cat-thumb { position: relative; aspect-ratio: 1 / 1; background: var(--surface-hover, #f4f4f5); }
+    .cat-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cat-check { position: absolute; top: 8px; left: 8px; width: 18px; height: 18px; cursor: pointer; }
+    .cat-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .cat-name { font-weight: 600; font-size: 0.9rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .cat-meta { font-size: 0.74rem; color: var(--muted, #888); }
+    .cat-actions { display: flex; gap: 6px; padding: 0 12px 12px; margin-top: auto; }
+    .cat-actions form { margin: 0; display: inline; }
+    .cat-actions .btn { padding: 5px 9px; font-size: 0.8rem; }
+    .pager a { text-decoration: none; }
+    .pager a.is-disabled { pointer-events: none; opacity: .45; }
+    .pager-num { min-width: 32px; }
+    .pager-num.ellipsis { border: 0; background: transparent; cursor: default; }
+    .cat-toolbar-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -22,17 +43,44 @@
           if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
           return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
         }
+        function qs(extra) {
+          var p = new URLSearchParams();
+          p.set('tab', activeTab);
+          if (activeTab === 'imagens') {
+            p.set('status', activeStatus);
+            if (q) p.set('q', q);
+            if (source) p.set('source', source);
+            if (format) p.set('format', format);
+            if (sort) p.set('sort', sort);
+          } else if (q) {
+            p.set('q', q);
+          }
+          Object.keys(extra || {}).forEach(function (k) { p.set(k, extra[k]); });
+          return '/admin/catalog?' + p.toString();
+        }
+        function renderPager(current, totalPages, win) {
+          if (totalPages <= 1) return;
+      %>
+          <div class="pager">
+            <a class="btn secondary small <%= current <= 1 ? 'is-disabled' : '' %>" href="<%= qs({ page: 1 }) %>">Primeiro</a>
+            <a class="pager-arrow <%= current <= 1 ? 'is-disabled' : '' %>" href="<%= qs({ page: current - 1 }) %>" aria-label="Página anterior">‹</a>
+            <% win.forEach(function (p) { %>
+              <% if (p === '…') { %><span class="pager-num ellipsis">…</span><% } else { %>
+                <a class="pager-num <%= p === current ? 'active' : '' %>" href="<%= qs({ page: p }) %>"><%= p %></a>
+              <% } %>
+            <% }); %>
+            <a class="pager-arrow <%= current >= totalPages ? 'is-disabled' : '' %>" href="<%= qs({ page: current + 1 }) %>" aria-label="Próxima página">›</a>
+            <a class="btn secondary small <%= current >= totalPages ? 'is-disabled' : '' %>" href="<%= qs({ page: totalPages }) %>">Último</a>
+          </div>
+      <%
+        }
       %>
 
       <div class="page">
         <div class="page-header">
           <h1>Banco de imagens</h1>
           <div style="display:flex; gap:8px;">
-            <% if (images.length > 0) { %>
-              <button class="btn danger" onclick="openDeleteAllModal()">Apagar todas</button>
-            <% } else { %>
-              <button class="btn danger" disabled title="Nenhuma imagem para apagar">Apagar todas</button>
-            <% } %>
+            <button class="btn danger" onclick="openDeleteAllModal()">Apagar todas</button>
             <button class="btn" onclick="openUploadModal()">+ Adicionar imagem(ns)</button>
           </div>
         </div>
@@ -54,9 +102,9 @@
         <% } %>
 
         <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
-          <a href="/admin/catalog?tab=imagens&status=pendente" class="btn secondary <%= activeTab === 'imagens' ? 'active' : '' %>">Imagens</a>
+          <a href="/admin/catalog?tab=imagens&status=<%= activeStatus %>" class="btn secondary <%= activeTab === 'imagens' ? 'active' : '' %>">Imagens</a>
           <a href="/admin/catalog?tab=demanda" class="btn secondary <%= activeTab === 'demanda' ? 'active' : '' %>">
-            Demanda<% if (demand && demand.length) { %> (<%= demand.length %>)<% } %>
+            Demanda<% if (demandTotal) { %> (<%= demandTotal %>)<% } %>
           </a>
         </div>
 
@@ -71,6 +119,14 @@
           <p class="field-hint" style="margin-top:0;">
             Nomes que as empresas procuraram e não acharam (anônimo). Adicione uma imagem para o termo e marque "Resolvido".
           </p>
+
+          <form method="get" action="/admin/catalog" class="cat-filters" style="margin-top:10px;">
+            <input type="hidden" name="tab" value="demanda">
+            <input type="search" class="input-search" name="q" value="<%= q %>" placeholder="Buscar termo…">
+            <button type="submit" class="btn small">Buscar</button>
+            <% if (q) { %><a class="btn secondary small" href="/admin/catalog?tab=demanda">Limpar</a><% } %>
+          </form>
+
           <table>
             <thead><tr><th>Termo buscado</th><th class="text-right">Buscas</th><th>Última vez</th><th></th></tr></thead>
             <tbody>
@@ -80,6 +136,7 @@
                 <td class="text-right tabular"><%= d.misses %></td>
                 <td class="cell-muted"><%= fmtDateTimeBr(d.last_seen_at) %></td>
                 <td class="text-right">
+                  <a class="btn small secondary" href="/admin/catalog?tab=imagens&status=aprovada&q=<%= encodeURIComponent(d.term) %>">Buscar no catálogo</a>
                   <form method="post" action="/admin/catalog/demand/<%= d.id %>/delete" style="display:inline;"
                         onsubmit="return confirm('Remover este termo da lista de demanda?');">
                     <button type="submit" class="btn small secondary">Resolvido</button>
@@ -87,100 +144,129 @@
                 </td>
               </tr>
               <% }) %>
-              <% if (!demand || !demand.length) { %>
-              <tr><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhuma demanda registrada ainda.' }) %></td></tr>
+              <% if (!demand.length) { %>
+              <tr><td colspan="4"><%- include('partials/empty-state', { message: q ? 'Nenhum termo encontrado para esta busca.' : 'Nenhuma demanda registrada ainda.' }) %></td></tr>
               <% } %>
             </tbody>
           </table>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px;">
+            <span class="cell-muted" style="font-size:0.82rem;"><%= demandTotal %> termo(s) · página <%= demandPage %> de <%= demandTotalPages %></span>
+            <% renderPager(demandPage, demandTotalPages, demandPageWindow); %>
+          </div>
         </div>
         <% } else { %>
-        <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
-          <a href="/admin/catalog?tab=imagens&status=pendente" class="btn secondary <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
-          <a href="/admin/catalog?tab=imagens&status=aprovada" class="btn secondary <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
+        <div class="cat-toolbar-row">
+          <div class="catalog-tabs" style="display: flex; gap: 8px;">
+            <a href="/admin/catalog?tab=imagens&status=pendente" class="btn secondary small <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
+            <a href="/admin/catalog?tab=imagens&status=aprovada" class="btn secondary small <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
+          </div>
+          <span class="cell-muted" style="font-size:0.82rem;"><%= totalImages %> imagem(ns) · página <%= page %> de <%= totalPages %></span>
         </div>
 
-        <div class="card" style="padding: 0;" x-data="catalogTable()">
-          <div style="padding: 16px 20px 0; display: flex; justify-content: flex-end;">
-            <input type="text" class="input-search" placeholder="Buscar por produto…" x-model="q">
-          </div>
+        <form method="get" action="/admin/catalog" class="cat-filters">
+          <input type="hidden" name="tab" value="imagens">
+          <input type="hidden" name="status" value="<%= activeStatus %>">
+          <input type="search" class="input-search" name="q" value="<%= q %>" placeholder="Buscar por nome, palavra-chave ou código de barras…">
+          <select name="source" onchange="this.form.submit()">
+            <option value="">Toda origem</option>
+            <option value="manual" <%= source === 'manual' ? 'selected' : '' %>>Manual</option>
+            <option value="empresa" <%= source === 'empresa' ? 'selected' : '' %>>Enviadas por empresas</option>
+          </select>
+          <select name="format" onchange="this.form.submit()">
+            <option value="">Todo formato</option>
+            <option value="jpeg" <%= format === 'jpeg' ? 'selected' : '' %>>JPEG</option>
+            <option value="png" <%= format === 'png' ? 'selected' : '' %>>PNG</option>
+            <option value="webp" <%= format === 'webp' ? 'selected' : '' %>>WEBP</option>
+            <option value="avif" <%= format === 'avif' ? 'selected' : '' %>>AVIF</option>
+          </select>
+          <select name="sort" onchange="this.form.submit()">
+            <option value="recentes" <%= sort === 'recentes' ? 'selected' : '' %>>Mais recentes</option>
+            <option value="antigas" <%= sort === 'antigas' ? 'selected' : '' %>>Mais antigas</option>
+            <option value="nome" <%= sort === 'nome' ? 'selected' : '' %>>Nome (A–Z)</option>
+          </select>
+          <button type="submit" class="btn small">Buscar</button>
+          <% if (q || source || format) { %><a class="btn secondary small" href="/admin/catalog?tab=imagens&status=<%= activeStatus %>">Limpar</a><% } %>
+        </form>
 
+        <div x-data="catalogSelection()">
           <% if (activeStatus === 'pendente') { %>
-          <div class="batch-bar" x-show="selectedIds.length > 0" x-cloak style="display:flex; align-items:center; gap:8px; padding:10px 20px; background:var(--surface-hover); border-bottom:1px solid var(--border-light);">
+          <div class="batch-bar" x-show="selectedIds.length > 0" x-cloak style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--surface-hover); border:1px solid var(--border-light); border-radius:10px; margin-bottom:12px; flex-wrap:wrap;">
             <span style="font-size:0.85rem; font-weight:600;" x-text="selectedIds.length + ' selecionada(s)'"></span>
-            <form method="post" action="/admin/catalog/batch-approve" style="display:inline;" @submit.prevent="submitBatch($el, 'approve')">
-              <input type="hidden" name="ids" x-model="JSON.stringify(selectedIds)">
+            <form method="post" action="/admin/catalog/batch-approve" style="display:inline;" @submit.prevent="submitBatch($event)">
+              <input type="hidden" name="ids" :value="selectedIds.join(',')">
               <input type="hidden" name="redirectStatus" value="pendente">
               <button type="submit" class="btn small" style="background:var(--success);color:#fff;">✓ Aprovar selecionadas</button>
             </form>
-            <form method="post" action="/admin/catalog/batch-reject" style="display:inline;" @submit.prevent="if (confirm('Rejeitar ' + selectedIds.length + ' imagem(ns)?')) submitBatch($el, 'reject')">
-              <input type="hidden" name="ids" x-model="JSON.stringify(selectedIds)">
+            <form method="post" action="/admin/catalog/batch-reject" style="display:inline;" @submit.prevent="if (confirm('Rejeitar ' + selectedIds.length + ' imagem(ns)?')) submitBatch($event)">
+              <input type="hidden" name="ids" :value="selectedIds.join(',')">
               <input type="hidden" name="redirectStatus" value="pendente">
               <button type="submit" class="btn small danger">✕ Rejeitar selecionadas</button>
             </form>
+            <button type="button" class="btn secondary small" @click="selectedIds = []">Limpar seleção</button>
           </div>
           <% } %>
 
-          <table>
-            <thead><tr>
-              <% if (activeStatus === 'pendente') { %>
-              <th style="width:40px;">
-                <input type="checkbox" @change="toggleAll($event.target.checked)" :checked="selectedIds.length === displayRows.length && displayRows.length > 0">
-              </th>
-              <% } %>
-              <th></th>
-              <th class="sortable" @click="sortCycle('product_name')">Produto<span class="sort-arrow" x-text="sortArrow('product_name')"></span></th>
-              <th class="sortable" @click="sortCycle('origin')">Origem<span class="sort-arrow" x-text="sortArrow('origin')"></span></th>
-              <th class="sortable" @click="sortCycle('size_bytes')">Detalhes<span class="sort-arrow" x-text="sortArrow('size_bytes')"></span></th>
-              <th class="sortable" @click="sortCycle('created_at')"><%= activeStatus === 'aprovada' ? 'Aprovada em' : 'Enviada em' %><span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
-              <th style="min-width:140px;"></th>
-            </tr></thead>
-            <tbody>
-              <template x-for="img in displayRows" :key="img.id">
-                <tr :class="{ 'row-selected': selectedIds.includes(img.id) }">
-                  <% if (activeStatus === 'pendente') { %>
-                  <td>
-                    <input type="checkbox" :checked="selectedIds.includes(img.id)" @change="toggleOne(img.id, $event.target.checked)">
-                  </td>
-                  <% } %>
-                  <td><img style="width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--border-light);background:var(--surface-hover)" :src="'/admin/catalog/' + img.id + '/image'" :alt="img.product_name"></td>
-                  <td x-text="img.product_name"></td>
-                  <td style="font-size:0.78rem;color:var(--muted)" x-text="img.origin"></td>
-                  <td style="font-size:0.78rem;color:var(--muted)" x-text="img.width + '×' + img.height + 'px · ' + img.sizeLabel + ' · ' + img.format"></td>
-                  <td style="font-size:0.78rem;color:var(--muted)" x-text="fmtDateTime(img.created_at)"></td>
-                  <td class="text-right">
-                    <div style="display:flex;gap:4px;justify-content:flex-end;">
-                      <a :href="'/admin/catalog/' + img.id + '/image'" download class="btn small secondary" title="Baixar">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      </a>
-                      <template x-if="activeStatus === 'pendente'">
-                        <>
-                          <form method="post" :action="'/admin/catalog/' + img.id + '/approve'" style="display:inline;">
-                            <input type="hidden" name="redirectStatus" value="pendente">
-                            <button type="submit" class="btn small" style="background:var(--success);color:#fff;" title="Aprovar">✓</button>
-                          </form>
-                          <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" style="display:inline;" @submit.prevent="if (confirm('Rejeitar e excluir esta imagem?')) $el.submit()">
-                            <input type="hidden" name="redirectStatus" value="pendente">
-                            <button type="submit" class="btn small danger" title="Rejeitar">✕</button>
-                          </form>
-                        </>
-                      </template>
-                      <template x-if="activeStatus !== 'pendente'">
-                        <form method="post" :action="'/admin/catalog/' + img.id + '/reject'" style="display:inline;" @submit.prevent="if (confirm('Remover esta imagem do catálogo aprovado?')) $el.submit()">
-                          <input type="hidden" name="redirectStatus" value="aprovada">
-                          <button type="submit" class="btn small danger">Remover</button>
-                        </form>
-                      </template>
-                    </div>
-                  </td>
-                </tr>
-              </template>
-              <tr x-show="!displayRows.length">
-                <td colspan="<%= activeStatus === 'pendente' ? 7 : 6 %>">
-                  <%- include('partials/empty-state', { message: activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.' }) %>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <% if (images.length) { %>
+          <div class="cat-toolbar-row">
+            <% if (activeStatus === 'pendente') { %>
+            <label class="label-checkbox" style="font-size:0.82rem; margin:0;">
+              <input type="checkbox" @change="toggleAllPage($event.target.checked, <%- JSON.stringify(images.map(function (i) { return i.id; })) %>)">
+              Selecionar esta página
+            </label>
+            <% } else { %><span></span><% } %>
+          </div>
+
+          <div class="cat-grid">
+            <% images.forEach(function(img) { %>
+            <div class="cat-card" :class="{ selected: selectedIds.includes(<%= img.id %>) }">
+              <div class="cat-thumb">
+                <img src="/admin/catalog/<%= img.id %>/image" alt="<%= img.product_name %>" loading="lazy" width="<%= img.width %>" height="<%= img.height %>">
+                <% if (activeStatus === 'pendente') { %>
+                <input type="checkbox" class="cat-check" title="Selecionar" @change="toggle(<%= img.id %>, $event.target.checked)">
+                <% } %>
+              </div>
+              <div class="cat-body">
+                <div class="cat-name" title="<%= img.product_name %>"><%= img.product_name %></div>
+                <div class="cat-meta"><%= img.width %>×<%= img.height %> · <%= formatBytes(img.size_bytes) %> · <%= img.format %></div>
+                <div class="cat-meta"><%= img.source === 'manual' ? 'Manual' : (img.company_uuid ? 'Empresa ' + img.company_uuid.slice(0, 8) + '…' : 'Enviada') %> · <%= fmtDateTimeBr(img.created_at) %></div>
+                <div class="cat-meta" style="display:flex;align-items:center;gap:6px;">
+                  <span>EAN: <strong><%= img.barcode || '—' %></strong></span>
+                  <button type="button" class="btn secondary" style="padding:1px 6px;font-size:0.72rem" onclick="setBarcode(<%= img.id %>, '<%= img.barcode || '' %>')">editar</button>
+                </div>
+              </div>
+              <div class="cat-actions">
+                <a href="/admin/catalog/<%= img.id %>/image" download class="btn secondary" title="Baixar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+                <% if (activeStatus === 'pendente') { %>
+                <form method="post" action="/admin/catalog/<%= img.id %>/approve">
+                  <input type="hidden" name="redirectStatus" value="pendente">
+                  <button type="submit" class="btn" style="background:var(--success);color:#fff;" title="Aprovar">✓ Aprovar</button>
+                </form>
+                <form method="post" action="/admin/catalog/<%= img.id %>/reject" onsubmit="return confirm('Rejeitar e excluir esta imagem?');">
+                  <input type="hidden" name="redirectStatus" value="pendente">
+                  <button type="submit" class="btn danger" title="Rejeitar">✕</button>
+                </form>
+                <% } else { %>
+                <form method="post" action="/admin/catalog/<%= img.id %>/reject" onsubmit="return confirm('Remover esta imagem do catálogo aprovado?');">
+                  <input type="hidden" name="redirectStatus" value="aprovada">
+                  <button type="submit" class="btn danger">Remover</button>
+                </form>
+                <% } %>
+              </div>
+            </div>
+            <% }) %>
+          </div>
+
+          <div style="display:flex; justify-content:center; margin-top:16px;">
+            <% renderPager(page, totalPages, pageWindow); %>
+          </div>
+          <% } else { %>
+          <div class="card">
+            <%- include('partials/empty-state', { message: q || source || format ? 'Nenhuma imagem encontrada com esses filtros.' : (activeStatus === 'aprovada' ? 'Nenhuma imagem aprovada ainda.' : 'Nenhuma imagem pendente de curadoria.') }) %>
+          </div>
+          <% } %>
         </div>
         <% } %>
       </div>
@@ -252,52 +338,42 @@
     </div>
   </dialog>
 
-  <script src="/js/table-toolkit.js"></script>
   <script>
-    function catalogTable() {
+    function catalogSelection() {
       return {
-        ...tableToolkit(),
         selectedIds: [],
-        activeStatus: <%- JSON.stringify(activeStatus) %>,
-        rows: <%- JSON.stringify(images.map(function (img) {
-          return {
-            id: img.id, product_name: img.product_name, format: img.format,
-            width: img.width, height: img.height, created_at: img.created_at,
-            sizeLabel: formatBytes(img.size_bytes),
-            origin: img.source === 'manual' ? 'Manual' : (img.company_uuid ? img.company_uuid.slice(0, 8) + '…' : '—'),
-          };
-        })) %>,
-        q: '',
-        sortGetters: {
-          product_name: (i) => i.product_name, origin: (i) => i.origin,
-          size_bytes: (i) => i.width * i.height, created_at: (i) => i.created_at ?? '',
-        },
-        get displayRows() {
-          const q = this.q.trim().toLowerCase();
-          const filtered = q ? this.rows.filter((i) => i.product_name.toLowerCase().includes(q)) : this.rows;
-          return this.sortedRows(filtered, this.sortGetters);
-        },
-        toggleAll(checked) {
-          this.selectedIds = checked ? this.displayRows.map((i) => i.id) : [];
-        },
-        toggleOne(id, checked) {
+        toggle(id, checked) {
           if (checked) {
             if (!this.selectedIds.includes(id)) this.selectedIds.push(id);
           } else {
-            this.selectedIds = this.selectedIds.filter((sid) => sid !== id);
+            this.selectedIds = this.selectedIds.filter((x) => x !== id);
           }
+        },
+        toggleAllPage(checked, ids) {
+          if (checked) {
+            this.selectedIds = [...new Set(this.selectedIds.concat(ids))];
+          } else {
+            const rm = new Set(ids);
+            this.selectedIds = this.selectedIds.filter((x) => !rm.has(x));
+          }
+        },
+        submitBatch(ev) {
+          if (this.selectedIds.length) ev.target.submit();
         },
       };
     }
 
-    function submitBatch(form, action) {
-      var ids = JSON.parse(form.querySelector('[name="ids"]').value);
-      if (!ids.length) return;
-      form.querySelector('[name="ids"]').value = ids.join(',');
-      form.submit();
-    }
-
     var pendingFiles = [];
+
+    async function setBarcode(id, current) {
+      var val = prompt('Código de barras (EAN/UPC). Deixe vazio para limpar:', current || '');
+      if (val === null) return;
+      var r = await fetch('/admin/catalog/' + id + '/barcode', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode: val.trim() }),
+      });
+      if (r.ok) location.reload();
+      else alert('Não foi possível salvar o código.');
+    }
 
     function nameFromFilename(filename) {
       return filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
@@ -451,14 +527,10 @@
         return;
       }
 
-      if (fail > 0) {
-        window.location.href = '/admin/catalog?upload_ok=' + ok + '&upload_fail=' + fail;
-      } else {
-        window.location.href = '/admin/catalog';
-      }
+      window.location.href = '/admin/catalog?tab=imagens&status=aprovada';
     }
 
-    var deleteAllCount = <%= images.length %>;
+    var deleteAllCount = <%= activeStatus === 'aprovada' ? stats.approved : stats.pending %>;
     var deleteAllStatus = '<%= activeStatus %>';
 
     function openDeleteAllModal() {

@@ -22,6 +22,9 @@ export interface CatalogProduct {
   unit: string | null;
   ncm: string | null;
   costCents: number;
+  priceCents: number;
+  purchaseUnit: string | null;
+  purchaseUnitQty: number | null;
 }
 
 export interface SupplierCodeMapping {

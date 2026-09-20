@@ -47,11 +47,13 @@ function onboardingWizard() {
       petshop: { theme: 'custom', hex: '#0ea5e9' },
       servicos: { theme: 'blue', hex: '#2563eb' },
     },
-    // Preferências de interface/cor (localStorage, per-máquina) — nunca vão em `answers`
-    // nem no POST de /api/onboarding/provision, que é só pra dados de negócio.
+    // Layout (cartões/menu lateral) é preferência deste computador (localStorage) e nunca
+    // vai em `answers` nem no POST de /api/onboarding/provision. Já a COR de destaque é
+    // configuração da empresa (tabela `settings`) e é aplicada no servidor — ver
+    // partials/theme-init.ejs — para valer em todos os aparelhos que abrem este Kivo.
     uiInterface: (function(){ try { return localStorage.getItem('kivo-interface') || 'cards'; } catch { return 'cards'; } })(),
-    uiColorTheme: (function(){ try { return localStorage.getItem('kivo-color-theme') || 'orange'; } catch { return 'orange'; } })(),
-    uiCustomColor: (function(){ try { return localStorage.getItem('kivo-color-custom') || '#ff8000'; } catch { return '#ff8000'; } })(),
+    uiColorTheme: (window.__kivoColor && window.__kivoColor.theme) || 'orange',
+    uiCustomColor: (window.__kivoColor && window.__kivoColor.custom) || '#ff8000',
     // Tema dos ícones (pacote). Único ajuste deste passo que vai para `settings` (vale para
     // a empresa) em vez do localStorage; os cards são os mesmos de Configurações › Interface.
     iconPacks: [],
@@ -66,6 +68,22 @@ function onboardingWizard() {
       this.uiInterface = v;
       try { localStorage.setItem('kivo-interface', v); } catch {}
     },
+    // Grava a cor no servidor (settings). Fire-and-forget: o assistente não pode travar
+    // por causa disso e a cor já foi aplicada na tela.
+    persistColor(theme, hex) {
+      try {
+        fetch('/api/settings/interface.cor_destaque', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: theme }),
+        });
+        if (theme === 'custom' && hex) {
+          fetch('/api/settings/interface.cor_custom', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: hex }),
+          });
+        }
+      } catch {}
+    },
     chooseColorPreset(id) {
       this.colorTouched = true;
       this.uiColorTheme = id;
@@ -73,14 +91,16 @@ function onboardingWizard() {
       s.removeProperty('--primary'); s.removeProperty('--icon-color');
       s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
       document.documentElement.setAttribute('data-color-theme', id);
-      try { localStorage.setItem('kivo-color-theme', id); } catch {}
+      window.__kivoColor = { theme: id, custom: this.uiCustomColor };
+      this.persistColor(id);
     },
     chooseCustomColor(hex) {
       this.colorTouched = true;
       this.uiCustomColor = hex; this.uiColorTheme = 'custom';
       document.documentElement.setAttribute('data-color-theme', 'custom');
       window.__kivoApplyCustomColor(hex);
-      try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', hex); } catch {}
+      window.__kivoColor = { theme: 'custom', custom: hex };
+      this.persistColor('custom', hex);
     },
     /**
      * Escolhe o tema dos ícones. Não recarrega a página — recarregar fecharia o assistente;
@@ -116,11 +136,13 @@ function onboardingWizard() {
         this.uiColorTheme = 'custom'; this.uiCustomColor = m.hex;
         document.documentElement.setAttribute('data-color-theme', 'custom');
         window.__kivoApplyCustomColor(m.hex);
-        try { localStorage.setItem('kivo-color-theme', 'custom'); localStorage.setItem('kivo-color-custom', m.hex); } catch {}
+        window.__kivoColor = { theme: 'custom', custom: m.hex };
+        this.persistColor('custom', m.hex);
       } else {
         this.uiColorTheme = m.theme;
         document.documentElement.setAttribute('data-color-theme', m.theme);
-        try { localStorage.setItem('kivo-color-theme', m.theme); } catch {}
+        window.__kivoColor = { theme: m.theme, custom: this.uiCustomColor };
+        this.persistColor(m.theme);
       }
     },
     branchLabel() {

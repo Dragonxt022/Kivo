@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, Menu, nativeTheme, screen } from 'electron'
 import { autoUpdater } from 'electron-updater';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Server } from 'node:http';
 import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
@@ -394,29 +395,76 @@ async function boot() {
   const { app: api } = await createServer();
   // Desligado por padrão: só passa a escutar em todas as interfaces (alcançável pelo
   // celular do garçom / tablet da cozinha na mesma rede Wi-Fi/cabo) se o admin ligar
-  // "Acesso pela rede local" em Configurações — mudança de porta/host exige reiniciar.
+  // "Acesso pela rede local" em Configurações. A troca vale na hora, sem reiniciar —
+  // ver `rebindLan` abaixo.
   const lanRow = getSqlite()
     .prepare("SELECT value FROM settings WHERE key = 'rede.acesso_local' AND deleted_at IS NULL")
     .get() as { value: string } | undefined;
-  const lanLigado = lanRow?.value === '1';
-  const host = lanLigado ? '0.0.0.0' : '127.0.0.1';
+  let lanAtivo = lanRow?.value === '1';
   // A tela de Configurações compara isto com a chave salva para dizer se o acesso pela
-  // rede JÁ está valendo ou se ainda falta reiniciar. Sem esse retorno, quem ligava a
-  // chave não tinha como saber por que o celular continuava sem abrir.
-  api.locals.lanAtivo = lanLigado;
-  const server = api.listen(PORT, host);
-  server.once('error', (err: NodeJS.ErrnoException) => {
-    appendErrorLog(`[rede] falha ao escutar em ${host}:${PORT} — ${err.message}`);
-    if (!lanLigado) {
-      reportFatalBootError(err);
-      return;
-    }
-    // Firewall/política de rede recusando o 0.0.0.0 não pode derrubar o PDV desta
-    // máquina: volta para o loopback (o modo padrão) e a tela passa a mostrar que o
-    // acesso pela rede não está ativo, em vez de o app simplesmente não abrir.
-    api.locals.lanAtivo = false;
-    api.listen(PORT, '127.0.0.1');
-  });
+  // rede JÁ está valendo. Sem esse retorno, quem ligava a chave não tinha como saber por
+  // que o celular continuava sem abrir.
+  api.locals.lanAtivo = lanAtivo;
+
+  let servidor: Server;
+
+  /**
+   * Sobe o servidor no host correspondente ao estado do "Acesso pela rede local".
+   * `ligado` escolhe entre todas as interfaces (0.0.0.0 — alcançável pelo celular do
+   * garçom/tablet da cozinha) e só o loopback desta máquina.
+   *
+   * `bootInicial` separa a subida do boot da troca a quente (`rebindLan`): só no boot uma
+   * falha em abrir o loopback é fatal; durante a troca, o app segue rodando e a tela
+   * mostra o estado real.
+   */
+  function escutar(ligado: boolean, bootInicial = false): Server {
+    const host = ligado ? '0.0.0.0' : '127.0.0.1';
+    const s = api.listen(PORT, host);
+    s.once('error', (err: NodeJS.ErrnoException) => {
+      appendErrorLog(`[rede] falha ao escutar em ${host}:${PORT} — ${err.message}`);
+      if (!ligado) {
+        if (bootInicial) reportFatalBootError(err);
+        return;
+      }
+      // Firewall/política de rede recusando o 0.0.0.0 não pode derrubar o PDV desta
+      // máquina: volta para o loopback (o modo padrão) e a tela passa a mostrar que o
+      // acesso pela rede não está ativo, em vez de o app simplesmente não abrir.
+      lanAtivo = false;
+      api.locals.lanAtivo = false;
+      servidor = escutar(false);
+    });
+    return s;
+  }
+
+  servidor = escutar(lanAtivo, true);
+
+  /**
+   * Troca o host do servidor em execução, sem reiniciar o Kivo. Chamado pela rota
+   * `PUT /api/settings/rede.acesso_local` depois de responder ao cliente: fecha o
+   * servidor atual (e as conexões keep-alive pendentes) e reabre no host novo.
+   * Devolve `true` quando o novo host entrou no ar.
+   */
+  api.locals.rebindLan = (ligado: boolean): Promise<boolean> => {
+    if (ligado === lanAtivo) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const antigo = servidor;
+      const subir = () => {
+        const novo = escutar(ligado);
+        novo.once('listening', () => {
+          servidor = novo;
+          lanAtivo = ligado;
+          api.locals.lanAtivo = ligado;
+          resolve(true);
+        });
+        // Em erro, o próprio `escutar` já caiu para o loopback; aqui só libera quem chamou
+        // (a tela relê o estado real logo depois).
+        novo.once('error', () => resolve(false));
+      };
+      antigo.close(() => subir());
+      // Sem isto, um keep-alive do navegador segura o `close` por segundos.
+      (antigo as Server & { closeAllConnections?: () => void }).closeAllConnections?.();
+    });
+  };
 
   const win = new BrowserWindow({
     width: 1280,
