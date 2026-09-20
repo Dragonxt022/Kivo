@@ -25,6 +25,13 @@ const LEVEL_ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, e
 /** Quantos dias de log ficam em disco. Além disso é peso morto no computador do cliente. */
 const RETENTION_DAYS = 14;
 
+/**
+ * Teto por arquivo do dia. A retenção por idade não impede um único dia patológico (um erro
+ * em laço) de encher o disco; ao passar do teto, o arquivo vira `...1.log` e começa outro.
+ * Configurável por `KIVO_LOG_MAX_MB` (padrão 50 MB).
+ */
+const MAX_FILE_BYTES = Math.max(1, Number(process.env.KIVO_LOG_MAX_MB ?? 50)) * 1024 * 1024;
+
 function nivelConfigurado(): LogLevel {
   const bruto = String(process.env.KIVO_LOG_LEVEL ?? '').toLowerCase();
   return bruto in LEVEL_ORDER ? (bruto as LogLevel) : 'info';
@@ -62,6 +69,22 @@ function logsDir(): string {
 
 function arquivoDoDia(agora: Date): string {
   return path.join(logsDir(), `kivo-${agora.toISOString().slice(0, 10)}.log`);
+}
+
+/** Se o arquivo do dia passou do teto, guarda uma geração (`.1.log`) e recomeça do zero. */
+function rotacionarSeGrande(arquivo: string): void {
+  try {
+    if (fs.statSync(arquivo).size < MAX_FILE_BYTES) return;
+    const anterior = arquivo.replace(/\.log$/, '.1.log');
+    try {
+      fs.unlinkSync(anterior);
+    } catch {
+      // sem geração anterior — segue
+    }
+    fs.renameSync(arquivo, anterior);
+  } catch {
+    // arquivo ainda não existe: nada a rotacionar
+  }
 }
 
 let ultimaLimpeza = 0;
@@ -116,7 +139,9 @@ function escrever(level: LogLevel, escopo: string, mensagem: string, contexto?: 
 
   try {
     fs.mkdirSync(logsDir(), { recursive: true });
-    fs.appendFileSync(arquivoDoDia(agora), linha + '\n');
+    const arquivo = arquivoDoDia(agora);
+    rotacionarSeGrande(arquivo);
+    fs.appendFileSync(arquivo, linha + '\n');
     limparAntigos();
   } catch {
     // Disco cheio, pasta somente-leitura, antivírus segurando o arquivo: o app não pode

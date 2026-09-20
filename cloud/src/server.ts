@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import path from 'node:path';
 import express from 'express';
+import { getPool } from './db';
 import syncRoutes from './routes/sync';
 import licenseRoutes from './routes/license';
 import backupRoutes from './routes/backup';
@@ -25,6 +26,29 @@ import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
+
+/**
+ * Retenção de dados operacionais que crescem para sempre. Os comandos do Kivo Web ficam só
+ * como histórico do que já foi aplicado; sem limpeza a tabela vira lixo de anos. Roda no
+ * boot e a cada 24h. (Os relatórios de erro têm retenção própria em routes/telemetry.ts.)
+ */
+function startDataRetention(): NodeJS.Timeout {
+  const run = async () => {
+    try {
+      const [res] = await getPool().query(
+        "DELETE FROM company_commands WHERE status <> 'pendente' AND applied_at < (NOW() - INTERVAL 30 DAY)",
+      );
+      const removidos = (res as { affectedRows?: number }).affectedRows ?? 0;
+      if (removidos > 0) console.log(`[retention] ${removidos} comando(s) antigo(s) removido(s).`);
+    } catch (e) {
+      console.error('[retention] falha ao limpar comandos antigos:', e);
+    }
+  };
+  void run();
+  const timer = setInterval(run, 24 * 3600e3);
+  timer.unref?.();
+  return timer;
+}
 
 export function createCloudServer() {
   const app = express();
@@ -88,6 +112,7 @@ export function createCloudServer() {
 if (require.main === module) {
   const app = createCloudServer();
   startTelemetryRetention();
+  startDataRetention();
   // Sessões do painel e do portal do afiliado vivem no banco — limpa as vencidas no
   // boot e a cada 6h.
   purgeExpiredAdminSessions();

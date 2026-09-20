@@ -45,6 +45,7 @@ import recoveryRoutes from './recovery/routes';
 import { defaultIconHelpers, getIconHelpers } from './icons/service';
 import { purgeOldChallenges } from './recovery/service';
 import { purgeExpiredSessions } from './auth/service';
+import { pruneAuditLogs } from './audit/service';
 import { createLogger } from './logger';
 import { recordError } from './telemetry/service';
 
@@ -54,6 +55,7 @@ const logLicenca = createLogger('license');
 const logCatalogo = createLogger('submit');
 const logRecuperacao = createLogger('recovery');
 const logSessoes = createLogger('sessions');
+const logAuditoria = createLogger('auditoria');
 const logHttp = createLogger('http');
 
 /** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina/relógio
@@ -94,6 +96,26 @@ function startSessionPurgeScheduler(): NodeJS.Timeout {
   };
   limpar();
   const timer = setInterval(limpar, 12 * 3600e3);
+  timer.unref();
+  return timer;
+}
+
+/**
+ * Retenção da trilha de auditoria: sem isto a tabela `audit_logs` cresce para sempre (com
+ * antes/depois em JSON) e vira dezenas de GB num cliente antigo. Roda no boot e a cada 24h.
+ * `unref` para não segurar o processo no encerramento.
+ */
+function startAuditRetentionScheduler(): NodeJS.Timeout {
+  const limpar = () => {
+    try {
+      const removidos = pruneAuditLogs();
+      if (removidos > 0) logAuditoria.info(`${removidos} registro(s) de auditoria antigo(s) removido(s).`);
+    } catch (e) {
+      logAuditoria.error('falha ao aplicar a retenção da auditoria', e);
+    }
+  };
+  limpar();
+  const timer = setInterval(limpar, 24 * 3600e3);
   timer.unref();
   return timer;
 }
@@ -410,6 +432,7 @@ export async function createServer(): Promise<KivoServer> {
     logRecuperacao.error('falha ao limpar desafios antigos', e);
   }
   startSessionPurgeScheduler();
+  startAuditRetentionScheduler();
 
   // Error handler global (deve ser o ÚLTIMO middleware)
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

@@ -34,7 +34,7 @@
             <div class="breadcrumb">Geral</div>
             <h1>Afiliados</h1>
           </div>
-          <button class="btn" onclick="document.getElementById('modal-new-affiliate').showModal()">+ Novo afiliado</button>
+          <button class="btn" onclick="window.document.getElementById('modal-new-affiliate').showModal()">+ Novo afiliado</button>
         </div>
 
         <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner">Operação realizada com sucesso.</p><% } %>
@@ -128,7 +128,7 @@
     <form method="post" action="/admin/affiliates">
       <div class="modal-header">
         <h2>Novo afiliado</h2>
-        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-affiliate').close()">&times;</button>
+        <button type="button" class="modal-close" onclick="window.document.getElementById('modal-new-affiliate').close()">&times;</button>
       </div>
       <div class="modal-body">
         <label>Nome</label>
@@ -167,8 +167,8 @@
         <input type="text" name="notes" maxlength="255" placeholder="Anotações internas">
 
         <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
-        <strong style="font-size:.9rem">Acesso ao portal (opcional)</strong>
-        <p class="field-hint">Se preencher usuário e senha, o afiliado entra em <code>/afiliado</code> e acompanha as indicações e comissões dele.</p>
+        <label style="margin-bottom:6px">Acesso ao portal (opcional)</label>
+        <p class="field-hint" style="margin-top:0">Se preencher usuário e senha, o afiliado entra em <code>/afiliado</code> e acompanha as indicações e comissões dele.</p>
         <div class="form-grid">
           <div class="field col-6">
             <label>Usuário</label>
@@ -181,7 +181,7 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-affiliate').close()">Cancelar</button>
+        <button type="button" class="btn secondary" onclick="window.document.getElementById('modal-new-affiliate').close()">Cancelar</button>
         <button type="submit" class="btn">Cadastrar afiliado</button>
       </div>
     </form>
