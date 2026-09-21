@@ -40,6 +40,8 @@ function startDataRetention(): NodeJS.Timeout {
       );
       const removidos = (res as { affectedRows?: number }).affectedRows ?? 0;
       if (removidos > 0) console.log(`[retention] ${removidos} comando(s) antigo(s) removido(s).`);
+      // Cache da busca de imagens vencido: não precisa ficar ocupando espaço.
+      await getPool().query('DELETE FROM catalog_search_cache WHERE expires_at < NOW()');
     } catch (e) {
       console.error('[retention] falha ao limpar comandos antigos:', e);
     }

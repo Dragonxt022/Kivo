@@ -171,6 +171,7 @@
             <option value="">Toda origem</option>
             <option value="manual" <%= source === 'manual' ? 'selected' : '' %>>Manual</option>
             <option value="empresa" <%= source === 'empresa' ? 'selected' : '' %>>Enviadas por empresas</option>
+            <option value="api" <%= source === 'api' ? 'selected' : '' %>>Busca externa (API)</option>
           </select>
           <select name="format" onchange="this.form.submit()">
             <option value="">Todo formato</option>
@@ -228,7 +229,7 @@
               <div class="cat-body">
                 <div class="cat-name" title="<%= img.product_name %>"><%= img.product_name %></div>
                 <div class="cat-meta"><%= img.width %>×<%= img.height %> · <%= formatBytes(img.size_bytes) %> · <%= img.format %></div>
-                <div class="cat-meta"><%= img.source === 'manual' ? 'Manual' : (img.company_uuid ? 'Empresa ' + img.company_uuid.slice(0, 8) + '…' : 'Enviada') %> · <%= fmtDateTimeBr(img.created_at) %></div>
+                <div class="cat-meta"><%= img.source === 'manual' ? 'Manual' : (img.source === 'api' ? 'Busca externa' : (img.company_uuid ? 'Empresa ' + img.company_uuid.slice(0, 8) + '…' : 'Enviada')) %> · <%= fmtDateTimeBr(img.created_at) %></div>
                 <div class="cat-meta" style="display:flex;align-items:center;gap:6px;">
                   <span>EAN: <strong><%= img.barcode || '—' %></strong></span>
                   <button type="button" class="btn secondary" style="padding:1px 6px;font-size:0.72rem" onclick="setBarcode(<%= img.id %>, '<%= img.barcode || '' %>')">editar</button>

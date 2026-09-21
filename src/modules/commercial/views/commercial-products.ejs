@@ -2058,7 +2058,10 @@
               if (r.source === 'web') {
                 fetch('/api/commercial/products/image-web-learn', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ term: nome, url: r.srcUrl, thumb: r.srcThumb, title: r.name }),
+                  body: JSON.stringify({
+                    term: nome, url: r.srcUrl, thumb: r.srcThumb, title: r.name,
+                    name: nome, barcode: (this.form.barcode || '').trim(),
+                  }),
                 }).catch(() => {});
               } else {
                 fetch('/api/commercial/products/image-learn', {

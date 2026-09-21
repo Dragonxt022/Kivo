@@ -16,6 +16,7 @@ import {
   reversePayout,
 } from '../affiliates';
 import { sendTestEmail, sendPasswordResetEmail, smtpConfigFromBody } from '../mailer';
+import { searchPexels } from '../imageApi';
 import { createRateLimiter } from '../rateLimit';
 import { hashAffiliatePassword } from '../affiliateAuth';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
@@ -1609,12 +1610,15 @@ router.get('/settings', requireAdminAuth, async (req, res) => {
   const settings = Object.fromEntries(
     (rows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
   );
-  // A senha do SMTP nunca volta para a tela: só sinalizamos que já existe uma salva.
+  // Segredos nunca voltam para a tela: só sinalizamos que já existe um salvo.
   const smtpPasswordSet = Boolean(settings.smtp_password);
   settings.smtp_password = '';
+  const imageApiKeySet = Boolean(settings.image_api_key);
+  settings.image_api_key = '';
   res.render('admin-settings', {
     settings,
     smtpPasswordSet,
+    imageApiKeySet,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
   });
@@ -1636,10 +1640,16 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
     upsert('smtp_user', b.smtpUser),
     upsert('smtp_from_name', b.smtpFromName),
     upsert('smtp_from_email', b.smtpFromEmail),
+    // Checkbox: ausente = desligado. Guardamos '1'/'0' explícito para o load saber diferenciar.
+    upsert('image_api_enabled', b.imageApiEnabled ? '1' : '0'),
+    upsert('image_api_provider', 'pexels'),
   ]);
   // Senha em branco mantém a que já estava salva (não sobrescreve com NULL).
   const password = String(b.smtpPassword ?? '').trim();
   if (password) await upsert('smtp_password', password);
+  // Chave da API de imagens: em branco mantém a salva.
+  const imageApiKey = String(b.imageApiKey ?? '').trim();
+  if (imageApiKey) await upsert('image_api_key', imageApiKey);
   res.redirect('/admin/settings?ok=' + encodeURIComponent('Configurações salvas.'));
 });
 
@@ -1664,6 +1674,29 @@ router.post('/settings/smtp/test', requireAdminAuth, async (req, res) => {
   try {
     await sendTestEmail(to, cfg);
     res.json({ ok: true, message: `E-mail de teste enviado para ${to}. Confira a caixa de entrada (e o spam).` });
+  } catch (err) {
+    res.status(502).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+/** Botão "Testar busca" da API de imagens: usa a chave do formulário (ou a salva) e busca um termo. */
+router.post('/settings/image-api/test', requireAdminAuth, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const query = String(b.imageApiQuery ?? '').trim() || 'produto';
+  const [rows] = await getPool().query("SELECT setting_value FROM app_settings WHERE setting_key = 'image_api_key'");
+  const storedKey = (rows as { setting_value: string | null }[])[0]?.setting_value ?? '';
+  const apiKey = String(b.imageApiKey ?? '').trim() || storedKey;
+  if (!apiKey) {
+    res.status(400).json({ ok: false, message: 'Informe a API Key da busca de imagens.' });
+    return;
+  }
+  try {
+    const results = await searchPexels(query, 3, { provider: 'pexels', apiKey });
+    res.json({
+      ok: true,
+      message: `Busca OK: ${results.length} resultado(s) para "${query}".`,
+      count: results.length,
+    });
   } catch (err) {
     res.status(502).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
   }
@@ -1831,7 +1864,10 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
   const activeStatus = req.query.status === 'aprovada' ? 'aprovada' : 'pendente';
   const q = String(req.query.q ?? '').trim().slice(0, 80);
   const source =
-    req.query.source === 'manual' ? 'manual' : req.query.source === 'empresa' ? 'empresa' : '';
+    req.query.source === 'manual' ? 'manual'
+      : req.query.source === 'empresa' ? 'empresa'
+        : req.query.source === 'api' ? 'api'
+          : '';
   const format = ['jpeg', 'png', 'webp', 'avif'].includes(String(req.query.format))
     ? String(req.query.format)
     : '';
@@ -1863,7 +1899,8 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
     params.push(`%${q}%`, `%${q}%`, `%${q}%`);
   }
   if (source === 'manual') where.push("source = 'manual'");
-  else if (source === 'empresa') where.push("source <> 'manual'");
+  else if (source === 'empresa') where.push("source = 'submissao'");
+  else if (source === 'api') where.push("source = 'api'");
   if (format) {
     where.push('format = ?');
     params.push(format);

@@ -4,6 +4,8 @@ import express, { Router } from 'express';
 import { getPool } from '../db';
 import { requireCompanyAuth, type AuthedRequest } from '../auth';
 import { validateCatalogImage, normalizeKeywords, sha256, type ImageFormat } from '../catalogValidation';
+import { downloadExternalImage, loadImageApiConfig, searchExternalCached, contentHash } from '../imageApi';
+import { createRateLimiter } from '../rateLimit';
 
 /**
  * Banco de imagens do Kivo Cloud: qualquer empresa pode contribuir uma foto de produto
@@ -31,6 +33,13 @@ export const CATALOG_SEARCH_LIMIT = 6;
 
 /** Um termo com menos que isso não descreve produto nenhum. */
 const MIN_TERM_LEN = 3;
+
+/**
+ * A busca EXTERNA gasta cota gratuita e o campo de nome dispara enquanto se digita. Por isso
+ * exige mais letras e um teto por empresa — a API só é tocada quando vale a pena.
+ */
+const MIN_EXTERNAL_TERM_LEN = 4;
+const externalLimiter = createRateLimiter({ windowMs: 60e3, max: 30, keyPrefix: 'imgsearch:' });
 
 /**
  * Código de barras (EAN/UPC ou código interno) — só dígitos e letras, no máximo 64. É o
@@ -235,11 +244,38 @@ router.get('/web-search', requireCompanyAuth, async (req: AuthedRequest, res) =>
 });
 
 /**
+ * Baixa a imagem externa escolhida e a enfileira para curadoria como `source='api'`.
+ * Best-effort: a escolha (ranking) não pode depender do download. Deduplica pelo hash do
+ * conteúdo, então a mesma imagem nunca entra duas vezes — e o que a curadoria aprovar passa
+ * a sair do nosso banco, reduzindo a dependência da API externa.
+ */
+async function queueExternalImageForCuration(url: string, productName: string, barcode: string | null): Promise<void> {
+  const img = await downloadExternalImage(url);
+  if (!img) return;
+  const pool = getPool();
+  const hash = contentHash(img.buf);
+  const [existing] = await pool.query('SELECT id FROM catalog_images WHERE sha256 = ?', [hash]);
+  if ((existing as unknown[]).length) return;
+  fs.mkdirSync(STORAGE_DIR, { recursive: true });
+  const filename = `${hash}.${EXT_BY_FORMAT[img.format]}`;
+  fs.writeFileSync(path.join(STORAGE_DIR, filename), img.buf);
+  await pool.query(
+    `INSERT INTO catalog_images
+       (company_uuid, product_name, keywords, barcode, image_path, sha256, width, height, format, size_bytes, status, source)
+     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente', 'api')`,
+    [productName, normalizeKeywords(productName), barcode, filename, hash, img.width, img.height, img.format, img.buf.length],
+  );
+}
+
+/**
  * Registra a escolha de uma imagem da web para um termo. Idempotente por (termo, url):
  * a mesma escolha só incrementa o contador. Anônimo (não guarda quem escolheu).
+ *
+ * Quando a escolha vem da busca externa (tem `url` http), também baixamos a imagem e a
+ * colocamos na fila de curadoria — ver queueExternalImageForCuration.
  */
 router.post('/web-pick', requireCompanyAuth, async (req: AuthedRequest, res) => {
-  const body = (req.body ?? {}) as { term?: unknown; url?: unknown; thumb?: unknown; title?: unknown };
+  const body = (req.body ?? {}) as { term?: unknown; url?: unknown; thumb?: unknown; title?: unknown; name?: unknown; barcode?: unknown };
   const term = normalizeKeywords(String(body.term ?? '')).slice(0, 191);
   const url = String(body.url ?? '').trim().slice(0, MAX_URL_LEN);
   const thumb = body.thumb != null ? String(body.thumb).trim().slice(0, MAX_URL_LEN) : null;
@@ -255,7 +291,51 @@ router.post('/web-pick', requireCompanyAuth, async (req: AuthedRequest, res) => 
        thumb = VALUES(thumb), title = VALUES(title), updated_at = CURRENT_TIMESTAMP(3)`,
     [term, sha256(Buffer.from(url)), url, thumb, title],
   );
+
+  // Curadoria: nome real do produto (o cliente manda) ou o próprio termo como fallback.
+  const productName = (String(body.name ?? '').trim() || term).slice(0, 255);
+  const barcode = sanitizeBarcode(body.barcode) || null;
+  void queueExternalImageForCuration(url, productName, barcode).catch((err) => {
+    console.error('[catalog] falha ao enfileirar imagem externa para curadoria:', err);
+  });
+
   res.json({ ok: true });
+});
+
+/**
+ * Busca externa (Pexels) centralizada: o cliente NÃO precisa de chave. Usa cache por termo e
+ * teto diário próprio para não abusar da API gratuita. `configured: false` = admin não ligou
+ * a busca em Configurações; o cliente então segue só com o banco local.
+ */
+router.get('/external-search', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const q = String(req.query.q ?? '').trim();
+  // Menos letras que isso não vale gastar cota: o cliente segue só com o banco local.
+  if (q.length < MIN_EXTERNAL_TERM_LEN) {
+    res.json({ results: [], configured: true, skipped: 'short_query' });
+    return;
+  }
+  // Teto por empresa: mesmo com o campo disparando ao digitar, não estoura a cota.
+  if (externalLimiter(req.companyUuid ?? 'unknown')) {
+    res.status(429).json({ error: 'Muitas buscas de imagem em pouco tempo. Aguarde alguns instantes.' });
+    return;
+  }
+  const cfg = await loadImageApiConfig();
+  if (!cfg) {
+    res.json({ results: [], configured: false });
+    return;
+  }
+  try {
+    const { results, cached } = await searchExternalCached(q);
+    res.json({
+      results,
+      configured: true,
+      cached,
+      attribution: 'Fotos fornecidas por Pexels',
+      attributionUrl: 'https://www.pexels.com',
+    });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : 'Falha na busca externa.' });
+  }
 });
 
 router.get('/image/:id', requireCompanyAuth, async (req: AuthedRequest, res) => {
