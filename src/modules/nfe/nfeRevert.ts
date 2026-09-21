@@ -56,22 +56,39 @@ interface ItemRow {
   ean_box: string | null;
 }
 
+/** Referências da própria operação que NÃO contam como "uso" ao apagar um produto. */
+export interface ProductUseExclusions {
+  /** Compras geradas pela importação (entrada e respectiva reversão). */
+  purchaseIds?: number[];
+  /** NF-e da operação: movimentos 'nfe_revert'/'nfe_edit' apontam para ela. */
+  invoiceIds?: number[];
+}
+
+function inList(values: number[], fallback: string): string {
+  return values.length ? values.map(() => '?').join(',') : fallback;
+}
+
 /**
- * O produto tem alguma referência FORA da importação que está sendo revertida? Se tiver,
- * ele não pode ser apagado — pode estar em outra compra, numa venda, num kit, etc.
- * As referências da própria importação (compra revertida e movimentos da reversão) são
+ * O produto tem alguma referência FORA da importação que está sendo revertida/editada?
+ * Se tiver, ele não pode ser apagado — pode estar em outra compra, numa venda, num kit,
+ * etc. As referências da própria operação (compras e movimentos de reversão/edição) são
  * desconsideradas de propósito.
  */
-function productHasOtherUse(productId: number, purchaseId: number, invoiceId: number): boolean {
+export function productHasOtherUse(productId: number, exclude: ProductUseExclusions = {}): boolean {
+  const purchaseIds = exclude.purchaseIds ?? [];
+  const invoiceIds = exclude.invoiceIds ?? [];
+  const purchasePh = inList(purchaseIds, '-1');
+  const purchaseRefPh = inList(purchaseIds, "''");
+  const invoiceRefPh = inList(invoiceIds, "''");
   const checks: [string, unknown[]][] = [
-    ['SELECT 1 FROM purchase_items WHERE product_id = ? AND purchase_id <> ?', [productId, purchaseId]],
+    [`SELECT 1 FROM purchase_items WHERE product_id = ? AND purchase_id NOT IN (${purchasePh})`, [productId, ...purchaseIds]],
     ['SELECT 1 FROM sale_items WHERE product_id = ?', [productId]],
     [
       `SELECT 1 FROM stock_movements
         WHERE product_id = ?
-          AND NOT (ref_entity = 'purchase' AND ref_id = ?)
-          AND NOT (ref_entity = 'nfe_revert' AND ref_id = ?)`,
-      [productId, String(purchaseId), String(invoiceId)],
+          AND NOT (ref_entity = 'purchase' AND ref_id IN (${purchaseRefPh}))
+          AND NOT (ref_entity IN ('nfe_revert', 'nfe_edit') AND ref_id IN (${invoiceRefPh}))`,
+      [productId, ...purchaseIds.map(String), ...invoiceIds.map(String)],
     ],
     ['SELECT 1 FROM kit_items WHERE deleted_at IS NULL AND (kit_product_id = ? OR component_product_id = ?)', [productId, productId]],
     ['SELECT 1 FROM product_recipe_items WHERE deleted_at IS NULL AND (produced_product_id = ? OR input_product_id = ?)', [productId, productId]],
@@ -172,7 +189,7 @@ export function revertImport(req: Request, invoiceId: number): NfeRevertResult {
     // 3. Apaga os produtos criados pela importação que não têm uso fora dela.
     for (const it of items) {
       if (it.status !== 'criado' || it.product_id == null) continue;
-      if (productHasOtherUse(it.product_id, purchaseId, invoiceId)) continue;
+      if (productHasOtherUse(it.product_id, { purchaseIds: purchaseId ? [purchaseId] : [], invoiceIds: [invoiceId] })) continue;
       productRepository.softDelete(it.product_id);
       productsDeleted++;
     }

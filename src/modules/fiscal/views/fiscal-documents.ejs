@@ -40,7 +40,29 @@
         Configuração
       </a>
       <a class="btn secondary" href="/app/fiscal/produtos">Dados fiscais dos produtos</a>
+      <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
+        Período
+        <input type="date" x-model="from" @change="load()" class="input-search" />
+        até <input type="date" x-model="to" @change="load()" class="input-search" />
+      </label>
+      <select x-model="status" @change="load()" class="input-search">
+        <option value="">Todas as situações</option>
+        <option value="autorizada">Autorizadas</option>
+        <option value="cancelada">Canceladas</option>
+        <option value="rejeitada">Rejeitadas</option>
+        <option value="pendente">Pendentes</option>
+        <option value="contingencia">Em contingência</option>
+        <option value="inutilizada">Inutilizadas</option>
+      </select>
+      <a class="btn secondary" :href="exportUrl()">Exportar CSV</a>
       <button class="btn secondary" @click="load()">Atualizar</button>
+    </div>
+
+    <div class="toolbar" x-show="summary && summary.totals.count" x-cloak style="gap:1rem">
+      <span class="muted text-sm">No período:</span>
+      <template x-for="s in (summary?.byStatus ?? [])" :key="s.status">
+        <span class="muted text-sm"><strong x-text="s.count"></strong> <span x-text="rotuloStatus(s.status)"></span> · <span x-text="brl(s.total_cents)"></span></span>
+      </template>
     </div>
 
     <p class="hint" x-show="loading">Carregando…</p>
@@ -63,6 +85,7 @@
             <th>Venda</th>
             <th class="text-right">Total</th>
             <th>Situação</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -84,6 +107,10 @@
                 <span class="doc-status" :class="d.status" x-text="rotulo(d)"></span>
                 <div class="doc-motive" x-show="d.motive" x-text="d.motive"></div>
               </td>
+              <td class="text-right">
+                <a class="btn secondary small" x-show="d.key" :href="'/api/fiscal/documentos/' + d.id + '/xml'"
+                   title="Baixar o XML autorizado desta nota">XML</a>
+              </td>
             </tr>
           </template>
         </tbody>
@@ -97,12 +124,29 @@
         loading: true,
         docs: [],
         ambiente: 2,
+        from: '', to: '', status: '',
+        summary: null,
+
+        queryParams() {
+          const p = new URLSearchParams();
+          if (this.from) p.set('from', this.from);
+          if (this.to) p.set('to', this.to);
+          if (this.status) p.set('status', this.status);
+          return p.toString();
+        },
+        exportUrl() {
+          const qs = this.queryParams();
+          return '/api/fiscal/documentos/export.csv' + (qs ? '?' + qs : '');
+        },
 
         async load() {
           this.loading = true;
-          const [docsRes, cfgRes] = await Promise.all([
-            fetch('/api/fiscal/documentos'),
+          const qs = this.queryParams();
+          const suffix = qs ? '?' + qs : '';
+          const [docsRes, cfgRes, sumRes] = await Promise.all([
+            fetch('/api/fiscal/documentos' + suffix),
             fetch('/api/fiscal/config'),
+            fetch('/api/fiscal/documentos/resumo' + suffix),
           ]);
           if (!docsRes.ok) {
             const body = await docsRes.json().catch(() => ({}));
@@ -111,8 +155,18 @@
             return;
           }
           this.docs = await docsRes.json();
+          this.summary = sumRes.ok ? await sumRes.json() : null;
           if (cfgRes.ok) this.ambiente = (await cfgRes.json()).config?.ambiente ?? 2;
           this.loading = false;
+        },
+
+        rotuloStatus(s) {
+          const mapa = {
+            pendente: 'aguardando', enviando: 'enviando', autorizada: 'autorizada(s)',
+            rejeitada: 'rejeitada(s)', cancelada: 'cancelada(s)', contingencia: 'em contingência',
+            inutilizada: 'inutilizada(s)',
+          };
+          return mapa[s] || s;
         },
 
         rotulo(d) {

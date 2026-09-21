@@ -294,6 +294,29 @@ async function main() {
   db.prepare("UPDATE fiscal_documents SET status = 'cancelada' WHERE sale_id = ?").run(vendaId);
   check('nota cancelada libera a venda', !fiscalSvc.hasLiveDocument(vendaId));
 
+  // ---------- Relatório/exportação de notas por período ----------
+  const docRelId = Number(db.prepare(
+    `INSERT INTO fiscal_documents (model, serie, number, environment, status, total_cents, uuid, emitted_at)
+     VALUES ('65', 9, 50, 2, 'autorizada', 1234, 'uuid-doc-rel', datetime('now'))`,
+  ).run().lastInsertRowid);
+
+  const docsList = await unwrap<{ id: number; status: string; total_cents: number }[]>(
+    await api('/api/fiscal/documentos?status=autorizada', {}, admin!),
+  );
+  check('filtro por status na lista de notas', docsList.some((d) => d.id === docRelId && d.status === 'autorizada'));
+
+  const resumo = await unwrap<{ byStatus: { status: string; count: number }[]; totals: { count: number } }>(
+    await api('/api/fiscal/documentos/resumo', {}, admin!),
+  );
+  check('resumo agrupa por status', Array.isArray(resumo.byStatus) && resumo.totals.count >= 1);
+
+  const exp = await api('/api/fiscal/documentos/export.csv', {}, admin!);
+  const expCsv = await exp.text();
+  check('notas exportam CSV', exp.status === 200 && expCsv.includes('Chave de acesso'), String(exp.status));
+
+  const xmlMissing = await api(`/api/fiscal/documentos/${docRelId}/xml`, {}, admin!);
+  check('XML indisponível retorna 404 claro', xmlMissing.status === 404, String(xmlMissing.status));
+
   server.close();
   closeDb();
   console.log(failures === 0 ? '\nFiscal: TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);

@@ -35,7 +35,8 @@ router.get('/relatorio/imprimir', (req, res) => {
   if (!req.user.permissions.has('dre.view')) return res.redirect('/');
   const from = String(req.query.from || '0000-01-01');
   const to = String(req.query.to || '9999-12-31');
-  const report = demonstrativoResultado(from, to);
+  const basis = req.query.basis === 'caixa' ? 'caixa' : 'competencia';
+  const report = demonstrativoResultado(from, to, basis);
   const generatedAt = new Intl.DateTimeFormat('pt-BR', {
     timeZone: appTimezone(), day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(new Date());

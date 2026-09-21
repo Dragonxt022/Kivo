@@ -15,5 +15,8 @@ router.post('/preview', requirePermission('nfe.import.view'), nfeController.prev
 router.post('/commit', requirePermission('nfe.import.run'), nfeController.commit);
 router.put('/markup', requirePermission('nfe.import.run'), nfeController.setMarkup);
 router.post('/invoices/:id/revert', requirePermission('nfe.import.run'), nfeController.revert);
+router.get('/invoices/:id/edit', requirePermission('nfe.import.view'), nfeController.edit);
+router.post('/invoices/:id/edit', requirePermission('nfe.import.run'), nfeController.commitEdit);
+router.get('/invoices/:id/xml', requirePermission('nfe.import.view'), nfeController.downloadXml);
 
 export default router;

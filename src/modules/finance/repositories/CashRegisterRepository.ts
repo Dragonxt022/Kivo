@@ -90,6 +90,20 @@ export class CashMovementRepository extends BaseRepository {
     ) as { entradas: number; saidas: number };
   }
 
+  /** Livro caixa (movimentos) por período e, opcionalmente, por caixa. Para exportação. */
+  listLedger(from: string, to: string, registerId?: number): Row[] {
+    const conditions = ["date(m.created_at, 'localtime') BETWEEN ? AND ?"];
+    const params: unknown[] = [from, to];
+    if (registerId) { conditions.push('m.register_id = ?'); params.push(registerId); }
+    return this.raw(
+      `SELECT m.id, m.register_id, m.created_at, m.direction, m.type, m.amount_cents, m.description,
+              m.ref_entity, m.ref_id, u.username
+         FROM cash_movements m LEFT JOIN users u ON u.id = m.user_id
+        WHERE ${conditions.join(' AND ')} ORDER BY m.id`,
+      ...params,
+    );
+  }
+
   cashflow(from: string, to: string): Row[] {
     return this.raw(
       `SELECT date(created_at, 'localtime') AS day,

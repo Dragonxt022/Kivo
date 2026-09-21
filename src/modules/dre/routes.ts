@@ -5,7 +5,8 @@ import { requirePermission } from '../../core/permissions/middleware';
 import { audit } from '../../core/audit/service';
 import { validateBody } from '../../shared/validateBody';
 import { createDreCategorySchema, updateDreCategorySchema } from '../../shared/schemas';
-import { demonstrativoResultado } from './report';
+import { toCsv } from '../../shared/csv';
+import { demonstrativoResultado, type DreBasis, type DreReport } from './report';
 
 const router = Router();
 const db = () => getSqlite();
@@ -115,10 +116,59 @@ router.delete('/categories/:id', requirePermission('dre.categories.edit'), (req,
   res.json({ ok: true });
 });
 
+/** Período e base de apuração vindos da query string. */
+function reportParams(req: { query: Record<string, unknown> }): { from: string; to: string; basis: DreBasis } {
+  return {
+    from: String(req.query.from || '0000-01-01'),
+    to: String(req.query.to || '9999-12-31'),
+    basis: req.query.basis === 'caixa' ? 'caixa' : 'competencia',
+  };
+}
+
+const DRE_LINE_LABELS: Record<string, string> = {
+  receita_bruta: 'Receita Bruta', deducoes: 'Deduções da Receita', cmv: 'CMV',
+  despesas_operacionais: 'Despesas Operacionais', despesas_financeiras: 'Despesas Financeiras',
+};
+
+function dreCsvRows(report: DreReport): (string | number)[][] {
+  const reais = (c: number): string => (Math.round(c || 0) / 100).toFixed(2).replace('.', ',');
+  const pct = (bps: number): string => (bps === 0 ? '' : (bps / 100).toFixed(2).replace('.', ',') + '%');
+  const rows: (string | number)[][] = [['Seção', 'Categoria', 'Real (R$)', 'Ajuste', 'Projetado (R$)']];
+  const order = ['receita_bruta', 'deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras'];
+  const afterLine: Record<string, { label: string; real: number; adjusted: number }> = {
+    deducoes: { label: 'Receita Líquida', real: report.totals.receitaLiquidaReal, adjusted: report.totals.receitaLiquidaAjustada },
+    cmv: { label: 'Lucro Bruto', real: report.totals.lucroBrutoReal, adjusted: report.totals.lucroBrutoAjustada },
+    despesas_operacionais: { label: 'Resultado Operacional', real: report.totals.resultadoOperacionalReal, adjusted: report.totals.resultadoOperacionalAjustada },
+    despesas_financeiras: { label: 'Resultado Líquido do Período', real: report.totals.resultadoLiquidoReal, adjusted: report.totals.resultadoLiquidoAjustada },
+  };
+  for (const line of order) {
+    const group = report.lines[line as keyof typeof report.lines];
+    const label = DRE_LINE_LABELS[line];
+    for (const c of group.categories) {
+      rows.push([label, c.label, reais(c.realCents), pct(c.adjustmentBps), reais(c.adjustedCents)]);
+    }
+    rows.push([label, 'Total ' + label, reais(group.realCents), '', reais(group.adjustedCents)]);
+    if (afterLine[line]) {
+      rows.push([label, '= ' + afterLine[line].label, reais(afterLine[line].real), '', reais(afterLine[line].adjusted)]);
+    }
+  }
+  return rows;
+}
+
 router.get('/report', requirePermission('dre.view'), (req, res) => {
-  const from = String(req.query.from || '0000-01-01');
-  const to = String(req.query.to || '9999-12-31');
-  res.json(demonstrativoResultado(from, to));
+  const { from, to, basis } = reportParams(req);
+  res.json(demonstrativoResultado(from, to, basis));
+});
+
+// Exportação em CSV (Excel BR: separador ';' + BOM). Mesma árvore da tela/impressão.
+router.get('/report/export.csv', requirePermission('dre.view'), (req, res) => {
+  const { from, to, basis } = reportParams(req);
+  const report = demonstrativoResultado(from, to, basis);
+  const csv = toCsv(dreCsvRows(report));
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="dre-${from}_a_${to}-${basis}.csv"`);
+  audit(req, 'exportar', 'dre_report', 0, null, { from, to, basis });
+  res.send(csv);
 });
 
 export default router;

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
 import { localIso } from '../../../shared/datetime';
+import { toCsv } from '../../../shared/csv';
 import { openRegister, closeRegister, currentRegister, expectedCents, addMovement, editClosedRegister } from '../cash';
 import { pendingTotal, generateInvoice } from '../agreements';
 import { paymentMethodRepository } from '../repositories/PaymentMethodRepository';
@@ -95,6 +96,28 @@ export const financeController = {
 
   listCashHistory(_req: Request, res: Response) {
     res.json(cashRegisterRepository.listHistory());
+  },
+
+  /** Livro caixa em CSV: todos os movimentos do período (opcionalmente de um caixa). */
+  exportCashLedger(req: Request, res: Response) {
+    const from = String(req.query.from ?? '0000-01-01');
+    const to = String(req.query.to ?? '9999-12-31');
+    const registerId = req.query.registerId ? Number(req.query.registerId) : undefined;
+    const rows = cashMovementRepository.listLedger(from, to, registerId) as Record<string, unknown>[];
+    const reais = (c: unknown): string => (Math.round(Number(c ?? 0)) / 100).toFixed(2).replace('.', ',');
+    const csv = toCsv([
+      ['Data', 'Caixa', 'Direção', 'Tipo', 'Valor (R$)', 'Descrição', 'Referência', 'Usuário'],
+      ...rows.map((m) => [
+        String(m.created_at ?? ''), `#${m.register_id}`, String(m.direction ?? ''), String(m.type ?? ''),
+        reais(m.amount_cents), String(m.description ?? ''),
+        m.ref_entity ? `${m.ref_entity}${m.ref_id ? ' #' + m.ref_id : ''}` : '',
+        String(m.username ?? ''),
+      ]),
+    ]);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="livro-caixa-${from}_a_${to}.csv"`);
+    audit(req, 'exportar', 'cash_movement', 0, null, { from, to, registerId, total: rows.length });
+    res.send(csv);
   },
 
   openCashAction(req: Request, res: Response) {

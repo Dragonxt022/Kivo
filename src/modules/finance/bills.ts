@@ -12,6 +12,58 @@ import { createBillSchema, updateBillSchema, settleBillSchema } from '../../shar
 import { payableRepository, receivableRepository, billSettlementPaymentRepository } from './repositories/BillRepository';
 import { paymentMethodRepository } from './repositories/PaymentMethodRepository';
 import { billAttachmentsDir, saveBillAttachment, deleteBillAttachmentFile, contentDisposition } from './attachments';
+import { toCsv } from '../../shared/csv';
+
+/** Faixas de aging para contas em aberto (vencidas vs a vencer). */
+const AGING_BUCKETS = [
+  { key: 'a_vencer', label: 'A vencer', min: Number.NEGATIVE_INFINITY, max: 0 },
+  { key: 'v1_30', label: 'Vencidas 1 a 30 dias', min: 1, max: 30 },
+  { key: 'v31_60', label: 'Vencidas 31 a 60 dias', min: 31, max: 60 },
+  { key: 'v61_90', label: 'Vencidas 61 a 90 dias', min: 61, max: 90 },
+  { key: 'v90_mais', label: 'Vencidas acima de 90 dias', min: 91, max: Number.POSITIVE_INFINITY },
+] as const;
+
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Dias entre duas datas YYYY-MM-DD (positivo = `to` depois de `from`). */
+function daysBetween(fromIso: string, toIso: string): number {
+  const a = Date.parse(`${String(fromIso).slice(0, 10)}T00:00:00Z`);
+  const b = Date.parse(`${String(toIso).slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.round((b - a) / 86_400_000);
+}
+
+function agingBucketKey(diasAtraso: number): string {
+  return (AGING_BUCKETS.find((b) => diasAtraso >= b.min && diasAtraso <= b.max) ?? AGING_BUCKETS[0]).key;
+}
+
+/** Dias em atraso e faixa de aging de uma conta (só faz sentido para contas em aberto). */
+function agingInfo(status: string, dueDate: string, ref = todayIso()): { diasAtraso: number; faixa: string } {
+  if (status !== 'aberta') return { diasAtraso: 0, faixa: '' };
+  const diasAtraso = Math.max(0, daysBetween(dueDate, ref));
+  const bucket = AGING_BUCKETS.find((b) => agingBucketKey(diasAtraso) === b.key);
+  return { diasAtraso, faixa: bucket?.label ?? '' };
+}
+
+/** Filtros comuns da listagem/exportação de contas (status, parte, convênio e período). */
+function buildBillsWhere(cfg: BillsConfig, req: Request): { whereSql: string; params: unknown[] } {
+  const status = String(req.query.status ?? '');
+  const partyId = req.query.partyId ? Number(req.query.partyId) : undefined;
+  const agreementCompanyId = cfg.table === 'receivables' && req.query.agreementCompanyId ? Number(req.query.agreementCompanyId) : undefined;
+  const from = String(req.query.from ?? '').trim();
+  const to = String(req.query.to ?? '').trim();
+  const conditions = ['b.deleted_at IS NULL'];
+  const params: unknown[] = [];
+  if (status) { conditions.push('b.status = ?'); params.push(status); }
+  if (partyId) { conditions.push(`b.${cfg.partyColumn} = ?`); params.push(partyId); }
+  if (agreementCompanyId) { conditions.push('b.agreement_company_id = ?'); params.push(agreementCompanyId); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(from)) { conditions.push('b.due_date >= ?'); params.push(from); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(to)) { conditions.push('b.due_date <= ?'); params.push(to); }
+  return { whereSql: conditions.join(' AND '), params };
+}
 
 export interface BillsConfig {
   table: 'payables' | 'receivables';
@@ -319,26 +371,74 @@ export function makeBillsRouter(cfg: BillsConfig): Router {
   const categoryJoin = cfg.categoryField ? ' LEFT JOIN dre_categories dc ON dc.id = b.dre_category_id' : '';
   const saleIdCol = cfg.table === 'receivables' ? ', b.sale_id' : '';
 
-  router.get('/', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
-    const status = String(req.query.status ?? '');
-    const partyId = req.query.partyId ? Number(req.query.partyId) : undefined;
-    const agreementCompanyId = cfg.table === 'receivables' && req.query.agreementCompanyId ? Number(req.query.agreementCompanyId) : undefined;
-    const conditions = [
-      status ? 'AND b.status = ?' : '',
-      partyId ? `AND b.${cfg.partyColumn} = ?` : '',
-      agreementCompanyId ? 'AND b.agreement_company_id = ?' : '',
-    ].filter(Boolean).join(' ');
-    const params = [status, partyId, agreementCompanyId].filter((v) => v !== undefined && v !== '');
-    const sql = `SELECT b.id, b.description, p.name AS party, b.amount_cents, b.issue_date, b.due_date, b.status,
+  const billSelect = `SELECT b.id, b.description, p.name AS party, b.amount_cents, b.issue_date, b.due_date, b.status,
                         b.notes, b.${cfg.settleDateCol} AS settled_at, b.${cfg.settleCentsCol} AS settled_cents,
                         spm.name AS settle_method_name,
                         b.installment_group_id, b.installment_no, b.installment_count${saleIdCol}${categoryCols},
                         b.attachment_file, b.attachment_name, b.attachment_mime, b.attachment_size
                  FROM ${cfg.table} b LEFT JOIN ${cfg.partyTable} p ON p.id = b.${cfg.partyColumn}
-                      LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id${categoryJoin}
-                 WHERE b.deleted_at IS NULL ${conditions} ORDER BY b.due_date, b.id`;
-    const rows = repo.raw(sql, ...params) as { status: string; amount_cents: number; due_date: string }[];
+                      LEFT JOIN payment_methods spm ON spm.id = b.settle_payment_method_id${categoryJoin}`;
+
+  router.get('/', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
+    const { whereSql, params } = buildBillsWhere(cfg, req);
+    const rows = repo.raw(`${billSelect} WHERE ${whereSql} ORDER BY b.due_date, b.id`, ...params) as
+      { status: string; amount_cents: number; due_date: string }[];
     res.json(rows.map(withLateInfo));
+  });
+
+  // Exportação para o contador: período por vencimento, com dias em atraso e faixa de aging.
+  router.get('/export.csv', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
+    const { whereSql, params } = buildBillsWhere(cfg, req);
+    const rows = repo.raw(`${billSelect} WHERE ${whereSql} ORDER BY b.due_date, b.id`, ...params) as
+      Record<string, unknown>[];
+    const reais = (c: unknown): string => (Math.round(Number(c ?? 0)) / 100).toFixed(2).replace('.', ',');
+    const partyHeader = cfg.partyColumn === 'supplier_id' ? 'Fornecedor' : 'Cliente';
+    const settledHeader = cfg.table === 'payables' ? 'Valor pago (R$)' : 'Valor recebido (R$)';
+    const settledDateHeader = cfg.table === 'payables' ? 'Pago em' : 'Recebido em';
+    const csv = toCsv([
+      ['Descrição', partyHeader, 'Emissão', 'Vencimento', 'Valor (R$)', 'Situação',
+        settledHeader, settledDateHeader, 'Forma', 'Categoria DRE', 'Parcela', 'Dias em atraso', 'Faixa'],
+      ...rows.map((r) => {
+        const aging = agingInfo(String(r.status), String(r.due_date));
+        const parcela = Number(r.installment_count) > 1 ? `${r.installment_no}/${r.installment_count}` : '';
+        return [
+          String(r.description ?? ''), String(r.party ?? ''), r.issue_date ? String(r.issue_date) : '',
+          String(r.due_date ?? ''), reais(r.amount_cents), String(r.status ?? ''),
+          r.settled_cents != null ? reais(r.settled_cents) : '',
+          r.settled_at ? String(r.settled_at) : '',
+          String(r.settle_method_name ?? ''), String(r.dre_category_label ?? ''), parcela,
+          r.status === 'aberta' ? aging.diasAtraso : '', aging.faixa,
+        ];
+      }),
+    ]);
+    const stamp = todayIso();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${cfg.table}-${stamp}.csv"`);
+    audit(req, 'exportar', cfg.entity, 0, null, { total: rows.length, filtros: req.query });
+    res.send(csv);
+  });
+
+  // Aging das contas em aberto (vencidas vs a vencer), por faixa.
+  router.get('/aging', requirePermission(`${cfg.permPrefix}.view`), (req, res) => {
+    const { whereSql, params } = buildBillsWhere(cfg, req);
+    const rows = repo.raw(
+      `SELECT b.status, b.due_date, b.amount_cents FROM ${cfg.table} b WHERE ${whereSql} AND b.status = 'aberta'`,
+      ...params,
+    ) as { status: string; due_date: string; amount_cents: number }[];
+    const ref = todayIso();
+    const buckets = AGING_BUCKETS.map((b) => ({ key: b.key, label: b.label, count: 0, totalCents: 0 }));
+    const byKey = new Map<string, (typeof buckets)[number]>(buckets.map((b) => [b.key, b]));
+    for (const r of rows) {
+      const { diasAtraso } = agingInfo(r.status, r.due_date, ref);
+      const bucket = byKey.get(agingBucketKey(diasAtraso))!;
+      bucket.count++;
+      bucket.totalCents += Number(r.amount_cents);
+    }
+    res.json({
+      ref,
+      buckets,
+      total: { count: rows.length, totalCents: rows.reduce((s, r) => s + Number(r.amount_cents), 0) },
+    });
   });
 
   router.post('/', requirePermission(`${cfg.permPrefix}.create`), validateBody(createBillSchema), (req, res) => {

@@ -110,6 +110,28 @@ async function main() {
     check('página de impressão do relatório renderiza (200)', printPage.status === 200, String(printPage.status));
     check('relatório impresso menciona o total e o cliente', printHtml.includes('Cliente Caixa') && printHtml.includes('100,00'));
 
+    // ---------- Exportações para o contador ----------
+    const ledger = await api('/api/finance/cash/movements/export.csv', {}, admin!);
+    const ledgerCsv = await ledger.text();
+    check('livro caixa exporta CSV', ledger.status === 200 && ledgerCsv.includes('Direção'), String(ledger.status));
+    check('livro caixa inclui movimento de venda', ledgerCsv.includes('venda'));
+
+    const pay = await api('/api/finance/payables', { method: 'POST', body: JSON.stringify({
+      description: 'Conta do contador', amountCents: 12345, dueDate: '2026-01-10', installments: 1,
+    }) }, admin!);
+    check('conta a pagar criada para export', pay.status === 201, String(pay.status));
+
+    const payExport = await api('/api/finance/payables/export.csv?from=2026-01-01&to=2026-12-31', {}, admin!);
+    const payCsv = await payExport.text();
+    check('contas a pagar exportam CSV', payExport.status === 200 && payCsv.includes('Conta do contador'), String(payExport.status));
+    check('CSV de contas tem colunas de aging', payCsv.includes('Dias em atraso') && payCsv.includes('Faixa'));
+
+    const aging = await unwrap<{ buckets: { key: string; count: number }[]; total: { count: number } }>(
+      await api('/api/finance/payables/aging', {}, admin!),
+    );
+    check('aging retorna 5 faixas', Array.isArray(aging.buckets) && aging.buckets.length === 5);
+    check('aging conta a conta aberta', aging.total.count >= 1, String(aging.total.count));
+
     // auditoria cobre PIN
     const actions = new Set((db.prepare('SELECT DISTINCT action FROM audit_logs').all() as { action: string }[]).map((a) => a.action));
     check('auditoria registra PIN definido/confirmado/inválido', actions.has('pin_definido') && actions.has('pin_confirmado') && actions.has('pin_invalido'));

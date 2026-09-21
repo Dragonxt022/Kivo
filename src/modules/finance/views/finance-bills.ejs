@@ -30,6 +30,11 @@
         </button>
       <% } %>
       <%- include('partials/search-filter', { statusOptions: _billStatusOpts, placeholder: _billPlaceholder }) %>
+      <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
+        Venc. de <input type="date" x-model="fromDate" @change="load()" class="input-search" />
+        até <input type="date" x-model="toDate" @change="load()" class="input-search" />
+      </label>
+      <a class="btn secondary small" :href="exportUrl()" title="Exportar as contas filtradas (com dias em atraso)">Exportar CSV</a>
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
       <span class="error" x-text="error"></span>
     </div>
@@ -291,6 +296,7 @@
         ...paymentMethodsMixin(),
         ...cashRegisterInlineOpenMixin(),
         rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
+        fromDate: '', toDate: '',
         details: {},
         catQ: '', catResults: [], catIdx: -1,
         settleForm: { id: null, description: '', amountCents: 0, settledAt: '', diasAtraso: 0, suggestedSettleCents: 0, payments: [] },
@@ -304,8 +310,19 @@
         get pageRows() { return this.pagedRows(this.displayRows); },
         brl(c) { return window.brl(c); },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
+        queryParams() {
+          const p = new URLSearchParams();
+          if (this.fromDate) p.set('from', this.fromDate);
+          if (this.toDate) p.set('to', this.toDate);
+          return p.toString();
+        },
+        exportUrl() {
+          const qs = this.queryParams();
+          return api + '/export.csv' + (qs ? '?' + qs : '');
+        },
         async load() {
-          const r = await fetch(api);
+          const qs = this.queryParams();
+          const r = await fetch(api + (qs ? '?' + qs : ''));
           if (r.ok) this.rows = await r.json(); else showToast((await r.json()).error, 'error');
         },
         async loadCategories() {

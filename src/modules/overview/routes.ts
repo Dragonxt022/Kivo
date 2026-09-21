@@ -56,13 +56,14 @@ router.get('/upcoming', view, (_req, res) => {
 router.get('/dre', requirePermission('dre.view'), (req, res) => {
   const { from, to } = period(req);
   if (!hasService('dre.reports')) { res.status(503).json({ error: 'DRE indisponível.' }); return; }
-  const t = getService<DreReportsService>('dre.reports').report(from, to).totals;
+  const report = getService<DreReportsService>('dre.reports').report(from, to);
+  const t = report.totals;
   res.json({
     from,
     to,
     receitaBrutaCents: t.receitaBrutaReal,
     receitaLiquidaCents: t.receitaLiquidaReal,
-    cmvCents: t.receitaLiquidaReal - t.lucroBrutoReal,
+    cmvCents: report.lines.cmv.realCents,
     lucroBrutoCents: t.lucroBrutoReal,
     resultadoOperacionalCents: t.resultadoOperacionalReal,
     resultadoLiquidoCents: t.resultadoLiquidoReal,

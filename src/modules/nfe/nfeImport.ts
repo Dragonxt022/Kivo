@@ -329,6 +329,15 @@ export function buildImportPreview(xml: string): NfeImportPreview {
   if (purchaseInvoiceRepository.findByAccessKey(doc.accessKey)) {
     throw new NfeImportError('Esta NF-e (chave de acesso) já foi importada.');
   }
+  return buildPreviewFromDoc(doc);
+}
+
+/**
+ * Monta o preview a partir de um documento JÁ parseado. Separado de `buildImportPreview`
+ * para a EDIÇÃO reaproveitar a mesma classificação sem tropeçar na checagem de chave
+ * (a NF-e editada já existe e é justamente ela que está sendo reclassificada).
+ */
+export function buildPreviewFromDoc(doc: NfeParsed): NfeImportPreview {
   const supplier = findSupplierByCnpj(doc.emitente.cnpj);
   const { cat, packs } = buildCatalogFor(supplier?.id ?? null);
   const markupBps = resolveMarkupBps(supplier?.id ?? null);
@@ -408,15 +417,14 @@ interface ValidatedLine {
 export function commitImport(req: Request, xml: string, decisions: NfeDecision[]): NfeImportResult {
   const doc = parseNfeDocument(xml);
   logUnknownUnits(doc.items);
-
   if (purchaseInvoiceRepository.findByAccessKey(doc.accessKey)) {
     throw new NfeImportError('Esta NF-e (chave de acesso) já foi importada.');
   }
-  if (!hasService('commercial.purchaseInbound')) {
-    throw new NfeImportError('Módulo commercial indisponível — não é possível lançar a compra.');
-  }
-  const purchaseInbound = getService<CommercialPurchaseInboundService>('commercial.purchaseInbound');
+  return applyImportCore(req, doc, xml, decisions);
+}
 
+/** Valida/normaliza as decisões da conferência contra as linhas REAIS do XML. */
+function validateDecisions(doc: NfeParsed, decisions: NfeDecision[]): Map<number, ValidatedLine> {
   const byLine = new Map(doc.items.map((it) => [it.line, it]));
   const byDecision = new Map(decisions.map((d) => [d.line, d]));
   for (const item of doc.items) {
@@ -443,6 +451,36 @@ export function commitImport(req: Request, xml: string, decisions: NfeDecision[]
       categoryId: d.categoryId != null && Number.isInteger(Number(d.categoryId)) && Number(d.categoryId) > 0 ? Number(d.categoryId) : null,
     });
   }
+  return validated;
+}
+
+export interface ApplyImportContext {
+  /** Edição: reaproveita a NF-e existente (mesmo id) em vez de criar uma nova. */
+  existingInvoiceId?: number;
+  /** Ação registrada na auditoria (padrão: importar_nfe). */
+  auditAction?: string;
+  /** Detalhes extras anexados à auditoria (ex.: modo de estoque escolhido na edição). */
+  auditDetails?: Record<string, unknown>;
+}
+
+/**
+ * Núcleo do commit: resolve as decisões, grava produtos/estoque/compra e os itens da
+ * NF-e. NÃO checa chave duplicada (o chamador decide) e abre transação própria — que,
+ * dentro da transação da EDIÇÃO, vira um savepoint. `ctx.existingInvoiceId` faz a
+ * gravação reaproveitar a NF-e existente (os itens antigos são soft-deleted antes).
+ */
+export function applyImportCore(
+  req: Request,
+  doc: NfeParsed,
+  xml: string,
+  decisions: NfeDecision[],
+  ctx: ApplyImportContext = {},
+): NfeImportResult {
+  if (!hasService('commercial.purchaseInbound')) {
+    throw new NfeImportError('Módulo commercial indisponível — não é possível lançar a compra.');
+  }
+  const purchaseInbound = getService<CommercialPurchaseInboundService>('commercial.purchaseInbound');
+  const validated = validateDecisions(doc, decisions);
 
   let invoiceId = 0;
   let purchaseId = 0;
@@ -590,22 +628,28 @@ export function commitImport(req: Request, xml: string, decisions: NfeDecision[]
         });
       }
 
-      // 3. NF-e + itens (histórico, preserva os dados fiscais da operação).
-      invoiceId = purchaseInvoiceRepository.create({
-        access_key: doc.accessKey,
-        supplier_id: supplierId,
-        supplier_name: supplierName,
-        invoice_number: doc.number,
-        series: doc.serie,
-        issued_at: doc.issuedAt,
-        total_cents: doc.totalCents,
-        xml,
-        status: 'importada',
-        supplier_created: supplierCreated ? 1 : 0,
-        imported_by: (req as { user?: { id: number } }).user?.id ?? null,
-        uuid: randomUUID(),
-        origin_machine: req.headers['x-machine'] ?? null,
-      });
+      // 3. NF-e + itens (histórico, preserva os dados fiscais da operação). Na EDIÇÃO a
+      //    NF-e já existe: reaproveita o id e derruba os itens antigos (recriados abaixo).
+      if (ctx.existingInvoiceId) {
+        invoiceId = ctx.existingInvoiceId;
+        purchaseInvoiceItemRepository.softDeleteWhere({ purchase_invoice_id: invoiceId });
+      } else {
+        invoiceId = purchaseInvoiceRepository.create({
+          access_key: doc.accessKey,
+          supplier_id: supplierId,
+          supplier_name: supplierName,
+          invoice_number: doc.number,
+          series: doc.serie,
+          issued_at: doc.issuedAt,
+          total_cents: doc.totalCents,
+          xml,
+          status: 'importada',
+          supplier_created: supplierCreated ? 1 : 0,
+          imported_by: (req as { user?: { id: number } }).user?.id ?? null,
+          uuid: randomUUID(),
+          origin_machine: req.headers['x-machine'] ?? null,
+        });
+      }
 
       // Custo/preço de cada produto ANTES da entrada (a compra recebida altera o custo
       // médio). Lido agora, ainda sem a movimentação — é o que a reversão restaura.
@@ -680,10 +724,11 @@ export function commitImport(req: Request, xml: string, decisions: NfeDecision[]
         );
       }
 
-      audit(req, 'importar_nfe', 'purchase_invoice', invoiceId, null, {
+      audit(req, ctx.auditAction ?? 'importar_nfe', 'purchase_invoice', invoiceId, null, {
         accessKey: doc.accessKey,
         supplierId: resultSupplierId,
         created, linked, ignored,
+        ...(ctx.auditDetails ?? {}),
         decisions: [...statusByLine.entries()].map(([l, s]) => ({ line: l, status: s })),
       });
     });

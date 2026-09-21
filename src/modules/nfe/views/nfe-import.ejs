@@ -12,8 +12,9 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/nfe/importar' }) %>
   <main x-data="nfeImportPage(<%- JSON.stringify(user.permissions.has('nfe.import.run')) %>)" x-init="init()">
-    <h1>Importar NF-e</h1>
-    <p class="muted">Envie o XML da nota do fornecedor (NF-e modelo 55, versão 4.00). Nada é alterado antes da sua conferência.</p>
+    <h1 x-text="editingId ? 'Editar importação de NF-e' : 'Importar NF-e'">Importar NF-e</h1>
+    <p class="muted" x-show="!editingId">Envie o XML da nota do fornecedor (NF-e modelo 55, versão 4.00). Nada é alterado antes da sua conferência.</p>
+    <p class="muted" x-show="editingId" x-cloak>Altere a conferência e salve. A versão anterior é estornada e a nova é aplicada na mesma nota.</p>
 
     <%# ── Passo 1: escolher o arquivo ── %>
     <div x-show="!preview" x-cloak>
@@ -55,11 +56,20 @@
                 <td class="num" x-text="brl(h.total_cents)"></td>
                 <td class="num" x-text="h.imported_count + ' / ' + h.items_count"></td>
                 <td class="num">
-                  <button type="button" class="btn small secondary" x-show="canRun"
-                          @click="revert(h)" :disabled="reverting === h.id"
-                          title="Desfazer esta importação (volta estoque, custo e remove o que ela criou)">
-                    <span x-text="reverting === h.id ? 'Revertendo…' : 'Desfazer'"></span>
-                  </button>
+                  <div class="nfe-row-actions">
+                    <a class="btn small secondary" :href="'/api/nfe/invoices/' + h.id + '/xml'"
+                       title="Baixar o XML desta NF-e (original do fornecedor)">XML</a>
+                    <button type="button" class="btn small secondary" x-show="canRun"
+                            @click="edit(h)"
+                            title="Editar esta importação (trocar vínculos, quantidades, custos e preços)">
+                      Editar
+                    </button>
+                    <button type="button" class="btn small secondary" x-show="canRun"
+                            @click="revert(h)" :disabled="reverting === h.id"
+                            title="Desfazer esta importação (volta estoque, custo e remove o que ela criou)">
+                      <span x-text="reverting === h.id ? 'Revertendo…' : 'Desfazer'"></span>
+                    </button>
+                  </div>
                 </td>
               </tr>
             </template>
@@ -270,11 +280,11 @@
           <span class="muted text-xs" x-text="preview ? ('nota ' + brl(preview.totalCents)) : ''"></span>
         </div>
         <span class="error" x-text="commitError"></span>
-        <button class="btn secondary" @click="backToUpload()">Outro arquivo</button>
+        <button class="btn secondary" @click="backToUpload()" x-text="editingId ? 'Cancelar edição' : 'Outro arquivo'">Outro arquivo</button>
         <% if (user.permissions.has('nfe.import.run')) { %>
-        <button class="btn" @click="confirmImport()" :disabled="committing || acceptedCount === 0">
+        <button class="btn" @click="confirmImport()" :disabled="committing || saving || acceptedCount === 0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          <span x-text="committing ? 'Importando…' : 'Confirmar importação'"></span>
+          <span x-text="editingId ? (saving ? 'Salvando…' : 'Salvar alterações') : (committing ? 'Importando…' : 'Confirmar importação')"></span>
         </button>
         <% } else { %>
         <span class="muted text-sm">A confirmação exige a permissão de importar.</span>
@@ -300,6 +310,31 @@
       </div>
       <div class="actions">
         <button type="button" class="btn secondary" @click="$refs.searchDlg.close()">Cancelar</button>
+      </div>
+    </dialog>
+
+    <%# Modal: como reconciliar o estoque quando algo foi vendido/ajustado ── %>
+    <dialog x-ref="stockDlg" @close="pendingDecisions = null">
+      <h1>Estoque alterado desde a importação</h1>
+      <p class="muted dialog-text">Alguns produtos foram vendidos ou ajustados depois desta nota. Como deseja reconciliar o estoque?</p>
+      <div class="dialog-body" style="max-height:220px;overflow-y:auto;margin:.5rem 0">
+        <template x-for="d in (divergence ? divergence.items.filter(i => i.changed) : [])" :key="d.productId">
+          <div class="row-option" style="cursor:default">
+            <span style="font-weight:600" x-text="d.name"></span>
+            <span class="muted text-xs" x-text="'importado ' + fmtQty(d.importedQty) + ' · saldo atual ' + fmtQty(d.stockQty)"></span>
+          </div>
+        </template>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn secondary" @click="cancelStockChoice()">Cancelar</button>
+        <button type="button" class="btn secondary" @click="chooseStockMode('restore')"
+                title="Estorna a entrada antiga e aplica a nova; falha se o produto já foi vendido">
+          Restaurar estado da nota
+        </button>
+        <button type="button" class="btn" @click="chooseStockMode('keep')"
+                title="Mantém as vendas/ajustes e aplica a diferença das novas quantidades">
+          Manter estoque atual
+        </button>
       </div>
     </dialog>
   </main>
@@ -376,6 +411,7 @@
     .nfe-table tfoot td { background:var(--surface-hover); border-top:2px solid var(--border); padding:.7rem .9rem; }
     .nfe-table th.num, .nfe-table td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .nfe-empty { padding:1.5rem; text-align:center; color:var(--text-muted); font-size:.85rem; }
+    .nfe-row-actions { display:flex; gap:.35rem; justify-content:flex-end; flex-wrap:wrap; }
 
     /* Ação por linha — controle segmentado */
     .nfe-acts { display:inline-flex; gap:.15rem; padding:.2rem; background:var(--surface-hover);
@@ -428,11 +464,12 @@
     function nfeImportPage(canRun) {
       return {
         canRun: canRun,
-        parsing: false, committing: false,
+        parsing: false, committing: false, saving: false,
         preview: null, rows: [], filter: 'revisar',
         error: '', commitError: '',
         markupPct: '100',
         history: [], reverting: null,
+        editingId: null, divergence: null, pendingDecisions: null,
         categories: [],
         searchOpenRow: null, searchQ: '', searchResults: [],
         brl: (c) => window.brl(c),
@@ -462,6 +499,105 @@
             showToast('Importação desfeita: ' + d.productsDeleted + ' produto(s) removido(s), estoque devolvido.', 'success');
             this.loadHistory();
           } finally { this.reverting = null; }
+        },
+        /** Reabre a conferência de uma importação já feita, pré-preenchida. */
+        async edit(h) {
+          this.error = '';
+          try {
+            const r = await fetch('/api/nfe/invoices/' + h.id + '/edit');
+            const d = r.ok ? await r.json() : { error: (await r.json().catch(() => ({}))).error ?? 'Falha ao abrir a edição.' };
+            if (!r.ok) { showToast(d.error, 'error'); return; }
+            this.editingId = h.id;
+            this.preview = d.preview;
+            this.markupPct = String((d.preview.markupBps ?? 10000) / 100).replace('.', ',');
+            this.rows = d.preview.items.map((it) => this.rowFromPreview(it));
+            for (const dec of d.decisions) {
+              const row = this.rows.find((x) => x.line === dec.line);
+              if (!row) continue;
+              row.action = dec.action;
+              row.productId = dec.productId;
+              row.productName = dec.productName || '';
+              row.qty = String(dec.qty);
+              row.cost = maskMoney(String(dec.unitCostCents));
+              if (dec.salePriceCents != null) { row.price = maskMoney(String(dec.salePriceCents)); row.priceTouched = true; }
+              if (dec.conversionQty != null) {
+                row.conversionQty = String(dec.conversionQty);
+                if (dec.conversionUnit) { row.conversionUnit = dec.conversionUnit; row.conversionSource = 'needs_input'; }
+              } else if (dec.action !== 'ignore') {
+                row.conversionQty = '1'; row.conversionUnit = null; row.conversionSource = 'same_unit';
+              }
+              if (dec.saleUnit) row.saleUnit = dec.saleUnit;
+            }
+            this.divergence = d.divergence;
+            this.filter = 'todas';
+            this.commitError = '';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } catch { showToast('Falha ao abrir a edição.', 'error'); }
+        },
+        /** Fecha a conferência e limpa o estado de edição/importação. */
+        closeConference() {
+          this.preview = null; this.rows = []; this.commitError = '';
+          this.editingId = null; this.divergence = null; this.pendingDecisions = null;
+          if (this.$refs.stockDlg && this.$refs.stockDlg.open) this.$refs.stockDlg.close();
+        },
+        /** Decisões no formato aceito pelo commit/edição. */
+        buildDecisions() {
+          return this.rows.map((r) => ({
+            line: r.line,
+            action: r.action,
+            productId: r.action === 'link' ? r.productId : null,
+            qty: this.num(r.qty),
+            unitCostCents: this.brlToCents(r.cost),
+            salePriceCents: this.brlToCents(r.price),
+            conversionQty: r.conversionQty === '' || r.conversionQty == null ? null : this.num(r.conversionQty),
+            unit: r.saleUnit,
+            categoryId: r.action === 'create' && r.categoryId !== '' ? Number(r.categoryId) : null,
+          }));
+        },
+        /** Validações comuns da conferência (produto vinculado e conversão informada). */
+        validateConference() {
+          const semProduto = this.rows.filter((r) => r.action === 'link' && !r.productId);
+          if (semProduto.length) {
+            this.commitError = 'Vincule um produto às linhas ' + semProduto.map((r) => r.line).join(', ') + ' ou crie/ignore.';
+            return false;
+          }
+          const semConversao = this.rows.filter((r) => this.rowNeedsConversion(r));
+          if (semConversao.length) {
+            this.commitError = 'Informe a conversão de unidade (quantas unidades de venda vêm na embalagem) nas linhas ' +
+              semConversao.map((r) => r.line).join(', ') + '.';
+            return false;
+          }
+          return true;
+        },
+        /** Salva a edição (estorna a versão antiga e aplica a nova). */
+        async saveEdit(decisions, stockMode) {
+          this.commitError = '';
+          this.saving = true;
+          try {
+            const r = await fetch('/api/nfe/invoices/' + this.editingId + '/edit', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ decisions, stockMode }),
+            });
+            if (r.status === 409) {
+              const d = await r.json().catch(() => ({}));
+              this.pendingDecisions = decisions;
+              if (d.divergence) this.divergence = d.divergence;
+              this.openStockDialog();
+              return;
+            }
+            const d = r.ok ? await r.json() : { error: (await r.json().catch(() => ({}))).error ?? 'Falha ao salvar a edição.' };
+            if (!r.ok) { this.commitError = d.error; return; }
+            showToast('Importação atualizada: ' + d.created + ' criado(s), ' + d.linked + ' vinculado(s), ' + d.ignored + ' ignorado(s).', 'success');
+            this.closeConference();
+            this.loadHistory();
+          } finally { this.saving = false; }
+        },
+        openStockDialog() { if (this.$refs.stockDlg && !this.$refs.stockDlg.open) this.$refs.stockDlg.showModal(); },
+        cancelStockChoice() { this.pendingDecisions = null; if (this.$refs.stockDlg) this.$refs.stockDlg.close(); },
+        chooseStockMode(mode) {
+          const decisions = this.pendingDecisions;
+          if (this.$refs.stockDlg) this.$refs.stockDlg.close();
+          if (decisions) this.saveEdit(decisions, mode);
         },
         brlToCents(s) {
           if (s == null || s === '') return 0;
@@ -710,34 +846,24 @@
         get acceptedTotal() {
           return this.rows.filter((r) => r.action !== 'ignore').reduce((sum, r) => sum + this.lineTotal(r), 0);
         },
-        backToUpload() { this.preview = null; this.rows = []; this.commitError = ''; },
+        backToUpload() { this.closeConference(); },
         async confirmImport() {
           this.commitError = '';
-          const semProduto = this.rows.filter((r) => r.action === 'link' && !r.productId);
-          if (semProduto.length) {
-            this.commitError = 'Vincule um produto às linhas ' + semProduto.map((r) => r.line).join(', ') + ' ou crie/ignore.';
-            return;
-          }
-          const semConversao = this.rows.filter((r) => this.rowNeedsConversion(r));
-          if (semConversao.length) {
-            this.commitError = 'Informe a conversão de unidade (quantas unidades de venda vêm na embalagem) nas linhas ' +
-              semConversao.map((r) => r.line).join(', ') + '.';
+          if (!this.validateConference()) return;
+          const decisions = this.buildDecisions();
+          // Edição: pergunta como reconciliar o estoque quando algo foi vendido/ajustado.
+          if (this.editingId) {
+            if (this.divergence && this.divergence.changed) {
+              this.pendingDecisions = decisions;
+              this.openStockDialog();
+              return;
+            }
+            await this.saveEdit(decisions, 'restore');
             return;
           }
           if (!window.confirmDlg || !(await window.confirmDlg('Confirmar a importação? Produtos novos serão criados e a compra entrará no estoque com os custos e preços conferidos.'))) return;
           this.committing = true;
           try {
-            const decisions = this.rows.map((r) => ({
-              line: r.line,
-              action: r.action,
-              productId: r.action === 'link' ? r.productId : null,
-              qty: this.num(r.qty),
-              unitCostCents: this.brlToCents(r.cost),
-              salePriceCents: this.brlToCents(r.price),
-              conversionQty: r.conversionQty === '' || r.conversionQty == null ? null : this.num(r.conversionQty),
-              unit: r.saleUnit,
-              categoryId: r.action === 'create' && r.categoryId !== '' ? Number(r.categoryId) : null,
-            }));
             const r = await fetch('/api/nfe/commit', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ xml: this.xml, decisions }),

@@ -46,6 +46,15 @@
   <main x-data="cashPage()" x-init="load()" @apply-filter.window="filter=$event.detail">
     <h1>Caixa</h1>
 
+    <div class="toolbar">
+      <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
+        Período
+        <input type="date" x-model="fromDate" class="input-search" />
+        até <input type="date" x-model="toDate" class="input-search" />
+      </label>
+      <a class="btn secondary small" :href="ledgerUrl()" title="Baixar o livro caixa (todos os movimentos do período)">Exportar livro caixa</a>
+    </div>
+
     <template x-if="!open">
       <div>
         <p class="muted muted-block">Nenhum caixa aberto.</p>
@@ -315,7 +324,7 @@
       return {
         ...tableToolkit(),
         open: false, expected: 0, movements: [], opening: '', counted: '', closeNotes: '',
-        countMode: false, counts: {}, filter: {},
+        countMode: false, counts: {}, filter: {}, fromDate: '', toDate: '',
         denominations: [
           { cents: 20000, label: 'R$ 200' }, { cents: 10000, label: 'R$ 100' }, { cents: 5000, label: 'R$ 50' },
           { cents: 2000, label: 'R$ 20' }, { cents: 1000, label: 'R$ 10' }, { cents: 500, label: 'R$ 5' },
@@ -338,6 +347,13 @@
         get closeDifference() { return this.closeCountedCents - this.expected; },
         brl(c) { return window.brl(c); },
         printReport(id) { if (id) window.open(`/app/finance/caixa/${id}/relatorio`, '_blank', 'width=800,height=900'); },
+        ledgerUrl() {
+          const p = new URLSearchParams();
+          if (this.fromDate) p.set('from', this.fromDate);
+          if (this.toDate) p.set('to', this.toDate);
+          const qs = p.toString();
+          return '/api/finance/cash/movements/export.csv' + (qs ? '?' + qs : '');
+        },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         openOpenDlg() { this.opening = ''; this.error = ''; this.$refs.openDlg.showModal(); },
         async load() {
