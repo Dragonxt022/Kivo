@@ -298,6 +298,38 @@ async function main() {
   const catAluguelDepois = reportDepois.lines.despesas_operacionais.categories.find(c => c.id === catAluguel2Id);
   check('categoria soft-deletada NAO aparece no relatorio', catAluguelDepois === undefined);
 
+  // ── 15. Devoluções: contra-receita e contra-CMV ────────────
+  const returnId = Number(db.prepare(
+    `INSERT INTO sale_returns (sale_id, refund_method, total_cents, uuid, created_at)
+     VALUES (?, 'dinheiro', 1000, ?, datetime('now'))`,
+  ).run(saleId, randomUUID()).lastInsertRowid);
+  db.prepare(
+    `INSERT INTO sale_return_items (return_id, sale_id, product_id, product_name, qty, unit_price_cents, total_cents, uuid)
+     VALUES (?, ?, ?, 'Camiseta', 1, 1000, 1000, ?)`,
+  ).run(returnId, saleId, prodId, randomUUID());
+
+  const withReturns = demonstrativoResultado('2000-01-01', '2099-12-31');
+  check('devolução abate a receita bruta (18000 - 1000)',
+    withReturns.totals.receitaBrutaReal === 17000, String(withReturns.totals.receitaBrutaReal));
+  const devCat = withReturns.lines.receita_bruta.categories.find((c) => c.key === 'devolucoes_vendas');
+  check('linha virtual de devoluções é negativa', devCat?.realCents === -1000, String(devCat?.realCents));
+  const devCmv = withReturns.lines.cmv.categories.find((c) => c.key === 'devolucoes_cmv');
+  check('devolução abate o CMV (custo 2000)', devCmv?.realCents === -2000, String(devCmv?.realCents));
+
+  // ── 16. Base caixa vs competência ──────────────────────────
+  db.prepare("UPDATE payables SET paid_at = '2026-07-10 12:00:00', paid_cents = 250000 WHERE description = 'Aluguel'").run();
+  const comp = demonstrativoResultado('2000-01-01', '2099-12-31', 'competencia');
+  const caixa = demonstrativoResultado('2000-01-01', '2099-12-31', 'caixa');
+  check('base competência marcada no relatório', comp.basis === 'competencia');
+  check('base caixa marcada no relatório', caixa.basis === 'caixa');
+  check('competência: receita 17000 (vendas - devolução)', comp.totals.receitaBrutaReal === 17000, String(comp.totals.receitaBrutaReal));
+  check('caixa: receita = recebimentos imediatos - devolução em dinheiro (3000 - 1000)',
+    caixa.totals.receitaBrutaReal === 2000, String(caixa.totals.receitaBrutaReal));
+  check('competência: desp operacionais 300000 (250000 + 50000 sem cat)',
+    comp.lines.despesas_operacionais.realCents === 300000, String(comp.lines.despesas_operacionais.realCents));
+  check('caixa: desp operacionais = só as pagas (250000)',
+    caixa.lines.despesas_operacionais.realCents === 250000, String(caixa.lines.despesas_operacionais.realCents));
+
   closeDb();
   console.log(failures === 0 ? '\nDRE: TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
   process.exit(failures === 0 ? 0 : 1);

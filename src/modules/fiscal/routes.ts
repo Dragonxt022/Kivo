@@ -34,6 +34,9 @@ router.delete('/certificado', requirePermission('fiscal.config.edit'), fiscalCon
 
 // Documentos
 router.get('/documentos', requirePermission('fiscal.documents.view'), fiscalController.listDocuments);
+router.get('/documentos/resumo', requirePermission('fiscal.documents.view'), fiscalController.documentsSummary);
+router.get('/documentos/export.csv', requirePermission('fiscal.documents.view'), fiscalController.exportDocuments);
 router.get('/documentos/venda/:saleId', requirePermission('fiscal.documents.view'), fiscalController.getBySale);
+router.get('/documentos/:id/xml', requirePermission('fiscal.documents.view'), fiscalController.downloadDocumentXml);
 
 export default router;

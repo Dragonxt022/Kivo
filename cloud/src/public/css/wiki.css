@@ -352,6 +352,37 @@
   margin: 32px 0;
 }
 
+/* ── Screenshot real da tela (claro/escuro) ────────── */
+.wiki-shot {
+  margin: 14px 0 20px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.wiki-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.wiki-shot .wiki-shot-dark {
+  display: none;
+}
+:root[data-theme='dark'] .wiki-shot .wiki-shot-light {
+  display: none;
+}
+:root[data-theme='dark'] .wiki-shot .wiki-shot-dark {
+  display: block;
+}
+.wiki-shot figcaption {
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border-light);
+  background: var(--surface-hover);
+}
+
 /* ── Sidebar toggle (mobile) ───────────────────────── */
 .wiki-sidebar-toggle {
   display: none;

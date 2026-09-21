@@ -15,6 +15,7 @@ router.delete('/payment-methods/:id', requirePermission('finance.paymethods.dele
 
 router.get('/cash/current', requirePermission('finance.cash.view'), financeController.getCurrentCash);
 router.get('/cash/movements', requirePermission('finance.cash.view'), financeController.listCashMovements);
+router.get('/cash/movements/export.csv', requirePermission('finance.cash.view'), financeController.exportCashLedger);
 router.get('/cash/history', requirePermission('finance.cash.view'), financeController.listCashHistory);
 router.post('/cash/open', requirePermission('finance.cash.open'), validateBody(openRegisterSchema), financeController.openCashAction);
 router.post('/cash/close', requirePermission('finance.cash.close'), validateBody(closeRegisterSchema), financeController.closeCashAction);

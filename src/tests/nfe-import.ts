@@ -325,6 +325,108 @@ async function main(): Promise<void> {
     check('produto KG normalizado para kg', kgProd?.unit === 'kg', `unit=${kgProd?.unit}`);
     check('estoque fracionado = 2.5', kgProd?.stock_qty === 2.5, `saldo=${kgProd?.stock_qty}`);
 
+    // ── Edição de uma importação já feita ──
+    const editProdId = Number(db.prepare(
+      `INSERT INTO products (name, sku, barcode, unit, price_cents, cost_cents, track_stock, active, uuid)
+       VALUES ('Suco Editavel', 'SUCO1', '7891000999900', 'UN', 1000, 0, 1, 1, ?)`,
+    ).run(randomUUID()).lastInsertRowid);
+    const editKey = makeAccessKey();
+    const editXml = nfeXml(editKey, 'SEM GTIN');
+    const editCommit = await api('/api/nfe/commit', { method: 'POST', body: JSON.stringify({
+      xml: editXml,
+      decisions: [
+        { line: 1, action: 'link', productId: editProdId, qty: 10, unitCostCents: 500 },
+        { line: 2, action: 'create', productId: null, qty: 5, unitCostCents: 800 },
+      ],
+    }) }, cookie);
+    const editRes = await unwrap<{ invoiceId: number; purchaseId: number }>(editCommit);
+    check('edição: importação inicial responde', editCommit.status === 200, `status=${editCommit.status}`);
+    let editProd = db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(editProdId) as { stock_qty: number };
+    check('edição: estoque inicial do vinculado = 10', editProd.stock_qty === 10, `saldo=${editProd.stock_qty}`);
+    const createdEdit = db.prepare(
+      "SELECT id FROM products WHERE name = 'Pao de Forma Integral' AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",
+    ).get() as { id: number } | undefined;
+
+    // GET /edit reabre a conferência pré-preenchida com as decisões gravadas.
+    const editDataR = await api(`/api/nfe/invoices/${editRes.invoiceId}/edit`, {}, cookie);
+    const editData = await unwrap<{
+      decisions: { line: number; action: string; productId: number | null; qty: number }[];
+      divergence: { changed: boolean };
+    }>(editDataR);
+    check('edição: GET /edit responde', editDataR.status === 200, `status=${editDataR.status}`);
+    check('edição: linha 1 pré-preenchida como link', editData.decisions[0].action === 'link' && editData.decisions[0].productId === editProdId);
+    check('edição: linha 2 pré-preenchida como link ao produto criado',
+      editData.decisions[1].action === 'link' && editData.decisions[1].productId === createdEdit?.id,
+      `action=${editData.decisions[1]?.action} id=${editData.decisions[1]?.productId}`);
+    check('edição: sem divergência logo após importar', editData.divergence.changed === false);
+
+    // Edita: linha 1 passa a 30; linha 2 ignorada.
+    const saveR = await api(`/api/nfe/invoices/${editRes.invoiceId}/edit`, { method: 'POST', body: JSON.stringify({
+      stockMode: 'restore',
+      decisions: [
+        { line: 1, action: 'link', productId: editProdId, qty: 30, unitCostCents: 500 },
+        { line: 2, action: 'ignore', qty: 1, unitCostCents: 800 },
+      ],
+    }) }, cookie);
+    check('edição: salvar responde', saveR.status === 200, `status=${saveR.status}`);
+    editProd = db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(editProdId) as { stock_qty: number };
+    check('edição: estoque do vinculado = 30', editProd.stock_qty === 30, `saldo=${editProd.stock_qty}`);
+    const createdAfter = db.prepare('SELECT deleted_at FROM products WHERE id = ?').get(createdEdit!.id) as { deleted_at: string | null };
+    check('edição: produto criado que saiu da nota foi removido', createdAfter.deleted_at != null);
+    const invoiceSame = db.prepare('SELECT id, purchase_id FROM purchase_invoices WHERE access_key = ? AND deleted_at IS NULL').get(editKey) as { id: number; purchase_id: number } | undefined;
+    check('edição: mantém a mesma NF-e (id)', !!invoiceSame && invoiceSame.id === editRes.invoiceId);
+    check('edição: aponta para a nova compra', !!invoiceSame && invoiceSame.purchase_id > 0 && invoiceSame.purchase_id !== editRes.purchaseId);
+    const oldPurchase = db.prepare('SELECT deleted_at FROM purchases WHERE id = ?').get(editRes.purchaseId) as { deleted_at: string | null };
+    check('edição: compra antiga estornada', oldPurchase.deleted_at != null);
+    const itemLines = db.prepare('SELECT COUNT(*) c FROM purchase_invoice_items WHERE purchase_invoice_id = ? AND deleted_at IS NULL').get(editRes.invoiceId) as { c: number };
+    check('edição: itens da nota recriados (2)', itemLines.c === 2, `itens=${itemLines.c}`);
+
+    // ── Edição com estoque vendido: a tela precisa escolher o modo ──
+    const divProdId = Number(db.prepare(
+      `INSERT INTO products (name, sku, barcode, unit, price_cents, cost_cents, track_stock, active, uuid)
+       VALUES ('Produto Divergente', 'DIV1', '7891000888800', 'UN', 1000, 0, 1, 1, ?)`,
+    ).run(randomUUID()).lastInsertRowid);
+    const divKey = makeAccessKey();
+    const divCommit = await api('/api/nfe/commit', { method: 'POST', body: JSON.stringify({
+      xml: nfeXml(divKey, 'SEM GTIN'),
+      decisions: [
+        { line: 1, action: 'link', productId: divProdId, qty: 10, unitCostCents: 500 },
+        { line: 2, action: 'ignore', qty: 1, unitCostCents: 800 },
+      ],
+    }) }, cookie);
+    const divRes = await unwrap<{ invoiceId: number }>(divCommit);
+    check('divergência: importação inicial responde', divCommit.status === 200, `status=${divCommit.status}`);
+    db.prepare('UPDATE products SET stock_qty = 4 WHERE id = ?').run(divProdId); // simula venda de 6
+
+    const editBody = (stockMode: string | null, qty: number) => JSON.stringify({
+      stockMode,
+      decisions: [
+        { line: 1, action: 'link', productId: divProdId, qty, unitCostCents: 500 },
+        { line: 2, action: 'ignore', qty: 1, unitCostCents: 800 },
+      ],
+    });
+    const noMode = await api(`/api/nfe/invoices/${divRes.invoiceId}/edit`, { method: 'POST', body: editBody(null, 15) }, cookie);
+    const noModeJson = await noMode.json().catch(() => ({})) as { needsStockChoice?: boolean };
+    check('divergência: sem modo de estoque -> 409 pedindo escolha',
+      noMode.status === 409 && noModeJson.needsStockChoice === true,
+      `status=${noMode.status} body=${JSON.stringify(noModeJson)}`);
+
+    const restoreR = await api(`/api/nfe/invoices/${divRes.invoiceId}/edit`, { method: 'POST', body: editBody('restore', 15) }, cookie);
+    check('divergência: restaurar estado falha com estoque vendido', restoreR.status === 400, `status=${restoreR.status}`);
+
+    const keepR = await api(`/api/nfe/invoices/${divRes.invoiceId}/edit`, { method: 'POST', body: editBody('keep', 15) }, cookie);
+    check('divergência: manter estoque atual responde', keepR.status === 200, `status=${keepR.status}`);
+    const divProd = db.prepare('SELECT stock_qty FROM products WHERE id = ?').get(divProdId) as { stock_qty: number };
+    check('divergência: saldo preserva a venda (4 - 10 + 15 = 9)', divProd.stock_qty === 9, `saldo=${divProd.stock_qty}`);
+
+    // ── Download do XML original da NF-e de compra ──
+    const xmlR = await api(`/api/nfe/invoices/${editRes.invoiceId}/xml`, {}, cookie);
+    const xmlBody = await xmlR.text();
+    check('download do XML responde', xmlR.status === 200 && xmlBody.includes('<nfeProc'), `status=${xmlR.status}`);
+    check('download do XML traz a chave de acesso', xmlBody.includes(editKey));
+    check('download do XML vem como anexo',
+      (xmlR.headers.get('content-disposition') ?? '').includes(editKey), xmlR.headers.get('content-disposition') ?? '');
+
     // ── Capability desligada bloqueia a API de novo ──
     check('desliga capability nfe.import',
       (await api('/api/core/capabilities/nfe.import', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, cookie)).status === 200);

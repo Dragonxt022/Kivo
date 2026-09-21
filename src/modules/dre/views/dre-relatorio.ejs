@@ -22,7 +22,15 @@
     <div class="toolbar">
       <input type="date" x-model="from" @change="load()" class="input-search" />
       <input type="date" x-model="to" @change="load()" class="input-search" />
+      <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
+        Base
+        <select x-model="basis" @change="load()" class="input-search">
+          <option value="competencia">Competência</option>
+          <option value="caixa">Caixa</option>
+        </select>
+      </label>
       <a class="btn secondary small" :href="printUrl()" target="_blank">Imprimir</a>
+      <a class="btn secondary small" :href="exportUrl()">Exportar CSV</a>
       <% if (user.permissions.has('dre.categories.edit')) { %>
         <a class="btn secondary small" href="/app/dre/categorias">Configurar categorias e ajustes</a>
       <% } %>
@@ -52,14 +60,15 @@
       </tbody>
     </table>
     <p class="muted" style="font-size:.82rem">
-      O CMV é calculado com o custo atual de cada produto (não há histórico de custo por venda ainda) —
-      se o custo de um produto mudou depois da venda, o valor exibido é uma aproximação.
+      <strong>Competência</strong>: vendas pela data da venda e despesas pelo mês de emissão do título.
+      <strong>Caixa</strong>: receita pelos recebimentos e despesas pelos títulos efetivamente pagos.
+      Em ambas, as devoluções são abatidas (linhas negativas em Receita Bruta e CMV).
     </p>
   </main>
   <script nonce="<%= cspNonce %>">
     function drePage() {
       return {
-        from: '', to: '', rows: [],
+        from: '', to: '', basis: 'competencia', rows: [],
         lineLabels: {
           receita_bruta: 'Receita Bruta', deducoes: 'Deduções da Receita', cmv: 'CMV',
           despesas_operacionais: 'Despesas Operacionais', despesas_financeiras: 'Despesas Financeiras',
@@ -85,12 +94,21 @@
           const params = new URLSearchParams();
           if (this.from) params.set('from', this.from);
           if (this.to) params.set('to', this.to);
+          params.set('basis', this.basis);
           return '/app/dre/relatorio/imprimir?' + params;
+        },
+        exportUrl() {
+          const params = new URLSearchParams();
+          if (this.from) params.set('from', this.from);
+          if (this.to) params.set('to', this.to);
+          params.set('basis', this.basis);
+          return '/api/dre/report/export.csv?' + params;
         },
         async load() {
           const params = new URLSearchParams();
           if (this.from) params.set('from', this.from);
           if (this.to) params.set('to', this.to);
+          params.set('basis', this.basis);
           const r = await fetch('/api/dre/report?' + params);
           if (!r.ok) return;
           const d = await r.json();

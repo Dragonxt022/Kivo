@@ -1,0 +1,11 @@
+<%
+  // Screenshot real de uma tela do Kivo, com variante clara e escura trocadas por CSS
+  // conforme o tema (data-theme no <html>). Imagens geradas por scripts/wiki-shots.js.
+  var shotName = typeof name !== 'undefined' ? name : '';
+  var shotCaption = typeof caption !== 'undefined' ? caption : '';
+%>
+<figure class="wiki-shot">
+  <img class="wiki-shot-light" src="/img/wiki/<%= shotName %>.jpg" alt="<%= shotCaption %>" loading="lazy" />
+  <img class="wiki-shot-dark" src="/img/wiki/<%= shotName %>-dark.jpg" alt="<%= shotCaption %>" loading="lazy" />
+  <% if (shotCaption) { %><figcaption><%= shotCaption %></figcaption><% } %>
+</figure>

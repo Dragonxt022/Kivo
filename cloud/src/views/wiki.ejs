@@ -45,6 +45,26 @@
         <a href="#fluxo" class="wiki-toc-link" data-section="fluxo">Fluxo de Caixa</a>
         <a href="#formas-pagamento" class="wiki-toc-link" data-section="formas-pagamento">Formas de Pagamento</a>
         <a href="#convenios" class="wiki-toc-link" data-section="convenios">Convênios</a>
+        <a href="#reconciliacao" class="wiki-toc-link" data-section="reconciliacao">Reconciliação</a>
+      </div>
+
+      <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Relatórios</div>
+        <a href="#dre" class="wiki-toc-link" data-section="dre">DRE</a>
+        <a href="#dre-categorias" class="wiki-toc-link" data-section="dre-categorias">Categorias do DRE</a>
+      </div>
+
+      <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Fiscal</div>
+        <a href="#fiscal-notas" class="wiki-toc-link" data-section="fiscal-notas">Notas Fiscais</a>
+        <a href="#fiscal-config" class="wiki-toc-link" data-section="fiscal-config">Configuração Fiscal</a>
+        <a href="#nfe-importar" class="wiki-toc-link" data-section="nfe-importar">Importar NF-e</a>
+      </div>
+
+      <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Etiquetas</div>
+        <a href="#etiquetas" class="wiki-toc-link" data-section="etiquetas">Gerador de Etiquetas</a>
+        <a href="#etiquetas-historico" class="wiki-toc-link" data-section="etiquetas-historico">Histórico de Etiquetas</a>
       </div>
 
       <div class="wiki-toc-group">
@@ -66,6 +86,7 @@
       <div class="wiki-toc-group">
         <div class="wiki-toc-label">Administração</div>
         <a href="#usuarios" class="wiki-toc-link" data-section="usuarios">Usuários e Cargos</a>
+        <a href="#notificacoes" class="wiki-toc-link" data-section="notificacoes">Central de Mensagens</a>
         <a href="#configuracoes" class="wiki-toc-link" data-section="configuracoes">Configurações</a>
         <a href="#rede-local" class="wiki-toc-link" data-section="rede-local">Acesso pela Rede Local</a>
         <a href="#backup" class="wiki-toc-link" data-section="backup">Backup</a>
@@ -134,6 +155,7 @@
             </div>
             <h3>Clientes</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'clientes', caption: 'Clientes — cadastro, contato e histórico de compras.' }) %>
           <p>Cadastre seus clientes para associar a vendas, controlar fiado e gerar relatórios de compra por cliente.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -165,6 +187,7 @@
             </div>
             <h3>Fornecedores</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'fornecedores', caption: 'Fornecedores — origem das compras e custos.' }) %>
           <p>Cadastre fornecedores para vincular às compras de reposição de estoque.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -194,6 +217,7 @@
             </div>
             <h3>Produtos</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'produtos', caption: 'Produtos — catálogo, preços e estoque.' }) %>
           <p>O catálogo de produtos é o coração do sistema. Cada produto tem nome, código de barras, preço, custo e estoque.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -224,6 +248,7 @@
             </div>
             <h3>Categorias</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'categorias', caption: 'Categorias — organização e imagens do catálogo.' }) %>
           <p>Organize seu catálogo em categorias (ex: Bebidas, Lanches, Sobremesas). Cada categoria pode ter uma <strong>imagem</strong> e uma <strong>categoria pai</strong>, formando uma hierarquia (ex: "Cervejas" dentro de "Bebidas").</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -312,6 +337,7 @@
             </div>
             <h3>Listas de Preço</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'listas-preco', caption: 'Listas de preço — atacado, varejo e faixas.' }) %>
           <p>Crie tabelas de preço separadas para atacado, promoção ou clientes especiais. Ao vender, você escolhe qual lista aplicar.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -341,6 +367,7 @@
             </div>
             <h3>Compras</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'compras', caption: 'Compras — recebimento de mercadoria e custo.' }) %>
           <p>Registre compras de reposição de estoque. O sistema atualiza o estoque e o custo do produto automaticamente.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -376,6 +403,7 @@
             </div>
             <h3>Caixa</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'caixa', caption: 'Caixa — abertura, movimentos e fechamento.' }) %>
           <p>O caixa controla o fluxo de dinheiro do dia. Abra o caixa no início do expediente, registre entradas e saídas, e feche ao final.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -405,6 +433,7 @@
             </div>
             <h3>Contas a Pagar</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'contas-pagar', caption: 'Contas a pagar — vencimentos e pagamento.' }) %>
           <p>Registre suas contas fixas e variáveis (aluguel, energia, fornecedor) e acompanhe o que precisa ser pago.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -434,6 +463,7 @@
             </div>
             <h3>Contas a Receber</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'contas-receber', caption: 'Contas a receber — vencimentos e recebimento.' }) %>
           <p>Contas a receber são geradas automaticamente quando uma venda é feita a prazo (fiado). Você também pode criar manualmente.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -463,6 +493,7 @@
             </div>
             <h3>Fluxo de Caixa</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'fluxo-caixa', caption: 'Fluxo de caixa — entradas e saídas por dia.' }) %>
           <p>Visualize todas as entradas e saídas do período. O relatório de fluxo confere com os lançamentos do caixa para garantir consistência.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -491,6 +522,7 @@
             </div>
             <h3>Formas de Pagamento</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'formas-pagamento', caption: 'Formas de pagamento — taxas das maquininhas.' }) %>
           <p>Configure as formas de pagamento aceitas na sua loja, incluindo a taxa de cada operadora.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -520,6 +552,7 @@
             </div>
             <h3>Convênios</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'convenios', caption: 'Convênios — cobranças pendentes e faturas.' }) %>
           <p>Empresas conveniadas podem comprar a prazo e ter as cobranças geradas automaticamente no final do período.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -546,6 +579,201 @@
         <!-- ============================================================ -->
         <!-- LOJA / PDV -->
         <!-- ============================================================ -->
+        <!-- ============================================================ -->
+        <!-- FINANCEIRO — RECONCILIAÇÃO -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="reconciliacao">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3>Reconciliação</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'reconciliacao', caption: 'Reconciliação — saldos negativos de crédito de loja e fidelidade.' }) %>
+          <p>Depois que dois computadores sincronizam, um resgate de crédito de loja ou de pontos de fidelidade pode deixar o saldo de um cliente <strong>negativo</strong>. Esta tela mostra esses casos para você corrigir.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Garantir que o saldo de cada cliente faça sentido após a sincronização — sem crédito ou pontos “no vermelho” que distorçam o financeiro.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> no menu, em <em>Financeiro → Reconciliação</em>.</p>
+          <ol>
+            <li>Confira a lista de clientes com saldo negativo e o valor apontado.</li>
+            <li>Abra o cadastro do cliente para ajustar o crédito de loja, ou revise os pontos de fidelidade.</li>
+            <li>Use a busca para localizar um cliente específico quando a lista for grande.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>A <strong>Maria</strong> usou R$ 50 de crédito no caixa 2 enquanto o caixa 1 ainda tinha o saldo antigo. Ao sincronizar, o saldo ficou −R$ 50. A tela de Reconciliação aponta o caso e você lança o crédito correto.</p>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- RELATÓRIOS — DRE -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="dre">
+          <h2>Relatórios</h2>
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+            </div>
+            <h3>DRE (Demonstrativo de Resultado)</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'dre', caption: 'DRE — receita, deduções, CMV e despesas do período.' }) %>
+          <p>O DRE reúne, por período, a <strong>Receita Bruta</strong>, as <strong>Deduções</strong>, o <strong>CMV</strong> (custo da mercadoria vendida), as <strong>Despesas Operacionais</strong> e as <strong>Despesas Financeiras</strong> — chegando ao <strong>Resultado Líquido</strong>.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Enxergar se a operação dá lucro — e de onde vem o resultado — sem precisar montar planilha. É o relatório que você manda para o contador.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> no menu, em <em>DRE</em>.</p>
+          <ol>
+            <li>Escolha o <strong>período</strong> (de / até).</li>
+            <li>Escolha a <strong>Base</strong>: <strong>Competência</strong> (vendas pela data da venda e despesas pelo mês de emissão do título) ou <strong>Caixa</strong> (receita pelos recebimentos e despesas pelos títulos efetivamente pagos).</li>
+            <li>As <strong>devoluções</strong> de venda já entram abatidas, como linhas negativas em Receita Bruta e CMV.</li>
+            <li>Use <strong>Exportar CSV</strong> para abrir no Excel ou <strong>Imprimir</strong> para gerar o documento com o timbre da empresa.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>No mês fechado, a Receita Bruta saiu R$ 30.000, o CMV R$ 18.000 e as despesas R$ 9.000 → Resultado Líquido R$ 3.000. Com <strong>Base: Caixa</strong>, você vê o mesmo mês pelo que de fato entrou e saiu da conta.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="dre-categorias">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+            </div>
+            <h3>Categorias do DRE</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'dre-categorias', caption: 'Categorias do DRE — linhas, ajustes e classificação.' }) %>
+          <p>As categorias definem onde cada conta a pagar entra no DRE (deduções, despesas operacionais ou financeiras) e permitem um <strong>ajuste percentual de simulação</strong> (coluna “Projetado”), que nunca altera o lançamento real.</p>
+          <p><strong>Como acessar:</strong> no DRE, clique em <em>Configurar categorias e ajustes</em>.</p>
+          <ol>
+            <li>Crie uma categoria manual (ex.: <em>Combustível</em>) e escolha a linha do DRE.</li>
+            <li>Ao lançar uma conta a pagar, selecione a categoria — o valor cai automaticamente na linha certa.</li>
+            <li>Ajuste o percentual de uma categoria para simular cenários (ex.: +10% de despesa).</li>
+          </ol>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- FISCAL -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="fiscal-notas">
+          <h2>Fiscal</h2>
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <h3>Notas Fiscais</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'fiscal-notas', caption: 'Notas fiscais — filtros por período/situação e exportação.' }) %>
+          <p>A tela de Notas Fiscais lista os documentos emitidos, com <strong>filtro por período e situação</strong>, um resumo por status no topo e <strong>exportação em CSV</strong> (livro de saída) para o contador.</p>
+          <div class="wiki-callout">
+            <p><strong>Importante:</strong> a emissão automática de NFC-e depende da conexão com o emissor (SEFAZ/provedor), que entra em uma etapa futura. Enquanto isso, a tela já organiza, filtra e exporta tudo — e o botão <strong>XML</strong> baixa o arquivo autorizado assim que houver emissor.</p>
+          </div>
+          <p><strong>Como acessar:</strong> no menu, em <em>Fiscal → Notas Fiscais</em>.</p>
+          <ol>
+            <li>Filtre por <strong>período</strong> e por <strong>situação</strong> (autorizadas, canceladas, rejeitadas…).</li>
+            <li>Confira o resumo do período por status.</li>
+            <li>Clique em <strong>Exportar CSV</strong> para baixar a lista, ou em <strong>XML</strong> para baixar o documento de uma nota.</li>
+          </ol>
+        </div>
+
+        <div class="wiki-section" id="fiscal-config">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <h3>Configuração Fiscal</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'fiscal-config', caption: 'Configuração fiscal — empresa, certificado, CSC e prontidão.' }) %>
+          <p>Reúne os dados que a emissão vai precisar: <strong>empresa</strong> (razão social, CNPJ, IE, endereço e município IBGE), <strong>certificado A1</strong> (.pfx), <strong>CSC/idCSC</strong> (NFC-e) e o <strong>ambiente</strong> (homologação ou produção). Um diagnóstico de <strong>prontidão</strong> mostra o que falta.</p>
+          <p><strong>Como acessar:</strong> no menu, em <em>Fiscal → Configuração</em>.</p>
+          <ol>
+            <li>Preencha os dados da empresa (o CNPJ e a IE precisam bater com o certificado).</li>
+            <li>Envie o certificado A1 e informe a senha.</li>
+            <li>Informe o CSC e o idCSC do estado e escolha o provedor.</li>
+            <li>Confira a prontidão: itens em vermelho impedem a emissão; em amarelo, só alertam.</li>
+          </ol>
+        </div>
+
+        <div class="wiki-section" id="nfe-importar">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <h3>Importar NF-e</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'nfe-importar', caption: 'Importar NF-e — conferência da nota do fornecedor.' }) %>
+          <p>Importe a nota do fornecedor pelo <strong>XML</strong> (NF-e modelo 55). O sistema lê os itens, sugere vínculos com os produtos existentes e cria o que faltar — dando entrada no estoque e atualizando o custo médio.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Lançar uma compra inteira em segundos, sem digitar item por item — e sem erro de preço, unidade ou código de barras.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> no menu, em <em>Importar NF-e</em>.</p>
+          <ol>
+            <li>Envie o arquivo XML (ou cole o conteúdo) e clique em <strong>Analisar XML</strong>.</li>
+            <li>Na conferência, ajuste cada linha: <strong>Vincular</strong> a um produto, <strong>Criar</strong> novo, ou <strong>Ignorar</strong>. Confira quantidade, conversão de unidade (cx → un), custo e preço.</li>
+            <li>Confirme a importação. A nota entra no histórico e a compra no estoque.</li>
+            <li>No histórico, use <strong>XML</strong> para baixar o arquivo, <strong>Editar</strong> para reabrir a conferência (com opção de manter o estoque atual ou restaurar o estado da nota) e <strong>Desfazer</strong> para reverter a importação.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Nota de 2 caixas de refrigerante (24 un cada). O sistema converte para 48 unidades, grava o custo por unidade e já sugere o preço de venda pelo markup configurado.</p>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- ETIQUETAS -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="etiquetas">
+          <h2>Etiquetas</h2>
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42Z"/><path d="M7 7h.01"/></svg>
+            </div>
+            <h3>Gerador de Etiquetas</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'etiquetas', caption: 'Gerador de etiquetas — produtos, código de barras e folha.' }) %>
+          <p>Monte folhas de etiquetas com <strong>nome, preço, código de barras</strong> e o layout da sua folha (Pimaco e afins). Escolha a simbologia (EAN-13, Code 128, QR) e imprima direto na impressora comum.</p>
+          <p><strong>Como acessar:</strong> no menu, em <em>Etiquetas</em>.</p>
+          <ol>
+            <li>Busque e adicione os produtos e informe a quantidade de etiquetas de cada um.</li>
+            <li>Escolha o modelo de folha e os campos que devem aparecer.</li>
+            <li>Clique em <strong>Imprimir</strong> — o sistema posiciona cada etiqueta na folha.</li>
+          </ol>
+        </div>
+
+        <div class="wiki-section" id="etiquetas-historico">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+            </div>
+            <h3>Histórico de Etiquetas</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'etiquetas-historico', caption: 'Histórico de etiquetas — reimpressão de folhas anteriores.' }) %>
+          <p>Cada folha gerada fica registrada. Reabra uma impressão anterior e <strong>reimprima</strong> sem remontar a seleção de produtos.</p>
+          <p><strong>Como acessar:</strong> no menu, em <em>Etiquetas → Histórico</em>.</p>
+          <ol>
+            <li>Localize a folha pela data e pelos produtos.</li>
+            <li>Clique para reimprimir exatamente como saiu antes.</li>
+          </ol>
+        </div>
+
         <div class="wiki-section" id="pdv">
           <h2>Loja / PDV</h2>
           <div class="wiki-section-head">
@@ -554,6 +782,7 @@
             </div>
             <h3>PDV (Ponto de Venda)</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'pdv', caption: 'PDV — a frente de caixa.' }) %>
           <p>O PDV é onde você realiza as vendas no dia a dia. É rápido, intuitivo e suporta múltiplas formas de pagamento.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -586,6 +815,7 @@
             </div>
             <h3>Vendas</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'vendas', caption: 'Vendas — histórico e relatório do dia.' }) %>
           <p>O histórico de vendas mostra todas as transações realizadas, com opção de cancelamento e impressão de cupom.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -616,6 +846,7 @@
             </div>
             <h3>Orçamentos</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'orcamentos', caption: 'Orçamentos — cotações e conversão em venda.' }) %>
           <p>Crie orçamentos (cotações) para clientes. O orçamento não mexe no estoque — só vira venda quando o cliente aprovar.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -653,6 +884,7 @@
             </div>
             <h3>Mesas &amp; Comandas</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'mesas-comandas', caption: 'Mesas e comandas — salão e balcão.' }) %>
           <p>Os módulos <strong>Mesas</strong> e <strong>Comandas</strong> são para quem atende mesa — o garçom abre uma comanda na mesa, vai lançando os pedidos do cliente ao longo do atendimento, e só quando a mesa pede a conta é que aquilo tudo vira uma venda de verdade, com pagamento.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -713,6 +945,7 @@
             </div>
             <h3>Cozinha (Painel de Produção)</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'cozinha', caption: 'Cozinha — painel de produção (KDS).' }) %>
           <p>O painel de cozinha (também chamado de KDS — <em>Kitchen Display System</em>) mostra, em tempo real, só os itens que precisam ser preparados — tanto de vendas diretas no PDV quanto de pedidos feitos numa comanda de mesa.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -742,6 +975,7 @@
             </div>
             <h3>Roteamento para a Cozinha</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'roteamento-cozinha', caption: 'Roteamento — quais produtos vão para a cozinha.' }) %>
           <p>Defina, produto a produto, quais itens do seu catálogo geram ticket na cozinha ao serem vendidos ou pedidos — uma lata de refrigerante não precisa aparecer lá, mas um hambúrguer precisa.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -808,6 +1042,7 @@
             </div>
             <h3>Usuários e Cargos</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'usuarios', caption: 'Usuários — acessos e permissões.' }) %>
           <p>Gerencie quem acessa o sistema e o que cada pessoa pode fazer, usando o sistema de cargos e permissões (RBAC).</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -831,6 +1066,32 @@
           <p>Já vêm prontos os cargos <strong>Garçom</strong> (só Mesas e Comandas) e <strong>Cozinha (KDS)</strong> (só o painel de produção) — pensados para os aparelhos usados via <a href="#rede-local">Acesso pela Rede Local</a>, sem precisar montar um cargo customizado do zero.</p>
         </div>
 
+        <div class="wiki-section" id="notificacoes">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </div>
+            <h3>Central de Mensagens</h3>
+          </div>
+          <%- include('partials/wiki-shot', { name: 'notificacoes', caption: 'Central de mensagens — comunicados, novidades e tutoriais.' }) %>
+          <p>É onde chegam <strong>comunicados, novidades, dicas e tutoriais</strong> enviados pelo suporte. As mensagens podem ter imagem de destaque e categoria; cada usuário marca o que já leu e o que quer guardar.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Manter você informado sobre o sistema sem precisar procurar: o que mudou, como usar e o que vem por aí — com o conteúdo disponível mesmo offline.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> ícone de notificações no topo (ou <em>Central de Mensagens</em> no menu).</p>
+          <ol>
+            <li>Abra a mensagem pela lista — as não lidas aparecem destacadas.</li>
+            <li>Marque como <strong>favorita</strong> para guardar e <strong>lida</strong> para limpar o aviso.</li>
+            <li>Crie <strong>categorias próprias</strong> para organizar o que interessa.</li>
+          </ol>
+        </div>
+
         <div class="wiki-section" id="configuracoes">
           <div class="wiki-section-head">
             <div class="wiki-section-icon">
@@ -838,6 +1099,7 @@
             </div>
             <h3>Configurações</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'configuracoes', caption: 'Configurações — empresa, recursos e preferências.' }) %>
           <p>Configure dados da empresa, PIN de segurança e preferências do sistema.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
@@ -896,6 +1158,7 @@
             </div>
             <h3>Backup</h3>
           </div>
+          <%- include('partials/wiki-shot', { name: 'backup', caption: 'Backup — cópias local e na nuvem.' }) %>
           <p>O sistema faz backup automático diário às 23:00. Você também pode criar backups manualmente e restaurá-los.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">

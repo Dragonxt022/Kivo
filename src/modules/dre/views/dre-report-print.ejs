@@ -101,6 +101,7 @@
   <div class="doc-title">
     <h1>Demonstrativo de Resultado do Exercício</h1>
     <p class="period">Período: <strong><%= periodLabel %></strong></p>
+    <p class="period">Base: <strong><%= report.basis === 'caixa' ? 'Caixa (recebimentos e pagamentos)' : 'Competência (emissão e venda)' %></strong></p>
   </div>
 
   <table>
@@ -136,7 +137,7 @@
       <% }) %>
     </tbody>
   </table>
-  <p class="note">O CMV usa o custo atual do produto (sem histórico de custo por venda) — valor aproximado se o custo mudou após a venda.</p>
+  <p class="note">CMV pelo custo congelado na venda, já abatido o custo dos itens devolvidos. Devoluções aparecem como linhas negativas em Receita Bruta e CMV.</p>
 
   <div class="print-footer">
     <span>Kivo — sistema de gestão</span>

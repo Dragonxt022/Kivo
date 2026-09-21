@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { NfeImportError, buildImportPreview, commitImport, NFE_MARKUP_SETTING } from '../nfeImport';
 import { revertImport } from '../nfeRevert';
+import { buildEditData, commitEdit, NfeEditChoiceRequired } from '../nfeEdit';
 import { productRepository } from '../../commercial/repositories/ProductRepository';
 import { categoryRepository } from '../../commercial/repositories/CategoryRepository';
 import { purchaseInvoiceRepository } from '../repositories/NfeRepository';
@@ -12,6 +13,12 @@ function wrap(handler: (req: Request, res: Response) => void) {
     try {
       handler(req, res);
     } catch (e) {
+      // A edição precisa de uma escolha do usuário sobre o estoque: 409 com o detalhe.
+      // O envelope global só preserva campos extras quando o corpo já traz `success`.
+      if (e instanceof NfeEditChoiceRequired) {
+        res.status(409).json({ success: false, error: e.message, needsStockChoice: true, divergence: e.divergence });
+        return;
+      }
       if (e instanceof NfeImportError) {
         res.status(400).json({ error: e.message });
         return;
@@ -77,6 +84,39 @@ export const nfeController = {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Importação inválida.' }); return; }
     res.json(revertImport(req, id));
+  }),
+
+  /** Baixa o XML original da NF-e de compra (para guardar/enviar ao contador). */
+  downloadXml: wrap((req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Importação inválida.' }); return; }
+    const row = purchaseInvoiceRepository.rawOne(
+      'SELECT access_key, xml FROM purchase_invoices WHERE id = ? AND deleted_at IS NULL',
+      id,
+    ) as { access_key: string; xml: string } | undefined;
+    if (!row) { res.status(404).json({ error: 'Importação não encontrada.' }); return; }
+    audit(req, 'exportar', 'purchase_invoice', id, null, { accessKey: row.access_key });
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="nfe-${row.access_key}.xml"`);
+    res.send(row.xml);
+  }),
+
+  /** Reabre a conferência de uma importação para edição (pré-preenchida). */
+  edit: wrap((req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Importação inválida.' }); return; }
+    res.json(buildEditData(id));
+  }),
+
+  /** Salva a edição de uma importação (estorna a versão antiga e aplica a nova). */
+  commitEdit: wrap((req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Importação inválida.' }); return; }
+    const decisions = Array.isArray(req.body?.decisions) ? req.body.decisions : [];
+    if (!decisions.length) { res.status(400).json({ error: 'Nenhuma decisão de conferência enviada.' }); return; }
+    const raw = req.body?.stockMode;
+    const stockMode = raw === 'keep' || raw === 'restore' ? raw : null;
+    res.json(commitEdit(req, id, decisions, stockMode));
   }),
 
   /** Markup global de sugestão de preço (basis points; 10000 = 100%). */
