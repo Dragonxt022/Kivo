@@ -21,7 +21,7 @@ import mobileAppRoutes from './routes/mobileApp';
 import quotePublicRoutes from './routes/quotePublic';
 import telemetryRoutes, { startTelemetryRetention } from './routes/telemetry';
 import affiliateRoutes from './routes/affiliate';
-import { purgeExpiredAdminSessions } from './adminAuth';
+import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAuth';
 import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
 
@@ -116,9 +116,11 @@ if (require.main === module) {
   // Sessões do painel e do portal do afiliado vivem no banco — limpa as vencidas no
   // boot e a cada 6h.
   purgeExpiredAdminSessions();
+  purgeExpiredPasswordResets();
   purgeExpiredAffiliateSessions();
   setInterval(() => {
     purgeExpiredAdminSessions();
+    purgeExpiredPasswordResets();
     purgeExpiredAffiliateSessions();
   }, 6 * 3600e3).unref?.();
   app.listen(PORT, () => console.log(`[kivo-cloud] ouvindo em http://localhost:${PORT}`));

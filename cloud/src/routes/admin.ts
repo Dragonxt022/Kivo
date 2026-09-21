@@ -6,7 +6,17 @@ import { getPool } from '../db';
 import { hashLicenseKey } from '../auth';
 import { emitToCompany } from '../events';
 import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
-import { accrueCommissionForCharge, affiliateSummary, createPayoutFromAvailable, payPayout, cancelPayout } from '../affiliates';
+import {
+  accrueCommissionForCharge,
+  affiliateSummary,
+  createPayoutFromAvailable,
+  payPayout,
+  cancelPayout,
+  reverseChargePayment,
+  reversePayout,
+} from '../affiliates';
+import { sendTestEmail, sendPasswordResetEmail, smtpConfigFromBody } from '../mailer';
+import { createRateLimiter } from '../rateLimit';
 import { hashAffiliatePassword } from '../affiliateAuth';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
 import { expectedResponse } from '../recoveryCodes';
@@ -20,6 +30,13 @@ import {
   requireAdminAuth,
   readAdminCookie,
   hashPassword,
+  findAdminByIdentity,
+  setAdminEmail,
+  setAdminPassword,
+  destroyAdminSessionsFor,
+  createPasswordReset,
+  validatePasswordReset,
+  consumePasswordReset,
   ADMIN_SESSION_COOKIE,
   type AdminRequest,
 } from '../adminAuth';
@@ -171,6 +188,103 @@ router.post('/logout', async (req, res) => {
   await destroyAdminSession(readAdminCookie(req));
   res.clearCookie(ADMIN_SESSION_COOKIE);
   res.redirect('/admin/login');
+});
+
+// --- Recuperação de senha (link por e-mail) ---
+
+/** Freia o formulário de recuperação por IP: 5 pedidos a cada 15 min. */
+const forgotLimiter = createRateLimiter({ windowMs: 15 * 60e3, max: 5, keyPrefix: 'forgot:' });
+
+/** URL base para montar o link do e-mail, respeitando o proxy (x-forwarded-proto). */
+function requestBaseUrl(req: import('express').Request): string {
+  const proto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim() || req.protocol;
+  return `${proto}://${req.get('host')}`;
+}
+
+router.get('/forgot', async (_req, res) => {
+  if (!(await hasAnyAdmin())) {
+    res.redirect('/admin/setup');
+    return;
+  }
+  res.render('forgot-password', { error: null, success: null });
+});
+
+router.post('/forgot', async (req, res) => {
+  if (!(await hasAnyAdmin())) {
+    res.redirect('/admin/setup');
+    return;
+  }
+  if (forgotLimiter(req.ip ?? 'unknown')) {
+    res
+      .status(429)
+      .render('forgot-password', { error: 'Muitas tentativas. Aguarde alguns minutos e tente de novo.', success: null });
+    return;
+  }
+  const identity = String(req.body?.identity ?? '').trim();
+  if (!identity) {
+    res.status(400).render('forgot-password', { error: 'Informe o usuário ou o e-mail.', success: null });
+    return;
+  }
+  // Resposta sempre genérica: não confirma se a conta existe (evita enumeração de usuários).
+  const generic = 'Se existir uma conta com esse usuário/e-mail e ela tiver um e-mail cadastrado, enviamos um link de redefinição.';
+  const admin = await findAdminByIdentity(identity);
+  if (admin?.email) {
+    try {
+      const token = await createPasswordReset(admin.username);
+      const url = `${requestBaseUrl(req)}/admin/reset-password?token=${token}`;
+      await sendPasswordResetEmail(admin.email, url);
+    } catch (err) {
+      // Falha de SMTP não pode virar oráculo de existência de conta: loga e segue genérico.
+      console.error('[admin] falha ao enviar e-mail de recuperação:', err);
+    }
+  }
+  res.render('forgot-password', { error: null, success: generic });
+});
+
+router.get('/reset-password', async (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  const valid = await validatePasswordReset(token);
+  res.render('reset-password', {
+    token,
+    valid,
+    error: valid ? null : 'Link inválido ou expirado. Peça um novo.',
+    success: null,
+  });
+});
+
+router.post('/reset-password', async (req, res) => {
+  const token = String(req.body?.token ?? '');
+  const newPassword = String(req.body?.newPassword ?? '');
+  const confirmPassword = String(req.body?.confirmPassword ?? '');
+  const valid = await validatePasswordReset(token);
+  const render = (error: string | null, success: string | null = null) =>
+    res.render('reset-password', { token, valid: valid || Boolean(success), error, success });
+
+  if (!valid) {
+    render('Link inválido ou expirado. Peça um novo.');
+    return;
+  }
+  if (!newPassword || !confirmPassword) {
+    render('Preencha os dois campos.');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    render('As senhas não conferem.');
+    return;
+  }
+  if (newPassword.length < 8) {
+    render('A nova senha precisa ter pelo menos 8 caracteres.');
+    return;
+  }
+  const username = await consumePasswordReset(token);
+  if (!username) {
+    render('Link inválido ou expirado. Peça um novo.');
+    return;
+  }
+  await setAdminPassword(username, newPassword);
+  // Trocar a senha derruba as sessões abertas desse usuário.
+  await destroyAdminSessionsFor(username);
+  render(null, 'Senha redefinida! Você já pode entrar com a nova senha.');
 });
 
 // --- Empresas ---
@@ -496,7 +610,14 @@ router.get('/companies/:uuid', requireAdminAuth, async (req, res) => {
     res.status(404).send('Empresa não encontrada.');
     return;
   }
-  res.render('company-detail', { ...detail, revealedLicenseKey: null, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
+  res.render('company-detail', {
+    ...detail,
+    revealedLicenseKey: null,
+    planTiers: PLAN_TIERS,
+    planLabels: PLAN_LABELS,
+    ok: typeof req.query.ok === 'string' ? req.query.ok : null,
+    error: typeof req.query.error === 'string' ? req.query.error : null,
+  });
 });
 
 /** Normaliza um campo de texto do formulário: string aparada ou NULL se vazio. */
@@ -941,21 +1062,68 @@ router.post('/companies/:uuid/charges', requireAdminAuth, async (req, res) => {
   res.redirect(`/admin/companies/${uuid}`);
 });
 
+/** Redireciona de volta para a aba de cobranças da empresa, com mensagem opcional. */
+function redirectCompanyCharges(res: import('express').Response, uuid: string, kind: 'ok' | 'error', msg?: string): void {
+  const qs = msg ? `?${kind}=${encodeURIComponent(msg)}` : '';
+  res.redirect(`/admin/companies/${uuid}${qs}#cobrancas`);
+}
+
 router.post('/companies/:uuid/charges/:id/pay', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  await getPool().query("UPDATE charges SET status = 'paga', paid_at = NOW(3) WHERE id = ? AND company_uuid = ?", [
-    req.params.id,
-    uuid,
-  ]);
-  // Recebeu: lança o crédito de comissão do afiliado que indicou a empresa (se houver).
-  await accrueCommissionForCharge(Number(req.params.id));
-  res.redirect(`/admin/companies/${uuid}`);
+  // Só baixa o que ainda está pendente: re-clicar não re-paga nem re-lança comissão.
+  const [result] = await getPool().query(
+    "UPDATE charges SET status = 'paga', paid_at = NOW(3) WHERE id = ? AND company_uuid = ? AND status = 'pendente'",
+    [req.params.id, uuid],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    // Recebeu: lança o crédito de comissão do afiliado que indicou a empresa (se houver).
+    await accrueCommissionForCharge(Number(req.params.id));
+    redirectCompanyCharges(res, uuid, 'ok', 'Cobrança marcada como paga.');
+    return;
+  }
+  redirectCompanyCharges(res, uuid, 'error', 'Só é possível marcar como paga uma cobrança pendente.');
 });
 
 router.post('/companies/:uuid/charges/:id/cancel', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  await getPool().query("UPDATE charges SET status = 'cancelada' WHERE id = ? AND company_uuid = ?", [req.params.id, uuid]);
-  res.redirect(`/admin/companies/${uuid}`);
+  const [result] = await getPool().query(
+    "UPDATE charges SET status = 'cancelada' WHERE id = ? AND company_uuid = ? AND status = 'pendente'",
+    [req.params.id, uuid],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    redirectCompanyCharges(res, uuid, 'ok', 'Cobrança cancelada.');
+    return;
+  }
+  redirectCompanyCharges(res, uuid, 'error', 'Só é possível cancelar uma cobrança pendente.');
+});
+
+// Estorno: desfaz a baixa de uma cobrança paga (volta a pendente e apaga a comissão gerada).
+router.post('/companies/:uuid/charges/:id/reverse', requireAdminAuth, async (req, res) => {
+  const uuid = String(req.params.uuid);
+  const result = await reverseChargePayment(Number(req.params.id), uuid);
+  if (result.ok) {
+    redirectCompanyCharges(res, uuid, 'ok', 'Pagamento estornado — a cobrança voltou a ficar pendente.');
+    return;
+  }
+  const msg =
+    result.reason === 'commission_in_payout'
+      ? 'Não é possível estornar: a comissão desta cobrança já entrou em um pedido de pagamento ao afiliado.'
+      : 'Só é possível estornar uma cobrança paga.';
+  redirectCompanyCharges(res, uuid, 'error', msg);
+});
+
+// Reabre uma cobrança cancelada, devolvendo-a para pendente.
+router.post('/companies/:uuid/charges/:id/reopen', requireAdminAuth, async (req, res) => {
+  const uuid = String(req.params.uuid);
+  const [result] = await getPool().query(
+    "UPDATE charges SET status = 'pendente' WHERE id = ? AND company_uuid = ? AND status = 'cancelada'",
+    [req.params.id, uuid],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    redirectCompanyCharges(res, uuid, 'ok', 'Cobrança reaberta.');
+    return;
+  }
+  redirectCompanyCharges(res, uuid, 'error', 'Só é possível reabrir uma cobrança cancelada.');
 });
 
 // --- Cobranças (visão global) + Afiliados (programa de indicação) ---
@@ -1042,6 +1210,8 @@ router.get('/charges', requireAdminAuth, async (req, res) => {
     affiliates,
     filter: { status, vencidas },
     active: 'charges',
+    ok: typeof req.query.ok === 'string' ? req.query.ok : null,
+    error: typeof req.query.error === 'string' ? req.query.error : null,
   });
 });
 
@@ -1068,16 +1238,65 @@ router.post('/charges', requireAdminAuth, async (req, res) => {
   res.redirect('/admin/charges');
 });
 
+/** Volta para a lista de cobranças com uma mensagem opcional (ok/erro). */
+function redirectCharges(res: import('express').Response, kind: 'ok' | 'error', msg?: string): void {
+  res.redirect(`/admin/charges${msg ? `?${kind}=${encodeURIComponent(msg)}` : ''}`);
+}
+
 router.post('/charges/:id/pay', requireAdminAuth, async (req, res) => {
-  await getPool().query("UPDATE charges SET status = 'paga', paid_at = NOW(3) WHERE id = ?", [req.params.id]);
-  // Recebeu: lança o crédito de comissão do afiliado que indicou a empresa (se houver).
-  await accrueCommissionForCharge(Number(req.params.id));
-  res.redirect('/admin/charges');
+  // Só baixa o que ainda está pendente: re-clicar não re-paga nem re-lança comissão.
+  const [result] = await getPool().query(
+    "UPDATE charges SET status = 'paga', paid_at = NOW(3) WHERE id = ? AND status = 'pendente'",
+    [req.params.id],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    // Recebeu: lança o crédito de comissão do afiliado que indicou a empresa (se houver).
+    await accrueCommissionForCharge(Number(req.params.id));
+    redirectCharges(res, 'ok', 'Cobrança marcada como paga.');
+    return;
+  }
+  redirectCharges(res, 'error', 'Só é possível marcar como paga uma cobrança pendente.');
 });
 
 router.post('/charges/:id/cancel', requireAdminAuth, async (req, res) => {
-  await getPool().query("UPDATE charges SET status = 'cancelada' WHERE id = ?", [req.params.id]);
-  res.redirect('/admin/charges');
+  const [result] = await getPool().query(
+    "UPDATE charges SET status = 'cancelada' WHERE id = ? AND status = 'pendente'",
+    [req.params.id],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    redirectCharges(res, 'ok', 'Cobrança cancelada.');
+    return;
+  }
+  redirectCharges(res, 'error', 'Só é possível cancelar uma cobrança pendente.');
+});
+
+// Estorno: desfaz a baixa de uma cobrança paga (volta a pendente e apaga a comissão gerada).
+router.post('/charges/:id/reverse', requireAdminAuth, async (req, res) => {
+  const result = await reverseChargePayment(Number(req.params.id));
+  if (result.ok) {
+    redirectCharges(res, 'ok', 'Pagamento estornado — a cobrança voltou a ficar pendente.');
+    return;
+  }
+  redirectCharges(
+    res,
+    'error',
+    result.reason === 'commission_in_payout'
+      ? 'Não é possível estornar: a comissão desta cobrança já entrou em um pedido de pagamento ao afiliado.'
+      : 'Só é possível estornar uma cobrança paga.',
+  );
+});
+
+// Reabre uma cobrança cancelada, devolvendo-a para pendente.
+router.post('/charges/:id/reopen', requireAdminAuth, async (req, res) => {
+  const [result] = await getPool().query(
+    "UPDATE charges SET status = 'pendente' WHERE id = ? AND status = 'cancelada'",
+    [req.params.id],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    redirectCharges(res, 'ok', 'Cobrança reaberta.');
+    return;
+  }
+  redirectCharges(res, 'error', 'Só é possível reabrir uma cobrança cancelada.');
 });
 
 /** Percentual inteiro de 0 a 100, tolerante a vazio/valor inválido. */
@@ -1336,7 +1555,14 @@ router.get('/payouts', requireAdminAuth, async (req, res) => {
      FROM affiliate_payouts`,
   );
   const summary = (sumRows as Record<string, number>[])[0] ?? {};
-  res.render('payouts', { payouts, summary, filter: { status }, active: 'payouts' });
+  res.render('payouts', {
+    payouts,
+    summary,
+    filter: { status },
+    active: 'payouts',
+    ok: typeof req.query.ok === 'string' ? req.query.ok : null,
+    error: typeof req.query.error === 'string' ? req.query.error : null,
+  });
 });
 
 router.post('/affiliates/:id/payouts', requireAdminAuth, async (req: AdminRequest, res) => {
@@ -1367,25 +1593,80 @@ router.post('/payouts/:id/cancel', requireAdminAuth, async (req, res) => {
   res.redirect('/admin/payouts');
 });
 
+// Estorno: desfaz um pagamento já confirmado — créditos voltam a ficar disponíveis.
+router.post('/payouts/:id/reverse', requireAdminAuth, async (req, res) => {
+  const ok = await reversePayout(Number(req.params.id));
+  const qs = ok
+    ? '?ok=' + encodeURIComponent('Pagamento estornado — os créditos voltaram a ficar disponíveis.')
+    : '?error=' + encodeURIComponent('Só é possível estornar um pagamento já confirmado.');
+  res.redirect('/admin/payouts' + qs);
+});
+
 // --- Configurações globais (contato de suporte exibido no app quando a licença vence) ---
 
-router.get('/settings', requireAdminAuth, async (_req, res) => {
+router.get('/settings', requireAdminAuth, async (req, res) => {
   const [rows] = await getPool().query('SELECT setting_key, setting_value FROM app_settings');
   const settings = Object.fromEntries(
     (rows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
   );
-  res.render('admin-settings', { settings });
+  // A senha do SMTP nunca volta para a tela: só sinalizamos que já existe uma salva.
+  const smtpPasswordSet = Boolean(settings.smtp_password);
+  settings.smtp_password = '';
+  res.render('admin-settings', {
+    settings,
+    smtpPasswordSet,
+    ok: typeof req.query.ok === 'string' ? req.query.ok : null,
+    error: typeof req.query.error === 'string' ? req.query.error : null,
+  });
 });
 
 router.post('/settings', requireAdminAuth, async (req, res) => {
-  const { supportPhone, supportEmail } = req.body ?? {};
+  const b = (req.body ?? {}) as Record<string, unknown>;
   const upsert = (key: string, value: unknown) =>
     getPool().query(
       'INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)',
       [key, value || null],
     );
-  await Promise.all([upsert('support_phone', supportPhone), upsert('support_email', supportEmail)]);
-  res.redirect('/admin/settings');
+  await Promise.all([
+    upsert('support_phone', b.supportPhone),
+    upsert('support_email', b.supportEmail),
+    upsert('smtp_host', b.smtpHost),
+    upsert('smtp_port', b.smtpPort),
+    upsert('smtp_secure', b.smtpSecure),
+    upsert('smtp_user', b.smtpUser),
+    upsert('smtp_from_name', b.smtpFromName),
+    upsert('smtp_from_email', b.smtpFromEmail),
+  ]);
+  // Senha em branco mantém a que já estava salva (não sobrescreve com NULL).
+  const password = String(b.smtpPassword ?? '').trim();
+  if (password) await upsert('smtp_password', password);
+  res.redirect('/admin/settings?ok=' + encodeURIComponent('Configurações salvas.'));
+});
+
+/**
+ * Botão "Testar envio": valida e envia um e-mail usando os dados do formulário (mesmo antes
+ * de salvar). A senha em branco usa a já salva, então dá para testar sem redigitá-la.
+ */
+router.post('/settings/smtp/test', requireAdminAuth, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const to = String(b.smtpTestTo ?? '').trim();
+  if (!to) {
+    res.status(400).json({ ok: false, message: 'Informe o e-mail de destino do teste.' });
+    return;
+  }
+  const [rows] = await getPool().query("SELECT setting_value FROM app_settings WHERE setting_key = 'smtp_password'");
+  const storedPassword = (rows as { setting_value: string | null }[])[0]?.setting_value ?? null;
+  const cfg = smtpConfigFromBody(b, storedPassword);
+  if (!cfg.host) {
+    res.status(400).json({ ok: false, message: 'Informe o servidor SMTP.' });
+    return;
+  }
+  try {
+    await sendTestEmail(to, cfg);
+    res.json({ ok: true, message: `E-mail de teste enviado para ${to}. Confira a caixa de entrada (e o spam).` });
+  } catch (err) {
+    res.status(502).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 // --- Administradores do painel ---
@@ -1441,16 +1722,33 @@ router.post('/admins/:id/delete', requireAdminAuth, async (req: AdminRequest, re
 
 // --- Perfil do administrador logado ---
 
+async function loadProfileRow(username: string) {
+  const [rows] = await getPool().query('SELECT username, email, created_at FROM admin_users WHERE username = ?', [username]);
+  return (rows as { username: string; email: string | null; created_at: string }[])[0];
+}
+
 router.get('/profile', requireAdminAuth, async (req: AdminRequest, res) => {
-  const [rows] = await getPool().query('SELECT username, created_at FROM admin_users WHERE username = ?', [req.adminUsername]);
-  const admin = (rows as { username: string; created_at: string }[])[0];
+  const admin = await loadProfileRow(req.adminUsername!);
   res.render('profile', { admin, error: null, success: null });
+});
+
+// E-mail usado na recuperação de senha ("Esqueci minha senha" na tela de login).
+router.post('/profile/email', requireAdminAuth, async (req: AdminRequest, res) => {
+  const email = String(req.body?.email ?? '').trim();
+  const admin = await loadProfileRow(req.adminUsername!);
+  const render = (error: string | null, success: string | null) =>
+    res.status(400).render('profile', { admin, error, success });
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    render('E-mail inválido.', null);
+    return;
+  }
+  await setAdminEmail(req.adminUsername!, email || null);
+  res.render('profile', { admin: { ...admin, email: email || null }, error: null, success: 'E-mail de recuperação salvo.' });
 });
 
 router.post('/profile/password', requireAdminAuth, async (req: AdminRequest, res) => {
   const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
-  const [rows] = await getPool().query('SELECT username, created_at FROM admin_users WHERE username = ?', [req.adminUsername]);
-  const admin = (rows as { username: string; created_at: string }[])[0];
+  const admin = await loadProfileRow(req.adminUsername!);
   const fail = (error: string) => res.status(400).render('profile', { admin, error, success: null });
 
   if (!currentPassword || !newPassword || !confirmPassword) {
