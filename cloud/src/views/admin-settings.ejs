@@ -15,27 +15,120 @@
       <%- include('partials/navbar', { active: 'settings' }) %>
 
       <div class="page">
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
+        <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
+
         <div class="page-header">
           <h1>Configurações</h1>
         </div>
 
-        <div class="card">
-          <h2>Contato de suporte</h2>
-          <p class="field-hint" style="margin-top:0">
-            Exibido no app do cliente quando a licença vence (modal de bloqueio) e no status da licença.
-          </p>
-          <form method="post" action="/admin/settings">
+        <form method="post" action="/admin/settings" id="smtp-form">
+          <div class="card">
+            <h2>Contato de suporte</h2>
+            <p class="field-hint" style="margin-top:0">
+              Exibido no app do cliente quando a licença vence (modal de bloqueio) e no status da licença.
+            </p>
             <label>Telefone</label>
             <input type="text" name="supportPhone" value="<%= settings.support_phone || '' %>" placeholder="(11) 99999-9999">
             <label>E-mail</label>
             <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@kivo.com.br">
+          </div>
+
+          <div class="card">
+            <h2>Servidor de e-mail (SMTP)</h2>
+            <p class="field-hint" style="margin-top:0">
+              Usado pelo Kivo Cloud para enviar e-mails. Exemplo Gmail:
+              <strong>smtp.gmail.com</strong>, porta <strong>587</strong>, segurança <strong>STARTTLS</strong>,
+              usuário <strong>seu_email@gmail.com</strong> e uma <strong>senha de app de 16 dígitos</strong>
+              (não é a senha normal da conta — gere em Conta Google &rarr; Segurança &rarr; Senhas de app).
+            </p>
+
+            <label>Servidor SMTP</label>
+            <input type="text" name="smtpHost" value="<%= settings.smtp_host || '' %>" placeholder="smtp.gmail.com" autocomplete="off">
+
+            <label>Porta</label>
+            <input type="number" name="smtpPort" value="<%= settings.smtp_port || 587 %>" min="1" max="65535" placeholder="587">
+
+            <label>Segurança</label>
+            <select name="smtpSecure">
+              <option value="tls" <%= (settings.smtp_secure || 'tls') === 'tls' ? 'selected' : '' %>>STARTTLS — porta 587 (recomendado, Gmail)</option>
+              <option value="ssl" <%= settings.smtp_secure === 'ssl' ? 'selected' : '' %>>SSL/TLS — porta 465</option>
+              <option value="none" <%= settings.smtp_secure === 'none' ? 'selected' : '' %>>Nenhuma — sem criptografia</option>
+            </select>
+
+            <label>Usuário</label>
+            <input type="text" name="smtpUser" value="<%= settings.smtp_user || '' %>" placeholder="seu_email@gmail.com" autocomplete="off">
+
+            <label>Senha / senha de app</label>
+            <input type="password" name="smtpPassword" value="" autocomplete="new-password"
+                   placeholder="<%= smtpPasswordSet ? '•••••••• (deixe em branco para manter a atual)' : 'senha de app de 16 dígitos' %>">
+            <p class="field-hint">
+              <% if (smtpPasswordSet) { %>Já existe uma senha salva. Preencha apenas se quiser trocá-la.<% } else { %>A senha fica guardada no banco e nunca é exibida de volta.<% } %>
+            </p>
+
+            <label>Nome do remetente</label>
+            <input type="text" name="smtpFromName" value="<%= settings.smtp_from_name || '' %>" placeholder="Kivo Cloud">
+
+            <label>E-mail do remetente</label>
+            <input type="email" name="smtpFromEmail" value="<%= settings.smtp_from_email || '' %>" placeholder="no-reply@kivo.com.br">
+            <p class="field-hint">Se ficar em branco, usamos o usuário acima como remetente.</p>
+          </div>
+
+          <div class="card">
+            <h2>Testar envio</h2>
+            <p class="field-hint" style="margin-top:0">
+              Envia um e-mail de teste com os dados acima — funciona mesmo antes de salvar.
+            </p>
+            <label>Enviar teste para</label>
+            <input type="email" id="smtp-test-to" value="<%= settings.support_email || settings.smtp_from_email || '' %>" placeholder="seu_email@gmail.com">
             <div class="modal-actions" style="justify-content: flex-start;">
-              <button type="submit" class="btn">Salvar</button>
+              <button type="button" class="btn secondary" id="smtp-test-btn" onclick="testSmtp()">Testar envio</button>
             </div>
-          </form>
-        </div>
+            <p id="smtp-test-result" class="field-hint" style="margin-top:10px"></p>
+          </div>
+
+          <div class="modal-actions" style="justify-content: flex-start;">
+            <button type="submit" class="btn">Salvar</button>
+          </div>
+        </form>
       </div>
     </main>
   </div>
+
+  <script>
+    async function testSmtp() {
+      var form = document.getElementById('smtp-form');
+      var out = document.getElementById('smtp-test-result');
+      var btn = document.getElementById('smtp-test-btn');
+      var to = document.getElementById('smtp-test-to').value.trim();
+      if (!to) {
+        out.textContent = 'Informe o e-mail de destino do teste.';
+        out.className = 'error-banner';
+        return;
+      }
+      var data = new URLSearchParams();
+      new FormData(form).forEach(function (v, k) { data.append(k, v); });
+      data.set('smtpTestTo', to);
+      btn.disabled = true;
+      out.className = 'field-hint';
+      out.textContent = 'Testando conexão e enviando…';
+      try {
+        var r = await fetch('/admin/settings/smtp/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString(),
+          credentials: 'same-origin',
+        });
+        var j = await r.json();
+        out.textContent = j.message;
+        out.className = j.ok ? 'success-banner' : 'error-banner';
+      } catch (e) {
+        out.textContent = 'Erro inesperado: ' + e;
+        out.className = 'error-banner';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
 </body>
 </html>

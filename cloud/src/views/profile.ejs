@@ -18,6 +18,13 @@
           <h1>Meu perfil</h1>
         </div>
 
+        <% if (typeof error !== 'undefined' && error) { %>
+          <p class="error-banner"><%= error %></p>
+        <% } %>
+        <% if (typeof success !== 'undefined' && success) { %>
+          <p class="success-banner"><%= success %></p>
+        <% } %>
+
         <div class="card">
           <h2>Conta</h2>
           <table>
@@ -26,16 +33,22 @@
               <tr><th>Criado em</th><td><%= fmtDateTimeBr(admin.created_at) %></td></tr>
             </tbody>
           </table>
+
+          <h3 style="margin:18px 0 4px;">E-mail de recuperação</h3>
+          <p class="field-hint" style="margin-top:0">
+            Usado pelo "Esqueci minha senha" na tela de login. Sem um e-mail aqui, a recuperação automática não funciona.
+          </p>
+          <form method="post" action="/admin/profile/email">
+            <label>E-mail</label>
+            <input type="email" name="email" value="<%= admin.email || '' %>" placeholder="seu_email@gmail.com">
+            <div class="modal-actions" style="justify-content: flex-start;">
+              <button type="submit" class="btn">Salvar e-mail</button>
+            </div>
+          </form>
         </div>
 
         <div class="card">
           <h2>Trocar senha</h2>
-          <% if (typeof error !== 'undefined' && error) { %>
-            <div class="error-banner"><%= error %></div>
-          <% } %>
-          <% if (typeof success !== 'undefined' && success) { %>
-            <div class="error-banner" style="background: var(--success-soft); color: var(--success);"><%= success %></div>
-          <% } %>
           <form method="post" action="/admin/profile/password">
             <label>Senha atual</label>
             <input type="password" name="currentPassword" required autocomplete="current-password">

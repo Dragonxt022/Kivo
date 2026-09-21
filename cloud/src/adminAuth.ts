@@ -60,6 +60,95 @@ export async function purgeExpiredAdminSessions(): Promise<void> {
   }
 }
 
+// --- Recuperação de senha por e-mail ---
+
+/** Validade do link de redefinição. Curto o bastante para um link vazado não servir por muito. */
+const RESET_TTL_MS = 60 * 60e3; // 1h
+
+export interface AdminIdentity {
+  username: string;
+  email: string | null;
+}
+
+/** Perfil básico do admin (usado no /admin/profile e na recuperação). */
+export async function getAdminProfile(username: string): Promise<AdminIdentity | null> {
+  const [rows] = await getPool().query('SELECT username, email FROM admin_users WHERE username = ?', [username]);
+  return (rows as AdminIdentity[])[0] ?? null;
+}
+
+/** Localiza o admin por usuário OU e-mail (o "esqueci minha senha" aceita os dois). */
+export async function findAdminByIdentity(identity: string): Promise<AdminIdentity | null> {
+  const [rows] = await getPool().query(
+    'SELECT username, email FROM admin_users WHERE username = ? OR email = ? LIMIT 1',
+    [identity, identity],
+  );
+  return (rows as AdminIdentity[])[0] ?? null;
+}
+
+export async function setAdminEmail(username: string, email: string | null): Promise<void> {
+  await getPool().query('UPDATE admin_users SET email = ? WHERE username = ?', [email, username]);
+}
+
+export async function setAdminPassword(username: string, plain: string): Promise<void> {
+  await getPool().query('UPDATE admin_users SET password_hash = ? WHERE username = ?', [hashPassword(plain), username]);
+}
+
+/** Derruba todas as sessões de um usuário (usado após trocar a senha). */
+export async function destroyAdminSessionsFor(username: string): Promise<void> {
+  await getPool().query('DELETE FROM admin_sessions WHERE username = ?', [username]);
+}
+
+/**
+ * Cria um token de redefinição e devolve o valor CRU (o banco guarda só o hash, como nas
+ * sessões). Pedidos anteriores ainda não usados do mesmo usuário são invalidados — só o
+ * link mais recente vale.
+ */
+export async function createPasswordReset(username: string): Promise<string> {
+  const token = randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + RESET_TTL_MS);
+  await getPool().query('DELETE FROM admin_password_resets WHERE username = ? AND used_at IS NULL', [username]);
+  await getPool().query('INSERT INTO admin_password_resets (token_hash, username, expires_at) VALUES (?, ?, ?)', [
+    hashToken(token),
+    username,
+    expires,
+  ]);
+  return token;
+}
+
+/** Confere se o token existe, não expirou e não foi usado (sem consumi-lo). */
+export async function validatePasswordReset(token: string): Promise<boolean> {
+  if (!token) return false;
+  const [rows] = await getPool().query(
+    'SELECT expires_at, used_at FROM admin_password_resets WHERE token_hash = ?',
+    [hashToken(token)],
+  );
+  const row = (rows as { expires_at: string; used_at: string | null }[])[0];
+  return Boolean(row && !row.used_at && new Date(row.expires_at) >= new Date());
+}
+
+/** Consome o token (marca como usado) e devolve o usuário, ou null se inválido/expirado. */
+export async function consumePasswordReset(token: string): Promise<string | null> {
+  if (!token) return null;
+  const hash = hashToken(token);
+  const [rows] = await getPool().query(
+    'SELECT username, expires_at, used_at FROM admin_password_resets WHERE token_hash = ?',
+    [hash],
+  );
+  const row = (rows as { username: string; expires_at: string; used_at: string | null }[])[0];
+  if (!row || row.used_at || new Date(row.expires_at) < new Date()) return null;
+  await getPool().query('UPDATE admin_password_resets SET used_at = NOW(3) WHERE token_hash = ?', [hash]);
+  return row.username;
+}
+
+/** Limpa tokens vencidos/já usados. Chamado no boot junto com a limpeza das sessões. */
+export async function purgeExpiredPasswordResets(): Promise<void> {
+  try {
+    await getPool().query('DELETE FROM admin_password_resets WHERE expires_at < NOW() OR used_at IS NOT NULL');
+  } catch {
+    // best-effort
+  }
+}
+
 function readCookie(req: Request): string | null {
   const cookies = req.headers.cookie ?? '';
   const match = cookies.match(new RegExp(`(?:^|;\\s*)${ADMIN_SESSION_COOKIE}=([^;]+)`));

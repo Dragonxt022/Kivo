@@ -26,3 +26,15 @@ body {
   width: 100%;
   justify-content: center;
 }
+.login-card .login-help {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 13px;
+}
+.login-card .login-help a {
+  color: var(--primary, #ff8000);
+  text-decoration: none;
+}
+.login-card .login-help a:hover {
+  text-decoration: underline;
+}

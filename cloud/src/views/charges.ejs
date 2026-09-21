@@ -41,6 +41,8 @@
       %>
 
       <div class="page">
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
+        <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
         <div class="page-header">
           <div>
             <div class="breadcrumb">Geral</div>
@@ -118,12 +120,16 @@
                   <td class="cell-muted"><%= fmtDateBr(ch.due_date) %></td>
                   <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
                   <td>
-                    <% if (ch.status === 'pendente') { %>
                     <div class="charge-actions">
+                      <% if (ch.status === 'pendente') { %>
                       <form method="post" action="/admin/charges/<%= ch.id %>/pay"><button type="submit">Marcar paga</button></form>
                       <form method="post" action="/admin/charges/<%= ch.id %>/cancel"><button type="submit" class="danger">Cancelar</button></form>
+                      <% } else if (ch.status === 'paga') { %>
+                      <form method="post" action="/admin/charges/<%= ch.id %>/reverse"><button type="submit" class="danger">Estornar</button></form>
+                      <% } else { %>
+                      <form method="post" action="/admin/charges/<%= ch.id %>/reopen"><button type="submit">Reabrir</button></form>
+                      <% } %>
                     </div>
-                    <% } %>
                   </td>
                 </tr>
                 <% }); %>

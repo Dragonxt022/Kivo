@@ -72,6 +72,58 @@ export async function accrueCommissionForCharge(chargeId: number): Promise<numbe
   return amountCents;
 }
 
+export type ReverseChargeResult =
+  | { ok: true }
+  | { ok: false; reason: 'not_found' | 'not_paid' | 'commission_in_payout' };
+
+/**
+ * Estorna o pagamento de uma cobrança: volta de `paga` para `pendente` e apaga o crédito
+ * de comissão que ela gerou — desde que o crédito ainda esteja `disponivel` (fora de um
+ * pedido de pagamento). Se o crédito já entrou num pedido (`solicitado`/`pago`), o estorno
+ * é recusado para não quebrar o total de um pagamento ao afiliado.
+ *
+ * Transação com `FOR UPDATE`: não dá para estornar no meio de outra baixa de comissão.
+ */
+export async function reverseChargePayment(chargeId: number, companyUuid?: string): Promise<ReverseChargeResult> {
+  const pool = getPool();
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `SELECT id, status FROM charges WHERE id = ?${companyUuid ? ' AND company_uuid = ?' : ''} FOR UPDATE`,
+      companyUuid ? [chargeId, companyUuid] : [chargeId],
+    );
+    const charge = (rows as { id: number; status: string }[])[0];
+    if (!charge) {
+      await conn.rollback();
+      return { ok: false, reason: 'not_found' };
+    }
+    if (charge.status !== 'paga') {
+      await conn.rollback();
+      return { ok: false, reason: 'not_paid' };
+    }
+
+    const [commRows] = await conn.query('SELECT id, status FROM affiliate_commissions WHERE charge_id = ? FOR UPDATE', [
+      chargeId,
+    ]);
+    const commission = (commRows as { id: number; status: string }[])[0];
+    if (commission && commission.status !== 'disponivel') {
+      await conn.rollback();
+      return { ok: false, reason: 'commission_in_payout' };
+    }
+    if (commission) await conn.query('DELETE FROM affiliate_commissions WHERE id = ?', [commission.id]);
+
+    await conn.query("UPDATE charges SET status = 'pendente', paid_at = NULL WHERE id = ?", [chargeId]);
+    await conn.commit();
+    return { ok: true };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 /** Resumo financeiro de um afiliado: créditos por status + previsão + nº de empresas. */
 export async function affiliateSummary(affiliateId: number): Promise<AffiliateSummary> {
   const pool = getPool();
@@ -197,6 +249,38 @@ export async function payPayout(payoutId: number, actor: string | null): Promise
     }
     await conn.query(
       "UPDATE affiliate_commissions SET status = 'pago', paid_at = NOW(3) WHERE payout_id = ? AND status = 'solicitado'",
+      [payoutId],
+    );
+    await conn.commit();
+    return true;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/**
+ * Estorna um pagamento JÁ CONFIRMADO: o pedido volta para `cancelado` e os créditos
+ * que ele baixou retornam para `disponivel` (podem ser pagos de novo). É o inverso de
+ * `payPayout`, para quando o pagamento foi confirmado por engano ou devolvido.
+ */
+export async function reversePayout(payoutId: number): Promise<boolean> {
+  const pool = getPool();
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [res] = await conn.query(
+      "UPDATE affiliate_payouts SET status = 'cancelado', paid_at = NULL, paid_by = NULL WHERE id = ? AND status = 'pago'",
+      [payoutId],
+    );
+    if ((res as { affectedRows: number }).affectedRows === 0) {
+      await conn.rollback();
+      return false;
+    }
+    await conn.query(
+      "UPDATE affiliate_commissions SET status = 'disponivel', payout_id = NULL, paid_at = NULL WHERE payout_id = ? AND status = 'pago'",
       [payoutId],
     );
     await conn.commit();

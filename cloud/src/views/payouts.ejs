@@ -30,6 +30,8 @@
       %>
 
       <div class="page">
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
+        <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
         <div class="page-header">
           <div>
             <div class="breadcrumb">Geral</div>
@@ -86,6 +88,10 @@
                     <div class="pay-actions">
                       <form method="post" action="/admin/payouts/<%= p.id %>/pay"><button type="submit">Confirmar pagamento</button></form>
                       <form method="post" action="/admin/payouts/<%= p.id %>/cancel"><button type="submit" class="danger">Cancelar</button></form>
+                    </div>
+                    <% } else if (p.status === 'pago') { %>
+                    <div class="pay-actions">
+                      <form method="post" action="/admin/payouts/<%= p.id %>/reverse"><button type="submit" class="danger">Estornar</button></form>
                     </div>
                     <% } %>
                   </td>
