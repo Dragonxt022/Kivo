@@ -233,6 +233,34 @@ async function fetchCloudCatalog(
   }));
 }
 
+/**
+ * Busca externa centralizada no Cloud (Pexels): o cliente NÃO configura chave. O Cloud
+ * verifica o banco de imagens primeiro e só chama a API quando não há resultado, com cache
+ * e limite próprios. `configured: false` = admin não ligou a busca em Configurações.
+ */
+async function fetchCloudExternal(
+  base: string, auth: Record<string, string>, q: string,
+): Promise<ImageSuggestion[]> {
+  const r = await fetch(`${base}/api/catalog/external-search?q=${encodeURIComponent(q)}`, {
+    headers: auth, signal: AbortSignal.timeout(10000),
+  });
+  if (!r.ok) throw new Error(`Busca externa respondeu ${r.status}.`);
+  const data = (await r.json()) as {
+    results?: { url: string; thumb: string; title: string }[];
+    configured?: boolean;
+  };
+  if (!data.configured) return [];
+  return (data.results ?? []).map((it) => ({
+    id: 0,
+    name: it.title ?? '',
+    url: webImageProxyUrl(it.url),
+    thumb: webImageProxyUrl(it.thumb || it.url),
+    source: 'web' as const,
+    srcUrl: it.url,
+    srcThumb: it.thumb || it.url,
+  }));
+}
+
 /** Sugestões da web que outras empresas já escolheram para este termo (ranking global). */
 async function fetchCloudWebPicks(
   base: string, auth: Record<string, string>, q: string,
@@ -299,25 +327,36 @@ router.get('/products/image-search', requirePermission('commercial.products.view
   add(catalog);
   add(webCached);
 
-  // Camada 3 — busca externa (Brave Search API): só quando ainda há espaço e a chave está
-  // configurada. Se falhar, a lista fica com o que o sugestor local achou.
+  // Camada 3 — busca externa centralizada no Cloud (Pexels). Só quando ainda há espaço.
+  // Fallback: chave local (Brave) para instalações que ainda não usam a config central.
   const externalConfigured = !!getWebImageConfig();
   let externalFailed = false;
-  if (merged.length < IMAGE_SUGGESTION_LIMIT && externalConfigured) {
-    try {
-      const fresh = await searchWebImages(q, IMAGE_SUGGESTION_LIMIT);
-      add(fresh.map((it) => ({
-        id: 0,
-        name: it.title,
-        url: webImageProxyUrl(it.imageUrl),
-        thumb: webImageProxyUrl(it.thumbUrl),
-        source: 'web' as const,
-        srcUrl: it.imageUrl,
-        srcThumb: it.thumbUrl,
-      })));
-    } catch {
-      externalFailed = true;
+  if (merged.length < IMAGE_SUGGESTION_LIMIT) {
+    let fresh: ImageSuggestion[] = [];
+    if (base && auth) {
+      try {
+        fresh = await fetchCloudExternal(base, auth, q);
+      } catch {
+        // Cloud sem busca externa configurada ou fora do ar: tenta a chave local abaixo.
+      }
     }
+    if (!fresh.length && externalConfigured) {
+      try {
+        const local = await searchWebImages(q, IMAGE_SUGGESTION_LIMIT);
+        fresh = local.map((it) => ({
+          id: 0,
+          name: it.title,
+          url: webImageProxyUrl(it.imageUrl),
+          thumb: webImageProxyUrl(it.thumbUrl),
+          source: 'web' as const,
+          srcUrl: it.imageUrl,
+          srcThumb: it.thumbUrl,
+        }));
+      } catch {
+        externalFailed = true;
+      }
+    }
+    add(fresh);
   }
 
   const noLocal = (!hasCloud || cloudFailed) && catalog.length === 0 && webCached.length === 0;
@@ -366,6 +405,9 @@ router.post('/products/image-web-learn', requirePermission('commercial.products.
   const url = String(req.body?.url ?? '').trim();
   const thumb = req.body?.thumb != null ? String(req.body.thumb) : null;
   const title = req.body?.title != null ? String(req.body.title) : null;
+  // Nome real do produto e código de barras: o Cloud usa ao enfileirar a imagem na curadoria.
+  const name = req.body?.name != null ? String(req.body.name) : null;
+  const barcode = req.body?.barcode != null ? String(req.body.barcode) : null;
   if (!base || !auth || term.length < 3 || !/^https?:\/\//i.test(url)) {
     res.json({ ok: false });
     return;
@@ -374,7 +416,7 @@ router.post('/products/image-web-learn', requirePermission('commercial.products.
     await fetch(`${base}/api/catalog/web-pick`, {
       method: 'POST',
       headers: { ...auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ term, url, thumb, title }),
+      body: JSON.stringify({ term, url, thumb, title, name, barcode }),
       signal: AbortSignal.timeout(6000),
     });
   } catch {

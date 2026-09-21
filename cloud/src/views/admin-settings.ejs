@@ -75,6 +75,35 @@
           </div>
 
           <div class="card">
+            <h2>Busca de imagens (API)</h2>
+            <p class="field-hint" style="margin-top:0">
+              Centraliza a busca de fotos do sugestor de imagens dos produtos: configurando aqui, os
+              clientes usam a busca <strong>sem chave própria</strong>. Provedor: <strong>Pexels</strong>
+              (plano gratuito — o app mostra o crédito "Fotos fornecidas por Pexels"). Obtenha a chave em
+              <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a>.
+              O primeiro lugar consultado é sempre o nosso banco de imagens; a API só entra quando não há
+              resultado — e o que for confirmado vai para a curadoria.
+            </p>
+            <label style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" name="imageApiEnabled" value="1" <%= settings.image_api_enabled !== '0' ? 'checked' : '' %> style="width:auto;">
+              Ativar busca externa de imagens
+            </label>
+            <label>API Key (Pexels)</label>
+            <input type="password" name="imageApiKey" value="" autocomplete="off"
+                   placeholder="<%= imageApiKeySet ? '•••••••• (deixe em branco para manter a atual)' : 'sua API Key da Pexels' %>">
+            <p class="field-hint">
+              <% if (settings.image_api_remaining) { %>Cota informada pela API: <strong><%= settings.image_api_remaining %></strong> de <%= settings.image_api_limit || '—' %> restantes.<% } else { %>A cota é consultada após a primeira busca bem-sucedida.<% } %>
+            </p>
+
+            <label>Termo para testar</label>
+            <input type="text" id="image-api-query" value="produto" placeholder="ex.: refrigerante lata">
+            <div class="modal-actions" style="justify-content: flex-start;">
+              <button type="button" class="btn secondary" id="image-api-test-btn" onclick="testImageApi()">Testar busca</button>
+            </div>
+            <p id="image-api-test-result" class="field-hint" style="margin-top:10px"></p>
+          </div>
+
+          <div class="card">
             <h2>Testar envio</h2>
             <p class="field-hint" style="margin-top:0">
               Envia um e-mail de teste com os dados acima — funciona mesmo antes de salvar.
@@ -114,6 +143,34 @@
       out.textContent = 'Testando conexão e enviando…';
       try {
         var r = await fetch('/admin/settings/smtp/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString(),
+          credentials: 'same-origin',
+        });
+        var j = await r.json();
+        out.textContent = j.message;
+        out.className = j.ok ? 'success-banner' : 'error-banner';
+      } catch (e) {
+        out.textContent = 'Erro inesperado: ' + e;
+        out.className = 'error-banner';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function testImageApi() {
+      var out = document.getElementById('image-api-test-result');
+      var btn = document.getElementById('image-api-test-btn');
+      var keyInput = document.querySelector('input[name="imageApiKey"]');
+      var data = new URLSearchParams();
+      data.set('imageApiKey', keyInput ? keyInput.value : '');
+      data.set('imageApiQuery', document.getElementById('image-api-query').value.trim());
+      btn.disabled = true;
+      out.className = 'field-hint';
+      out.textContent = 'Consultando a API…';
+      try {
+        var r = await fetch('/admin/settings/image-api/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: data.toString(),
