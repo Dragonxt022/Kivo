@@ -31,6 +31,8 @@ router.get('/status', (_req, res) => {
     status: info.status,
     plan: info.plan,
     daysRemaining: info.daysRemaining,
+    daysUntilBlock: info.daysUntilBlock,
+    blockAt: info.blockAt,
     validUntil: info.validUntil,
     message: info.message,
     cloudIssue: info.cloudIssue,

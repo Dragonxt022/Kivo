@@ -68,6 +68,15 @@
       const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
       list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
     }
+    // Licença vencida (tolerância) ou perto de vencer: contagem regressiva até o bloqueio.
+    // O bloqueio acontece no fim da tolerância (vencimento + dias de tolerância).
+    if (this.licenseStatus && this.licenseStatus.status === 'tolerancia') {
+      const d = this.licenseStatus.daysUntilBlock;
+      list.push({ id: 'licenca-bloqueio', type: 'licenca', message: d != null ? `Licença vencida — bloqueio em ${d} dia(s)` : 'Licença vencida — bloqueio a caminho', link: '/admin/configuracoes' });
+    } else if (this.licenseStatus && this.licenseStatus.status === 'valida' && this.licenseStatus.plan !== 'trial' && this.licenseStatus.daysRemaining != null && this.licenseStatus.daysRemaining <= 7) {
+      const d = this.licenseStatus.daysRemaining;
+      list.push({ id: 'licenca-vencendo', type: 'licenca', message: d > 0 ? `Sua licença vence em ${d} dia(s)` : 'Sua licença vence hoje', link: '/admin/configuracoes' });
+    }
     // Anúncio de produto (ver partials/novidade.ejs). Diferente dos demais itens, não vem de
     // nenhuma API: é conteúdo fixo desta versão, e o id versionado faz o 'dispensar' valer só
     // para este anúncio. O link reabre a modal ignorando o 'já vi'.
@@ -353,6 +362,24 @@
   </span>
   <a href="/admin/configuracoes" style="color:inherit;font-weight:600;text-decoration:underline">ver</a>
   <button @click="cloudIssueDismissed = true" class="btn-reset" style="font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
+</div>
+<% } %>
+
+<%# Licença vencida dentro da tolerância: barra fixa embaixo (não conflita com os avisos do
+    topo) com a contagem regressiva até o bloqueio. O modal bloqueante vem em seguida, quando
+    a tolerância acaba (status 'expirada'). %>
+<% if (user) { %>
+<div x-show="licenseStatus && licenseStatus.status === 'tolerancia'" x-cloak
+     style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:45;
+            background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:10px;padding:.7rem 1rem;
+            display:flex;align-items:center;gap:.75rem;font-size:.9rem;box-shadow:var(--shadow-lg);max-width:92vw">
+  <span>
+    ⚠ Licença vencida — o Kivo será bloqueado em
+    <strong x-text="licenseStatus ? (licenseStatus.daysUntilBlock ?? 0) : 0"></strong> dia(s)
+    <template x-if="licenseStatus && licenseStatus.blockAt"><span>(<strong x-text="fmtDueDate(licenseStatus.blockAt)"></strong>)</span></template>.
+    Renove para não parar.
+  </span>
+  <a href="/admin/configuracoes" style="color:inherit;font-weight:600;text-decoration:underline">renovar</a>
 </div>
 <% } %>
 

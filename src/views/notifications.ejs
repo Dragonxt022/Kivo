@@ -334,6 +334,13 @@
             const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
             list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
           }
+          if (this.licenseStatus && this.licenseStatus.status === 'tolerancia') {
+            const d = this.licenseStatus.daysUntilBlock;
+            list.push({ id: 'licenca-bloqueio', type: 'licenca', message: d != null ? `Licença vencida — bloqueio em ${d} dia(s)` : 'Licença vencida — bloqueio a caminho', link: '/admin/configuracoes' });
+          } else if (this.licenseStatus && this.licenseStatus.status === 'valida' && this.licenseStatus.plan !== 'trial' && this.licenseStatus.daysRemaining != null && this.licenseStatus.daysRemaining <= 7) {
+            const d = this.licenseStatus.daysRemaining;
+            list.push({ id: 'licenca-vencendo', type: 'licenca', message: d > 0 ? `Sua licença vence em ${d} dia(s)` : 'Sua licença vence hoje', link: '/admin/configuracoes' });
+          }
           list.push({ id: 'novidade-web-v1', type: 'novidade', message: 'Kivo Web: acompanhe a loja e faça orçamento pelo celular', link: '/?novidade=web-v1' });
           return list;
         },

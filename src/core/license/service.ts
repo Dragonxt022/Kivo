@@ -46,7 +46,12 @@ export interface LicenseInfo {
   validUntil: string | null;
   lastValidatedAt: string | null;
   offlineGraceDays: number;
+  /** Dias até o vencimento (negativo depois de vencer). */
   daysRemaining: number | null;
+  /** Dias até o bloqueio efetivo (vencimento + tolerância). */
+  daysUntilBlock: number | null;
+  /** Data (YYYY-MM-DD) em que o Kivo será bloqueado. */
+  blockAt: string | null;
   supportPhone: string | null;
   supportEmail: string | null;
   message: string;
@@ -670,7 +675,17 @@ export function validateLicense(): LicenseInfo {
   const row = getRow()!;
   reanchorMachineIdIfNeeded(row);
 
-  const daysRemaining = row.valid_until ? Math.ceil((parseSqliteUtc(row.valid_until) - Date.now()) / 86_400_000) : null;
+  // A tolerância conta a partir do FIM DA ASSINATURA (`valid_until`), não da última
+  // validação online: senão o prazo deslizava a cada sync e a licença vencida nunca
+  // bloqueava (o `last_validated_at` era renovado sempre). O anti-retrocesso de relógio
+  // (`time_watermark`) continua impedindo esticar o prazo atrasando o relógio.
+  const now = Date.now();
+  const DAY_MS = 86_400_000;
+  const validUntilMs = row.valid_until ? parseSqliteUtc(row.valid_until) : null;
+  const blockAtMs = validUntilMs != null ? validUntilMs + row.offline_grace_days * DAY_MS : null;
+  const daysRemaining = validUntilMs != null ? Math.ceil((validUntilMs - now) / DAY_MS) : null;
+  const daysUntilBlock = blockAtMs != null ? Math.ceil((blockAtMs - now) / DAY_MS) : null;
+  const blockAt = blockAtMs != null ? new Date(blockAtMs).toISOString().slice(0, 10) : null;
   const { issue: cloudIssue, since: cloudIssueSince } = getCloudIssue();
   const base = {
     machineId: row.machine_id,
@@ -680,6 +695,8 @@ export function validateLicense(): LicenseInfo {
     lastValidatedAt: row.last_validated_at,
     offlineGraceDays: row.offline_grace_days,
     daysRemaining,
+    daysUntilBlock,
+    blockAt,
     supportPhone: row.support_phone,
     supportEmail: row.support_email,
     cloudIssue,
@@ -698,7 +715,6 @@ export function validateLicense(): LicenseInfo {
     };
   }
 
-  const now = Date.now();
   const clockRolledBack = row.time_watermark != null && now < row.time_watermark - CLOCK_TOLERANCE_MS;
   const hmacInvalid = row.integrity_hmac != null && row.integrity_hmac !== computeIntegrityHmac(row);
   const machineMismatch = row.machine_id !== machineId();
@@ -713,12 +729,17 @@ export function validateLicense(): LicenseInfo {
     };
   }
 
-  if (row.valid_until && parseSqliteUtc(row.valid_until) < now) {
-    const grace = row.last_validated_at ? parseSqliteUtc(row.last_validated_at) + row.offline_grace_days * 24 * 3600e3 : 0;
-    if (grace > now) {
-      return { ...base, status: 'tolerancia', message: 'Licença vencida — operando em tolerância offline.' };
+  if (validUntilMs != null && validUntilMs < now) {
+    // Ainda dentro da tolerância pós-vencimento: opera, mas com contagem regressiva até o bloqueio.
+    if (blockAtMs != null && blockAtMs > now) {
+      const d = Math.max(1, daysUntilBlock ?? 0);
+      return {
+        ...base,
+        status: 'tolerancia',
+        message: `Licença vencida — o Kivo será bloqueado em ${d} dia${d === 1 ? '' : 's'}. Renove para não parar.`,
+      };
     }
-    return { ...base, status: 'expirada', message: 'Licença expirada. Renove para continuar recebendo atualizações.' };
+    return { ...base, status: 'expirada', message: 'Licença expirada. Renove para continuar usando o Kivo.' };
   }
 
   return {

@@ -22,7 +22,7 @@ CREATE TABLE license (
   modules_json TEXT,
   valid_until TEXT,
   last_validated_at TEXT,
-  offline_grace_days INTEGER NOT NULL DEFAULT 7,
+  offline_grace_days INTEGER NOT NULL DEFAULT 3,
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   comment TEXT NOT NULL DEFAULT 'Licença desta instalação: Machine ID + Empresa (UUID) + License Key, plano, módulos habilitados e validade. Validada no boot com tolerância offline configurável.'
 );
