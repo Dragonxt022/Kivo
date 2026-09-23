@@ -373,6 +373,20 @@
               </div>
             </template>
 
+            <!-- Lote/validade (produto que controla lote) -->
+            <template x-if="addModalProduct.controla_lote">
+              <div>
+                <div class="field">
+                  <label>Lote</label>
+                  <input type="text" x-model="addForm.lotCode" placeholder="ex.: L2026-01" />
+                </div>
+                <div class="field">
+                  <label>Validade</label>
+                  <input type="date" x-model="addForm.lotExpiresAt" />
+                </div>
+              </div>
+            </template>
+
             <div class="error" x-text="addFormError"></div>
           </div>
           <div class="actions">
@@ -790,7 +804,7 @@
       // ─── Add to cart modal ───
       async openAddModal(p) {
         this.addModalProduct = p;
-        this.addForm = { qty: 0, unitCostStr: '', unitCostCents: 0, purchaseQty: 0, qtyPerPurchaseUnit: p.purchase_unit_qty || 0 };
+        this.addForm = { qty: 0, unitCostStr: '', unitCostCents: 0, purchaseQty: 0, qtyPerPurchaseUnit: p.purchase_unit_qty || 0, lotCode: '', lotExpiresAt: '' };
         this.addFormError = '';
         this.lastPriceCents = null;
         try {
@@ -821,6 +835,11 @@
         const p = this.addModalProduct;
         if (!p) return;
         this.addFormError = '';
+        // Lote só é capturado para produto que controla lote; sem código, entra no lote
+        // "sem lote" (a menos que a política de estoque exija lote).
+        const lot = (p.controla_lote && String(this.addForm.lotCode || '').trim())
+          ? { code: String(this.addForm.lotCode).trim(), expiresAt: this.addForm.lotExpiresAt || null }
+          : null;
 
         if (p.purchase_unit && p.purchase_unit !== p.unit) {
           const qtyPerBox = Number(this.addForm.qtyPerPurchaseUnit);
@@ -831,7 +850,7 @@
             return;
           }
           const totalQty = qtyPerBox * boxes;
-          this.cart.push({ productId: p.id, name: p.name, unit: p.unit, qty: totalQty, unitCostCents: unitCost });
+          this.cart.push({ productId: p.id, name: p.name, unit: p.unit, qty: totalQty, unitCostCents: unitCost, lot });
         } else {
           const qty = Number(this.addForm.qty);
           const unitCost = this.cents(this.addForm.unitCostStr);
@@ -839,7 +858,7 @@
             this.addFormError = 'Informe a quantidade e o valor por ' + p.unit.toUpperCase() + '.';
             return;
           }
-          this.cart.push({ productId: p.id, name: p.name, unit: p.unit, qty, unitCostCents: unitCost });
+          this.cart.push({ productId: p.id, name: p.name, unit: p.unit, qty, unitCostCents: unitCost, lot });
         }
 
         this.$refs.addDlg.close();
@@ -895,7 +914,7 @@
         this.checkingOut = true;
         this.checkoutError = '';
         try {
-          const items = this.cart.map(i => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents }));
+          const items = this.cart.map(i => ({ productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents, lot: i.lot || undefined }));
           const body = {
             supplierId: this.checkoutSupplierId,
             items,

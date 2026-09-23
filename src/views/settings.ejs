@@ -27,6 +27,12 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
         Estoque
       </button>
+      <% if (user.permissions.has('commercial.products.view')) { %>
+      <button :class="{ active: tab === 'tipos-produto' }" @click="setTab('tipos-produto')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+        Tipos de produto
+      </button>
+      <% } %>
       <button :class="{ active: tab === 'sales' }" @click="setTab('sales')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
         Vendas
@@ -231,7 +237,17 @@
     <!-- ═══════ ABA: ESTOQUE ═══════ -->
     <div x-show="tab === 'stock'" x-cloak>
       <section class="panel">
-        <h2>Configurações de estoque</h2>
+        <h2>Operação do estoque</h2>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="stock.vendaEstoqueZerado" />
+            Permitir vender com estoque zerado
+          </label>
+          <p class="hint">
+            Desligado, a venda é bloqueada quando o saldo ficaria negativo — vale para o PDV
+            e para as baixas automáticas (venda, produção, kit).
+          </p>
+        </div>
         <div class="field">
           <label class="label-checkbox">
             <input type="checkbox" x-model="stock.autoSku" />
@@ -242,6 +258,50 @@
           <label>Valor padrão para estoque mínimo</label>
           <input class="input input-narrow" type="number" min="0" x-model="stock.minStockPadrao" placeholder="5" />
           <p class="hint">Todo produto novo será cadastrado com este valor como estoque mínimo.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Lotes e validade</h2>
+        <p class="hint mt-0">
+          Controla produtos que entram em lotes (perecíveis, medicamentos, bebidas com
+          validade). A saída segue a ordem FIFO — o lote mais antigo (ou de vencimento mais
+          próximo) sai primeiro. Por produto, o controle de lote é ligado no cadastro.
+        </p>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="stock.loteObrigatorio" />
+            Exigir lote e validade na entrada de produtos controlados
+          </label>
+          <p class="hint">Desligado, o lote é opcional mesmo nos produtos marcados para controlar lote.</p>
+        </div>
+        <div class="field">
+          <label>Avisar quantos dias antes do vencimento</label>
+          <input class="input input-narrow" type="number" min="0" x-model.number="stock.validadeAlertaDias" placeholder="30" />
+          <p class="hint">Lotes vencendo dentro desse prazo entram no alerta de validade.</p>
+        </div>
+        <div class="field">
+          <label>Quando um lote estiver vencido</label>
+          <select class="select" x-model="stock.validadeAcao">
+            <option value="alertar">Só alertar</option>
+            <option value="sugerir_baixa">Alertar e sugerir baixa</option>
+            <option value="bloquear">Alertar e bloquear a venda</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Custo do estoque</h2>
+        <div class="field">
+          <label>Método de custo</label>
+          <select class="select" x-model="stock.metodoCusto">
+            <option value="medio">Média ponderada móvel (padrão)</option>
+            <option value="fifo">FIFO — custo do lote consumido</option>
+          </select>
+          <p class="hint">
+            A média pondera cada compra contra o saldo atual. O FIFO usa o custo real do lote
+            que saiu — mais preciso em produtos com validade, e exige o controle de lotes.
+          </p>
         </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
@@ -254,6 +314,50 @@
         <% } %>
       </section>
     </div>
+
+    <!-- ═══════ ABA: TIPOS DE PRODUTO ═══════ -->
+    <% if (user.permissions.has('commercial.products.view')) { %>
+    <div x-show="tab === 'tipos-produto'" x-cloak>
+      <section class="panel">
+        <h2>Tipos de produto</h2>
+        <p class="hint mt-0">
+          Define o comportamento de cada tipo no cadastro e no estoque. Desativar um tipo apenas
+          o esconde ao criar produtos novos — os já cadastrados continuam funcionando.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th style="width:150px" class="text-center">Controla estoque</th>
+              <th style="width:90px" class="text-center">Ativo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="t in productTypes" :key="t.key">
+              <tr>
+                <td>
+                  <strong x-text="t.label"></strong>
+                  <div class="muted text-xs" x-text="t.description"></div>
+                </td>
+                <td class="text-center">
+                  <input type="checkbox" x-model.number="t.controls_stock" :true-value="1" :false-value="0"
+                         @change="saveProductType(t)" />
+                </td>
+                <td class="text-center">
+                  <input type="checkbox" x-model.number="t.active" :true-value="1" :false-value="0"
+                         @change="saveProductType(t)" />
+                </td>
+              </tr>
+            </template>
+            <tr x-show="!productTypes.length">
+              <td colspan="3" class="muted text-center">Nenhum tipo configurado.</td>
+            </tr>
+          </tbody>
+        </table>
+        <span class="muted" x-show="productTypesSaved" x-text="productTypesSaved"></span>
+      </section>
+    </div>
+    <% } %>
 
     <!-- ═══════ ABA: VENDAS ═══════ -->
     <div x-show="tab === 'sales'" x-cloak>
@@ -1387,7 +1491,12 @@
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
         licenseThanks: { sync: null, syncError: null },
-        stock: { autoSku: false, minStockPadrao: 5 }, savingStock: false, stockSaved: '',
+        stock: {
+          vendaEstoqueZerado: true, autoSku: false, minStockPadrao: 5,
+          loteObrigatorio: false, validadeAlertaDias: 30, validadeAcao: 'sugerir_baixa',
+          metodoCusto: 'medio',
+        }, savingStock: false, stockSaved: '',
+        productTypes: [], savingProductTypes: false, productTypesSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
         comandas: { rotulo: 'mesa' }, savingComandas: false, comandasSaved: '',
         financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
@@ -1453,12 +1562,40 @@
           else this.cardapio.loading = false;
           await this.loadImageSearchConfig();
           <% } %>
+          <% if (user.permissions.has('commercial.products.view')) { %>
+          await this.loadProductTypes();
+          <% } %>
+        },
+        async loadProductTypes() {
+          try {
+            const r = await fetch('/api/commercial/product-types');
+            if (r.ok) this.productTypes = await r.json();
+          } catch { /* módulo commercial indisponível */ }
+        },
+        async saveProductType(t) {
+          this.savingProductTypes = true; this.productTypesSaved = '';
+          try {
+            const r = await fetch('/api/commercial/product-types/' + encodeURIComponent(t.key), {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ controlsStock: t.controls_stock === 1, active: t.active === 1 }),
+            });
+            this.productTypesSaved = r.ok ? 'Salvo.' : 'Falha ao salvar.';
+            if (r.ok) showToast('Tipo de produto atualizado.', 'success');
+          } finally {
+            this.savingProductTypes = false;
+          }
         },
         syncSettings() {
           const auto = this.settings.find(s => s.key === 'estoque.auto_sku');
           this.stock.autoSku = auto?.value === '1';
           const minStock = this.settings.find(s => s.key === 'estoque.min_stock_padrao');
           this.stock.minStockPadrao = minStock?.value ? Number(minStock.value) : 5;
+          this.stock.vendaEstoqueZerado = this.settings.find(s => s.key === 'estoque.venda_estoque_zerado')?.value !== '0';
+          this.stock.loteObrigatorio = this.settings.find(s => s.key === 'estoque.lote_obrigatorio')?.value === '1';
+          const alertaDias = this.settings.find(s => s.key === 'estoque.validade_alerta_dias')?.value;
+          this.stock.validadeAlertaDias = alertaDias != null && alertaDias !== '' ? Number(alertaDias) : 30;
+          this.stock.validadeAcao = this.settings.find(s => s.key === 'estoque.validade_acao')?.value || 'sugerir_baixa';
+          this.stock.metodoCusto = this.settings.find(s => s.key === 'estoque.metodo_custo')?.value === 'fifo' ? 'fifo' : 'medio';
           const cupom = this.settings.find(s => s.key === 'vendas.exibir_cupom_fiscal');
           this.sales.exibirCupom = cupom?.value !== '0';
           const lembrete = this.settings.find(s => s.key === 'caixa.lembrete_24h');
@@ -1671,8 +1808,13 @@
             body: JSON.stringify({ value }),
           });
           const results = await Promise.all([
+            upsert('estoque.venda_estoque_zerado', this.stock.vendaEstoqueZerado ? '1' : '0'),
             upsert('estoque.auto_sku', this.stock.autoSku ? '1' : '0'),
             upsert('estoque.min_stock_padrao', String(this.stock.minStockPadrao)),
+            upsert('estoque.lote_obrigatorio', this.stock.loteObrigatorio ? '1' : '0'),
+            upsert('estoque.validade_alerta_dias', String(this.stock.validadeAlertaDias ?? 30)),
+            upsert('estoque.validade_acao', this.stock.validadeAcao || 'sugerir_baixa'),
+            upsert('estoque.metodo_custo', this.stock.metodoCusto === 'fifo' ? 'fifo' : 'medio'),
           ]);
           this.savingStock = false;
           this.stockSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';

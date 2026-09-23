@@ -25,11 +25,20 @@ export interface CatalogProduct {
   priceCents: number;
   purchaseUnit: string | null;
   purchaseUnitQty: number | null;
+  /** Códigos secundários (caixa/lastro/inner) — o EAN de caixa da nota casa por aqui. */
+  extraBarcodes?: string[];
+  /** 1 = produto trabalha por lote (a entrada cria lotes a partir do rastro da NF-e). */
+  controla_lote?: number;
 }
 
 export interface SupplierCodeMapping {
   productId: number;
   code: string;
+}
+
+export interface ProductBarcodeMapping {
+  productId: number;
+  barcode: string;
 }
 
 export interface NfeCatalog {
@@ -96,6 +105,7 @@ export function buildCatalog(
   products: CatalogProduct[],
   codeMappings: SupplierCodeMapping[],
   supplierProductIds: Set<number> = new Set(),
+  secondaryBarcodes: ProductBarcodeMapping[] = [],
 ): NfeCatalog {
   const byBarcode = new Map<string, CatalogProduct[]>();
   const bySku = new Map<string, CatalogProduct[]>();
@@ -117,6 +127,23 @@ export function buildCatalog(
   for (const m of codeMappings) {
     const prod = products.find((p) => p.id === m.productId);
     if (prod) push(byCode, m.code.trim(), prod);
+  }
+  // Códigos secundários (caixa/lastro): identificam o produto pelo EAN da embalagem sem
+  // virar o código principal. Nunca duplicam o produto já indexado pelo código principal.
+  for (const b of secondaryBarcodes) {
+    const code = (b.barcode ?? '').trim();
+    if (!code) continue;
+    const prod = products.find((p) => p.id === b.productId);
+    if (!prod) continue;
+    const list = byBarcode.get(code);
+    if (list) {
+      if (list.some((x) => x.id === prod.id)) continue;
+      list.push(prod);
+    } else {
+      byBarcode.set(code, [prod]);
+    }
+    prod.extraBarcodes = prod.extraBarcodes ?? [];
+    if (!prod.extraBarcodes.includes(code)) prod.extraBarcodes.push(code);
   }
   return { products, byBarcode, bySku, byCode, byNameExact, supplierProductIds };
 }
@@ -212,10 +239,31 @@ export function resolveItem(item: NfeDetItem, cat: NfeCatalog): NfeLineResolutio
   return { kind: 'new', reason: 'none', product: null, candidates: [], flags: [] };
 }
 
+function trimCode(v: string | null | undefined): string {
+  return (v ?? '').trim();
+}
+
 function computeFlags(item: NfeDetItem, product: CatalogProduct, base: NfeLineFlag[]): NfeLineFlag[] {
   const flags = [...base];
-  if (item.ean && product.barcode && product.barcode.trim() !== item.ean) flags.push('ean_conflict');
-  if (item.unit && product.unit && !sameUnit(item.unit, product.unit)) flags.push('unit_conflict');
+
+  // EAN: só é conflito quando a nota traz um código e o produto NÃO possui nenhum deles.
+  // Numa compra em caixa a nota traz cEAN da caixa + cEANTrib da unidade; basta o produto
+  // ter o código da unidade (ou o da caixa em product_barcodes) para não ser conflito.
+  const noteCodes = [trimCode(item.ean), trimCode(item.eanTrib)].filter(Boolean);
+  const productCodes = new Set(
+    [trimCode(product.barcode), ...(product.extraBarcodes ?? []).map(trimCode)].filter(Boolean),
+  );
+  if (noteCodes.length && productCodes.size && !noteCodes.some((c) => productCodes.has(c))) {
+    flags.push('ean_conflict');
+  }
+
+  if (item.unit && product.unit && !sameUnit(item.unit, product.unit)) {
+    // Nota faturada em embalagem (ex.: CX) cujo tributável já é a unidade de venda do
+    // produto: é conversão intencional, não conflito.
+    const tribMatches = !!item.unitTrib && sameUnit(item.unitTrib, product.unit);
+    if (!tribMatches) flags.push('unit_conflict');
+  }
+
   if (item.ncm && product.ncm && product.ncm.trim() !== item.ncm.trim()) flags.push('ncm_conflict');
   if (product.costCents > 0 && product.costCents !== item.unitCostCents) flags.push('price_changed');
   return flags;

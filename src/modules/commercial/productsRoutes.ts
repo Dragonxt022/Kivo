@@ -27,6 +27,7 @@ import { recipeItemRepository } from './repositories/RecipeRepository';
 import { productAttributeRepository, productAttributeValueRepository, productVariantValueRepository } from './repositories/AttributeRepository';
 import { priceListRepository, priceListItemRepository } from './repositories/PriceListRepository';
 import { settingsRepository } from '../../core/repositories/SettingsRepository';
+import { typeControlsStock, typeIsActive } from './productTypes';
 import { createLogger } from '../../core/logger';
 
 const log = createLogger('submit');
@@ -509,15 +510,20 @@ router.post('/products', requirePermission('commercial.products.create'), valida
     res.status(403).json({ error: capError });
     return;
   }
-  const trackStock = (productType === 'variante' || productType === 'complemento') ? 0 : (b.trackStock === false ? 0 : 1);
+  if (!typeIsActive(productType)) {
+    res.status(400).json({ error: `Tipo de produto "${productType}" está desativado em Configurações › Tipos de produto.` });
+    return;
+  }
+  const trackStock = !typeControlsStock(productType) ? 0 : (b.trackStock === false ? 0 : 1);
+  const controlaLote = trackStock && b.controlaLote === true ? 1 : 0;
   let info: { lastInsertRowid: number | bigint };
   try {
     info = productRepository.rawRun(
-      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, image_url, product_type, uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, image_url, product_type, controla_lote, uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       b.name, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
-      trackStock, b.minStock ?? 0, img.imageUrl ?? null, productType, randomUUID(),
+      trackStock, b.minStock ?? 0, img.imageUrl ?? null, productType, controlaLote, randomUUID(),
     );
   } catch (e) {
     const friendly = friendlyUniqueError(e);
@@ -670,7 +676,9 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
    * `parent_product_id` preenchido = é filha, e o track_stock dela é dela.
    */
   const ehPaiDeVariacoes = productType === 'variante' && before.parent_product_id == null;
-  const trackStock = (ehPaiDeVariacoes || productType === 'complemento')
+  // Variante (pai OU filha) tem regra própria: só o pai não tem saldo; a filha tem o dela.
+  const semSaldoProprio = ehPaiDeVariacoes || (productType !== 'variante' && !typeControlsStock(productType));
+  const trackStock = semSaldoProprio
     ? 0
     : (b.trackStock != null ? (b.trackStock ? 1 : 0) : null);
   try {
@@ -680,12 +688,14 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
          barcode = COALESCE(?, barcode), category_id = COALESCE(?, category_id), unit = COALESCE(?, unit),
          price_cents = COALESCE(?, price_cents), cost_cents = COALESCE(?, cost_cents),
          track_stock = COALESCE(?, track_stock), min_stock = COALESCE(?, min_stock),
+         controla_lote = COALESCE(?, controla_lote),
          active = COALESCE(?, active), image_url = ?, product_type = ?, updated_at = datetime('now')
        WHERE id = ?`,
       b.name ?? null, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? null, b.priceCents != null ? Math.round(b.priceCents) : null,
       b.costCents != null ? Math.round(b.costCents) : null,
       trackStock, b.minStock ?? null,
+      b.controlaLote != null ? (b.controlaLote ? 1 : 0) : null,
       b.active != null ? (b.active ? 1 : 0) : null, finalImageUrl, productType, id,
     );
   } catch (e) {

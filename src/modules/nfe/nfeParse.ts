@@ -32,6 +32,15 @@ export interface NfeEmitente {
   state: string | null;
 }
 
+/** Rastreabilidade de lote que a NF-e pode trazer no item (`<rastro>`). */
+export interface NfeRastro {
+  code: string;
+  /** Validade no formato YYYY-MM-DD. */
+  expiresAt: string | null;
+  /** Quantidade do lote na unidade da nota (qLote), quando informada. */
+  qty: number | null;
+}
+
 export interface NfeDetItem {
   line: number;
   cProd: string;
@@ -49,6 +58,8 @@ export interface NfeDetItem {
   eanTrib: string | null;
   qtyTrib: number | null;
   unitCostTribCents: number | null;
+  /** Lotes declarados no item (nLote/dVal/qLote). Vazio quando a nota não traz rastro. */
+  rastros: NfeRastro[];
 }
 
 export interface NfeParsed {
@@ -67,6 +78,13 @@ export function normalizeEan(raw: string | null | undefined): string | null {
   const t = (raw ?? '').trim();
   if (!t || /^sem\s*gtin$/i.test(t)) return null;
   return t;
+}
+
+/** Normaliza uma data da NF-e para YYYY-MM-DD (o leiaute usa essa forma em dVal/dFab). */
+function normalizeDate(raw: string | null | undefined): string | null {
+  const t = (raw ?? '').trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
 }
 
 /** Arredonda um número/string decimal ("7.19", "7.190000") para centavos inteiros. */
@@ -186,6 +204,13 @@ export function parseNfeDocument(xml: string): NfeParsed {
       eanTrib: normalizeEan(xmlChildText(prod, 'cEANTrib')),
       qtyTrib: xmlNumberText(prod, 'qTrib'),
       unitCostTribCents: centsFromNumber(xmlNumberText(prod, 'vUnTrib')),
+      rastros: xmlChildren(prod, 'rastro')
+        .map((r) => ({
+          code: (xmlChildText(r, 'nLote') ?? '').trim(),
+          expiresAt: normalizeDate(xmlChildText(r, 'dVal')),
+          qty: xmlNumberText(r, 'qLote'),
+        }))
+        .filter((r) => r.code),
     });
   }
 

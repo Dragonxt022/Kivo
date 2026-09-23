@@ -211,18 +211,21 @@
                 <label>Tipo de produto</label>
                 <div class="product-type-picker">
                   <button class="product-type-btn" :class="{ active: form.productType === 'fisico' }"
+                          x-show="typeActive('fisico') || form.productType === 'fisico'"
                           @click="setProductType('fisico')" :disabled="!!form.id"
                           title="Produto simples — item físico comum com estoque próprio">
                     <span class="type-icon" style="color:#8a8a98"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></span>
                     <span>Simples</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'servico' }"
+                          x-show="typeActive('servico') || form.productType === 'servico'"
                           @click="setProductType('servico')" :disabled="!!form.id"
                           title="Serviço — mão de obra, instalação, higienização. Não tem estoque e fica fora da NFC-e (serviço é NFS-e municipal).">
                     <span class="type-icon" style="color:#0ea5e9"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
                     <span>Serviço</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'complemento' }"
+                          x-show="typeActive('complemento') || form.productType === 'complemento'"
                           @click="setProductType('complemento')" :disabled="!!form.id"
                           title="Complemento — usado como adicional/opcional dentro de outros produtos">
                     <span class="type-icon" style="color:#7c5cff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
@@ -232,6 +235,7 @@
                       precisa mostrar seu tipo), mas clicar abre o diálogo "Ativar agora" em vez de
                       deixar cadastrar um produto que as telas seguintes não conseguem completar. %>
                   <button class="product-type-btn" :class="{ active: form.productType === 'variante' }"
+                          x-show="typeActive('variante') || form.productType === 'variante'"
                           @click="caps.variantes ? setProductType('variante') : window.showCapabilityGate('commercial.variantes')"
                           :disabled="!!form.id"
                           :title="caps.variantes ? 'Produto com variantes — tamanhos, cores, sabores etc.' : 'Variações estão desativadas — clique para ativar em Configurações › Recursos'">
@@ -239,18 +243,21 @@
                     <span>Variantes</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'kit' }"
+                          x-show="typeActive('kit') || form.productType === 'kit'"
                           @click="setProductType('kit')" :disabled="!!form.id"
                           title="Kit — conjunto de produtos vendidos juntos como um só item">
                     <span class="type-icon" style="color:#00a37a"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg></span>
                     <span>Kit</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'combo' }"
+                          x-show="typeActive('combo') || form.productType === 'combo'"
                           @click="setProductType('combo')" :disabled="!!form.id"
                           title="Combo — combinação promocional com preço especial">
                     <span class="type-icon" style="color:#f5872e"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></span>
                     <span>Combo</span>
                   </button>
                   <button class="product-type-btn" :class="{ active: form.productType === 'produzido' }"
+                          x-show="typeActive('produzido') || form.productType === 'produzido'"
                           @click="setProductType('produzido')" :disabled="!!form.id"
                           title="Produzido — fabricado internamente com ficha técnica (consome insumos do estoque)">
                     <span class="type-icon" style="color:#e5484d"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 11h.01"/><path d="M11 15h.01"/><path d="M16 16h.01"/><path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"/><path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"/></svg></span>
@@ -344,6 +351,14 @@
                     <input type="number" step="any" min="0" x-model="form.initialStock" placeholder="0" />
                   </div>
                 </template>
+              </div>
+              <div class="pm-field" x-show="!form.noStockControl">
+                <label class="toggle-switch" style="display:flex;align-items:center;gap:.5rem">
+                  <input type="checkbox" x-model="form.controlaLote" class="toggle-input" />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Controlar por lote e validade (saída FIFO)</span>
+                </label>
+                <span class="muted text-xs">Cada entrada vira um lote com validade; a saída consome o lote mais antigo primeiro. Configure as políticas em Configurações › Estoque.</span>
               </div>
             </div>
 
@@ -1039,6 +1054,15 @@
       </select>
       <label x-text="move.type === 'ajuste' ? 'Novo saldo' : 'Quantidade'"></label>
       <input type="number" step="any" x-model="move.qty" />
+      <template x-if="move.controlaLote && move.type !== 'saida'">
+        <div>
+          <label>Lote</label><input type="text" x-model="move.lote" placeholder="ex.: L2026-01" />
+          <label>Validade</label><input type="date" x-model="move.validade" />
+          <label>Custo unitário do lote (R$)</label>
+          <input type="text" x-model="move.custo" placeholder="opcional" @input="move.custo = maskMoney(move.custo)" />
+          <span class="muted text-xs">Sem lote informado, a entrada entra num lote "sem lote" (a menos que a política exija lote).</span>
+        </div>
+      </template>
       <label>Motivo</label><input type="text" x-model="move.reason" />
       <div class="error" x-text="mvError"></div>
       <div class="actions">
@@ -1610,7 +1634,7 @@
         compCsv: '', compFileName: '', compReport: null, compError: '', compLoading: false, compSaving: false,
         compFilter: 'todos', compDragging: false,
         rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
-        catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], barcodeHint: '',
+        catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], typeConfigs: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false, imgSearchError: '',
         fillImgsLoading: false,
         selectedCategoryImage: '',
@@ -1889,12 +1913,14 @@
           const r = await fetch('/api/commercial/products?' + params.toString());
           if (r.ok) { this.rows = await r.json(); this.pruneSelection(this.rows); }
           else showToast((await r.json()).error, 'error');
-          const [c, s] = await Promise.all([
+          const [c, s, pt] = await Promise.all([
             fetch('/api/commercial/categories'),
             fetch('/api/settings'),
+            fetch('/api/commercial/product-types'),
           ]);
           if (c.ok) this.categories = await c.json();
           if (s.ok) this.appSettings = await s.json();
+          if (pt.ok) this.typeConfigs = await pt.json();
           // Avisa o tour guiado que a lista carregou (ver o script no fim desta página).
           window.dispatchEvent(new Event('kivo-products-loaded'));
         },
@@ -2080,13 +2106,19 @@
          * há o que estocar de mão de obra. Manter a chave clicável nesses casos prometia
          * um controle de estoque que nunca ia existir.
          */
-        stockLessTypes: {
-          servico: 'Serviço não tem estoque: o que se vende é a execução, não um item guardado.',
-          complemento: 'Complemento não tem saldo próprio — quem baixa estoque é o produto ao qual ele é vinculado.',
-          variante: 'O produto com variações é só o agrupador. Quem tem preço e estoque é cada variação.',
+        /**
+         * Configuração de um tipo (Configurações › Tipos de produto). Sem config carregada,
+         * assume o comportamento antigo: controla estoque e está ativo.
+         */
+        typeCfg(t) { return (this.typeConfigs || []).find((x) => x.key === t); },
+        typeActive(t) { const c = this.typeCfg(t); return !c || c.active === 1; },
+        typeControlsStock(t) { const c = this.typeCfg(t); return !c || c.controls_stock === 1; },
+        /** Motivo exibido quando o tipo não tem saldo próprio (vem da configuração). */
+        get stockLocked() { return !this.typeControlsStock(this.form.productType); },
+        get stockLockedReason() {
+          const c = this.typeCfg(this.form.productType);
+          return this.stockLocked ? (c?.description ?? 'Este tipo de produto não controla estoque.') : '';
         },
-        get stockLocked() { return !!this.stockLessTypes[this.form.productType]; },
-        get stockLockedReason() { return this.stockLessTypes[this.form.productType] ?? ''; },
 
         /**
          * Trocar o tipo reposiciona o estoque junto: escolher "Serviço" e ainda ter que
@@ -2095,7 +2127,7 @@
          */
         setProductType(t) {
           this.form.productType = t;
-          if (this.stockLessTypes[t]) this.form.noStockControl = true;
+          if (!this.typeControlsStock(t)) this.form.noStockControl = true;
         },
 
         /**
@@ -2128,7 +2160,7 @@
         },
 
         openNew() {
-          this.form = { unit: 'un', productType: 'fisico', noStockControl: false, unitCustom: null }; this.dlgError = ''; this.resetImageState();
+          this.form = { unit: 'un', productType: 'fisico', noStockControl: false, controlaLote: false, unitCustom: null }; this.dlgError = ''; this.resetImageState();
           this.selectedCategoryImage = '';
           const autoSku = this.appSettings?.find(s => s.key === 'estoque.auto_sku')?.value;
           if (autoSku === '1') this.form.sku = 'SKU-' + String(Date.now()).slice(-8);
@@ -2147,11 +2179,12 @@
             purchase_unit: p.purchase_unit ?? null, purchase_unit_qty: p.purchase_unit_qty ?? null, barcodes: [],
             price: (p.price_cents / 100).toFixed(2).replace('.', ','), cost: (p.cost_cents / 100).toFixed(2).replace('.', ','),
             minStock: p.min_stock, productType: p.product_type ?? 'fisico', noStockControl: !p.track_stock,
+            controlaLote: !!p.controla_lote,
             stockQty: p.stock_qty, description: p.description ?? '' };
           // Produto antigo pode ter sido gravado como serviço COM controle de estoque (o
           // tipo não existia no formulário). Normalizar na abertura evita a chave aparecer
           // desligada e travada ao mesmo tempo — e salvar já acerta o dado.
-          if (this.stockLessTypes[this.form.productType]) this.form.noStockControl = true;
+          if (!this.typeControlsStock(this.form.productType)) this.form.noStockControl = true;
           this.dlgError = ''; this.barcodeHint = this.checkBarcode(this.form.barcode); this.resetImageState();
           this.form.imageUrl = p.image_url ?? null;
           this.selectedCategoryImage = p.category_image_url ?? '';
@@ -2210,6 +2243,7 @@
             categoryId: this.form.categoryId || null,
             productType: this.form.productType || 'fisico',
             trackStock: !this.form.noStockControl,
+            controlaLote: !this.form.noStockControl && this.form.controlaLote === true,
             initialStock: !this.form.id && this.form.initialStock ? Number(this.form.initialStock) : undefined };
           const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
           const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;
@@ -2244,11 +2278,24 @@
           const r = await fetch(`/api/commercial/products/${p.id}/duplicate`, { method: 'POST' });
           if (r.ok) { this.load(); showToast(`"${p.name}" duplicado.`, 'success'); } else showToast((await r.json()).error, 'error');
         },
-        openMove(p) { this.move = { productId: p.id, name: p.name, current: p.stock_qty, type: 'entrada', qty: '', reason: '' }; this.mvError = ''; this.$refs.mv.showModal(); },
+        openMove(p) {
+          this.move = {
+            productId: p.id, name: p.name, current: p.stock_qty, type: 'entrada', qty: '', reason: '',
+            controlaLote: !!p.controla_lote, lote: '', validade: '', custo: '',
+          };
+          this.mvError = ''; this.$refs.mv.showModal();
+        },
         async saveMove() {
+          const custoCents = this.move.custo ? this.toCents(this.move.custo) : null;
           const r = await fetch('/api/commercial/stock/move', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ productId: this.move.productId, type: this.move.type, qty: Number(this.move.qty), reason: this.move.reason || undefined }),
+            body: JSON.stringify({
+              productId: this.move.productId, type: this.move.type, qty: Number(this.move.qty),
+              reason: this.move.reason || undefined,
+              lote: this.move.controlaLote ? (this.move.lote || null) : undefined,
+              validade: this.move.controlaLote ? (this.move.validade || null) : undefined,
+              custo: this.move.controlaLote && custoCents != null ? custoCents : undefined,
+            }),
           });
           if (r.ok) { this.$refs.mv.close(); this.load(); }
           else this.mvError = (await r.json()).error ?? 'Erro na movimentação.';

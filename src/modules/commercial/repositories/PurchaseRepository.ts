@@ -63,11 +63,15 @@ export class PurchaseItemRepository extends BaseRepository {
     this.rawRun('DELETE FROM purchase_items WHERE purchase_id = ?', purchaseId);
   }
 
-  listByPurchaseRaw(purchaseId: number): { productId: number; qty: number; unitCostCents: number }[] {
+  listByPurchaseRaw(purchaseId: number): {
+    productId: number; qty: number; unitCostCents: number; lotCode: string | null; lotExpiresAt: string | null;
+  }[] {
     return this.raw(
-      'SELECT product_id AS productId, qty, unit_cost_cents AS unitCostCents FROM purchase_items WHERE purchase_id = ?',
+      `SELECT product_id AS productId, qty, unit_cost_cents AS unitCostCents,
+              lot_code AS lotCode, lot_expires_at AS lotExpiresAt
+         FROM purchase_items WHERE purchase_id = ?`,
       purchaseId,
-    ) as { productId: number; qty: number; unitCostCents: number }[];
+    ) as { productId: number; qty: number; unitCostCents: number; lotCode: string | null; lotExpiresAt: string | null }[];
   }
 
   listProductQtys(purchaseId: number): { product_id: number; qty: number }[] {

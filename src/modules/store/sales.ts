@@ -16,6 +16,7 @@ import { saleRepository, salePaymentRepository } from './repositories/SaleReposi
 import { receivableRepository } from '../finance/repositories/BillRepository';
 import { agreementChargeRepository } from '../finance/repositories/AgreementRepository';
 import { stockMovementRepository } from '../commercial/repositories/StockMovementRepository';
+import { fifoCostEnabled, fifoUnitCostCents, restoreLotsForSale } from '../commercial/stock';
 import { loyaltyPointMovementRepository } from '../commercial/repositories/StockMovementRepository';
 import { scheduleSyncSoon } from '../../core/sync/scheduler';
 import { createLogger } from '../../core/logger';
@@ -97,6 +98,10 @@ function resolveSaleItems(
   opts: { allowPriceOverride?: boolean },
 ): ResolvedItem[] | { error: string } {
   const items: ResolvedItem[] = [];
+  // Custo FIFO: com o método em "fifo" (Configurações › Estoque), o custo da venda é o do
+  // lote que a saída vai consumir — a média dos lotes que cobrem a quantidade. Produtos sem
+  // lote caem no próprio custo (não há lote para consumir).
+  const fifo = fifoCostEnabled();
   for (const item of input.items) {
     const p = productRepository.rawOne(
       'SELECT id, name, price_cents, cost_cents, product_type, parent_product_id, active FROM products WHERE id = ? AND deleted_at IS NULL',
@@ -120,7 +125,7 @@ function resolveSaleItems(
     const lineGroupUuid = item.lineGroupUuid ?? null;
     items.push({
       productId: p.id, name: p.name, qty: item.qty, unitCents,
-      costCents: p.cost_cents,
+      costCents: fifo ? fifoUnitCostCents(p.id, item.qty, p.cost_cents) : p.cost_cents,
       totalCents: Math.round(unitCents * item.qty),
       notes, lineGroupUuid,
     });
@@ -135,7 +140,7 @@ function resolveSaleItems(
         const compQty = comp.compQty * item.qty;
         items.push({
           productId: comp.id, name: comp.name, qty: compQty,
-          unitCents: 0, costCents: comp.cost_cents, totalCents: 0,
+          unitCents: 0, costCents: fifo ? fifoUnitCostCents(comp.id, compQty, comp.cost_cents) : comp.cost_cents, totalCents: 0,
           notes, lineGroupUuid,
         });
       }
@@ -157,7 +162,8 @@ function resolveSaleItems(
         const consumption: { productId: number; qty: number }[] = [];
         for (const ri of recipeItems) {
           const consumedQty = Math.round(ri.recipeQty * item.qty * 1000000) / 1000000;
-          recipeCostCents += Math.round(ri.recipeQty * ri.cost_cents);
+          const inputUnitCost = fifo ? fifoUnitCostCents(ri.id, consumedQty, ri.cost_cents) : ri.cost_cents;
+          recipeCostCents += Math.round(ri.recipeQty * inputUnitCost);
           consumption.push({ productId: ri.id, qty: consumedQty });
         }
         items[items.length - 1].costCents = Math.round(recipeCostCents);
@@ -503,8 +509,10 @@ function reverseStockMovements(
   movements: { product_id: number; qty: number }[], saleId: number,
 ): string | null {
   for (const m of movements) {
-    const move = stock.moveRaw(req, m.product_id, 'entrada', m.qty, 'cancelamento de venda', 'sale', saleId, true);
+    // skipLot: o lote de origem é devolvido por restoreLotsForSale (não cria lote novo).
+    const move = stock.moveRaw(req, m.product_id, 'entrada', m.qty, 'cancelamento de venda', 'sale', saleId, true, null, { skipLot: true });
     if (!move.ok) return move.error;
+    restoreLotsForSale(m.product_id, m.qty, 'sale', saleId);
   }
   return null;
 }
@@ -734,22 +742,27 @@ export function returnSale(
 
         const p = productRepository.rawOne('SELECT id, product_type FROM products WHERE id = ?', it.productId) as
           | { id: number; product_type: string } | undefined;
-        const move = stock.moveRaw(req, it.productId, 'entrada', it.qty, 'devolução', 'sale_return', returnId, true);
+        // skipLot: devolve ao lote de origem da venda (restoreLotsForSale), não cria lote novo.
+        const move = stock.moveRaw(req, it.productId, 'entrada', it.qty, 'devolução', 'sale_return', returnId, true, null, { skipLot: true });
         if (!move.ok) throw new Error(move.error);
+        restoreLotsForSale(it.productId, it.qty, 'sale', saleId);
 
         if (p && (p.product_type === 'kit' || p.product_type === 'combo')) {
           const comps = kitItemRepository.findComponentsByProduct(it.productId) as { compQty: number; id: number }[];
           for (const c of comps) {
-            const r = stock.moveRaw(req, c.id, 'entrada', c.compQty * it.qty, 'devolução (componente)', 'sale_return', returnId, true);
+            const compQty = c.compQty * it.qty;
+            const r = stock.moveRaw(req, c.id, 'entrada', compQty, 'devolução (componente)', 'sale_return', returnId, true, null, { skipLot: true });
             if (!r.ok) throw new Error(r.error);
+            restoreLotsForSale(c.id, compQty, 'sale', saleId);
           }
         }
         if (p && p.product_type === 'produzido') {
           const recipe = recipeItemRepository.findRecipeByProduct(it.productId) as { recipeQty: number; id: number }[];
           for (const ri of recipe) {
             const q = Math.round(ri.recipeQty * it.qty * 1e6) / 1e6;
-            const r = stock.moveRaw(req, ri.id, 'entrada', q, 'devolução (insumo)', 'sale_return', returnId, true);
+            const r = stock.moveRaw(req, ri.id, 'entrada', q, 'devolução (insumo)', 'sale_return', returnId, true, null, { skipLot: true });
             if (!r.ok) throw new Error(r.error);
+            restoreLotsForSale(ri.id, q, 'sale', saleId);
           }
         }
       }
