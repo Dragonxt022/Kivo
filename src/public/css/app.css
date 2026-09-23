@@ -252,6 +252,19 @@ header.nav .nav-clock-icon {
   color: var(--text-muted);
   flex-shrink: 0;
 }
+header.nav .nav-clock-wrap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+header.nav .nav-date {
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  opacity: 0.75;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
 header.nav .nav-clock {
   font-size: 0.82rem;
   font-weight: 500;
@@ -3614,7 +3627,7 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   }
   /* Último item a sair, e só nos aparelhos mais estreitos: entre ver a hora e alcançar
      o botão de sair, o botão ganha. O relógio do próprio celular fica logo acima. */
-  header.nav .nav-clock,
+  header.nav .nav-clock-wrap,
   header.nav .nav-clock-icon {
     display: none;
   }

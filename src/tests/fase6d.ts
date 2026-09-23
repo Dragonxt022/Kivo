@@ -151,6 +151,12 @@ async function main(): Promise<void> {
     const adminCookie = extractAdminCookie(goodLogin);
     check('login correto retorna cookie de sessão', goodLogin.status === 302 && !!adminCookie);
 
+    // Já autenticado: abrir a tela de login pula o formulário e vai direto ao painel.
+    const loginWithCookie = await api(cloudUrl, '/admin/login', {}, adminCookie!);
+    check('já logado: /admin/login redireciona ao painel',
+      loginWithCookie.status === 302 && (loginWithCookie.headers.get('location') ?? '').endsWith('/admin'),
+      `${loginWithCookie.status} ${loginWithCookie.headers.get('location') ?? ''}`);
+
     // --- CRUD de empresa pelo painel ---
     const createRes = await form(
       cloudUrl,
