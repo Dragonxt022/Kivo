@@ -54,13 +54,20 @@ echo "[deploy] conectando em ${SSH_USER}@${HOST}..."
 ssh -i "$KEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new "${SSH_USER}@${HOST}" "
   set -euo pipefail
   cd ${CLOUD_DIR}
-  git pull origin main
-  npm install
+  # --ff-only: se a VPS tiver commit local, o deploy FALHA em vez de criar merge silencioso.
+  git pull --ff-only origin main
+  # --include=dev: o build (tsc) e as migrations (tsx) dependem de devDependencies. Sem isso,
+  # um NODE_ENV=production no ambiente pularia o tsx e o migrate quebraria.
+  npm install --include=dev
   npm run build
 
   # \`export \\\$(cat .env | xargs)\` quebrava em linha de comentário ('export: #: not a valid
   # identifier') e corromperia qualquer valor com espaço. \`set -a\` + source exporta tudo o
   # que o arquivo define, respeitando comentários e aspas.
+  if [ ! -f ./.env ]; then
+    echo '[deploy] ERRO: falta o arquivo .env em ${CLOUD_DIR} (config do banco/cloud). Abortando antes de migrar.'
+    exit 1
+  fi
   set -a
   . ./.env
   set +a
