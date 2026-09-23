@@ -24,6 +24,8 @@ function copyIfExists(from, to) {
 
 copyIfExists(path.join(SRC, 'views'), path.join(DIST, 'views'));
 copyIfExists(path.join(SRC, 'public'), path.join(DIST, 'public'));
+// Documentação técnica interna (Markdown) servida em /admin/documentacao.
+copyIfExists(path.join(SRC, 'docs'), path.join(DIST, 'docs'));
 
 const modulesDir = path.join(SRC, 'modules');
 if (fs.existsSync(modulesDir)) {

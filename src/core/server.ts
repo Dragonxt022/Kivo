@@ -38,6 +38,7 @@ import { startEventChannel } from './sync/events';
 import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
 import supportRoutes from './support/routes';
+import { listDevDocs, renderDevDoc } from './devdocs/service';
 import updaterRoutes from './updater/routes';
 import messagesRoutes from './messages/routes';
 import { fetchInbox } from './messages/service';
@@ -374,6 +375,20 @@ export async function createServer(): Promise<KivoServer> {
   app.get('/admin/configuracoes', requireAuth, page('settings', 'settings.view'));
   app.get('/admin/cobrancas', requireAuth, page('billing', 'billing.view'));
   app.get('/admin/recursos', requireAuth, page('recursos', 'settings.capabilities.edit'));
+
+  // Documentação técnica (regras de negócio por módulo). Só quem tem `dev.docs.view` —
+  // por padrão, apenas o Administrador. Renderiza os .md de src/docs/dev.
+  app.get('/admin/documentacao', requireAuth, (req: Request, res: Response) => {
+    assertAuth(req);
+    if (!req.user.permissions.has('dev.docs.view')) return res.redirect('/');
+    const docs = listDevDocs();
+    const requested = typeof req.query.doc === 'string' ? req.query.doc : '';
+    // Sem documento pedido, abre o índice; se não existir, o primeiro da lista.
+    const current = renderDevDoc(requested || 'index')
+      ?? (docs[0] ? renderDevDoc(docs[0].slug) : null)
+      ?? { slug: '', title: 'Documentação', summary: null, html: '<p>Nenhum documento disponível.</p>' };
+    res.render('devdocs', { user: req.user, docs, current });
+  });
 
   // Módulos: API (/api/<id>) e páginas (/app/<id>) exigem autenticação por padrão
   app.use('/api', requireAuth);

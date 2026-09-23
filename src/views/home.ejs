@@ -507,6 +507,7 @@
         if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'audit', description: 'Quem fez o quê, quando e de onde.' });
         if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', description: 'Cópias de segurança do banco.' });
         if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', description: 'Parâmetros do sistema e licença.' });
+        if (user.permissions.has('dev.docs.view')) adminItems.push({ label: 'Documentação técnica', href: '/admin/documentacao', icon: 'file-text', description: 'Regras de negócio por módulo (suporte).' });
         visibleItems = visibleItems.concat(adminItems);
       %>
 
