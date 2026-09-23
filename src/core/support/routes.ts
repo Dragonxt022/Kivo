@@ -74,10 +74,10 @@ router.get('/tickets/:id/messages', (req, res) => {
 });
 
 router.post('/tickets/:id/messages', validateBody(supportMessageSchema), (req, res) => {
-  const { body, attachment } = req.body;
+  const { body, attachment, ai } = req.body;
   void proxy(res, `/api/support/tickets/${Number(req.params.id)}/messages`, {
     method: 'POST',
-    body: { body, attachment, userName: req.user?.name },
+    body: { body, attachment, ai: ai === true, userName: req.user?.name },
   });
 });
 

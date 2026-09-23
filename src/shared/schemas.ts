@@ -544,4 +544,6 @@ export const supportTicketSchema = z.object({
 export const supportMessageSchema = z.object({
   body: z.string().trim().min(1, 'Escreva sua mensagem.').max(8000, 'Mensagem muito longa.'),
   attachment: z.string().max(8_000_000, 'Anexo grande demais.').nullable().optional(),
+  // Mensagem da KIVO IA dentro do ticket: entra como sender 'ia' (o suporte assume depois).
+  ai: z.boolean().optional(),
 });

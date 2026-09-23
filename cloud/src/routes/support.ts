@@ -120,16 +120,20 @@ router.post('/tickets/:id/messages', async (req: AuthedRequest, res) => {
   const body = String(b.body ?? '').trim();
   const userName = String(b.userName ?? '').trim().slice(0, 120) || null;
   const attachment = parseAttachment(b.attachment);
-  if (body.length > 4000) return res.status(400).json({ error: 'Mensagem longa demais.' });
+  // Resposta da KIVO IA: entra na mesma conversa, mas como sender 'ia' — a trilha mostra o
+  // que a IA respondeu e o suporte assume quando precisar. Não conta como não-lido do admin
+  // (o ticket já nasce não-lido; senão cada resposta da IA inflaria o badge).
+  const isAi = b.ai === true;
+  if (body.length > 8000) return res.status(400).json({ error: 'Mensagem longa demais.' });
   if (!body && !attachment) return res.status(400).json({ error: 'Mensagem vazia.' });
 
   await getPool().query(
     'INSERT INTO support_messages (ticket_id, sender, sender_name, body, attachment) VALUES (?, ?, ?, ?, ?)',
-    [ticket.id, 'cliente', userName, body, attachment],
+    [ticket.id, isAi ? 'ia' : 'cliente', isAi ? 'Kivo IA' : userName, body, attachment],
   );
   await getPool().query(
-    'UPDATE support_tickets SET admin_unread = admin_unread + 1, last_message_at = NOW(3) WHERE id = ?',
-    [ticket.id],
+    'UPDATE support_tickets SET admin_unread = admin_unread + ?, last_message_at = NOW(3) WHERE id = ?',
+    [isAi ? 0 : 1, ticket.id],
   );
   res.status(201).json({ ok: true });
 });

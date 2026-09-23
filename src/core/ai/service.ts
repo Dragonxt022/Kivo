@@ -6,12 +6,16 @@ import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
  *
  * O app é offline-first e a CSP do navegador é `connect-src 'self'`: o navegador NUNCA fala
  * com a nuvem. Então quem chama o Kivo Web é ESTE servidor local, com as credenciais de
- * licença; o Kivo Web encaminha para o Ollama que roda na VPS. O lojista só configura o que
- * quer (modelo, prompt, temperatura) — a rede fica com a gente.
+ * licença; o Kivo Web escolhe o provedor de IA e chama a API correspondente.
+ *
+ * Provedores e chaves são configurados pelo time do Kivo no painel do Cloud — o cliente não
+ * guarda chave nenhuma. Aqui só ficam as preferências do lojista (ligar/desligar, prompt,
+ * temperatura) e o modelo escolhido, quando a tela deixa em branco o padrão do servidor.
  */
+
 export interface AiConfig {
   ativo: boolean;
-  /** Modelo do Ollama; vazio = usa o padrão do servidor. */
+  /** Modelo; vazio = usa o padrão do servidor. */
   modelo: string | null;
   /** Prompt de sistema (personalidade/instruções). */
   prompt: string | null;
@@ -41,6 +45,15 @@ export interface AiModelInfo {
   parameterSize?: string | null;
 }
 
+/** Provedor disponível no servidor (o cliente só escolhe entre os que já vêm configurados). */
+export interface AiProviderInfo {
+  id: string;
+  label: string;
+  keyRequired?: boolean;
+  configured?: boolean;
+  models: AiModelInfo[];
+}
+
 export interface AiCredits {
   /** 0 = ilimitado. */
   limit: number;
@@ -49,16 +62,19 @@ export interface AiCredits {
 }
 
 export interface AiStatus {
+  enabled?: boolean;
+  defaultProvider?: string;
   online: boolean;
   model?: string;
   models?: AiModelInfo[];
+  providers?: AiProviderInfo[];
   credits?: AiCredits | null;
   error?: string;
   /** Motivo local (antes mesmo de falar com a nuvem): IA desligada, Kivo Web sem config. */
   localError?: string;
 }
 
-/** Consulta o Kivo Web (que consulta o Ollama) para a tela mostrar se a IA está no ar. */
+/** Consulta o Kivo Web para a tela montar o seletor de agente e mostrar o status. */
 export async function aiStatus(): Promise<AiStatus> {
   const base = cloudBaseUrl();
   const headers = cloudAuthHeaders();
@@ -74,15 +90,18 @@ export async function aiStatus(): Promise<AiStatus> {
   }
 }
 
-export type AiChatResult = { ok: true; content: string; model: string } | { ok: false; error: string };
+export type AiChatResult =
+  | { ok: true; content: string; model: string; provider: string; sources: string[] }
+  | { ok: false; error: string };
 
 /**
- * Envia um chat para o Kivo Web, que roteia para o Ollama da VPS. `messages` pode vir só com
- * a mensagem do usuário; o prompt de sistema configurado é injetado automaticamente.
+ * Envia um chat para o Kivo Web, que injeta a documentação do Kivo e chama o provedor. A tela
+ * do chat pode escolher o provedor/modelo (seletor de agente); sem escolha, usa o padrão do
+ * servidor. O prompt de sistema configurado é injetado automaticamente.
  */
 export async function aiChat(
   messages: AiChatMessage[],
-  opts: { model?: string | null; temperature?: number | null } = {},
+  opts: { provider?: string | null; model?: string | null; temperature?: number | null } = {},
 ): Promise<AiChatResult> {
   const cfg = aiConfig();
   if (!cfg.ativo) return { ok: false, error: 'A KIVO IA está desligada. Ligue em Configurações › KIVO IA.' };
@@ -102,12 +121,30 @@ export async function aiChat(
     const r = await fetch(`${base}/api/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify({ messages, system: cfg.prompt ?? undefined, model, temperature }),
+      body: JSON.stringify({
+        messages,
+        system: cfg.prompt ?? undefined,
+        model,
+        temperature,
+        provider: opts.provider || undefined,
+      }),
       signal: AbortSignal.timeout(150000),
     });
-    const body = (await r.json().catch(() => ({}))) as { content?: string; model?: string; error?: string };
+    const body = (await r.json().catch(() => ({}))) as {
+      content?: string;
+      model?: string;
+      provider?: string;
+      sources?: string[];
+      error?: string;
+    };
     if (!r.ok) return { ok: false, error: body.error ?? `Kivo Web respondeu ${r.status}.` };
-    return { ok: true, content: body.content ?? '', model: body.model ?? (model ?? '') };
+    return {
+      ok: true,
+      content: body.content ?? '',
+      model: body.model ?? (model ?? ''),
+      provider: body.provider ?? (opts.provider ?? 'ollama'),
+      sources: Array.isArray(body.sources) ? body.sources : [],
+    };
   } catch (e) {
     return { ok: false, error: `Falha ao falar com o Kivo Web: ${e instanceof Error ? e.message : String(e)}` };
   }
