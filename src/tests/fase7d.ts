@@ -253,6 +253,29 @@ async function phase2(): Promise<void> {
     const finalB = await unwrap<{ loyalty_points: number }[]>(await api(b.base, '/api/commercial/customers?q=Cliente Pontos Convergência', {}, b.cookie));
     check('saldo de pontos convergiu para 100 em A', finalA[0]?.loyalty_points === 100, String(finalA[0]?.loyalty_points));
     check('saldo de pontos convergiu para 100 em B (idêntico)', finalB[0]?.loyalty_points === 100, String(finalB[0]?.loyalty_points));
+
+    // ── Conciliação de LOTES entre máquinas ──────────────────────────────────
+    // Produto que controla lote, com uma entrada por lote em A. Depois do sync, B precisa
+    // receber o produto (controla_lote=1) e o MESMO lote (código, validade, saldo, custo).
+    const prodLote = await unwrap<{ id: number }>(
+      await api(a.base, '/api/commercial/products', {
+        method: 'POST', body: JSON.stringify({ name: 'Produto Lote Sync', priceCents: 1000, trackStock: true, controlaLote: true }),
+      }, a.cookie));
+    const mv = await api(a.base, '/api/commercial/stock/move', {
+      method: 'POST', body: JSON.stringify({ productId: prodLote.id, type: 'entrada', qty: 7, lote: 'LS-1', validade: '2030-01-01', custo: 250 }),
+    }, a.cookie);
+    check('A: entrada com lote ok', mv.ok, String(mv.status));
+
+    await syncBothTwice(a, b);
+
+    const prodLoteOnB = await unwrap<{ id: number; controla_lote: number }[]>(
+      await api(b.base, '/api/commercial/products?q=Produto Lote Sync', {}, b.cookie));
+    check('B recebeu o produto que controla lote', prodLoteOnB[0]?.controla_lote === 1, JSON.stringify(prodLoteOnB[0]));
+    const lotB = await unwrap<{ code: string; qty: number; expires_at: string; cost_cents: number }[]>(
+      await api(b.base, `/api/commercial/stock/lots?productId=${prodLoteOnB[0]?.id}`, {}, b.cookie));
+    check('B recebeu o lote (código, validade, saldo e custo)',
+      lotB.length === 1 && lotB[0].code === 'LS-1' && lotB[0].qty === 7 && lotB[0].expires_at === '2030-01-01' && lotB[0].cost_cents === 250,
+      JSON.stringify(lotB));
   } finally {
     a.proc.kill();
     b.proc.kill();

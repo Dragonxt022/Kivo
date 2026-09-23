@@ -175,6 +175,33 @@ export function runSeeds(): void {
     randomUUID(),
     'Valor de estoque mínimo sugerido ao cadastrar um produto novo. Padrão 5.',
   );
+  // Políticas de lote/validade e custo: a tela de Configurações → Estoque as edita. Os
+  // padrões preservam o comportamento atual (sem lote, custo médio) para a atualização não
+  // mudar a operação de quem já usa o sistema.
+  insertSetting.run(
+    'estoque.lote_obrigatorio',
+    '0',
+    randomUUID(),
+    'Exige lote e validade na entrada dos produtos marcados para controlar lote. "1" = exigir; "0" = opcional (padrão).',
+  );
+  insertSetting.run(
+    'estoque.validade_alerta_dias',
+    '30',
+    randomUUID(),
+    'Quantos dias antes do vencimento um lote entra no alerta de validade. Padrão 30.',
+  );
+  insertSetting.run(
+    'estoque.validade_acao',
+    'sugerir_baixa',
+    randomUUID(),
+    'O que fazer com lote vencido: "alertar" (só avisa), "sugerir_baixa" (avisa e sugere baixa — padrão) ou "bloquear" (impede a venda).',
+  );
+  insertSetting.run(
+    'estoque.metodo_custo',
+    'medio',
+    randomUUID(),
+    'Método de custo do estoque: "medio" (média ponderada móvel — padrão) ou "fifo" (custo do lote consumido).',
+  );
 
   // Rótulo do módulo de comandas: a loja que atende só no balcão vê "Balcão" (e outro
   // ícone) no lugar de "Mesas". O assistente grava conforme a resposta; aqui fica o padrão.

@@ -16,6 +16,7 @@ import { grant as grantStoreCredit, listCreditMovements } from './storeCredit';
 import { listLoyaltyMovements } from './loyalty';
 import purchasesRouter from './purchasesRoutes';
 import { categoryRepository } from './repositories/CategoryRepository';
+import { productTypeConfigRepository, invalidateProductTypeCache, type ProductTypePatch } from './productTypes';
 import { customerRepository } from './repositories/CustomerRepository';
 import { complementGroupRepository, complementItemRepository, productComplementGroupRepository } from './repositories/ComplementRepository';
 import { productRepository } from './repositories/ProductRepository';
@@ -517,6 +518,35 @@ router.delete('/products/:id/complement-groups/:linkId', requirePermission('comm
   productComplementGroupRepository.softDelete(linkId);
   audit(req, 'excluir', 'product_complement_group', linkId, before, null);
   res.json({ ok: true });
+});
+
+// ---------- Tipos de produto (comportamento configurável) ----------
+router.get('/product-types', requirePermission('commercial.products.view'), (_req, res) => {
+  res.json(productTypeConfigRepository.list());
+});
+
+router.put('/product-types/:key', requirePermission('settings.edit'), (req, res) => {
+  const key = String(req.params.key);
+  const before = productTypeConfigRepository.get(key);
+  if (!before) {
+    res.status(404).json({ error: 'Tipo de produto não encontrado.' });
+    return;
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const patch: ProductTypePatch = {};
+  if (typeof body.controlsStock === 'boolean') patch.controls_stock = body.controlsStock ? 1 : 0;
+  if (typeof body.active === 'boolean') patch.active = body.active ? 1 : 0;
+  if (typeof body.label === 'string' && body.label.trim()) patch.label = body.label.trim().slice(0, 60);
+  if (body.description !== undefined) patch.description = body.description ? String(body.description).trim().slice(0, 240) : null;
+  if (!Object.keys(patch).length) {
+    res.status(400).json({ error: 'Nada para atualizar.' });
+    return;
+  }
+  productTypeConfigRepository.update(before.id, patch as Record<string, unknown>);
+  invalidateProductTypeCache();
+  const after = productTypeConfigRepository.get(key);
+  audit(req, 'editar', 'product_type_config', key, before, after);
+  res.json(after);
 });
 
 // Antes do productsRouter: rotas literais ('/products/export.csv') têm que ser

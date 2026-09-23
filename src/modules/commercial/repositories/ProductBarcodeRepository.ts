@@ -33,6 +33,13 @@ export class ProductBarcodeRepository extends BaseRepository<ProductBarcodeRow> 
     ) as unknown as ProductBarcodeRow[];
   }
 
+  /** Todos os códigos ativos (produto × código) — usado para indexar a classificação da NF-e. */
+  listAllActive(): { product_id: number; barcode: string }[] {
+    return this.raw(
+      `SELECT product_id, barcode FROM product_barcodes WHERE deleted_at IS NULL`,
+    ) as unknown as { product_id: number; barcode: string }[];
+  }
+
   /** Produto dono de um código adicional (para a busca por bipe no PDV). */
   findProductIdByBarcode(barcode: string): number | null {
     const row = this.rawOne(

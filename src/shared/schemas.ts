@@ -11,6 +11,7 @@ export const createProductSchema = z.object({
   costCents: z.number().int().optional(),
   trackStock: z.boolean().optional(),
   minStock: z.number().int().min(0).optional(),
+  controlaLote: z.boolean().optional(),
   productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura', 'complemento']).optional(),
   initialStock: z.number().int().positive().optional(),
   imageBase64: z.string().optional(),
@@ -30,6 +31,7 @@ export const updateProductSchema = z.object({
   costCents: z.number().int().optional(),
   trackStock: z.boolean().optional(),
   minStock: z.number().int().min(0).optional(),
+  controlaLote: z.boolean().optional(),
   active: z.boolean().optional(),
   productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura', 'complemento']).optional(),
   imageBase64: z.string().optional(),
@@ -43,6 +45,12 @@ export const stockMoveSchema = z.object({
   type: z.enum(['entrada', 'saida', 'ajuste'], { error: 'Tipo deve ser entrada, saida ou ajuste.' }),
   qty: z.number().positive('Quantidade deve ser positiva.'),
   reason: z.string().optional(),
+  /** Lote (produto com controla_lote). */
+  lote: z.string().max(120).nullish(),
+  /** Validade do lote, YYYY-MM-DD. */
+  validade: z.string().max(10).nullish(),
+  /** Custo unitário do lote em centavos (opcional na entrada). */
+  custo: z.number().int().min(0).nullish(),
 });
 
 export const saleItemSchema = z.object({
@@ -192,6 +200,11 @@ const purchaseItemSchema = z.object({
   productId: z.number().int().positive('ID do produto inválido.'),
   qty: z.number().positive('Quantidade deve ser positiva.'),
   unitCostCents: z.number().int('Custo unitário deve ser inteiro.'),
+  /** Lote/validade do item (produto com controle de lote). */
+  lot: z.object({
+    code: z.string().trim().min(1, 'Código do lote é obrigatório.'),
+    expiresAt: z.string().max(10).nullish(),
+  }).nullish(),
 });
 
 export const createPurchaseSchema = z.object({

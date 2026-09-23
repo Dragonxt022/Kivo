@@ -31,10 +31,20 @@ export function weightedAverageCostCents(
   return Math.round(valorTotal / (saldoAtual + qtdEntrada));
 }
 
+/** Lote informado num item de compra (rastro da NF-e ou digitação manual). */
+export interface PurchaseInboundLot {
+  code: string;
+  expiresAt?: string | null;
+  /** Custo unitário do lote; sem ele, usa o custo do item. */
+  costCents?: number | null;
+}
+
 export interface PurchaseInboundItem {
   productId: number;
   qty: number;
   unitCostCents: number;
+  /** Lote/validade do item (produto com `controla_lote`). */
+  lot?: PurchaseInboundLot | null;
 }
 
 export function purchaseItemTotal(item: PurchaseInboundItem): number {
@@ -57,7 +67,10 @@ export function postPurchaseItems(req: Request, purchaseId: number, items: Purch
       : Math.round(item.unitCostCents);
     productRepository.updateCost(item.productId, novoCusto);
 
-    const move = moveStockRaw(req, Number(item.productId), 'entrada', Number(item.qty), 'compra', 'purchase', purchaseId);
+    const lot = item.lot
+      ? { code: item.lot.code, expiresAt: item.lot.expiresAt ?? null, costCents: item.lot.costCents ?? Math.round(item.unitCostCents) }
+      : null;
+    const move = moveStockRaw(req, Number(item.productId), 'entrada', Number(item.qty), 'compra', 'purchase', purchaseId, false, lot);
     if (!move.ok) throw new Error(move.error);
   }
 }
@@ -105,6 +118,8 @@ export function createPurchaseInbound(req: Request, input: CreatePurchaseInbound
         product_id: item.productId,
         qty: item.qty,
         unit_cost_cents: item.unitCostCents,
+        lot_code: item.lot?.code ?? null,
+        lot_expires_at: item.lot?.expiresAt ?? null,
       });
     }
     if (!asDraft) postPurchaseItems(req, purchaseId, items);

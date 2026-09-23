@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Lotes e validade</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/commercial/lotes' }) %>
+  <main x-data="lotsPage()" x-init="load()">
+    <h1>Lotes e validade</h1>
+
+    <div class="toolbar">
+      <label class="muted text-sm" style="display:flex;align-items:center;gap:.4rem">
+        Vencendo em até
+        <input type="number" min="0" x-model.number="days" @change="load()" class="input input-narrow" style="width:70px" />
+        dias
+      </label>
+      <button class="btn secondary" @click="load()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        Atualizar
+      </button>
+      <span class="muted" x-text="rows.length + ' lote(s)'"></span>
+    </div>
+
+    <p class="muted text-sm">
+      Lotes de produtos que controlam lote, com validade dentro do prazo escolhido. A saída
+      consome sempre o lote mais antigo/vencimento mais próximo (FIFO). A política de vencido
+      fica em Configurações › Estoque.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Produto</th>
+          <th>Lote</th>
+          <th>Validade</th>
+          <th class="text-right">Saldo</th>
+          <th class="text-right">Custo un.</th>
+          <th>Status</th>
+          <th style="width:1%"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="l in rows" :key="l.id">
+          <tr>
+            <td x-text="l.product_name"></td>
+            <td x-text="l.code || '—'"></td>
+            <td x-text="fmtDate(l.expires_at)"></td>
+            <td class="text-right" x-text="l.qty"></td>
+            <td class="text-right muted" x-text="brl(l.cost_cents)"></td>
+            <td>
+              <span class="badge" :class="l.expired ? 'off' : 'neutral'" x-text="l.expired ? 'Vencido' : 'A vencer'"></span>
+            </td>
+            <td class="text-right">
+              <button class="btn small danger" @click="writeOff(l)">Dar baixa</button>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!rows.length">
+          <td colspan="7" class="muted text-center">Nenhum lote vencendo no período.</td>
+        </tr>
+      </tbody>
+    </table>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    function lotsPage() {
+      return {
+        rows: [],
+        days: 30,
+        loading: false,
+        async load() {
+          this.loading = true;
+          try {
+            const r = await fetch('/api/commercial/stock/lots?days=' + encodeURIComponent(this.days || 0));
+            if (r.ok) {
+              const hoje = new Date().toISOString().slice(0, 10);
+              this.rows = (await r.json()).map((l) => ({ ...l, expired: !!l.expires_at && l.expires_at < hoje }));
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+        fmtDate(d) {
+          if (!d) return '—';
+          const [y, m, dd] = String(d).split('-');
+          return `${dd}/${m}/${y}`;
+        },
+        brl(c) {
+          return 'R$ ' + (Number(c || 0) / 100).toFixed(2).replace('.', ',');
+        },
+        async writeOff(l) {
+          const label = l.code ? `lote ${l.code}` : `lote #${l.id}`;
+          if (!await window.confirmDlg(`Dar baixa no ${label} de "${l.product_name}" (${l.qty})? O saldo sai do estoque.`)) return;
+          const r = await fetch(`/api/commercial/stock/lots/${l.id}/write-off`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+          });
+          if (r.ok) { showToast('Baixa registrada.', 'success'); this.load(); }
+          else showToast((await r.json()).error ?? 'Falha na baixa.', 'error');
+        },
+      };
+    }
+  </script>
+</body>
+</html>

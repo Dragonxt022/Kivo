@@ -63,6 +63,7 @@ const PAGINAS = [
   '/app/commercial/clientes',
   '/app/commercial/fornecedores',
   '/app/commercial/compras',
+  '/app/commercial/lotes',
   '/app/commercial/listas-de-preco',
   '/app/store/pdv',
   '/app/store/vendas',

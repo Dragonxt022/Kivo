@@ -22,6 +22,7 @@ import type { Request } from 'express';
 import { getService, hasService } from '../../core/services/registry';
 import { settingsRepository } from '../../core/repositories/SettingsRepository';
 import type { CommercialPurchaseInboundService } from '../commercial/setup';
+import type { PurchaseInboundItem } from '../commercial/purchaseInbound';
 import { audit } from '../../core/audit/service';
 import { parseNfeDocument, type NfeDetItem, type NfeParsed } from './nfeParse';
 import {
@@ -130,6 +131,28 @@ export interface NfeImportResult {
 
 class NfeImportError extends Error {}
 
+/**
+ * Divide a quantidade de uma linha entre os lotes do rastro da NF-e. Usa o qLote (já
+ * convertido para a unidade de venda) quando informado; o que faltar é dividido igualmente
+ * entre os lotes sem quantidade. A soma sempre bate com `total` (o último absorve o resto).
+ */
+function splitLotQuantities(total: number, weights: (number | null)[]): number[] {
+  if (!weights.length) return [];
+  const known = weights.map((w) => (w != null && w > 0 ? w : 0));
+  const knownSum = known.reduce((a, b) => a + b, 0);
+  const missing = weights.filter((w) => w == null || w <= 0).length;
+  let out: number[];
+  if (!missing) {
+    out = knownSum > 0 ? known.map((k) => (k * total) / knownSum) : weights.map(() => total / weights.length);
+  } else {
+    const share = Math.max(0, total - knownSum) / missing;
+    out = weights.map((w) => (w != null && w > 0 ? w : share));
+  }
+  const sum = out.reduce((a, b) => a + b, 0);
+  out[out.length - 1] += total - sum;
+  return out;
+}
+
 /** Markup de venda padrão (basis points; 10000 = 100% sobre o custo). */
 export const DEFAULT_MARKUP_BPS = 10000;
 export const NFE_MARKUP_SETTING = 'nfe.markup_bps';
@@ -161,7 +184,7 @@ function serializeProduct(p: CatalogProduct): SerializedProduct {
 
 function loadCatalogRows(): CatalogProduct[] {
   return productRepository.raw(
-    `SELECT id, name, sku, barcode, unit, ncm, cost_cents, price_cents, purchase_unit, purchase_unit_qty
+    `SELECT id, name, sku, barcode, unit, ncm, cost_cents, price_cents, purchase_unit, purchase_unit_qty, controla_lote
        FROM products
       WHERE deleted_at IS NULL
         AND product_type != 'complemento'
@@ -185,7 +208,15 @@ function buildCatalogFor(supplierId: number | null): CatalogBundle {
     if (m.pack_qty && m.pack_unit) packs.set(m.product_id, { unit: m.pack_unit, qty: Number(m.pack_qty) });
   }
   const supplierProductIds = new Set(mappings.map((m) => m.product_id));
-  const cat = buildCatalog(products, mappings.map((m) => ({ productId: m.product_id, code: m.supplier_code })), supplierProductIds);
+  const secondaryBarcodes = productBarcodeRepository.listAllActive().map((b) => ({
+    productId: b.product_id, barcode: b.barcode,
+  }));
+  const cat = buildCatalog(
+    products,
+    mappings.map((m) => ({ productId: m.product_id, code: m.supplier_code })),
+    supplierProductIds,
+    secondaryBarcodes,
+  );
   return { cat, products, packs };
 }
 
@@ -512,6 +543,7 @@ export function applyImportCore(
       const factorByLine = new Map<number, number>();
       const salePriceByLine = new Map<number, number>();
       const convertedByLine = new Map<number, { qty: number; unitCostCents: number }>();
+      const itemByLine = new Map(doc.items.map((it) => [it.line, it]));
 
       for (const [line, v] of validated) {
         const item = v.item;
@@ -580,6 +612,9 @@ export function applyImportCore(
               min_stock: 0,
               active: 1,
               product_type: 'fisico',
+              // Nota com rastro (lote/validade) já nasce controlando lote: é o sinal mais
+              // forte de que o produto é perecível/rastreável.
+              controla_lote: item.rastros.length ? 1 : 0,
               purchase_unit: factor > 1 ? item.unit : null,
               purchase_unit_qty: factor > 1 ? factor : null,
               uuid: randomUUID(),
@@ -592,6 +627,7 @@ export function applyImportCore(
               id: productId, name: item.description.trim(), sku: null, barcode: primaryEan,
               unit: plan.saleUnit, ncm: item.ncm, costCents: 0, priceCents: salePriceCents,
               purchaseUnit: factor > 1 ? item.unit : null, purchaseUnitQty: factor > 1 ? factor : null,
+              controla_lote: item.rastros.length ? 1 : 0,
             });
             audit(req, 'criar', 'product', productId, null, {
               origem: 'importacao_nfe', nome: item.description.trim(), ean: primaryEan,
@@ -703,13 +739,31 @@ export function applyImportCore(
       }
 
       // 4. Compra recebida (estoque/custo/custo médio/CMV) — só itens aceitos, já
-      //    convertidos para a unidade de venda.
-      const accepted = [...productByLine.entries()]
-        .filter(([, id]) => id != null)
-        .map(([line]) => {
-          const conv = convertedByLine.get(line)!;
-          return { productId: productByLine.get(line)!, qty: conv.qty, unitCostCents: conv.unitCostCents };
+      //    convertidos para a unidade de venda. Produtos com controle de lote recebem um
+      //    item por lote do rastro da NF-e, para a entrada criar os lotes com validade.
+      const accepted: PurchaseInboundItem[] = [];
+      for (const [line, id] of productByLine.entries()) {
+        if (id == null) continue;
+        const conv = convertedByLine.get(line)!;
+        const factor = factorByLine.get(line) ?? 1;
+        const item = itemByLine.get(line);
+        const controls = Number(
+          products.find((p) => p.id === id)?.controla_lote ?? createdProducts.get(id)?.controla_lote ?? 0,
+        ) === 1;
+        const rastros = controls ? (item?.rastros ?? []) : [];
+        if (!rastros.length) {
+          accepted.push({ productId: id, qty: conv.qty, unitCostCents: conv.unitCostCents });
+          continue;
+        }
+        const qtys = splitLotQuantities(conv.qty, rastros.map((r) => (r.qty != null && r.qty > 0 ? r.qty * factor : null)));
+        rastros.forEach((r, i) => {
+          if (!(qtys[i] > 0)) return;
+          accepted.push({
+            productId: id, qty: qtys[i], unitCostCents: conv.unitCostCents,
+            lot: { code: r.code, expiresAt: r.expiresAt, costCents: conv.unitCostCents },
+          });
         });
+      }
       if (accepted.length) {
         purchaseId = purchaseInbound.createInbound(req, {
           supplierId,

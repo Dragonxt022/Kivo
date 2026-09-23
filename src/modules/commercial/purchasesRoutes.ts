@@ -16,11 +16,18 @@ const router = Router();
  * Custo médio e postagem de entrada/estoque vivem em `purchaseInbound.ts` (usados
  * também pela importação de NF-e) — a rota de compra só delega para ele.
  */
-function replacePurchaseItems(purchaseId: number, items: { productId: number; qty: number; unitCostCents: number }[]): number {
+function replacePurchaseItems(
+  purchaseId: number,
+  items: { productId: number; qty: number; unitCostCents: number; lot?: { code: string; expiresAt?: string | null } | null }[],
+): number {
   purchaseItemRepository.deleteByPurchase(purchaseId);
   const total = sumCents(...items.map((i) => Math.round(i.qty * i.unitCostCents)));
   for (const item of items) {
-    purchaseItemRepository.create({ purchase_id: purchaseId, product_id: item.productId, qty: item.qty, unit_cost_cents: Math.round(item.unitCostCents) });
+    purchaseItemRepository.create({
+      purchase_id: purchaseId, product_id: item.productId, qty: item.qty,
+      unit_cost_cents: Math.round(item.unitCostCents),
+      lot_code: item.lot?.code ?? null, lot_expires_at: item.lot?.expiresAt ?? null,
+    });
   }
   purchaseRepository.updateTotal(purchaseId, total);
   return total;
@@ -81,11 +88,15 @@ router.post('/:id/receive', requirePermission('commercial.purchases.create'), (r
     res.status(400).json({ error: 'Só rascunhos podem ser recebidos.' });
     return;
   }
-  const items = purchaseItemRepository.listByPurchaseRaw(id);
-  if (!items.length) {
+  const rows = purchaseItemRepository.listByPurchaseRaw(id);
+  if (!rows.length) {
     res.status(400).json({ error: 'Adicione ao menos um item antes de receber.' });
     return;
   }
+  const items = rows.map((i) => ({
+    productId: i.productId, qty: i.qty, unitCostCents: i.unitCostCents,
+    lot: i.lotCode ? { code: i.lotCode, expiresAt: i.lotExpiresAt } : null,
+  }));
 
   let error: string | null = null;
   try {
@@ -132,7 +143,10 @@ router.post('/:id/duplicate', requirePermission('commercial.purchases.create'), 
       daily_interest_bps: source.daily_interest_bps,
     });
     for (const item of items) {
-      purchaseItemRepository.create({ purchase_id: purchaseId, product_id: item.productId, qty: item.qty, unit_cost_cents: item.unitCostCents });
+      purchaseItemRepository.create({
+        purchase_id: purchaseId, product_id: item.productId, qty: item.qty, unit_cost_cents: item.unitCostCents,
+        lot_code: item.lotCode ?? null, lot_expires_at: item.lotExpiresAt ?? null,
+      });
     }
   });
   const created = purchaseRepository.rawOne(

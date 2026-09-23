@@ -302,6 +302,17 @@ async function main(): Promise<void> {
     const boxLink = db.prepare('SELECT kind, pack_qty FROM product_barcodes WHERE barcode = ?').get(boxEan) as { kind: string; pack_qty: number } | undefined;
     check('EAN da caixa guardado como código secundário', boxLink?.kind === 'caixa' && boxLink.pack_qty === 12, `kind=${boxLink?.kind} pack=${boxLink?.pack_qty}`);
 
+    // Reabrir a edição de uma compra por caixa não pode acusar conflito falso: o EAN da
+    // caixa identifica o produto e a unidade da nota (CX) converte para a de venda (un).
+    const boxRes = await unwrap<{ invoiceId: number }>(boxCommitR);
+    const boxEditR = await api(`/api/nfe/invoices/${boxRes.invoiceId}/edit`, {}, cookie);
+    const boxEdit = await unwrap<{ preview: { items: { line: number; kind: string; flags: string[] }[] } }>(boxEditR);
+    const boxLine = boxEdit.preview.items[0];
+    check('edição box: identificado pelo EAN da caixa', boxLine.kind === 'matched', `kind=${boxLine.kind}`);
+    check('edição box: sem conflito falso de EAN/unidade',
+      !boxLine.flags.includes('ean_conflict') && !boxLine.flags.includes('unit_conflict'),
+      `flags=${JSON.stringify(boxLine.flags)}`);
+
     // ── Unidades livres (FD) e fracionadas (KG) ──
     const unitsKey = makeAccessKey();
     const unitsXml = nfeXmlUnits(unitsKey);
