@@ -26,7 +26,7 @@ import { THEMES_STORAGE_DIR } from './themes';
 import { listDevDocs, renderDevDoc } from '../devdocs';
 import { currentPeriod } from '../aiUsage';
 import { loadAiConfig, loadAiSettingsForView } from '../aiConfig';
-import { chat as aiProviderChat, defaultModelFor, isProviderId, keyFor, PROVIDER_LABELS } from '../aiProviders';
+import { chat as aiProviderChat, defaultModelFor, isProviderId, keyFor, listOllamaModels, PROVIDER_LABELS } from '../aiProviders';
 import {
   hasAnyAdmin,
   verifyAdminCredentials,
@@ -312,11 +312,12 @@ async function loadCompaniesList() {
   return companies;
 }
 
-router.get('/companies', requireAdminAuth, async (_req, res) => {
+router.get('/companies', requireAdminAuth, async (req, res) => {
   res.render('companies', {
     companies: await loadCompaniesList(),
     planTiers: PLAN_TIERS,
     planLabels: PLAN_LABELS,
+    ok: typeof req.query.ok === 'string' ? req.query.ok : null,
   });
 });
 
@@ -977,31 +978,24 @@ function safeJson(s: string): unknown {
 }
 
 /**
- * Exclusão definitiva: some com histórico de sincronização, backups (linha + arquivo no
- * disco), cobranças, cardápio publicado e chamados de suporte. Imagens do banco
- * (catalog_images) só perdem o vínculo com a empresa (company_uuid = NULL) — são um
+ * Exclusão definitiva de uma empresa e de TODO o dado dela no cloud.
+ *
+ * TODA tabela que referencia `companies` precisa aparecer aqui: `menu_items` tem FK e ficou
+ * de fora até a 0.3.1; `company_mobile_grants`/`company_commands` (0019) também; e `ai_usage`
+ * (0037) entrou depois — sem apagá-la, excluir uma empresa que usou a KIVO IA estourava a FK
+ * e virava um "Erro interno do servidor." genérico. `client_error_reports` e
+ * `client_machine_inventory` (telemetria) e `message_targets` (central de mensagens) não têm
+ * FK, mas guardam `company_uuid` e sairiam órfãos.
+ *
+ * Imagens do banco (catalog_images) só perdem o vínculo (company_uuid = NULL) — são um
  * acervo compartilhado, não pertencem só a quem enviou.
  *
- * TODA tabela que referencia `companies` precisa aparecer aqui: `menu_items` tem FK e
- * ficou de fora até a 0.3.1, então excluir uma empresa que já tinha publicado cardápio
- * estourava a FK e virava um "Erro interno do servidor." genérico na tela. O mesmo valia
- * para `company_mobile_grants` e `company_commands` (0019): a FK sem ON DELETE CASCADE
- * derrubava a exclusão de qualquer empresa com acesso pelo celular ou comando na fila.
- *
- * `trial_registry` também sai: sem isso a máquina daquela empresa ficava marcada para
- * sempre como "já usou o teste" mesmo depois da empresa ter sido apagada, e não havia
- * como liberar (ver `/admin/trials/:machineId/release`).
+ * `trial_registry` também sai: sem isso a máquina daquela empresa ficava marcada para sempre
+ * como "já usou o teste" mesmo depois da empresa apagada (ver `/admin/trials/:machineId/release`).
  */
-router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
-  const uuid = String(req.params.uuid);
+async function deleteCompanyCompletely(uuid: string): Promise<void> {
   const pool = getPool();
-  const [companyRows] = await pool.query('SELECT company_uuid FROM companies WHERE company_uuid = ?', [uuid]);
-  if (!(companyRows as { company_uuid: string }[])[0]) {
-    res.status(404).send('Empresa não encontrada.');
-    return;
-  }
   const [backupRows] = await pool.query('SELECT storage_path FROM cloud_backups WHERE company_uuid = ?', [uuid]);
-
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -1016,6 +1010,10 @@ router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
     await conn.query('DELETE FROM company_commands WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM theme_grants WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_devices WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM ai_usage WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM client_error_reports WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM client_machine_inventory WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM message_targets WHERE company_uuid = ?', [uuid]);
     await conn.query('UPDATE catalog_images SET company_uuid = NULL WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM companies WHERE company_uuid = ?', [uuid]);
     await conn.commit();
@@ -1033,7 +1031,45 @@ router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
       // arquivo já não existe — a exclusão do registro já foi commitada, segue o jogo
     }
   }
+}
+
+router.post('/companies/:uuid/delete', requireAdminAuth, async (req, res) => {
+  const uuid = String(req.params.uuid);
+  const [companyRows] = await getPool().query('SELECT company_uuid FROM companies WHERE company_uuid = ?', [uuid]);
+  if (!(companyRows as { company_uuid: string }[])[0]) {
+    res.status(404).send('Empresa não encontrada.');
+    return;
+  }
+  await deleteCompanyCompletely(uuid);
   res.redirect('/admin/companies');
+});
+
+/**
+ * Limpeza dos testes grátis vencidos: apaga em lote as empresas cujo plano é `trial` e cuja
+ * validade já passou, junto com TODO o dado delas (ver `deleteCompanyCompletely`). É o que o
+ * time usa para não deixar lixo de quem só quis experimentar. O `trial_registry` também sai,
+ * então a máquina volta a poder pedir o teste.
+ *
+ * A exclusão é sequencial de propósito: o volume é baixo e, se uma falhar, as outras seguem.
+ */
+router.post('/companies/purge-expired-trials', requireAdminAuth, async (req: AdminRequest, res) => {
+  const [rows] = await getPool().query(
+    "SELECT company_uuid FROM companies WHERE plan = 'trial' AND valid_until IS NOT NULL AND valid_until < NOW()",
+  );
+  const uuids = (rows as { company_uuid: string }[]).map((r) => r.company_uuid);
+  let removed = 0;
+  for (const uuid of uuids) {
+    try {
+      await deleteCompanyCompletely(uuid);
+      removed++;
+    } catch (e) {
+      console.error(`[PURGE TRIALS] falha ao excluir ${uuid}:`, e instanceof Error ? e.message : e);
+    }
+  }
+  console.log(`[PURGE TRIALS] admin=${req.adminUsername} removidas=${removed}/${uuids.length} at=${new Date().toISOString()}`);
+  res.redirect('/admin/companies?ok=' + encodeURIComponent(
+    removed === 0 ? 'Nenhum teste vencido para excluir.' : `${removed} teste(s) vencido(s) excluído(s) com todos os dados.`,
+  ));
 });
 
 router.post('/companies/:uuid/rotate-key', requireAdminAuth, async (req, res) => {
@@ -1851,6 +1887,21 @@ router.post('/settings/ai/test', requireAdminAuth, async (req, res) => {
     res.json({ ok: true, message: `${PROVIDER_LABELS[provider]} respondeu (${result.model}): ${result.content.slice(0, 200)}` });
   } catch (err) {
     res.status(502).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+/**
+ * Lista os modelos instalados no Ollama, para o seletor do campo "modelo padrão". Usa a URL
+ * digitada no formulário (permite conferir antes de salvar) ou a já configurada.
+ */
+router.get('/settings/ai/models', requireAdminAuth, async (req, res) => {
+  const cfg = await loadAiConfig();
+  const url = String(req.query.url ?? '').trim() || cfg.ollamaUrl;
+  try {
+    const models = await listOllamaModels(url);
+    res.json({ ok: true, models });
+  } catch (err) {
+    res.status(502).json({ ok: false, models: [], error: err instanceof Error ? err.message : String(err) });
   }
 });
 

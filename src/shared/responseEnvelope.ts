@@ -18,7 +18,10 @@ export function responseEnvelope(_req: Request, res: Response, next: NextFunctio
       const msg = body && typeof body === 'object'
         ? ((body as Record<string, unknown>).error as string ?? (body as Record<string, unknown>).message as string ?? 'Erro')
         : String(body ?? 'Erro');
-      return originalJson({ success: false, error: msg });
+      // Preserva `detail` (detalhe técnico opcional, ex.: erro da IA) para a tela poder
+      // oferecer um "exibir erro" discreto. Demais rotas de erro não enviam esse campo.
+      const detail = body && typeof body === 'object' ? (body as Record<string, unknown>).detail : undefined;
+      return originalJson(detail !== undefined ? { success: false, error: msg, detail } : { success: false, error: msg });
     }
     if (body === undefined || body === null) {
       return originalJson({ success: true });

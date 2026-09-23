@@ -1194,6 +1194,174 @@ button.app-card {
   height: 22px;
 }
 
+/* ─── Widget de ajuda/suporte (presente em todas as páginas) ───
+   Painel flutuante no canto inferior direito, NÃO-modal: o usuário continua usando o
+   sistema com ele aberto. "Recolher" esconde o painel e deixa só o botão no canto. */
+.fab-unread {
+  position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px;
+  border-radius: 999px; background: var(--danger); color: #fff;
+  font-size: .68rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  padding: 0 5px; border: 2px solid var(--surface);
+}
+.support-panel {
+  position: fixed; right: 24px; bottom: 24px; z-index: 91;
+  width: min(400px, calc(100vw - 32px));
+  height: min(620px, calc(100vh - 48px));
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.support-head {
+  background: var(--primary); color: #fff; padding: 1rem 1.15rem;
+  display: flex; align-items: center; gap: .7rem; flex: none;
+}
+.support-head h2 { margin: 0; font-size: 1.02rem; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.support-head .sub { font-size: .76rem; opacity: .92; }
+.support-head .back-btn, .support-head .collapse-btn {
+  background: rgba(255,255,255,.18); border: none; color: #fff; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  flex: none;
+}
+.support-head .back-btn:hover, .support-head .collapse-btn:hover { background: rgba(255,255,255,.3); }
+.support-head .collapse-btn { margin-left: auto; }
+.support-panel .support-body { padding: 1.1rem 1.25rem; overflow-y: auto; flex: 1; min-height: 0; }
+.support-panel > div[x-show] { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.support-panel .support-body.support-thread { flex: 1; }
+.support-ticket-item {
+  display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left;
+  padding: .6rem .8rem; border: 1.5px solid var(--border-light); border-radius: 10px;
+  background: var(--surface-hover); cursor: pointer; font-family: inherit; color: var(--text);
+  margin-bottom: .5rem; font-size: .86rem;
+}
+.support-ticket-item:hover { border-color: var(--primary); }
+.support-ticket-item .t-subject { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.support-badge { font-size: .68rem; font-weight: 700; padding: .15rem .55rem; border-radius: 999px; flex: none; }
+.support-badge.aberto { background: var(--warning-soft); color: var(--warning); }
+.support-badge.fechado { background: var(--success-soft); color: var(--success); }
+.support-badge.arquivado { background: var(--danger-soft); color: var(--danger); }
+.support-unread-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); flex: none; }
+.support-thread { display: flex; flex-direction: column; gap: .6rem; }
+.support-bubble { max-width: 84%; padding: .55rem .85rem; border-radius: 12px; font-size: .88rem; white-space: pre-wrap; }
+.support-bubble .meta { font-size: .68rem; color: var(--text-muted); margin-top: .25rem; }
+.support-bubble.cliente { align-self: flex-end; background: color-mix(in srgb, var(--primary) 14%, transparent); border-bottom-right-radius: 4px; }
+.support-bubble.suporte { align-self: flex-start; background: var(--surface-hover); border: 1px solid var(--border-light); border-bottom-left-radius: 4px; }
+.support-bubble.ia { align-self: flex-start; background: color-mix(in srgb, var(--accent-blue) 10%, transparent); border: 1px dashed color-mix(in srgb, var(--accent-blue) 35%, transparent); border-bottom-left-radius: 4px; }
+.support-bubble img.attachment { max-width: 100%; border-radius: 8px; display: block; margin-top: .35rem; cursor: pointer; }
+
+/* Conteúdo do balão: contém o texto (inclusive palavras longas/URLs) dentro da caixa. */
+.support-thread { min-width: 0; }
+.support-bubble { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+/* Resposta da IA renderizada como Markdown (o balão normal usa pre-wrap; aqui é fluxo normal). */
+.support-bubble .md { white-space: normal; }
+.support-bubble .md .md-gap { height: .45rem; }
+.support-bubble .md .md-h { font-weight: 700; margin: .3rem 0 .1rem; }
+.support-bubble .md ul, .support-bubble .md ol { margin: .25rem 0 .25rem 1.05rem; padding: 0; }
+.support-bubble .md li { margin: .12rem 0; }
+.support-bubble .md code {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  padding: .05rem .3rem; border-radius: 4px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .92em;
+}
+.support-bubble .md strong { font-weight: 700; }
+.support-bubble .md a { color: inherit; text-decoration: underline; }
+
+/* Botões de navegação sugeridos pela IA (levam à tela do módulo). */
+.support-links { display: flex; flex-direction: column; gap: .35rem; margin-top: .55rem; }
+.support-link-btn {
+  display: inline-flex; align-items: center; gap: .4rem; align-self: flex-start;
+  padding: .4rem .7rem; border-radius: 8px; border: 1px solid var(--primary);
+  color: var(--primary); background: var(--surface); font-size: .8rem; font-weight: 600;
+  text-decoration: none;
+}
+.support-link-btn:hover { background: var(--primary-soft); text-decoration: none; }
+
+/* Balão "digitando" com três pontinhos animados. */
+.support-typing-bubble { padding: .7rem .9rem; }
+.support-typing { display: inline-flex; gap: 4px; align-items: center; }
+.support-typing i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .45; animation: kivo-typing 1.2s infinite; }
+.support-typing i:nth-child(2) { animation-delay: .18s; }
+.support-typing i:nth-child(3) { animation-delay: .36s; }
+@keyframes kivo-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: .4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.support-input-row { display: flex; gap: .5rem; padding: .85rem 1.25rem; border-top: 1px solid var(--border-light); flex: none; }
+.support-input-row textarea {
+  flex: 1; resize: none; min-height: 42px; max-height: 120px; padding: .55rem .8rem;
+  border-radius: 10px; border: 1.5px solid var(--border-light); background: var(--surface-hover);
+  color: var(--text); font-family: inherit; font-size: .9rem;
+}
+.support-input-row textarea:focus { outline: none; border-color: var(--primary); }
+.support-send-btn {
+  background: var(--primary); border: none; color: #fff; cursor: pointer; flex: none;
+  width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+}
+.support-send-btn:disabled { opacity: .5; cursor: default; }
+.support-form label { display: block; font-weight: 600; font-size: .85rem; margin: 0 0 .3rem; }
+.support-form input, .support-form textarea {
+  width: 100%; padding: .6rem .8rem; border-radius: 10px; margin-bottom: .85rem;
+  border: 1.5px solid var(--border-light); background: var(--surface-hover);
+  color: var(--text); font-family: inherit; font-size: .9rem;
+}
+.support-form input:focus, .support-form textarea:focus { outline: none; border-color: var(--primary); }
+.support-form textarea { resize: vertical; min-height: 90px; }
+.support-sla {
+  font-size: .8rem; line-height: 1.45; color: var(--text-muted);
+  background: var(--warning-soft); border-radius: 10px; padding: .6rem .8rem; margin: 0 0 .9rem;
+}
+.support-note { font-size: .8rem; color: var(--text-muted); text-align: center; padding: .6rem 1.25rem .9rem; }
+.support-closed-note {
+  text-align: center; font-size: .82rem; color: var(--text-muted);
+  padding: .6rem; border-top: 1px solid var(--border-light);
+}
+.support-error { color: var(--danger); font-size: .82rem; margin-top: .4rem; white-space: pre-wrap; }
+/* "exibir erro": link discreto que revela o detalhe técnico (para o suporte). */
+.support-err-toggle {
+  background: none; border: 0; color: var(--text-muted); font-family: inherit;
+  font-size: .72rem; text-decoration: underline; cursor: pointer; padding: 0; margin-left: .35rem;
+}
+.support-err-toggle:hover { color: var(--text); }
+.support-err-detail {
+  margin: .4rem 0 0; padding: .5rem .6rem; background: var(--surface-hover);
+  border-radius: 8px; font-size: .72rem; color: var(--text-muted);
+  white-space: pre-wrap; word-break: break-word; max-height: 130px; overflow: auto;
+}
+/* Seletor de provedor em linha própria, acima do campo — não espreme a caixa de texto. */
+.support-provider-row {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .55rem 1.25rem 0; font-size: .74rem; color: var(--text-muted);
+}
+.support-provider-row select {
+  flex: 1; min-width: 0; padding: .35rem .5rem; border-radius: 8px;
+  border: 1px solid var(--border-light); background: var(--surface-hover);
+  color: var(--text); font-size: .78rem; font-family: inherit;
+}
+.support-attach-btn {
+  background: var(--surface-hover); border: 1.5px solid var(--border-light); color: var(--text-muted); cursor: pointer; flex: none;
+  width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+}
+.support-attach-btn:hover { border-color: var(--primary); color: var(--primary); }
+.support-attach-preview { display: flex; align-items: center; gap: .5rem; margin: -.4rem 0 .85rem; }
+.support-attach-preview img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-light); }
+.support-attach-preview button { background: none; border: none; color: var(--danger); font-size: .8rem; cursor: pointer; padding: 0; }
+.help-chat-contacts { display: flex; flex-direction: column; gap: .5rem; margin: .25rem 0 1.25rem; }
+.help-chat-contact {
+  display: flex; align-items: center; gap: .55rem; padding: .6rem .8rem;
+  border: 1.5px solid var(--border-light); border-radius: 10px; background: var(--surface-hover);
+  color: var(--text); font-size: .88rem; font-weight: 500; text-decoration: none;
+  transition: border-color var(--transition), color var(--transition);
+  cursor: pointer; width: 100%; text-align: left; font-family: inherit;
+}
+.help-chat-contact:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
+.help-chat-contact svg { color: var(--primary); flex-shrink: 0; }
+@media (max-width: 520px) {
+  .support-panel { right: 12px; bottom: 12px; width: calc(100vw - 24px); height: min(70vh, calc(100vh - 24px)); }
+}
+
 /* ─── Tables ─── */
 h1 {
   font-size: 1.3rem;

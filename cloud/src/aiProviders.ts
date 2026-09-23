@@ -111,6 +111,11 @@ async function ollamaModels(url: string): Promise<AiModelInfo[]> {
   return (data.models ?? []).map((m) => ({ name: m.name, size: m.size ?? null, parameterSize: m.details?.parameter_size ?? null }));
 }
 
+/** Lista os modelos instalados em um Ollama. Usado pelo seletor do painel. Lança se offline. */
+export async function listOllamaModels(url: string): Promise<AiModelInfo[]> {
+  return ollamaModels(url);
+}
+
 /** Metadados dos provedores para o seletor de agente. Só lista os que têm chave (ou o Ollama). */
 export async function listProviders(cfg: AiConfig): Promise<ProviderInfo[]> {
   const out: ProviderInfo[] = [];

@@ -553,6 +553,10 @@
   </nav>
 </aside>
 
+<% if (user) { %>
+<%- include('partials/support-widget', { user }) %>
+<% } %>
+
 <%
   var sidebarGroupsSeed = [];
   var sidebarGroupIndex = {};

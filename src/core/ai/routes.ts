@@ -35,7 +35,7 @@ router.post('/chat', async (req, res) => {
     ? body.messages
     : (typeof body.prompt === 'string' && body.prompt.trim() ? [{ role: 'user', content: body.prompt.trim() }] : []);
   const provider = typeof body.provider === 'string' && body.provider.trim() ? body.provider.trim() : null;
-  const result = await aiChat(messages, { provider, model: body.model });
+  const result = await aiChat(messages, { provider, model: body.model, userName: req.user?.name });
   if (!result.ok) {
     res.status(400).json(result);
     return;

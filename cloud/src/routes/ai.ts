@@ -17,7 +17,7 @@ import { Router } from 'express';
 import { requireCompanyAuth, type AuthedRequest } from '../auth';
 import { createRateLimiter } from '../rateLimit';
 import { currentPeriod, ensurePeriod, getCredits, recordUsage } from '../aiUsage';
-import { buildKnowledgeContext } from '../aiKnowledge';
+import { buildKnowledgeContext, type KnowledgeLink } from '../aiKnowledge';
 import { loadAiConfig } from '../aiConfig';
 import {
   chat,
@@ -32,6 +32,28 @@ import {
 const router = Router();
 
 const limit = createRateLimiter({ windowMs: 60_000, max: 40, keyPrefix: 'ai:' });
+
+/**
+ * Traduz o erro técnico do provedor para uma mensagem amigável, guardando o texto original em
+ * `detail` — a tela mostra o amigável e oferece um "exibir erro" discreto para quem quiser o
+ * detalhe (suporte). Nada de despejar JSON do Ollama na cara do lojista.
+ */
+function friendlyAiError(raw: string): { error: string; detail?: string } {
+  const r = raw || '';
+  if (/model .*not found|modelo.*n[ãa]o|not found|no such model/i.test(r)) {
+    return { error: 'A IA ainda não está configurada. Avise o suporte para liberar o assistente.', detail: r };
+  }
+  if (/Nenhuma chave configurada|n[ãa]o est[áa] configurado/i.test(r)) {
+    return { error: 'Este assistente de IA ainda não está liberado. Fale com o suporte.', detail: r };
+  }
+  if (/ECONNREFUSED|fetch failed|Failed to fetch|ETIMEDOUT|timeout|indispon[íi]/i.test(r)) {
+    return { error: 'Não foi possível falar com a IA agora. Tente novamente em instantes.', detail: r };
+  }
+  if (/respondeu 5\d\d|Bad Gateway|502|503|504/i.test(r)) {
+    return { error: 'A IA está indisponível no momento. Tente novamente mais tarde.', detail: r };
+  }
+  return { error: 'Não foi possível consultar a IA agora. Tente novamente em instantes.', detail: r };
+}
 
 /**
  * Status do serviço: provedores disponíveis (com modelos), se o Ollama está no ar e quanto a
@@ -75,6 +97,7 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
     temperature?: number;
     provider?: string;
     knowledge?: boolean;
+    userName?: string;
   };
 
   const cfg = await loadAiConfig();
@@ -126,12 +149,21 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
 
   // Base de conhecimento: só quando a tela não desliga explicitamente (testes usam `knowledge:false`).
   let sources: string[] = [];
+  let links: KnowledgeLink[] = [];
   const systemParts: string[] = [];
+  const userName = typeof body.userName === 'string' ? body.userName.trim().slice(0, 80) : '';
+  if (userName) {
+    systemParts.push(
+      `Você está atendendo ${userName} pelo suporte do Kivo. Trate a pessoa pelo nome quando fizer sentido `
+      + 'e mantenha o fio da conversa: lembre-se do que já foi dito e não peça de novo o que já foi informado.',
+    );
+  }
   if (typeof body.system === 'string' && body.system.trim()) systemParts.push(body.system.trim());
   if (body.knowledge !== false) {
     const kb = buildKnowledgeContext(lastUser.content);
     if (kb.context) {
       sources = kb.sources;
+      links = kb.links;
       systemParts.push(
         'Use a documentação oficial do Kivo abaixo para responder. Se a resposta não estiver nela, '
         + 'diga que não encontrou e ofereça encaminhar para o atendimento humano. Cite o nome da seção '
@@ -156,6 +188,7 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
       model: result.model,
       content: result.content,
       sources,
+      links,
       usage: {
         promptTokens: result.promptTokens,
         completionTokens: result.completionTokens,
@@ -164,8 +197,8 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
       credits: credits ? { ...credits, used } : null,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    res.status(502).json({ error: msg });
+    const raw = e instanceof Error ? e.message : String(e);
+    res.status(502).json(friendlyAiError(raw));
   }
 });
 

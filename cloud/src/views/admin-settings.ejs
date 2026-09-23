@@ -163,9 +163,17 @@
                 </select>
 
                 <label>Ollama — URL</label>
-                <input type="text" name="aiOllamaUrl" value="<%= ai.ollamaUrl %>" placeholder="http://127.0.0.1:11434">
+                <input type="text" name="aiOllamaUrl" id="ai-ollama-url" value="<%= ai.ollamaUrl %>" placeholder="http://127.0.0.1:11434">
                 <label>Ollama — modelo padrão</label>
-                <input type="text" name="aiOllamaModel" value="<%= ai.ollamaModel %>" placeholder="llama3.2">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <input type="text" name="aiOllamaModel" id="ai-ollama-model" list="ollama-model-list"
+                         value="<%= ai.ollamaModel %>" placeholder="llama3.2" style="flex:1;min-width:200px">
+                  <button type="button" class="btn secondary" id="ollama-models-btn" onclick="loadOllamaModels()">Buscar modelos</button>
+                </div>
+                <datalist id="ollama-model-list"></datalist>
+                <p id="ollama-models-result" class="field-hint" style="margin-top:6px">
+                  Escolha um modelo da lista ou digite o nome manualmente.
+                </p>
 
                 <label>OpenAI (ChatGPT) — API Key</label>
                 <input type="password" name="aiOpenaiKey" value="" autocomplete="off"
@@ -210,9 +218,12 @@
     (function () {
       var items = document.querySelectorAll('.settings-nav-item');
       var panels = document.querySelectorAll('.settings-panel');
+      var ollamaLoaded = false;
       function show(name) {
         items.forEach(function (b) { b.classList.toggle('active', b.dataset.settingsTab === name); });
         panels.forEach(function (p) { p.hidden = p.dataset.settingsPanel !== name; });
+        // Ao abrir a aba da IA, busca sozinho os modelos instalados no Ollama (uma vez).
+        if (name === 'ia' && !ollamaLoaded) { ollamaLoaded = true; loadOllamaModels(); }
         try { history.replaceState(history.state, '', location.pathname + '#' + name); }
         catch (e) { location.hash = name; }
       }
@@ -223,6 +234,44 @@
       var valid = Array.prototype.some.call(items, function (b) { return b.dataset.settingsTab === initial; });
       show(valid ? initial : 'contato');
     })();
+
+    /** Lista os modelos do Ollama (da URL digitada ou a salva) e preenche o seletor. */
+    async function loadOllamaModels() {
+      var out = document.getElementById('ollama-models-result');
+      var btn = document.getElementById('ollama-models-btn');
+      var list = document.getElementById('ollama-model-list');
+      var urlInput = document.getElementById('ai-ollama-url');
+      if (!out || !list) return;
+      var url = urlInput ? urlInput.value.trim() : '';
+      if (btn) btn.disabled = true;
+      out.className = 'field-hint';
+      out.textContent = 'Buscando modelos…';
+      try {
+        var r = await fetch('/admin/settings/ai/models?url=' + encodeURIComponent(url), { credentials: 'same-origin' });
+        var j = await r.json();
+        list.innerHTML = '';
+        (j.models || []).forEach(function (m) {
+          var opt = document.createElement('option');
+          opt.value = m.name;
+          if (m.parameterSize) opt.label = m.parameterSize;
+          list.appendChild(opt);
+        });
+        if (j.ok) {
+          out.textContent = j.models.length
+            ? j.models.length + ' modelo(s) encontrado(s) — escolha na lista ou digite.'
+            : 'Nenhum modelo instalado no Ollama.';
+          out.className = 'field-hint';
+        } else {
+          out.textContent = j.error || 'Não foi possível listar os modelos.';
+          out.className = 'error-banner';
+        }
+      } catch (e) {
+        out.textContent = 'Erro inesperado: ' + e;
+        out.className = 'error-banner';
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
 
     async function testSmtp() {
       var form = document.getElementById('smtp-form');
