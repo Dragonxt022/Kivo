@@ -357,14 +357,20 @@
         <span class="toolbar-spacer"></span>
         <a class="btn secondary small" href="/app/dre/relatorio">Ver DRE completo</a>
       </div>
-      <div class="dre-grid" x-show="dre" x-cloak>
-        <div class="dre-item"><span>Receita bruta</span><strong x-text="brl(dre.receitaBrutaCents)"></strong></div>
-        <div class="dre-item"><span>Receita líquida</span><strong x-text="brl(dre.receitaLiquidaCents)"></strong></div>
-        <div class="dre-item"><span>CMV</span><strong x-text="brl(dre.cmvCents)"></strong></div>
-        <div class="dre-item"><span>Lucro bruto</span><strong x-text="brl(dre.lucroBrutoCents)"></strong></div>
-        <div class="dre-item"><span>Resultado operacional</span><strong x-text="brl(dre.resultadoOperacionalCents)"></strong></div>
-        <div class="dre-item result"><span>Resultado líquido</span><strong x-text="brl(dre.resultadoLiquidoCents)"></strong></div>
-      </div>
+      <%# x-if (e não x-show): o x-show só esconde via CSS e o Alpine ainda avalia os
+          x-text de dentro, lendo `dre.xxx` com `dre` nulo antes do fetch terminar — era a
+          origem dos "Cannot read properties of null (reading 'receitaBrutaCents')". Com
+          x-if, o bloco só existe depois que o DRE chega. %>
+      <template x-if="dre">
+        <div class="dre-grid">
+          <div class="dre-item"><span>Receita bruta</span><strong x-text="brl(dre.receitaBrutaCents)"></strong></div>
+          <div class="dre-item"><span>Receita líquida</span><strong x-text="brl(dre.receitaLiquidaCents)"></strong></div>
+          <div class="dre-item"><span>CMV</span><strong x-text="brl(dre.cmvCents)"></strong></div>
+          <div class="dre-item"><span>Lucro bruto</span><strong x-text="brl(dre.lucroBrutoCents)"></strong></div>
+          <div class="dre-item"><span>Resultado operacional</span><strong x-text="brl(dre.resultadoOperacionalCents)"></strong></div>
+          <div class="dre-item result"><span>Resultado líquido</span><strong x-text="brl(dre.resultadoLiquidoCents)"></strong></div>
+        </div>
+      </template>
       <p class="muted text-xs" x-show="!dre">Calculando…</p>
     </section>
     <% } %>

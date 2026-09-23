@@ -29,6 +29,7 @@ import {
   createAdminSession,
   destroyAdminSession,
   requireAdminAuth,
+  isAdminAuthenticated,
   readAdminCookie,
   hashPassword,
   findAdminByIdentity,
@@ -129,6 +130,11 @@ async function loadCompanyDetail(companyUuid: string) {
 router.get('/login', async (req, res) => {
   if (!(await hasAnyAdmin())) {
     res.redirect('/admin/setup');
+    return;
+  }
+  // Já autenticado: pula o formulário e vai direto ao painel.
+  if (await isAdminAuthenticated(req)) {
+    res.redirect('/admin');
     return;
   }
   res.render('login', { error: null });

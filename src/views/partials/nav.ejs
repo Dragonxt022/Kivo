@@ -1,6 +1,7 @@
 <div x-data="{
   appsOpen: false, userOpen: false,
   now: new Date().toLocaleTimeString('pt-BR'),
+  today: new Date().toLocaleDateString('pt-BR'),
   billingAlert: null,
   licenseStatus: null,
   cloudIssueDismissed: false,
@@ -158,7 +159,11 @@
     // 10s (o minuto continua certo, é o que se lê) e a sondagem de nuvem de 25s para 2min.
     // Num PC fraco, cada acordar destes é repintura de header que compete com o PDV.
     var leve = document.documentElement.getAttribute('data-lite') === '1';
-    setInterval(() => { this.now = new Date().toLocaleTimeString('pt-BR'); }, leve ? 10000 : 1000);
+    setInterval(() => {
+      var d = new Date();
+      this.now = d.toLocaleTimeString('pt-BR');
+      this.today = d.toLocaleDateString('pt-BR');
+    }, leve ? 10000 : 1000);
     <% if (user) { %>
     this.loadNotifState();
     window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
@@ -228,7 +233,10 @@
     <svg class="nav-clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
     </svg>
-    <span class="nav-clock" x-text="now"></span>
+    <span class="nav-clock-wrap">
+      <span class="nav-date" x-text="today"></span>
+      <span class="nav-clock" x-text="now"></span>
+    </span>
     <% if (user) { %>
     <%# Voltar. Nasce escondido e é revelado pelo script do rodapé só fora da tela inicial —
         ao contrário de x-show, não pisca na tela antes do Alpine iniciar. %>

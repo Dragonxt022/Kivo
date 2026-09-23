@@ -213,31 +213,45 @@ async function loadNotifications(): Promise<{ count: number; items: Notification
   }
 }
 
-export async function requireAdminAuth(req: AdminRequest, res: Response, next: NextFunction): Promise<void> {
+/**
+ * Username da sessão do painel, ou null se ausente/vencida. NÃO redireciona — serve tanto
+ * para o `requireAdminAuth` quanto para a tela de login decidir pular o formulário de quem
+ * já está autenticado.
+ */
+export async function getAdminSession(req: Request): Promise<string | null> {
   const token = readCookie(req);
-  if (!token) {
-    res.redirect('/admin/login');
-    return;
-  }
+  if (!token) return null;
   const hash = hashToken(token);
-  let row: { username: string; expires_at: string } | undefined;
   try {
     const [rows] = await getPool().query(
       'SELECT username, expires_at FROM admin_sessions WHERE token_hash = ?',
       [hash],
     );
-    row = (rows as { username: string; expires_at: string }[])[0];
+    const row = (rows as { username: string; expires_at: string }[])[0];
+    if (!row) return null;
+    if (new Date(row.expires_at) < new Date()) {
+      await getPool().query('DELETE FROM admin_sessions WHERE token_hash = ?', [hash]).catch(() => {});
+      return null;
+    }
+    return row.username;
   } catch {
+    return null;
+  }
+}
+
+/** Atalho booleano para `getAdminSession`. */
+export async function isAdminAuthenticated(req: Request): Promise<boolean> {
+  return (await getAdminSession(req)) !== null;
+}
+
+export async function requireAdminAuth(req: AdminRequest, res: Response, next: NextFunction): Promise<void> {
+  const username = await getAdminSession(req);
+  if (!username) {
     res.redirect('/admin/login');
     return;
   }
-  if (!row || new Date(row.expires_at) < new Date()) {
-    if (row) await getPool().query('DELETE FROM admin_sessions WHERE token_hash = ?', [hash]).catch(() => {});
-    res.redirect('/admin/login');
-    return;
-  }
-  req.adminUsername = row.username;
-  res.locals.adminUsername = row.username;
+  req.adminUsername = username;
+  res.locals.adminUsername = username;
   res.locals.notifications = await loadNotifications();
   next();
 }
