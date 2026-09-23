@@ -328,8 +328,8 @@
     "run": "npm --prefix cloud run dev"
   },
   "cloud:deploy": {
-    "description": "Fazer deploy do cloud/ (Linux/CI)",
-    "run": "bash scripts/deploy-cloud.sh"
+    "description": "Fazer deploy do cloud/ na VPS (Node; funciona no Windows e no Linux)",
+    "run": "node scripts/deploy-cloud.js"
   },
   "postinstall": {
     "description": "Pós-instalação (copiar Alpine.js local)",
