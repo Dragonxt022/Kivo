@@ -157,6 +157,12 @@ async function main(): Promise<void> {
       loginWithCookie.status === 302 && (loginWithCookie.headers.get('location') ?? '').endsWith('/admin'),
       `${loginWithCookie.status} ${loginWithCookie.headers.get('location') ?? ''}`);
 
+    // Wiki técnica do painel (mesmo Markdown do app local).
+    const docPage = await api(cloudUrl, '/admin/documentacao', {}, adminCookie!);
+    const docHtml = await docPage.text();
+    check('painel: wiki técnica responde', docPage.status === 200 && docHtml.includes('Documentação técnica'), String(docPage.status));
+    check('painel: wiki lista os módulos', docHtml.includes('doc=estoque') && docHtml.includes('Módulo de Estoque'));
+
     // --- CRUD de empresa pelo painel ---
     const createRes = await form(
       cloudUrl,

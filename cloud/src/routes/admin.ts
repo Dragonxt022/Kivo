@@ -23,6 +23,7 @@ import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
 import { expectedResponse } from '../recoveryCodes';
 import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } from './catalog';
 import { THEMES_STORAGE_DIR } from './themes';
+import { listDevDocs, renderDevDoc } from '../devdocs';
 import {
   hasAnyAdmin,
   verifyAdminCredentials,
@@ -329,6 +330,17 @@ router.get('/companies/export.csv', requireAdminAuth, async (_req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="empresas-${stamp}.csv"`);
   res.send('\uFEFF' + lines.join('\r\n'));
+});
+
+// Documentação técnica (regras de negócio por módulo) — mesmo conteúdo Markdown do app
+// local (src/docs/dev). Só admin autenticado (requireAdminAuth).
+router.get('/documentacao', requireAdminAuth, (req: AdminRequest, res) => {
+  const docs = listDevDocs();
+  const requested = typeof req.query.doc === 'string' ? req.query.doc : '';
+  const current = renderDevDoc(requested || 'index')
+    ?? (docs[0] ? renderDevDoc(docs[0].slug) : null)
+    ?? { slug: '', title: 'Documentação', summary: null, html: '<p>Nenhum documento disponível.</p>' };
+  res.render('devdocs', { adminUsername: req.adminUsername, docs, current });
 });
 
 router.get('/', requireAdminAuth, async (_req, res) => {
