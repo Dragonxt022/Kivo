@@ -204,6 +204,13 @@ export function runSeeds(): void {
     'Método de custo do estoque: "medio" (média ponderada móvel — padrão) ou "fifo" (custo do lote consumido).',
   );
 
+  // KIVO IA (Configurações › KIVO IA): o app local manda as requisições para o Kivo Web, que
+  // roteia para o Ollama da VPS. Nasce desligada — recurso opt-in.
+  insertSetting.run('ia.ativo', '0', randomUUID(), 'Liga a KIVO IA. "1" = ligada; "0" = desligada (padrão).');
+  insertSetting.run('ia.modelo', '', randomUUID(), 'Modelo do Ollama (ex.: llama3.2). Vazio = usa o padrão do servidor.');
+  insertSetting.run('ia.prompt', '', randomUUID(), 'Prompt de sistema da KIVO IA: personalidade e instruções fixas.');
+  insertSetting.run('ia.temperatura', '0.7', randomUUID(), 'Temperatura do modelo (0 a 1). Padrão 0,7.');
+
   // Rótulo do módulo de comandas: a loja que atende só no balcão vê "Balcão" (e outro
   // ícone) no lugar de "Mesas". O assistente grava conforme a resposta; aqui fica o padrão.
   insertSetting.run(

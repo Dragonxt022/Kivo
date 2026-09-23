@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     check('menu lista vendas', html.includes('/admin/documentacao?doc=vendas'));
 
     // Todos os documentos de módulo renderizam.
-    const slugs = ['estoque', 'vendas', 'financeiro', 'fiscal', 'comandas', 'foodservice', 'etiquetas', 'dre', 'painel', 'comercial', 'nfe'];
+    const slugs = ['estoque', 'vendas', 'financeiro', 'fiscal', 'comandas', 'foodservice', 'etiquetas', 'dre', 'painel', 'comercial', 'nfe', 'kivo-ia'];
     let rendered = 0;
     for (const slug of slugs) {
       const r = await api(`/admin/documentacao?doc=${slug}`, {}, admin);

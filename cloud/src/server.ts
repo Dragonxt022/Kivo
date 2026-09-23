@@ -20,6 +20,7 @@ import { mobileSide as mobileCommandsRoutes, desktopSide as desktopCommandsRoute
 import mobileAppRoutes from './routes/mobileApp';
 import quotePublicRoutes from './routes/quotePublic';
 import telemetryRoutes, { startTelemetryRetention } from './routes/telemetry';
+import aiRoutes from './routes/ai';
 import affiliateRoutes from './routes/affiliate';
 import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAuth';
 import { purgeExpiredAffiliateSessions } from './affiliateAuth';
@@ -91,6 +92,9 @@ export function createCloudServer() {
   app.use('/', quotePublicRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/api/telemetry', telemetryRoutes);
+  // KIVO IA: o app local manda a requisição com as credenciais de licença e o cloud
+  // encaminha para o Ollama local da VPS (OLLAMA_URL).
+  app.use('/api/ai', aiRoutes);
   // Portal do afiliado (representante): login próprio e visão restrita às indicações dele.
   app.use('/afiliado', affiliateRoutes);
   app.use('/admin/messages', adminMessagesRoutes);

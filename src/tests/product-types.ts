@@ -88,11 +88,18 @@ async function main(): Promise<void> {
     check('criar produto de tipo desativado é recusado', blocked.status === 400 && !!blockedJson.error, `status=${blocked.status}`);
     await api('/api/commercial/product-types/kit', { method: 'PUT', body: JSON.stringify({ active: true }) });
 
-    // A tela de configurações renderiza a aba nova (pega typo de EJS).
+    // A tela de configurações renderiza as abas novas (pega typo de EJS).
     const cfg = await api('/admin/configuracoes');
     const html = await cfg.text();
     check('Configurações renderiza a aba Tipos de produto',
       cfg.status === 200 && html.includes('tipos-produto') && html.includes('Tipos de produto'), `status=${cfg.status}`);
+    check('Configurações renderiza a aba KIVO IA',
+      html.includes("tab === 'ia'") && html.includes('KIVO IA'));
+
+    // KIVO IA desligada por padrão: a rota recusa com mensagem clara (não tenta falar com a nuvem).
+    const ia = await api('/api/ai/chat', { method: 'POST', body: JSON.stringify({ prompt: 'oi' }) });
+    const iaBody = await ia.json().catch(() => ({})) as { error?: string };
+    check('KIVO IA desligada recusa o chat', ia.status === 400 && !!iaBody.error, `${ia.status} ${iaBody.error ?? ''}`);
 
     // Os UUIDs semeados são fixos (o sync casa a mesma linha entre máquinas).
     const uuids = db.prepare('SELECT uuid FROM product_type_config ORDER BY sort_order').all() as { uuid: string }[];

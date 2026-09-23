@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — KIVO IA</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .ai-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.25rem; }
+    .ai-kpi { border: 1px solid rgba(127,127,127,.25); border-radius: 10px; padding: .9rem 1rem; }
+    .ai-kpi .label { font-size: .78rem; opacity: .7; }
+    .ai-kpi .value { font-size: 1.5rem; font-weight: 700; margin-top: .15rem; }
+    .ai-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1.25rem; align-items: start; }
+    @media (max-width: 900px) { .ai-grid, .ai-kpis { grid-template-columns: 1fr; } }
+    .ai-card { border: 1px solid rgba(127,127,127,.25); border-radius: 10px; padding: 1rem; }
+    .ai-card h2 { margin: 0 0 .75rem; font-size: 1rem; }
+    .ai-bars { display: flex; align-items: flex-end; gap: 4px; height: 180px; }
+    .ai-bar-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+    .ai-bar { background: #4f46e5; border-radius: 4px 4px 0 0; min-height: 2px; transition: height .2s; }
+    .ai-bar-label { text-align: center; font-size: .62rem; opacity: .6; margin-top: .25rem; }
+    .ai-pie { width: 180px; height: 180px; transform: rotate(-90deg); }
+    .ai-legend { display: flex; flex-direction: column; gap: .35rem; margin-top: .75rem; font-size: .82rem; }
+    .ai-legend-row { display: flex; align-items: center; gap: .45rem; }
+    .ai-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .ai-legend-row .tokens { margin-left: auto; opacity: .7; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'ai' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'ai' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Sistema</div>
+            <h1>KIVO IA</h1>
+          </div>
+        </div>
+
+        <%
+          function compact(n) {
+            n = Number(n || 0);
+            if (n >= 1e6) return (n / 1e6).toFixed(1).replace('.', ',') + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(1).replace('.', ',') + 'k';
+            return String(n);
+          }
+        %>
+
+        <div class="ai-kpis">
+          <div class="ai-kpi"><div class="label">Tokens no mês (<%= period %>)</div><div class="value"><%= compact(kpi.tokens) %></div></div>
+          <div class="ai-kpi"><div class="label">Requisições no mês</div><div class="value"><%= compact(kpi.requests) %></div></div>
+          <div class="ai-kpi"><div class="label">Empresas usando</div><div class="value"><%= kpi.companies %></div></div>
+        </div>
+
+        <div class="ai-grid">
+          <div class="ai-card">
+            <h2>Tokens por dia (14 dias)</h2>
+            <div class="ai-bars">
+              <% bars.forEach(function (b) { %>
+                <div class="ai-bar-col" title="<%= b.label %>: <%= b.tokens %> tokens">
+                  <div class="ai-bar" style="height:<%= b.pct %>%"></div>
+                  <div class="ai-bar-label"><%= b.label %></div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="ai-card">
+            <h2>Uso por empresa (mês)</h2>
+            <% if (!pie.length) { %>
+              <p class="muted">Sem uso neste período.</p>
+            <% } else { %>
+              <svg class="ai-pie" viewBox="0 0 42 42">
+                <circle cx="21" cy="21" r="15.9155" fill="transparent" stroke="rgba(127,127,127,.15)" stroke-width="8"></circle>
+                <% pie.forEach(function (s) { %>
+                  <circle cx="21" cy="21" r="15.9155" fill="transparent" stroke="<%= s.color %>" stroke-width="8"
+                          stroke-dasharray="<%= s.pct %> <%= (100 - s.pct).toFixed(1) %>" stroke-dashoffset="<%= s.offset.toFixed(2) %>"></circle>
+                <% }); %>
+              </svg>
+              <div class="ai-legend">
+                <% pie.forEach(function (s) { %>
+                  <div class="ai-legend-row">
+                    <span class="ai-dot" style="background:<%= s.color %>"></span>
+                    <span><%= s.name %></span>
+                    <span class="tokens"><%= compact(s.tokens) %> (<%= String(s.pct).replace('.', ',') %>%)</span>
+                  </div>
+                <% }); %>
+              </div>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="ai-card" style="margin-top:1.25rem">
+          <h2>Créditos por empresa</h2>
+          <p class="muted" style="margin-top:-.4rem;font-size:.85rem">
+            Defina o teto de tokens por mês (0 = ilimitado). O consumo zera todo dia 1º.
+          </p>
+          <table>
+            <thead>
+              <tr><th>Empresa</th><th>Plano</th><th>Usado no mês</th><th>Teto (tokens/mês)</th><th></th></tr>
+            </thead>
+            <tbody>
+              <% companies.forEach(function (c) { %>
+                <tr>
+                  <td><%= c.name || c.uuid %></td>
+                  <td><%= c.plan || '—' %></td>
+                  <td><%= compact(c.used) %></td>
+                  <td>
+                    <form method="post" action="/admin/ai/<%= c.uuid %>/limit" style="display:flex;gap:6px;align-items:center;margin:0">
+                      <input type="number" name="limitTokens" min="0" step="1000" value="<%= c.limit %>" style="width:120px">
+                      <button class="btn secondary" type="submit">Salvar</button>
+                    </form>
+                  </td>
+                  <td class="muted"><%= c.limit > 0 ? Math.max(0, c.limit - c.used).toLocaleString('pt-BR') + ' restantes' : 'ilimitado' %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
