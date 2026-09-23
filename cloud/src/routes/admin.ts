@@ -24,6 +24,7 @@ import { expectedResponse } from '../recoveryCodes';
 import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } from './catalog';
 import { THEMES_STORAGE_DIR } from './themes';
 import { listDevDocs, renderDevDoc } from '../devdocs';
+import { currentPeriod } from '../aiUsage';
 import {
   hasAnyAdmin,
   verifyAdminCredentials,
@@ -332,6 +333,95 @@ router.get('/companies/export.csv', requireAdminAuth, async (_req, res) => {
   res.send('\uFEFF' + lines.join('\r\n'));
 });
 
+// ─── KIVO IA: uso, créditos e gráficos ─────────────────────────────────────────
+const AI_PIE_COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899'];
+
+router.get('/ai', requireAdminAuth, async (_req: AdminRequest, res) => {
+  const pool = getPool();
+  const period = currentPeriod();
+
+  const [kpiRows] = await pool.query(
+    `SELECT COALESCE(SUM(total_tokens),0) AS tokens, COUNT(*) AS requests,
+            COUNT(DISTINCT company_uuid) AS companies
+       FROM ai_usage WHERE period = ?`,
+    [period],
+  );
+  const kpi = (kpiRows as { tokens: number; requests: number; companies: number }[])[0];
+
+  // Barras: tokens por dia nos últimos 14 dias (série contínua, preenchendo dias sem uso).
+  const [dayRows] = await pool.query(
+    `SELECT DATE(created_at) AS d, COALESCE(SUM(total_tokens),0) AS tokens
+       FROM ai_usage WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+      GROUP BY DATE(created_at)`,
+  );
+  const byDay = new Map<string, number>();
+  for (const r of dayRows as { d: string | Date; tokens: number }[]) {
+    const key = String(r.d).slice(0, 10);
+    byDay.set(key, Number(r.tokens));
+  }
+  const bars: { label: string; tokens: number; pct: number }[] = [];
+  let maxDay = 1;
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = d.toISOString().slice(0, 10);
+    const tokens = byDay.get(key) ?? 0;
+    if (tokens > maxDay) maxDay = tokens;
+    bars.push({ label: key.slice(8, 10) + '/' + key.slice(5, 7), tokens, pct: 0 });
+  }
+  for (const b of bars) b.pct = Math.round((b.tokens / maxDay) * 100);
+
+  // Pizza: tokens por empresa no período (top 8) + "Outros".
+  const [companyRows] = await pool.query(
+    `SELECT u.company_uuid, COALESCE(c.name, u.company_uuid) AS name, COALESCE(SUM(u.total_tokens),0) AS tokens
+       FROM ai_usage u LEFT JOIN companies c ON c.company_uuid = u.company_uuid
+      WHERE u.period = ? GROUP BY u.company_uuid, c.name ORDER BY tokens DESC`,
+    [period],
+  );
+  const companiesUsage = (companyRows as { company_uuid: string; name: string; tokens: number }[]).map((r) => ({
+    uuid: r.company_uuid, name: r.name, tokens: Number(r.tokens),
+  }));
+  const pieTotal = companiesUsage.reduce((a, r) => a + r.tokens, 0);
+  const pieTop = companiesUsage.slice(0, 8);
+  const outros = companiesUsage.slice(8).reduce((a, r) => a + r.tokens, 0);
+  const pieSource = outros > 0 ? [...pieTop, { uuid: '', name: 'Outros', tokens: outros }] : pieTop;
+  let offset = 25;
+  const pie = pieSource.map((r, i) => {
+    const pct = pieTotal > 0 ? (r.tokens / pieTotal) * 100 : 0;
+    const seg = { name: r.name, tokens: r.tokens, pct: Math.round(pct * 10) / 10, offset, color: AI_PIE_COLORS[i % AI_PIE_COLORS.length] };
+    offset -= pct;
+    return seg;
+  });
+
+  // Tabela: consumo e teto por empresa.
+  const [companyListRows] = await pool.query(
+    `SELECT company_uuid, name, plan, ai_token_limit, ai_tokens_used,
+            CASE WHEN ai_period = ? THEN ai_tokens_used ELSE 0 END AS used_period
+       FROM companies ORDER BY used_period DESC, name LIMIT 200`,
+    [period],
+  );
+
+  res.render('ai-usage', {
+    adminUsername: _req.adminUsername,
+    period,
+    kpi: { tokens: Number(kpi.tokens), requests: Number(kpi.requests), companies: Number(kpi.companies) },
+    bars,
+    pie,
+    pieTotal,
+    companies: (companyListRows as Record<string, unknown>[]).map((c) => ({
+      uuid: c.company_uuid, name: c.name, plan: c.plan,
+      limit: Number(c.ai_token_limit), used: Number(c.used_period),
+    })),
+  });
+});
+
+router.post('/ai/:uuid/limit', requireAdminAuth, async (req: AdminRequest, res) => {
+  const uuid = String(req.params.uuid);
+  const raw = Number((req.body as { limitTokens?: unknown })?.limitTokens ?? 0);
+  const limit = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+  await getPool().query('UPDATE companies SET ai_token_limit = ? WHERE company_uuid = ?', [limit, uuid]);
+  res.redirect('/admin/ai');
+});
+
 // Documentação técnica (regras de negócio por módulo) — mesmo conteúdo Markdown do app
 // local (src/docs/dev). Só admin autenticado (requireAdminAuth).
 router.get('/documentacao', requireAdminAuth, (req: AdminRequest, res) => {
@@ -369,7 +459,7 @@ router.get('/', requireAdminAuth, async (_req, res) => {
        (SELECT COUNT(*) FROM company_devices WHERE removed_at IS NULL) AS active_devices,
        (SELECT COUNT(*) FROM charges WHERE status = 'pendente' AND due_date < CURDATE()) AS overdue_count`,
   );
-  const kpis = (kpiRows as any)[0];
+  const kpis = (kpiRows as Record<string, unknown>[])[0];
 
   // Série diária dos últimos 14 dias. O MySQL só devolve dias com registro, então
   // preenchemos os buracos com zero para o gráfico não mentir sobre a continuidade.

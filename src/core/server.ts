@@ -39,6 +39,7 @@ import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
 import supportRoutes from './support/routes';
 import { listDevDocs, renderDevDoc } from './devdocs/service';
+import aiRoutes from './ai/routes';
 import updaterRoutes from './updater/routes';
 import messagesRoutes from './messages/routes';
 import { fetchInbox } from './messages/service';
@@ -353,6 +354,8 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/api/roles', requireAuth, rolesRoutes);
   app.use('/api/audit', requireAuth, auditRoutes);
   app.use('/api/settings', requireAuth, settingsRoutes);
+  // KIVO IA: configuração e teste; o servidor local é quem fala com o Kivo Web.
+  app.use('/api/ai', requireAuth, aiRoutes);
   app.use('/api/backup', requireAuth, backupRoutes);
   app.use('/api/license', requireAuth, licenseRoutes);
   app.use('/api/sync', requireAuth, syncRoutes);
