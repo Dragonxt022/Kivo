@@ -14,7 +14,8 @@
   <main x-data="settingsPage()" x-init="load()">
     <h1>Configurações</h1>
 
-    <div class="tabs">
+    <div class="settings-layout">
+      <nav class="settings-tabs" aria-label="Seções de configuração">
       <button :class="{ active: tab === 'license' }" @click="setTab('license')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
         Licença
@@ -84,7 +85,9 @@
         Avançado
       </button>
       <% } %>
-    </div>
+      </nav>
+
+      <div class="settings-panels">
 
     <!-- ═══════ ABA: LICENÇA ═══════ -->
     <div x-show="tab === 'license'">
@@ -369,7 +372,8 @@
         <h2>KIVO IA</h2>
         <p class="hint mt-0">
           Assistente de IA do Kivo. As requisições saem deste computador para o Kivo Web, que
-          encaminha para a IA hospedada nos nossos servidores — não há nada para instalar aqui.
+          injeta a documentação oficial do Kivo e chama a IA. Os provedores são definidos pelo
+          time do Kivo no painel — não há nada para instalar nem chave para configurar aqui.
         </p>
         <div class="field">
           <label class="label-checkbox">
@@ -1494,6 +1498,8 @@
         </button>
       </div>
     </dialog>
+      </div>
+    </div>
   </main>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/onboarding.js"></script>
@@ -1949,6 +1955,7 @@
             this.iaModels = Array.isArray(d.models) ? d.models : [];
             this.iaCredits = d.credits || null;
             if (d.localError) this.iaStatusText = d.localError;
+            else if (d.enabled === false) this.iaStatusText = 'A KIVO IA está desativada no servidor.';
             else if (d.online) this.iaStatusText = `IA no ar (${d.model || 'modelo padrão'}).`;
             else this.iaStatusText = `IA indisponível${d.error ? ': ' + d.error : ''}.`;
           } catch { this.iaStatusText = 'Não foi possível verificar o status.'; }
@@ -1959,7 +1966,10 @@
           try {
             const r = await fetch('/api/ai/chat', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt: this.iaTestPrompt || 'Responda apenas: funcionando.' }),
+              body: JSON.stringify({
+                prompt: this.iaTestPrompt || 'Responda apenas: funcionando.',
+                model: this.ia.modelo || undefined,
+              }),
             });
             const d = await r.json().catch(() => ({}));
             if (!r.ok) { this.iaTestError = d.error || 'Falha ao consultar a IA.'; return; }

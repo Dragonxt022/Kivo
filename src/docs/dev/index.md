@@ -26,7 +26,7 @@ Regras de negócio por módulo, para suporte e treinamento de agentes de IA. É 
 | [DRE](/admin/documentacao?doc=dre) | Demonstrativo de resultado |
 | [Painel](/admin/documentacao?doc=painel) | Painel de controle (KPIs) |
 | [NF-e](/admin/documentacao?doc=nfe) | Importação de NF-e de compra |
-| [KIVO IA](/admin/documentacao?doc=kivo-ia) | Assistente de IA (roteia para o Ollama da VPS via Kivo Web) |
+| [KIVO IA](/admin/documentacao?doc=kivo-ia) | Chat de suporte com IA (Ollama/OpenAI/DeepSeek/Claude) sobre a documentação e a wiki |
 
 ## Arquitetura e dependências
 

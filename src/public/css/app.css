@@ -3620,6 +3620,72 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   color: var(--primary);
 }
 
+/* ─── Configurações: submenu de abas na lateral esquerda ───
+   A tela de configurações tem muitas abas; em vez da barra horizontal (que rolava e
+   escondia opções), elas viram um menu vertical fixo à esquerda e os painéis ficam à
+   direita. Em telas estreitas volta a ser horizontal, quebrado em linhas. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: sticky;
+  top: 1rem;
+}
+.settings-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    color var(--transition),
+    background var(--transition),
+    border-color var(--transition);
+}
+.settings-tabs button:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.settings-tabs button.active {
+  color: var(--primary);
+  font-weight: 600;
+  background: var(--primary-bg, color-mix(in srgb, var(--primary) 12%, transparent));
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.settings-tabs button svg {
+  flex: none;
+}
+.settings-panels {
+  min-width: 0;
+}
+@media (max-width: 900px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+  .settings-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+  }
+  .settings-tabs button {
+    width: auto;
+  }
+}
+
 @media (max-width: 400px) {
   .app-grid {
     grid-template-columns: 1fr;

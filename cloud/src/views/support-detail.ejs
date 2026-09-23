@@ -72,14 +72,14 @@
         <div class="card" style="padding: 0;">
           <div class="chat-thread" id="thread" x-ref="thread">
             <template x-for="m in messages" :key="m.id">
-              <div class="chat-row" :class="m.sender === 'suporte' ? 'suporte' : 'cliente'">
-                <div class="chat-avatar" :class="m.sender === 'suporte' ? 'suporte' : 'cliente'" x-text="(m.sender === 'suporte' ? 'S' : 'C')"></div>
-                <div class="chat-bubble" :class="m.sender === 'suporte' ? 'suporte' : 'cliente'">
+              <div class="chat-row" :class="senderClass(m)">
+                <div class="chat-avatar" :class="senderClass(m)" x-text="senderInitial(m)"></div>
+                <div class="chat-bubble" :class="senderClass(m)">
                   <div x-text="m.body" x-show="m.body"></div>
                   <div x-show="m.attachment">
                     <a :href="m.attachment" target="_blank" rel="noopener"><img :src="m.attachment" alt="Print anexado" style="max-width: 260px; max-height: 260px; border-radius: 8px; display: block; margin-top: .4rem;"></a>
                   </div>
-                  <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte' : 'Cliente') + (m.sender_name ? ' · ' + m.sender_name : '') + ' · ' + fmtDateTime(m.created_at)"></div>
+                  <div class="meta" x-text="senderLabel(m) + ' · ' + fmtDateTime(m.created_at)"></div>
                 </div>
               </div>
             </template>
@@ -112,6 +112,17 @@
 
         init() {
           this.startPolling();
+        },
+        senderClass(m) {
+          return m.sender === 'suporte' ? 'suporte' : m.sender === 'ia' ? 'ia' : 'cliente';
+        },
+        senderInitial(m) {
+          return m.sender === 'suporte' ? 'S' : m.sender === 'ia' ? 'IA' : 'C';
+        },
+        senderLabel(m) {
+          if (m.sender === 'suporte') return 'Suporte' + (m.sender_name ? ' · ' + m.sender_name : '');
+          if (m.sender === 'ia') return 'Kivo IA';
+          return 'Cliente' + (m.sender_name ? ' · ' + m.sender_name : '');
         },
         get statusBadge() {
           return this.status;

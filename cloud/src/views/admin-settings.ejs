@@ -7,6 +7,24 @@
   <title>Kivo Cloud — Configurações</title>
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
+  <style>
+    /* Submenu de configurações: abas na lateral esquerda, painéis à direita. */
+    .settings-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 20px; align-items: start; }
+    .settings-nav { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
+    .settings-nav-item {
+      text-align: left; padding: 10px 14px; border-radius: 10px;
+      border: 1px solid transparent; background: transparent; color: var(--muted);
+      font: inherit; font-weight: 600; font-size: .92rem; cursor: pointer;
+    }
+    .settings-nav-item:hover { background: var(--surface-hover); }
+    .settings-nav-item.active { background: var(--primary-soft); color: var(--primary); }
+    .settings-panel[hidden] { display: none !important; }
+    .settings-panel { margin-bottom: 0; }
+    @media (max-width: 820px) {
+      .settings-layout { grid-template-columns: 1fr; }
+      .settings-nav { flex-direction: row; flex-wrap: wrap; position: static; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -23,101 +41,164 @@
         </div>
 
         <form method="post" action="/admin/settings" id="smtp-form">
-          <div class="card">
-            <h2>Contato de suporte</h2>
-            <p class="field-hint" style="margin-top:0">
-              Exibido no app do cliente quando a licença vence (modal de bloqueio) e no status da licença.
-            </p>
-            <label>Telefone</label>
-            <input type="text" name="supportPhone" value="<%= settings.support_phone || '' %>" placeholder="(11) 99999-9999">
-            <label>E-mail</label>
-            <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@kivo.com.br">
-          </div>
+          <div class="settings-layout">
+            <nav class="settings-nav" aria-label="Seções de configuração">
+              <button type="button" class="settings-nav-item" data-settings-tab="contato">Contato de suporte</button>
+              <button type="button" class="settings-nav-item" data-settings-tab="email">E-mail (SMTP)</button>
+              <button type="button" class="settings-nav-item" data-settings-tab="imagens">Busca de imagens</button>
+              <button type="button" class="settings-nav-item" data-settings-tab="ia">KIVO IA</button>
+            </nav>
 
-          <div class="card">
-            <h2>Servidor de e-mail (SMTP)</h2>
-            <p class="field-hint" style="margin-top:0">
-              Usado pelo Kivo Cloud para enviar e-mails. Exemplo Gmail:
-              <strong>smtp.gmail.com</strong>, porta <strong>587</strong>, segurança <strong>STARTTLS</strong>,
-              usuário <strong>seu_email@gmail.com</strong> e uma <strong>senha de app de 16 dígitos</strong>
-              (não é a senha normal da conta — gere em Conta Google &rarr; Segurança &rarr; Senhas de app).
-            </p>
+            <div class="settings-panels">
+              <div class="card settings-panel" data-settings-panel="contato">
+                <h2>Contato de suporte</h2>
+                <p class="field-hint" style="margin-top:0">
+                  Exibido no app do cliente quando a licença vence (modal de bloqueio) e no status da licença.
+                </p>
+                <label>Telefone</label>
+                <input type="text" name="supportPhone" value="<%= settings.support_phone || '' %>" placeholder="(11) 99999-9999">
+                <label>E-mail</label>
+                <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@kivo.com.br">
+              </div>
 
-            <label>Servidor SMTP</label>
-            <input type="text" name="smtpHost" value="<%= settings.smtp_host || '' %>" placeholder="smtp.gmail.com" autocomplete="off">
+              <div class="card settings-panel" data-settings-panel="email" hidden>
+                <h2>Servidor de e-mail (SMTP)</h2>
+                <p class="field-hint" style="margin-top:0">
+                  Usado pelo Kivo Cloud para enviar e-mails. Exemplo Gmail:
+                  <strong>smtp.gmail.com</strong>, porta <strong>587</strong>, segurança <strong>STARTTLS</strong>,
+                  usuário <strong>seu_email@gmail.com</strong> e uma <strong>senha de app de 16 dígitos</strong>
+                  (não é a senha normal da conta — gere em Conta Google &rarr; Segurança &rarr; Senhas de app).
+                </p>
 
-            <label>Porta</label>
-            <input type="number" name="smtpPort" value="<%= settings.smtp_port || 587 %>" min="1" max="65535" placeholder="587">
+                <label>Servidor SMTP</label>
+                <input type="text" name="smtpHost" value="<%= settings.smtp_host || '' %>" placeholder="smtp.gmail.com" autocomplete="off">
 
-            <label>Segurança</label>
-            <select name="smtpSecure">
-              <option value="tls" <%= (settings.smtp_secure || 'tls') === 'tls' ? 'selected' : '' %>>STARTTLS — porta 587 (recomendado, Gmail)</option>
-              <option value="ssl" <%= settings.smtp_secure === 'ssl' ? 'selected' : '' %>>SSL/TLS — porta 465</option>
-              <option value="none" <%= settings.smtp_secure === 'none' ? 'selected' : '' %>>Nenhuma — sem criptografia</option>
-            </select>
+                <label>Porta</label>
+                <input type="number" name="smtpPort" value="<%= settings.smtp_port || 587 %>" min="1" max="65535" placeholder="587">
 
-            <label>Usuário</label>
-            <input type="text" name="smtpUser" value="<%= settings.smtp_user || '' %>" placeholder="seu_email@gmail.com" autocomplete="off">
+                <label>Segurança</label>
+                <select name="smtpSecure">
+                  <option value="tls" <%= (settings.smtp_secure || 'tls') === 'tls' ? 'selected' : '' %>>STARTTLS — porta 587 (recomendado, Gmail)</option>
+                  <option value="ssl" <%= settings.smtp_secure === 'ssl' ? 'selected' : '' %>>SSL/TLS — porta 465</option>
+                  <option value="none" <%= settings.smtp_secure === 'none' ? 'selected' : '' %>>Nenhuma — sem criptografia</option>
+                </select>
 
-            <label>Senha / senha de app</label>
-            <input type="password" name="smtpPassword" value="" autocomplete="new-password"
-                   placeholder="<%= smtpPasswordSet ? '•••••••• (deixe em branco para manter a atual)' : 'senha de app de 16 dígitos' %>">
-            <p class="field-hint">
-              <% if (smtpPasswordSet) { %>Já existe uma senha salva. Preencha apenas se quiser trocá-la.<% } else { %>A senha fica guardada no banco e nunca é exibida de volta.<% } %>
-            </p>
+                <label>Usuário</label>
+                <input type="text" name="smtpUser" value="<%= settings.smtp_user || '' %>" placeholder="seu_email@gmail.com" autocomplete="off">
 
-            <label>Nome do remetente</label>
-            <input type="text" name="smtpFromName" value="<%= settings.smtp_from_name || '' %>" placeholder="Kivo Cloud">
+                <label>Senha / senha de app</label>
+                <input type="password" name="smtpPassword" value="" autocomplete="new-password"
+                       placeholder="<%= smtpPasswordSet ? '•••••••• (deixe em branco para manter a atual)' : 'senha de app de 16 dígitos' %>">
+                <p class="field-hint">
+                  <% if (smtpPasswordSet) { %>Já existe uma senha salva. Preencha apenas se quiser trocá-la.<% } else { %>A senha fica guardada no banco e nunca é exibida de volta.<% } %>
+                </p>
 
-            <label>E-mail do remetente</label>
-            <input type="email" name="smtpFromEmail" value="<%= settings.smtp_from_email || '' %>" placeholder="no-reply@kivo.com.br">
-            <p class="field-hint">Se ficar em branco, usamos o usuário acima como remetente.</p>
-          </div>
+                <label>Nome do remetente</label>
+                <input type="text" name="smtpFromName" value="<%= settings.smtp_from_name || '' %>" placeholder="Kivo Cloud">
 
-          <div class="card">
-            <h2>Busca de imagens (API)</h2>
-            <p class="field-hint" style="margin-top:0">
-              Centraliza a busca de fotos do sugestor de imagens dos produtos: configurando aqui, os
-              clientes usam a busca <strong>sem chave própria</strong>. Provedor: <strong>Pexels</strong>
-              (plano gratuito — o app mostra o crédito "Fotos fornecidas por Pexels"). Obtenha a chave em
-              <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a>.
-              O primeiro lugar consultado é sempre o nosso banco de imagens; a API só entra quando não há
-              resultado — e o que for confirmado vai para a curadoria.
-            </p>
-            <label style="display:flex;align-items:center;gap:8px;">
-              <input type="checkbox" name="imageApiEnabled" value="1" <%= settings.image_api_enabled !== '0' ? 'checked' : '' %> style="width:auto;">
-              Ativar busca externa de imagens
-            </label>
-            <label>API Key (Pexels)</label>
-            <input type="password" name="imageApiKey" value="" autocomplete="off"
-                   placeholder="<%= imageApiKeySet ? '•••••••• (deixe em branco para manter a atual)' : 'sua API Key da Pexels' %>">
-            <p class="field-hint">
-              <% if (settings.image_api_remaining) { %>Cota informada pela API: <strong><%= settings.image_api_remaining %></strong> de <%= settings.image_api_limit || '—' %> restantes.<% } else { %>A cota é consultada após a primeira busca bem-sucedida.<% } %>
-            </p>
+                <label>E-mail do remetente</label>
+                <input type="email" name="smtpFromEmail" value="<%= settings.smtp_from_email || '' %>" placeholder="no-reply@kivo.com.br">
+                <p class="field-hint">Se ficar em branco, usamos o usuário acima como remetente.</p>
 
-            <label>Termo para testar</label>
-            <input type="text" id="image-api-query" value="produto" placeholder="ex.: refrigerante lata">
-            <div class="modal-actions" style="justify-content: flex-start;">
-              <button type="button" class="btn secondary" id="image-api-test-btn" onclick="testImageApi()">Testar busca</button>
+                <hr style="border:none;border-top:1px solid var(--border-light);margin:1.25rem 0">
+                <h3 style="margin:0 0 .35rem">Testar envio</h3>
+                <p class="field-hint" style="margin-top:0">
+                  Envia um e-mail de teste com os dados acima — funciona mesmo antes de salvar.
+                </p>
+                <label>Enviar teste para</label>
+                <input type="email" id="smtp-test-to" value="<%= settings.support_email || settings.smtp_from_email || '' %>" placeholder="seu_email@gmail.com">
+                <div class="modal-actions" style="justify-content: flex-start;">
+                  <button type="button" class="btn secondary" id="smtp-test-btn" onclick="testSmtp()">Testar envio</button>
+                </div>
+                <p id="smtp-test-result" class="field-hint" style="margin-top:10px"></p>
+              </div>
+
+              <div class="card settings-panel" data-settings-panel="imagens" hidden>
+                <h2>Busca de imagens (API)</h2>
+                <p class="field-hint" style="margin-top:0">
+                  Centraliza a busca de fotos do sugestor de imagens dos produtos: configurando aqui, os
+                  clientes usam a busca <strong>sem chave própria</strong>. Provedor: <strong>Pexels</strong>
+                  (plano gratuito — o app mostra o crédito "Fotos fornecidas por Pexels"). Obtenha a chave em
+                  <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a>.
+                  O primeiro lugar consultado é sempre o nosso banco de imagens; a API só entra quando não há
+                  resultado — e o que for confirmado vai para a curadoria.
+                </p>
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <input type="checkbox" name="imageApiEnabled" value="1" <%= settings.image_api_enabled !== '0' ? 'checked' : '' %> style="width:auto;">
+                  Ativar busca externa de imagens
+                </label>
+                <label>API Key (Pexels)</label>
+                <input type="password" name="imageApiKey" value="" autocomplete="off"
+                       placeholder="<%= imageApiKeySet ? '•••••••• (deixe em branco para manter a atual)' : 'sua API Key da Pexels' %>">
+                <p class="field-hint">
+                  <% if (settings.image_api_remaining) { %>Cota informada pela API: <strong><%= settings.image_api_remaining %></strong> de <%= settings.image_api_limit || '—' %> restantes.<% } else { %>A cota é consultada após a primeira busca bem-sucedida.<% } %>
+                </p>
+
+                <label>Termo para testar</label>
+                <input type="text" id="image-api-query" value="produto" placeholder="ex.: refrigerante lata">
+                <div class="modal-actions" style="justify-content: flex-start;">
+                  <button type="button" class="btn secondary" id="image-api-test-btn" onclick="testImageApi()">Testar busca</button>
+                </div>
+                <p id="image-api-test-result" class="field-hint" style="margin-top:10px"></p>
+              </div>
+
+              <div class="card settings-panel" data-settings-panel="ia" hidden>
+                <h2>KIVO IA (provedores)</h2>
+                <p class="field-hint" style="margin-top:0">
+                  Centraliza a IA do Kivo: configurando aqui, os clientes usam o assistente
+                  <strong>sem chave própria</strong>. O <strong>Ollama</strong> roda na VPS;
+                  OpenAI/DeepSeek/Anthropic só entram na lista quando têm chave. As chaves ficam
+                  guardadas no servidor e nunca são exibidas de volta.
+                </p>
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <input type="checkbox" name="aiEnabled" value="1" <%= ai.enabled ? 'checked' : '' %> style="width:auto;">
+                  Ativar a KIVO IA
+                </label>
+                <label>Provedor padrão</label>
+                <select name="aiDefaultProvider">
+                  <option value="ollama" <%= ai.defaultProvider === 'ollama' ? 'selected' : '' %>>Ollama (servidor Kivo)</option>
+                  <option value="openai" <%= ai.defaultProvider === 'openai' ? 'selected' : '' %>>OpenAI (ChatGPT)</option>
+                  <option value="deepseek" <%= ai.defaultProvider === 'deepseek' ? 'selected' : '' %>>DeepSeek</option>
+                  <option value="anthropic" <%= ai.defaultProvider === 'anthropic' ? 'selected' : '' %>>Anthropic (Claude)</option>
+                </select>
+
+                <label>Ollama — URL</label>
+                <input type="text" name="aiOllamaUrl" value="<%= ai.ollamaUrl %>" placeholder="http://127.0.0.1:11434">
+                <label>Ollama — modelo padrão</label>
+                <input type="text" name="aiOllamaModel" value="<%= ai.ollamaModel %>" placeholder="llama3.2">
+
+                <label>OpenAI (ChatGPT) — API Key</label>
+                <input type="password" name="aiOpenaiKey" value="" autocomplete="off"
+                       placeholder="<%= ai.hasKey.openai ? '•••••••• (deixe em branco para manter a atual)' : 'sk-...' %>">
+                <label>DeepSeek — API Key</label>
+                <input type="password" name="aiDeepseekKey" value="" autocomplete="off"
+                       placeholder="<%= ai.hasKey.deepseek ? '•••••••• (deixe em branco para manter a atual)' : 'sk-...' %>">
+                <label>Anthropic (Claude) — API Key</label>
+                <input type="password" name="aiAnthropicKey" value="" autocomplete="off"
+                       placeholder="<%= ai.hasKey.anthropic ? '•••••••• (deixe em branco para manter a atual)' : 'sk-ant-...' %>">
+
+                <hr style="border:none;border-top:1px solid var(--border-light);margin:1.25rem 0">
+                <h3 style="margin:0 0 .35rem">Testar provedor</h3>
+                <p class="field-hint" style="margin-top:0">
+                  Envia uma pergunta simples e mostra a resposta do modelo — funciona mesmo antes de salvar.
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <select id="ai-test-provider" style="max-width:230px">
+                    <option value="ollama">Ollama (servidor Kivo)</option>
+                    <option value="openai">OpenAI (ChatGPT)</option>
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                  </select>
+                  <input type="text" id="ai-test-model" placeholder="modelo (opcional)" style="max-width:200px">
+                  <button type="button" class="btn secondary" id="ai-test-btn" onclick="testAi()">Testar IA</button>
+                </div>
+                <p id="ai-test-result" class="field-hint" style="margin-top:10px"></p>
+              </div>
+
+              <div class="modal-actions" style="justify-content: flex-start; margin-top:1rem">
+                <button type="submit" class="btn">Salvar</button>
+              </div>
             </div>
-            <p id="image-api-test-result" class="field-hint" style="margin-top:10px"></p>
-          </div>
-
-          <div class="card">
-            <h2>Testar envio</h2>
-            <p class="field-hint" style="margin-top:0">
-              Envia um e-mail de teste com os dados acima — funciona mesmo antes de salvar.
-            </p>
-            <label>Enviar teste para</label>
-            <input type="email" id="smtp-test-to" value="<%= settings.support_email || settings.smtp_from_email || '' %>" placeholder="seu_email@gmail.com">
-            <div class="modal-actions" style="justify-content: flex-start;">
-              <button type="button" class="btn secondary" id="smtp-test-btn" onclick="testSmtp()">Testar envio</button>
-            </div>
-            <p id="smtp-test-result" class="field-hint" style="margin-top:10px"></p>
-          </div>
-
-          <div class="modal-actions" style="justify-content: flex-start;">
-            <button type="submit" class="btn">Salvar</button>
           </div>
         </form>
       </div>
@@ -125,6 +206,24 @@
   </div>
 
   <script>
+    // Abas laterais: mostra o painel escolhido e guarda a seção no #hash.
+    (function () {
+      var items = document.querySelectorAll('.settings-nav-item');
+      var panels = document.querySelectorAll('.settings-panel');
+      function show(name) {
+        items.forEach(function (b) { b.classList.toggle('active', b.dataset.settingsTab === name); });
+        panels.forEach(function (p) { p.hidden = p.dataset.settingsPanel !== name; });
+        try { history.replaceState(history.state, '', location.pathname + '#' + name); }
+        catch (e) { location.hash = name; }
+      }
+      items.forEach(function (b) {
+        b.addEventListener('click', function () { show(b.dataset.settingsTab); });
+      });
+      var initial = (location.hash || '').slice(1);
+      var valid = Array.prototype.some.call(items, function (b) { return b.dataset.settingsTab === initial; });
+      show(valid ? initial : 'contato');
+    })();
+
     async function testSmtp() {
       var form = document.getElementById('smtp-form');
       var out = document.getElementById('smtp-test-result');
@@ -171,6 +270,39 @@
       out.textContent = 'Consultando a API…';
       try {
         var r = await fetch('/admin/settings/image-api/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString(),
+          credentials: 'same-origin',
+        });
+        var j = await r.json();
+        out.textContent = j.message;
+        out.className = j.ok ? 'success-banner' : 'error-banner';
+      } catch (e) {
+        out.textContent = 'Erro inesperado: ' + e;
+        out.className = 'error-banner';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function testAi() {
+      var out = document.getElementById('ai-test-result');
+      var btn = document.getElementById('ai-test-btn');
+      var provider = document.getElementById('ai-test-provider').value;
+      var model = document.getElementById('ai-test-model').value.trim();
+      var keyInputs = { openai: 'aiOpenaiKey', deepseek: 'aiDeepseekKey', anthropic: 'aiAnthropicKey' };
+      var keyName = keyInputs[provider];
+      var keyInput = keyName ? document.querySelector('input[name="' + keyName + '"]') : null;
+      var data = new URLSearchParams();
+      data.set('provider', provider);
+      data.set('model', model);
+      if (keyInput && keyInput.value) data.set('apiKey', keyInput.value);
+      btn.disabled = true;
+      out.className = 'field-hint';
+      out.textContent = 'Consultando…';
+      try {
+        var r = await fetch('/admin/settings/ai/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: data.toString(),

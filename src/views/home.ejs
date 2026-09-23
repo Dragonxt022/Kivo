@@ -170,6 +170,7 @@
     .support-bubble .meta { font-size: .68rem; color: var(--text-muted); margin-top: .25rem; }
     .support-bubble.cliente { align-self: flex-end; background: color-mix(in srgb, var(--primary) 14%, transparent); border-bottom-right-radius: 4px; }
     .support-bubble.suporte { align-self: flex-start; background: var(--surface-hover); border: 1px solid var(--border-light); border-bottom-left-radius: 4px; }
+    .support-bubble.ia { align-self: flex-start; background: color-mix(in srgb, var(--info, #3b82f6) 10%, transparent); border: 1px dashed color-mix(in srgb, var(--info, #3b82f6) 35%, transparent); border-bottom-left-radius: 4px; }
     .support-input-row { display: flex; gap: .5rem; padding: .85rem 1.25rem; border-top: 1px solid var(--border-light); }
     .support-input-row textarea {
       flex: 1; resize: none; min-height: 42px; max-height: 120px; padding: .55rem .8rem;
@@ -572,8 +573,9 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <div style="min-width:0">
-          <h2 x-text="view === 'chat' ? ticket.subject : (view === 'new' ? novoTitulo() : 'Suporte Kivo')"></h2>
+          <h2 x-text="view === 'chat' ? ticket.subject : (view === 'new' ? novoTitulo() : (view === 'ia' ? 'Kivo IA' : 'Suporte Kivo'))"></h2>
           <div class="sub" x-show="view === 'home'">Normalmente respondemos em poucas horas</div>
+          <div class="sub" x-show="view === 'ia'">Assistente com a documentação do Kivo</div>
           <div class="sub" x-show="view === 'chat'" x-text="'Ticket #' + ticket.id + ' · ' + ticket.status"></div>
         </div>
         <button type="button" class="close-btn" @click="$refs.dlg.close()" title="Fechar">
@@ -588,6 +590,10 @@
         </p>
 
         <div class="help-chat-contacts" style="margin-bottom:1rem">
+          <button type="button" class="help-chat-contact" @click="startIa()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg>
+            <span><strong>Falar com a Kivo IA</strong><br /><span class="muted text-xs">Resposta na hora, com a documentação oficial do Kivo.</span></span>
+          </button>
           <button type="button" class="help-chat-contact" @click="newTicket('suporte')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <span><strong>Ajuda e suporte</strong><br /><span class="muted text-xs">Dúvida ou problema? Abra um chamado.</span></span>
@@ -662,14 +668,47 @@
         </form>
       </div>
 
+      <!-- ─── Kivo IA (chat de suporte com a IA) ─── -->
+      <div x-show="view === 'ia'">
+        <div class="support-body support-thread" x-ref="aiThread">
+          <template x-for="(m, i) in ai.messages" :key="i">
+            <div class="support-bubble" :class="m.role === 'user' ? 'cliente' : 'ia'">
+              <div x-text="m.content"></div>
+              <div class="meta" x-text="(m.role === 'user' ? 'Você' : 'Kivo IA')"></div>
+            </div>
+          </template>
+          <p class="muted text-xs" x-show="ai.sending" style="text-align:center">Kivo IA está digitando…</p>
+          <p class="muted text-xs" x-show="!ai.messages.length && !ai.sending" style="text-align:center">
+            Pergunte sobre qualquer recurso do Kivo — eu respondo com a documentação oficial.
+          </p>
+        </div>
+        <div class="support-error" x-show="ai.error" x-text="ai.error" style="padding:0 1.25rem"></div>
+        <div class="support-input-row">
+          <select class="select" style="max-width:170px" x-model="ai.provider" @change="ai.model = ''" x-show="ai.providers.length > 1">
+            <template x-for="p in ai.providers" :key="p.id">
+              <option :value="p.id" x-text="p.label"></option>
+            </template>
+          </select>
+          <textarea x-model="ai.draft" x-ref="aiDraft" placeholder="Pergunte para a Kivo IA…" maxlength="4000"
+                    @keydown.enter.prevent="if (!$event.shiftKey) sendIa(); else ai.draft += '\n'"></textarea>
+          <button type="button" class="support-send-btn" @click="sendIa()" :disabled="ai.sending || !ai.draft.trim()" title="Enviar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </div>
+        <div class="support-note">
+          A IA pode errar. Precisa de uma pessoa?
+          <button type="button" class="btn secondary small" @click="newTicket('suporte')">Falar com um atendente</button>
+        </div>
+      </div>
+
       <!-- ─── Conversa ─── -->
       <div x-show="view === 'chat'">
         <div class="support-body support-thread" x-ref="thread">
           <template x-for="m in messages" :key="m.id">
-            <div class="support-bubble" :class="m.sender === 'cliente' ? 'cliente' : 'suporte'">
+            <div class="support-bubble" :class="m.sender === 'cliente' ? 'cliente' : (m.sender === 'ia' ? 'ia' : 'suporte')">
               <div x-text="m.body" x-show="m.body"></div>
               <img class="attachment" x-show="m.attachment" :src="m.attachment" alt="Print anexado" @click="window.open(m.attachment, '_blank')">
-              <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Kivo' : (m.sender_name || 'Você')) + ' · ' + String(m.created_at).slice(0, 16).replace('T', ' ')"></div>
+              <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Kivo' : (m.sender === 'ia' ? 'Kivo IA' : (m.sender_name || 'Você'))) + ' · ' + String(m.created_at).slice(0, 16).replace('T', ' ')"></div>
             </div>
           </template>
           <p class="muted text-xs" x-show="!messages.length" style="text-align:center">Carregando conversa…</p>
@@ -1188,6 +1227,10 @@
         tickets: [], unread: 0,
         ticket: { id: 0, subject: '', status: '' }, messages: [],
         form: { subject: '', message: '', category: 'suporte', attachment: '' },
+        ai: {
+          messages: [], draft: '', provider: '', model: '',
+          providers: [], ticketId: 0, sending: false, error: '',
+        },
         draft: '', draftAttachment: '', attachError: '', sending: false, error: '', shared: false,
         email: '', phone: '', contactsLoaded: false,
         pollTimer: null,
@@ -1253,6 +1296,89 @@
           this.attachError = '';
           this.error = '';
           this.view = 'new';
+        },
+
+        /** Abre o chat da Kivo IA. O chamado só nasce na primeira mensagem. */
+        async startIa() {
+          this.error = '';
+          this.ai.error = '';
+          this.view = 'ia';
+          if (!this.ai.providers.length) await this.loadIaStatus();
+          this.$nextTick(() => this.scrollAi());
+          this.$nextTick(() => this.$refs.aiDraft && this.$refs.aiDraft.focus());
+        },
+        async loadIaStatus() {
+          try {
+            const r = await fetch('/api/ai/status');
+            const d = await r.json();
+            this.ai.providers = Array.isArray(d.providers) && d.providers.length
+              ? d.providers
+              : [{ id: 'ollama', label: 'Ollama (servidor Kivo)' }];
+            const prefer = d.defaultProvider || this.ai.providers[0].id;
+            if (!this.ai.provider || !this.ai.providers.some((p) => p.id === this.ai.provider)) {
+              this.ai.provider = prefer;
+            }
+            if (!d.config || d.config.ativo !== true) {
+              this.ai.error = 'A KIVO IA está desligada. Ligue em Configurações › KIVO IA ou fale com um atendente.';
+            } else if (d.enabled === false) {
+              this.ai.error = 'A KIVO IA está desativada no servidor. Fale com um atendente.';
+            }
+          } catch (e) { /* sem status, segue com o padrão */ }
+        },
+        /**
+         * Envia a pergunta para a Kivo IA. A primeira mensagem abre um chamado no Kivo Web
+         * (para o suporte ver depois) e cada resposta da IA é gravada no mesmo chamado como
+         * sender 'ia' — a conversa inteira fica registrada.
+         */
+        async sendIa() {
+          const text = this.ai.draft.trim();
+          if (!text || this.ai.sending) return;
+          this.ai.error = '';
+          this.ai.draft = '';
+          this.ai.messages.push({ role: 'user', content: text });
+          this.ai.sending = true;
+          this.scrollAi();
+          try {
+            if (!this.ai.ticketId) {
+              const d = await this.api('/tickets', { body: {
+                subject: ('Kivo IA — ' + text).slice(0, 120),
+                message: text,
+                category: 'suporte',
+              } });
+              this.ai.ticketId = d.id;
+              this.refreshTickets().catch(() => {});
+            } else {
+              await this.api('/tickets/' + this.ai.ticketId + '/messages', { body: { body: text } });
+            }
+
+            const r = await fetch('/api/ai/chat', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: this.ai.messages,
+                provider: this.ai.provider || undefined,
+                model: this.ai.model || undefined,
+              }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.error || 'Falha ao consultar a Kivo IA.');
+            const answer = d.content || '(resposta vazia)';
+            this.ai.messages.push({ role: 'assistant', content: answer });
+            if (this.ai.ticketId) {
+              const stored = answer.length > 8000 ? answer.slice(0, 8000) : answer;
+              this.api('/tickets/' + this.ai.ticketId + '/messages', { body: { body: stored, ai: true } }).catch(() => {});
+            }
+            this.scrollAi();
+          } catch (e) {
+            this.ai.error = e.message || 'Falha ao falar com a Kivo IA.';
+          } finally {
+            this.ai.sending = false;
+          }
+        },
+        scrollAi() {
+          this.$nextTick(() => {
+            const el = this.$refs.aiThread;
+            if (el) el.scrollTop = el.scrollHeight;
+          });
         },
         /** Converte o print escolhido em data URI e guarda no form (novo ticket) ou no
          * rascunho da conversa — sem upload/storage à parte, cabe direto na mensagem. */

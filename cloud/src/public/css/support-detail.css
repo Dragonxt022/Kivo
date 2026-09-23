@@ -79,6 +79,7 @@
 }
 .chat-row.cliente { align-self: flex-start; }
 .chat-row.suporte { align-self: flex-end; flex-direction: row-reverse; }
+.chat-row.ia { align-self: flex-start; }
 
 .chat-avatar {
   width: 32px;
@@ -99,6 +100,10 @@
   background: var(--primary);
   color: #fff;
 }
+.chat-avatar.ia {
+  background: color-mix(in srgb, var(--accent-blue) 85%, #000);
+  color: #fff;
+}
 
 .chat-bubble {
   padding: .6rem .9rem;
@@ -117,6 +122,11 @@
   background: var(--primary-soft);
   border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent);
   border-bottom-right-radius: 4px;
+}
+.chat-bubble.ia {
+  background: color-mix(in srgb, var(--accent-blue) 9%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent-blue) 35%, transparent);
+  border-bottom-left-radius: 4px;
 }
 .chat-bubble .meta {
   font-size: .7rem;

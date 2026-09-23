@@ -25,6 +25,8 @@ import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } fr
 import { THEMES_STORAGE_DIR } from './themes';
 import { listDevDocs, renderDevDoc } from '../devdocs';
 import { currentPeriod } from '../aiUsage';
+import { loadAiConfig, loadAiSettingsForView } from '../aiConfig';
+import { chat as aiProviderChat, defaultModelFor, isProviderId, keyFor, PROVIDER_LABELS } from '../aiProviders';
 import {
   hasAnyAdmin,
   verifyAdminCredentials,
@@ -1723,10 +1725,14 @@ router.get('/settings', requireAdminAuth, async (req, res) => {
   settings.smtp_password = '';
   const imageApiKeySet = Boolean(settings.image_api_key);
   settings.image_api_key = '';
+  // KIVO IA: provedores e chaves ficam aqui (o cliente não configura nada). As chaves não
+  // voltam para a tela — só o sinalizador de "já configurada".
+  const ai = await loadAiSettingsForView();
   res.render('admin-settings', {
     settings,
     smtpPasswordSet,
     imageApiKeySet,
+    ai,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
   });
@@ -1751,6 +1757,11 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
     // Checkbox: ausente = desligado. Guardamos '1'/'0' explícito para o load saber diferenciar.
     upsert('image_api_enabled', b.imageApiEnabled ? '1' : '0'),
     upsert('image_api_provider', 'pexels'),
+    // KIVO IA: provedor padrão e endpoint do Ollama.
+    upsert('ai_enabled', b.aiEnabled ? '1' : '0'),
+    upsert('ai_default_provider', isProviderId(b.aiDefaultProvider) ? b.aiDefaultProvider : 'ollama'),
+    upsert('ai_ollama_url', String(b.aiOllamaUrl ?? '').trim() || null),
+    upsert('ai_ollama_model', String(b.aiOllamaModel ?? '').trim() || null),
   ]);
   // Senha em branco mantém a que já estava salva (não sobrescreve com NULL).
   const password = String(b.smtpPassword ?? '').trim();
@@ -1758,6 +1769,13 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
   // Chave da API de imagens: em branco mantém a salva.
   const imageApiKey = String(b.imageApiKey ?? '').trim();
   if (imageApiKey) await upsert('image_api_key', imageApiKey);
+  // Chaves dos provedores de IA: em branco mantém a salva.
+  const openaiKey = String(b.aiOpenaiKey ?? '').trim();
+  if (openaiKey) await upsert('ai_openai_key', openaiKey);
+  const deepseekKey = String(b.aiDeepseekKey ?? '').trim();
+  if (deepseekKey) await upsert('ai_deepseek_key', deepseekKey);
+  const anthropicKey = String(b.aiAnthropicKey ?? '').trim();
+  if (anthropicKey) await upsert('ai_anthropic_key', anthropicKey);
   res.redirect('/admin/settings?ok=' + encodeURIComponent('Configurações salvas.'));
 });
 
@@ -1805,6 +1823,32 @@ router.post('/settings/image-api/test', requireAdminAuth, async (req, res) => {
       message: `Busca OK: ${results.length} resultado(s) para "${query}".`,
       count: results.length,
     });
+  } catch (err) {
+    res.status(502).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+/** Botão "Testar IA" do painel: usa o provedor escolhido (chave do formulário ou a salva). */
+router.post('/settings/ai/test', requireAdminAuth, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const provider = isProviderId(b.provider) ? b.provider : 'ollama';
+  const cfg = await loadAiConfig();
+  // Chave digitada no formulário tem prioridade sobre a salva (testa antes de salvar).
+  const formKey = String(b.apiKey ?? '').trim();
+  if (formKey && provider !== 'ollama') cfg.keys[provider] = formKey;
+  if (provider !== 'ollama' && !keyFor(cfg, provider)) {
+    res.status(400).json({ ok: false, message: `Informe a chave de ${PROVIDER_LABELS[provider]}.` });
+    return;
+  }
+  const model = String(b.model ?? '').trim() || defaultModelFor(cfg, provider);
+  try {
+    const result = await aiProviderChat(cfg, {
+      provider,
+      model,
+      messages: [{ role: 'user', content: 'Responda apenas: funcionando.' }],
+      temperature: 0,
+    });
+    res.json({ ok: true, message: `${PROVIDER_LABELS[provider]} respondeu (${result.model}): ${result.content.slice(0, 200)}` });
   } catch (err) {
     res.status(502).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
   }
