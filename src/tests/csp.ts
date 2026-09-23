@@ -58,6 +58,7 @@ const PAGINAS = [
   '/admin/configuracoes',
   '/admin/cobrancas',
   '/admin/recursos',
+  '/admin/documentacao',
   '/app/commercial/produtos',
   '/app/commercial/categorias',
   '/app/commercial/clientes',

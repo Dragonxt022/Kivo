@@ -28,6 +28,7 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'sync.run', description: 'Executar sincronização manual com a nuvem' },
   { key: 'billing.view', description: 'Visualizar cobranças da nuvem' },
   { key: 'security.pin.manage', description: 'Definir/alterar o PIN de administrador' },
+  { key: 'dev.docs.view', description: 'Visualizar a documentação técnica (regras de negócio por módulo)' },
 ];
 
 /**
