@@ -90,18 +90,45 @@ export async function aiStatus(): Promise<AiStatus> {
   }
 }
 
+export interface AiLink {
+  label: string;
+  route: string;
+}
+
+/**
+ * Traduz erro técnico do provedor/cloud para algo amigável ao lojista, guardando o texto
+ * original em `detail` (a tela mostra o amigável e um "exibir erro" discreto). Aplicado aqui
+ * também para funcionar mesmo com um Kivo Web mais antigo que ainda devolva o erro cru.
+ */
+function friendlyAiError(raw: string): { error: string; detail?: string } {
+  const r = raw || '';
+  const technical = /model .*not found|not found|respondeu \d{3}|ECONNREFUSED|fetch failed|Failed to fetch|ETIMEDOUT|timeout|\{\s*"error"/i.test(r);
+  if (!technical) return { error: r || 'Não foi possível consultar a IA agora. Tente novamente em instantes.' };
+  if (/model .*not found|not found|no such model/i.test(r)) {
+    return { error: 'A IA ainda não está configurada. Avise o suporte para liberar o assistente.', detail: r };
+  }
+  if (/Nenhuma chave configurada|n[ãa]o est[áa] configurado/i.test(r)) {
+    return { error: 'Este assistente de IA ainda não está liberado. Fale com o suporte.', detail: r };
+  }
+  if (/ECONNREFUSED|fetch failed|Failed to fetch|ETIMEDOUT|timeout|indispon[íi]/i.test(r)) {
+    return { error: 'Não foi possível falar com a IA agora. Tente novamente em instantes.', detail: r };
+  }
+  return { error: 'Não foi possível consultar a IA agora. Tente novamente em instantes.', detail: r };
+}
+
 export type AiChatResult =
-  | { ok: true; content: string; model: string; provider: string; sources: string[] }
-  | { ok: false; error: string };
+  | { ok: true; content: string; model: string; provider: string; sources: string[]; links: AiLink[] }
+  | { ok: false; error: string; detail?: string };
 
 /**
  * Envia um chat para o Kivo Web, que injeta a documentação do Kivo e chama o provedor. A tela
  * do chat pode escolher o provedor/modelo (seletor de agente); sem escolha, usa o padrão do
- * servidor. O prompt de sistema configurado é injetado automaticamente.
+ * servidor. O prompt de sistema configurado é injetado automaticamente. `userName` entra no
+ * contexto para a IA tratar a pessoa pelo nome.
  */
 export async function aiChat(
   messages: AiChatMessage[],
-  opts: { provider?: string | null; model?: string | null; temperature?: number | null } = {},
+  opts: { provider?: string | null; model?: string | null; temperature?: number | null; userName?: string | null } = {},
 ): Promise<AiChatResult> {
   const cfg = aiConfig();
   if (!cfg.ativo) return { ok: false, error: 'A KIVO IA está desligada. Ligue em Configurações › KIVO IA.' };
@@ -127,6 +154,7 @@ export async function aiChat(
         model,
         temperature,
         provider: opts.provider || undefined,
+        userName: opts.userName || undefined,
       }),
       signal: AbortSignal.timeout(150000),
     });
@@ -135,17 +163,25 @@ export async function aiChat(
       model?: string;
       provider?: string;
       sources?: string[];
+      links?: AiLink[];
       error?: string;
+      detail?: string;
     };
-    if (!r.ok) return { ok: false, error: body.error ?? `Kivo Web respondeu ${r.status}.` };
+    if (!r.ok) {
+      const friendly = friendlyAiError(body.error ?? `Kivo Web respondeu ${r.status}.`);
+      return { ok: false, error: friendly.error, detail: body.detail || friendly.detail };
+    }
     return {
       ok: true,
       content: body.content ?? '',
       model: body.model ?? (model ?? ''),
       provider: body.provider ?? (opts.provider ?? 'ollama'),
       sources: Array.isArray(body.sources) ? body.sources : [],
+      links: Array.isArray(body.links) ? body.links : [],
     };
   } catch (e) {
-    return { ok: false, error: `Falha ao falar com o Kivo Web: ${e instanceof Error ? e.message : String(e)}` };
+    const raw = e instanceof Error ? e.message : String(e);
+    const friendly = friendlyAiError(raw);
+    return { ok: false, error: friendly.error, detail: friendly.detail };
   }
 }

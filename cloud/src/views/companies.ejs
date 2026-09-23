@@ -17,13 +17,18 @@
       <%- include('partials/navbar', { active: 'companies' }) %>
 
       <div class="page page-wide" x-data="companiesTable()">
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
         <div class="page-header">
           <div>
             <div class="breadcrumb">Geral</div>
             <h1>Empresas</h1>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <a href="/admin/companies/export.csv" class="btn secondary">Exportar CSV</a>
+            <button type="button" class="btn danger" x-show="expiredTrials.length" x-cloak
+                    @click="document.getElementById('modal-purge-trials').showModal()">
+              Excluir testes vencidos (<span x-text="expiredTrials.length"></span>)
+            </button>
             <button class="btn" onclick="document.getElementById('modal-new-company').showModal()">+ Nova empresa</button>
           </div>
         </div>
@@ -40,6 +45,10 @@
               <button type="button" class="chip" :class="{ active: planFilter === '<%= tier %>' }" @click="planFilter = '<%= tier %>'; page = 1"><%= planLabels[tier] %></button>
               <% }) %>
               <button type="button" class="chip" :class="{ active: planFilter === '__none' }" @click="planFilter = '__none'; page = 1">Sem plano</button>
+              <button type="button" class="chip" :class="{ active: planFilter === '__expired_trial' }"
+                      @click="planFilter = '__expired_trial'; page = 1">
+                Teste vencido (<span x-text="expiredTrials.length"></span>)
+              </button>
             </div>
             <div class="table-count" x-text="countLabel"></div>
           </div>
@@ -98,6 +107,30 @@
             <%- include('partials/pager') %>
           </div>
         </div>
+
+        <dialog id="modal-purge-trials">
+          <form method="post" action="/admin/companies/purge-expired-trials">
+            <div class="modal-header">
+              <h2>Excluir testes vencidos?</h2>
+              <button type="button" class="modal-close" onclick="document.getElementById('modal-purge-trials').close()">&times;</button>
+            </div>
+            <div class="modal-body">
+              <p>
+                Isso vai apagar <strong x-text="expiredTrials.length"></strong> empresa(s) de teste com o prazo
+                vencido e <strong>todos os dados</strong> delas: sincronizações, backups, cobranças, chamados,
+                uso de IA e telemetria.
+              </p>
+              <p class="field-hint">
+                As imagens do banco de imagens são compartilhadas e permanecem. A máquina volta a poder
+                solicitar o teste grátis. Não dá para desfazer.
+              </p>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn secondary" onclick="document.getElementById('modal-purge-trials').close()">Cancelar</button>
+              <button type="submit" class="btn danger">Sim, excluir tudo</button>
+            </div>
+          </form>
+        </dialog>
       </div>
     </main>
   </div>
@@ -139,6 +172,14 @@
         sealKey(plan) {
           return plan && this.planTiers.includes(plan) ? plan : 'none';
         },
+        /** Teste grátis cujo prazo já passou — candidato à limpeza em lote. */
+        isExpiredTrial(c) {
+          if (c.plan !== 'trial' || !c.valid_until) return false;
+          return new Date(String(c.valid_until).slice(0, 10)) < new Date(new Date().setHours(0, 0, 0, 0));
+        },
+        get expiredTrials() {
+          return this.rows.filter((c) => this.isExpiredTrial(c));
+        },
         sortGetters: {
           name: (c) => (c.name || c.company_uuid).toLowerCase(),
           plan: (c) => c.plan || '',
@@ -171,6 +212,7 @@
           return this.rows.filter((c) => {
             if (q && !(c.name || c.company_uuid).toLowerCase().includes(q)) return false;
             if (this.planFilter === '__none') return !c.plan;
+            if (this.planFilter === '__expired_trial') return this.isExpiredTrial(c);
             if (this.planFilter) return c.plan === this.planFilter;
             return true;
           });

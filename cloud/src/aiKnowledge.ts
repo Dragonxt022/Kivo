@@ -16,10 +16,18 @@ import path from 'node:path';
  * segurança) — em produção a documentação só muda em deploy.
  */
 
+/** Botão de navegação sugerido no chat: leva o usuário direto para a tela do Kivo. */
+export interface KnowledgeLink {
+  label: string;
+  route: string;
+}
+
 interface IndexedChunk {
   /** Rótulo legível da origem, exibido como fonte ("Wiki › Clientes"). */
   source: string;
   text: string;
+  /** Tela do Kivo relacionada a este trecho (quando há uma). */
+  link?: KnowledgeLink;
   /** Frequência de cada termo normalizado dentro do trecho. */
   terms: Map<string, number>;
   /** Comprimento em termos (para normalizar o BM25). */
@@ -45,6 +53,57 @@ const STOPWORDS = new Set([
   'eles', 'elas', 'eu', 'você', 'voce', 'nós', 'nos', 'the', 'of', 'to', 'and', 'or', 'is', 'are', 'a', 'an',
   'fazer', 'faço', 'faco', 'posso', 'consigo', 'quero', 'preciso', 'tem', 'ter', 'como',
 ]);
+
+/**
+ * De cada seção da wiki para a tela do app desktop. É o que permite a IA oferecer um botão
+ * "Abrir Importar NF-e" quando a resposta veio daquela seção. Curado à mão: o id da seção
+ * (wiki.ejs) e a rota (`/app/<módulo>/<página>`) não têm como ser inferidos.
+ */
+const WIKI_ROUTES: Record<string, KnowledgeLink> = {
+  'boas-vindas': { label: 'Ir para o início', route: '/' },
+  clientes: { label: 'Abrir Clientes', route: '/app/commercial/clientes' },
+  fornecedores: { label: 'Abrir Fornecedores', route: '/app/commercial/fornecedores' },
+  produtos: { label: 'Abrir Produtos', route: '/app/commercial/produtos' },
+  categorias: { label: 'Abrir Categorias', route: '/app/commercial/categorias' },
+  complementos: { label: 'Abrir Produtos', route: '/app/commercial/produtos' },
+  estoque: { label: 'Abrir Estoque', route: '/app/commercial/lotes' },
+  'listas-preco': { label: 'Abrir Listas de Preço', route: '/app/commercial/listas-de-preco' },
+  compras: { label: 'Abrir Compras', route: '/app/commercial/compras' },
+  'fiscal-notas': { label: 'Abrir Notas Fiscais', route: '/app/fiscal/notas' },
+  'fiscal-config': { label: 'Abrir Configuração Fiscal', route: '/app/fiscal/configuracao' },
+  'nfe-importar': { label: 'Abrir Importar NF-e', route: '/app/nfe/importar' },
+  etiquetas: { label: 'Abrir Etiquetas', route: '/app/labels' },
+  'etiquetas-historico': { label: 'Abrir Histórico de Etiquetas', route: '/app/labels/historico' },
+  pdv: { label: 'Abrir PDV', route: '/app/store/pdv' },
+  vendas: { label: 'Abrir Vendas', route: '/app/store/vendas' },
+  orcamentos: { label: 'Abrir Orçamentos', route: '/app/store/orcamentos' },
+  'mesas-comandas': { label: 'Abrir Mesas', route: '/app/comandas/mesas' },
+  'modo-garcom': { label: 'Abrir Mesas', route: '/app/comandas/mesas' },
+  'cozinha-kds': { label: 'Abrir Cozinha', route: '/app/foodservice/cozinha' },
+  'roteamento-cozinha': { label: 'Abrir Roteamento', route: '/app/foodservice/roteamento' },
+  'cardapio-online': { label: 'Abrir Cardápio Online', route: '/admin/configuracoes#cardapio' },
+  usuarios: { label: 'Abrir Usuários', route: '/admin/usuarios' },
+  notificacoes: { label: 'Abrir Central de Mensagens', route: '/notificacoes' },
+  configuracoes: { label: 'Abrir Configurações', route: '/admin/configuracoes' },
+  'rede-local': { label: 'Abrir Configurações › Rede', route: '/admin/configuracoes#rede' },
+  backup: { label: 'Abrir Backup', route: '/admin/backup' },
+  licenca: { label: 'Abrir Configurações › Licença', route: '/admin/configuracoes#license' },
+};
+
+/** De cada documento técnico (slug do .md) para a tela principal do módulo. */
+const DOC_ROUTES: Record<string, KnowledgeLink> = {
+  comercial: { label: 'Abrir Comercial', route: '/app/commercial/produtos' },
+  estoque: { label: 'Abrir Estoque', route: '/app/commercial/lotes' },
+  vendas: { label: 'Abrir PDV', route: '/app/store/pdv' },
+  financeiro: { label: 'Abrir Financeiro', route: '/app/finance/caixa' },
+  fiscal: { label: 'Abrir Fiscal', route: '/app/fiscal/notas' },
+  comandas: { label: 'Abrir Mesas', route: '/app/comandas/mesas' },
+  foodservice: { label: 'Abrir Cozinha', route: '/app/foodservice/cozinha' },
+  etiquetas: { label: 'Abrir Etiquetas', route: '/app/labels' },
+  dre: { label: 'Abrir DRE', route: '/app/dre/relatorio' },
+  nfe: { label: 'Abrir Importar NF-e', route: '/app/nfe/importar' },
+  painel: { label: 'Ir para o Painel', route: '/' },
+};
 
 /** Normaliza para comparação: minúsculas, sem acento, só alfanumérico. */
 function normalize(text: string): string {
@@ -102,7 +161,7 @@ function wikiFile(): string | null {
   return candidates.find((f) => fs.existsSync(f)) ?? null;
 }
 
-function makeChunk(source: string, text: string): IndexedChunk | null {
+function makeChunk(source: string, text: string, link?: KnowledgeLink): IndexedChunk | null {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length < 40) return null;
   const bounded = clean.length > MAX_CHUNK_CHARS ? `${clean.slice(0, MAX_CHUNK_CHARS)}…` : clean;
@@ -110,7 +169,7 @@ function makeChunk(source: string, text: string): IndexedChunk | null {
   if (!tokens.length) return null;
   const terms = new Map<string, number>();
   for (const t of tokens) terms.set(t, (terms.get(t) ?? 0) + 1);
-  return { source, text: bounded, terms, length: tokens.length };
+  return { source, text: bounded, link, terms, length: tokens.length };
 }
 
 function firstHeading(md: string): string | null {
@@ -129,12 +188,14 @@ function chunksFromDevDocs(): IndexedChunk[] {
   const out: IndexedChunk[] = [];
   for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.md'))) {
     const md = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n');
-    const docTitle = (/^#\s+(.+)$/m.exec(md)?.[1] ?? file.replace(/\.md$/, '')).trim();
+    const slug = file.replace(/\.md$/, '');
+    const docTitle = (/^#\s+(.+)$/m.exec(md)?.[1] ?? slug).trim();
+    const docLink = DOC_ROUTES[slug];
     const parts = md.split(/\n(?=##\s)/);
     for (const part of parts) {
       const heading = /^##\s+(.+)$/m.exec(part)?.[1]?.trim();
       const label = heading ? `Documentação › ${docTitle} › ${heading}` : `Documentação › ${docTitle}`;
-      const chunk = makeChunk(label, part);
+      const chunk = makeChunk(label, part, docLink);
       if (chunk) out.push(chunk);
     }
   }
@@ -154,7 +215,7 @@ function chunksFromWiki(): IndexedChunk[] {
     const id = section.slice(0, idEnd);
     const heading = firstHeading(section) ?? id;
     const body = stripHtml(section);
-    const chunk = makeChunk(`Wiki › ${heading}`, body);
+    const chunk = makeChunk(`Wiki › ${heading}`, body, WIKI_ROUTES[id]);
     if (chunk) out.push(chunk);
   }
   return out;
@@ -195,6 +256,7 @@ export interface KnowledgeHit {
   source: string;
   text: string;
   score: number;
+  link?: KnowledgeLink;
 }
 
 /**
@@ -223,18 +285,27 @@ export function searchKnowledge(query: string, limit = 4): KnowledgeHit[] {
       // Termo no rótulo da origem pesa mais (ex.: "clientes" na seção de Clientes).
       if (normalize(chunk.source).includes(term)) score += idf * 0.8;
     }
-    if (score > 0) scored.push({ source: chunk.source, text: chunk.text, score });
+    if (score > 0) scored.push({ source: chunk.source, text: chunk.text, score, link: chunk.link });
   }
 
   return scored.sort((a, b2) => b2.score - a.score).slice(0, limit);
 }
 
 /** Monta o bloco de contexto que entra no prompt de sistema. Vazio se nada foi encontrado. */
-export function buildKnowledgeContext(query: string, limit = 4): { context: string; sources: string[] } {
+export function buildKnowledgeContext(query: string, limit = 4): { context: string; sources: string[]; links: KnowledgeLink[] } {
   const hits = searchKnowledge(query, limit);
-  if (!hits.length) return { context: '', sources: [] };
+  if (!hits.length) return { context: '', sources: [], links: [] };
   const context = hits.map((h) => `### ${h.source}\n${h.text}`).join('\n\n');
-  return { context, sources: hits.map((h) => h.source) };
+  // Botões de navegação: um por rota, na ordem de relevância dos trechos.
+  const links: KnowledgeLink[] = [];
+  const seen = new Set<string>();
+  for (const h of hits) {
+    if (h.link && !seen.has(h.link.route)) {
+      seen.add(h.link.route);
+      links.push(h.link);
+    }
+  }
+  return { context, sources: hits.map((h) => h.source), links };
 }
 
 /** Só para testes/diagnóstico. */

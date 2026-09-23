@@ -53,6 +53,31 @@ function startDataRetention(): NodeJS.Timeout {
   return timer;
 }
 
+/**
+ * Encerra chamados parados: se o cliente não escreve nada por 2h, o atendimento fecha sozinho.
+ * Evita ticket aberto para sempre e some com a "conversa fantasma" da IA. Roda a cada 5 min.
+ */
+function startSupportAutoClose(): NodeJS.Timeout {
+  const IDLE_HOURS = 2;
+  const run = async () => {
+    try {
+      const [res] = await getPool().query(
+        `UPDATE support_tickets SET status = 'fechado'
+          WHERE status = 'aberto' AND last_message_at < (NOW(3) - INTERVAL ? HOUR)`,
+        [IDLE_HOURS],
+      );
+      const n = (res as { affectedRows?: number }).affectedRows ?? 0;
+      if (n > 0) console.log(`[support] ${n} chamado(s) encerrado(s) por inatividade (${IDLE_HOURS}h).`);
+    } catch (e) {
+      console.error('[support] falha ao encerrar chamados inativos:', e);
+    }
+  };
+  void run();
+  const timer = setInterval(run, 5 * 60e3);
+  timer.unref?.();
+  return timer;
+}
+
 export function createCloudServer() {
   const app = express();
   app.set('view engine', 'ejs');
@@ -119,6 +144,7 @@ if (require.main === module) {
   const app = createCloudServer();
   startTelemetryRetention();
   startDataRetention();
+  startSupportAutoClose();
   // Sessões do painel e do portal do afiliado vivem no banco — limpa as vencidas no
   // boot e a cada 6h.
   purgeExpiredAdminSessions();
