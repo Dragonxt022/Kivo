@@ -78,6 +78,31 @@
     .ai-tool-usage-head { display: flex; justify-content: space-between; gap: 8px; font-size: .82rem; margin-bottom: 3px; }
     .ai-tool-usage .ai-progress { width: 100%; }
     .ai-tool-usage .ai-credit-uuid { margin: 2px 0 4px; }
+    .ai-tools-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 9px;
+      border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+      cursor: pointer; transition: color .15s, border-color .15s, background .15s;
+    }
+    .ai-tools-btn:hover { color: var(--primary); border-color: var(--primary); }
+    .ai-modal[hidden] { display: none; }
+    .ai-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; }
+    .ai-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+    .ai-modal-card {
+      position: relative; width: min(560px, calc(100vw - 2rem)); max-height: 85vh; overflow: auto;
+      background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
+      box-shadow: 0 20px 60px rgba(0,0,0,.25); padding: 1.1rem 1.25rem;
+    }
+    .ai-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+    .ai-modal-head h3 { margin: 0; font-size: 1.02rem; }
+    .ai-modal-sub { margin: .2rem 0 0; color: var(--muted); font-size: .82rem; }
+    .ai-modal-close { border: 0; background: none; font-size: 1.5rem; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 .25rem; }
+    .ai-modal-close:hover { color: var(--text); }
+    .ai-modal-company { margin: .1rem 0 .5rem; font-size: .85rem; color: var(--muted); }
+    .ai-modal-body .ai-tool-usage { padding: .7rem 0; border-top: 1px solid var(--border-light); }
+    .ai-modal-body .ai-tool-usage:first-of-type { border-top: 0; padding-top: 0; }
+    .ai-modal-body .ai-progress { width: 100%; }
+    .ai-tool-hint { color: var(--muted); font-size: .72rem; margin-top: 4px; }
     .ai-tool-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border-light); }
     .ai-tool-form:first-of-type { border-top: 0; }
     .ai-tool-name { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
@@ -288,7 +313,7 @@
                   <th>Usado no mês</th>
                   <th>Teto (tokens/mês)</th>
                   <th>Restante</th>
-                  <th>Uso hoje (ferramentas)</th>
+                  <th>Ferramentas de IA</th>
                 </tr>
               </thead>
               <tbody id="ai-credit-body">
@@ -326,30 +351,62 @@
                     <td>
                       <% if (!c.tools.length) { %>
                         <span class="muted">—</span>
-                      <% } else { c.tools.forEach(function (t) {
-                           var tpct = t.limit > 0 ? Math.min(100, Math.round((t.used / t.limit) * 100)) : 0;
-                           var tcls = t.limit > 0 ? (tpct >= 100 ? 'over' : tpct >= 80 ? 'warn' : '') : ''; %>
-                        <div class="ai-tool-usage">
-                          <div class="ai-tool-usage-head">
-                            <span><%= t.label %><% if (!t.enabled) { %> <span class="muted" style="font-size:.72rem">(off)</span><% } %></span>
-                            <span class="muted" style="font-size:.72rem"><%= t.used %><% if (t.limit > 0) { %>/<%= t.limit %><% } else { %> · ilimitado<% } %></span>
-                          </div>
-                          <% if (t.limit > 0) { %>
-                            <div class="ai-progress <%= tcls %>" title="<%= tpct %>% da cota do dia"><span style="width:<%= tpct %>%"></span></div>
-                            <div class="ai-credit-uuid">restam <%= Math.max(0, t.remaining) %> hoje</div>
-                          <% } %>
-                          <form class="ai-limit-form" method="post" action="/admin/ai/<%= c.uuid %>/quota/<%= t.id %>">
-                            <input type="number" name="dailyLimit" min="0" step="1" value="<%= t.override == null ? '' : t.override %>" placeholder="padrão" title="Limite diário só desta empresa (vazio = padrão da ferramenta)">
-                            <button class="btn secondary" type="submit">Salvar</button>
-                          </form>
-                        </div>
-                      <% }); } %>
+                      <% } else { %>
+                        <button type="button" class="ai-tools-btn" data-company="<%= c.uuid %>" data-name="<%= c.name || c.uuid %>" title="Ver uso das ferramentas de IA" aria-label="Ver uso das ferramentas de IA">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+                            <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+                            <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+                            <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+                          </svg>
+                        </button>
+                      <% } %>
                     </td>
                   </tr>
                 <% }); %>
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+      <% companies.forEach(function (c) { %>
+        <template class="ai-tools-tpl" data-company="<%= c.uuid %>" data-name="<%= c.name || c.uuid %>">
+          <p class="ai-modal-company">Empresa: <strong><%= c.name || c.uuid %></strong><% if (c.plan) { %> · Plano: <%= c.plan %><% } %></p>
+          <% if (!c.tools.length) { %>
+            <p class="muted">Nenhuma ferramenta de IA configurada.</p>
+          <% } else { c.tools.forEach(function (t) {
+               var tpct = t.limit > 0 ? Math.min(100, Math.round((t.used / t.limit) * 100)) : 0;
+               var tcls = t.limit > 0 ? (tpct >= 100 ? 'over' : tpct >= 80 ? 'warn' : '') : ''; %>
+            <div class="ai-tool-usage">
+              <div class="ai-tool-usage-head">
+                <span><%= t.label %><% if (!t.enabled) { %> <span class="muted" style="font-size:.72rem">(desligada)</span><% } %></span>
+                <span class="muted" style="font-size:.72rem"><%= t.used %><% if (t.limit > 0) { %>/<%= t.limit %><% } else { %> · ilimitado<% } %></span>
+              </div>
+              <% if (t.limit > 0) { %>
+                <div class="ai-progress <%= tcls %>" title="<%= tpct %>% da cota do dia"><span style="width:<%= tpct %>%"></span></div>
+                <div class="ai-credit-uuid">restam <%= Math.max(0, t.remaining) %> hoje</div>
+              <% } %>
+              <form class="ai-limit-form" method="post" action="/admin/ai/<%= c.uuid %>/quota/<%= t.id %>">
+                <input type="number" name="dailyLimit" min="0" step="1" value="<%= t.override == null ? '' : t.override %>" placeholder="padrão" title="Limite diário só desta empresa (vazio = padrão da ferramenta)">
+                <button class="btn secondary" type="submit">Salvar</button>
+              </form>
+              <div class="ai-tool-hint">Limite diário só desta empresa (vazio = padrão da ferramenta).</div>
+            </div>
+          <% }); } %>
+        </template>
+      <% }); %>
+
+      <div id="ai-tools-modal" class="ai-modal" hidden>
+        <div class="ai-modal-backdrop" data-close></div>
+        <div class="ai-modal-card" role="dialog" aria-modal="true" aria-labelledby="ai-tools-title">
+          <div class="ai-modal-head">
+            <div>
+              <h3 id="ai-tools-title">Uso das ferramentas de IA</h3>
+              <p class="ai-modal-sub" id="ai-tools-company"></p>
+            </div>
+            <button type="button" class="ai-modal-close" data-close aria-label="Fechar">&times;</button>
+          </div>
+          <div class="ai-modal-body" id="ai-tools-body"></div>
         </div>
       </div>
     </main>
@@ -374,6 +431,38 @@
         if (count) count.textContent = shown + ' empresa(s)';
       }
       input.addEventListener('input', apply);
+    })();
+
+    // Modal de uso das ferramentas por empresa: o ícone na linha abre o conteúdo do
+    // <template> correspondente (uso de hoje + ajuste do limite diário).
+    (function () {
+      var modal = document.getElementById('ai-tools-modal');
+      if (!modal) return;
+      var body = document.getElementById('ai-tools-body');
+      var companyEl = document.getElementById('ai-tools-company');
+      function close() {
+        modal.hidden = true;
+        body.innerHTML = '';
+        document.body.classList.remove('ai-modal-open');
+      }
+      function open(uuid, name) {
+        var tpl = document.querySelector('template.ai-tools-tpl[data-company="' + uuid + '"]');
+        body.innerHTML = '';
+        if (tpl) body.appendChild(tpl.content.cloneNode(true));
+        companyEl.textContent = name || '';
+        modal.hidden = false;
+        document.body.classList.add('ai-modal-open');
+      }
+      document.addEventListener('click', function (e) {
+        var target = e.target;
+        if (!(target instanceof Element)) return;
+        var btn = target.closest('.ai-tools-btn');
+        if (btn) { open(btn.getAttribute('data-company'), btn.getAttribute('data-name')); return; }
+        if (target.closest('#ai-tools-modal [data-close]')) close();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.hidden) close();
+      });
     })();
   </script>
 </body>
