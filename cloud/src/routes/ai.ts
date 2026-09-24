@@ -19,6 +19,8 @@ import { createRateLimiter } from '../rateLimit';
 import { currentPeriod, ensurePeriod, getCredits, recordUsage } from '../aiUsage';
 import { buildKnowledgeContext, type KnowledgeLink } from '../aiKnowledge';
 import { loadAiConfig } from '../aiConfig';
+import { clientTimezone } from '../tz';
+import { listTools, loadTool, quotaStatus, refund, reserve } from '../aiQuota';
 import {
   chat,
   defaultModelFor,
@@ -185,6 +187,94 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
       credits: credits ? { ...credits, used } : null,
     });
   } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    res.status(502).json(friendlyAiError(raw));
+  }
+});
+
+// ─── Ferramentas de IA que COBRAM créditos (por uso, cota diária) ──────────────────────
+
+/** Fuso do cliente: cabeçalho do desktop ou cookie do navegador (fallback Porto Velho). */
+function reqTimezone(req: AuthedRequest): string {
+  const h = String((req.headers['x-kivo-tz'] as string) ?? '').trim();
+  return h || clientTimezone(req);
+}
+
+/** Lista as ferramentas e a situação da cota do dia para a empresa (para a tela do app). */
+router.get('/tools', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const companyUuid = req.companyUuid!;
+  const tz = reqTimezone(req);
+  const tools = await listTools();
+  const withStatus = [];
+  for (const t of tools) {
+    const status = await quotaStatus(companyUuid, t.id, tz);
+    withStatus.push({ ...t, status });
+  }
+  res.json({ tools: withStatus });
+});
+
+/** Gera a descrição de um produto. Cobra 1 uso da cota diária (devolvido se a IA falhar). */
+router.post('/tools/product-description', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  if (limit(req.ip ?? 'unknown')) {
+    res.status(429).json({ error: 'Muitas requisições de IA. Aguarde um instante.' });
+    return;
+  }
+  const companyUuid = req.companyUuid!;
+  const tz = reqTimezone(req);
+  const b = (req.body ?? {}) as { name?: string; category?: string; keywords?: string };
+  const name = String(b.name ?? '').trim().slice(0, 200);
+  if (!name) {
+    res.status(400).json({ error: 'Informe o nome do produto.' });
+    return;
+  }
+
+  const cfg = await loadAiConfig();
+  const r = await reserve(companyUuid, 'product_description', tz);
+  if (!r.ok) {
+    const label = r.tool?.label ?? 'Descrição de produto';
+    res.status(402).json({
+      error: `Seus créditos de "${label}" acabaram hoje. Eles renovam à meia-noite.`,
+      code: 'ai_quota_exhausted',
+      status: r.status,
+    });
+    return;
+  }
+
+  const category = String(b.category ?? '').trim().slice(0, 120);
+  const keywords = String(b.keywords ?? '').trim().slice(0, 200);
+  const prompt =
+    `Gere uma descrição curta e atraente para o produto "${name}"` +
+    (category ? ` da categoria "${category}"` : '') +
+    (keywords ? ` (palavras-chave: ${keywords})` : '') +
+    '.\nRegras: português do Brasil; no máximo 2 frases; sem aspas; sem emojis; ' +
+    'pode incluir os principais ingredientes/benefícios. Responda APENAS com a descrição.';
+
+  try {
+    const model = defaultModelFor(cfg, cfg.defaultProvider);
+    const result = await chat(cfg, {
+      provider: cfg.defaultProvider,
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+    });
+    await recordUsage(
+      companyUuid,
+      currentPeriod(),
+      result.model,
+      result.promptTokens,
+      result.completionTokens,
+      'product_description',
+      r.status.cost,
+    );
+    const after = await quotaStatus(companyUuid, 'product_description', tz);
+    res.json({
+      ok: true,
+      description: result.content.trim(),
+      usage: { promptTokens: result.promptTokens, completionTokens: result.completionTokens },
+      status: after,
+    });
+  } catch (e) {
+    await refund(companyUuid, 'product_description', tz);
     const raw = e instanceof Error ? e.message : String(e);
     res.status(502).json(friendlyAiError(raw));
   }

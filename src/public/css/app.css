@@ -1240,6 +1240,12 @@ button.app-card {
 }
 .support-ticket-item:hover { border-color: var(--primary); }
 .support-ticket-item .t-subject { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.support-ticket-more {
+  display: block; width: 100%; text-align: center; background: none; border: 0;
+  color: var(--primary); font-family: inherit; font-size: .8rem; font-weight: 600;
+  cursor: pointer; padding: .35rem 0 .1rem;
+}
+.support-ticket-more:hover { text-decoration: underline; }
 .support-badge { font-size: .68rem; font-weight: 700; padding: .15rem .55rem; border-radius: 999px; flex: none; }
 .support-badge.aberto { background: var(--warning-soft); color: var(--warning); }
 .support-badge.fechado { background: var(--success-soft); color: var(--success); }
@@ -1297,6 +1303,27 @@ button.app-card {
   text-decoration: none;
 }
 .support-link-btn:hover { background: var(--primary-soft); text-decoration: none; }
+/* Link para um recurso desativado: aparência "bloqueada" e clique ativa antes de abrir. */
+.support-link-btn.locked {
+  border-style: dashed; border-color: var(--border); color: var(--text-muted); cursor: pointer;
+}
+.support-link-btn.locked:hover { background: var(--surface-hover); color: var(--text); }
+
+/* Confirmação em modal do widget (substitui window.confirm/alert, ausentes no Electron). */
+.support-confirm-backdrop {
+  position: fixed; inset: 0; z-index: 130; background: rgba(0, 0, 0, .45);
+  display: flex; align-items: center; justify-content: center;
+}
+.support-confirm {
+  background: var(--surface); border: 1px solid var(--border-light);
+  border-radius: 14px; box-shadow: var(--shadow-lg);
+  padding: 1.1rem 1.2rem; width: min(340px, 90vw);
+}
+.support-confirm h3 { margin: 0 0 .4rem; font-size: 1rem; }
+.support-confirm p { margin: 0 0 1rem; font-size: .88rem; color: var(--text-secondary); }
+.support-confirm-actions { display: flex; gap: .5rem; justify-content: flex-end; }
+.support-confirm .btn.danger { background: var(--danger); }
+.support-confirm .btn.danger:hover { background: color-mix(in srgb, var(--danger) 85%, #000); }
 
 /* Balão "digitando" com três pontinhos animados. */
 .support-typing-bubble { padding: .7rem .9rem; }
