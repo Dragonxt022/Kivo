@@ -70,6 +70,8 @@ export async function aiStatus(): Promise<AiStatus> {
 export interface AiLink {
   label: string;
   route: string;
+  /** Recurso (capability) exigido pela tela; se desligado, o chat oferece ativar. */
+  capability?: string;
 }
 
 /**
@@ -96,6 +98,57 @@ function friendlyAiError(raw: string): { error: string; detail?: string } {
 export type AiChatResult =
   | { ok: true; content: string; model: string; provider: string; sources: string[]; links: AiLink[] }
   | { ok: false; error: string; detail?: string };
+
+export interface AiToolStatus {
+  feature: string;
+  limit: number;
+  used: number;
+  remaining: number;
+  periodDay: string;
+  cost: number;
+  resetAt: string;
+}
+
+export type AiToolResult =
+  | { ok: true; description: string; status?: AiToolStatus }
+  | { ok: false; error: string; detail?: string; code?: string };
+
+/** Fuso da máquina (para o cloud saber quando é meia-noite aqui). */
+function localTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Porto_Velho'; }
+  catch { return 'America/Porto_Velho'; }
+}
+
+/**
+ * Ferramenta paga "gerar descrição de produto". Cobra 1 uso da cota diária no Kivo Web; se a
+ * cota acabou, o cloud devolve 402 com a mensagem amigável (a tela mostra e sugere esperar a
+ * renovação à meia-noite).
+ */
+export async function aiProductDescription(input: { name: string; category?: string; keywords?: string }): Promise<AiToolResult> {
+  const base = cloudBaseUrl();
+  const headers = cloudAuthHeaders();
+  if (!base || !headers) return { ok: false, error: 'Kivo Web não configurado (licença ou servidor ausente).' };
+  try {
+    const r = await fetch(`${base}/api/ai/tools/product-description`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers, 'X-Kivo-Tz': localTimezone() },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(150000),
+    });
+    const body = (await r.json().catch(() => ({}))) as {
+      description?: string; status?: AiToolStatus; error?: string; detail?: string; code?: string;
+    };
+    if (!r.ok) {
+      const friendly = friendlyAiError(body.error ?? `Kivo Web respondeu ${r.status}.`);
+      return { ok: false, error: friendly.error, detail: body.detail || friendly.detail, code: body.code };
+    }
+    return { ok: true, description: body.description ?? '', status: body.status };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const friendly = friendlyAiError(raw);
+    return { ok: false, error: friendly.error, detail: friendly.detail };
+  }
+}
 
 /**
  * Envia um chat para o Kivo Web, que injeta a documentação do Kivo e chama o provedor. O

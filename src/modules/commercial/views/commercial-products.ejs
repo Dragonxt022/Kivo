@@ -204,8 +204,19 @@
                 <input type="text" x-model="form.name" @input.debounce.500ms="searchCatalogImages()" />
               </div>
               <div class="pm-field">
-                <label>Descrição / Ingredientes (cardápio online)</label>
+                <label style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+                  <span>Descrição / Ingredientes (cardápio online)</span>
+                  <button type="button" class="btn secondary small" @click="generateDescription()"
+                          :disabled="aiDesc.loading || !(form.name || '').trim()"
+                          title="Gera a descrição com a Kivo IA (consome créditos)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg>
+                    <span x-text="aiDesc.loading ? 'Gerando…' : 'Gerar com IA'"></span>
+                  </button>
+                </label>
                 <textarea x-model="form.description" rows="3" style="resize:vertical;min-height:80px"></textarea>
+                <p class="muted text-xs" x-show="aiDesc.error" x-cloak style="color:var(--danger)" x-text="aiDesc.error"></p>
+                <p class="muted text-xs" x-show="aiDesc.status && !aiDesc.error" x-cloak
+                   x-text="'Créditos de IA hoje: ' + (aiDesc.status.remaining < 0 ? 'ilimitado' : aiDesc.status.remaining + ' de ' + aiDesc.status.limit) + ' — renovam à meia-noite.'"></p>
               </div>
               <div class="pm-field">
                 <label>Tipo de produto</label>
@@ -1636,6 +1647,7 @@
         rows: [], productTab: 'vendaveis', form: {}, move: {}, categories: [], newCat: '', q: '', error: '', dlgError: '', mvError: '',
         catEditId: null, catEditName: '', catDelId: null, catDelAction: 'unset', catDelMigrateTo: null, appSettings: [], typeConfigs: [], barcodeHint: '',
         imgSearchResults: [], imgSearching: false, imgSearchOffline: false, imgSearchError: '',
+        aiDesc: { loading: false, error: '', status: null },
         fillImgsLoading: false,
         selectedCategoryImage: '',
         // Variantes
@@ -2256,6 +2268,31 @@
           });
           if (r.ok) { this.$refs.dlg.close(); this.load(); showToast(isEdit ? 'Produto atualizado.' : 'Produto criado.', 'success'); }
           else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
+        },
+        /** Ferramenta paga: gera a descrição com a Kivo IA (consome 1 crédito da cota diária). */
+        async generateDescription() {
+          const name = String(this.form.name || '').trim();
+          if (!name) { this.aiDesc.error = 'Informe o nome do produto primeiro.'; return; }
+          this.aiDesc.loading = true; this.aiDesc.error = '';
+          try {
+            const cat = (this.categories.find((c) => c.id === this.form.categoryId) || {}).name || '';
+            const r = await fetch('/api/ai/product-description', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, category: cat }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || d.success === false) {
+              this.aiDesc.error = d.error || 'Não foi possível gerar a descrição.';
+              return;
+            }
+            const data = d.data !== undefined ? d.data : d;
+            if (data.description) this.form.description = data.description;
+            if (data.status) this.aiDesc.status = data.status;
+          } catch (e) {
+            this.aiDesc.error = 'Erro de conexão ao gerar a descrição.';
+          } finally {
+            this.aiDesc.loading = false;
+          }
         },
         async remove(p) {
           if (!await window.confirmDlg(`Excluir "${p.name}"?`)) return;

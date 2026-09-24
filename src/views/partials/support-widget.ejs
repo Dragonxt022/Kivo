@@ -59,13 +59,16 @@
       <template x-if="tickets.length">
         <div>
           <p class="muted text-xs" style="margin:.25rem 0 .5rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em">Meus atendimentos</p>
-          <template x-for="t in tickets" :key="t.id">
+          <template x-for="t in visibleTickets" :key="t.id">
             <button type="button" class="support-ticket-item" @click="openTicket(t.id)">
               <span class="support-unread-dot" x-show="t.client_unread > 0"></span>
               <span class="t-subject" x-text="t.subject"></span>
               <span class="support-badge" :class="t.status" x-text="t.status"></span>
             </button>
           </template>
+          <button type="button" class="support-ticket-more" x-show="tickets.length > 3" x-cloak
+                  @click="showAllTickets = !showAllTickets"
+                  x-text="showAllTickets ? 'Mostrar menos' : ('Ver histórico completo (' + tickets.length + ')')"></button>
         </div>
       </template>
 
@@ -131,9 +134,12 @@
               <div class="md" x-html="renderMd(m.content)"></div>
               <div class="support-links" x-show="m.links && m.links.length">
                 <template x-for="l in (m.links || [])" :key="l.route">
-                  <a class="support-link-btn" :href="l.route">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    <span x-text="l.label"></span>
+                  <a class="support-link-btn" :class="{ locked: linkLocked(l) }"
+                     :href="linkLocked(l) ? '#' : l.route"
+                     @click="if (linkLocked(l)) { $event.preventDefault(); openLink(l); }">
+                    <svg x-show="!linkLocked(l)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    <svg x-show="linkLocked(l)" x-cloak width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span x-text="linkLocked(l) ? (canEditCaps ? 'Ativar e abrir: ' + l.label : l.label + ' (recurso desativado)') : l.label"></span>
                   </a>
                 </template>
               </div>
@@ -168,6 +174,10 @@
       <div class="support-note">
         A IA pode errar. Precisa de uma pessoa? Atendimento em até 8h úteis (sem fins de semana e feriados).
         <button type="button" class="btn secondary small" @click="newTicket('suporte')">Falar com um atendente</button>
+        <button type="button" class="btn secondary small" x-show="canEditCaps && disabledCapsCount > 0" x-cloak
+                @click="enableAllCaps()">
+          Ativar recursos desativados (<span x-text="disabledCapsCount"></span>)
+        </button>
       </div>
     </div>
 
@@ -214,6 +224,18 @@
       <div class="support-error" x-text="error" style="padding:0 1.25rem .75rem"></div>
     </div>
   </section>
+
+  <!-- Confirmação em modal: o Electron não implementa window.confirm/alert. -->
+  <div class="support-confirm-backdrop" x-show="confirm.open" x-cloak @click.self="confirmResolve(false)">
+    <div class="support-confirm" role="dialog" aria-modal="true">
+      <h3 x-text="confirm.title"></h3>
+      <p x-text="confirm.message"></p>
+      <div class="support-confirm-actions">
+        <button type="button" class="btn secondary small" @click="confirmResolve(false)">Cancelar</button>
+        <button type="button" class="btn small" :class="{ danger: confirm.danger }" @click="confirmResolve(true)" x-text="confirm.okLabel"></button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script nonce="<%= cspNonce %>">
@@ -222,12 +244,15 @@
       view: 'home',
       panelOpen: false,
       userName: <%- JSON.stringify(typeof user !== 'undefined' && user ? (user.name || '').split(' ')[0] : '') %>,
-      tickets: [], unread: 0,
+      tickets: [], unread: 0, showAllTickets: false,
       ticket: { id: 0, subject: '', status: '' }, messages: [],
       form: { subject: '', message: '', category: 'suporte', attachment: '' },
       ai: {
         messages: [], draft: '', ticketId: 0, sending: false, error: '', errorDetail: '', showError: false,
       },
+      caps: {}, canEditCaps: false, capsLoaded: false,
+      /** Modal de confirmação próprio (Electron não implementa window.confirm/alert). */
+      confirm: { open: false, title: '', message: '', okLabel: 'Confirmar', danger: false, resolve: null },
       draft: '', draftAttachment: '', attachError: '', sending: false, error: '', shared: false,
       email: '', phone: '', contactsLoaded: false,
       pollTimer: null,
@@ -292,6 +317,77 @@
         return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + ' ' + hm;
       },
 
+      /** Recurso (capability) exigido por um link da IA está desligado? */
+      linkLocked(l) {
+        return !!(l && l.capability && this.caps[l.capability] === false);
+      },
+      get disabledCapsCount() {
+        return Object.keys(this.caps).filter((k) => this.caps[k] === false).length;
+      },
+      async loadCaps() {
+        if (this.capsLoaded) return;
+        try {
+          const r = await fetch('/api/ai/capabilities');
+          const d = await r.json();
+          const data = d.data !== undefined ? d.data : d;
+          this.canEditCaps = !!data.canEdit;
+          const map = {};
+          (data.capabilities || []).forEach((c) => { map[c.key] = !!c.enabled; });
+          this.caps = map;
+          this.capsLoaded = true;
+        } catch (e) { /* sem lista, não bloqueia os links */ }
+      },
+      async enableCap(key) {
+        try {
+          const r = await fetch('/api/core/capabilities/' + encodeURIComponent(key), {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: true }),
+          });
+          if (!r.ok) return false;
+          this.caps = { ...this.caps, [key]: true };
+          return true;
+        } catch (e) { return false; }
+      },
+      /** Abre a tela; se o recurso estiver desligado e o usuário puder, ativa antes de ir. */
+      async openLink(l) {
+        if (this.linkLocked(l)) {
+          if (!this.canEditCaps) {
+            this.ai.error = 'Este recurso está desativado. Peça a um administrador para ativá-lo.';
+            return;
+          }
+          const ok = await this.enableCap(l.capability);
+          if (!ok) { this.ai.error = 'Não foi possível ativar o recurso. Fale com um administrador.'; return; }
+        }
+        window.location.href = l.route;
+      },
+      /** Liga todos os recursos desativados (o usuário pediu: "ativar todos"). */
+      async enableAllCaps() {
+        const keys = Object.keys(this.caps).filter((k) => this.caps[k] === false);
+        if (!keys.length) return;
+        const ok = await this.askConfirm({ title: 'Ativar recursos', message: 'Ativar todos os ' + keys.length + ' recursos desativados deste sistema?', okLabel: 'Ativar todos' });
+        if (!ok) return;
+        for (const k of keys) { await this.enableCap(k); }
+      },
+
+      /** Confirmação em modal (Promise). Usar no lugar de window.confirm/alert. */
+      askConfirm(opts) {
+        return new Promise((resolve) => {
+          this.confirm = {
+            open: true,
+            title: opts.title || '',
+            message: opts.message || '',
+            okLabel: opts.okLabel || 'Confirmar',
+            danger: !!opts.danger,
+            resolve,
+          };
+        });
+      },
+      confirmResolve(ok) {
+        const r = this.confirm && this.confirm.resolve;
+        this.confirm = { open: false, title: '', message: '', okLabel: 'Confirmar', danger: false, resolve: null };
+        if (r) r(ok);
+      },
+
       async api(path, opts) {
         const r = await fetch('/api/support' + path, opts ? {
           method: opts.method || 'POST',
@@ -308,6 +404,11 @@
           localStorage.setItem('kivo:support-open', this.panelOpen ? '1' : '0');
           localStorage.setItem('kivo:support-view', this.view);
         } catch (e) { /* localStorage indisponível, segue */ }
+      },
+
+      /** Na home, mostra só os 3 chamados mais recentes; "ver histórico" revela todos. */
+      get visibleTickets() {
+        return this.showAllTickets ? this.tickets : this.tickets.slice(0, 3);
       },
 
       async init() {
@@ -384,6 +485,7 @@
         this.view = 'ia';
         this.persist();
         await this.loadIaStatus();
+        await this.loadCaps();
         if (!this.ai.messages.length) await this.restoreAi();
         this.$nextTick(() => this.scrollAi());
         this.$nextTick(() => this.$refs.aiDraft && this.$refs.aiDraft.focus());
@@ -562,7 +664,13 @@
         this.sending = false;
       },
       async closeTicket() {
-        if (!confirm('Encerrar este atendimento? Você pode abrir um novo chamado quando quiser.')) return;
+        const ok = await this.askConfirm({
+          title: 'Encerrar atendimento',
+          message: 'Encerrar este atendimento? Você pode abrir um novo chamado quando quiser.',
+          okLabel: 'Encerrar',
+          danger: true,
+        });
+        if (!ok) return;
         try {
           await this.api('/tickets/' + this.ticket.id + '/close', { body: {} });
           this.stopPolling();

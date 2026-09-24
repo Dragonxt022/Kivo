@@ -20,6 +20,8 @@ import path from 'node:path';
 export interface KnowledgeLink {
   label: string;
   route: string;
+  /** Recurso (capability) que a tela exige; se estiver desligado, o chat oferece ativar. */
+  capability?: string;
 }
 
 interface IndexedChunk {
@@ -65,23 +67,23 @@ const WIKI_ROUTES: Record<string, KnowledgeLink> = {
   fornecedores: { label: 'Abrir Fornecedores', route: '/app/commercial/fornecedores' },
   produtos: { label: 'Abrir Produtos', route: '/app/commercial/produtos' },
   categorias: { label: 'Abrir Categorias', route: '/app/commercial/categorias' },
-  complementos: { label: 'Abrir Produtos', route: '/app/commercial/produtos' },
+  complementos: { label: 'Abrir Produtos', route: '/app/commercial/produtos', capability: 'commercial.complementos' },
   estoque: { label: 'Abrir Estoque', route: '/app/commercial/lotes' },
   'listas-preco': { label: 'Abrir Listas de Preço', route: '/app/commercial/listas-de-preco' },
   compras: { label: 'Abrir Compras', route: '/app/commercial/compras' },
   'fiscal-notas': { label: 'Abrir Notas Fiscais', route: '/app/fiscal/notas' },
   'fiscal-config': { label: 'Abrir Configuração Fiscal', route: '/app/fiscal/configuracao' },
-  'nfe-importar': { label: 'Abrir Importar NF-e', route: '/app/nfe/importar' },
-  etiquetas: { label: 'Abrir Etiquetas', route: '/app/labels' },
-  'etiquetas-historico': { label: 'Abrir Histórico de Etiquetas', route: '/app/labels/historico' },
+  'nfe-importar': { label: 'Abrir Importar NF-e', route: '/app/nfe/importar', capability: 'nfe.import' },
+  etiquetas: { label: 'Abrir Etiquetas', route: '/app/labels', capability: 'labels.generator' },
+  'etiquetas-historico': { label: 'Abrir Histórico de Etiquetas', route: '/app/labels/historico', capability: 'labels.generator' },
   pdv: { label: 'Abrir PDV', route: '/app/store/pdv' },
   vendas: { label: 'Abrir Vendas', route: '/app/store/vendas' },
   orcamentos: { label: 'Abrir Orçamentos', route: '/app/store/orcamentos' },
-  'mesas-comandas': { label: 'Abrir Mesas', route: '/app/comandas/mesas' },
-  'modo-garcom': { label: 'Abrir Mesas', route: '/app/comandas/mesas' },
-  'cozinha-kds': { label: 'Abrir Cozinha', route: '/app/foodservice/cozinha' },
+  'mesas-comandas': { label: 'Abrir Mesas', route: '/app/comandas/mesas', capability: 'comandas.mesas' },
+  'modo-garcom': { label: 'Abrir Mesas', route: '/app/comandas/mesas', capability: 'comandas.mesas' },
+  'cozinha-kds': { label: 'Abrir Cozinha', route: '/app/foodservice/cozinha', capability: 'foodservice.cozinha' },
   'roteamento-cozinha': { label: 'Abrir Roteamento', route: '/app/foodservice/roteamento' },
-  'cardapio-online': { label: 'Abrir Cardápio Online', route: '/admin/configuracoes#cardapio' },
+  'cardapio-online': { label: 'Abrir Cardápio Online', route: '/admin/configuracoes#cardapio', capability: 'commercial.cardapio_online' },
   usuarios: { label: 'Abrir Usuários', route: '/admin/usuarios' },
   notificacoes: { label: 'Abrir Central de Mensagens', route: '/notificacoes' },
   configuracoes: { label: 'Abrir Configurações', route: '/admin/configuracoes' },
@@ -97,11 +99,11 @@ const DOC_ROUTES: Record<string, KnowledgeLink> = {
   vendas: { label: 'Abrir PDV', route: '/app/store/pdv' },
   financeiro: { label: 'Abrir Financeiro', route: '/app/finance/caixa' },
   fiscal: { label: 'Abrir Fiscal', route: '/app/fiscal/notas' },
-  comandas: { label: 'Abrir Mesas', route: '/app/comandas/mesas' },
-  foodservice: { label: 'Abrir Cozinha', route: '/app/foodservice/cozinha' },
-  etiquetas: { label: 'Abrir Etiquetas', route: '/app/labels' },
+  comandas: { label: 'Abrir Mesas', route: '/app/comandas/mesas', capability: 'comandas.mesas' },
+  foodservice: { label: 'Abrir Cozinha', route: '/app/foodservice/cozinha', capability: 'foodservice.cozinha' },
+  etiquetas: { label: 'Abrir Etiquetas', route: '/app/labels', capability: 'labels.generator' },
   dre: { label: 'Abrir DRE', route: '/app/dre/relatorio' },
-  nfe: { label: 'Abrir Importar NF-e', route: '/app/nfe/importar' },
+  nfe: { label: 'Abrir Importar NF-e', route: '/app/nfe/importar', capability: 'nfe.import' },
   painel: { label: 'Ir para o Painel', route: '/' },
 };
 

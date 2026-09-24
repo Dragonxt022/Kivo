@@ -85,7 +85,31 @@ A conversa tem **memória**: fica salva no chamado e é recarregada ao reabrir o
 retoma o fio do raciocínio). Cada mensagem mostra a hora (ou a data, quando é de outro dia).
 As respostas vêm em **Markdown** (negrito, listas, código) e, quando o trecho da documentação
 tem uma tela correspondente, aparece um botão que leva direto à página (ex.: "Abrir Importar
-NF-e"). O chamado é **encerrado sozinho após 2h sem mensagem** do cliente.
+NF-e"). Se essa tela depende de um **recurso desativado** (capability), o botão vem bloqueado
+e, ao clicar, o chat **ativa o recurso e abre a tela** — desde que o usuário tenha permissão
+para gerenciar recursos; sem permissão, ele avisa para falar com o administrador. O rodapé
+ainda oferece **"Ativar recursos desativados"** para ligar todos de uma vez. O chamado é
+**encerrado sozinho após 2h sem mensagem** do cliente.
+
+## Ferramentas pagas (por uso, cota diária)
+
+O suporte é grátis e ilimitado. Já as **ferramentas** consomem créditos **por uso** e têm
+**cota diária que reinicia à meia-noite** no fuso do cliente:
+
+- `ai_tools` — padrão global de cada ferramenta: `cost` (créditos/uso) e `daily_credits` (0 = ilimitado).
+- `company_ai_quotas` — consumo do dia por empresa/ferramenta + `daily_limit` opcional (override).
+- O consumo zera sozinho quando muda o dia (`period_day` = AAAA-MM-DD no fuso do cliente) — sem cron.
+- A reserva é **atômica** (um `UPDATE` condicional): duas chamadas ao mesmo tempo não furam o
+  teto. Se a IA falhar depois de reservar, o crédito é **devolvido** (`refund`).
+- Ao esgotar, o cloud responde **402** com `code: ai_quota_exhausted`, a mensagem amigável e
+  `resetAt` (o próximo dia).
+
+Piloto: **Descrição de produto** (`POST /api/ai/tools/product-description`) — gera a descrição
+a partir do nome (+ categoria), cobrando 1 uso. No app, o botão **Gerar com IA** fica no
+formulário do produto, mostra os créditos do dia e, ao esgotar, avisa que renovam à meia-noite.
+
+No painel (`/admin/ai`): card **Ferramentas de IA** para editar custo/cota/ativo, e uma coluna
+por empresa para o limite diário específico (vazio = padrão da ferramenta).
 
 ## Uso e créditos
 

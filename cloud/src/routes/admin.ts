@@ -25,6 +25,7 @@ import { CATALOG_STORAGE_DIR, CATALOG_EXT_BY_FORMAT, CATALOG_MIME_BY_FORMAT } fr
 import { THEMES_STORAGE_DIR } from './themes';
 import { listDevDocs, renderDevDoc } from '../devdocs';
 import { currentPeriod } from '../aiUsage';
+import { listTools, setCompanyLimit, updateTool } from '../aiQuota';
 import { loadAiConfig, loadAiSettingsForView } from '../aiConfig';
 import { chat as aiProviderChat, defaultModelFor, isProviderId, keyFor, listOllamaModels, PROVIDER_LABELS } from '../aiProviders';
 import {
@@ -403,6 +404,17 @@ router.get('/ai', requireAdminAuth, async (_req: AdminRequest, res) => {
     [period],
   );
 
+  // Ferramentas pagas (cota diária) + override por empresa.
+  const tools = await listTools();
+  const toolFeature = tools[0]?.id ?? 'product_description';
+  const [quotaRows] = await pool.query(
+    'SELECT company_uuid, daily_limit FROM company_ai_quotas WHERE feature = ?',
+    [toolFeature],
+  );
+  const quotaByCompany = Object.fromEntries(
+    (quotaRows as { company_uuid: string; daily_limit: number | null }[]).map((q) => [q.company_uuid, q.daily_limit]),
+  );
+
   res.render('ai-usage', {
     adminUsername: _req.adminUsername,
     period,
@@ -410,11 +422,37 @@ router.get('/ai', requireAdminAuth, async (_req: AdminRequest, res) => {
     bars,
     pie,
     pieTotal,
+    tools,
+    toolFeature,
     companies: (companyListRows as Record<string, unknown>[]).map((c) => ({
       uuid: c.company_uuid, name: c.name, plan: c.plan,
       limit: Number(c.ai_token_limit), used: Number(c.used_period),
+      quota: quotaByCompany[String(c.company_uuid)] ?? null,
     })),
+    ok: typeof _req.query.ok === 'string' ? _req.query.ok : null,
   });
+});
+
+/** Salva o custo/cota diária/ativo de uma ferramenta de IA paga. */
+router.post('/ai/tools/:id', requireAdminAuth, async (req, res) => {
+  const id = String(req.params.id);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  await updateTool(id, {
+    cost: b.cost !== undefined ? Number(b.cost) : undefined,
+    dailyCredits: b.dailyCredits !== undefined ? Number(b.dailyCredits) : undefined,
+    enabled: b.enabled === '1' || b.enabled === true,
+  });
+  res.redirect('/admin/ai?ok=' + encodeURIComponent('Ferramenta salva.'));
+});
+
+/** Define o limite diário específico de uma empresa (vazio = usa o padrão da ferramenta). */
+router.post('/ai/:uuid/quota/:feature', requireAdminAuth, async (req, res) => {
+  const uuid = String(req.params.uuid);
+  const feature = String(req.params.feature);
+  const raw = String((req.body as { dailyLimit?: unknown })?.dailyLimit ?? '').trim();
+  const dailyLimit = raw === '' ? null : Math.max(0, Math.floor(Number(raw.replace(',', '.')) || 0));
+  await setCompanyLimit(uuid, feature, dailyLimit);
+  res.redirect('/admin/ai?ok=' + encodeURIComponent('Cota da empresa atualizada.'));
 });
 
 router.post('/ai/:uuid/limit', requireAdminAuth, async (req: AdminRequest, res) => {

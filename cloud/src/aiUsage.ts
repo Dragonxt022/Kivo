@@ -44,14 +44,16 @@ export async function recordUsage(
   model: string,
   promptTokens: number,
   completionTokens: number,
+  feature = 'support',
+  credits = 0,
 ): Promise<void> {
   const total = Math.max(0, Math.round(promptTokens)) + Math.max(0, Math.round(completionTokens));
   const conn = await getPool().getConnection();
   try {
     await conn.beginTransaction();
     await conn.query(
-      'INSERT INTO ai_usage (company_uuid, period, model, prompt_tokens, completion_tokens, total_tokens) VALUES (?, ?, ?, ?, ?, ?)',
-      [companyUuid, period, model, Math.round(promptTokens), Math.round(completionTokens), total],
+      'INSERT INTO ai_usage (company_uuid, period, model, prompt_tokens, completion_tokens, total_tokens, feature, credits) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [companyUuid, period, model, Math.round(promptTokens), Math.round(completionTokens), total, feature, Math.max(0, Math.round(credits))],
     );
     await conn.query(
       'UPDATE companies SET ai_tokens_used = ai_tokens_used + ?, ai_period = ? WHERE company_uuid = ?',

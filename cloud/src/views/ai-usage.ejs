@@ -73,6 +73,12 @@
     .ai-limit-form { display: flex; gap: 6px; align-items: center; margin: 0; }
     .ai-limit-form input { width: 110px; margin: 0; }
     .ai-limit-form .btn { padding: 7px 12px; }
+    .ai-tool-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border-light); }
+    .ai-tool-form:first-of-type { border-top: 0; }
+    .ai-tool-name { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
+    .ai-tool-form input[type="number"] { width: 100px; margin: 0; }
+    .ai-tool-check { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .82rem; }
+    .ai-tool-check input { width: auto; }
     .ai-table-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid var(--border-light); }
     .ai-table-scroll { overflow-x: auto; }
 
@@ -121,6 +127,8 @@
           </div>
           <span class="badge plan" style="font-size:.85rem;padding:6px 14px;">Período <%= period %></span>
         </div>
+
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
 
         <div class="ai-kpis">
           <div class="ai-kpi">
@@ -231,6 +239,27 @@
           </div>
         </div>
 
+        <div class="card ai-card" style="margin-top:20px">
+          <h2 style="margin:0 0 4px">Ferramentas de IA (por uso)</h2>
+          <p class="sub" style="margin:0 0 14px;font-size:.8rem;color:var(--muted)">
+            Cada uso cobra créditos. A cota reinicia todo dia à meia-noite (fuso do cliente). 0 = ilimitado.
+          </p>
+          <% tools.forEach(function (t) { %>
+            <form class="ai-tool-form" method="post" action="/admin/ai/tools/<%= t.id %>">
+              <div class="ai-tool-name">
+                <strong><%= t.label %></strong>
+                <span class="muted" style="font-size:.78rem"><%= t.description || '' %></span>
+              </div>
+              <label>Custo (créditos/uso)</label>
+              <input type="number" name="cost" min="1" step="1" value="<%= t.cost %>">
+              <label>Cota diária</label>
+              <input type="number" name="dailyCredits" min="0" step="1" value="<%= t.dailyCredits %>">
+              <label class="ai-tool-check"><input type="checkbox" name="enabled" value="1" <%= t.enabled ? 'checked' : '' %>> Ativa</label>
+              <button class="btn secondary" type="submit">Salvar</button>
+            </form>
+          <% }); %>
+        </div>
+
         <div class="card table-card ai-card" style="margin-top:20px">
           <div class="ai-table-toolbar">
             <div>
@@ -254,11 +283,12 @@
                   <th>Usado no mês</th>
                   <th>Teto (tokens/mês)</th>
                   <th>Restante</th>
+                  <th>Créditos/dia (<%= toolFeature === 'product_description' ? 'descrição' : toolFeature %>)</th>
                 </tr>
               </thead>
               <tbody id="ai-credit-body">
                 <% if (!companies.length) { %>
-                  <tr><td colspan="5"><p class="ai-empty">Nenhuma empresa cadastrada.</p></td></tr>
+                  <tr><td colspan="6"><p class="ai-empty">Nenhuma empresa cadastrada.</p></td></tr>
                 <% } %>
                 <% companies.forEach(function (c) {
                      var pct = c.limit > 0 ? Math.min(100, Math.round((c.used / c.limit) * 100)) : 0;
@@ -287,6 +317,12 @@
                       <% } else { %>
                         <span class="muted">ilimitado</span>
                       <% } %>
+                    </td>
+                    <td>
+                      <form class="ai-limit-form" method="post" action="/admin/ai/<%= c.uuid %>/quota/<%= toolFeature %>">
+                        <input type="number" name="dailyLimit" min="0" step="1" value="<%= c.quota == null ? '' : c.quota %>" placeholder="padrão" title="Vazio = usa o padrão da ferramenta">
+                        <button class="btn secondary" type="submit">Salvar</button>
+                      </form>
                     </td>
                   </tr>
                 <% }); %>
