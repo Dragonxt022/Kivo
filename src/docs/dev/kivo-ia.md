@@ -116,8 +116,8 @@ Ferramentas hoje:
   usando o período selecionado. Sem vendas no período, não cobra crédito.
 
 No painel (`/admin/ai`): card **Ferramentas de IA** para editar custo/cota/ativo, e a coluna
-**Uso hoje (ferramentas)** por empresa — barra de consumo, "restam hoje" e o limite diário
-específico (vazio = padrão da ferramenta) para cada ferramenta.
+**Ferramentas de IA** por empresa — um ícone abre uma modal com o uso do dia (barra, "restam
+hoje") e o ajuste do limite diário de cada ferramenta (vazio = padrão da ferramenta).
 
 ## Uso e créditos
 

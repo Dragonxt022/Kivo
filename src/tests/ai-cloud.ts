@@ -186,10 +186,10 @@ async function main(): Promise<void> {
     const insOverBody = (await insOver.json().catch(() => ({}))) as { code?: string };
     check('insights esgotado → 402 ai_quota_exhausted', insOver.status === 402 && insOverBody.code === 'ai_quota_exhausted', `${insOver.status} ${JSON.stringify(insOverBody)}`);
 
-    // Painel mostra o uso por ferramenta por empresa.
+    // Painel mostra a coluna com o ícone e o modal de uso por ferramenta.
     const dash2 = await fetch(`${cloudUrl}/admin/ai`, { headers: { cookie: admin! } });
     const dash2Html = await dash2.text();
-    check('painel mostra uso por ferramenta', dash2.status === 200 && dash2Html.includes('Uso hoje (ferramentas)') && dash2Html.includes('Insights de vendas'), String(dash2.status));
+    check('painel mostra o ícone de uso por ferramenta', dash2.status === 200 && dash2Html.includes('Ferramentas de IA') && dash2Html.includes('ai-tools-btn') && dash2Html.includes('ai-tools-modal') && dash2Html.includes('Insights de vendas'), String(dash2.status));
   } finally {
     cloudProc.kill();
     mock.server.close();
