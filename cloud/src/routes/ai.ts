@@ -280,4 +280,137 @@ router.post('/tools/product-description', requireCompanyAuth, async (req: Authed
   }
 });
 
+// ─── Insights de vendas (ferramenta paga) ───────────────────────────────────────────────
+
+const brl = (cents: number): string =>
+  (Number(cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+interface SalesInsightsBody {
+  from?: string;
+  to?: string;
+  salesCount?: number;
+  totalCents?: number;
+  ticketCents?: number;
+  topProducts?: { name?: unknown; qty?: unknown; totalCents?: unknown }[];
+  byPayment?: { method?: unknown; totalCents?: unknown }[];
+  daily?: { day?: unknown; totalCents?: unknown }[];
+  previous?: { totalCents?: unknown; salesCount?: unknown };
+}
+
+/** Monta o resumo textual das vendas que vai no prompt (limitado, para não estourar o contexto). */
+function salesInsightsPrompt(b: SalesInsightsBody): { period: string; summary: string } {
+  const from = String(b.from ?? '').slice(0, 10);
+  const to = String(b.to ?? '').slice(0, 10);
+  const salesCount = Math.max(0, Math.floor(Number(b.salesCount) || 0));
+  const totalCents = Math.max(0, Math.floor(Number(b.totalCents) || 0));
+  const ticketCents = Math.max(0, Math.floor(Number(b.ticketCents) || (salesCount ? Math.round(totalCents / salesCount) : 0)));
+
+  const lines: string[] = [
+    `Período: ${from} a ${to}`,
+    `Vendas: ${salesCount}`,
+    `Faturamento: ${brl(totalCents)}`,
+    `Ticket médio: ${brl(ticketCents)}`,
+  ];
+
+  const prevTotal = Math.max(0, Math.floor(Number(b.previous?.totalCents) || 0));
+  if (prevTotal > 0) {
+    const delta = Math.round(((totalCents - prevTotal) / prevTotal) * 100);
+    lines.push(`Período anterior: ${brl(prevTotal)} (variação ${delta >= 0 ? '+' : ''}${delta}%)`);
+  }
+
+  const products = Array.isArray(b.topProducts) ? b.topProducts.slice(0, 15) : [];
+  if (products.length) {
+    lines.push('', 'Produtos mais vendidos:');
+    products.forEach((p, i) => {
+      const name = String(p?.name ?? '').slice(0, 80) || 'Item';
+      const qty = String(Number(p?.qty) || 0).replace('.', ',');
+      const tot = Math.max(0, Math.floor(Number(p?.totalCents) || 0));
+      lines.push(`${i + 1}. ${name} — ${qty} un — ${brl(tot)}`);
+    });
+  }
+
+  const payments = Array.isArray(b.byPayment) ? b.byPayment.slice(0, 10) : [];
+  if (payments.length) {
+    lines.push('', 'Formas de pagamento:');
+    for (const p of payments) {
+      const method = String(p?.method ?? '').slice(0, 40) || 'Outros';
+      const tot = Math.max(0, Math.floor(Number(p?.totalCents) || 0));
+      lines.push(`- ${method}: ${brl(tot)}`);
+    }
+  }
+
+  const daily = Array.isArray(b.daily) ? b.daily.slice(0, 62) : [];
+  if (daily.length) {
+    lines.push('', 'Faturamento por dia:');
+    for (const d of daily) {
+      const day = String(d?.day ?? '').slice(0, 10);
+      if (day) lines.push(`${day}: ${brl(Math.max(0, Math.floor(Number(d?.totalCents) || 0)))}`);
+    }
+  }
+
+  return { period: `${from} a ${to}`, summary: lines.join('\n') };
+}
+
+/** Gera insights das vendas do período. Cobra 1 uso da cota diária (devolvido se a IA falhar). */
+router.post('/tools/sales-insights', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  if (limit(req.ip ?? 'unknown')) {
+    res.status(429).json({ error: 'Muitas requisições de IA. Aguarde um instante.' });
+    return;
+  }
+  const companyUuid = req.companyUuid!;
+  const tz = reqTimezone(req);
+  const body = (req.body ?? {}) as SalesInsightsBody;
+
+  // Sem vendas no período não há o que analisar — não gasta crédito.
+  if (Math.max(0, Math.floor(Number(body.salesCount) || 0)) === 0) {
+    const status = await quotaStatus(companyUuid, 'sales_insights', tz);
+    res.json({ ok: true, insight: 'Não há vendas no período selecionado para analisar. Faça vendas ou escolha outro período.', status });
+    return;
+  }
+
+  const cfg = await loadAiConfig();
+  const r = await reserve(companyUuid, 'sales_insights', tz);
+  if (!r.ok) {
+    const label = r.tool?.label ?? 'Insights de vendas';
+    res.status(402).json({
+      error: `Seus créditos de "${label}" acabaram hoje. Eles renovam à meia-noite.`,
+      code: 'ai_quota_exhausted',
+      status: r.status,
+    });
+    return;
+  }
+
+  const { period, summary } = salesInsightsPrompt(body);
+  const prompt =
+    `Você é um analista de negócios de um comércio/restaurante. Analise os dados de venda do período ${period} abaixo `
+    + 'e responda em português do Brasil, em tópicos curtos e acionáveis (no máximo ~8 linhas). '
+    + 'Destaque o que está indo bem, o que merece atenção e 2 a 3 sugestões práticas. '
+    + `Use APENAS os números fornecidos; não invente dados.\n\n${summary}`;
+
+  try {
+    const model = defaultModelFor(cfg, cfg.defaultProvider);
+    const result = await chat(cfg, {
+      provider: cfg.defaultProvider,
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4,
+    });
+    await recordUsage(
+      companyUuid,
+      currentPeriod(),
+      result.model,
+      result.promptTokens,
+      result.completionTokens,
+      'sales_insights',
+      r.status.cost,
+    );
+    const after = await quotaStatus(companyUuid, 'sales_insights', tz);
+    res.json({ ok: true, insight: result.content.trim(), status: after });
+  } catch (e) {
+    await refund(companyUuid, 'sales_insights', tz);
+    const raw = e instanceof Error ? e.message : String(e);
+    res.status(502).json(friendlyAiError(raw));
+  }
+});
+
 export default router;

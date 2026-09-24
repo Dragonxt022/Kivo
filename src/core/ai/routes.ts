@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { aiStatus, aiChat, aiTools, aiProductDescription, type AiChatMessage } from './service';
+import { aiStatus, aiChat, aiTools, aiProductDescription, aiSalesInsights, type AiChatMessage } from './service';
+import { buildSalesInsightsInput } from './salesSummary';
 import { listCapabilities } from '../capabilities/service';
 
 /** Rotas da KIVO IA (status e chat de suporte). Montadas em /api/ai. */
@@ -60,6 +61,17 @@ router.post('/product-description', async (req, res) => {
     return;
   }
   const result = await aiProductDescription({ name, category: b.category, keywords: b.keywords });
+  if (!result.ok) {
+    res.status(result.code === 'ai_quota_exhausted' ? 402 : 400).json(result);
+    return;
+  }
+  res.json(result);
+});
+
+/** Ferramenta paga: insights das vendas do período (consome crédito da cota diária). */
+router.post('/sales-insights', async (req, res) => {
+  const b = (req.body ?? {}) as { from?: string; to?: string };
+  const result = await aiSalesInsights(buildSalesInsightsInput(b.from, b.to));
   if (!result.ok) {
     res.status(result.code === 'ai_quota_exhausted' ? 402 : 400).json(result);
     return;

@@ -104,12 +104,20 @@ O suporte é grátis e ilimitado. Já as **ferramentas** consomem créditos **po
 - Ao esgotar, o cloud responde **402** com `code: ai_quota_exhausted`, a mensagem amigável e
   `resetAt` (o próximo dia).
 
-Piloto: **Descrição de produto** (`POST /api/ai/tools/product-description`) — gera a descrição
-a partir do nome (+ categoria), cobrando 1 uso. No app, o botão **Gerar com IA** fica no
-formulário do produto, mostra os créditos do dia e, ao esgotar, avisa que renovam à meia-noite.
+Ferramentas hoje:
 
-No painel (`/admin/ai`): card **Ferramentas de IA** para editar custo/cota/ativo, e uma coluna
-por empresa para o limite diário específico (vazio = padrão da ferramenta).
+- **Descrição de produto** (`POST /api/ai/tools/product-description`) — gera a descrição a partir
+  do nome (+ categoria), cobrando 1 uso. No app, o botão **Gerar com IA** fica no formulário do
+  produto.
+- **Insights de vendas** (`POST /api/ai/tools/sales-insights`) — recebe o resumo das vendas do
+  período (totais, ticket médio, mais vendidos, formas de pagamento, faturamento por dia e o
+  período anterior) montado **localmente** (`src/core/ai/salesSummary.ts`) e devolve uma análise
+  curta com sugestões. No app, o botão **Analisar com IA** fica no topo do Painel (dashboard),
+  usando o período selecionado. Sem vendas no período, não cobra crédito.
+
+No painel (`/admin/ai`): card **Ferramentas de IA** para editar custo/cota/ativo, e a coluna
+**Uso hoje (ferramentas)** por empresa — barra de consumo, "restam hoje" e o limite diário
+específico (vazio = padrão da ferramenta) para cada ferramenta.
 
 ## Uso e créditos
 
@@ -130,13 +138,20 @@ tabela de créditos com o teto editável (tokens/mês).
 **Local** (app, autenticado):
 
 - `GET /api/ai/status` — status do assistente e consumo da empresa.
+- `GET /api/ai/capabilities` — recursos da empresa (para o chat oferecer ativar).
 - `POST /api/ai/chat` — recebe `prompt` (ou `messages[]`) e devolve a resposta.
+- `GET /api/ai/tools` — ferramentas pagas + cota do dia.
+- `POST /api/ai/product-description` — descrição de produto (consome crédito).
+- `POST /api/ai/sales-insights` — insights de vendas do período (consome crédito).
 
 **Cloud** (`/api/ai`, credenciais de licença):
 
 - `GET /api/ai/status` — lista provedores configurados/modelos (Ollama via `/api/tags`) e créditos.
 - `POST /api/ai/chat` — injeta o conhecimento e chama o provedor (não-streaming). Rate limit por
   IP (40/min).
+- `GET /api/ai/tools` — ferramentas + situação da cota da empresa.
+- `POST /api/ai/tools/product-description` — reserva 1 uso, gera a descrição e devolve a cota.
+- `POST /api/ai/tools/sales-insights` — reserva 1 uso, monta o prompt com o resumo e devolve a análise.
 
 **Painel admin** (sessão de admin): `GET/POST /admin/settings` (bloco KIVO IA) e
 `POST /admin/settings/ai/test`.
@@ -172,10 +187,12 @@ Os `*_BASE_URL` permitem apontar para proxies/gateways compatíveis.
 - `cloud/src/aiKnowledge.ts` — índice da documentação + wiki e busca por trechos.
 - `cloud/src/routes/ai.ts` — status/chat com injeção de conhecimento e créditos.
 - `cloud/src/aiUsage.ts` — período, teto e registro de tokens.
+- `cloud/src/aiQuota.ts` — cota diária das ferramentas (reserva atômica, refund, override por empresa).
 - `cloud/src/routes/admin.ts` + `cloud/src/views/admin-settings.ejs` — bloco KIVO IA do painel.
 - `cloud/src/routes/support.ts` — tickets, incluindo mensagens com `sender = 'ia'`.
 - `cloud/src/views/ai-usage.ejs` — painel de uso.
 - `src/core/ai/service.ts` — preferências locais e chamada ao Kivo Web.
-- `src/core/ai/routes.ts` — rotas locais (status, chat).
+- `src/core/ai/salesSummary.ts` — monta o resumo de vendas local para os insights.
+- `src/core/ai/routes.ts` — rotas locais (status, chat, ferramentas).
 - `src/views/settings.ejs` — aba KIVO IA (preferências do lojista).
 - `src/views/home.ejs` — widget de suporte com o chat da KIVO IA.

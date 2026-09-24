@@ -73,6 +73,11 @@
     .ai-limit-form { display: flex; gap: 6px; align-items: center; margin: 0; }
     .ai-limit-form input { width: 110px; margin: 0; }
     .ai-limit-form .btn { padding: 7px 12px; }
+    .ai-tool-usage { margin: 0 0 .7rem; }
+    .ai-tool-usage:last-child { margin-bottom: 0; }
+    .ai-tool-usage-head { display: flex; justify-content: space-between; gap: 8px; font-size: .82rem; margin-bottom: 3px; }
+    .ai-tool-usage .ai-progress { width: 100%; }
+    .ai-tool-usage .ai-credit-uuid { margin: 2px 0 4px; }
     .ai-tool-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border-light); }
     .ai-tool-form:first-of-type { border-top: 0; }
     .ai-tool-name { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
@@ -283,13 +288,12 @@
                   <th>Usado no mês</th>
                   <th>Teto (tokens/mês)</th>
                   <th>Restante</th>
-                  <th>Usado hoje (descrição)</th>
-                  <th>Créditos/dia (limite)</th>
+                  <th>Uso hoje (ferramentas)</th>
                 </tr>
               </thead>
               <tbody id="ai-credit-body">
                 <% if (!companies.length) { %>
-                  <tr><td colspan="7"><p class="ai-empty">Nenhuma empresa cadastrada.</p></td></tr>
+                  <tr><td colspan="6"><p class="ai-empty">Nenhuma empresa cadastrada.</p></td></tr>
                 <% } %>
                 <% companies.forEach(function (c) {
                      var pct = c.limit > 0 ? Math.min(100, Math.round((c.used / c.limit) * 100)) : 0;
@@ -320,21 +324,26 @@
                       <% } %>
                     </td>
                     <td>
-                      <% if (c.quotaLimit > 0) {
-                           var qpct = Math.min(100, Math.round((c.quotaUsed / c.quotaLimit) * 100));
-                           var qcls = qpct >= 100 ? 'over' : qpct >= 80 ? 'warn' : ''; %>
-                        <div><strong><%= c.quotaUsed %></strong> <span class="muted" style="font-size:.78rem">de <%= c.quotaLimit %></span></div>
-                        <div class="ai-progress <%= qcls %>" title="<%= qpct %>% da cota do dia"><span style="width:<%= qpct %>%"></span></div>
-                        <div class="ai-credit-uuid">restam <%= Math.max(0, c.quotaRemaining) %></div>
-                      <% } else { %>
-                        <div><strong><%= c.quotaUsed %></strong> <span class="muted" style="font-size:.78rem">(ilimitado)</span></div>
-                      <% } %>
-                    </td>
-                    <td>
-                      <form class="ai-limit-form" method="post" action="/admin/ai/<%= c.uuid %>/quota/<%= toolFeature %>">
-                        <input type="number" name="dailyLimit" min="0" step="1" value="<%= c.quotaOverride == null ? '' : c.quotaOverride %>" placeholder="padrão" title="Vazio = usa o padrão da ferramenta">
-                        <button class="btn secondary" type="submit">Salvar</button>
-                      </form>
+                      <% if (!c.tools.length) { %>
+                        <span class="muted">—</span>
+                      <% } else { c.tools.forEach(function (t) {
+                           var tpct = t.limit > 0 ? Math.min(100, Math.round((t.used / t.limit) * 100)) : 0;
+                           var tcls = t.limit > 0 ? (tpct >= 100 ? 'over' : tpct >= 80 ? 'warn' : '') : ''; %>
+                        <div class="ai-tool-usage">
+                          <div class="ai-tool-usage-head">
+                            <span><%= t.label %><% if (!t.enabled) { %> <span class="muted" style="font-size:.72rem">(off)</span><% } %></span>
+                            <span class="muted" style="font-size:.72rem"><%= t.used %><% if (t.limit > 0) { %>/<%= t.limit %><% } else { %> · ilimitado<% } %></span>
+                          </div>
+                          <% if (t.limit > 0) { %>
+                            <div class="ai-progress <%= tcls %>" title="<%= tpct %>% da cota do dia"><span style="width:<%= tpct %>%"></span></div>
+                            <div class="ai-credit-uuid">restam <%= Math.max(0, t.remaining) %> hoje</div>
+                          <% } %>
+                          <form class="ai-limit-form" method="post" action="/admin/ai/<%= c.uuid %>/quota/<%= t.id %>">
+                            <input type="number" name="dailyLimit" min="0" step="1" value="<%= t.override == null ? '' : t.override %>" placeholder="padrão" title="Limite diário só desta empresa (vazio = padrão da ferramenta)">
+                            <button class="btn secondary" type="submit">Salvar</button>
+                          </form>
+                        </div>
+                      <% }); } %>
                     </td>
                   </tr>
                 <% }); %>

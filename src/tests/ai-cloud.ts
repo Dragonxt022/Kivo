@@ -154,6 +154,42 @@ async function main(): Promise<void> {
     const stillOk = await fetch(`${cloudUrl}/api/ai/chat`, { method: 'POST', headers, body: JSON.stringify({ prompt: 'de novo' }) });
     const stillBody = (await stillOk.json().catch(() => ({}))) as { content?: string };
     check('Suporte não é bloqueado por créditos → 200', stillOk.status === 200 && stillBody.content === 'pong', `${stillOk.status}`);
+
+    // ─── Ferramenta paga: Insights de vendas ───
+    const toolsRes = await fetch(`${cloudUrl}/api/ai/tools`, { headers });
+    const toolsBody = (await toolsRes.json()) as { tools?: { id: string }[] };
+    check('lista de ferramentas inclui sales_insights', (toolsBody.tools ?? []).some((t) => t.id === 'sales_insights'), JSON.stringify(toolsBody.tools?.map((t) => t.id)));
+
+    const insightPayload = {
+      from: '2026-09-01', to: '2026-09-23', salesCount: 3, totalCents: 15000, ticketCents: 5000,
+      topProducts: [{ name: 'Pizza', qty: 2, totalCents: 9000 }],
+      byPayment: [{ method: 'Pix', totalCents: 15000 }],
+      daily: [{ day: '2026-09-01', totalCents: 15000 }],
+      previous: { totalCents: 12000, salesCount: 2 },
+    };
+    const ins1 = await fetch(`${cloudUrl}/api/ai/tools/sales-insights`, { method: 'POST', headers, body: JSON.stringify(insightPayload) });
+    const ins1Body = (await ins1.json().catch(() => ({}))) as { insight?: string; status?: { used: number; limit: number } };
+    check('insights → 200 com análise', ins1.status === 200 && ins1Body.insight === 'pong', `${ins1.status} ${JSON.stringify(ins1Body)}`);
+    check('insights consome 1 da cota', ins1Body.status?.used === 1, JSON.stringify(ins1Body.status));
+
+    // Sem vendas no período: não cobra crédito.
+    const insEmpty = await fetch(`${cloudUrl}/api/ai/tools/sales-insights`, { method: 'POST', headers, body: JSON.stringify({ ...insightPayload, salesCount: 0 }) });
+    const insEmptyBody = (await insEmpty.json().catch(() => ({}))) as { status?: { used: number } };
+    check('insights sem vendas não cobra crédito', insEmpty.status === 200 && insEmptyBody.status?.used === 1, JSON.stringify(insEmptyBody.status));
+
+    // Limita a empresa a 1/dia → a próxima chamada estoura (402).
+    await fetch(`${cloudUrl}/admin/ai/${companyUuid}/quota/sales_insights`, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', cookie: admin! },
+      body: new URLSearchParams({ dailyLimit: '1' }).toString(), redirect: 'manual',
+    });
+    const insOver = await fetch(`${cloudUrl}/api/ai/tools/sales-insights`, { method: 'POST', headers, body: JSON.stringify(insightPayload) });
+    const insOverBody = (await insOver.json().catch(() => ({}))) as { code?: string };
+    check('insights esgotado → 402 ai_quota_exhausted', insOver.status === 402 && insOverBody.code === 'ai_quota_exhausted', `${insOver.status} ${JSON.stringify(insOverBody)}`);
+
+    // Painel mostra o uso por ferramenta por empresa.
+    const dash2 = await fetch(`${cloudUrl}/admin/ai`, { headers: { cookie: admin! } });
+    const dash2Html = await dash2.text();
+    check('painel mostra uso por ferramenta', dash2.status === 200 && dash2Html.includes('Uso hoje (ferramentas)') && dash2Html.includes('Insights de vendas'), String(dash2.status));
   } finally {
     cloudProc.kill();
     mock.server.close();
