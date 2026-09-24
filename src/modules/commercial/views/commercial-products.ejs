@@ -215,8 +215,6 @@
                 </label>
                 <textarea x-model="form.description" rows="3" style="resize:vertical;min-height:80px"></textarea>
                 <p class="muted text-xs" x-show="aiDesc.error" x-cloak style="color:var(--danger)" x-text="aiDesc.error"></p>
-                <p class="muted text-xs" x-show="aiDesc.status && !aiDesc.error" x-cloak
-                   x-text="'Créditos de IA hoje: ' + (aiDesc.status.remaining < 0 ? 'ilimitado' : aiDesc.status.remaining + ' de ' + aiDesc.status.limit) + ' — renovam à meia-noite.'"></p>
               </div>
               <div class="pm-field">
                 <label>Tipo de produto</label>

@@ -26,6 +26,7 @@ import { THEMES_STORAGE_DIR } from './themes';
 import { listDevDocs, renderDevDoc } from '../devdocs';
 import { currentPeriod } from '../aiUsage';
 import { listTools, setCompanyLimit, updateTool } from '../aiQuota';
+import { dateInTz } from '../tz';
 import { loadAiConfig, loadAiSettingsForView } from '../aiConfig';
 import { chat as aiProviderChat, defaultModelFor, isProviderId, keyFor, listOllamaModels, PROVIDER_LABELS } from '../aiProviders';
 import {
@@ -404,15 +405,18 @@ router.get('/ai', requireAdminAuth, async (_req: AdminRequest, res) => {
     [period],
   );
 
-  // Ferramentas pagas (cota diária) + override por empresa.
+  // Ferramentas pagas (cota diária) + override/consumo por empresa.
   const tools = await listTools();
   const toolFeature = tools[0]?.id ?? 'product_description';
+  const toolDefault = tools.find((t) => t.id === toolFeature)?.dailyCredits ?? 0;
+  const panelDay = dateInTz('America/Porto_Velho');
   const [quotaRows] = await pool.query(
-    'SELECT company_uuid, daily_limit FROM company_ai_quotas WHERE feature = ?',
+    'SELECT company_uuid, daily_limit, used, period_day FROM company_ai_quotas WHERE feature = ?',
     [toolFeature],
   );
   const quotaByCompany = Object.fromEntries(
-    (quotaRows as { company_uuid: string; daily_limit: number | null }[]).map((q) => [q.company_uuid, q.daily_limit]),
+    (quotaRows as { company_uuid: string; daily_limit: number | null; used: number; period_day: string | null }[])
+      .map((q) => [q.company_uuid, q]),
   );
 
   res.render('ai-usage', {
@@ -424,11 +428,20 @@ router.get('/ai', requireAdminAuth, async (_req: AdminRequest, res) => {
     pieTotal,
     tools,
     toolFeature,
-    companies: (companyListRows as Record<string, unknown>[]).map((c) => ({
-      uuid: c.company_uuid, name: c.name, plan: c.plan,
-      limit: Number(c.ai_token_limit), used: Number(c.used_period),
-      quota: quotaByCompany[String(c.company_uuid)] ?? null,
-    })),
+    panelDay,
+    companies: (companyListRows as Record<string, unknown>[]).map((c) => {
+      const q = quotaByCompany[String(c.company_uuid)];
+      const usedToday = q && String(q.period_day) === panelDay ? Number(q.used) : 0;
+      const quotaLimit = q && q.daily_limit != null ? Number(q.daily_limit) : toolDefault;
+      return {
+        uuid: c.company_uuid, name: c.name, plan: c.plan,
+        limit: Number(c.ai_token_limit), used: Number(c.used_period),
+        quotaOverride: q ? q.daily_limit : null,
+        quotaUsed: usedToday,
+        quotaLimit,
+        quotaRemaining: quotaLimit > 0 ? Math.max(0, quotaLimit - usedToday) : -1,
+      };
+    }),
     ok: typeof _req.query.ok === 'string' ? _req.query.ok : null,
   });
 });
