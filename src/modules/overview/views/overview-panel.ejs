@@ -251,6 +251,26 @@
       <button type="button" class="btn secondary" @click="reloadPeriod()">Aplicar</button>
     </div>
 
+    <!-- ─── Insights de vendas com IA ─── -->
+    <section class="panel" style="margin-top:1.25rem">
+      <div class="section-head">
+        <span class="section-icon"><%- svgIcon('sparkles', 18, 18) %></span>
+        <h2>Insights de vendas com IA</h2>
+        <span class="toolbar-spacer"></span>
+        <span class="muted text-xs" x-show="aiInsight.status && aiInsight.status.limit > 0" x-cloak
+              x-text="aiInsight.status ? ('Hoje: ' + aiInsight.status.used + '/' + aiInsight.status.limit + ' · restam ' + (aiInsight.status.remaining < 0 ? '∞' : aiInsight.status.remaining)) : ''"></span>
+        <button type="button" class="btn small" @click="generateInsights()" :disabled="aiInsight.loading">
+          <%- svgIcon('sparkles', 15, 15) %><span x-text="aiInsight.loading ? 'Analisando…' : (aiInsight.text ? 'Analisar de novo' : 'Analisar com IA')"></span>
+        </button>
+      </div>
+      <p class="hint" x-show="!aiInsight.text && !aiInsight.error" style="margin:.2rem 0 0">
+        A IA lê as vendas do período selecionado e aponta destaques e ações práticas. Cada análise usa 1 crédito.
+      </p>
+      <p class="hint" x-show="aiInsight.error" x-cloak style="color:var(--danger);margin:.2rem 0 0" x-text="aiInsight.error"></p>
+      <div x-show="aiInsight.text" x-cloak x-text="aiInsight.text"
+           style="white-space:pre-wrap;line-height:1.6;margin-top:.7rem;padding:.85rem 1rem;border:1px solid var(--border-light);border-radius:10px;background:var(--bg-subtle)"></div>
+    </section>
+
     <!-- ─── Vendas do período: produtos e formas de pagamento ─── -->
     <div class="ov-cols">
       <section class="panel">
@@ -503,6 +523,7 @@
         cash: { rows: [], totals: { count: 0, entradas: 0, saidas: 0, vendas: 0, vendasCents: 0, differenceCents: 0 } },
         loading: true,
         updatedAt: '',
+        aiInsight: { loading: false, text: '', error: '', status: null },
 
         async init() {
           this.applyPreset('mes');
@@ -582,6 +603,32 @@
         },
         setStockFilter(f) { this.stock.filter = f; this.loadStock(); },
         setTrendPeriod(p) { this.trend.period = p; this.loadTrend(); },
+
+        async generateInsights() {
+          if (this.aiInsight.loading) return;
+          this.aiInsight.loading = true;
+          this.aiInsight.error = '';
+          try {
+            const r = await fetch('/api/ai/sales-insights', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ from: this.period.from, to: this.period.to }),
+            });
+            const d = await r.json().catch(() => ({}));
+            const data = d && d.data !== undefined ? d.data : d;
+            if (!r.ok || data.ok === false) {
+              this.aiInsight.error = data.error || 'Não foi possível gerar os insights agora.';
+              if (data.status) this.aiInsight.status = data.status;
+              return;
+            }
+            this.aiInsight.text = data.insight || '';
+            if (data.status) this.aiInsight.status = data.status;
+          } catch {
+            this.aiInsight.error = 'Não foi possível falar com a IA agora. Tente novamente em instantes.';
+          } finally {
+            this.aiInsight.loading = false;
+          }
+        },
 
         // ─── Derivados ───
         get maxTrend() { return Math.max(1, ...this.trend.buckets.map((b) => b.totalCents)); },

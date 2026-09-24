@@ -180,6 +180,53 @@ export async function aiProductDescription(input: { name: string; category?: str
   }
 }
 
+export type AiSalesInsightsResult =
+  | { ok: true; insight: string; status?: AiToolStatus }
+  | { ok: false; error: string; detail?: string; code?: string };
+
+export interface SalesInsightsInput {
+  from: string;
+  to: string;
+  salesCount: number;
+  totalCents: number;
+  ticketCents: number;
+  topProducts: { name: string; qty: number; totalCents: number }[];
+  byPayment: { method: string; totalCents: number }[];
+  daily: { day: string; totalCents: number }[];
+  previous?: { totalCents: number; salesCount: number };
+}
+
+/**
+ * Ferramenta paga "insights de vendas". O app monta o resumo do período com os dados locais e
+ * manda para o Kivo Web, que injeta no prompt e cobra 1 uso da cota diária. Se a cota acabou, o
+ * cloud devolve 402 (`ai_quota_exhausted`) com a mensagem amigável.
+ */
+export async function aiSalesInsights(input: SalesInsightsInput): Promise<AiSalesInsightsResult> {
+  const base = cloudBaseUrl();
+  const headers = cloudAuthHeaders();
+  if (!base || !headers) return { ok: false, error: 'Kivo Web não configurado (licença ou servidor ausente).' };
+  try {
+    const r = await fetch(`${base}/api/ai/tools/sales-insights`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers, 'X-Kivo-Tz': localTimezone() },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(150000),
+    });
+    const body = (await r.json().catch(() => ({}))) as {
+      insight?: string; status?: AiToolStatus; error?: string; detail?: string; code?: string;
+    };
+    if (!r.ok) {
+      const friendly = friendlyAiError(body.error ?? `Kivo Web respondeu ${r.status}.`);
+      return { ok: false, error: friendly.error, detail: body.detail || friendly.detail, code: body.code };
+    }
+    return { ok: true, insight: body.insight ?? '', status: body.status };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const friendly = friendlyAiError(raw);
+    return { ok: false, error: friendly.error, detail: friendly.detail };
+  }
+}
+
 /**
  * Envia um chat para o Kivo Web, que injeta a documentação do Kivo e chama o provedor. O
  * assistente de suporte está sempre disponível: provedor, instruções e limites são definidos
