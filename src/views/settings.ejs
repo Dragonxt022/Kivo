@@ -371,76 +371,19 @@
       <section class="panel">
         <h2>KIVO IA</h2>
         <p class="hint mt-0">
-          Assistente de IA do Kivo. As requisições saem deste computador para o Kivo Web, que
-          injeta a documentação oficial do Kivo e chama a IA. Os provedores são definidos pelo
-          time do Kivo no painel — não há nada para instalar nem chave para configurar aqui.
+          Assistente de suporte do Kivo, sempre disponível — não precisa ativar nem configurar nada
+          aqui. Provedores, instruções e limites são definidos pelo time do Kivo no painel.
         </p>
         <div class="field">
-          <label class="label-checkbox">
-            <input type="checkbox" x-model="ia.ativo" />
-            Ativar a KIVO IA
-          </label>
-        </div>
-        <div class="field">
-          <label>Modelo</label>
-          <input class="input" type="text" list="ia-model-list" x-model="ia.modelo"
-                 placeholder="Deixe em branco para usar o padrão do servidor" />
-          <datalist id="ia-model-list">
-            <template x-for="m in iaModels" :key="m.name">
-              <option :value="m.name"></option>
-            </template>
-          </datalist>
-          <p class="hint">
-            <span x-show="iaModels.length" x-text="iaModels.length + ' modelo(s) disponível(is) no servidor — comece a digitar ou escolha na lista.'"></span>
-            <span x-show="!iaModels.length">Em branco usa o modelo padrão do servidor.</span>
-          </p>
+          <label>Status</label>
+          <p class="hint" x-text="iaStatusText || 'verificando…'"></p>
         </div>
         <div class="field" x-show="iaCredits">
-          <label>Créditos de IA</label>
+          <label>Consumo de IA no mês</label>
+          <div class="ia-usage-bar" x-show="iaCredits && iaCredits.limit > 0" x-cloak>
+            <span :style="'width:' + iaUsagePct + '%'"></span>
+          </div>
           <p class="hint" x-text="iaCreditsText"></p>
-        </div>
-        <div class="field">
-          <label>Instruções (prompt de sistema)</label>
-          <textarea class="input" rows="4" x-model="ia.prompt"
-                    placeholder="Ex.: Você é o assistente de uma loja de bebidas. Responda em português, de forma direta."></textarea>
-        </div>
-        <div class="field">
-          <label>Temperatura (0 a 1)</label>
-          <input class="input input-narrow" type="number" min="0" max="1" step="0.1" x-model.number="ia.temperatura" />
-          <p class="hint">Mais baixa = respostas mais previsíveis; mais alta = mais criativas.</p>
-        </div>
-        <% if (user.permissions.has('settings.edit')) { %>
-        <div class="toolbar">
-          <button class="btn" @click="saveIa()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            <span x-text="savingIa ? 'Salvando…' : 'Salvar configurações'"></span>
-          </button>
-          <span class="muted" x-show="iaSaved" x-text="iaSaved"></span>
-        </div>
-        <% } %>
-      </section>
-
-      <section class="panel">
-        <h2>Testar</h2>
-        <p class="hint mt-0">
-          Envia uma pergunta de teste para confirmar que a IA está respondendo.
-          <span class="muted" x-show="iaStatusText" x-text="iaStatusText"></span>
-        </p>
-        <div class="field">
-          <label>Pergunta</label>
-          <input class="input" type="text" x-model="iaTestPrompt" placeholder="Ex.: Responda apenas: funcionando." />
-        </div>
-        <div class="toolbar">
-          <button class="btn secondary" @click="testIa()" :disabled="iaTesting">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            <span x-text="iaTesting ? 'Consultando…' : 'Testar IA'"></span>
-          </button>
-          <span class="muted" x-show="iaStatusLoading" x-text="'verificando…'"></span>
-        </div>
-        <div x-show="iaTestError" class="error" x-text="iaTestError"></div>
-        <div x-show="iaTestResult" class="field">
-          <label>Resposta</label>
-          <pre class="input" style="white-space:pre-wrap;margin:0" x-text="iaTestResult"></pre>
         </div>
       </section>
     </div>
@@ -1584,11 +1527,8 @@
           loteObrigatorio: false, validadeAlertaDias: 30, validadeAcao: 'sugerir_baixa',
           metodoCusto: 'medio',
         }, savingStock: false, stockSaved: '',
-        ia: { ativo: false, modelo: '', prompt: '', temperatura: 0.7 },
-        iaModels: [], iaCredits: null,
-        savingIa: false, iaSaved: '',
-        iaTesting: false, iaTestPrompt: 'Responda apenas: funcionando.',
-        iaTestResult: '', iaTestError: '', iaStatusText: '', iaStatusLoading: false,
+        iaCredits: null,
+        iaStatusText: '', iaStatusLoading: false,
         get iaCreditsText() {
           const c = this.iaCredits;
           if (!c) return '';
@@ -1596,6 +1536,12 @@
           if (!c.limit || c.limit <= 0) return `${used} tokens usados neste mês (ilimitado).`;
           const rest = Math.max(0, Number(c.limit) - Number(c.used || 0)).toLocaleString('pt-BR');
           return `${used} de ${Number(c.limit).toLocaleString('pt-BR')} tokens usados — restam ${rest}.`;
+        },
+        /** Percentual do teto usado (0 quando não há limite). */
+        get iaUsagePct() {
+          const c = this.iaCredits;
+          if (!c || !c.limit || c.limit <= 0) return 0;
+          return Math.min(100, Math.round((Number(c.used || 0) / Number(c.limit)) * 100));
         },
         productTypes: [], savingProductTypes: false, productTypesSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
@@ -1698,11 +1644,6 @@
           this.stock.validadeAlertaDias = alertaDias != null && alertaDias !== '' ? Number(alertaDias) : 30;
           this.stock.validadeAcao = this.settings.find(s => s.key === 'estoque.validade_acao')?.value || 'sugerir_baixa';
           this.stock.metodoCusto = this.settings.find(s => s.key === 'estoque.metodo_custo')?.value === 'fifo' ? 'fifo' : 'medio';
-          this.ia.ativo = this.settings.find(s => s.key === 'ia.ativo')?.value === '1';
-          this.ia.modelo = this.settings.find(s => s.key === 'ia.modelo')?.value ?? '';
-          this.ia.prompt = this.settings.find(s => s.key === 'ia.prompt')?.value ?? '';
-          const iaTemp = this.settings.find(s => s.key === 'ia.temperatura')?.value;
-          this.ia.temperatura = iaTemp != null && iaTemp !== '' ? Number(iaTemp) : 0.7;
           const cupom = this.settings.find(s => s.key === 'vendas.exibir_cupom_fiscal');
           this.sales.exibirCupom = cupom?.value !== '0';
           const lembrete = this.settings.find(s => s.key === 'caixa.lembrete_24h');
@@ -1928,31 +1869,12 @@
           const r = await fetch('/api/settings');
           if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
         },
-        async saveIa() {
-          this.savingIa = true; this.iaSaved = '';
-          const upsert = (key, value) => fetch(`/api/settings/${encodeURIComponent(key)}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value }),
-          });
-          const temp = Number(this.ia.temperatura);
-          const results = await Promise.all([
-            upsert('ia.ativo', this.ia.ativo ? '1' : '0'),
-            upsert('ia.modelo', String(this.ia.modelo || '').trim()),
-            upsert('ia.prompt', String(this.ia.prompt || '')),
-            upsert('ia.temperatura', String(Number.isFinite(temp) ? temp : 0.7)),
-          ]);
-          this.savingIa = false;
-          this.iaSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
-          const r = await fetch('/api/settings');
-          if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
-        },
         async loadIaStatus() {
           this.iaStatusLoading = true; this.iaStatusText = '';
           try {
             const r = await fetch('/api/ai/status');
             if (!r.ok) { this.iaStatusText = 'Não foi possível verificar o status.'; return; }
             const d = await r.json();
-            this.iaModels = Array.isArray(d.models) ? d.models : [];
             this.iaCredits = d.credits || null;
             if (d.localError) this.iaStatusText = d.localError;
             else if (d.enabled === false) this.iaStatusText = 'A KIVO IA está desativada no servidor.';
@@ -1960,25 +1882,6 @@
             else this.iaStatusText = `IA indisponível${d.error ? ': ' + d.error : ''}.`;
           } catch { this.iaStatusText = 'Não foi possível verificar o status.'; }
           finally { this.iaStatusLoading = false; }
-        },
-        async testIa() {
-          this.iaTesting = true; this.iaTestResult = ''; this.iaTestError = '';
-          try {
-            const r = await fetch('/api/ai/chat', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                prompt: this.iaTestPrompt || 'Responda apenas: funcionando.',
-                model: this.ia.modelo || undefined,
-              }),
-            });
-            const d = await r.json().catch(() => ({}));
-            if (!r.ok) { this.iaTestError = d.error || 'Falha ao consultar a IA.'; return; }
-            this.iaTestResult = d.content || '(resposta vazia)';
-          } catch (e) {
-            this.iaTestError = e.message || 'Falha ao consultar a IA.';
-          } finally {
-            this.iaTesting = false;
-          }
         },
         async saveSales() {
           this.savingSales = true; this.salesSaved = '';

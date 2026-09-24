@@ -1,42 +1,19 @@
-import { settingsRepository } from '../repositories/SettingsRepository';
 import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
 
 /**
- * KIVO IA — configuração e ponte com o Kivo Web.
+ * KIVO IA — ponte com o Kivo Web.
  *
  * O app é offline-first e a CSP do navegador é `connect-src 'self'`: o navegador NUNCA fala
  * com a nuvem. Então quem chama o Kivo Web é ESTE servidor local, com as credenciais de
  * licença; o Kivo Web escolhe o provedor de IA e chama a API correspondente.
  *
- * Provedores e chaves são configurados pelo time do Kivo no painel do Cloud — o cliente não
- * guarda chave nenhuma. Aqui só ficam as preferências do lojista (ligar/desligar, prompt,
- * temperatura) e o modelo escolhido, quando a tela deixa em branco o padrão do servidor.
+ * O assistente de SUPORTE está sempre disponível: não há ativação nem configuração no app.
+ * Provedores, chaves, instruções e limites são definidos pelo time do Kivo no painel do Cloud.
  */
-
-export interface AiConfig {
-  ativo: boolean;
-  /** Modelo; vazio = usa o padrão do servidor. */
-  modelo: string | null;
-  /** Prompt de sistema (personalidade/instruções). */
-  prompt: string | null;
-  /** 0 a 1; null = padrão do modelo. */
-  temperatura: number | null;
-}
 
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
-}
-
-export function aiConfig(): AiConfig {
-  const tempRaw = settingsRepository.get('ia.temperatura');
-  const temp = tempRaw != null && tempRaw !== '' ? Number(tempRaw) : NaN;
-  return {
-    ativo: settingsRepository.getBool('ia.ativo', false),
-    modelo: settingsRepository.get('ia.modelo')?.trim() || null,
-    prompt: settingsRepository.get('ia.prompt')?.trim() || null,
-    temperatura: Number.isFinite(temp) ? temp : null,
-  };
 }
 
 export interface AiModelInfo {
@@ -121,17 +98,15 @@ export type AiChatResult =
   | { ok: false; error: string; detail?: string };
 
 /**
- * Envia um chat para o Kivo Web, que injeta a documentação do Kivo e chama o provedor. A tela
- * do chat pode escolher o provedor/modelo (seletor de agente); sem escolha, usa o padrão do
- * servidor. O prompt de sistema configurado é injetado automaticamente. `userName` entra no
- * contexto para a IA tratar a pessoa pelo nome.
+ * Envia um chat para o Kivo Web, que injeta a documentação do Kivo e chama o provedor. O
+ * assistente de suporte está sempre disponível: provedor, instruções e limites são definidos
+ * pela Kivo no painel — o app não ativa nem configura nada. `userName` entra no contexto para
+ * a IA tratar a pessoa pelo nome.
  */
 export async function aiChat(
   messages: AiChatMessage[],
-  opts: { provider?: string | null; model?: string | null; temperature?: number | null; userName?: string | null } = {},
+  opts: { userName?: string | null } = {},
 ): Promise<AiChatResult> {
-  const cfg = aiConfig();
-  if (!cfg.ativo) return { ok: false, error: 'A KIVO IA está desligada. Ligue em Configurações › KIVO IA.' };
   if (!Array.isArray(messages) || !messages.some((m) => m.role === 'user' && m.content.trim())) {
     return { ok: false, error: 'Envie uma pergunta para a IA.' };
   }
@@ -141,19 +116,12 @@ export async function aiChat(
     return { ok: false, error: 'Kivo Web não configurado (licença ou servidor ausente).' };
   }
 
-  const model = opts.model?.trim() || cfg.modelo || undefined;
-  const temperature = opts.temperature ?? cfg.temperatura ?? undefined;
-
   try {
     const r = await fetch(`${base}/api/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({
         messages,
-        system: cfg.prompt ?? undefined,
-        model,
-        temperature,
-        provider: opts.provider || undefined,
         userName: opts.userName || undefined,
       }),
       signal: AbortSignal.timeout(150000),
@@ -174,8 +142,8 @@ export async function aiChat(
     return {
       ok: true,
       content: body.content ?? '',
-      model: body.model ?? (model ?? ''),
-      provider: body.provider ?? (opts.provider ?? 'ollama'),
+      model: body.model ?? '',
+      provider: body.provider ?? 'ollama',
       sources: Array.isArray(body.sources) ? body.sources : [],
       links: Array.isArray(body.links) ? body.links : [],
     };
