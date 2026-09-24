@@ -124,40 +124,39 @@
     <div class="support-ia" x-show="view === 'ia'">
       <div class="support-body support-thread" x-ref="aiThread">
         <template x-for="(m, i) in ai.messages" :key="i">
-          <div class="support-bubble" :class="m.role === 'user' ? 'cliente' : 'ia'">
-            <div class="md" x-html="renderMd(m.content)"></div>
-            <div class="support-links" x-show="m.links && m.links.length">
-              <template x-for="l in (m.links || [])" :key="l.route">
-                <a class="support-link-btn" :href="l.route">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                  <span x-text="l.label"></span>
-                </a>
-              </template>
+          <div class="support-msg" :class="m.role === 'user' ? 'right' : 'left'">
+            <div class="support-avatar" :class="m.role === 'user' ? 'user' : 'ia'"
+                 x-text="m.role === 'user' ? userInitial : 'IA'"></div>
+            <div class="support-bubble" :class="m.role === 'user' ? 'cliente' : 'ia'">
+              <div class="md" x-html="renderMd(m.content)"></div>
+              <div class="support-links" x-show="m.links && m.links.length">
+                <template x-for="l in (m.links || [])" :key="l.route">
+                  <a class="support-link-btn" :href="l.route">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    <span x-text="l.label"></span>
+                  </a>
+                </template>
+              </div>
+              <div class="meta" x-text="(m.role === 'user' ? 'Você' : 'Kivo IA') + (m.ts ? ' · ' + fmtWhen(m.ts) : '')"></div>
             </div>
-            <div class="meta" x-text="m.role === 'user' ? 'Você' : 'Kivo IA'"></div>
           </div>
         </template>
-        <div class="support-bubble ia support-typing-bubble" x-show="ai.sending" x-cloak>
-          <span class="support-typing"><i></i><i></i><i></i></span>
+        <div class="support-msg left" x-show="ai.sending" x-cloak>
+          <div class="support-avatar ia">IA</div>
+          <div class="support-bubble ia support-typing-bubble">
+            <span class="support-typing"><i></i><i></i><i></i></span>
+          </div>
         </div>
         <p class="muted text-xs" x-show="!ai.messages.length && !ai.sending" style="text-align:center">
           Pergunte sobre qualquer recurso do Kivo — eu respondo com a documentação oficial.
         </p>
       </div>
-      <div class="support-error" x-show="ai.error" style="padding:0 1.25rem">
+      <div class="support-ai-error" x-show="ai.error" x-cloak>
         <span x-text="ai.error"></span>
         <button type="button" class="support-err-toggle" x-show="ai.errorDetail" x-cloak
                 @click="ai.showError = !ai.showError"
                 x-text="ai.showError ? 'ocultar erro' : 'exibir erro'"></button>
         <pre class="support-err-detail" x-show="ai.showError" x-cloak x-text="ai.errorDetail"></pre>
-      </div>
-      <div class="support-provider-row" x-show="ai.providers.length > 1" x-cloak>
-        <span>Responder com</span>
-        <select x-model="ai.provider" @change="ai.model = ''">
-          <template x-for="p in ai.providers" :key="p.id">
-            <option :value="p.id" x-text="p.label"></option>
-          </template>
-        </select>
       </div>
       <div class="support-input-row">
         <textarea x-model="ai.draft" x-ref="aiDraft" placeholder="Pergunte para a Kivo IA…" maxlength="4000" rows="1"
@@ -176,10 +175,13 @@
     <div x-show="view === 'chat'">
       <div class="support-body support-thread" x-ref="thread">
         <template x-for="m in messages" :key="m.id">
-          <div class="support-bubble" :class="m.sender === 'cliente' ? 'cliente' : (m.sender === 'ia' ? 'ia' : 'suporte')">
-            <div x-text="m.body" x-show="m.body"></div>
-            <img class="attachment" x-show="m.attachment" :src="m.attachment" alt="Print anexado" @click="window.open(m.attachment, '_blank')">
-            <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Kivo' : (m.sender === 'ia' ? 'Kivo IA' : (m.sender_name || 'Você'))) + ' · ' + String(m.created_at).slice(0, 16).replace('T', ' ')"></div>
+          <div class="support-msg" :class="m.sender === 'cliente' ? 'right' : 'left'">
+            <div class="support-avatar" :class="avatarClass(m)" x-text="avatarInitial(m)"></div>
+            <div class="support-bubble" :class="m.sender === 'cliente' ? 'cliente' : (m.sender === 'ia' ? 'ia' : 'suporte')">
+              <div class="support-text" x-text="m.body" x-show="m.body"></div>
+              <img class="attachment" x-show="m.attachment" :src="m.attachment" alt="Print anexado" @click="window.open(m.attachment, '_blank')">
+              <div class="meta" x-text="(m.sender === 'suporte' ? 'Suporte Kivo' : (m.sender === 'ia' ? 'Kivo IA' : (m.sender_name || 'Você'))) + ' · ' + fmtWhen(m.created_at)"></div>
+            </div>
           </div>
         </template>
         <p class="muted text-xs" x-show="!messages.length" style="text-align:center">Carregando conversa…</p>
@@ -224,8 +226,7 @@
       ticket: { id: 0, subject: '', status: '' }, messages: [],
       form: { subject: '', message: '', category: 'suporte', attachment: '' },
       ai: {
-        messages: [], draft: '', provider: '', model: '',
-        providers: [], ticketId: 0, sending: false, error: '', errorDetail: '', showError: false,
+        messages: [], draft: '', ticketId: 0, sending: false, error: '', errorDetail: '', showError: false,
       },
       draft: '', draftAttachment: '', attachError: '', sending: false, error: '', shared: false,
       email: '', phone: '', contactsLoaded: false,
@@ -265,6 +266,30 @@
         }
         closeList();
         return html;
+      },
+
+      /** Inicial do usuário logado (avatar das mensagens dele). */
+      get userInitial() {
+        return (this.userName || '?').charAt(0).toUpperCase();
+      },
+      avatarClass(m) {
+        return m.sender === 'suporte' ? 'suporte' : m.sender === 'ia' ? 'ia' : 'user';
+      },
+      avatarInitial(m) {
+        if (m.sender === 'suporte') return 'S';
+        if (m.sender === 'ia') return 'IA';
+        return this.userInitial;
+      },
+      /** Hora da mensagem hoje; vira data + hora quando é de outro dia (mais antiga). */
+      fmtWhen(v) {
+        if (!v) return '';
+        const d = v instanceof Date ? v : new Date(v);
+        if (isNaN(d.getTime())) return '';
+        const now = new Date();
+        const p2 = (n) => String(n).padStart(2, '0');
+        const hm = p2(d.getHours()) + ':' + p2(d.getMinutes());
+        if (d.toDateString() === now.toDateString()) return hm;
+        return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + ' ' + hm;
       },
 
       async api(path, opts) {
@@ -358,7 +383,7 @@
         this.ai.showError = false;
         this.view = 'ia';
         this.persist();
-        if (!this.ai.providers.length) await this.loadIaStatus();
+        await this.loadIaStatus();
         if (!this.ai.messages.length) await this.restoreAi();
         this.$nextTick(() => this.scrollAi());
         this.$nextTick(() => this.$refs.aiDraft && this.$refs.aiDraft.focus());
@@ -367,19 +392,10 @@
         try {
           const r = await fetch('/api/ai/status');
           const d = await r.json();
-          this.ai.providers = Array.isArray(d.providers) && d.providers.length
-            ? d.providers
-            : [{ id: 'ollama', label: 'Ollama (servidor Kivo)' }];
-          const prefer = d.defaultProvider || this.ai.providers[0].id;
-          if (!this.ai.provider || !this.ai.providers.some((p) => p.id === this.ai.provider)) {
-            this.ai.provider = prefer;
+          if (d.enabled === false) {
+            this.ai.error = 'O assistente está indisponível no momento. Fale com um atendente.';
           }
-          if (!d.config || d.config.ativo !== true) {
-            this.ai.error = 'A KIVO IA está desligada. Ligue em Configurações › KIVO IA ou fale com um atendente.';
-          } else if (d.enabled === false) {
-            this.ai.error = 'A KIVO IA está desativada no servidor. Fale com um atendente.';
-          }
-        } catch (e) { /* sem status, segue com o padrão */ }
+        } catch (e) { /* sem status, segue */ }
       },
       /** Recupera a conversa de IA salva no chamado (para a IA não perder o fio do raciocínio). */
       async restoreAi() {
@@ -392,7 +408,11 @@
           this.ai.ticketId = id;
           this.ai.messages = (d.messages || [])
             .filter((m) => m.body)
-            .map((m) => ({ role: m.sender === 'cliente' ? 'user' : 'assistant', content: m.body }));
+            .map((m) => ({
+              role: m.sender === 'cliente' ? 'user' : 'assistant',
+              content: m.body,
+              ts: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
+            }));
         } catch (e) { this.clearAiTicket(); }
       },
       saveAiTicket() {
@@ -431,7 +451,7 @@
         if (!text || this.ai.sending) return;
         this.ai.error = '';
         this.ai.draft = '';
-        this.ai.messages.push({ role: 'user', content: text });
+        this.ai.messages.push({ role: 'user', content: text, ts: Date.now() });
         this.ai.sending = true;
         this.scrollAi();
         try {
@@ -440,8 +460,6 @@
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               messages: this.ai.messages.map((m) => ({ role: m.role, content: m.content })),
-              provider: this.ai.provider || undefined,
-              model: this.ai.model || undefined,
             }),
           });
           const d = await r.json().catch(() => ({}));
@@ -458,6 +476,7 @@
             role: 'assistant',
             content: answer,
             links: Array.isArray(d.links) ? d.links : [],
+            ts: Date.now(),
           });
           if (this.ai.ticketId) {
             const stored = answer.length > 8000 ? answer.slice(0, 8000) : answer;

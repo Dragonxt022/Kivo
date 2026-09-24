@@ -102,7 +102,7 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
 
   const cfg = await loadAiConfig();
   if (!cfg.enabled) {
-    res.status(400).json({ error: 'A KIVO IA está desativada no servidor. Fale com o suporte.' });
+    res.status(400).json({ error: 'O assistente está indisponível no momento. Fale com um atendente.' });
     return;
   }
 
@@ -111,25 +111,13 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
     res.status(400).json({ error: 'Este provedor de IA não está configurado no servidor.' });
     return;
   }
-  // Só o Ollama (servidor da VPS) consome os créditos da empresa; os provedores externos são
-  // pagos pela Kivo na chave do painel.
-  const usesServerAi = provider === 'ollama';
 
+  // O assistente de SUPORTE é sempre gratuito e ilimitado — não consome créditos nem depende de
+  // ativação. Ferramentas de IA que vierem a cobrar créditos usarão outro caminho.
   const companyUuid = req.companyUuid!;
   const period = currentPeriod();
-  let credits = await getCredits(companyUuid);
-  if (usesServerAi) {
-    await ensurePeriod(companyUuid, period);
-    credits = await getCredits(companyUuid);
-    if (credits && credits.limit > 0 && credits.used >= credits.limit) {
-      res.status(402).json({
-        error: 'Créditos de IA esgotados neste período. Fale com o suporte para ampliar o limite.',
-        code: 'ai_credits_exhausted',
-        credits,
-      });
-      return;
-    }
-  }
+  await ensurePeriod(companyUuid, period);
+  const credits = await getCredits(companyUuid);
 
   const messages: ChatMessage[] = [];
   if (Array.isArray(body.messages)) {

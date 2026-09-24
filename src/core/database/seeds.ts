@@ -205,11 +205,9 @@ export function runSeeds(): void {
   );
 
   // KIVO IA (Configurações › KIVO IA): o app local manda as requisições para o Kivo Web, que
-  // injeta a documentação do Kivo e chama o provedor configurado no painel. Nasce desligada.
-  insertSetting.run('ia.ativo', '0', randomUUID(), 'Liga a KIVO IA. "1" = ligada; "0" = desligada (padrão).');
-  insertSetting.run('ia.modelo', '', randomUUID(), 'Modelo do provedor (ex.: llama3.2, gpt-4o-mini). Vazio = usa o padrão do servidor.');
-  insertSetting.run('ia.prompt', '', randomUUID(), 'Prompt de sistema da KIVO IA: personalidade e instruções fixas.');
-  insertSetting.run('ia.temperatura', '0.7', randomUUID(), 'Temperatura do modelo (0 a 1). Padrão 0,7.');
+  // injeta a documentação do Kivo e chama o provedor configurado no painel. O assistente de
+  // suporte está SEMPRE disponível — não depende de ativação nem de créditos.
+  insertSetting.run('ia.ativo', '1', randomUUID(), 'Liga a KIVO IA. "1" = ligada (padrão); "0" = desligada.');
 
   // Rótulo do módulo de comandas: a loja que atende só no balcão vê "Balcão" (e outro
   // ícone) no lugar de "Mesas". O assistente grava conforme a resposta; aqui fica o padrão.

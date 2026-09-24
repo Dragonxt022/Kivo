@@ -145,15 +145,15 @@ async function main(): Promise<void> {
     const dashHtml = await dash.text();
     check('painel KIVO IA renderiza com gráficos', dash.status === 200 && dashHtml.includes('Tokens por dia') && dashHtml.includes('Uso por empresa'), String(dash.status));
 
-    // Define o teto em 1 token e a próxima chamada é barrada (créditos esgotados).
+    // Define o teto em 1 token: o suporte NÃO pode ser barrado por créditos (sempre disponível).
     const setLimit = await fetch(`${cloudUrl}/admin/ai/${companyUuid}/limit`, {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', cookie: admin! },
       body: new URLSearchParams({ limitTokens: '1' }).toString(), redirect: 'manual',
     });
     check('teto de créditos salvo', setLimit.status === 302, String(setLimit.status));
-    const blocked = await fetch(`${cloudUrl}/api/ai/chat`, { method: 'POST', headers, body: JSON.stringify({ prompt: 'de novo' }) });
-    const blockedBody = (await blocked.json().catch(() => ({}))) as { code?: string };
-    check('IA bloqueia ao esgotar os créditos → 402', blocked.status === 402 && blockedBody.code === 'ai_credits_exhausted', `${blocked.status} ${blockedBody.code ?? ''}`);
+    const stillOk = await fetch(`${cloudUrl}/api/ai/chat`, { method: 'POST', headers, body: JSON.stringify({ prompt: 'de novo' }) });
+    const stillBody = (await stillOk.json().catch(() => ({}))) as { content?: string };
+    check('Suporte não é bloqueado por créditos → 200', stillOk.status === 200 && stillBody.content === 'pong', `${stillOk.status}`);
   } finally {
     cloudProc.kill();
     mock.server.close();

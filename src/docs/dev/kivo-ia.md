@@ -62,8 +62,10 @@ fontes usadas voltam em `sources`.
 As chaves ficam no servidor e **nunca voltam para a tela** (só um sinalizador de "já
 configurada"). Há um botão **Testar IA** no painel.
 
-No app, o lojista só ajusta preferências em Configurações › KIVO IA: `ia.ativo`, `ia.modelo`
-(vazio = padrão do servidor), `ia.prompt` (instruções) e `ia.temperatura`.
+No app **não há o que configurar**: o assistente de suporte está **sempre disponível** (não
+precisa ativar) e não tem seleção de modelo/provedor — tudo isso é definido aqui no painel.
+Configurações › KIVO IA mostra apenas o **status** e o **consumo** do mês (com barra de
+progresso quando há teto).
 
 ## Chat de suporte
 
@@ -79,14 +81,20 @@ mensagem:
 Mensagens da IA não contam como não-lido do admin (o chamado já nasce não-lido). O painel
 `/admin/support` mostra a IA com um balão próprio.
 
+A conversa tem **memória**: fica salva no chamado e é recarregada ao reabrir o chat (a IA
+retoma o fio do raciocínio). Cada mensagem mostra a hora (ou a data, quando é de outro dia).
+As respostas vêm em **Markdown** (negrito, listas, código) e, quando o trecho da documentação
+tem uma tela correspondente, aparece um botão que leva direto à página (ex.: "Abrir Importar
+NF-e"). O chamado é **encerrado sozinho após 2h sem mensagem** do cliente.
+
 ## Uso e créditos
 
-- Cada requisição grava tokens de entrada/saída em `ai_usage` e soma no total da empresa.
-- `companies.ai_token_limit` é o **teto mensal de tokens** (0 = ilimitado);
-  `ai_tokens_used` + `ai_period` (AAAA-MM) zeram todo dia 1º.
-- Ao esgotar, o cloud responde **402** com `code: ai_credits_exhausted` e a tela avisa.
-- O teto só vale para o **Ollama** (IA da VPS). Provedores externos são pagos pela Kivo na
-  chave do painel e não passam pelo teto — o uso continua registrado.
+- O **assistente de suporte é gratuito e ilimitado**: não consome créditos, não é bloqueado por
+  teto e não depende de ativação. Recursos de IA que venham a cobrar créditos usarão outro
+  caminho.
+- O uso continua sendo **registrado** (tokens em `ai_usage`) apenas para o painel de acompanhamento.
+- `companies.ai_token_limit` é o teto mensal de tokens (0 = ilimitado) para os recursos que
+  cobram crédito; `ai_tokens_used` + `ai_period` (AAAA-MM) zeram todo dia 1º.
 
 ## Painel de uso (Kivo Web › KIVO IA)
 
@@ -97,8 +105,8 @@ tabela de créditos com o teto editável (tokens/mês).
 
 **Local** (app, autenticado):
 
-- `GET /api/ai/status` — configuração local, provedores/modelos disponíveis e créditos.
-- `POST /api/ai/chat` — recebe `prompt` (ou `messages[]`) e `provider`/`model`; devolve a resposta.
+- `GET /api/ai/status` — status do assistente e consumo da empresa.
+- `POST /api/ai/chat` — recebe `prompt` (ou `messages[]`) e devolve a resposta.
 
 **Cloud** (`/api/ai`, credenciais de licença):
 

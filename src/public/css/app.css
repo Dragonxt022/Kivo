@@ -10,6 +10,7 @@
   --primary: #ff8000;
   --icon-color: #ff8000;
   --primary-hover: #ff9225;
+  --accent-blue: #3b82f6;
   --primary-bg: color-mix(in srgb, #ff8000 8%, transparent);
   --danger: #ef4444;
   --success-bg: #d1fae5;
@@ -59,6 +60,7 @@
   --text-muted: #83838f;
   --primary: #ff8000;
   --primary-hover: #ff9225;
+  --accent-blue: #60a5fa;
   --primary-bg: color-mix(in srgb, #ff8000 16%, transparent);
   --danger: #ff6b6b;
   --success-bg: color-mix(in srgb, #ff8000 18%, transparent);
@@ -1244,11 +1246,29 @@ button.app-card {
 .support-badge.arquivado { background: var(--danger-soft); color: var(--danger); }
 .support-unread-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); flex: none; }
 .support-thread { display: flex; flex-direction: column; gap: .6rem; }
-.support-bubble { max-width: 84%; padding: .55rem .85rem; border-radius: 12px; font-size: .88rem; white-space: pre-wrap; }
+/* Linha da mensagem: avatar + balão. O usuário fica à direita, IA/suporte à esquerda. */
+.support-msg { display: flex; align-items: flex-end; gap: .45rem; max-width: 88%; min-width: 0; }
+.support-msg.left { align-self: flex-start; }
+.support-msg.right { align-self: flex-end; flex-direction: row-reverse; }
+.support-avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: .66rem; font-weight: 700;
+  margin-bottom: .15rem; user-select: none;
+}
+.support-avatar.user { background: color-mix(in srgb, var(--primary) 18%, transparent); color: var(--primary); }
+.support-avatar.ia { background: color-mix(in srgb, var(--accent-blue) 20%, transparent); color: var(--accent-blue); }
+.support-avatar.suporte { background: var(--primary); color: #fff; }
+.support-msg .support-bubble { max-width: 100%; }
+.support-bubble {
+  max-width: 100%; padding: .6rem .9rem; border-radius: 14px; font-size: .93rem;
+  white-space: normal; line-height: 1.45; box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+}
+/* Texto simples do chat preserva as quebras de linha do usuário/suporte. */
+.support-bubble .support-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .support-bubble .meta { font-size: .68rem; color: var(--text-muted); margin-top: .25rem; }
-.support-bubble.cliente { align-self: flex-end; background: color-mix(in srgb, var(--primary) 14%, transparent); border-bottom-right-radius: 4px; }
+.support-bubble.cliente { align-self: flex-end; background: color-mix(in srgb, var(--primary) 16%, var(--surface)); border-bottom-right-radius: 4px; }
 .support-bubble.suporte { align-self: flex-start; background: var(--surface-hover); border: 1px solid var(--border-light); border-bottom-left-radius: 4px; }
-.support-bubble.ia { align-self: flex-start; background: color-mix(in srgb, var(--accent-blue) 10%, transparent); border: 1px dashed color-mix(in srgb, var(--accent-blue) 35%, transparent); border-bottom-left-radius: 4px; }
+.support-bubble.ia { align-self: flex-start; background: color-mix(in srgb, var(--accent-blue) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent-blue) 26%, var(--border-light)); border-bottom-left-radius: 4px; }
 .support-bubble img.attachment { max-width: 100%; border-radius: 8px; display: block; margin-top: .35rem; cursor: pointer; }
 
 /* Conteúdo do balão: contém o texto (inclusive palavras longas/URLs) dentro da caixa. */
@@ -1326,10 +1346,15 @@ button.app-card {
 }
 .support-err-toggle:hover { color: var(--text); }
 .support-err-detail {
-  margin: .4rem 0 0; padding: .5rem .6rem; background: var(--surface-hover);
-  border-radius: 8px; font-size: .72rem; color: var(--text-muted);
-  white-space: pre-wrap; word-break: break-word; max-height: 130px; overflow: auto;
+  margin: .4rem 0 0; padding: .45rem .55rem; background: var(--surface-hover);
+  border-radius: 8px; font-size: .7rem; color: var(--text-muted);
+  white-space: pre-wrap; word-break: break-word; max-height: 90px; overflow: auto;
 }
+/* Erro da IA: linha compacta (não come espaço do chat). */
+.support-ai-error {
+  padding: .35rem 1.25rem 0; font-size: .76rem; line-height: 1.35; color: var(--danger);
+}
+.support-ai-error .support-err-detail { margin-top: .3rem; }
 /* Seletor de provedor em linha própria, acima do campo — não espreme a caixa de texto. */
 .support-provider-row {
   display: flex; align-items: center; gap: .4rem;
@@ -1358,6 +1383,16 @@ button.app-card {
 }
 .help-chat-contact:hover { border-color: var(--primary); color: var(--primary); text-decoration: none; }
 .help-chat-contact svg { color: var(--primary); flex-shrink: 0; }
+
+/* Barra de consumo de IA (Configurações › KIVO IA). */
+.ia-usage-bar {
+  height: 8px; border-radius: 999px; background: var(--border-light);
+  overflow: hidden; margin: .35rem 0 .4rem;
+}
+.ia-usage-bar > span {
+  display: block; height: 100%; background: var(--primary); border-radius: 999px;
+  transition: width .2s;
+}
 @media (max-width: 520px) {
   .support-panel { right: 12px; bottom: 12px; width: calc(100vw - 24px); height: min(70vh, calc(100vh - 24px)); }
 }
