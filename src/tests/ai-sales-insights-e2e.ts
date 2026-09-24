@@ -132,7 +132,10 @@ async function main(): Promise<void> {
       fetch(`${DESK}${p}`, { ...init, headers: { 'Content-Type': 'application/json', cookie, ...(init.headers ?? {}) } });
 
     // ── Vendas no banco do desktop (conexão própria, WAL permite) ──
-    const BetterSqlite = require('better-sqlite3');
+    const BetterSqlite = createRequire(path.join(ROOT, 'package.json'))('better-sqlite3') as new (file: string) => {
+      prepare(sql: string): { run(...params: unknown[]): { lastInsertRowid: number | bigint } };
+      close(): void;
+    };
     const db = new BetterSqlite(dbPath);
     const productId = Number(db.prepare(
       `INSERT INTO products (name, unit, price_cents, cost_cents, track_stock, stock_qty, min_stock, active, uuid)
@@ -172,8 +175,12 @@ async function main(): Promise<void> {
     check('sem vendas não cobra crédito', rEmpty.status === 200 && bEmpty.status?.used === 1, JSON.stringify(bEmpty.status));
 
     // ── Esgota a cota (override 1/dia) e espera 402 ──
+    // `mysql2` só existe em cloud/node_modules (o tsconfig raiz não enxerga os tipos dele),
+    // então tipamos o mínimo que usamos aqui.
     const cloudRequire = createRequire(path.join(ROOT, 'cloud', 'package.json'));
-    const mysql = cloudRequire('mysql2/promise') as typeof import('mysql2/promise');
+    const mysql = cloudRequire('mysql2/promise') as {
+      createPool(cfg: Record<string, unknown>): { query(sql: string, params?: unknown[]): Promise<unknown>; end(): Promise<void> };
+    };
     const pool = mysql.createPool({ host: '127.0.0.1', port: 3307, user: 'root', password: 'kivo', database: process.env.CLOUD_DB_NAME ?? 'kivo_cloud' });
     await pool.query(
       `INSERT INTO company_ai_quotas (company_uuid, feature, daily_limit, used, period_day) VALUES (?, 'sales_insights', 1, 1, ?)
