@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { aiStatus, aiChat, aiProductDescription, type AiChatMessage } from './service';
+import { aiStatus, aiChat, aiTools, aiProductDescription, type AiChatMessage } from './service';
 import { listCapabilities } from '../capabilities/service';
 
 /** Rotas da KIVO IA (status e chat de suporte). Montadas em /api/ai. */
@@ -44,6 +44,11 @@ router.post('/chat', async (req, res) => {
     return;
   }
   res.json(result);
+});
+
+/** Ferramentas pagas + cota do dia (para Configurações › KIVO IA). */
+router.get('/tools', async (_req, res) => {
+  res.json(await aiTools());
 });
 
 /** Ferramenta paga: gera a descrição de um produto (consome crédito da cota diária). */

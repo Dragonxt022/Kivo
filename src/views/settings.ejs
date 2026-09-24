@@ -386,6 +386,29 @@
           <p class="hint" x-text="iaCreditsText"></p>
         </div>
       </section>
+
+      <section class="panel" x-show="iaTools.length" x-cloak>
+        <h2>Ferramentas de IA (por uso)</h2>
+        <p class="hint mt-0">
+          Cada uso cobra créditos. A cota reinicia todo dia à meia-noite.
+        </p>
+        <template x-for="t in iaTools" :key="t.id">
+          <div class="field">
+            <label x-text="t.label"></label>
+            <template x-if="t.status">
+              <div>
+                <div class="ia-usage-bar" x-show="t.status.limit > 0">
+                  <span :style="'width:' + toolPct(t) + '%'"></span>
+                </div>
+                <p class="hint" x-text="toolText(t)"></p>
+              </div>
+            </template>
+            <template x-if="!t.status">
+              <p class="hint">Uso indisponível agora.</p>
+            </template>
+          </div>
+        </template>
+      </section>
     </div>
 
     <!-- ═══════ ABA: VENDAS ═══════ -->
@@ -1528,6 +1551,7 @@
           metodoCusto: 'medio',
         }, savingStock: false, stockSaved: '',
         iaCredits: null,
+        iaTools: [],
         iaStatusText: '', iaStatusLoading: false,
         get iaCreditsText() {
           const c = this.iaCredits;
@@ -1542,6 +1566,20 @@
           const c = this.iaCredits;
           if (!c || !c.limit || c.limit <= 0) return 0;
           return Math.min(100, Math.round((Number(c.used || 0) / Number(c.limit)) * 100));
+        },
+        toolPct(t) {
+          const s = t && t.status;
+          if (!s || !s.limit || s.limit <= 0) return 0;
+          return Math.min(100, Math.round((Number(s.used || 0) / Number(s.limit)) * 100));
+        },
+        toolText(t) {
+          const s = t && t.status;
+          if (!s) return '';
+          if (!s.limit || s.limit <= 0) return `${Number(s.used || 0).toLocaleString('pt-BR')} usados hoje (ilimitado).`;
+          const rest = Math.max(0, s.limit - s.used).toLocaleString('pt-BR');
+          const dia = String(s.resetAt || '').split('-');
+          const quando = dia.length === 3 ? ` Renova em ${dia[2]}/${dia[1]}.` : ' Renova à meia-noite.';
+          return `${Number(s.used || 0).toLocaleString('pt-BR')} de ${Number(s.limit).toLocaleString('pt-BR')} usados hoje — restam ${rest}.${quando}`;
         },
         productTypes: [], savingProductTypes: false, productTypesSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
@@ -1577,7 +1615,7 @@
           // (checagem de 6h, download em andamento): reler ao abrir a aba evita mostrar
           // uma foto velha de quando a página carregou.
           if (v === 'atualizacao') this.lerAtualizacao();
-          if (v === 'ia') this.loadIaStatus();
+          if (v === 'ia') { this.loadIaStatus(); this.loadIaTools(); }
           // Preserva history.state: o botão Voltar do cabeçalho guarda a profundidade da
           // navegação ali (kivoDepth, ver partials/nav.ejs), e passar `null` a apagaria —
           // fazendo a seta achar que esta é a primeira tela da aba.
@@ -1882,6 +1920,15 @@
             else this.iaStatusText = `IA indisponível${d.error ? ': ' + d.error : ''}.`;
           } catch { this.iaStatusText = 'Não foi possível verificar o status.'; }
           finally { this.iaStatusLoading = false; }
+        },
+        async loadIaTools() {
+          try {
+            const r = await fetch('/api/ai/tools');
+            if (!r.ok) return;
+            const d = await r.json();
+            const data = d.data !== undefined ? d.data : d;
+            this.iaTools = Array.isArray(data.tools) ? data.tools : [];
+          } catch { /* sem lista, segue */ }
         },
         async saveSales() {
           this.savingSales = true; this.salesSaved = '';

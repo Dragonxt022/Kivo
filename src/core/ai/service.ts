@@ -101,12 +101,42 @@ export type AiChatResult =
 
 export interface AiToolStatus {
   feature: string;
+  /** 0 = ilimitado. */
   limit: number;
   used: number;
+  /** -1 = ilimitado. */
   remaining: number;
   periodDay: string;
   cost: number;
   resetAt: string;
+}
+
+export interface AiToolInfo {
+  id: string;
+  label: string;
+  description: string | null;
+  cost: number;
+  dailyCredits: number;
+  enabled: boolean;
+  status: AiToolStatus | null;
+}
+
+/** Lista as ferramentas pagas e a cota do dia (para a tela de Configurações › KIVO IA). */
+export async function aiTools(): Promise<{ tools: AiToolInfo[] }> {
+  const base = cloudBaseUrl();
+  const headers = cloudAuthHeaders();
+  if (!base || !headers) return { tools: [] };
+  try {
+    const r = await fetch(`${base}/api/ai/tools`, {
+      headers: { ...headers, 'X-Kivo-Tz': localTimezone() },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return { tools: [] };
+    const body = (await r.json().catch(() => ({}))) as { tools?: AiToolInfo[] };
+    return { tools: Array.isArray(body.tools) ? body.tools : [] };
+  } catch {
+    return { tools: [] };
+  }
 }
 
 export type AiToolResult =
