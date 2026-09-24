@@ -561,7 +561,8 @@
           const r = await fetch('/api/ai/chat', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              messages: this.ai.messages.map((m) => ({ role: m.role, content: m.content })),
+              // Só o histórico recente: o prompt não cresce sem teto numa conversa longa.
+              messages: this.ai.messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
             }),
           });
           const d = await r.json().catch(() => ({}));

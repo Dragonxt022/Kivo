@@ -36,6 +36,15 @@ const router = Router();
 const limit = createRateLimiter({ windowMs: 60_000, max: 40, keyPrefix: 'ai:' });
 
 /**
+ * Tetos do chat: cada mensagem e a quantidade enviada. O widget do app já corta em 4000 e manda
+ * o histórico recente, mas a rota é a fronteira real (o app é offline-first e a chamada chega
+ * aqui) — não dá para confiar só no cliente. Sem isto, um payload grande vira custo/latência e
+ * estoura o contexto do modelo.
+ */
+const MAX_MESSAGE_CHARS = 4000;
+const MAX_HISTORY_MESSAGES = 20;
+
+/**
  * Traduz o erro técnico do provedor para uma mensagem amigável, guardando o texto original em
  * `detail` — a tela mostra o amigável e oferece um "exibir erro" discreto para quem quiser o
  * detalhe (suporte). Nada de despejar JSON do Ollama na cara do lojista.
@@ -121,16 +130,19 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
   await ensurePeriod(companyUuid, period);
   const credits = await getCredits(companyUuid);
 
-  const messages: ChatMessage[] = [];
+  // Limita o que vem do cliente antes de montar o prompt: corta cada mensagem e fica só com as
+  // últimas MAX_HISTORY_MESSAGES (anti-abuso/custo).
+  const incoming: ChatMessage[] = [];
   if (Array.isArray(body.messages)) {
     for (const m of body.messages) {
       if (m && typeof m.content === 'string' && ['system', 'user', 'assistant'].includes(m.role)) {
-        messages.push({ role: m.role, content: m.content });
+        incoming.push({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) });
       }
     }
   } else if (typeof body.prompt === 'string' && body.prompt.trim()) {
-    messages.push({ role: 'user', content: body.prompt.trim() });
+    incoming.push({ role: 'user', content: body.prompt.trim().slice(0, MAX_MESSAGE_CHARS) });
   }
+  const messages = incoming.slice(-MAX_HISTORY_MESSAGES);
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   if (!lastUser) {
     res.status(400).json({ error: 'Envie ao menos uma mensagem do usuário (prompt ou messages[]).' });
