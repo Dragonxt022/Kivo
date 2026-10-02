@@ -34,6 +34,39 @@ A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
 5. **CRO e código de procedimento não se repetem** entre registros ativos.
 6. **UF do CRO** é normalizada para maiúsculas e 2 caracteres.
 
+## Anamnese (PR §5)
+
+Questionário clínico **versionado dos dois lados**:
+
+- **Formulário** (`odonto_anamnesis_templates`): publicar uma alteração cria a versão seguinte
+  (`v2`, `v3`…). A versão anterior continua na tabela e as respostas dadas nela continuam
+  apontando para ela. Um formulário é o **padrão** do consultório (o que abre em "Responder
+  anamnese"); o padrão de fábrica é criado no boot com os campos da PR (queixa principal,
+  histórico médico, doenças, alergias, medicamentos, hábitos, histórico odontológico) mais a
+  triagem usual (gestante, pressão, diabetes, cardiopatia, anticoagulante, cirurgia, última
+  consulta).
+- **Resposta** (`odonto_anamnesis_forms`): salvar **nunca sobrescreve** — grava a revisão
+  seguinte (`revisão 1, 2, 3…`), com data, hora, usuário e profissional responsável. A
+  numeração é do **paciente**, não do formulário: publicar uma versão nova no meio do
+  acompanhamento não faz a revisão voltar para 1.
+- Tipos de pergunta: texto curto, texto longo, sim/não/não sei, escolha única, múltipla
+  escolha, data e número. Resposta de pergunta inexistente é **recusada** (400) e pergunta
+  obrigatória vazia também — o banco não guarda lixo clínico.
+- A exclusão do paciente leva a anamnese junto (soft delete); o histórico continua no banco.
+
+Rotas e telas:
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| GET/POST | `/anamnesis/templates` | `odonto.clinical.view` / `.edit` |
+| GET | `/anamnesis/templates/:id` | `odonto.clinical.view` |
+| GET/POST | `/patients/:id/anamnesis` | `odonto.clinical.view` / `.edit` |
+| GET | `/anamnesis/:id` | `odonto.clinical.view` |
+
+Páginas: `/app/odonto/pacientes/:id/anamnese` (responder, ver a atual e o histórico) e
+`/app/odonto/anamnese-modelos` (formulários e versões). A ficha do paciente mostra só o
+**resumo** (quantas revisões, quando foi a última) — o conteúdo exige a permissão clínica.
+
 ## Permissões
 
 | Permissão | Para quê |
@@ -115,14 +148,20 @@ do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
 ## Próximas fases (roadmap da PR)
 
-Anamnese (2), agenda (3), prontuário/evolução com retificação versionada (4), odontograma (5),
+Agenda (3), prontuário/evolução com retificação versionada (4), odontograma (5),
 plano de tratamento + cobrança (6), documentos com variáveis (7), exames e imagens (8),
 refinamento (9). As capabilities de cada recurso entram junto com a tela — não antes.
+
+Concluído: fundação (1) e pacientes + anamnese (2).
 
 ## Arquivos-chave
 
 - `src/modules/odonto/module.manifest.ts` — permissões, menu, dependências.
+- `src/modules/odonto/permissions.ts` — permissões clínicas e `Result` (evita ciclo entre
+  paciente e anamnese).
 - `src/modules/odonto/patients.ts` — regras do paciente e do bloco clínico.
+- `src/modules/odonto/anamnesis.ts` — formulários versionados, validação das respostas e
+  revisões imutáveis.
 - `src/modules/odonto/professionals.ts` / `procedures.ts` — CRUD com validação e auditoria.
 - `src/modules/odonto/repositories/` — SQL (paciente faz `JOIN` com `customers`).
 - `src/modules/odonto/migrations/0078_odonto_base/` — tabelas da fundação.

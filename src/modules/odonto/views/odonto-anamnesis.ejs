@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Anamnese</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="anamnesisPage(<%= patientId %>)" x-init="load()">
+    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Voltar para a ficha do paciente</a></p>
+    <h1>Anamnese <span class="muted" x-text="patient ? ('· ' + patient.name) : ''"></span></h1>
+
+    <div class="toolbar">
+      <% if (canEditClinical) { %>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span x-text="hasAnamnesis ? 'Nova revisão' : 'Responder anamnese'"></span>
+        </button>
+      <% } %>
+      <a class="btn secondary" href="/app/odonto/anamnese-modelos">Formulários</a>
+      <span class="muted text-xs" x-show="summary.last_filled_at"
+            x-text="'Última: ' + fmtDateTime(summary.last_filled_at) + (summary.last_template_name ? ' · ' + summary.last_template_name : '')"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <p class="muted text-xs" style="margin-top:-.4rem">
+      Cada salvamento grava uma <strong>revisão nova</strong>: o que foi respondido antes continua
+      no histórico e não é reescrito.
+    </p>
+
+    <!-- Revisão atual -->
+    <div class="panel" x-show="current" x-cloak>
+      <h2>
+        Anamnese atual
+        <span class="badge" x-text="'revisão ' + (current ? current.revision : '')"></span>
+      </h2>
+      <p class="muted text-xs" style="margin-top:0">
+        <span x-text="current ? current.template_name : ''"></span>
+        <span x-text="current ? (' · versão ' + current.template_version) : ''"></span>
+        <span x-text="current ? (' · ' + fmtDateTime(current.filled_at)) : ''"></span>
+        <span x-text="current && current.filled_by_name ? (' · por ' + current.filled_by_name) : ''"></span>
+        <span x-text="current && current.professional_name ? (' · ' + current.professional_name) : ''"></span>
+      </p>
+      <table>
+        <tbody>
+          <template x-for="f in currentFields()" :key="f.key">
+            <tr>
+              <th style="width:38%" x-text="f.label"></th>
+              <td x-text="answerText(f, current.answers)"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <p class="muted text-xs" x-show="current && current.notes" x-text="current ? ('Observações: ' + (current.notes || '')) : ''"></p>
+    </div>
+
+    <div class="panel" x-show="!current" x-cloak>
+      <h2>Anamnese pendente</h2>
+      <p class="muted">Este paciente ainda não tem anamnese respondida.</p>
+    </div>
+
+    <!-- Histórico -->
+    <h2>Histórico de revisões</h2>
+    <table>
+      <thead><tr>
+        <th>Revisão</th><th>Formulário</th><th>Respondida em</th><th>Por</th><th>Profissional</th><th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="f in history" :key="f.id">
+          <tr>
+            <td x-text="f.revision"></td>
+            <td class="muted" x-text="f.template_name + ' (v' + f.template_version + ')'"></td>
+            <td class="muted" x-text="fmtDateTime(f.filled_at)"></td>
+            <td class="muted" x-text="f.filled_by_name || '—'"></td>
+            <td class="muted" x-text="f.professional_name || '—'"></td>
+            <td class="text-right"><button class="btn secondary small" @click="openRevision(f)">Ver respostas</button></td>
+          </tr>
+        </template>
+        <tr x-show="!history.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma anamnese respondida ainda.' }) %></td></tr>
+      </tbody>
+    </table>
+
+    <% if (canEditClinical) { %>
+    <!-- Responder / nova revisão -->
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="'Anamnese · ' + (form.template ? form.template.name : '') + ' (v' + (form.template ? form.template.version : 1) + ')'"></h1>
+      <div class="dialog-body">
+        <p class="muted text-xs" style="margin-top:0" x-show="prefilled">
+          Pré-preenchido com a revisão anterior — altere o que mudou. A revisão anterior fica no histórico.
+        </p>
+
+        <template x-for="f in form.fields" :key="f.key">
+          <div style="margin-bottom:.7rem">
+            <label x-text="f.label + (f.required ? ' *' : '')"></label>
+
+            <template x-if="f.type === 'texto'">
+              <input type="text" x-model="form.answers[f.key]" maxlength="200" />
+            </template>
+            <template x-if="f.type === 'texto_longo'">
+              <textarea x-model="form.answers[f.key]" rows="3"></textarea>
+            </template>
+            <template x-if="f.type === 'data'">
+              <input type="date" x-model="form.answers[f.key]" />
+            </template>
+            <template x-if="f.type === 'numero'">
+              <input type="number" x-model="form.answers[f.key]" />
+            </template>
+            <template x-if="f.type === 'sim_nao'">
+              <select x-model="form.answers[f.key]">
+                <option value="">—</option>
+                <option value="sim">Sim</option>
+                <option value="nao">Não</option>
+                <option value="nao_sei">Não sei</option>
+              </select>
+            </template>
+            <template x-if="f.type === 'selecao'">
+              <select x-model="form.answers[f.key]">
+                <option value="">—</option>
+                <template x-for="o in (f.options || [])" :key="o">
+                  <option :value="o" x-text="o"></option>
+                </template>
+              </select>
+            </template>
+            <template x-if="f.type === 'multipla'">
+              <div class="pm-grid">
+                <template x-for="o in (f.options || [])" :key="o">
+                  <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:6px">
+                    <input type="checkbox" :value="o" x-model="form.answers[f.key]" />
+                    <span x-text="o"></span>
+                  </label>
+                </template>
+              </div>
+            </template>
+
+            <span class="muted text-xs" x-show="f.help" x-text="f.help"></span>
+          </div>
+        </template>
+
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Profissional responsável</label>
+            <select x-model="form.professional_id">
+              <option value="">—</option>
+              <template x-for="p in professionals" :key="p.id">
+                <option :value="p.id" x-text="p.name"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Formulário</label>
+            <select x-model="form.template_id" @change="trocarFormulario()">
+              <template x-for="t in templates" :key="t.id">
+                <option :value="t.id" x-text="t.name + ' (v' + t.version + ')'"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <label>Observações desta revisão</label>
+        <textarea x-model="form.notes" rows="2" placeholder="Ex.: paciente trouxe exames, relato complementar..."></textarea>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()" :disabled="saving" x-text="saving ? 'Salvando…' : 'Salvar revisão'"></button>
+      </div>
+    </dialog>
+    <% } %>
+
+    <!-- Revisão anterior (somente leitura) -->
+    <dialog x-ref="dlgView" class="dialog-fixed">
+      <h1 x-text="viewing ? ('Revisão ' + viewing.revision + ' · ' + fmtDateTime(viewing.filled_at)) : ''"></h1>
+      <div class="dialog-body">
+        <p class="muted text-xs" style="margin-top:0" x-show="viewing"
+           x-text="viewing ? (viewing.template_name + ' (v' + viewing.template_version + ')' + (viewing.filled_by_name ? ' · por ' + viewing.filled_by_name : '')) : ''"></p>
+        <table>
+          <tbody>
+            <template x-for="f in viewingFields()" :key="f.key">
+              <tr>
+                <th style="width:38%" x-text="f.label"></th>
+                <td x-text="viewing ? answerText(f, viewing.answers) : ''"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+        <p class="muted text-xs" x-show="viewing && viewing.notes" x-text="viewing ? ('Observações: ' + (viewing.notes || '')) : ''"></p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlgView.close()">Fechar</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function anamnesisPage(patientId) {
+      return {
+        patientId,
+        patient: null,
+        summary: { revisions: 0, last_filled_at: null, last_revision: null, last_template_name: null },
+        current: null,
+        history: [],
+        templates: [],
+        professionals: [],
+        error: '',
+        dlgError: '',
+        saving: false,
+        prefilled: false,
+        viewing: null,
+        form: { template_id: null, template: null, fields: [], answers: {}, notes: '', professional_id: '' },
+
+        get hasAnamnesis() { return this.history.length > 0; },
+
+        async load() {
+          const [p, a] = await Promise.all([
+            fetch(`/api/odonto/patients/${patientId}`),
+            fetch(`/api/odonto/patients/${patientId}/anamnesis`),
+          ]);
+          if (p.ok) this.patient = await p.json();
+          if (a.ok) {
+            const data = await a.json();
+            this.summary = data.summary;
+            this.current = data.current;
+            this.history = data.history;
+            this.templates = data.templates || [];
+          } else {
+            this.error = (await a.json()).error ?? 'Erro ao carregar a anamnese.';
+          }
+          <% if (canEditClinical) { %>
+          const pro = await fetch('/api/odonto/professionals?active=true');
+          if (pro.ok) this.professionals = await pro.json();
+          <% } %>
+        },
+
+        /** Campos do formulário da revisão atual (para rótulo e formatação da resposta). */
+        currentFields() {
+          const t = this.templates.find((x) => x.id === (this.current ? this.current.template_id : -1));
+          return t ? t.fields : Object.keys((this.current && this.current.answers) || {}).map((k) => ({ key: k, label: k, type: 'texto' }));
+        },
+        viewingFields() {
+          if (!this.viewing) return [];
+          const t = this.templates.find((x) => x.id === this.viewing.template_id);
+          return t ? t.fields : Object.keys(this.viewing.answers || {}).map((k) => ({ key: k, label: k, type: 'texto' }));
+        },
+
+        /** Resposta para leitura: multi-seleção vira lista, sim/não vira palavra. */
+        answerText(field, answers) {
+          const v = (answers || {})[field.key];
+          if (v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length)) return '—';
+          if (Array.isArray(v)) return v.join(', ');
+          if (field.type === 'sim_nao') return { sim: 'Sim', nao: 'Não', nao_sei: 'Não sei' }[v] || String(v);
+          if (field.type === 'data') return fmtDate(String(v));
+          return String(v);
+        },
+
+        openNew() {
+          // Começa do formulário padrão (ou do que está em uso) e pré-preenche com a revisão
+          // anterior: revisar é mais comum que responder do zero.
+          const base = this.templates.find((t) => t.is_default) || this.templates[0] || null;
+          const anterior = this.current;
+          this.dlgError = '';
+          this.prefilled = !!anterior;
+          this.form = {
+            template_id: base ? base.id : null,
+            template: base,
+            fields: base ? base.fields : [],
+            answers: this.respostasIniciais(base ? base.fields : [], anterior),
+            notes: '',
+            professional_id: (anterior && anterior.professional_id) || '',
+          };
+          this.$refs.dlg.showModal();
+        },
+
+        respostasIniciais(fields, anterior) {
+          const saida = {};
+          for (const f of fields) {
+            // A revisão anterior pode ter vindo de outro formulário: só aproveita chave igual.
+            const v = anterior && anterior.answers ? anterior.answers[f.key] : undefined;
+            saida[f.key] = v === undefined || v === null
+              ? (f.type === 'multipla' ? [] : '')
+              : (Array.isArray(v) ? [...v] : v);
+          }
+          return saida;
+        },
+
+        trocarFormulario() {
+          const t = this.templates.find((x) => x.id === Number(this.form.template_id));
+          this.form.template = t || null;
+          this.form.fields = t ? t.fields : [];
+          const preservadas = this.form.answers;
+          const novo = {};
+          for (const f of this.form.fields) {
+            novo[f.key] = preservadas[f.key] !== undefined
+              ? preservadas[f.key]
+              : (f.type === 'multipla' ? [] : '');
+          }
+          this.form.answers = novo;
+        },
+
+        async save() {
+          this.saving = true;
+          this.dlgError = '';
+          try {
+            const r = await fetch(`/api/odonto/patients/${patientId}/anamnesis`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                template_id: Number(this.form.template_id),
+                answers: this.form.answers,
+                professional_id: this.form.professional_id ? Number(this.form.professional_id) : null,
+                notes: this.form.notes || null,
+              }),
+            });
+            if (r.ok) {
+              this.$refs.dlg.close();
+              showToast('Anamnese salva em uma revisão nova.', 'success');
+              await this.load();
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao salvar a anamnese.';
+            }
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        async openRevision(f) {
+          const r = await fetch(`/api/odonto/anamnesis/${f.id}`);
+          if (r.ok) {
+            this.viewing = await r.json();
+            this.$refs.dlgView.showModal();
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao abrir a revisão.';
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

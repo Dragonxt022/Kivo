@@ -283,6 +283,10 @@
     "description": "Testes: contrato do cliente (bloco de parcelas, PDF, baixa e cancelamento) — requer Docker",
     "run": "node scripts/test-isolated.js src/tests/contracts.ts"
   },
+  "test:odonto-anamnese": {
+    "description": "Testes: anamnese do módulo odonto (revisões, versões de formulário, permissão clínica)",
+    "run": "node scripts/test-isolated.js src/tests/odonto-anamnese.ts"
+  },
   "test:odonto-patients": {
     "description": "Testes: Kivo Odonto — pacientes ancorados no cliente, ficha clínica com permissão própria, profissionais e procedimentos",
     "run": "node scripts/test-isolated.js src/tests/odonto-patients.ts"

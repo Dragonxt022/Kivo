@@ -41,4 +41,14 @@ router.get('/pacientes/:id', (req, res) => {
 router.get('/profissionais', page('odonto-professionals', 'odonto.professionals.view'));
 router.get('/procedimentos', page('odonto-procedures', 'odonto.procedures.view'));
 
+// Anamnese: a do paciente e os formulários. Ambos são dado clínico — a página exige a
+// permissão de visão clínica e a API confere de novo (nada é liberado só por estar logado).
+router.get('/pacientes/:id/anamnese', (req, res) => {
+  assertAuth(req);
+  if (!canViewClinical(req)) return res.redirect('/');
+  res.render('odonto-anamnesis', locals(req, { patientId: Number(req.params.id) }));
+});
+
+router.get('/anamnese-modelos', page('odonto-anamnesis-templates', 'odonto.clinical.view'));
+
 export default router;

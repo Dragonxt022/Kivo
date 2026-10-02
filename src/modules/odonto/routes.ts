@@ -2,10 +2,13 @@ import { Router, type Response } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
 import {
-  createPatientSchema, createProcedureSchema, createProfessionalSchema,
-  updatePatientSchema, updateProcedureSchema, updateProfessionalSchema,
+  createAnamnesisTemplateSchema, createPatientSchema, createProcedureSchema, createProfessionalSchema,
+  saveAnamnesisSchema, updatePatientSchema, updateProcedureSchema, updateProfessionalSchema,
 } from './schemas';
 import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
+import {
+  createTemplateVersion, getForm, getPatientAnamnesis, getTemplate, listTemplates, savePatientAnamnesis,
+} from './anamnesis';
 import {
   createProfessional, getProfessional, listProfessionals, removeProfessional, updateProfessional,
 } from './professionals';
@@ -107,6 +110,34 @@ router.put('/procedures/:id', requirePermission('odonto.procedures.manage'), val
 
 router.delete('/procedures/:id', requirePermission('odonto.procedures.manage'), (req, res) => {
   send(res, removeProcedure(req, Number(req.params.id)));
+});
+
+// ───────────────────────────── Anamnese (PR §5) ─────────────────────────────
+
+// Formulários: publicar cria uma VERSÃO NOVA — o histórico de respostas continua válido.
+router.get('/anamnesis/templates', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, listTemplates(req, { activeOnly: activeParam(req.query.active) !== false }));
+});
+
+router.post('/anamnesis/templates', requirePermission('odonto.clinical.edit'), validateBody(createAnamnesisTemplateSchema), (req, res) => {
+  send(res, createTemplateVersion(req, req.body), 201);
+});
+
+router.get('/anamnesis/templates/:id', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, getTemplate(req, Number(req.params.id)));
+});
+
+// Respostas do paciente: sempre por revisão (salvar de novo NÃO sobrescreve a anterior).
+router.get('/patients/:id/anamnesis', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, getPatientAnamnesis(req, Number(req.params.id)));
+});
+
+router.post('/patients/:id/anamnesis', requirePermission('odonto.clinical.edit'), validateBody(saveAnamnesisSchema), (req, res) => {
+  send(res, savePatientAnamnesis(req, Number(req.params.id), req.body), 201);
+});
+
+router.get('/anamnesis/:id', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, getForm(req, Number(req.params.id)));
 });
 
 export default router;
