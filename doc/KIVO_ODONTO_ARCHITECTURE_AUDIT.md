@@ -506,7 +506,7 @@ Menu (dentro de `name: 'Odonto (clínicas e consultórios)'`): Painel, Pacientes
 | **D18** | Reset de fábrica / `db:reset` apagam tabela clínica sem aviso específico | Médio | `resetData.ts:7-33,129`; `cli.ts:26-35` | Regra explícita + confirmação própria |
 | **D19** | Baixa parcial **aumenta a próxima parcela** ou cria título novo → altera contrato do plano sem registro clínico | Médio | `finance/bills.ts:262-322` | Decisão de produto na aprovação do plano |
 | **D20** | Multa/juros, formas de pagamento e `settings` são **globais** (afetam varejo/comandas da mesma empresa) | Baixo | `lateFees.ts`; `payment_methods` por máquina | Documentar; não criar configuração paralela |
-| **D21** | `hello` (módulo de teste) exposto em produção | Baixo | `src/modules/hello/module.manifest.ts:3-15`; fail-open `license/service.ts:305` | Fora do escopo; registrar |
+| **D21** | `hello` (módulo de teste) exposto em produção | Baixo | `src/modules/hello/module.manifest.ts:3-15`; fail-open `license/service.ts:305` | **Resolvido depois desta auditoria**: módulo removido do repositório e o smoke passou a testar uma rota de módulo real (`src/dev.ts`) |
 
 ---
 

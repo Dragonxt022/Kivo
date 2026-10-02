@@ -1,6 +1,6 @@
 /**
  * Boot sem Electron (dev/teste): roda migrations e sobe a API local.
- * Com --smoke: sobe, testa /api/health e /api/hello, e encerra.
+ * Com --smoke: sobe, testa /api/health e uma rota autenticada de módulo, e encerra.
  */
 import './core/config/loadEnv';
 import { migrateUp } from './core/database/migrator';
@@ -48,8 +48,10 @@ async function main() {
     const base = `http://localhost:${PORT}`;
     const health = await fetch(`${base}/api/health`).then((r) => r.json());
     console.log('[smoke] health:', JSON.stringify(health));
-    const helloAnon = await fetch(`${base}/api/hello`);
-    console.log('[smoke] hello sem login (esperado 401):', helloAnon.status);
+    // Rota autenticada de um módulo de verdade: o smoke serve para provar que o servidor
+    // subiu com os módulos carregados e que a API está protegida por sessão.
+    const anon = await fetch(`${base}/api/commercial/products`);
+    console.log('[smoke] /api/commercial/products sem login (esperado 401):', anon.status);
     server.close();
     closeDb();
   }

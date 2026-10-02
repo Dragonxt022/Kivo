@@ -29,6 +29,22 @@ copyIfExists(path.join(SRC, 'docs'), path.join(DIST, 'docs'));
 
 const modulesDir = path.join(SRC, 'modules');
 if (fs.existsSync(modulesDir)) {
+  // Módulo REMOVIDO de src/ não pode sobreviver como pasta em dist/: o loader acharia o
+  // manifesto antigo e o carregaria de novo no app empacotado (módulo fantasma, com rotas
+  // e menu que ninguém mais mantém). Removemos SÓ as pastas que não existem mais em src —
+  // apagar dist/modules inteiro levaria junto o JS que o tsc acabou de compilar ali.
+  const viventes = new Set(
+    fs.readdirSync(modulesDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name),
+  );
+  const distModules = path.join(DIST, 'modules');
+  if (fs.existsSync(distModules)) {
+    for (const entry of fs.readdirSync(distModules, { withFileTypes: true })) {
+      if (entry.isDirectory() && !viventes.has(entry.name)) {
+        fs.rmSync(path.join(distModules, entry.name), { recursive: true, force: true });
+        console.log(`[copy-assets] módulo removido de dist: modules/${entry.name}`);
+      }
+    }
+  }
   for (const entry of fs.readdirSync(modulesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const moduleSrc = path.join(modulesDir, entry.name);

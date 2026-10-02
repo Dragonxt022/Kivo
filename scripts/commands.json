@@ -60,7 +60,7 @@
     "run": "tsx src/core/database/cli.ts status"
   },
   "smoke": {
-    "description": "Smoke test (health check + hello)",
+    "description": "Smoke test (health check + rota autenticada de módulo)",
     "run": "tsx src/dev.ts --smoke"
   },
   "qa": {
