@@ -59,6 +59,7 @@ const CLOUD_TESTS = new Set([
   'kivo-web-e2e.ts',
   'ai-cloud.ts',
   'ai-sales-insights-e2e.ts',
+  'billing-gateway.ts',
 ]);
 
 const CLOUD_DB_PORT = Number(process.env.CLOUD_DB_PORT ?? 3307);

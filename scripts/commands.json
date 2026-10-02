@@ -271,6 +271,10 @@
     "description": "Testes: comandas / mesas",
     "run": "tsx src/tests/fase_comandas.ts"
   },
+  "test:billing-gateway": {
+    "description": "Testes: pagamento da assinatura pelo Mercado Pago (Pix, boleto, cartão, webhook) com gateway de mentira — requer Docker",
+    "run": "node scripts/test-isolated.js src/tests/billing-gateway.ts"
+  },
   "test:odonto-patients": {
     "description": "Testes: Kivo Odonto — pacientes ancorados no cliente, ficha clínica com permissão própria, profissionais e procedimentos",
     "run": "node scripts/test-isolated.js src/tests/odonto-patients.ts"
