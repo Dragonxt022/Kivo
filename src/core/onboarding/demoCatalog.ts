@@ -578,6 +578,90 @@ function servicos(run: DemoRun): void {
   }
 }
 
+/**
+ * Consultório/clínica odontológica.
+ *
+ * O catálogo de exemplo é feito de PROCEDIMENTOS (produtos do tipo `servico` — é o que a
+ * clínica vende e o que o módulo Odonto usa como base do cadastro de procedimento) e de
+ * MATERIAL DE CONSUMO com estoque controlado, que é o que ela realmente precisa acompanhar.
+ * Lote e validade não entram no exemplo de propósito: são dados da compra real (a entrada
+ * por NF-e já preenche).
+ */
+function odontologia(run: DemoRun): void {
+  ensureProduct(run, { name: 'Avaliação inicial', type: 'servico', category: 'Procedimentos', priceCents: 15000 });
+  ensureProduct(run, { name: 'Profilaxia (limpeza)', type: 'servico', category: 'Procedimentos', priceCents: 18000 });
+  ensureProduct(run, { name: 'Restauração em resina', type: 'servico', category: 'Procedimentos', priceCents: 25000 });
+  ensureProduct(run, { name: 'Tratamento de canal (unirradicular)', type: 'servico', category: 'Procedimentos', priceCents: 90000 });
+  ensureProduct(run, { name: 'Clareamento dental (consultório)', type: 'servico', category: 'Procedimentos', priceCents: 70000 });
+  ensureProduct(run, { name: 'Extração de terceiro molar', type: 'servico', category: 'Procedimentos', priceCents: 60000 });
+
+  /** Material de consumo: nasce com saldo para a tela de estoque não ficar vazia. */
+  const material = (name: string, costCents: number, qty: number, categoryName = 'Materiais'): void => {
+    const p = ensureProduct(run, {
+      name, type: 'fisico', category: categoryName, priceCents: 0, costCents, trackStock: true,
+    });
+    if (p.created) seedInputStock(p.id, qty);
+  };
+  material('Resina composta A2 — seringa 4g', 8900, 10);
+  material('Ácido fosfórico 37% — seringa 3g', 2500, 12);
+  material('Adesivo dentinário — frasco 5ml', 6900, 8);
+  material('Anestésico lidocaína 2% — caixa 50', 9500, 6, 'Medicamentos');
+  material('Luvas de procedimento — caixa 100', 3200, 20, 'Descartáveis');
+  material('Sugador descartável — pacote 40', 1800, 15, 'Descartáveis');
+
+  if (run.flags.kits) {
+    const moldeira = ensureProduct(run, {
+      name: 'Moldeira para clareamento', type: 'fisico', category: 'Materiais', priceCents: 0, costCents: 4500, trackStock: true,
+    });
+    if (moldeira.created) seedInputStock(moldeira.id, 10);
+    const gel = ensureProduct(run, {
+      name: 'Gel clareador 10% — seringa', type: 'fisico', category: 'Materiais', priceCents: 0, costCents: 5900, trackStock: true,
+    });
+    if (gel.created) seedInputStock(gel.id, 10);
+    ensureKit(run, 'Kit clareamento caseiro', 45000, [
+      { productId: moldeira.id, qty: 1 },
+      { productId: gel.id, qty: 1 },
+    ]);
+  }
+}
+
+/**
+ * Sorveteria/açaí: sabores em pote (revenda), casquinha e açaí montado na hora. O açaí é o
+ * caso de uso natural de COMPLEMENTOS (granola, leite condensado, morango) e os combos de
+ * KITS — por isso as duas capabilities são recomendadas para este ramo no assistente.
+ */
+function sorveteria(run: DemoRun): void {
+  ensureProduct(run, { name: 'Sorvete 1L — Chocolate', type: 'fisico', category: 'Potes 1L', priceCents: 3490, costCents: 1800 });
+  ensureProduct(run, { name: 'Sorvete 1L — Morango', type: 'fisico', category: 'Potes 1L', priceCents: 3490, costCents: 1800 });
+  ensureProduct(run, { name: 'Sorvete 1L — Creme', type: 'fisico', category: 'Potes 1L', priceCents: 3290, costCents: 1700 });
+  ensureProduct(run, { name: 'Casquinha', type: 'fisico', category: 'Na hora', priceCents: 800 });
+  ensureProduct(run, { name: 'Cascão', type: 'fisico', category: 'Na hora', priceCents: 1300 });
+  const acai = ensureProduct(run, { name: 'Açaí 300ml', type: 'fisico', category: 'Açaí', priceCents: 1900, costCents: 900 });
+  ensureProduct(run, { name: 'Açaí 500ml', type: 'fisico', category: 'Açaí', priceCents: 2500, costCents: 1200 });
+  ensureProduct(run, { name: 'Milkshake 400ml', type: 'fisico', category: 'Na hora', priceCents: 1800 });
+  ensureProduct(run, { name: 'Água Mineral 500ml', type: 'fisico', category: 'Bebidas', priceCents: 400 });
+  ensureProduct(run, { name: 'Refrigerante Lata 350ml', type: 'fisico', category: 'Bebidas', priceCents: 600 });
+
+  if (run.flags.complementos) {
+    attachComplementGroup(run, acai.id, 'Complementos do açaí', 0, 4, [
+      { name: 'Granola', priceCents: 300 },
+      { name: 'Leite condensado', priceCents: 300 },
+      { name: 'Banana', priceCents: 200 },
+      { name: 'Morango', priceCents: 500 },
+      { name: 'Paçoca', priceCents: 300 },
+    ]);
+  }
+
+  if (run.flags.kits) {
+    const cascao = ensureProduct(run, { name: 'Cascão', type: 'fisico', category: 'Na hora', priceCents: 1300 });
+    const refri = ensureProduct(run, { name: 'Refrigerante Lata 350ml', type: 'fisico', category: 'Bebidas', priceCents: 600 });
+    ensureKit(run, 'Combo Casal — 2 cascões + 2 refrigerantes', 3200, [
+      { productId: cascao.id, qty: 2 },
+      { productId: refri.id, qty: 2 },
+    ]);
+  }
+}
+
 const BRANCH_BUILDERS: Record<OnboardingBusinessType, (run: DemoRun) => void> = {
   restaurante,
   padaria,
@@ -588,6 +672,8 @@ const BRANCH_BUILDERS: Record<OnboardingBusinessType, (run: DemoRun) => void> = 
   farmacia,
   petshop,
   servicos,
+  odontologia,
+  sorveteria,
   // "outro" é intencionalmente vazio: não inventamos um catálogo para quem ainda não sabe
   // dizer o que é — o cadastro real dele começa limpo, e é isso que o "outro" significa.
   outro: () => {},

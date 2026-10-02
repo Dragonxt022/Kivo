@@ -41,7 +41,9 @@ export type OnboardingBusinessType =
   | 'adega'
   | 'farmacia'
   | 'petshop'
-  | 'servicos';
+  | 'servicos'
+  | 'odontologia'
+  | 'sorveteria';
 
 /**
  * Faixas de porte. Não se sobrepõem de propósito: como o objetivo é pesquisa, faixas
@@ -115,7 +117,7 @@ const WIZARD_FEATURES: WizardFeature[] = [
     key: 'commercial.complementos',
     label: 'Complementos e opcionais',
     hint: 'Bacon extra, escolha do sabor, ponto da carne — perguntado na hora da venda.',
-    recommend: { businessType: ['restaurante', 'padaria'] },
+    recommend: { businessType: ['restaurante', 'padaria', 'sorveteria'] },
   },
   {
     key: 'commercial.variantes',
@@ -127,7 +129,7 @@ const WIZARD_FEATURES: WizardFeature[] = [
     key: 'commercial.kits',
     label: 'Kits e combos',
     hint: 'Vende vários produtos como um item só, baixando o estoque de cada um.',
-    recommend: { businessType: ['restaurante', 'padaria', 'mercado'] },
+    recommend: { businessType: ['restaurante', 'padaria', 'mercado', 'sorveteria'] },
   },
   {
     key: 'commercial.producao',
