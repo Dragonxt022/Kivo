@@ -173,6 +173,14 @@
 
         <label>Observações (opcional)</label>
         <textarea name="instructions" rows="2" placeholder="Aparece para o cliente na tela de Cobranças do app instalado."></textarea>
+
+        <label>E-mail do pagador (opcional)</label>
+        <input type="email" name="payerEmail" placeholder="cliente@email.com">
+        <p class="field-hint">O Pix exige um e-mail. Em branco, o Kivo usa o e-mail do cadastro da empresa.</p>
+
+        <label>Estende a licença em (dias)</label>
+        <input type="number" name="extendsDays" min="0" max="3650" placeholder="ex.: 30">
+        <p class="field-hint">Quando o pagamento cair, a validade da empresa avança esses dias. Em branco, a baixa é só financeira.</p>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-charge').close()">Cancelar</button>

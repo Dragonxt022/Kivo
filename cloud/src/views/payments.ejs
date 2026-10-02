@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Pagamento online</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .pay-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; }
+    .pill.on { background: var(--primary-soft); color: var(--primary); }
+    .pill.off { background: var(--surface-hover); color: var(--muted); }
+    .pill.warn { background: #fff4e5; color: #b45309; }
+    .steps { margin: 0; padding-left: 1.1rem; }
+    .steps li { margin-bottom: .6rem; line-height: 1.55; }
+    .copy-row { display: flex; gap: 8px; align-items: center; }
+    .copy-row input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; }
+    code { background: var(--surface-hover); padding: 1px 6px; border-radius: 6px; font-size: .85em; }
+    .tutorial-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'payments' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'payments' }) %>
+
+      <div class="page">
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
+        <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
+
+        <div class="page-header">
+          <h1>Pagamento online</h1>
+          <p class="field-hint" style="margin-top:0">
+            Como o cliente paga a assinatura: Pix, boleto ou cartão pelo Mercado Pago. O valor
+            cobrado vem sempre da cobrança registrada na empresa — nada aqui muda preço.
+          </p>
+        </div>
+
+        <div class="pay-status">
+          <% if (gateway.enabled && gateway.accessTokenSet) { %>
+            <span class="pill on">● Pagamento online ligado</span>
+          <% } else if (gateway.accessTokenSet) { %>
+            <span class="pill warn">● Credencial salva, mas o pagamento está desligado</span>
+          <% } else { %>
+            <span class="pill off">● Ainda não configurado</span>
+          <% } %>
+          <% if (gateway.accessTokenSet) { %>
+            <span class="pill <%= gateway.environment === 'producao' ? 'on' : 'off' %>">
+              Credencial de <%= gateway.environment === 'producao' ? 'PRODUÇÃO (dinheiro real)' : (gateway.environment === 'teste' ? 'TESTE (sandbox)' : 'origem desconhecida') %>
+            </span>
+          <% } %>
+          <span class="pill off">API: <%= gateway.apiBase %></span>
+        </div>
+
+        <div class="tutorial-grid">
+          <!-- ───────────── Configuração ───────────── -->
+          <div class="card">
+            <h2>Credenciais do Mercado Pago</h2>
+            <form method="post" action="/admin/payments">
+              <label class="label-checkbox-sm" style="display:flex; align-items:center; gap:8px; margin-top:0">
+                <input type="checkbox" name="enabled" value="1" <%= gateway.enabled ? 'checked' : '' %>>
+                <span>Aceitar pagamento online nas cobranças</span>
+              </label>
+              <p class="field-hint">Desligado, o painel não gera Pix/boleto e a tela de Cobranças do cliente não oferece o pagamento.</p>
+
+              <label>Access Token</label>
+              <input type="password" name="accessToken" autocomplete="off"
+                     placeholder="<%= gateway.accessTokenSet ? 'Deixe em branco para manter a credencial salva' : 'APP_USR-00000000-0000-0000-0000-000000000000-000000000' %>">
+              <% if (gateway.accessTokenSet) { %>
+                <p class="field-hint">Já configurado: <code><%= gateway.accessTokenPreview %></code> — em branco mantém esta.</p>
+              <% } else { %>
+                <p class="field-hint">Começa com <code>APP_USR-</code> em produção e <code>TEST-</code> no sandbox. Só o servidor do Kivo usa esta chave; ela nunca é enviada ao programa do cliente.</p>
+              <% } %>
+
+              <label>Assinatura secreta do webhook</label>
+              <input type="password" name="webhookSecret" autocomplete="off"
+                     placeholder="<%= gateway.webhookSecretSet ? 'Deixe em branco para manter a assinatura salva' : 'Chave gerada pelo Mercado Pago ao salvar os webhooks' %>">
+              <p class="field-hint">
+                <% if (gateway.webhookSecretSet) { %>Assinatura salva. <% } %>
+                Sem ela o Kivo ainda confirma o pagamento (reconsulta na API), mas não consegue provar que a notificação veio do Mercado Pago.
+              </p>
+
+              <label>E-mail do pagador (padrão)</label>
+              <input type="text" name="payerEmail" value="<%= gateway.payerEmail %>" placeholder="financeiro@suaempresa.com.br">
+              <p class="field-hint">O Pix exige e-mail do pagador. Usado quando a cobrança e o cadastro da empresa não têm um.</p>
+
+              <div class="form-actions-bar">
+                <button type="submit" class="btn">Salvar</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- ───────────── Tutorial ───────────── -->
+          <div class="card">
+            <h2>Como conseguir a chave (passo a passo)</h2>
+            <ol class="steps">
+              <li>
+                Abra <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noopener">Suas integrações</a>
+                e entre com a conta do Mercado Pago que vai <strong>receber</strong> o dinheiro.
+              </li>
+              <li>
+                <strong>Crie uma aplicação</strong> (ou abra a existente). É ela que assina a integração
+                e gera as chaves. Sugestão de nome: <code>Kivo — assinaturas</code>.
+              </li>
+              <li>
+                No menu da esquerda, entre em <strong>Produção › Credenciais de produção</strong>.
+                Preencha <strong>Ramo/Indústria</strong>, o <strong>Site</strong> (use o endereço do
+                Kivo Cloud), aceite os termos e clique em <strong>Ativar credenciais de produção</strong>.
+              </li>
+              <li>
+                Copie o <strong>Access Token</strong> (começa com <code>APP_USR-</code>) e cole no campo
+                acima. A <em>Public Key</em> não é usada aqui: quem fala com o Mercado Pago é o servidor.
+              </li>
+              <li>
+                Ainda na aplicação, entre em <strong>Webhooks › Configurar notificações</strong>, cole a
+                URL abaixo em <strong>URL de produção</strong>, marque o evento
+                <strong>Pagamentos</strong> (<code>payment</code>) e clique em <strong>Salvar</strong>.
+                <div class="copy-row" style="margin-top:8px">
+                  <input type="text" id="webhook-url" readonly value="<%= gateway.notificationUrl %>">
+                  <button type="button" class="btn secondary" id="copy-webhook">Copiar</button>
+                </div>
+              </li>
+              <li>
+                Ao salvar, o Mercado Pago mostra a <strong>assinatura secreta</strong>. Copie e cole no
+                campo acima — é o que permite ao Kivo provar que a notificação veio deles.
+              </li>
+              <li>
+                Para testar antes de valer: use as <strong>Credenciais de teste</strong> (<code>TEST-</code>).
+                Atenção: <strong>pagamento de teste não dispara webhook</strong> — o teste de notificação é
+                pelo botão <em>Simular recebimento</em> no próprio painel do Mercado Pago.
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:20px">
+          <h2>Como funciona depois de configurado</h2>
+          <ul class="steps">
+            <li>
+              Na empresa, cada cobrança pendente ganha os botões <strong>Gerar Pix</strong>,
+              <strong>Gerar boleto</strong> e <strong>Gerar link de cartão</strong>. O QR, o código e o
+              link aparecem na própria cobrança para você enviar ao cliente.
+            </li>
+            <li>
+              Toda cobrança tem uma <strong>página pública</strong> (<code>/pagar/&lt;token&gt;</code>) — o
+              link que você manda por WhatsApp ou e-mail. Nela o cliente vê o valor e paga sem login.
+            </li>
+            <li>
+              O cliente também paga <strong>de dentro do programa</strong>, na tela Cobranças.
+            </li>
+            <li>
+              Quando o pagamento é aprovado, o Mercado Pago avisa o Kivo (webhook) e o Kivo
+              <strong>reconfere o pagamento na API deles</strong> antes de dar baixa — notificação
+              sozinha não marca cobrança como paga.
+            </li>
+            <li>
+              Se a cobrança tiver <strong>“estende a licença em N dias”</strong>, a validade da empresa é
+              empurrada na mesma hora (contando de hoje quando já venceu). Sem isso, a baixa é só
+              financeira.
+            </li>
+            <li>
+              O botão <strong>Aguardando pagamento / verificar agora</strong> na cobrança consulta o
+              status na hora — útil quando a URL do webhook ainda não estava configurada.
+            </li>
+          </ul>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.getElementById('copy-webhook').addEventListener('click', function () {
+      var campo = document.getElementById('webhook-url');
+      campo.select();
+      var feito = function () { this.textContent = 'Copiado!'; var b = this; setTimeout(function () { b.textContent = 'Copiar'; }, 1500); }.bind(this);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(campo.value).then(feito).catch(function () { document.execCommand('copy'); feito(); });
+        return;
+      }
+      document.execCommand('copy');
+      feito();
+    });
+  </script>
+</body>
+</html>

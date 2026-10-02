@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title><%= notFound ? 'Cobrança não encontrada' : ('Pagar — ' + companyName) %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .pay-page { max-width: 620px; margin: 0 auto; padding: 24px 16px 48px; }
+    .pay-head { text-align: center; margin-bottom: 18px; }
+    .pay-head .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+    .pay-amount { font-size: 2rem; font-weight: 800; margin: 6px 0 0; }
+    .pay-meta { color: var(--muted); font-size: .9rem; margin-top: 4px; }
+    .pay-desc { font-weight: 600; margin-top: 10px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; }
+    .pill.pendente { background: #fff4e5; color: #b45309; }
+    .pill.paga { background: var(--primary-soft); color: var(--primary); }
+    .pill.cancelada { background: var(--surface-hover); color: var(--muted); }
+    .pay-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 6px; }
+    .pay-actions form { flex: 1 1 150px; }
+    .pay-actions .btn { width: 100%; }
+    .qr-box { text-align: center; margin-top: 16px; }
+    .qr-box img { width: 220px; height: 220px; background: #fff; padding: 8px; border-radius: 12px; border: 1px solid var(--border-light); }
+    .copy-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+    .copy-row input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; }
+    .link-row { margin-top: 14px; }
+    .link-row a { word-break: break-all; }
+    code { background: var(--surface-hover); padding: 1px 6px; border-radius: 6px; font-size: .85em; }
+  </style>
+</head>
+<body>
+  <div class="pay-page">
+    <% if (notFound) { %>
+      <div class="card">
+        <h1>Cobrança não encontrada</h1>
+        <p class="field-hint">O link pode ter expirado ou sido copiado incompleto. Peça um novo link a quem enviou.</p>
+      </div>
+    <% } else { %>
+      <div class="pay-head">
+        <div class="brand"><img src="/logo_kivo-icon.svg" alt="" width="22" height="22"> <%= companyName %></div>
+        <p class="pay-amount">R$ <%= (charge.amount_cents / 100).toFixed(2).replace('.', ',') %></p>
+        <div class="pay-meta">Vencimento: <%= fmtDateBr(charge.due_date) %></div>
+        <div class="pay-desc"><%= charge.description %></div>
+        <p style="margin-top:10px">
+          <span class="pill <%= charge.status %>">
+            <%= charge.status === 'paga' ? 'Pagamento confirmado' : (charge.status === 'cancelada' ? 'Cobrança cancelada' : 'Aguardando pagamento') %>
+          </span>
+        </p>
+      </div>
+
+      <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
+      <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
+
+      <% if (charge.status === 'paga') { %>
+        <div class="card">
+          <h2>Pagamento confirmado</h2>
+          <p class="field-hint" style="margin-top:0">
+            Recebemos o pagamento em <%= fmtDateTimeBr(charge.paid_at) %>. Nada mais a fazer por aqui —
+            a licença do Kivo é atualizada automaticamente.
+          </p>
+        </div>
+      <% } else if (charge.status === 'cancelada') { %>
+        <div class="card">
+          <h2>Cobrança cancelada</h2>
+          <p class="field-hint" style="margin-top:0">Esta cobrança foi cancelada. Em caso de dúvida, fale com quem enviou o link.</p>
+        </div>
+      <% } else { %>
+        <div class="card">
+          <% if (!gatewayOn) { %>
+            <h2>Pagamento online indisponível</h2>
+            <p class="field-hint" style="margin-top:0">
+              O pagamento por aqui ainda não está ativo. Fale com o suporte do Kivo para combinar a forma de pagamento.
+            </p>
+            <% if (charge.instructions) { %>
+              <label>Instruções</label>
+              <p><%= charge.instructions %></p>
+            <% } %>
+          <% } else { %>
+            <h2>Como você quer pagar?</h2>
+            <div class="pay-actions">
+              <form method="post" action="/pagar/<%= charge.public_token %>/gateway">
+                <input type="hidden" name="method" value="pix">
+                <button type="submit" class="btn">Pagar com Pix</button>
+              </form>
+              <form method="post" action="/pagar/<%= charge.public_token %>/gateway">
+                <input type="hidden" name="method" value="boleto">
+                <button type="submit" class="btn secondary">Gerar boleto</button>
+              </form>
+              <form method="post" action="/pagar/<%= charge.public_token %>/gateway">
+                <input type="hidden" name="method" value="card">
+                <button type="submit" class="btn secondary">Cartão de crédito</button>
+              </form>
+            </div>
+
+            <% if (charge.mp_qr_code_base64) { %>
+              <div class="qr-box">
+                <p class="field-hint" style="margin-top:0">Abra o app do seu banco, escolha <strong>Pix › Ler QR code</strong> e aponte para o código abaixo.</p>
+                <img src="data:image/png;base64,<%= charge.mp_qr_code_base64 %>" alt="QR code do Pix">
+                <div class="copy-row">
+                  <input type="text" id="pix-code" readonly value="<%= charge.mp_qr_code || '' %>">
+                  <button type="button" class="btn secondary" id="copy-pix">Copiar</button>
+                </div>
+                <p class="field-hint">Ou copie o código e use <strong>Pix › Pix Copia e Cola</strong> no app do banco.</p>
+              </div>
+            <% } %>
+
+            <% if (charge.mp_ticket_url) { %>
+              <div class="link-row">
+                <a class="btn secondary" href="<%= charge.mp_ticket_url %>" target="_blank" rel="noopener">Abrir boleto</a>
+              </div>
+            <% } %>
+
+            <% if (charge.mp_init_point) { %>
+              <div class="link-row">
+                <a class="btn secondary" href="<%= charge.mp_init_point %>" target="_blank" rel="noopener">Pagar com cartão</a>
+              </div>
+            <% } %>
+
+            <p class="field-hint" id="pay-wait" style="margin-top:16px">
+              Esta página confere o pagamento sozinha — pode deixá-la aberta que ela avisa quando cair.
+            </p>
+          <% } %>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+
+  <% if (!notFound && charge.status === 'pendente' && gatewayOn) { %>
+  <script>
+    (function () {
+      var aviso = document.getElementById('pay-wait');
+      var parado = false;
+      function checar() {
+        if (parado) return;
+        fetch('/pagar/<%= charge.public_token %>/status', { headers: { 'Accept': 'application/json' } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (!d) return;
+            if (d.status === 'paga') {
+              parado = true;
+              if (aviso) aviso.textContent = 'Pagamento confirmado! Atualizando…';
+              window.location.reload();
+            }
+          })
+          .catch(function () { /* rede caiu: tenta no próximo ciclo */ });
+      }
+      setInterval(checar, 5000);
+      checar();
+    })();
+
+    var botao = document.getElementById('copy-pix');
+    if (botao) {
+      botao.addEventListener('click', function () {
+        var campo = document.getElementById('pix-code');
+        campo.select();
+        var b = this;
+        var feito = function () { b.textContent = 'Copiado!'; setTimeout(function () { b.textContent = 'Copiar'; }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(campo.value).then(feito).catch(function () { document.execCommand('copy'); feito(); });
+          return;
+        }
+        document.execCommand('copy');
+        feito();
+      });
+    }
+  </script>
+  <% } %>
+</body>
+</html>
