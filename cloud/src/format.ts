@@ -23,3 +23,17 @@ export function fmtDateTimeBr(v: unknown): string {
   const hm = s.slice(11, 16);
   return /^\d{2}:\d{2}$/.test(hm) ? `${dia} ${hm}` : dia;
 }
+
+/**
+ * Valor em reais digitado por gente → centavos.
+ *
+ * Aceita "1.234,56" (formato brasileiro) e "1234.56" — o painel é usado por quem digita dos
+ * dois jeitos, e antes o campo com vírgula virava NaN, o que silenciosamente não criava a
+ * cobrança. Mora aqui (e não na rota) porque a criação de contrato usa a mesma regra.
+ */
+export function parseAmountCents(v: unknown): number {
+  const s = String(v ?? '').replace(/[^\d,.]/g, '');
+  const norm = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+  const n = parseFloat(norm);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}

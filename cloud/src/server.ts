@@ -25,9 +25,11 @@ import affiliateRoutes from './routes/affiliate';
 import webhookRoutes from './routes/webhooks';
 import publicPayRoutes from './routes/payPublic';
 import paymentRoutes from './routes/payments';
+import contractRoutes from './routes/contracts';
 import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAuth';
 import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
+import { MAX_CONTRACT_PDF_BYTES } from './contracts';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -92,6 +94,8 @@ export function createCloudServer() {
   app.use((_req, res, next) => {
     res.locals.fmtDateBr = fmtDateBr;
     res.locals.fmtDateTimeBr = fmtDateTimeBr;
+    // Limite do PDF de contrato: a mesma conta vale para toda tela que aceita o anexo.
+    res.locals.maxPdfMb = Math.round(MAX_CONTRACT_PDF_BYTES / 1048576);
     next();
   });
   app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'kivo-cloud' }));
@@ -136,6 +140,8 @@ export function createCloudServer() {
   app.use('/admin', adminRoutes);
   // Credenciais do gateway de pagamento e geração de Pix/boleto/cartão por cobrança.
   app.use('/admin', paymentRoutes);
+  // Contratos: número, prazo, PDF assinado e o bloco de parcelas que sai de uma vez.
+  app.use('/admin', contractRoutes);
 
   // Middleware de erro global: captura falhas de conexão com o banco de dados
   // e exibe uma página amigável com instruções em português.
