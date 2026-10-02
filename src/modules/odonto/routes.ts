@@ -2,10 +2,15 @@ import { Router, type Response } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
 import {
-  createAnamnesisTemplateSchema, createPatientSchema, createProcedureSchema, createProfessionalSchema,
-  saveAnamnesisSchema, updatePatientSchema, updateProcedureSchema, updateProfessionalSchema,
+  createAnamnesisTemplateSchema, createAppointmentSchema, createPatientSchema, createProcedureSchema,
+  createProfessionalSchema, appointmentStatusSchema, saveAnamnesisSchema, updateAppointmentSchema,
+  updatePatientSchema, updateProcedureSchema, updateProfessionalSchema,
 } from './schemas';
 import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
+import {
+  changeAppointmentStatus, createAppointment, getAppointment, listAppointments, removeAppointment,
+  updateAppointment,
+} from './appointments';
 import {
   createTemplateVersion, getForm, getPatientAnamnesis, getTemplate, listTemplates, savePatientAnamnesis,
 } from './anamnesis';
@@ -138,6 +143,40 @@ router.post('/patients/:id/anamnesis', requirePermission('odonto.clinical.edit')
 
 router.get('/anamnesis/:id', requirePermission('odonto.clinical.view'), (req, res) => {
   send(res, getForm(req, Number(req.params.id)));
+});
+
+// ───────────────────────────── Agenda (PR §6) ─────────────────────────────
+
+// `view=dia|semana|mes` + `date=YYYY-MM-DD`: a tela pede o período e recebe o que mostrar
+// (inclusive a contagem por dia, que a visão de mês usa).
+router.get('/appointments', requirePermission('odonto.agenda.view'), (req, res) => {
+  send(res, listAppointments(req, {
+    view: req.query.view,
+    date: req.query.date,
+    professionalId: req.query.professional_id ? Number(req.query.professional_id) : undefined,
+    status: textParam(req.query.status),
+    patientId: req.query.patient_id ? Number(req.query.patient_id) : undefined,
+  }));
+});
+
+router.get('/appointments/:id', requirePermission('odonto.agenda.view'), (req, res) => {
+  send(res, getAppointment(Number(req.params.id)));
+});
+
+router.post('/appointments', requirePermission('odonto.agenda.manage'), validateBody(createAppointmentSchema), (req, res) => {
+  send(res, createAppointment(req, req.body), 201);
+});
+
+router.put('/appointments/:id', requirePermission('odonto.agenda.manage'), validateBody(updateAppointmentSchema), (req, res) => {
+  send(res, updateAppointment(req, Number(req.params.id), req.body));
+});
+
+router.post('/appointments/:id/status', requirePermission('odonto.agenda.manage'), validateBody(appointmentStatusSchema), (req, res) => {
+  send(res, changeAppointmentStatus(req, Number(req.params.id), req.body.status, req.body.motivo));
+});
+
+router.delete('/appointments/:id', requirePermission('odonto.agenda.manage'), (req, res) => {
+  send(res, removeAppointment(req, Number(req.params.id)));
 });
 
 export default router;

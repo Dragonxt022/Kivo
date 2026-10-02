@@ -11,7 +11,8 @@ import type { ModuleManifest } from '../../core/modules/types';
  * A auditoria que fundamenta estas escolhas está em
  * `doc/KIVO_ODONTO_ARCHITECTURE_AUDIT.md` (arquivo:linha de cada decisão).
  *
- * Fase atual (fundação + pacientes): pacientes, profissionais e procedimentos.
+ * Fase atual (fundação + pacientes + anamnese + agenda): pacientes, profissionais,
+ * procedimentos, anamnese versionada e agenda de atendimentos.
  * Nenhuma tabela do módulo entra em `syncTables` nesta versão — dado clínico fica na máquina
  * que o produziu (decisão registrada na auditoria, seções 10 e 19). As capabilities de
  * agenda/odontograma/documentos/exames entram junto com cada tela, para não existir recurso
@@ -35,6 +36,8 @@ const manifest: ModuleManifest = {
     { key: 'odonto.professionals.manage', description: 'Cadastrar, editar e excluir profissionais (CRO e especialidades)' },
     { key: 'odonto.procedures.view', description: 'Ver o catálogo de procedimentos odontológicos' },
     { key: 'odonto.procedures.manage', description: 'Cadastrar, editar e excluir procedimentos odontológicos' },
+    { key: 'odonto.agenda.view', description: 'Ver a agenda de atendimentos (dia, semana e mês)' },
+    { key: 'odonto.agenda.manage', description: 'Agendar, reagendar, confirmar, registrar atendimento ou falta e cancelar' },
   ],
   routes: './routes',
   pages: './pages',
@@ -42,6 +45,13 @@ const manifest: ModuleManifest = {
   migrations: './migrations',
   setup: './setup',
   menu: [
+    {
+      label: 'Agenda',
+      href: '/app/odonto/agenda',
+      permission: 'odonto.agenda.view',
+      description: 'Atendimentos do dia, da semana e do mês, com confirmação e registro de falta.',
+      icon: 'calendar',
+    },
     {
       label: 'Pacientes',
       href: '/app/odonto/pacientes',

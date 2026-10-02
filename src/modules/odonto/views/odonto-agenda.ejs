@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Agenda</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    /* Grade da semana: sete colunas, uma por dia (domingo a sábado, igual ao servidor). */
+    .semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+    .semana .dia { border: 1px solid var(--border-light); border-radius: 10px; padding: 8px; min-height: 140px; }
+    .semana .dia.hoje { border-color: var(--primary); }
+    .semana .dia h4 { margin: 0 0 6px; font-size: .8rem; color: var(--muted); }
+    .semana .dia .item { font-size: .78rem; padding: 4px 6px; border-radius: 8px; background: var(--surface-hover); margin-bottom: 4px; }
+    .mes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+    .mes .cab { font-size: .72rem; color: var(--muted); text-align: center; padding: 4px 0; }
+    .mes .cel { border: 1px solid var(--border-light); border-radius: 8px; min-height: 74px; padding: 6px; font-size: .75rem; cursor: pointer; }
+    .mes .cel.fora { opacity: .45; }
+    .mes .cel.hoje { border-color: var(--primary); }
+    .mes .cel .n { font-weight: 700; }
+    .mes .cel .qtd { color: var(--muted); }
+    .ag-status { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+    .ag-status button { font-size: .72rem; padding: 3px 8px; }
+    .ag-item { display: flex; gap: 4px; align-items: center; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/agenda' }) %>
+  <main x-data="agendaPage()" x-init="load()">
+    <h1>Agenda</h1>
+
+    <div class="toolbar">
+      <div class="filter-chips" role="group" aria-label="Visão da agenda">
+        <button type="button" class="chip" :class="{ active: view === 'dia' }" @click="mudarVisao('dia')">Dia</button>
+        <button type="button" class="chip" :class="{ active: view === 'semana' }" @click="mudarVisao('semana')">Semana</button>
+        <button type="button" class="chip" :class="{ active: view === 'mes' }" @click="mudarVisao('mes')">Mês</button>
+      </div>
+
+      <button class="btn secondary small" @click="passo(-1)">← Anterior</button>
+      <button class="btn secondary small" @click="irHoje()">Hoje</button>
+      <button class="btn secondary small" @click="passo(1)">Próximo →</button>
+      <input type="date" x-model="date" @change="load()" />
+
+      <select x-model="professionalId" @change="load()">
+        <option value="">Todos os profissionais</option>
+        <template x-for="p in professionals" :key="p.id">
+          <option :value="p.id" x-text="p.name"></option>
+        </template>
+      </select>
+
+      <% if (user.permissions.has('odonto.agenda.manage')) { %>
+        <button class="btn" @click="novo()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo agendamento
+        </button>
+      <% } %>
+
+      <span class="muted text-xs" x-text="titulo()"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <!-- ─────────── Dia ─────────── -->
+    <table x-show="view === 'dia'" x-cloak>
+      <thead><tr>
+        <th>Horário</th><th>Paciente</th><th>Procedimento</th><th>Profissional</th><th>Sala</th><th>Situação</th><th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="a in items" :key="a.id">
+          <tr>
+            <td class="tabular">
+              <span x-text="hora(a.starts_at) + '–' + hora(a.ends_at)"></span>
+              <span class="badge" x-show="a.is_fit_in" style="margin-left:4px">encaixe</span>
+            </td>
+            <td>
+              <a :href="'/app/odonto/pacientes/' + a.patient_id" x-text="a.patient_name"></a>
+              <div class="muted text-xs" x-show="a.patient_phone" x-text="a.patient_phone"></div>
+            </td>
+            <td class="muted" x-text="a.procedure_name || '—'"></td>
+            <td class="muted" x-text="a.professional_name"></td>
+            <td class="muted" x-text="a.room || '—'"></td>
+            <td><span class="badge" :class="classe(a.status)" x-text="rotulo(a.status)"></span></td>
+            <td class="text-right">
+              <% if (user.permissions.has('odonto.agenda.manage')) { %>
+                <div class="ag-status">
+                  <button class="btn secondary" x-show="a.status === 'agendado'" @click="mudarStatus(a, 'confirmado')">Confirmar</button>
+                  <button class="btn secondary" x-show="a.status === 'confirmado'" @click="mudarStatus(a, 'em_atendimento')">Iniciar</button>
+                  <button class="btn secondary" x-show="a.status === 'em_atendimento'" @click="mudarStatus(a, 'atendido')">Atendido</button>
+                  <button class="btn secondary" x-show="a.status === 'agendado' || a.status === 'confirmado'" @click="mudarStatus(a, 'faltou')">Faltou</button>
+                  <button class="btn secondary" x-show="a.status !== 'atendido'" @click="editar(a)">Reagendar</button>
+                  <button class="btn secondary" x-show="a.status !== 'atendido' && a.status !== 'cancelado'" @click="cancelar(a)">Cancelar</button>
+                </div>
+              <% } %>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!items.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum atendimento neste dia.' }) %></td></tr>
+      </tbody>
+    </table>
+
+    <!-- ─────────── Semana ─────────── -->
+    <div class="semana" x-show="view === 'semana'" x-cloak>
+      <template x-for="d in diasDaSemana()" :key="d.data">
+        <div class="dia" :class="{ hoje: d.data === hoje() }">
+          <h4 x-text="d.rotulo"></h4>
+          <template x-for="a in itensDoDia(d.data)" :key="a.id">
+            <div class="item">
+              <div class="ag-item">
+                <strong x-text="hora(a.starts_at)"></strong>
+                <span x-text="a.patient_name"></span>
+              </div>
+              <div class="muted" x-text="a.professional_name + (a.is_fit_in ? ' · encaixe' : '')"></div>
+              <div><span class="badge" :class="classe(a.status)" x-text="rotulo(a.status)"></span></div>
+            </div>
+          </template>
+          <p class="muted text-xs" x-show="!itensDoDia(d.data).length">—</p>
+        </div>
+      </template>
+    </div>
+
+    <!-- ─────────── Mês ─────────── -->
+    <div x-show="view === 'mes'" x-cloak>
+      <div class="mes">
+        <template x-for="c in ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']" :key="c">
+          <div class="cab" x-text="c"></div>
+        </template>
+        <template x-for="c in celulasDoMes()" :key="c.data">
+          <div class="cel" :class="{ fora: !c.doMes, hoje: c.data === hoje() }" @click="abrirDia(c.data)">
+            <div class="n" x-text="c.dia"></div>
+            <div class="qtd" x-show="contagem(c.data)" x-text="contagem(c.data) + ' atendimento(s)'"></div>
+            <template x-for="a in itensDoDia(c.data).slice(0, 2)" :key="a.id">
+              <div class="muted" x-text="hora(a.starts_at) + ' ' + a.patient_name"></div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <p class="muted text-xs" style="margin-top:6px">Clique em um dia para abrir a visão diária.</p>
+    </div>
+
+    <% if (user.permissions.has('odonto.agenda.manage')) { %>
+    <!-- Cancelamento: motivo em diálogo próprio (o Electron não tem window.prompt). -->
+    <dialog x-ref="dlgCancelar" class="dialog-fixed">
+      <h1>Cancelar atendimento</h1>
+      <div class="dialog-body">
+        <p class="muted" style="margin-top:0" x-show="cancelando"
+           x-text="cancelando ? (cancelando.patient_name + ' · ' + fmtDateTime(cancelando.starts_at)) : ''"></p>
+        <label>Motivo (opcional)</label>
+        <textarea x-model="motivoCancelamento" rows="2" placeholder="Ex.: paciente pediu para remarcar, faltou luz na clínica…"></textarea>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlgCancelar.close()">Voltar</button>
+        <button class="btn secondary danger" @click="confirmarCancelamento()">Cancelar atendimento</button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? 'Reagendar / editar atendimento' : 'Novo agendamento'"></h1>
+      <div class="dialog-body">
+        <label>Paciente</label>
+        <input type="text" x-model="buscaPaciente" placeholder="Filtrar por nome, CPF ou telefone…" />
+        <select x-model="form.patient_id" size="1">
+          <option value="">Escolha o paciente…</option>
+          <template x-for="p in pacientesFiltrados()" :key="p.id">
+            <option :value="p.id" x-text="p.name + (p.phone ? ' · ' + p.phone : '')"></option>
+          </template>
+        </select>
+
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Profissional</label>
+            <select x-model="form.professional_id">
+              <option value="">Escolha…</option>
+              <template x-for="p in professionals" :key="p.id">
+                <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Procedimento</label>
+            <select x-model="form.procedure_id" @change="preencherDuracao()">
+              <option value="">—</option>
+              <template x-for="p in procedures" :key="p.id">
+                <option :value="p.id" x-text="p.name + (p.duration_min ? ' (' + p.duration_min + ' min)' : '')"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <div class="pm-grid">
+          <div class="pm-field"><label>Data</label><input type="date" x-model="form.data" /></div>
+          <div class="pm-field"><label>Hora</label><input type="time" x-model="form.hora" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Duração (minutos)</label><input type="number" x-model="form.duration_min" min="5" max="480" step="5" /></div>
+          <div class="pm-field"><label>Sala / cadeira</label><input type="text" x-model="form.room" maxlength="40" /></div>
+        </div>
+
+        <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" x-model="form.is_fit_in" />
+          <span>Encaixe (pode sobrepor outro atendimento do mesmo profissional)</span>
+        </label>
+
+        <label>Observação do agendamento</label>
+        <textarea x-model="form.notes" rows="2" placeholder="Ex.: paciente pediu para avisar 1h antes, traz exame…"></textarea>
+
+        <template x-if="form.id && historico.length">
+          <div>
+            <label>Histórico deste atendimento</label>
+            <table>
+              <tbody>
+                <template x-for="e in historico" :key="e.id">
+                  <tr>
+                    <td class="muted text-xs" x-text="fmtDateTime(e.created_at)"></td>
+                    <td x-text="textoEvento(e)"></td>
+                    <td class="muted text-xs" x-text="e.username || '—'"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Salvar'"></button>
+      </div>
+    </dialog>
+    <% } %>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    const ROTULOS = {
+      agendado: 'Agendado', confirmado: 'Confirmado', em_atendimento: 'Em atendimento',
+      atendido: 'Atendido', faltou: 'Faltou', cancelado: 'Cancelado',
+    };
+    const CLASSES = { atendido: 'ok', cancelado: '', faltou: 'off' };
+
+    function agendaPage() {
+      return {
+        view: 'dia',
+        date: new Date().toISOString().slice(0, 10),
+        professionalId: '',
+        items: [],
+        porDia: [],
+        professionals: [],
+        procedures: [],
+        pacientes: [],
+        buscaPaciente: '',
+        historico: [],
+        error: '',
+        dlgError: '',
+        salvando: false,
+        form: {},
+        cancelando: null,
+        motivoCancelamento: '',
+
+        hoje() { return new Date().toISOString().slice(0, 10); },
+        rotulo(s) { return ROTULOS[s] || s; },
+        classe(s) { return CLASSES[s] ?? 'ok'; },
+        hora(v) { return String(v || '').slice(11, 16); },
+
+        async load() {
+          const params = new URLSearchParams({ view: this.view, date: this.date });
+          if (this.professionalId) params.set('professional_id', String(this.professionalId));
+          const r = await fetch('/api/odonto/appointments?' + params.toString());
+          if (r.ok) {
+            const data = await r.json();
+            this.items = data.items || [];
+            this.porDia = data.porDia || [];
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao carregar a agenda.';
+          }
+          if (!this.professionals.length) {
+            const p = await fetch('/api/odonto/professionals?active=true');
+            if (p.ok) this.professionals = await p.json();
+          }
+          <% if (user.permissions.has('odonto.agenda.manage')) { %>
+          if (!this.procedures.length) {
+            const pr = await fetch('/api/odonto/procedures?active=true');
+            if (pr.ok) this.procedures = await pr.json();
+          }
+          if (!this.pacientes.length) {
+            const pa = await fetch('/api/odonto/patients?active=true');
+            if (pa.ok) this.pacientes = await pa.json();
+          }
+          <% } %>
+        },
+
+        // ── Navegação por período ──
+        mudarVisao(v) { this.view = v; this.load(); },
+        irHoje() { this.date = this.hoje(); this.load(); },
+        passo(direcao) {
+          const d = new Date(this.date + 'T00:00:00');
+          if (this.view === 'dia') d.setDate(d.getDate() + direcao);
+          else if (this.view === 'semana') d.setDate(d.getDate() + 7 * direcao);
+          else d.setMonth(d.getMonth() + direcao, 1);
+          this.date = d.toISOString().slice(0, 10);
+          this.load();
+        },
+        abrirDia(data) { this.date = data; this.view = 'dia'; this.load(); },
+
+        titulo() {
+          const d = new Date(this.date + 'T00:00:00');
+          if (this.view === 'dia') return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+          if (this.view === 'mes') return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+          const dias = this.diasDaSemana();
+          return dias.length ? dias[0].rotulo.split(',')[1] + ' a ' + dias[6].rotulo.split(',')[1] : '';
+        },
+
+        // ── Agrupamentos ──
+        diasDaSemana() {
+          const base = new Date(this.date + 'T00:00:00');
+          const domingo = new Date(base);
+          domingo.setDate(base.getDate() - base.getDay());
+          const saida = [];
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(domingo);
+            d.setDate(domingo.getDate() + i);
+            const iso = d.toISOString().slice(0, 10);
+            saida.push({ data: iso, rotulo: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) });
+          }
+          return saida;
+        },
+        celulasDoMes() {
+          const base = new Date(this.date + 'T00:00:00');
+          const primeiro = new Date(base.getFullYear(), base.getMonth(), 1);
+          const inicio = new Date(primeiro);
+          inicio.setDate(1 - primeiro.getDay());
+          const celulas = [];
+          for (let i = 0; i < 42; i++) {
+            const d = new Date(inicio);
+            d.setDate(inicio.getDate() + i);
+            celulas.push({
+              data: d.toISOString().slice(0, 10),
+              dia: d.getDate(),
+              doMes: d.getMonth() === base.getMonth(),
+            });
+          }
+          return celulas;
+        },
+        itensDoDia(data) { return this.items.filter((a) => String(a.starts_at).slice(0, 10) === data); },
+        contagem(data) {
+          const achado = this.porDia.find((c) => String(c.dia).slice(0, 10) === data);
+          return achado ? Number(achado.total) : this.itensDoDia(data).length;
+        },
+
+        // ── Formulário ──
+        pacientesFiltrados() {
+          const q = this.buscaPaciente.trim().toLowerCase();
+          const lista = q
+            ? this.pacientes.filter((p) => [p.name, p.document, p.phone].filter(Boolean).join(' ').toLowerCase().includes(q))
+            : this.pacientes;
+          return lista.slice(0, 200);
+        },
+        preencherDuracao() {
+          const proc = this.procedures.find((p) => p.id === Number(this.form.procedure_id));
+          if (proc && proc.duration_min) this.form.duration_min = proc.duration_min;
+        },
+        novo() {
+          this.dlgError = '';
+          this.historico = [];
+          this.form = {
+            id: null,
+            patient_id: '',
+            professional_id: this.professionalId || '',
+            procedure_id: '',
+            data: this.date,
+            hora: '09:00',
+            duration_min: 30,
+            room: '',
+            notes: '',
+            is_fit_in: false,
+          };
+          this.$refs.dlg.showModal();
+        },
+        async editar(a) {
+          this.dlgError = '';
+          this.form = {
+            id: a.id,
+            patient_id: a.patient_id,
+            professional_id: a.professional_id,
+            procedure_id: a.procedure_id || '',
+            data: String(a.starts_at).slice(0, 10),
+            hora: this.hora(a.starts_at),
+            duration_min: a.duration_min,
+            room: a.room || '',
+            notes: a.notes || '',
+            is_fit_in: !!a.is_fit_in,
+          };
+          const r = await fetch('/api/odonto/appointments/' + a.id);
+          this.historico = r.ok ? (await r.json()).history : [];
+          this.$refs.dlg.showModal();
+        },
+        textoEvento(e) {
+          const de = e.from || '';
+          const para = e.to || '';
+          const nome = {
+            criado: 'Criado', reagendado: 'Reagendado', confirmado: 'Confirmado',
+            em_atendimento: 'Atendimento iniciado', atendido: 'Atendimento concluído',
+            faltou: 'Registrada falta', cancelado: 'Cancelado', reativado: 'Reativado',
+            encaixe: 'Marcado como encaixe', editado: 'Editado',
+          }[e.event] || e.event;
+          const quando = de && para && de !== para ? ` (${de.slice(11, 16)} → ${para.slice(11, 16)})` : '';
+          return nome + quando + (e.notes ? ' · ' + e.notes : '');
+        },
+        async salvar() {
+          if (!this.form.patient_id || !this.form.professional_id || !this.form.data || !this.form.hora) {
+            this.dlgError = 'Paciente, profissional, data e hora são obrigatórios.';
+            return;
+          }
+          this.salvando = true;
+          this.dlgError = '';
+          const corpo = {
+            patient_id: Number(this.form.patient_id),
+            professional_id: Number(this.form.professional_id),
+            procedure_id: this.form.procedure_id ? Number(this.form.procedure_id) : null,
+            starts_at: `${this.form.data} ${this.form.hora}`,
+            duration_min: Number(this.form.duration_min) || 30,
+            room: this.form.room || null,
+            notes: this.form.notes || null,
+            is_fit_in: !!this.form.is_fit_in,
+          };
+          try {
+            const r = await fetch(this.form.id ? '/api/odonto/appointments/' + this.form.id : '/api/odonto/appointments', {
+              method: this.form.id ? 'PUT' : 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(corpo),
+            });
+            if (r.ok) {
+              this.$refs.dlg.close();
+              showToast(this.form.id ? 'Atendimento reagendado.' : 'Atendimento agendado.', 'success');
+              await this.load();
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao salvar o agendamento.';
+            }
+          } finally {
+            this.salvando = false;
+          }
+        },
+        async mudarStatus(a, status) {
+          const r = await fetch('/api/odonto/appointments/' + a.id + '/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+          });
+          if (r.ok) await this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao mudar a situação.';
+        },
+        async cancelar(a) {
+          this.dlgError = '';
+          this.motivoCancelamento = '';
+          this.cancelando = a;
+          this.$refs.dlgCancelar.showModal();
+        },
+        async confirmarCancelamento() {
+          const a = this.cancelando;
+          if (!a) return;
+          const r = await fetch('/api/odonto/appointments/' + a.id + '/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'cancelado', motivo: this.motivoCancelamento || null }),
+          });
+          if (r.ok) {
+            this.$refs.dlgCancelar.close();
+            showToast('Atendimento cancelado.', 'success');
+            await this.load();
+          } else {
+            this.dlgError = (await r.json()).error ?? 'Erro ao cancelar.';
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

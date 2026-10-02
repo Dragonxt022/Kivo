@@ -30,6 +30,8 @@ function page(view: string, permission: string) {
   };
 }
 
+router.get('/agenda', page('odonto-agenda', 'odonto.agenda.view'));
+
 router.get('/pacientes', page('odonto-patients', 'odonto.patients.view'));
 
 router.get('/pacientes/:id', (req, res) => {
