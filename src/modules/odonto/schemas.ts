@@ -119,3 +119,31 @@ export const appointmentStatusSchema = z.object({
   status: z.enum(['agendado', 'confirmado', 'em_atendimento', 'atendido', 'faltou', 'cancelado']),
   motivo: optionalText(200),
 });
+
+// ──────────────────────── Prontuário / evolução (PR §7 e §8) ────────────────────────
+
+/** Procedimento realizado dentro de uma evolução: o nome vem do catálogo, não do formulário. */
+export const noteProcedureSchema = z.object({
+  procedure_id: z.number().int().positive().nullable().optional(),
+  tooth: optionalText(8),
+  note: optionalText(300),
+});
+
+/** Corpo de criação e de retificação — na retificação tudo é opcional (o que não vem, fica). */
+export const clinicalNoteSchema = z.object({
+  professional_id: z.number().int().positive().nullable().optional(),
+  appointment_id: z.number().int().positive().nullable().optional(),
+  happened_at: optionalText(16),
+  title: optionalText(120),
+  procedures: z.array(noteProcedureSchema).max(40).optional(),
+  observations: optionalText(8000),
+  diagnosis: optionalText(2000),
+  conduct: optionalText(4000),
+  next_steps: optionalText(2000),
+  documents: z.array(z.number().int().positive()).max(50).optional(),
+  exams: z.array(z.number().int().positive()).max(50).optional(),
+});
+
+export const retifyClinicalNoteSchema = clinicalNoteSchema.extend({
+  motivo: z.string().min(5, 'Explique o motivo da retificação.').max(500),
+});

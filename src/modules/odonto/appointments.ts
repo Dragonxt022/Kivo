@@ -97,6 +97,11 @@ function somaMinutos(dataHora: string, minutos: number): string {
 export function periodo(view: unknown, data: unknown): Result<{ from: string; to: string }> {
   const dia = DATA.test(String(data ?? '')) ? String(data) : new Date().toISOString().slice(0, 10);
   const [a, m, d] = dia.split('-').map(Number);
+  // `todos`: sem recorte de período. Usado para vincular uma evolução a um atendimento do
+  // paciente (a lista já vem filtrada por `patient_id`, então o volume é o histórico dele).
+  if (view === 'todos') {
+    return { ok: true, data: { from: '1900-01-01 00:00', to: '2999-12-31 23:59' } };
+  }
   if (view === 'mes') {
     const inicio = new Date(Date.UTC(a, m - 1, 1));
     const fim = new Date(Date.UTC(a, m, 0, 23, 59));

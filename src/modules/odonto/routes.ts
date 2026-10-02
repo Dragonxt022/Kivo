@@ -3,7 +3,8 @@ import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
 import {
   createAnamnesisTemplateSchema, createAppointmentSchema, createPatientSchema, createProcedureSchema,
-  createProfessionalSchema, appointmentStatusSchema, saveAnamnesisSchema, updateAppointmentSchema,
+  createProfessionalSchema, appointmentStatusSchema, clinicalNoteSchema, retifyClinicalNoteSchema,
+  saveAnamnesisSchema, updateAppointmentSchema,
   updatePatientSchema, updateProcedureSchema, updateProfessionalSchema,
 } from './schemas';
 import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
@@ -11,6 +12,7 @@ import {
   changeAppointmentStatus, createAppointment, getAppointment, listAppointments, removeAppointment,
   updateAppointment,
 } from './appointments';
+import { createNote, getNote, listNotes, refuseDeleteNote, retifyNote } from './clinicalNotes';
 import {
   createTemplateVersion, getForm, getPatientAnamnesis, getTemplate, listTemplates, savePatientAnamnesis,
 } from './anamnesis';
@@ -177,6 +179,30 @@ router.post('/appointments/:id/status', requirePermission('odonto.agenda.manage'
 
 router.delete('/appointments/:id', requirePermission('odonto.agenda.manage'), (req, res) => {
   send(res, removeAppointment(req, Number(req.params.id)));
+});
+
+// ──────────────────── Prontuário / evolução clínica (PR §7 e §8) ────────────────────
+
+router.get('/patients/:id/notes', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, listNotes(req, Number(req.params.id), { incluirRetificadas: req.query.retificadas === '1' }));
+});
+
+router.post('/patients/:id/notes', requirePermission('odonto.clinical.edit'), validateBody(clinicalNoteSchema), (req, res) => {
+  send(res, createNote(req, Number(req.params.id), req.body), 201);
+});
+
+router.get('/notes/:id', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, getNote(req, Number(req.params.id)));
+});
+
+// Retificação: cria a versão seguinte e marca a anterior (nunca sobrescreve).
+router.post('/notes/:id/retify', requirePermission('odonto.clinical.edit'), validateBody(retifyClinicalNoteSchema), (req, res) => {
+  send(res, retifyNote(req, Number(req.params.id), req.body, req.body.motivo), 201);
+});
+
+// Não existe exclusão de registro clínico — a rota existe para explicar o caminho certo.
+router.delete('/notes/:id', requirePermission('odonto.clinical.edit'), (req, res) => {
+  send(res, refuseDeleteNote());
 });
 
 export default router;

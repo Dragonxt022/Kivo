@@ -147,7 +147,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     permissions: [
       'overview.view',
       'odonto.patients.view', 'odonto.patients.create', 'odonto.patients.edit',
-      'odonto.clinical.view', 'odonto.clinical.edit',
+      'odonto.clinical.view', 'odonto.clinical.edit', 'odonto.clinical.retify',
       'odonto.agenda.view', 'odonto.agenda.manage',
       'odonto.procedures.view', 'odonto.professionals.view',
       'store.sales.view', 'store.sales.create', 'store.quotes.view', 'store.quotes.create',

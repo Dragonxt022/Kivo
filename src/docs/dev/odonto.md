@@ -34,6 +34,41 @@ A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
 5. **CRO e código de procedimento não se repetem** entre registros ativos.
 6. **UF do CRO** é normalizada para maiúsculas e 2 caracteres.
 
+## Prontuário: evolução clínica com retificação versionada (PR §7 e §8)
+
+A PR §8 é categórica: **registro clínico não se apaga**. E manda decidir como corrigir ANTES de
+criar as tabelas. A decisão (migration `0081`):
+
+1. **Registro vigente é imutável.** Corrigir não altera a linha: cria a versão seguinte
+   (`version + 1`) ligada à anterior (`retifica_id`), com **motivo obrigatório** (mínimo 5
+   caracteres), autor e data/hora.
+2. **A anterior passa a `retificado`** e aponta para quem a substituiu (`replaced_by_id`).
+3. **Nada é apagado.** `DELETE /notes/:id` responde **400** explicando que o caminho é a
+   retificação — a rota existe para não deixar dúvida. O `deleted_at` só é usado quando o
+   PACIENTE inteiro é excluído (soft delete, como o resto do módulo).
+4. **A cadeia inteira fica visível**: `GET /notes/:id` devolve `history` com todas as versões
+   em ordem, cada uma com autor, data/hora e motivo. A lista do prontuário mostra só a vigente
+   (use `?retificadas=1` para ver o histórico junto).
+5. **Nome e CRO do profissional são snapshot** do momento do atendimento: registro assinado não
+   muda porque o CRO do profissional mudou depois.
+
+Regras de confiança (PR §24.2): o **nome do procedimento vem do catálogo**, nunca do corpo da
+requisição, e a **consulta vinculada tem de ser do mesmo paciente**.
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| GET | `/patients/:id/notes?retificadas=1` | `odonto.clinical.view` |
+| POST | `/patients/:id/notes` | `odonto.clinical.edit` |
+| GET | `/notes/:id` (registro + cadeia de versões) | `odonto.clinical.view` |
+| POST | `/notes/:id/retify` (motivo obrigatório) | `odonto.clinical.retify` |
+| DELETE | `/notes/:id` | `odonto.clinical.edit` (responde 400: não existe exclusão) |
+
+Página: `/app/odonto/pacientes/:id/prontuario`, com o mapa de seções do prontuário que a PR §7
+pede (Resumo, Anamnese, Prontuário, Odontograma, Tratamentos, Consultas, Documentos, Exames,
+Imagens, Financeiro) — as que já existem são link, as futuras aparecem marcadas com a fase.
+A permissão nova `odonto.clinical.retify` entra no cargo **Dentista** (só quem assina retifica);
+quem tem `odonto.clinical.edit` registra evolução, mas não corrige a assinada.
+
 ## Agenda (PR §6)
 
 Agenda do consultório em três visões (**dia**, **semana** e **mês**), com filtro por
@@ -182,11 +217,12 @@ do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
 ## Próximas fases (roadmap da PR)
 
-Prontuário/evolução com retificação versionada (4), odontograma (5),
-plano de tratamento + cobrança (6), documentos com variáveis (7), exames e imagens (8),
-refinamento (9). As capabilities de cada recurso entram junto com a tela — não antes.
+Odontograma (5), plano de tratamento + cobrança (6), documentos com variáveis (7), exames e
+imagens (8) e refinamento (9). As capabilities de cada recurso entram junto com a tela — não
+antes.
 
-Concluído: fundação (1), pacientes + anamnese (2) e agenda (3).
+Concluído: fundação (1), pacientes + anamnese (2), agenda (3) e prontuário/evolução com
+retificação versionada (4).
 
 ## Arquivos-chave
 
@@ -198,6 +234,8 @@ Concluído: fundação (1), pacientes + anamnese (2) e agenda (3).
   revisões imutáveis.
 - `src/modules/odonto/appointments.ts` — agenda: conflito de horário, encaixe, transições de
   situação e histórico do atendimento.
+- `src/modules/odonto/clinicalNotes.ts` — prontuário: evolução clínica, retificação versionada e
+  a recusa explícita de apagar registro clínico.
 - `src/modules/odonto/professionals.ts` / `procedures.ts` — CRUD com validação e auditoria.
 - `src/modules/odonto/repositories/` — SQL (paciente faz `JOIN` com `customers`).
 - `src/modules/odonto/migrations/0078_odonto_base/` — tabelas da fundação.
