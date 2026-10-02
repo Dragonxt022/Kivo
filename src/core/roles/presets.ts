@@ -131,6 +131,58 @@ export const ROLE_PRESETS: RolePreset[] = [
     permissions: ['foodservice.kitchen.view', 'foodservice.kitchen.manage'],
   },
   /**
+   * Cargos do Kivo Odonto. O que organiza a clínica é separar CADASTRO de CLÍNICA: a
+   * Recepção agenda, cadastra e cobra sem enxergar prontuário. Por isso o conteúdo clínico
+   * (alergias, histórico, medicações) tem permissão própria — `odonto.clinical.*` — e ela
+   * NÃO entra no cargo de Recepção.
+   *
+   * Cargo novo é criado no boot seguinte (seeds.ts percorre ROLE_PRESETS e insere os que
+   * faltam); instalação que já existia ganha os três sem perder o que o dono configurou.
+   */
+  {
+    slug: 'dentista',
+    name: 'Dentista',
+    description: 'Atende: vê e registra a ficha clínica e o plano de tratamento. Recebe do paciente, mas não abre nem fecha o caixa.',
+    icon: 'clipboard',
+    permissions: [
+      'overview.view',
+      'odonto.patients.view', 'odonto.patients.create', 'odonto.patients.edit',
+      'odonto.clinical.view', 'odonto.clinical.edit',
+      'odonto.procedures.view', 'odonto.professionals.view',
+      'store.sales.view', 'store.sales.create', 'store.quotes.view', 'store.quotes.create',
+      'finance.receivables.view',
+      'commercial.products.search',
+    ],
+  },
+  {
+    slug: 'recepcao',
+    name: 'Recepção',
+    description: 'Cadastra paciente, marca consulta e cobra. NÃO vê o conteúdo clínico (alergias, histórico, medicações).',
+    icon: 'phone',
+    permissions: [
+      'overview.view',
+      'odonto.patients.view', 'odonto.patients.create', 'odonto.patients.edit',
+      'odonto.procedures.view', 'odonto.professionals.view',
+      'store.quotes.view', 'store.quotes.create', 'store.quotes.edit',
+      'store.sales.view', 'store.sales.create',
+      'finance.receivables.view', 'finance.receivables.receive', 'finance.paymethods.view',
+      'commercial.customers.view', 'commercial.products.search',
+    ],
+  },
+  {
+    slug: 'auxiliar',
+    name: 'Auxiliar',
+    description: 'Auxilia o atendimento: consulta paciente, ficha clínica, procedimentos e profissionais. Não altera prontuário nem mexe em dinheiro.',
+    icon: 'package',
+    permissions: [
+      'overview.view',
+      'odonto.patients.view',
+      'odonto.clinical.view',
+      'odonto.procedures.view', 'odonto.professionals.view',
+      'commercial.products.search',
+    ],
+  },
+  /**
    * Propositalmente vazio: é o cargo-base para quem quer montar um perfil do zero,
    * e serve de "nenhum acesso" enquanto o dono decide o que liberar. A tela de cargos
    * diz isso na cara para ninguém achar que está quebrado.

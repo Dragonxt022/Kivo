@@ -91,6 +91,28 @@ de conflito de prontuário e o tratamento do dado sensível na nuvem (ver §19 d
 - **403 `Permissão negada: odonto.clinical.edit`** — tentou gravar bloco clínico sem a
   permissão clínica. O cadastro continua aceito no mesmo corpo, desde que sem `clinical`.
 
+## Como configurar uma clínica (checklist)
+
+1. **Módulos no painel** (plano da empresa): `odonto` + `commercial` + `finance` são
+   obrigatórios (o Odonto depende do Comercial para o cadastro de cliente e o Financeiro
+   recebe a cobrança do tratamento). Recomendados: `dre` e `nfe` (entrada de material por
+   XML, com lote e validade). `store` entra se a clínica recebe na hora ou emite orçamento;
+   `labels`, `fiscal`, `comandas` e `foodservice` não se aplicam a consultório.
+   No painel há o atalho **Perfil do segmento → Odontologia**, que pré-marca os módulos.
+2. **Recursos (capabilities)** em Configurações › Recursos: `nfe.import` se usar NF-e;
+   `commercial.kits` se vender kit (ex.: clareamento caseiro). Os recursos de varejo
+   (variantes, complementos, cardápio online, produção) ficam **desligados**.
+3. **Cargos** (tela de Cargos): use os de fábrica **Dentista**, **Recepção** e **Auxiliar**.
+   A regra é separar cadastro de clínica: Recepção agenda, cadastra e cobra **sem** ver
+   prontuário; só Dentista e Auxiliar têm `odonto.clinical.view`.
+4. **Cadastros base**, nesta ordem: categorias de material, formas de pagamento,
+   profissionais (com CRO), procedimentos (valor e duração).
+5. **Pacientes** por último — cada paciente cria também um cliente no Comercial.
+
+Detalhe prático: não conceda `commercial.customers.*` à Recepção. O cadastro de paciente
+funciona sem isso (a ponte é feita pelo serviço interno `commercial.customers`); a permissão
+do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
+
 ## Próximas fases (roadmap da PR)
 
 Anamnese (2), agenda (3), prontuário/evolução com retificação versionada (4), odontograma (5),
