@@ -243,6 +243,7 @@ router.use('/suppliers', makeCrudRouter({
   required: ['name'],
   searchFields: ['name', 'trade_name', 'document', 'email', 'phone', 'city'],
   digitSearchFields: ['document', 'phone', 'cep'],
+  defaults: { default_markup_bps: 0 },
 }));
 router.use('/agreement-companies', makeCrudRouter({
   table: 'agreement_companies', entity: 'agreement_company', permPrefix: 'commercial.agreements',
