@@ -49,6 +49,13 @@ router.get('/pacientes/:id/prontuario', (req, res) => {
   res.render('odonto-prontuario', locals(req, { patientId: Number(req.params.id) }));
 });
 
+// Odontograma: o mapa dos dentes (também dado de saúde).
+router.get('/pacientes/:id/odontograma', (req, res) => {
+  assertAuth(req);
+  if (!canViewClinical(req)) return res.redirect('/');
+  res.render('odonto-odontograma', locals(req, { patientId: Number(req.params.id) }));
+});
+
 router.get('/profissionais', page('odonto-professionals', 'odonto.professionals.view'));
 router.get('/procedimentos', page('odonto-procedures', 'odonto.procedures.view'));
 

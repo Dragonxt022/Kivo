@@ -147,3 +147,28 @@ export const clinicalNoteSchema = z.object({
 export const retifyClinicalNoteSchema = clinicalNoteSchema.extend({
   motivo: z.string().min(5, 'Explique o motivo da retificação.').max(500),
 });
+
+// ──────────────────── Odontograma e situações (PR §9 e §10) ────────────────────
+
+export const toothStateSchema = z.object({
+  tooth: z.string().min(2).max(2),
+  surface: z.enum(['M', 'D', 'O', 'V', 'L']).nullable().optional(),
+  kind: z.enum(['situacao', 'planejado']).optional(),
+  condition_id: z.number().int().positive(),
+  note: optionalText(500),
+  recorded_at: optionalText(16),
+  professional_id: z.number().int().positive().nullable().optional(),
+});
+
+export const undoToothStateSchema = z.object({
+  motivo: optionalText(200),
+});
+
+export const toothConditionSchema = z.object({
+  code: z.string().min(2).max(31).optional(),
+  name: z.string().min(1).max(60).optional(),
+  color: optionalText(7),
+  applies_to: z.enum(['dente', 'superficie', 'ambos']).optional(),
+  sort_order: z.number().int().min(0).max(9999).optional(),
+  active: z.union([z.boolean(), z.number().int()]).optional(),
+});
