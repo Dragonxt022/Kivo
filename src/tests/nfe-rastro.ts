@@ -147,6 +147,10 @@ async function main(): Promise<void> {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     closeDb();
+    // Última brecha: uma conclusão assíncrona (pool de threads/processo do transpilador)
+    // que chega DEPOIS que o loop já começou a fechar derruba o processo com a mesma
+    // asserção. Um timer curto mantém o loop vivo para ela ser entregue em paz.
+    await new Promise((resolve) => setTimeout(resolve, 150));
   }
 
   console.log(failures === 0 ? '\nNF-e com rastro: TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
