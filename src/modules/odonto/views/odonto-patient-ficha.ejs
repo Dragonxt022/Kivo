@@ -112,13 +112,40 @@
         </div>
         <% } %>
 
+        <% if (canViewClinical) { %>
+        <h2>Prontuário</h2>
+        <p class="muted text-xs" style="margin-top:0">
+          Evolução clínica do paciente: cada atendimento vira um registro com procedimentos,
+          observações, diagnóstico, conduta e próximos passos. Registro clínico não se apaga —
+          corrige-se por retificação, com motivo e histórico.
+        </p>
+        <table>
+          <tbody>
+            <tr>
+              <th style="width:32%">Situação</th>
+              <td>
+                <span x-show="records.vigentes > 0" x-cloak>
+                  <span class="badge" x-text="records.vigentes + ' evolução(ões)'"></span>
+                  <span class="muted text-xs" x-show="records.ultima" x-text="' · última ' + fmtDateTimeLocal(records.ultima)"></span>
+                  <span class="muted text-xs" x-show="records.retificadas" x-text="' · ' + records.retificadas + ' retificada(s)'"></span>
+                </span>
+                <span class="muted" x-show="records.vigentes === 0" x-cloak>Sem evolução registrada</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="toolbar">
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/prontuario'">Abrir prontuário</a>
+        </div>
+        <% } %>
+
         <h2>Próximas fases do módulo</h2>
         <table>
           <thead><tr><th>Recurso</th><th>Situação</th></tr></thead>
           <tbody>
             <tr><td>Anamnese</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Agenda e atendimento</td><td class="muted">Planejada (fase 3)</td></tr>
-            <tr><td>Prontuário e evolução</td><td class="muted">Planejada (fase 4)</td></tr>
+            <tr><td>Prontuário e evolução</td><td><span class="badge">Disponível com retificação</span></td></tr>
             <tr><td>Odontograma</td><td class="muted">Planejada (fase 5)</td></tr>
             <tr><td>Plano de tratamento e cobrança</td><td class="muted">Planejada (fase 6)</td></tr>
             <tr><td>Documentos com variáveis</td><td class="muted">Planejada (fase 7)</td></tr>
@@ -184,8 +211,9 @@
         p: {},
         form: {},
         clinical: emptyClinical(),
-        // Resumo da anamnese (sem conteúdo clínico): quantas revisões e quando foi a última.
+        // Resumo da anamnese e do prontuário (sem conteúdo clínico): a ficha mostra o estado.
         anamnesis: { revisions: 0, last_filled_at: null, last_revision: null, last_template_name: null },
+        records: { vigentes: 0, retificadas: 0, ultima: null },
         error: '', dlgError: '', clinicalError: '', clinicalSaved: false,
 
         sexLabel(v) {
@@ -207,6 +235,8 @@
           if (!podeVerClinica) return;
           const a = await fetch('/api/odonto/patients/' + this.id + '/anamnesis');
           if (a.ok) this.anamnesis = (await a.json()).summary;
+          const rec = await fetch('/api/odonto/patients/' + this.id + '/notes');
+          if (rec.ok) this.records = (await rec.json()).resumo;
         },
         openEdit() {
           // Copia para o formulário: cancelar não pode deixar a tela mostrando dado não salvo.

@@ -8,6 +8,7 @@ import type { CommercialCustomersService } from '../commercial/setup';
 import type { CustomerPatch } from '../commercial/customers';
 import { canEditClinical, canViewClinical, type Result } from './permissions';
 import { removeAnamnesisByPatient } from './anamnesis';
+import { removeNotesByPatient } from './clinicalNotes';
 import {
   patientRepository,
   type PatientClinicalInput,
@@ -228,6 +229,7 @@ export function removePatient(req: Request, id: number): Result<{ ok: true }> {
     patientRepository.softDeleteClinical(id);
     // A anamnese é histórico clínico do paciente: sai junto (soft delete), nunca fica órfã.
     removeAnamnesisByPatient(id);
+    removeNotesByPatient(id);
     patientRepository.softDelete(id);
   });
   audit(req, 'excluir', 'odonto_patient', id, before, null);

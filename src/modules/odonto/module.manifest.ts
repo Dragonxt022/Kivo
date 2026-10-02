@@ -32,6 +32,7 @@ const manifest: ModuleManifest = {
     { key: 'odonto.patients.delete', description: 'Excluir a ficha do paciente (o cadastro de cliente permanece)' },
     { key: 'odonto.clinical.view', description: 'Ver o conteúdo clínico do paciente (alergias, histórico médico, medicações)' },
     { key: 'odonto.clinical.edit', description: 'Registrar e alterar o conteúdo clínico do paciente' },
+    { key: 'odonto.clinical.retify', description: 'Retificar registro clínico já assinado (correção com motivo, preservando o histórico)' },
     { key: 'odonto.professionals.view', description: 'Ver os profissionais do consultório' },
     { key: 'odonto.professionals.manage', description: 'Cadastrar, editar e excluir profissionais (CRO e especialidades)' },
     { key: 'odonto.procedures.view', description: 'Ver o catálogo de procedimentos odontológicos' },

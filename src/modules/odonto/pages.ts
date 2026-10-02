@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { assertAuth } from '../../shared/auth';
-import { canEditClinical, canViewClinical } from './patients';
+import { canEditClinical, canViewClinical } from './permissions';
+import { canRetify } from './clinicalNotes';
 
 /**
  * Páginas do módulo odonto (montadas em /app/odonto, já autenticadas pelo Core).
@@ -18,6 +19,7 @@ function locals(req: Request, extra: Record<string, unknown> = {}) {
     user: req.user,
     canViewClinical: canViewClinical(req),
     canEditClinical: canEditClinical(req),
+    canRetify: canRetify(req),
     ...extra,
   };
 }
@@ -38,6 +40,13 @@ router.get('/pacientes/:id', (req, res) => {
   assertAuth(req);
   if (!req.user.permissions.has('odonto.patients.view')) return res.redirect('/');
   res.render('odonto-patient-ficha', locals(req, { patientId: Number(req.params.id) }));
+});
+
+// Prontuário: a evolução clínica do paciente (dado de saúde — exige permissão clínica).
+router.get('/pacientes/:id/prontuario', (req, res) => {
+  assertAuth(req);
+  if (!canViewClinical(req)) return res.redirect('/');
+  res.render('odonto-prontuario', locals(req, { patientId: Number(req.params.id) }));
 });
 
 router.get('/profissionais', page('odonto-professionals', 'odonto.professionals.view'));

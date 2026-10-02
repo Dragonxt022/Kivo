@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Prontuário</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    /* Mapa de seções do prontuário (PR §7): o que existe hoje e o que vem em cada fase. */
+    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .secoes a, .secoes span {
+      padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600;
+      border: 1px solid var(--border-light); text-decoration: none; color: var(--muted);
+    }
+    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
+    .secoes span.planejado { opacity: .6; }
+    .evolucao { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    .evolucao.retificada { border-style: dashed; opacity: .85; }
+    .evolucao h3 { margin: 0 0 4px; font-size: .98rem; }
+    .evolucao .meta { color: var(--muted); font-size: .78rem; margin-bottom: 8px; }
+    .evolucao dl { display: grid; grid-template-columns: 150px 1fr; gap: 4px 10px; margin: 0 0 8px; font-size: .88rem; }
+    .evolucao dt { color: var(--muted); }
+    .evolucao dd { margin: 0; white-space: pre-wrap; }
+    .evolucao .proc { display: flex; gap: 6px; flex-wrap: wrap; }
+    .evolucao .proc .tag { background: var(--surface-hover); border-radius: 8px; padding: 2px 8px; font-size: .78rem; }
+    .proc-linha { display: grid; grid-template-columns: 2fr 90px 2fr auto; gap: 6px; align-items: center; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="prontuarioPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>, <%= canRetify ? 'true' : 'false' %>)" x-init="load()">
+    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
+    <h1>Prontuário <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+
+    <div class="secoes">
+      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
+      <a class="atual" href="#">Prontuário</a>
+      <span class="planejado">Odontograma (fase 5)</span>
+      <span class="planejado">Tratamentos (fase 6)</span>
+      <a href="/app/odonto/agenda">Consultas</a>
+      <span class="planejado">Documentos (fase 7)</span>
+      <span class="planejado">Exames e imagens (fase 8)</span>
+      <span class="planejado">Financeiro</span>
+    </div>
+
+    <div class="toolbar">
+      <% if (canEditClinical) { %>
+        <button class="btn" @click="nova()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Nova evolução
+        </button>
+      <% } %>
+      <span class="muted text-xs"
+            x-text="resumo.vigentes + ' evolução(ões)' + (resumo.retificadas ? ' · ' + resumo.retificadas + ' retificada(s)' : '') + (resumo.ultima ? ' · última ' + fmtDateTimeLocal(resumo.ultima) : '')"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <p class="muted text-xs" style="margin-top:-.4rem">
+      Registro clínico <strong>não é apagado</strong>: para corrigir, use a retificação — o texto
+      anterior fica no histórico com o motivo, quem corrigiu e quando.
+    </p>
+
+    <template x-for="n in notes" :key="n.id">
+      <div class="evolucao" :class="{ retificada: n.status === 'retificado' }">
+        <h3 x-text="fmtDateTimeLocal(n.happened_at) + (n.title ? ' · ' + n.title : '')"></h3>
+        <div class="meta">
+          <span x-text="n.professional_name ? (n.professional_name + (n.professional_cro ? ' · CRO ' + n.professional_cro : '')) : 'Profissional não informado'"></span>
+          <span x-show="n.created_by_name" x-text="' · registrado por ' + n.created_by_name"></span>
+          <span x-show="n.version > 1" x-text="' · versão ' + n.version + ' (retificação)'"></span>
+          <span class="badge" x-show="n.status === 'retificado'" style="margin-left:6px">retificada</span>
+          <span x-show="n.replaced_by_name" x-text="' por ' + n.replaced_by_name"></span>
+          <span x-show="n.retification_reason" x-text="' · motivo: ' + n.retification_reason"></span>
+        </div>
+
+        <div class="proc" x-show="n.procedures.length" style="margin-bottom:8px">
+          <template x-for="(p, i) in n.procedures" :key="i">
+            <span class="tag" x-text="p.name + (p.tooth ? ' · dente ' + p.tooth : '') + (p.note ? ' · ' + p.note : '')"></span>
+          </template>
+        </div>
+
+        <dl>
+          <!-- x-for com um único raiz (o Alpine não repete múltiplos): `display:contents`
+               deixa os dt/dd participarem da grade do dl. -->
+          <template x-for="c in campos(n)" :key="c.label">
+            <div style="display:contents">
+              <dt x-text="c.label"></dt>
+              <dd x-text="c.value"></dd>
+            </div>
+          </template>
+        </dl>
+
+        <div class="toolbar" style="margin:0">
+          <button class="btn secondary small" @click="verHistorico(n)">Histórico de versões</button>
+          <% if (canRetify) { %>
+            <button class="btn secondary small" x-show="n.status === 'vigente'" @click="retificar(n)">Retificar</button>
+          <% } %>
+        </div>
+      </div>
+    </template>
+
+    <div x-show="!notes.length">
+      <%- include('partials/empty-state', { message: 'Nenhuma evolução registrada ainda.' }) %>
+    </div>
+
+    <% if (canEditClinical) { %>
+    <!-- Um diálogo para os dois atos: registrar (novo) e retificar (correção com motivo). -->
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="modo === 'retificar' ? 'Retificar registro clínico' : 'Nova evolução'"></h1>
+      <div class="dialog-body">
+        <p class="muted text-xs" style="margin-top:0" x-show="modo === 'retificar'">
+          A correção cria a versão seguinte; o texto atual continua no histórico, com o motivo.
+        </p>
+
+        <div class="pm-grid">
+          <div class="pm-field"><label>Data e hora do atendimento</label><input type="datetime-local" x-model="form.happened_at" /></div>
+          <div class="pm-field">
+            <label>Profissional responsável</label>
+            <select x-model="form.professional_id">
+              <option value="">—</option>
+              <template x-for="p in profissionais" :key="p.id">
+                <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Consulta (opcional)</label>
+            <select x-model="form.appointment_id">
+              <option value="">—</option>
+              <template x-for="a in atendimentos" :key="a.id">
+                <option :value="a.id" x-text="fmtDateTimeLocal(a.starts_at) + ' · ' + a.professional_name"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field"><label>Assunto</label><input type="text" x-model="form.title" maxlength="120" placeholder="Ex.: Restauração dente 26" /></div>
+        </div>
+
+        <label>Procedimentos realizados</label>
+        <template x-for="(p, i) in form.procedures" :key="i">
+          <div class="proc-linha">
+            <select x-model="p.procedure_id">
+              <option value="">Escolha…</option>
+              <template x-for="proc in procedimentos" :key="proc.id">
+                <option :value="proc.id" x-text="proc.name"></option>
+              </template>
+            </select>
+            <input type="text" x-model="p.tooth" placeholder="dente" maxlength="8" />
+            <input type="text" x-model="p.note" placeholder="observação do procedimento" maxlength="300" />
+            <button class="btn secondary small danger" @click.prevent="form.procedures.splice(i, 1)">×</button>
+          </div>
+        </template>
+        <button class="btn secondary small" @click.prevent="form.procedures.push({ procedure_id: '', tooth: '', note: '' })">+ Procedimento</button>
+
+        <label>Observações do atendimento</label>
+        <textarea x-model="form.observations" rows="3" placeholder="O que foi feito, como o paciente respondeu…"></textarea>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Diagnóstico</label><textarea x-model="form.diagnosis" rows="2"></textarea></div>
+          <div class="pm-field"><label>Conduta</label><textarea x-model="form.conduct" rows="2"></textarea></div>
+        </div>
+        <label>Próximos passos</label>
+        <textarea x-model="form.next_steps" rows="2" placeholder="Ex.: retorno em 15 dias para controle; aguardar exame…"></textarea>
+
+        <template x-if="modo === 'retificar'">
+          <div>
+            <label>Motivo da retificação *</label>
+            <textarea x-model="form.motivo" rows="2" placeholder="Ex.: troquei o dente no registro (era 36, não 26)."></textarea>
+          </div>
+        </template>
+
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="salvar()" :disabled="salvando"
+                x-text="salvando ? 'Salvando…' : (modo === 'retificar' ? 'Retificar registro' : 'Registrar evolução')"></button>
+      </div>
+    </dialog>
+    <% } %>
+
+    <dialog x-ref="dlgHist" class="dialog-fixed">
+      <h1>Histórico de versões</h1>
+      <div class="dialog-body">
+        <template x-for="v in historico" :key="v.id">
+          <div class="evolucao" :class="{ retificada: v.status === 'retificado' }">
+            <h3 x-text="'Versão ' + v.version + ' · ' + fmtDateTimeLocal(v.happened_at)"></h3>
+            <div class="meta">
+              <span x-text="v.professional_name ? (v.professional_name + (v.professional_cro ? ' · CRO ' + v.professional_cro : '')) : '—'"></span>
+              <span x-show="v.created_by_name" x-text="' · registrado por ' + v.created_by_name"></span>
+              <span class="badge" x-text="v.status"></span>
+              <span x-show="v.retification_reason" x-text="' · motivo: ' + v.retification_reason"></span>
+            </div>
+            <dl>
+              <template x-for="c in campos(v)" :key="c.label">
+                <div style="display:contents">
+                  <dt x-text="c.label"></dt>
+                  <dd x-text="c.value"></dd>
+                </div>
+              </template>
+            </dl>
+            <div class="proc" x-show="v.procedures.length">
+              <template x-for="(p, i) in v.procedures" :key="i">
+                <span class="tag" x-text="p.name + (p.tooth ? ' · ' + p.tooth : '')"></span>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlgHist.close()">Fechar</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function prontuarioPage(patientId, podeEditar, podeRetificar) {
+      const agoraLocal = () => {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+      };
+      return {
+        patientId,
+        podeEditar,
+        podeRetificar,
+        paciente: null,
+        notes: [],
+        resumo: { vigentes: 0, retificadas: 0, ultima: null },
+        profissionais: [],
+        procedimentos: [],
+        atendimentos: [],
+        historico: [],
+        error: '',
+        dlgError: '',
+        salvando: false,
+        modo: 'nova',
+        retificandoId: null,
+        form: {},
+
+        async load() {
+          const [p, n] = await Promise.all([
+            fetch('/api/odonto/patients/' + patientId),
+            fetch('/api/odonto/patients/' + patientId + '/notes?retificadas=1'),
+          ]);
+          if (p.ok) this.paciente = await p.json();
+          if (n.ok) {
+            const data = await n.json();
+            this.notes = data.items || [];
+            this.resumo = data.resumo || this.resumo;
+          } else {
+            this.error = (await n.json()).error ?? 'Erro ao carregar o prontuário.';
+          }
+          <% if (canEditClinical) { %>
+          if (!this.profissionais.length) {
+            const pr = await fetch('/api/odonto/professionals?active=true');
+            if (pr.ok) this.profissionais = await pr.json();
+          }
+          if (!this.procedimentos.length) {
+            const pc = await fetch('/api/odonto/procedures?active=true');
+            if (pc.ok) this.procedimentos = await pc.json();
+          }
+          <% } %>
+        },
+
+        /**
+         * Campos preenchidos do registro, para a tela mostrar só o que existe.
+         * (Um `x-for` de um raiz só: o Alpine não repete múltiplos elementos.)
+         */
+        campos(n) {
+          const lista = [
+            { label: 'Observações', value: n.observations },
+            { label: 'Diagnóstico', value: n.diagnosis },
+            { label: 'Conduta', value: n.conduct },
+            { label: 'Próximos passos', value: n.next_steps },
+          ];
+          if (n.appointment_id) lista.push({ label: 'Consulta', value: 'agendamento #' + n.appointment_id });
+          if (n.status === 'retificado' && n.replaced_by_id) {
+            lista.push({ label: 'Substituído por', value: 'versão seguinte (#' + n.replaced_by_id + ')' + (n.replaced_by_name ? ' · ' + n.replaced_by_name : '') });
+          }
+          return lista.filter((c) => c.value);
+        },
+
+        // Só sob demanda: a lista de atendimentos do paciente serve para vincular a evolução.
+        async carregarAtendimentos() {
+          const r = await fetch(`/api/odonto/appointments?view=todos&patient_id=${patientId}`);
+          if (r.ok) {
+            const data = await r.json();
+            this.atendimentos = (data.items || []).filter((a) => a.status === 'atendido' || a.status === 'em_atendimento');
+          }
+        },
+
+        limparFormulario(nota) {
+          return {
+            happened_at: nota ? String(nota.happened_at).replace(' ', 'T').slice(0, 16) : agoraLocal(),
+            professional_id: nota ? (nota.professional_id || '') : '',
+            appointment_id: nota ? (nota.appointment_id || '') : '',
+            title: nota ? (nota.title || '') : '',
+            procedures: nota && nota.procedures.length
+              ? nota.procedures.map((p) => ({ procedure_id: p.procedure_id || '', tooth: p.tooth || '', note: p.note || '' }))
+              : [{ procedure_id: '', tooth: '', note: '' }],
+            observations: nota ? (nota.observations || '') : '',
+            diagnosis: nota ? (nota.diagnosis || '') : '',
+            conduct: nota ? (nota.conduct || '') : '',
+            next_steps: nota ? (nota.next_steps || '') : '',
+            motivo: '',
+          };
+        },
+
+        async nova() {
+          this.modo = 'nova';
+          this.retificandoId = null;
+          this.dlgError = '';
+          this.form = this.limparFormulario(null);
+          await this.carregarAtendimentos();
+          this.$refs.dlg.showModal();
+        },
+
+        async retificar(nota) {
+          this.modo = 'retificar';
+          this.retificandoId = nota.id;
+          this.dlgError = '';
+          // Pré-preenche com o texto atual: retificar é corrigir, não reescrever do zero.
+          this.form = this.limparFormulario(nota);
+          await this.carregarAtendimentos();
+          this.$refs.dlg.showModal();
+        },
+
+        async salvar() {
+          this.salvando = true;
+          this.dlgError = '';
+          const procedures = (this.form.procedures || [])
+            .filter((p) => p.procedure_id)
+            .map((p) => ({
+              procedure_id: Number(p.procedure_id),
+              tooth: p.tooth || null,
+              note: p.note || null,
+            }));
+          const corpo = {
+            happened_at: String(this.form.happened_at || '').replace('T', ' '),
+            professional_id: this.form.professional_id ? Number(this.form.professional_id) : null,
+            appointment_id: this.form.appointment_id ? Number(this.form.appointment_id) : null,
+            title: this.form.title || null,
+            procedures,
+            observations: this.form.observations || null,
+            diagnosis: this.form.diagnosis || null,
+            conduct: this.form.conduct || null,
+            next_steps: this.form.next_steps || null,
+          };
+          try {
+            const url = this.modo === 'retificar'
+              ? `/api/odonto/notes/${this.retificandoId}/retify`
+              : `/api/odonto/patients/${patientId}/notes`;
+            const r = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.modo === 'retificar' ? { ...corpo, motivo: this.form.motivo } : corpo),
+            });
+            if (r.ok) {
+              this.$refs.dlg.close();
+              showToast(this.modo === 'retificar' ? 'Registro retificado — a versão anterior ficou no histórico.' : 'Evolução registrada.', 'success');
+              await this.load();
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao salvar o registro.';
+            }
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        async verHistorico(nota) {
+          const r = await fetch('/api/odonto/notes/' + nota.id);
+          if (r.ok) {
+            this.historico = (await r.json()).history || [];
+            this.$refs.dlgHist.showModal();
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao abrir o histórico.';
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

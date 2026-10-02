@@ -30,6 +30,20 @@ function fmtDate(raw) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
 }
 
+/**
+ * Data + hora INFORMADAS PELA PESSOA (horário da agenda, da evolução clínica): é relógio de
+ * parede — 09:00 é nove da manhã na clínica, não um instante UTC. Converter fuso aqui exibiria
+ * 05:00 para quem marcou às 9h (mesma razão de `fmtDate` não converter).
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- as views chamam por nome (script global, sem bundler)
+function fmtDateTimeLocal(raw) {
+  if (!raw) return '—';
+  const s = String(raw);
+  const dia = fmtDate(s);
+  const hm = s.slice(11, 16);
+  return /^\d{2}:\d{2}$/.test(hm) ? `${dia} ${hm}` : dia;
+}
+
 /** "Hoje" no fuso da loja, formato YYYY-MM-DD — para filtros de dia (ex.: relatório de vendas). */
 function todayLocal() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: KIVO_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());

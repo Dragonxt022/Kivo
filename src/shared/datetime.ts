@@ -27,3 +27,18 @@ export function localIso(d: Date = new Date()): string {
 export function todayLocalIso(): string {
   return localIso();
 }
+
+/**
+ * Data + hora INFORMADAS PELA PESSOA (horário da agenda, da evolução clínica), em
+ * `DD/MM/AAAA HH:MM`. É relógio de parede: não converte fuso — 09:00 é nove da manhã na
+ * clínica, não um instante UTC. Espelho de `public/js/datetime.js` (fmtDateTimeLocal).
+ */
+export function wallClockBr(raw: unknown): string {
+  const s = String(raw ?? '');
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(s);
+  if (!m) {
+    const soData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.slice(0, 10));
+    return soData ? `${soData[3]}/${soData[2]}/${soData[1]}` : '—';
+  }
+  return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+}

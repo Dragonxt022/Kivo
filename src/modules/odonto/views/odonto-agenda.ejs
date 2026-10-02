@@ -145,7 +145,7 @@
       <h1>Cancelar atendimento</h1>
       <div class="dialog-body">
         <p class="muted" style="margin-top:0" x-show="cancelando"
-           x-text="cancelando ? (cancelando.patient_name + ' · ' + fmtDateTime(cancelando.starts_at)) : ''"></p>
+           x-text="cancelando ? (cancelando.patient_name + ' · ' + fmtDateTimeLocal(cancelando.starts_at)) : ''"></p>
         <label>Motivo (opcional)</label>
         <textarea x-model="motivoCancelamento" rows="2" placeholder="Ex.: paciente pediu para remarcar, faltou luz na clínica…"></textarea>
         <div class="error" x-text="dlgError"></div>
