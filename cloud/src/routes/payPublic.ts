@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createRateLimiter } from '../rateLimit';
 import {
   GatewayError, createBoletoPayment, createCardPreference, createPixPayment,
   getPayment, isConfigured, loadSettings, mapPaymentStatus, publicPayUrl,
@@ -20,6 +21,18 @@ import type { ChargeRow } from '../charges';
  */
 
 const router = Router();
+
+/**
+ * Freio para as rotas públicas: gerar pagamento cria um registro no Mercado Pago (custa
+ * requisição e polui a conta), e o status é consultado em laço pela página aberta. Sem isso,
+ * quem tem o link poderia martelar a API do gateway pelo nosso servidor.
+ */
+const limiteGerar = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 20, keyPrefix: 'pagar-gerar:' });
+const limiteStatus = createRateLimiter({ windowMs: 60 * 1000, max: 90, keyPrefix: 'pagar-status:' });
+
+function ipDe(req: { ip?: string; headers: Record<string, unknown> }): string {
+  return req.ip ?? String(req.headers['x-forwarded-for'] ?? 'desconhecido');
+}
 
 interface PublicCharge {
   charge: ChargeRow;
@@ -57,6 +70,10 @@ router.get('/:token', async (req, res) => {
 
 router.post('/:token/gateway', async (req, res) => {
   const token = String(req.params.token);
+  if (limiteGerar(ipDe(req))) {
+    res.status(429).send('Muitas tentativas de pagamento em pouco tempo. Tente novamente em alguns minutos.');
+    return;
+  }
   const dados = await load(token);
   if (!dados) {
     res.status(404).send('Cobrança não encontrada.');
@@ -122,6 +139,10 @@ router.post('/:token/gateway', async (req, res) => {
 
 /** Auto-refresh da página: consulta o status e, se aprovado, baixa a cobrança. */
 router.get('/:token/status', async (req, res) => {
+  if (limiteStatus(ipDe(req))) {
+    res.status(429).json({ error: 'Muitas consultas em pouco tempo.' });
+    return;
+  }
   const dados = await load(String(req.params.token));
   if (!dados) {
     res.status(404).json({ error: 'Cobrança não encontrada.' });
