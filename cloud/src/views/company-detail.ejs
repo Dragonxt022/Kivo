@@ -71,6 +71,10 @@
                   :aria-selected="tab === 'cobrancas'" @click="go('cobrancas')">
             Cobranças<% if (pendingCharges) { %><span class="tab-badge"><%= pendingCharges %></span><% } %>
           </button>
+          <button type="button" class="tab" role="tab" :class="{ active: tab === 'contratos' }"
+                  :aria-selected="tab === 'contratos'" @click="go('contratos')">
+            Contratos<% if (contratos && contratos.length) { %><span class="tab-badge"><%= contratos.length %></span><% } %>
+          </button>
           <button type="button" class="tab" role="tab" :class="{ active: tab === 'sync' }"
                   :aria-selected="tab === 'sync'" @click="go('sync')">Sincronização</button>
           <button type="button" class="tab" role="tab" :class="{ active: tab === 'diagnostico' }"
@@ -305,6 +309,69 @@
           </div>
         </section>
 
+        <!-- ─────────── Contratos ─────────── -->
+        <section x-show="tab === 'contratos'" role="tabpanel" x-cloak id="contratos">
+          <div class="card table-card">
+            <div class="table-toolbar">
+              <strong>Contratos desta empresa</strong>
+              <div class="table-count"><%= (contratos || []).length %> contrato(s)</div>
+              <button class="btn small" type="button" onclick="document.getElementById('modal-new-contract').showModal()">+ Novo contrato</button>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr>
+                  <th>Contrato</th><th>Prazo</th><th class="text-right">Valor mensal</th>
+                  <th>Parcelas</th><th>Situação</th><th>PDF</th><th></th>
+                </tr></thead>
+                <tbody>
+                  <% (contratos || []).forEach(function (ct) { %>
+                    <tr>
+                      <td>
+                        <a href="/admin/contracts/<%= ct.id %>" class="contrato-num"><%= ct.contract_number %></a>
+                        <% if (ct.title) { %><div class="contrato-titulo"><%= ct.title %></div><% } %>
+                      </td>
+                      <td><%= ct.months %> meses</td>
+                      <td class="text-right tabular">R$ <%= (ct.monthly_amount_cents / 100).toFixed(2).replace('.', ',') %></td>
+                      <td>
+                        <%= ct.pagas %>/<%= ct.parcelas %> pagas
+                        <% if (ct.proximo_vencimento) { %> · próximo <%= fmtDateBr(ct.proximo_vencimento) %><% } %>
+                        <% if (Number(ct.vencidas) > 0) { %> · <strong style="color:var(--danger)"><%= ct.vencidas %> vencida(s)</strong><% } %>
+                      </td>
+                      <td><span class="badge <%= ct.status %>"><%= ct.status %></span></td>
+                      <td>
+                        <% if (ct.document_file) { %>
+                          <a href="/admin/contracts/<%= ct.id %>/document" target="_blank" rel="noopener">assinado</a>
+                        <% } else { %><span class="cell-muted">—</span><% } %>
+                      </td>
+                      <td class="text-right">
+                        <div class="contrato-acoes">
+                          <a class="btn secondary small" href="/admin/contracts/<%= ct.id %>">Abrir</a>
+                          <form method="post" action="/admin/contracts/<%= ct.id %>/charges">
+                            <button type="submit" class="btn secondary small" title="Gera as parcelas que faltarem">Parcelas</button>
+                          </form>
+                          <% if (ct.status === 'ativo') { %>
+                            <form method="post" action="/admin/contracts/<%= ct.id %>/cancel"
+                                  onsubmit="return confirm('Cancelar o contrato e as parcelas em aberto? As já pagas continuam no histórico.');">
+                              <button type="submit" class="btn secondary small danger">Cancelar</button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                  <% if (!contratos || !contratos.length) { %>
+                    <tr><td colspan="7">
+                      <div class="empty-state-box">
+                        <p>Nenhum contrato ainda. Depois dos 15 dias de teste, use “+ Novo contrato” para gerar as parcelas de uma vez.</p>
+                      </div>
+                    </td></tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- ─────────── Cobranças ─────────── -->
         <section x-show="tab === 'cobrancas'" role="tabpanel" x-cloak>
           <div class="card table-card" x-data="chargesTable()">
@@ -344,7 +411,10 @@
                       <td>
                         <span :class="dueClass(ch)" x-text="fmtDate(ch.due_date)"></span>
                       </td>
-                      <td><span class="badge" :class="ch.status" x-text="ch.status"></span></td>
+                      <td>
+                        <span class="badge" :class="ch.status" x-text="ch.status"></span>
+                        <template x-if="ch.parcela"><span class="parcela-tag" x-text="'parcela ' + ch.parcela"></span></template>
+                      </td>
                       <td class="cell-muted">
                         <template x-if="ch.mp_status">
                           <div>
@@ -582,6 +652,96 @@
     </main>
   </div>
 
+  <dialog id="modal-new-contract">
+    <form id="form-contrato">
+      <div class="modal-header">
+        <h2>Novo contrato — <%= company.name %></h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-contract').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Descrição do contrato</label>
+        <input type="text" id="c-titulo" maxlength="160" placeholder="Ex.: Assinatura Kivo — plano Diamante">
+        <p class="field-hint">Aparece na descrição de cada parcela, na tela de Cobranças do cliente.</p>
+
+        <label>Número do contrato</label>
+        <input type="text" id="c-numero" maxlength="40" placeholder="deixe em branco para gerar (KIVO-2026-0001)">
+
+        <label>Prazo (meses)</label>
+        <input type="number" id="c-meses" min="1" max="120" value="12" oninput="preverContratoEmpresa()">
+
+        <label>Valor mensal (R$)</label>
+        <input type="text" id="c-valor" inputmode="decimal" placeholder="199,90" oninput="preverContratoEmpresa()">
+
+        <label>Primeiro vencimento</label>
+        <input type="date" id="c-venc" oninput="preverContratoEmpresa()">
+        <p class="field-hint">As outras parcelas caem no mesmo dia dos meses seguintes (dia 31 vira o último dia do mês).</p>
+
+        <label>Estende a licença em (dias por parcela paga)</label>
+        <input type="number" id="c-dias" min="0" max="3650" value="30">
+
+        <label>E-mail do pagador (opcional)</label>
+        <input type="email" id="c-email" placeholder="financeiro@cliente.com.br">
+
+        <label>Data de assinatura (opcional)</label>
+        <input type="date" id="c-assinatura">
+
+        <label>Contrato em PDF (até <%= maxPdfMb %> MB)</label>
+        <input type="file" id="c-pdf" accept="application/pdf">
+
+        <label>Observações (opcional)</label>
+        <textarea id="c-obs" rows="2" placeholder="Ex.: combinado reajuste anual, contato do financeiro..."></textarea>
+
+        <p class="contrato-previa" id="c-previsao">Preencha prazo, valor e o primeiro vencimento para ver o que será gerado.</p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-contract').close()">Cancelar</button>
+        <button type="submit" class="btn" id="btn-contrato-empresa">Criar contrato e parcelas</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/js/contrato.js"></script>
+  <script>
+    // Mesmas contas da tela de Contratos (/js/contrato.js); aqui a empresa já é conhecida.
+    function preverContratoEmpresa() {
+      const meses = Number(document.getElementById('c-meses').value || 0);
+      const valor = Contrato.valorEmCentavos(document.getElementById('c-valor').value);
+      document.getElementById('c-previsao').textContent =
+        Contrato.textoPrevia(meses, valor, document.getElementById('c-venc').value);
+    }
+
+    document.getElementById('form-contrato').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      const dados = {
+        voltar: 'empresa',
+        title: document.getElementById('c-titulo').value,
+        contractNumber: document.getElementById('c-numero').value,
+        months: document.getElementById('c-meses').value,
+        monthlyAmount: document.getElementById('c-valor').value,
+        firstDueDate: document.getElementById('c-venc').value,
+        extendsDays: document.getElementById('c-dias').value,
+        payerEmail: document.getElementById('c-email').value,
+        signedOn: document.getElementById('c-assinatura').value,
+        notes: document.getElementById('c-obs').value,
+      };
+      const arquivo = document.getElementById('c-pdf').files[0];
+      if (arquivo) {
+        if (arquivo.size > <%= maxPdfMb %> * 1024 * 1024) {
+          alert('O PDF tem ' + (arquivo.size / 1048576).toFixed(1) + ' MB — o limite é <%= maxPdfMb %> MB.');
+          return;
+        }
+        dados.documentName = arquivo.name;
+        dados.documentBase64 = await Contrato.arquivoEmBase64(arquivo);
+      }
+      await Contrato.enviarJson(
+        '/admin/companies/<%= company.company_uuid %>/contracts',
+        dados,
+        document.getElementById('btn-contrato-empresa'),
+        'Criar contrato e parcelas',
+      );
+    });
+  </script>
+
   <dialog id="modal-new-charge">
     <form method="post" action="/admin/companies/<%= company.company_uuid %>/charges">
       <div class="modal-header">
@@ -652,7 +812,7 @@
 
   <script src="/js/table-toolkit.js"></script>
   <script>
-    var VALID_TABS = ['detalhes', 'licenca', 'cobrancas', 'sync', 'diagnostico', 'perigo'];
+    var VALID_TABS = ['detalhes', 'licenca', 'cobrancas', 'contratos', 'sync', 'diagnostico', 'perigo'];
 
     function companyCommands(uuid) {
       return {

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Contrato <%= contrato.contract_number %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .contrato-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+    .dados-lista { display: grid; grid-template-columns: 190px 1fr; gap: 6px 12px; font-size: .9rem; }
+    .dados-lista dt { color: var(--muted); }
+    .dados-lista dd { margin: 0; }
+    .acoes-linha { display: flex; gap: 6px; flex-wrap: wrap; }
+    .acoes-linha form { margin: 0; }
+    .anexo-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .anexo-acoes form { margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'contracts' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'contracts' }) %>
+
+      <div class="page">
+        <% if (typeof ok !== 'undefined' && ok) { %><p class="success-banner"><%= ok %></p><% } %>
+        <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
+
+        <div class="page-header">
+          <h1>
+            <%= contrato.contract_number %>
+            <span class="badge <%= contrato.status %>"><%= contrato.status %></span>
+          </h1>
+          <p class="field-hint" style="margin-top:0">
+            <%= contrato.title || 'Contrato de assinatura' %> ·
+            <a href="/admin/companies/<%= contrato.company_uuid %>"><%= contrato.company_name || 'empresa' %></a> ·
+            <%= progresso(contrato) %>
+          </p>
+        </div>
+
+        <div class="contrato-grid">
+          <div class="card">
+            <h2>Dados do contrato</h2>
+            <dl class="dados-lista">
+              <dt>Empresa</dt><dd><a href="/admin/companies/<%= contrato.company_uuid %>"><%= contrato.company_name || '—' %></a></dd>
+              <dt>Prazo</dt><dd><%= contrato.months %> meses</dd>
+              <dt>Valor mensal</dt><dd>R$ <%= (contrato.monthly_amount_cents / 100).toFixed(2).replace('.', ',') %></dd>
+              <dt>Total do contrato</dt><dd>R$ <%= ((contrato.monthly_amount_cents * contrato.months) / 100).toFixed(2).replace('.', ',') %></dd>
+              <dt>Primeiro vencimento</dt><dd><%= fmtDateBr(contrato.first_due_date) %></dd>
+              <dt>Parcelas pagas</dt><dd><%= contrato.pagas %> de <%= contrato.parcelas %>
+                <% if (Number(contrato.vencidas) > 0) { %> · <strong style="color:var(--danger)"><%= contrato.vencidas %> vencida(s)</strong><% } %>
+              </dd>
+              <dt>Recebido</dt><dd>R$ <%= (contrato.pago_cents / 100).toFixed(2).replace('.', ',') %></dd>
+              <dt>Em aberto</dt><dd>R$ <%= (contrato.aberto_cents / 100).toFixed(2).replace('.', ',') %></dd>
+              <dt>Licença por parcela</dt><dd><%= contrato.extends_days %> dia(s)</dd>
+              <dt>E-mail do pagador</dt><dd><%= contrato.payer_email || '—' %></dd>
+              <dt>Assinado em</dt><dd><%= contrato.signed_on ? fmtDateBr(contrato.signed_on) : '—' %></dd>
+              <dt>Criado em</dt><dd><%= fmtDateTimeBr(contrato.created_at) %></dd>
+              <% if (contrato.notes) { %><dt>Observações</dt><dd><%= contrato.notes %></dd><% } %>
+            </dl>
+
+            <div class="acoes-linha" style="margin-top:14px">
+              <form method="post" action="/admin/contracts/<%= contrato.id %>/charges">
+                <button type="submit" class="btn secondary small">Gerar parcelas que faltam</button>
+              </form>
+              <% if (contrato.status === 'ativo') { %>
+                <form method="post" action="/admin/contracts/<%= contrato.id %>/status">
+                  <input type="hidden" name="status" value="concluido">
+                  <button type="submit" class="btn secondary small">Marcar concluído</button>
+                </form>
+                <form method="post" action="/admin/contracts/<%= contrato.id %>/cancel"
+                      onsubmit="return confirm('Cancelar o contrato e as parcelas em aberto? As já pagas continuam no histórico.');">
+                  <button type="submit" class="btn secondary small danger">Cancelar contrato</button>
+                </form>
+              <% } else if (contrato.status === 'concluido') { %>
+                <form method="post" action="/admin/contracts/<%= contrato.id %>/status">
+                  <input type="hidden" name="status" value="ativo">
+                  <button type="submit" class="btn secondary small">Reativar</button>
+                </form>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Contrato assinado (PDF)</h2>
+            <% if (contrato.document_file) { %>
+              <p style="margin-top:0">
+                <strong><%= contrato.document_name %></strong><br>
+                <span class="field-hint"><%= contrato.document_bytes < 1024
+                  ? contrato.document_bytes + ' bytes'
+                  : (contrato.document_bytes / 1024).toFixed(0) + ' KB' %> · anexado no contrato</span>
+              </p>
+              <div class="anexo-acoes">
+                <a class="btn secondary small" href="/admin/contracts/<%= contrato.id %>/document" target="_blank" rel="noopener">Abrir</a>
+                <form method="post" action="/admin/contracts/<%= contrato.id %>/document/remove"
+                      onsubmit="return confirm('Remover o PDF deste contrato?');">
+                  <button type="submit" class="btn secondary small danger">Remover anexo</button>
+                </form>
+              </div>
+              <label style="margin-top:14px">Substituir por outro PDF</label>
+            <% } else { %>
+              <p class="field-hint" style="margin-top:0">
+                Nenhum PDF anexado. Anexe o contrato assinado para ficar guardado junto com as parcelas.
+              </p>
+              <label>Anexar PDF (até <%= maxPdfMb %> MB)</label>
+            <% } %>
+            <form id="form-anexo">
+              <input type="file" id="a-pdf" accept="application/pdf" required>
+              <div class="anexo-acoes">
+                <button type="submit" class="btn small" id="btn-anexar">Anexar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="card table-card" style="margin-top:20px">
+          <div class="table-toolbar">
+            <strong>Parcelas do contrato</strong>
+            <div class="table-count"><%= progresso(contrato) %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Vencimento</th><th class="text-right">Valor</th><th>Status</th>
+                  <th>Mercado Pago</th><th>Pago em</th><th>Link do cliente</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% parcelas.forEach(function (p) { %>
+                  <tr>
+                    <td class="contrato-num"><%= p.installment_number || '—' %>/<%= contrato.months %></td>
+                    <td><%= fmtDateBr(p.due_date) %></td>
+                    <td class="text-right tabular">R$ <%= (p.amount_cents / 100).toFixed(2).replace('.', ',') %></td>
+                    <td><span class="badge <%= p.status %>"><%= p.status %></span></td>
+                    <td class="cell-muted"><%= p.mp_status ? (p.mp_method + ' · ' + p.mp_status) : '—' %></td>
+                    <td class="cell-muted"><%= p.paid_at ? fmtDateTimeBr(p.paid_at) : '—' %></td>
+                    <td>
+                      <% if (p.public_token) { %>
+                        <button type="button" class="btn secondary small" data-link="<%= publicUrl(p.public_token) %>"
+                                onclick="copiarLink(this)">Copiar link</button>
+                      <% } else { %><span class="cell-muted">—</span><% } %>
+                    </td>
+                    <td>
+                      <% if (p.status === 'pendente') { %>
+                        <div class="acoes-linha">
+                          <form method="post" action="/admin/companies/<%= contrato.company_uuid %>/charges/<%= p.id %>/gateway">
+                            <input type="hidden" name="method" value="pix">
+                            <button type="submit" class="btn secondary small">Pix</button>
+                          </form>
+                          <form method="post" action="/admin/companies/<%= contrato.company_uuid %>/charges/<%= p.id %>/gateway">
+                            <input type="hidden" name="method" value="boleto">
+                            <button type="submit" class="btn secondary small">Boleto</button>
+                          </form>
+                          <form method="post" action="/admin/companies/<%= contrato.company_uuid %>/charges/<%= p.id %>/gateway">
+                            <input type="hidden" name="method" value="card">
+                            <button type="submit" class="btn secondary small">Cartão</button>
+                          </form>
+                        </div>
+                      <% } else { %>
+                        <span class="cell-muted">—</span>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }); %>
+                <% if (!parcelas.length) { %>
+                  <tr><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhuma parcela gerada. Use "Gerar parcelas que faltam".' }) %></td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/contrato.js"></script>
+  <script>
+    function copiarLink(botao) {
+      Contrato.copiar(botao.getAttribute('data-link'), botao, 'Copiar link');
+    }
+
+    document.getElementById('form-anexo').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      const arquivo = document.getElementById('a-pdf').files[0];
+      if (!arquivo) return;
+      if (arquivo.size > <%= maxPdfMb %> * 1024 * 1024) {
+        alert('O PDF tem ' + (arquivo.size / 1048576).toFixed(1) + ' MB — o limite é <%= maxPdfMb %> MB.');
+        return;
+      }
+      const base64 = await Contrato.arquivoEmBase64(arquivo);
+      await Contrato.enviarJson('/admin/contracts/<%= contrato.id %>/document', {
+        documentName: arquivo.name,
+        documentBase64: base64,
+        voltar: 'contrato',
+      }, document.getElementById('btn-anexar'), 'Anexar');
+    });
+  </script>
+</body>
+</html>

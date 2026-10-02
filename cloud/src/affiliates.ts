@@ -320,3 +320,25 @@ export async function cancelPayout(payoutId: number): Promise<boolean> {
     conn.release();
   }
 }
+
+/**
+ * Desconto de indicação da empresa: se ela aponta para um afiliado ATIVO, devolve o
+ * percentual e o desconto em centavos sobre o valor cheio. Sem afiliado (ou inativo), zero.
+ *
+ * É a ÚNICA fonte da regra: a prévia da tela, a criação de cobrança avulsa e o bloco de
+ * parcelas do contrato passam por aqui — três cópias da mesma conta seria pedir divergência.
+ */
+export async function affiliateDiscountFor(
+  companyUuid: string,
+  amountCents: number,
+): Promise<{ pct: number; discountCents: number }> {
+  const [rows] = await getPool().query(
+    `SELECT a.discount_pct FROM companies c
+       JOIN affiliates a ON a.id = c.affiliate_id
+      WHERE c.company_uuid = ? AND a.active = 1`,
+    [companyUuid],
+  );
+  const pct = Number((rows as { discount_pct: number }[])[0]?.discount_pct || 0);
+  const discountCents = pct > 0 ? Math.round((amountCents * pct) / 100) : 0;
+  return { pct, discountCents };
+}

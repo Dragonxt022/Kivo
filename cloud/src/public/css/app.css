@@ -769,6 +769,44 @@ td.empty-state {
   background: var(--danger-soft);
   color: var(--danger);
 }
+/* Situação do contrato (assinado e valendo / prazo cumprido / encerrado antes do fim). */
+.badge.ativo {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.badge.concluido {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.badge.cancelado {
+  background: var(--border-light);
+  color: var(--muted);
+}
+/* Parcela do contrato: "3/12" ao lado do status da cobrança. */
+.parcela-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+/* Blocos de contrato reaproveitados pela lista, pela aba da empresa e pelo detalhe. */
+.contrato-num { font-weight: 700; }
+.contrato-titulo { color: var(--muted); font-size: 0.82rem; }
+.contrato-acoes { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.contrato-acoes form { margin: 0; }
+.contrato-previa {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
 
 .btn {
   display: inline-flex;

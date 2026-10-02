@@ -8,6 +8,7 @@ import { emitToCompany } from '../events';
 import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
 import {
   accrueCommissionForCharge,
+  affiliateDiscountFor,
   affiliateSummary,
   createPayoutFromAvailable,
   payPayout,
@@ -17,6 +18,8 @@ import {
 } from '../affiliates';
 import { sendTestEmail, sendPasswordResetEmail, smtpConfigFromBody } from '../mailer';
 import { publicPayUrl } from '../gateway';
+import { parseAmountCents } from '../format';
+import { listContracts } from '../contracts';
 import { searchPexels } from '../imageApi';
 import { createRateLimiter } from '../rateLimit';
 import { hashAffiliatePassword } from '../affiliateAuth';
@@ -97,12 +100,20 @@ async function loadCompanyDetail(companyUuid: string) {
     [companyUuid],
   );
 
-  const [chargesRows] = await pool.query('SELECT * FROM charges WHERE company_uuid = ? ORDER BY due_date DESC', [companyUuid]);
+  const [chargesRows] = await pool.query(
+    `SELECT ch.*, ct.months AS contract_months FROM charges ch
+       LEFT JOIN contracts ct ON ct.id = ch.contract_id
+      WHERE ch.company_uuid = ? ORDER BY ch.due_date DESC`,
+    [companyUuid],
+  );
+  // Contratos desta empresa: a aba Contratos mostra o progresso de cada bloco de parcelas.
+  const contratos = await listContracts({ companyUuid });
   // `public_url` é o link da página pública de pagamento — o que o admin copia e manda ao
   // cliente. Montado aqui para a tela não precisar saber o domínio do cloud.
   const charges = (chargesRows as Record<string, unknown>[]).map((c) => ({
     ...c,
     public_url: c.public_token ? publicPayUrl(String(c.public_token)) : null,
+    parcela: c.contract_id ? `${c.installment_number ?? '?'}/${c.contract_months ?? '?'}` : null,
   }));
 
   const [devices] = await pool.query(
@@ -135,7 +146,7 @@ async function loadCompanyDetail(companyUuid: string) {
     'SELECT id, name, city, discount_pct, commission_pct, active FROM affiliates ORDER BY active DESC, name',
   );
 
-  return { company, syncStats, backups, charges, devices, errors: errorRows, inventory, affiliates };
+  return { company, syncStats, backups, charges, contratos, devices, errors: errorRows, inventory, affiliates };
 }
 
 // --- Autenticação ---
@@ -1340,18 +1351,6 @@ router.post('/companies/:uuid/charges/:id/reopen', requireAdminAuth, async (req,
 // --- Cobranças (visão global) + Afiliados (programa de indicação) ---
 
 /**
- * Valor em centavos a partir do que o formulário manda. Aceita "100", "100,00" e "1.234,56"
- * (vírgula decimal) e "1234.56" — o lojista digita em português e o `Number()` cru devolvia
- * NaN com vírgula, o que silenciosamente não criava a cobrança.
- */
-function parseAmountCents(v: unknown): number {
-  const s = String(v ?? '').replace(/[^\d,.]/g, '');
-  const norm = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
-  const n = parseFloat(norm);
-  return Number.isFinite(n) ? Math.round(n * 100) : 0;
-}
-
-/**
  * E-mail do pagador informado na cobrança (o Pix do Mercado Pago exige um). Em branco grava
  * NULL e o gateway cai no e-mail da empresa / no padrão das configurações de pagamento.
  */
@@ -1370,23 +1369,6 @@ function normalizaExtendsDays(v: unknown): number | null {
   const n = Number(s);
   if (!Number.isFinite(n) || n <= 0) return null;
   return Math.min(3650, Math.round(n));
-}
-
-/**
- * Desconto de indicação da empresa: se ela aponta para um afiliado ATIVO, devolve o
- * percentual e o desconto em centavos sobre o valor cheio. Sem afiliado (ou inativo),
- * zero. É a única fonte da regra — a criação da cobrança e a prévia da tela usam a mesma.
- */
-async function affiliateDiscountFor(companyUuid: string, amountCents: number): Promise<{ pct: number; discountCents: number }> {
-  const [rows] = await getPool().query(
-    `SELECT a.discount_pct FROM companies c
-       JOIN affiliates a ON a.id = c.affiliate_id
-      WHERE c.company_uuid = ? AND a.active = 1`,
-    [companyUuid],
-  );
-  const pct = Number((rows as { discount_pct: number }[])[0]?.discount_pct || 0);
-  const discountCents = pct > 0 ? Math.round((amountCents * pct) / 100) : 0;
-  return { pct, discountCents };
 }
 
 router.get('/charges', requireAdminAuth, async (req, res) => {
