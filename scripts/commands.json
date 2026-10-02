@@ -287,6 +287,10 @@
     "description": "Testes: agenda do Kivo Odonto (horários, sobreposição, encaixe, situações e permissões)",
     "run": "node scripts/test-isolated.js src/tests/odonto-agenda.ts"
   },
+  "test:odonto-prontuario": {
+    "description": "Testes: prontuário do Kivo Odonto (evolução clínica e retificação versionada)",
+    "run": "node scripts/test-isolated.js src/tests/odonto-prontuario.ts"
+  },
   "test:odonto-anamnese": {
     "description": "Testes: anamnese do módulo odonto (revisões, versões de formulário, permissão clínica)",
     "run": "node scripts/test-isolated.js src/tests/odonto-anamnese.ts"
