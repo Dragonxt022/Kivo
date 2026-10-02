@@ -139,7 +139,13 @@ async function main(): Promise<void> {
     const prev = await unwrap<{ items: { line: number }[] }>(prevR);
     check('preview de nota com rastro responde', prevR.status === 200 && prev.items.length === 2, `status=${prevR.status}`);
   } finally {
-    server.close();
+    // `server.close()` sozinho não encerra as conexões keep-alive abertas pelo `fetch`
+    // (o undici mantém o socket para reuso). No Windows isso abortava o processo na saída —
+    // "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), async.c" — de forma
+    // intermitente e só sob carga (suíte completa). Fecha as conexões e espera o servidor
+    // parar de verdade antes de sair.
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
     closeDb();
   }
 
