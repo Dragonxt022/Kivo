@@ -271,6 +271,10 @@
     "description": "Testes: comandas / mesas",
     "run": "tsx src/tests/fase_comandas.ts"
   },
+  "test:odonto-patients": {
+    "description": "Testes: Kivo Odonto — pacientes ancorados no cliente, ficha clínica com permissão própria, profissionais e procedimentos",
+    "run": "node scripts/test-isolated.js src/tests/odonto-patients.ts"
+  },
   "test:comanda-qty": {
     "description": "Testes: atualizar quantidade/remover item de comanda (preço não zera)",
     "run": "node scripts/test-isolated.js src/tests/comanda-qty-price.ts"

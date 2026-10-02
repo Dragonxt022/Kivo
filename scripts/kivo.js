@@ -90,6 +90,7 @@ function listCommands() {
       'test:foodservice',
       'test:comandas',
       'test:comanda-qty',
+      'test:odonto-patients',
       'test:pdv-tipos',
       'test:onboarding',
       'test:product-images',

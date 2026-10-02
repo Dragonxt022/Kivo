@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Procedimentos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/procedimentos' }) %>
+  <main x-data="proceduresPage()" x-init="load()">
+    <h1>Procedimentos</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('odonto.procedures.manage')) { %>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo procedimento
+        </button>
+      <% } %>
+      <input type="text" placeholder="Buscar por nome, código ou categoria…" x-model="q" @input.debounce.400ms="load()" class="input-search" />
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th @click="sortCycle('name')" class="sortable">Procedimento<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th @click="sortCycle('code')" class="sortable">Código<span class="sort-arrow" x-text="sortArrow('code')"></span></th>
+        <th>Categoria</th>
+        <th @click="sortCycle('price')" class="sortable">Valor<span class="sort-arrow" x-text="sortArrow('price')"></span></th>
+        <th>Duração</th>
+        <th>Situação</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="r in pageRows" :key="r.id">
+          <tr>
+            <td x-text="r.name"></td>
+            <td class="muted" x-text="r.code || '—'"></td>
+            <td class="muted" x-text="r.category || '—'"></td>
+            <td class="muted" x-text="brl(r.default_price_cents)"></td>
+            <td class="muted" x-text="r.duration_min ? r.duration_min + ' min' : '—'"></td>
+            <td><span class="badge" x-text="r.active ? 'Ativo' : 'Inativo'"></span></td>
+            <td class="text-right">
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
+                  <% if (user.permissions.has('odonto.procedures.manage')) { %>
+                  <button @click="openMenu = null; openEdit(r)">Editar</button>
+                  <button class="danger" @click="openMenu = null; remove(r)">Excluir</button>
+                  <% } %>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum procedimento cadastrado ainda.' }) %></td></tr>
+      </tbody>
+    </table>
+    <%- include('partials/pager') %>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? 'Editar procedimento' : 'Novo procedimento'"></h1>
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="form.name" placeholder="Ex.: Restauração em resina" />
+        <div class="pm-grid">
+          <div class="pm-field"><label>Código interno</label><input type="text" x-model="form.code" placeholder="Ex.: REST-01" /></div>
+          <div class="pm-field"><label>Categoria</label><input type="text" x-model="form.category" placeholder="Ex.: Dentística" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Valor padrão</label><input type="text" inputmode="numeric" x-model="form.priceMask" @input="form.priceMask = maskMoney(form.priceMask)" placeholder="0,00" /></div>
+          <div class="pm-field"><label>Duração estimada (min)</label><input type="number" min="0" x-model.number="form.duration_min" /></div>
+        </div>
+        <label>Descrição</label><textarea x-model="form.description" rows="2"></textarea>
+        <label>Situação</label>
+        <select x-model="form.active">
+          <option :value="true">Ativo</option>
+          <option :value="false">Inativo</option>
+        </select>
+        <span class="muted text-xs">Vincular o procedimento a um produto/serviço do catálogo comercial evita dois preços para a mesma coisa — isso entra junto com o plano de tratamento.</span>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function proceduresPage() {
+      return {
+        ...tableToolkit(),
+        rows: [], q: '', error: '', dlgError: '', form: {},
+        sortGetters: {
+          name: (r) => r.name,
+          code: (r) => r.code ?? '',
+          price: (r) => Number(r.default_price_cents ?? 0),
+        },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
+
+        async load() {
+          const url = '/api/odonto/procedures' + (this.q ? `?q=${encodeURIComponent(this.q)}` : '');
+          const r = await fetch(url);
+          if (r.ok) this.rows = await r.json();
+          else this.error = (await r.json()).error ?? 'Erro ao carregar.';
+        },
+        openNew() {
+          this.form = { active: true, priceMask: '' };
+          this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        openEdit(r) {
+          this.form = { ...r, active: !!r.active, priceMask: maskMoney(String(r.default_price_cents ?? 0)) };
+          this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        async save() {
+          const isEdit = !!this.form.id;
+          const payload = {
+            name: this.form.name,
+            code: this.form.code || null,
+            category: this.form.category || null,
+            description: this.form.description || null,
+            default_price_cents: Number(String(this.form.priceMask || '').replace(/\D/g, '') || 0),
+            duration_min: this.form.duration_min === '' || this.form.duration_min == null ? null : Number(this.form.duration_min),
+            active: !!this.form.active,
+          };
+          const r = await fetch(isEdit ? `/api/odonto/procedures/${this.form.id}` : '/api/odonto/procedures', {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(row) {
+          if (!await window.confirmDlg(`Excluir o procedimento "${row.name}"?`)) return;
+          const r = await fetch(`/api/odonto/procedures/${row.id}`, { method: 'DELETE' });
+          if (r.ok) this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

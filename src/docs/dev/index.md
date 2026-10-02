@@ -23,6 +23,7 @@ Regras de negócio por módulo, para suporte e treinamento de agentes de IA. É 
 | [Comandas](/admin/documentacao?doc=comandas) | Mesas e comandas |
 | [Food Service](/admin/documentacao?doc=foodservice) | Cozinha (KDS) e roteamento de produção |
 | [Etiquetas](/admin/documentacao?doc=etiquetas) | Gerador de etiquetas de produto |
+| [Kivo Odonto](/admin/documentacao?doc=odonto) | Pacientes, ficha clínica, profissionais e procedimentos |
 | [DRE](/admin/documentacao?doc=dre) | Demonstrativo de resultado |
 | [Painel](/admin/documentacao?doc=painel) | Painel de controle (KPIs) |
 | [NF-e](/admin/documentacao?doc=nfe) | Importação de NF-e de compra |

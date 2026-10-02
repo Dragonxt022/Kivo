@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Ficha do paciente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="patientFicha(<%= patientId %>)" x-init="load()">
+    <div class="toolbar">
+      <a class="btn secondary" href="/app/odonto/pacientes">Voltar para pacientes</a>
+      <h1 x-text="p.name || 'Paciente'"></h1>
+      <span class="badge" x-show="p.id" x-text="p.active ? 'Ativo' : 'Inativo'"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <template x-if="!p.id && !error">
+      <p class="muted">Carregando…</p>
+    </template>
+
+    <template x-if="p.id">
+      <div>
+        <% if (user.permissions.has('odonto.patients.edit')) { %>
+        <div class="toolbar">
+          <button class="btn" @click="openEdit()">Editar cadastro</button>
+          <% if (user.permissions.has('commercial.customers.view')) { %>
+          <a class="btn secondary" :href="'/app/commercial/clientes/' + p.customer_id + '/financeiro'">Financeiro do paciente</a>
+          <% } %>
+        </div>
+        <% } %>
+
+        <h2>Cadastro</h2>
+        <table>
+          <tbody>
+            <tr><th>CPF/CNPJ</th><td x-text="p.document || '—'"></td><th>Nascimento</th><td x-text="fmtDate(p.birthday)"></td></tr>
+            <tr><th>Telefone</th><td x-text="p.phone || '—'"></td><th>E-mail</th><td x-text="p.email || '—'"></td></tr>
+            <tr><th>Sexo</th><td x-text="sexLabel(p.sex)"></td><th>RG</th><td x-text="p.rg || '—'"></td></tr>
+            <tr><th>CEP</th><td x-text="p.cep || '—'"></td><th>Endereço</th><td x-text="p.address || '—'"></td></tr>
+            <tr><th>Observações</th><td colspan="3" x-text="p.notes || '—'"></td></tr>
+          </tbody>
+        </table>
+
+        <% if (canViewClinical) { %>
+        <h2>Ficha clínica</h2>
+        <p class="muted text-xs">
+          Dado de saúde: só quem tem a permissão clínica vê este bloco. A auditoria registra quem alterou —
+          o conteúdo não é copiado para o log.
+        </p>
+        <% if (canEditClinical) { %>
+          <div class="pm-grid">
+            <div class="pm-field"><label>Histórico médico</label><textarea x-model="clinical.medical_history" rows="3"></textarea></div>
+            <div class="pm-field"><label>Histórico odontológico</label><textarea x-model="clinical.dental_history" rows="3"></textarea></div>
+          </div>
+          <div class="pm-grid">
+            <div class="pm-field"><label>Alergias</label><textarea x-model="clinical.allergies" rows="2"></textarea></div>
+            <div class="pm-field"><label>Medicamentos em uso</label><textarea x-model="clinical.medications" rows="2"></textarea></div>
+          </div>
+          <div class="pm-grid">
+            <div class="pm-field"><label>Condições relevantes</label><textarea x-model="clinical.conditions" rows="2"></textarea></div>
+            <div class="pm-field"><label>Observações clínicas</label><textarea x-model="clinical.clinical_notes" rows="3"></textarea></div>
+          </div>
+          <div class="toolbar">
+            <button class="btn" @click="saveClinical()">Salvar ficha clínica</button>
+            <span class="muted text-xs" x-show="clinicalSaved">Ficha salva.</span>
+            <span class="error" x-text="clinicalError"></span>
+          </div>
+        <% } else { %>
+          <table>
+            <tbody>
+              <tr><th>Histórico médico</th><td x-text="val('medical_history')"></td></tr>
+              <tr><th>Histórico odontológico</th><td x-text="val('dental_history')"></td></tr>
+              <tr><th>Alergias</th><td x-text="val('allergies')"></td></tr>
+              <tr><th>Medicamentos</th><td x-text="val('medications')"></td></tr>
+              <tr><th>Condições relevantes</th><td x-text="val('conditions')"></td></tr>
+              <tr><th>Observações clínicas</th><td x-text="val('clinical_notes')"></td></tr>
+            </tbody>
+          </table>
+        <% } %>
+        <% } %>
+
+        <h2>Próximas fases do módulo</h2>
+        <table>
+          <thead><tr><th>Recurso</th><th>Situação</th></tr></thead>
+          <tbody>
+            <tr><td>Anamnese</td><td class="muted">Planejada (fase 2)</td></tr>
+            <tr><td>Agenda e atendimento</td><td class="muted">Planejada (fase 3)</td></tr>
+            <tr><td>Prontuário e evolução</td><td class="muted">Planejada (fase 4)</td></tr>
+            <tr><td>Odontograma</td><td class="muted">Planejada (fase 5)</td></tr>
+            <tr><td>Plano de tratamento e cobrança</td><td class="muted">Planejada (fase 6)</td></tr>
+            <tr><td>Documentos com variáveis</td><td class="muted">Planejada (fase 7)</td></tr>
+            <tr><td>Exames e imagens</td><td class="muted">Planejada (fase 8)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1>Editar cadastro</h1>
+      <div class="dialog-body">
+        <label>Nome completo</label><input type="text" x-model="form.name" />
+        <div class="pm-grid">
+          <div class="pm-field"><label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" /></div>
+          <div class="pm-field"><label>Nascimento</label><input type="date" x-model="form.birthday" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" /></div>
+          <div class="pm-field"><label>E-mail</label><input type="text" x-model="form.email" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>CEP</label><input type="text" x-model="form.cep" @input="form.cep = maskCEP(form.cep)" /></div>
+          <div class="pm-field"><label>RG</label><input type="text" x-model="form.rg" /></div>
+        </div>
+        <label>Endereço</label><input type="text" x-model="form.address" />
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Sexo</label>
+            <select x-model="form.sex">
+              <option value="">Não informado</option>
+              <option value="feminino">Feminino</option>
+              <option value="masculino">Masculino</option>
+              <option value="outro">Outro</option>
+              <option value="nao_informado">Prefere não informar</option>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Situação</label>
+            <select x-model="form.active">
+              <option :value="true">Ativo</option>
+              <option :value="false">Inativo</option>
+            </select>
+          </div>
+        </div>
+        <label>Observações do atendimento</label><textarea x-model="form.notes" rows="2"></textarea>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="saveCadastro()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function patientFicha(id) {
+      const CLINICAL_KEYS = ['medical_history', 'dental_history', 'allergies', 'medications', 'conditions', 'clinical_notes'];
+      const emptyClinical = () => CLINICAL_KEYS.reduce((acc, k) => { acc[k] = ''; return acc; }, {});
+      return {
+        id,
+        p: {},
+        form: {},
+        clinical: emptyClinical(),
+        error: '', dlgError: '', clinicalError: '', clinicalSaved: false,
+
+        sexLabel(v) {
+          return { feminino: 'Feminino', masculino: 'Masculino', outro: 'Outro', nao_informado: 'Prefere não informar' }[v] || '—';
+        },
+        val(key) {
+          return (this.p.clinical && this.p.clinical[key]) || '—';
+        },
+        async load() {
+          const r = await fetch('/api/odonto/patients/' + this.id);
+          if (r.ok) {
+            const data = await r.json();
+            this.p = { ...data, active: !!data.active };
+            this.clinical = { ...emptyClinical(), ...(data.clinical || {}) };
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao carregar a ficha.';
+          }
+        },
+        openEdit() {
+          // Copia para o formulário: cancelar não pode deixar a tela mostrando dado não salvo.
+          this.form = { ...this.p, active: !!this.p.active };
+          this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        async saveCadastro() {
+          const payload = {
+            name: this.form.name,
+            document: this.form.document || null,
+            phone: this.form.phone || null,
+            email: this.form.email || null,
+            birthday: this.form.birthday || null,
+            cep: this.form.cep || null,
+            address: this.form.address || null,
+            sex: this.form.sex || null,
+            rg: this.form.rg || null,
+            notes: this.form.notes || null,
+            active: !!this.form.active,
+          };
+          const r = await fetch('/api/odonto/patients/' + this.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async saveClinical() {
+          this.clinicalError = '';
+          this.clinicalSaved = false;
+          const body = {};
+          for (const k of CLINICAL_KEYS) body[k] = this.clinical[k] || null;
+          const r = await fetch('/api/odonto/patients/' + this.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clinical: body }),
+          });
+          if (r.ok) { this.clinicalSaved = true; this.load(); }
+          else this.clinicalError = (await r.json()).error ?? 'Erro ao salvar a ficha clínica.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>
