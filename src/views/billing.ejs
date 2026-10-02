@@ -14,14 +14,18 @@
   <%- include('partials/nav', { user, page: 'billing' }) %>
   <main x-data="billingPage()" x-init="load()">
     <h1>Cobranças</h1>
-    <p class="muted muted-block">Histórico de cobranças registradas pela nuvem — gestão manual, sem cobrança automática por boleto/PIX.</p>
+    <p class="muted muted-block">
+      As cobranças da sua assinatura vêm da nuvem do Kivo. Pagando por aqui (Pix, boleto ou
+      cartão), a baixa acontece sozinha assim que o Mercado Pago confirma — e a validade da
+      licença é atualizada na hora.
+    </p>
 
     <div class="panel" x-show="urgent.length" x-cloak>
       <h2 style="color:var(--danger)">⚠ Vencimento próximo</h2>
       <template x-for="c in urgent" :key="c.id">
         <p style="margin-bottom:.4rem">
           <strong x-text="c.description"></strong> —
-          <span x-text="(c.amount_cents/100).toLocaleString('pt-BR', {minimumFractionDigits:2})"></span>
+          <span x-text="brl(c.amount_cents)"></span>
           — vence <span x-text="fmtDate(c.due_date)"></span>
         </p>
       </template>
@@ -29,28 +33,112 @@
 
     <table>
       <thead>
-        <tr><th>Descrição</th><th>Valor (R$)</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th></tr>
+        <tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th><th></th></tr>
       </thead>
       <tbody>
         <template x-for="c in charges" :key="c.id">
           <tr>
             <td x-text="c.description"></td>
-            <td x-text="(c.amount_cents/100).toLocaleString('pt-BR', {minimumFractionDigits:2})"></td>
+            <td x-text="brl(c.amount_cents)"></td>
             <td x-text="fmtDate(c.due_date)"></td>
-            <td><span class="badge" :class="c.status === 'paga' ? 'ok' : (c.status === 'cancelada' ? '' : 'off')" x-text="c.status"></span></td>
+            <td>
+              <span class="badge" :class="c.status === 'paga' ? 'ok' : (c.status === 'cancelada' ? '' : 'off')" x-text="c.status"></span>
+              <span class="muted text-xs" x-show="c.mp_method" x-text="'(' + c.mp_method + ')'"></span>
+            </td>
             <td class="muted" x-text="c.paid_at ? fmtDateTime(c.paid_at) : '—'"></td>
-            <td class="muted" x-text="c.instructions || '—'" style="max-width:280px;white-space:pre-wrap"></td>
+            <td class="muted" x-text="c.instructions || '—'" style="max-width:240px;white-space:pre-wrap"></td>
+            <td class="text-right">
+              <button class="btn small" x-show="c.status === 'pendente'" @click="openPay(c)">Pagar</button>
+              <a class="btn secondary small" x-show="c.public_url" :href="c.public_url" target="_blank" rel="noopener">Link</a>
+            </td>
           </tr>
         </template>
-        <tr x-show="!charges.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma cobrança encontrada.' }) %></td></tr>
+        <tr x-show="!charges.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma cobrança encontrada.' }) %></td></tr>
       </tbody>
     </table>
     <span class="error" x-text="error"></span>
+
+    <dialog x-ref="payDlg" class="dialog-fixed" @close="stopPoll()">
+      <h1 x-text="charge ? ('Pagar: ' + charge.description) : 'Pagar cobrança'"></h1>
+      <div class="dialog-body">
+        <p class="muted" style="margin-top:0">
+          Valor <strong x-text="charge ? brl(charge.amount_cents) : ''"></strong>
+          · vence <strong x-text="charge ? fmtDate(charge.due_date) : ''"></strong>
+        </p>
+
+        <div class="pm-grid" style="margin-bottom:.6rem">
+          <div class="pm-field"><button class="btn secondary" :class="{ 'active': method === 'pix' }" @click="generate('pix')" :disabled="loading">Pix (QR na hora)</button></div>
+          <div class="pm-field"><button class="btn secondary" :class="{ 'active': method === 'boleto' }" @click="generate('boleto')" :disabled="loading">Boleto</button></div>
+          <div class="pm-field"><button class="btn secondary" :class="{ 'active': method === 'card' }" @click="generate('card')" :disabled="loading">Cartão</button></div>
+        </div>
+
+        <p class="muted text-xs" x-show="loading">Falando com a nuvem…</p>
+
+        <template x-if="payment">
+          <div>
+            <!-- Pix: QR Code + copia e cola -->
+            <template x-if="payment.mp_qr_code_base64 || payment.mp_qr_code">
+              <div>
+                <div x-show="payment.mp_qr_code_base64" style="text-align:center;margin:.6rem 0">
+                  <img :src="'data:image/png;base64,' + payment.mp_qr_code_base64" alt="QR code do Pix"
+                       style="width:220px;height:220px;background:#fff;padding:8px;border-radius:12px;border:1px solid var(--border-light)" />
+                </div>
+                <label>Pix copia e cola</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="text" readonly :value="payment.mp_qr_code || ''" />
+                  <button class="btn secondary" @click="copy(payment.mp_qr_code)">Copiar</button>
+                </div>
+                <p class="muted text-xs">Abra o aplicativo do banco, escolha Pix › Pagar com QR Code (ou Pix copia e cola) e confirme.</p>
+              </div>
+            </template>
+
+            <!-- Boleto e cartão: link -->
+            <template x-if="payment.mp_ticket_url || payment.mp_init_point">
+              <div>
+                <label x-text="method === 'card' ? 'Link do pagamento no cartão' : 'Link do boleto'"></label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="text" readonly :value="payment.mp_init_point || payment.mp_ticket_url || ''" />
+                  <button class="btn secondary" @click="copy(payment.mp_init_point || payment.mp_ticket_url)">Copiar</button>
+                  <a class="btn secondary" :href="payment.mp_init_point || payment.mp_ticket_url" target="_blank" rel="noopener">Abrir</a>
+                </div>
+              </div>
+            </template>
+
+            <!-- Link público: o cliente paga pelo celular dele -->
+            <template x-if="payment.public_url">
+              <div style="margin-top:.6rem">
+                <label>Link para o cliente pagar no celular</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input type="text" readonly :value="payment.public_url" />
+                  <button class="btn secondary" @click="copy(payment.public_url)">Copiar</button>
+                </div>
+                <p class="muted text-xs">Pode mandar por WhatsApp ou e-mail: a página abre sem login e mostra só esta cobrança.</p>
+              </div>
+            </template>
+
+            <p class="error" x-text="payError"></p>
+            <p class="muted text-xs" x-show="statusMsg" x-text="statusMsg"></p>
+            <button class="btn secondary small" @click="verify(false)" :disabled="loading">
+              Já paguei — verificar agora
+            </button>
+            <p class="muted text-xs" x-show="polling">Conferindo o pagamento automaticamente a cada 5 segundos…</p>
+          </div>
+        </template>
+
+        <p class="error" x-text="payError" x-show="!payment"></p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="closePay()">Fechar</button>
+      </div>
+    </dialog>
   </main>
   <script nonce="<%= cspNonce %>">
     function billingPage() {
       return {
         charges: [], urgent: [], error: '',
+        charge: null, method: 'pix', payment: null,
+        loading: false, payError: '', statusMsg: '', polling: false, pollTimer: null,
+
         async load() {
           const r = await fetch('/api/billing/charges');
           if (r.ok) {
@@ -58,7 +146,101 @@
             const now = Date.now();
             const threeDays = 3 * 24 * 3600e3;
             this.urgent = this.charges.filter((c) => c.status === 'pendente' && new Date(c.due_date).getTime() - now <= threeDays);
-          } else showToast('Não foi possível carregar as cobranças (sem licença configurada ou nuvem indisponível).', 'error');
+          } else {
+            showToast('Não foi possível carregar as cobranças (sem licença configurada ou nuvem indisponível).', 'error');
+          }
+        },
+        brl(cents) { return window.brl(cents); },
+
+        openPay(charge) {
+          this.charge = charge;
+          this.payment = null;
+          this.payError = '';
+          this.statusMsg = '';
+          this.method = 'pix';
+          this.$refs.payDlg.showModal();
+          this.generate('pix');
+        },
+        closePay() {
+          this.stopPoll();
+          this.$refs.payDlg.close();
+        },
+
+        async generate(method) {
+          if (!this.charge) return;
+          this.method = method;
+          this.loading = true;
+          this.payError = '';
+          this.statusMsg = '';
+          try {
+            const r = await fetch(`/api/billing/charges/${this.charge.id}/payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ method }),
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              this.payError = body.error ?? 'Não foi possível gerar o pagamento.';
+              this.payment = null;
+              return;
+            }
+            this.payment = body;
+            // Pix: confere sozinho enquanto a janela estiver aberta (o webhook costuma chegar
+            // antes, mas quem paga no banco não deveria ter de clicar em "já paguei").
+            if (method === 'pix') this.startPoll();
+          } catch (e) {
+            this.payError = 'Falha de rede ao gerar o pagamento: ' + e.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        startPoll() {
+          this.stopPoll();
+          this.polling = true;
+          this.pollTimer = setInterval(() => this.verify(true), 5000);
+        },
+        stopPoll() {
+          if (this.pollTimer) clearInterval(this.pollTimer);
+          this.pollTimer = null;
+          this.polling = false;
+        },
+
+        async verify(silent) {
+          if (!this.charge) return;
+          try {
+            const r = await fetch(`/api/billing/charges/${this.charge.id}/status`);
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              if (!silent) this.payError = body.error ?? 'Não foi possível consultar o pagamento.';
+              return;
+            }
+            if (body.status === 'paga') {
+              this.stopPoll();
+              const extra = body.extended_days ? ` Licença válida até ${fmtDate(body.valid_until)} (+${body.extended_days} dias).` : '';
+              showToast('Pagamento confirmado! Cobrança baixada.' + extra, 'success');
+              this.$refs.payDlg.close();
+              this.load();
+              return;
+            }
+            if (!silent) {
+              this.statusMsg = body.mp_status
+                ? `O Mercado Pago ainda não confirmou: ${body.mp_status}${body.mp_status_detail ? ' (' + body.mp_status_detail + ')' : ''}.`
+                : 'O pagamento ainda não foi confirmado.';
+            }
+          } catch (e) {
+            if (!silent) this.payError = 'Falha ao consultar: ' + e.message;
+          }
+        },
+
+        copy(value) {
+          if (!value) return;
+          const done = () => showToast('Copiado!', 'success');
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(value).then(done).catch(done);
+            return;
+          }
+          done();
         },
       };
     }
