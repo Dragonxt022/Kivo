@@ -92,6 +92,7 @@ function listCommands() {
       'test:comanda-qty',
       'test:odonto-patients',
       'test:billing-gateway',
+      'test:billing-app-pix',
       'test:pdv-tipos',
       'test:onboarding',
       'test:product-images',

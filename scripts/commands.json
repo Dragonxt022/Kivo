@@ -275,6 +275,10 @@
     "description": "Testes: pagamento da assinatura pelo Mercado Pago (Pix, boleto, cartão, webhook) com gateway de mentira — requer Docker",
     "run": "node scripts/test-isolated.js src/tests/billing-gateway.ts"
   },
+  "test:billing-app-pix": {
+    "description": "Testes: pagamento por Pix de dentro do programa (app → cloud → Mercado Pago falso) — requer Docker",
+    "run": "node scripts/test-isolated.js src/tests/billing-app-pix.ts"
+  },
   "test:odonto-patients": {
     "description": "Testes: Kivo Odonto — pacientes ancorados no cliente, ficha clínica com permissão própria, profissionais e procedimentos",
     "run": "node scripts/test-isolated.js src/tests/odonto-patients.ts"
