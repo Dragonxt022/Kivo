@@ -41,6 +41,38 @@ oferece o pagamento — ele nunca fala com o Mercado Pago.
 5. Teste: credenciais `TEST-` **não disparam webhook** — o teste é pelo "Simular recebimento"
    do próprio painel do Mercado Pago.
 
+## Contratos (o caminho comercial)
+
+O Kivo é vendido assim: instala e ativa o teste → o cliente usa os 15 dias → vai lá com o
+contrato → assina por 12 meses. O painel registra esse contrato e **gera o bloco de cobranças
+de uma vez**.
+
+| Peça | Onde | Papel |
+| --- | --- | --- |
+| Contratos | painel do cloud → **Contratos** | lista geral, criação, PDF e ciclo de vida |
+| Contrato da empresa | painel do cloud → empresa → aba **Contratos** | mesmo fluxo, já com a empresa escolhida |
+| Detalhe | `/admin/contracts/<id>` | dados, PDF, bloco de parcelas e ações por parcela |
+
+O que o contrato faz quando é criado:
+
+1. Guarda número (`KIVO-<ano>-<seq>`, sequência própria por ano — dois cadastros ao mesmo
+   tempo não repetem), prazo em meses, valor mensal, data de assinatura e o PDF assinado
+   (validado pela assinatura `%PDF-`, até 5 MB, em `storage/contracts/`).
+2. Gera **N parcelas mensais** (`charges` com `contract_id` e `installment_number`), a
+   primeira no primeiro vencimento e as outras no mesmo dia dos meses seguintes — dia 31 em
+   mês curto cai no último dia (31/01 → 28/02).
+3. Cada parcela já nasce com `public_token` (página de pagamento), `extends_days` do contrato
+   e o desconto de afiliado aplicado — ou seja, Pix, boleto, cartão, webhook, comissão e
+   extensão de licença funcionam sem nenhum caminho novo.
+4. **Nada se perde no meio**: contrato e parcelas são criados na mesma transação.
+
+Ciclo de vida:
+
+- **Parcelas** regenera só o que faltar (não duplica o bloco);
+- **Cancelar** cancela as parcelas em aberto e mantém as pagas (dinheiro que entrou);
+- **Apagar** só quando nenhuma parcela foi paga — contrato com pagamento é histórico
+  financeiro, o caminho é cancelar.
+
 ## Teste automatizado
 
 `node scripts/test-isolated.js src/tests/billing-gateway.ts` (ou `npm run kivo test:billing-gateway`)
@@ -56,6 +88,12 @@ para cobrança já paga.
 Os dois sobem um **Mercado Pago de mentira** dentro do próprio teste e apontam o cloud para
 ele com `MP_API_BASE`, então rodam sem internet, sem credencial real e sem dinheiro. Requerem
 o MySQL do `cloud/docker-compose.yml` no ar (`npm test` os marca como **SKIP** sem ele).
+
+`node scripts/test-isolated.js src/tests/contracts.ts` (ou `npm run kivo test:contracts`)
+cobre o **contrato**: criação com PDF, bloco de 12 parcelas com os vencimentos certos
+(inclusive 31/01 → 28/02), numeração, download do PDF, pagamento de uma parcela estendendo a
+licença, cancelamento (cai o aberto, fica o pago) e a recusa de apagar contrato com parcela
+paga.
 
 ## Arquivos-chave
 

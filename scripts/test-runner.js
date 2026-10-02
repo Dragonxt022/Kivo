@@ -61,6 +61,7 @@ const CLOUD_TESTS = new Set([
   'ai-sales-insights-e2e.ts',
   'billing-gateway.ts',
   'billing-app-pix.ts',
+  'contracts.ts',
 ]);
 
 const CLOUD_DB_PORT = Number(process.env.CLOUD_DB_PORT ?? 3307);
