@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Odontograma</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
+    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
+    .secoes span.planejado { opacity: .6; }
+
+    .odonto-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+    @media (max-width: 1100px) { .odonto-grid { grid-template-columns: 1fr; } }
+
+    /* O desenho é largo (16 dentes por arcada): rola na horizontal em tela estreita em vez de
+       quebrar linha — arcada quebrada deixa de representar a boca. */
+    .arcadas { overflow-x: auto; padding-bottom: 4px; }
+    .arcada { display: flex; justify-content: center; gap: 16px; margin-bottom: 8px; min-width: max-content; }
+    .quadrante { display: flex; gap: 2px; }
+    .dente { text-align: center; }
+    .dente .num { font-size: .7rem; color: var(--muted); cursor: pointer; }
+    .dente.selecionado .num { color: var(--primary); font-weight: 700; }
+    .dente.selecionado svg { outline: 2px solid var(--primary); outline-offset: 1px; border-radius: 3px; }
+    .dente svg { cursor: pointer; display: block; width: 32px; height: 32px; }
+    .dente svg .sup:hover { stroke: var(--primary); stroke-width: 2; }
+    .legenda { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+    .legenda .item { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); }
+    .legenda .cor { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-light); }
+    .painel-linha { display: flex; justify-content: space-between; gap: 8px; font-size: .82rem; padding: 3px 0; border-bottom: 1px dashed var(--border-light); }
+    .painel-linha.off { opacity: .55; text-decoration: line-through; }
+    .situacao-linha { display: grid; grid-template-columns: 40px 1fr 90px 70px auto; gap: 6px; align-items: center; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="odontogramaPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>)" x-init="load()">
+    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
+    <h1>Odontograma <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+
+    <div class="secoes">
+      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
+      <a class="atual" href="#">Odontograma</a>
+      <span class="planejado">Tratamentos (fase 6)</span>
+      <a href="/app/odonto/agenda">Consultas</a>
+      <span class="planejado">Documentos (fase 7)</span>
+      <span class="planejado">Exames e imagens (fase 8)</span>
+    </div>
+
+    <div class="toolbar">
+      <span class="muted text-xs"
+            x-text="resumo.dentes_com_situacao + ' dente(s) com situação · ' + resumo.planejados + ' com tratamento planejado · ' + resumo.registros + ' registro(s) no histórico'"></span>
+      <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" x-model="mostrarPlanejados" />
+        <span>Destacar tratamentos planejados</span>
+      </label>
+      <% if (canEditClinical) { %>
+        <button class="btn secondary small" @click="abrirSituacoes()">Situações odontológicas</button>
+      <% } %>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <p class="muted text-xs" style="margin-top:-.4rem">
+      Cada dente tem quatro faces e o centro (oclusal/incisal): M mesial · D distal · V vestibular ·
+      L lingual/palatina · O oclusal. Clique numa face (ou no número do dente) para registrar a
+      situação — o registro anterior vai para o histórico do dente, nunca é apagado.
+    </p>
+
+    <div class="odonto-grid">
+      <!-- ─────────── Desenho ─────────── -->
+      <div class="card">
+        <h2 style="margin-top:0">Arcadas (numeração FDI)</h2>
+
+        <div class="arcadas">
+        <div class="arcada">
+          <!-- Um `x-for` por quadrantes, com os cinco polígonos EXPLÍCITOS dentro do SVG:
+               o Alpine manipula SVG bem, mas `template x-for` no namespace SVG é frágil. -->
+          <template x-for="(q, qi) in [['18','17','16','15','14','13','12','11'], ['21','22','23','24','25','26','27','28']]" :key="'sup' + qi">
+            <div class="quadrante">
+              <template x-for="t in q" :key="t">
+                <div class="dente" :class="{ selecionado: selecionado.tooth === t }">
+                  <svg width="40" height="40" viewBox="0 0 40 40">
+                    <polygon class="sup" points="2,2 38,2 28,12 12,12" :fill="cor(t, 'V')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'V')"></polygon>
+                    <polygon class="sup" points="2,2 12,12 12,28 2,38" :fill="cor(t, 'M')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'M')"></polygon>
+                    <polygon class="sup" points="12,12 28,12 28,28 12,28" :fill="cor(t, 'O')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'O')"></polygon>
+                    <polygon class="sup" points="38,2 28,12 28,28 38,38" :fill="cor(t, 'D')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'D')"></polygon>
+                    <polygon class="sup" points="2,38 12,28 28,28 38,38" :fill="cor(t, 'L')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'L')"></polygon>
+                    <text x="20" y="24" text-anchor="middle" font-size="9" fill="#374151" x-text="sigla(t)"></text>
+                  </svg>
+                  <div class="num" @click="selecionar(t, null)" :title="'Dente ' + t + ' (dente inteiro)'" x-text="t"></div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <div class="arcada">
+          <template x-for="(q, qi) in [['48','47','46','45','44','43','42','41'], ['31','32','33','34','35','36','37','38']]" :key="'inf' + qi">
+            <div class="quadrante">
+              <template x-for="t in q" :key="t">
+                <div class="dente" :class="{ selecionado: selecionado.tooth === t }">
+                  <svg width="40" height="40" viewBox="0 0 40 40">
+                    <polygon class="sup" points="2,2 38,2 28,12 12,12" :fill="cor(t, 'V')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'V')"></polygon>
+                    <polygon class="sup" points="2,2 12,12 12,28 2,38" :fill="cor(t, 'M')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'M')"></polygon>
+                    <polygon class="sup" points="12,12 28,12 28,28 12,28" :fill="cor(t, 'O')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'O')"></polygon>
+                    <polygon class="sup" points="38,2 28,12 28,28 38,38" :fill="cor(t, 'D')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'D')"></polygon>
+                    <polygon class="sup" points="2,38 12,28 28,28 38,38" :fill="cor(t, 'L')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'L')"></polygon>
+                    <text x="20" y="24" text-anchor="middle" font-size="9" fill="#374151" x-text="sigla(t)"></text>
+                  </svg>
+                  <div class="num" @click="selecionar(t, null)" :title="'Dente ' + t + ' (dente inteiro)'" x-text="t"></div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+        </div>
+
+        <div class="legenda">
+          <template x-for="c in conditions" :key="c.id">
+            <span class="item">
+              <span class="cor" :style="'background:' + c.color"></span>
+              <span x-text="c.name"></span>
+            </span>
+          </template>
+          <span class="item" x-show="!conditions.length">Nenhuma situação cadastrada.</span>
+        </div>
+      </div>
+
+      <!-- ─────────── Painel do dente ─────────── -->
+      <div class="card">
+        <h2 style="margin-top:0" x-text="selecionado.tooth ? ('Dente ' + selecionado.tooth + (selecionado.surface ? ' · face ' + nomeSuperficie(selecionado.surface) : ' (dente inteiro)')) : 'Selecione um dente'"></h2>
+
+        <template x-if="!selecionado.tooth">
+          <p class="muted">Clique num dente ou numa face para ver o histórico e registrar.</p>
+        </template>
+
+        <template x-if="selecionado.tooth">
+          <div>
+            <div class="muted text-xs" style="margin-bottom:6px">
+              <span x-show="estadoAtual()">Situação atual: <strong x-text="estadoAtual() ? estadoAtual().condition_name : ''"></strong></span>
+              <span x-show="!estadoAtual()">Sem situação registrada neste ponto.</span>
+            </div>
+
+            <% if (canEditClinical) { %>
+            <label>Situação</label>
+            <select x-model="form.condition_id">
+              <option value="">Escolha a situação…</option>
+              <template x-for="c in conditionsFiltradas()" :key="c.id">
+                <option :value="c.id" x-text="c.name"></option>
+              </template>
+            </select>
+
+            <div class="pm-grid">
+              <div class="pm-field">
+                <label>Registrar como</label>
+                <select x-model="form.kind">
+                  <option value="situacao">Situação do dente</option>
+                  <option value="planejado">Tratamento planejado</option>
+                </select>
+              </div>
+              <div class="pm-field">
+                <label>Data e hora do exame</label>
+                <input type="datetime-local" x-model="form.recorded_at" />
+              </div>
+            </div>
+
+            <label>Profissional</label>
+            <select x-model="form.professional_id">
+              <option value="">—</option>
+              <template x-for="p in profissionais" :key="p.id">
+                <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
+              </template>
+            </select>
+
+            <label>Observação</label>
+            <input type="text" x-model="form.note" maxlength="500" placeholder="Ex.: cárie oclusal profunda, sem exposição pulpar" />
+            <div class="toolbar" style="margin-top:8px">
+              <button class="btn" @click="registrar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Registrar no odontograma'"></button>
+            </div>
+            <div class="error" x-text="dlgError"></div>
+            <% } %>
+
+            <h3 style="font-size:.9rem">Histórico deste dente</h3>
+            <template x-for="h in historico" :key="h.id">
+              <div class="painel-linha" :class="{ off: !!h.undone_at }">
+                <span>
+                  <strong x-text="h.condition_name"></strong>
+                  <span class="muted text-xs" x-text="' · ' + (h.surface ? nomeSuperficie(h.surface) : 'dente inteiro') + (h.kind === 'planejado' ? ' · planejado' : '')"></span>
+                  <span class="muted text-xs" x-text="' · ' + fmtDateTimeLocal(h.recorded_at)"></span>
+                  <span class="muted text-xs" x-show="h.note" x-text="' · ' + h.note"></span>
+                  <span class="muted text-xs" x-show="h.created_by_name" x-text="' · por ' + h.created_by_name"></span>
+                  <span class="muted text-xs" x-show="h.undone_at" x-text="' · desfeito por ' + (h.undone_by_name || '—')"></span>
+                </span>
+                <% if (canEditClinical) { %>
+                <span><button class="btn secondary small" x-show="!h.undone_at" @click="desfazer(h)">Desfazer</button></span>
+                <% } %>
+              </div>
+            </template>
+            <p class="muted text-xs" x-show="!historico.length">Nada registrado neste dente ainda.</p>
+
+            <h3 style="font-size:.9rem">Tratamentos realizados (do prontuário)</h3>
+            <template x-for="p in procedimentos" :key="p.id">
+              <div class="painel-linha">
+                <span x-text="p.name + (p.note ? ' · ' + p.note : '')"></span>
+                <span class="muted text-xs" x-text="fmtDateTimeLocal(p.happened_at)"></span>
+              </div>
+            </template>
+            <p class="muted text-xs" x-show="!procedimentos.length">Nenhum procedimento registrado neste dente.</p>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <% if (canEditClinical) { %>
+    <dialog x-ref="dlgSit" class="dialog-fixed">
+      <h1>Situações odontológicas</h1>
+      <div class="dialog-body">
+        <p class="muted text-xs" style="margin-top:0">
+          A lista é da clínica, não do sistema: crie a situação que precisar, com a cor que
+          aparece no desenho. Situação em uso não é apagada — é desativada.
+        </p>
+
+        <template x-for="c in todasCondicoes" :key="c.id">
+          <div class="situacao-linha">
+            <input type="color" x-model="c.color" @change="salvarCondicao(c)" />
+            <input type="text" x-model="c.name" @change="salvarCondicao(c)" maxlength="60" />
+            <select x-model="c.applies_to" @change="salvarCondicao(c)">
+              <option value="ambos">Dente e face</option>
+              <option value="dente">Só dente</option>
+              <option value="superficie">Só face</option>
+            </select>
+            <span class="badge" :class="c.active ? 'paga' : 'cancelada'" x-text="c.active ? 'ativa' : 'inativa'"></span>
+            <span>
+              <button class="btn secondary small" @click="alternarCondicao(c)" x-text="c.active ? 'Desativar' : 'Ativar'"></button>
+              <button class="btn secondary small danger" @click="removerCondicao(c)">Excluir</button>
+            </span>
+          </div>
+        </template>
+
+        <h3 style="font-size:.9rem">Nova situação</h3>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Nome</label><input type="text" x-model="nova.name" maxlength="60" placeholder="Ex.: Selante" /></div>
+          <div class="pm-field"><label>Código</label><input type="text" x-model="nova.code" maxlength="30" placeholder="selante" @input="nova.code = nova.code.toLowerCase().replace(/[^a-z0-9_]/g, '_')" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Cor</label><input type="color" x-model="nova.color" /></div>
+          <div class="pm-field">
+            <label>Vale para</label>
+            <select x-model="nova.applies_to">
+              <option value="ambos">Dente e face</option>
+              <option value="dente">Só dente</option>
+              <option value="superficie">Só face</option>
+            </select>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button class="btn" @click="criarCondicao()">Adicionar situação</button>
+          <span class="error" x-text="erroCondicao"></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlgSit.close()">Fechar</button>
+      </div>
+    </dialog>
+    <% } %>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function odontogramaPage(patientId, podeEditar) {
+      const NOMES = { M: 'mesial', D: 'distal', O: 'oclusal/incisal', V: 'vestibular', L: 'lingual/palatina' };
+      const agoraLocal = () => {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+      };
+      return {
+        patientId,
+        podeEditar,
+        paciente: null,
+        superficies: ['V', 'M', 'O', 'D', 'L'],
+        conditions: [],
+        todasCondicoes: [],
+        states: [],
+        current: {},
+        resumo: { dentes_com_situacao: 0, planejados: 0, registros: 0 },
+        profissionais: [],
+        selecionado: { tooth: null, surface: null },
+        historico: [],
+        procedimentos: [],
+        mostrarPlanejados: true,
+        form: {},
+        nova: { name: '', code: '', color: '#9ca3af', applies_to: 'ambos' },
+        erroCondicao: '',
+        error: '',
+        dlgError: '',
+        salvando: false,
+
+        async load() {
+          const [p, o] = await Promise.all([
+            fetch('/api/odonto/patients/' + patientId),
+            fetch('/api/odonto/patients/' + patientId + '/odontogram'),
+          ]);
+          if (p.ok) this.paciente = await p.json();
+          if (o.ok) {
+            const data = await o.json();
+            this.conditions = data.conditions || [];
+            this.states = data.states || [];
+            this.current = data.current || {};
+            this.resumo = data.resumo || this.resumo;
+          } else {
+            this.error = (await o.json()).error ?? 'Erro ao carregar o odontograma.';
+          }
+          <% if (canEditClinical) { %>
+          if (!this.profissionais.length) {
+            const pr = await fetch('/api/odonto/professionals?active=true');
+            if (pr.ok) this.profissionais = await pr.json();
+          }
+          <% } %>
+        },
+
+        // ── Desenho ──
+        /** Sigla desenhada dentro do dente (situação do dente inteiro, quando houver). */
+        sigla(t) {
+          const st = this.current[t];
+          if (!st) return '';
+          const planejado = this.mostrarPlanejados && st.planned && st.planned.length;
+          if (st.whole && !st.whole.is_neutral) return st.whole.condition_name.slice(0, 3).toUpperCase();
+          return planejado ? 'P' : '';
+        },
+        /** Cor da face: a situação da própria face ou, na falta, a do dente inteiro. */
+        cor(t, s) {
+          const st = this.current[t];
+          if (!st) return '#ffffff';
+          const face = st.surfaces ? st.surfaces[s] : null;
+          if (face) return face.is_neutral ? '#ffffff' : face.condition_color;
+          if (st.whole && !st.whole.is_neutral) return st.whole.condition_color;
+          if (this.mostrarPlanejados && st.planned && st.planned.length) return '#f3f4f6';
+          return '#ffffff';
+        },
+
+        nomeSuperficie(s) { return NOMES[s] || s; },
+
+        estadoAtual() {
+          const st = this.current[this.selecionado.tooth];
+          if (!st) return null;
+          if (this.selecionado.surface) return (st.surfaces && st.surfaces[this.selecionado.surface]) || null;
+          return st.whole || null;
+        },
+
+        conditionsFiltradas() {
+          return this.conditions.filter((c) => {
+            if (!this.selecionado.surface) return c.applies_to !== 'superficie';
+            return c.applies_to !== 'dente';
+          });
+        },
+
+        async selecionar(tooth, surface) {
+          this.selecionado = { tooth, surface };
+          this.dlgError = '';
+          this.form = {
+            condition_id: '',
+            kind: 'situacao',
+            note: '',
+            recorded_at: agoraLocal(),
+            professional_id: '',
+          };
+          const r = await fetch(`/api/odonto/patients/${patientId}/odontogram/${tooth}`);
+          if (r.ok) {
+            const data = await r.json();
+            this.historico = data.history || [];
+            this.procedimentos = data.procedures || [];
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao carregar o dente.';
+          }
+        },
+
+        async registrar() {
+          if (!this.form.condition_id) {
+            this.dlgError = 'Escolha a situação a registrar.';
+            return;
+          }
+          this.salvando = true;
+          this.dlgError = '';
+          try {
+            const r = await fetch(`/api/odonto/patients/${patientId}/odontogram`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tooth: this.selecionado.tooth,
+                surface: this.selecionado.surface,
+                kind: this.form.kind,
+                condition_id: Number(this.form.condition_id),
+                note: this.form.note || null,
+                recorded_at: String(this.form.recorded_at || '').replace('T', ' '),
+                professional_id: this.form.professional_id ? Number(this.form.professional_id) : null,
+              }),
+            });
+            if (r.ok) {
+              showToast('Registro incluído no odontograma.', 'success');
+              await this.load();
+              await this.selecionar(this.selecionado.tooth, this.selecionado.surface);
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao registrar.';
+            }
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        async desfazer(registro) {
+          const ok = await window.confirmDlg('Desfazer este registro? Ele sai do estado atual, mas continua no histórico.');
+          if (!ok) return;
+          const r = await fetch(`/api/odonto/odontogram/${registro.id}/undo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ motivo: 'corrigido pela tela do odontograma' }),
+          });
+          if (r.ok) {
+            showToast('Registro desfeito — o estado anterior volta a valer.', 'success');
+            await this.load();
+            await this.selecionar(this.selecionado.tooth, this.selecionado.surface);
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao desfazer.';
+          }
+        },
+
+        // ── Catálogo de situações (PR §10) ──
+        async abrirSituacoes() {
+          this.erroCondicao = '';
+          const r = await fetch('/api/odonto/tooth-conditions?active=false');
+          if (r.ok) this.todasCondicoes = await r.json();
+          this.$refs.dlgSit.showModal();
+        },
+        async criarCondicao() {
+          this.erroCondicao = '';
+          const r = await fetch('/api/odonto/tooth-conditions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.nova),
+          });
+          if (r.ok) {
+            this.nova = { name: '', code: '', color: '#9ca3af', applies_to: 'ambos' };
+            await this.abrirSituacoes();
+            await this.load();
+          } else {
+            this.erroCondicao = (await r.json()).error ?? 'Erro ao criar a situação.';
+          }
+        },
+        async salvarCondicao(c) {
+          const r = await fetch('/api/odonto/tooth-conditions/' + c.id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: c.name, color: c.color, applies_to: c.applies_to, active: c.active }),
+          });
+          if (r.ok) await this.load();
+          else this.erroCondicao = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async alternarCondicao(c) {
+          await this.salvarCondicao({ ...c, active: c.active ? 0 : 1 });
+          await this.abrirSituacoes();
+        },
+        async removerCondicao(c) {
+          const ok = await window.confirmDlg(`Excluir a situação "${c.name}"? Se estiver em uso, ela é apenas desativada.`);
+          if (!ok) return;
+          const r = await fetch('/api/odonto/tooth-conditions/' + c.id, { method: 'DELETE' });
+          if (r.ok) {
+            await this.abrirSituacoes();
+            await this.load();
+          } else {
+            this.erroCondicao = (await r.json()).error ?? 'Erro ao excluir.';
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

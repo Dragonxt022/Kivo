@@ -4,7 +4,7 @@ import { validateBody } from '../../shared/validateBody';
 import {
   createAnamnesisTemplateSchema, createAppointmentSchema, createPatientSchema, createProcedureSchema,
   createProfessionalSchema, appointmentStatusSchema, clinicalNoteSchema, retifyClinicalNoteSchema,
-  saveAnamnesisSchema, updateAppointmentSchema,
+  saveAnamnesisSchema, toothConditionSchema, toothStateSchema, undoToothStateSchema, updateAppointmentSchema,
   updatePatientSchema, updateProcedureSchema, updateProfessionalSchema,
 } from './schemas';
 import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
@@ -13,6 +13,10 @@ import {
   updateAppointment,
 } from './appointments';
 import { createNote, getNote, listNotes, refuseDeleteNote, retifyNote } from './clinicalNotes';
+import {
+  createCondition, getOdontogram, getTooth, listConditions, removeCondition, setToothState,
+  undoToothState, updateCondition,
+} from './odontogram';
 import {
   createTemplateVersion, getForm, getPatientAnamnesis, getTemplate, listTemplates, savePatientAnamnesis,
 } from './anamnesis';
@@ -203,6 +207,42 @@ router.post('/notes/:id/retify', requirePermission('odonto.clinical.edit'), vali
 // Não existe exclusão de registro clínico — a rota existe para explicar o caminho certo.
 router.delete('/notes/:id', requirePermission('odonto.clinical.edit'), (req, res) => {
   send(res, refuseDeleteNote());
+});
+
+// ────────────────── Odontograma e situações (PR §9 e §10) ──────────────────
+
+router.get('/tooth-conditions', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, listConditions(req, { activeOnly: activeParam(req.query.active) !== false }));
+});
+
+// A situação é catálogo, não lista fixa (PR §10): a clínica cria a sua, com cor.
+router.post('/tooth-conditions', requirePermission('odonto.clinical.edit'), validateBody(toothConditionSchema), (req, res) => {
+  send(res, createCondition(req, req.body), 201);
+});
+
+router.put('/tooth-conditions/:id', requirePermission('odonto.clinical.edit'), validateBody(toothConditionSchema), (req, res) => {
+  send(res, updateCondition(req, Number(req.params.id), req.body));
+});
+
+router.delete('/tooth-conditions/:id', requirePermission('odonto.clinical.edit'), (req, res) => {
+  send(res, removeCondition(req, Number(req.params.id)));
+});
+
+router.get('/patients/:id/odontogram', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, getOdontogram(req, Number(req.params.id)));
+});
+
+router.get('/patients/:id/odontogram/:tooth', requirePermission('odonto.clinical.view'), (req, res) => {
+  send(res, getTooth(req, Number(req.params.id), String(req.params.tooth)));
+});
+
+// Registrar estado = histórico append-only (nada é sobrescrito nem apagado).
+router.post('/patients/:id/odontogram', requirePermission('odonto.clinical.edit'), validateBody(toothStateSchema), (req, res) => {
+  send(res, setToothState(req, Number(req.params.id), req.body), 201);
+});
+
+router.post('/odontogram/:stateId/undo', requirePermission('odonto.clinical.edit'), validateBody(undoToothStateSchema), (req, res) => {
+  send(res, undoToothState(req, Number(req.params.stateId), req.body.motivo));
 });
 
 export default router;

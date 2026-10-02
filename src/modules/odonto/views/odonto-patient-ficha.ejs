@@ -139,6 +139,29 @@
         </div>
         <% } %>
 
+        <% if (canViewClinical) { %>
+        <h2>Odontograma</h2>
+        <p class="muted text-xs" style="margin-top:0">
+          Mapa dos dentes (numeração FDI) com situação por face e por dente, histórico de cada
+          mudança e os procedimentos já realizados.
+        </p>
+        <table>
+          <tbody>
+            <tr>
+              <th style="width:32%">Situação</th>
+              <td>
+                <span x-show="odontogram.dentes_com_situacao > 0" x-cloak
+                      x-text="odontogram.dentes_com_situacao + ' dente(s) com situação' + (odontogram.planejados ? ' · ' + odontogram.planejados + ' com tratamento planejado' : '')"></span>
+                <span class="muted" x-show="odontogram.dentes_com_situacao === 0" x-cloak>Nenhum dente avaliado ainda</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="toolbar">
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/odontograma'">Abrir odontograma</a>
+        </div>
+        <% } %>
+
         <h2>Próximas fases do módulo</h2>
         <table>
           <thead><tr><th>Recurso</th><th>Situação</th></tr></thead>
@@ -146,7 +169,7 @@
             <tr><td>Anamnese</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Agenda e atendimento</td><td class="muted">Planejada (fase 3)</td></tr>
             <tr><td>Prontuário e evolução</td><td><span class="badge">Disponível com retificação</span></td></tr>
-            <tr><td>Odontograma</td><td class="muted">Planejada (fase 5)</td></tr>
+            <tr><td>Odontograma</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Plano de tratamento e cobrança</td><td class="muted">Planejada (fase 6)</td></tr>
             <tr><td>Documentos com variáveis</td><td class="muted">Planejada (fase 7)</td></tr>
             <tr><td>Exames e imagens</td><td class="muted">Planejada (fase 8)</td></tr>
@@ -214,6 +237,7 @@
         // Resumo da anamnese e do prontuário (sem conteúdo clínico): a ficha mostra o estado.
         anamnesis: { revisions: 0, last_filled_at: null, last_revision: null, last_template_name: null },
         records: { vigentes: 0, retificadas: 0, ultima: null },
+        odontogram: { dentes_com_situacao: 0, planejados: 0, registros: 0 },
         error: '', dlgError: '', clinicalError: '', clinicalSaved: false,
 
         sexLabel(v) {
@@ -237,6 +261,8 @@
           if (a.ok) this.anamnesis = (await a.json()).summary;
           const rec = await fetch('/api/odonto/patients/' + this.id + '/notes');
           if (rec.ok) this.records = (await rec.json()).resumo;
+          const od = await fetch('/api/odonto/patients/' + this.id + '/odontogram');
+          if (od.ok) this.odontogram = (await od.json()).resumo;
         },
         openEdit() {
           // Copia para o formulário: cancelar não pode deixar a tela mostrando dado não salvo.

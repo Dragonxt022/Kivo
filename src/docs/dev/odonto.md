@@ -34,6 +34,41 @@ A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
 5. **CRO e código de procedimento não se repetem** entre registros ativos.
 6. **UF do CRO** é normalizada para maiúsculas e 2 caracteres.
 
+## Odontograma e situações odontológicas (PR §9 e §10)
+
+Mapa dos dentes na numeração **FDI** (18–11 | 21–28 / 48–41 | 31–38), com cinco faces por dente:
+**M** mesial, **D** distal, **O** oclusal/incisal, **V** vestibular, **L** lingual/palatina.
+Clique numa face (ou no número do dente, para o dente inteiro) e o painel lateral mostra a
+situação atual, o histórico do dente e os procedimentos já realizados (que vêm do prontuário).
+
+Duas decisões que a PR exige:
+
+1. **Situação é catálogo, não lista fixa** (§10: "a arquitetura não deve limitar o sistema a
+   uma lista fixa impossível de expandir"). `odonto_tooth_conditions` é tabela: a clínica cria
+   "selante", "coroa provisória", o que precisar, com **cor própria** para o desenho. As nove
+   iniciais da PR são semeadas no boot. Situação **em uso não é apagada** — é desativada (o
+   histórico aponta para ela); sem uso, sai por soft delete.
+2. **O estado do dente é histórico append-only.** Registrar de novo **não sobrescreve**: grava
+   uma linha nova com data/hora, profissional e CRO do momento. O estado atual é a linha mais
+   recente **não desfeita**, e *desfazer* (com quem/quando/motivo) revela o estado anterior sem
+   apagar o registro errado — mesma filosofia do prontuário.
+
+`kind` separa **situação** (o que o dente é hoje) de **planejado** (tratamento previsto): o
+desenho marca o planejado com um "P", e a fase 6 transforma isso em plano com valor e cobrança.
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| GET | `/tooth-conditions?active=false` | `odonto.clinical.view` |
+| POST | `/tooth-conditions` | `odonto.clinical.edit` |
+| PUT/DELETE | `/tooth-conditions/:id` | `odonto.clinical.edit` |
+| GET | `/patients/:id/odontogram` | `odonto.clinical.view` |
+| GET | `/patients/:id/odontogram/:tooth` (histórico + procedimentos) | `odonto.clinical.view` |
+| POST | `/patients/:id/odontogram` | `odonto.clinical.edit` |
+| POST | `/odontogram/:stateId/undo` | `odonto.clinical.edit` |
+
+Página: `/app/odonto/pacientes/:id/odontograma`. Dentição decídua fica para depois (a PR diz
+"posteriormente"): o campo `tooth` é texto e a validação usa a lista FDI permanente.
+
 ## Prontuário: evolução clínica com retificação versionada (PR §7 e §8)
 
 A PR §8 é categórica: **registro clínico não se apaga**. E manda decidir como corrigir ANTES de
@@ -217,12 +252,11 @@ do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
 ## Próximas fases (roadmap da PR)
 
-Odontograma (5), plano de tratamento + cobrança (6), documentos com variáveis (7), exames e
-imagens (8) e refinamento (9). As capabilities de cada recurso entram junto com a tela — não
-antes.
+Plano de tratamento + cobrança (6), documentos com variáveis (7), exames e imagens (8) e
+refinamento (9). As capabilities de cada recurso entram junto com a tela — não antes.
 
-Concluído: fundação (1), pacientes + anamnese (2), agenda (3) e prontuário/evolução com
-retificação versionada (4).
+Concluído: fundação (1), pacientes + anamnese (2), agenda (3), prontuário/evolução com
+retificação versionada (4) e odontograma + situações (5).
 
 ## Arquivos-chave
 
@@ -236,6 +270,8 @@ retificação versionada (4).
   situação e histórico do atendimento.
 - `src/modules/odonto/clinicalNotes.ts` — prontuário: evolução clínica, retificação versionada e
   a recusa explícita de apagar registro clínico.
+- `src/modules/odonto/odontogram.ts` — odontograma: catálogo de situações e estado do dente por
+  face em histórico append-only (com desfazer que revela o anterior).
 - `src/modules/odonto/professionals.ts` / `procedures.ts` — CRUD com validação e auditoria.
 - `src/modules/odonto/repositories/` — SQL (paciente faz `JOIN` com `customers`).
 - `src/modules/odonto/migrations/0078_odonto_base/` — tabelas da fundação.
