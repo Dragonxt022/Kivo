@@ -5,6 +5,7 @@ import { createPurchaseInbound } from './purchaseInbound';
 import { resolvePrice, resolveMany } from './pricing';
 import * as storeCredit from './storeCredit';
 import * as loyalty from './loyalty';
+import * as customers from './customers';
 import { seedCommercialDefaults } from './defaults';
 
 /** Serviços que o módulo commercial oferece aos outros Apps (via Core). */
@@ -49,10 +50,23 @@ export interface CommercialLoyaltyService {
   listMovements: typeof loyalty.listLoyaltyMovements;
 }
 
+/** Cliente (`customers`) como serviço: módulos de outro domínio (ex.: odonto) ancoram o seu
+ *  cadastro no cliente sem importar o repositório deste módulo. */
+export interface CommercialCustomersService {
+  create: typeof customers.createCustomer;
+  update: typeof customers.updateCustomer;
+  findById: typeof customers.findCustomerById;
+  findByDocument: typeof customers.findCustomerByDocument;
+}
+
 export default function setup(): void {
   registerService('commercial.stock', { move: moveStock, moveRaw: moveStockRaw, listMovements } satisfies CommercialStockService);
   registerService('commercial.pricing', { resolvePrice, resolveMany } satisfies CommercialPricingService);
   registerService('commercial.purchaseInbound', { createInbound: createPurchaseInbound } satisfies CommercialPurchaseInboundService);
+  registerService('commercial.customers', {
+    create: customers.createCustomer, update: customers.updateCustomer,
+    findById: customers.findCustomerById, findByDocument: customers.findCustomerByDocument,
+  } satisfies CommercialCustomersService);
   registerService('commercial.storeCredit', {
     grantRaw: storeCredit.grant, redeemRaw: storeCredit.redeem, reverseRaw: storeCredit.reverse,
     balance: storeCredit.getBalance, listMovements: storeCredit.listCreditMovements,

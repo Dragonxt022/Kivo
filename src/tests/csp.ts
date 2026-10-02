@@ -81,6 +81,10 @@ const PAGINAS = [
   '/app/comandas/mesas',
   '/app/foodservice/cozinha',
   '/app/foodservice/roteamento',
+  '/app/odonto/pacientes',
+  '/app/odonto/pacientes/1',
+  '/app/odonto/profissionais',
+  '/app/odonto/procedimentos',
 ];
 
 /** Tags de abertura de <script>, com os atributos que vierem. */

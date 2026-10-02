@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Profissionais</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/profissionais' }) %>
+  <main x-data="professionalsPage()" x-init="load()">
+    <h1>Profissionais</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('odonto.professionals.manage')) { %>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo profissional
+        </button>
+      <% } %>
+      <input type="text" placeholder="Buscar por nome, CRO ou especialidade…" x-model="q" @input.debounce.400ms="load()" class="input-search" />
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th @click="sortCycle('cro')" class="sortable">CRO<span class="sort-arrow" x-text="sortArrow('cro')"></span></th>
+        <th>Especialidades</th>
+        <th>Contato</th>
+        <th>Situação</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="r in pageRows" :key="r.id">
+          <tr>
+            <td x-text="r.name"></td>
+            <td class="muted" x-text="[r.cro, r.cro_state].filter(Boolean).join('/') || '—'"></td>
+            <td class="muted" x-text="r.specialties || '—'"></td>
+            <td class="muted" x-text="r.phone || r.email || '—'"></td>
+            <td><span class="badge" x-text="r.active ? 'Ativo' : 'Inativo'"></span></td>
+            <td class="text-right">
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
+                  <% if (user.permissions.has('odonto.professionals.manage')) { %>
+                  <button @click="openMenu = null; openEdit(r)">Editar</button>
+                  <button class="danger" @click="openMenu = null; remove(r)">Excluir</button>
+                  <% } %>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!displayRows.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum profissional cadastrado ainda.' }) %></td></tr>
+      </tbody>
+    </table>
+    <%- include('partials/pager') %>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? 'Editar profissional' : 'Novo profissional'"></h1>
+      <div class="dialog-body">
+        <label>Nome</label><input type="text" x-model="form.name" />
+        <div class="pm-grid">
+          <div class="pm-field"><label>CRO</label><input type="text" x-model="form.cro" placeholder="Ex.: 12345" /></div>
+          <div class="pm-field"><label>UF do CRO</label><input type="text" x-model="form.cro_state" maxlength="2" placeholder="SP" style="text-transform:uppercase" /></div>
+        </div>
+        <label>Especialidades</label>
+        <input type="text" x-model="form.specialties" placeholder="Ex.: Endodontia, Implantodontia" />
+        <div class="pm-grid">
+          <div class="pm-field"><label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" /></div>
+          <div class="pm-field"><label>E-mail</label><input type="text" x-model="form.email" /></div>
+        </div>
+        <label>Situação</label>
+        <select x-model="form.active">
+          <option :value="true">Ativo</option>
+          <option :value="false">Inativo</option>
+        </select>
+        <span class="muted text-xs">O vínculo com um usuário do sistema é opcional e pode ser definido depois — nem todo profissional tem login no Kivo.</span>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function professionalsPage() {
+      return {
+        ...tableToolkit(),
+        rows: [], q: '', error: '', dlgError: '', form: {},
+        sortGetters: {
+          name: (r) => r.name,
+          cro: (r) => r.cro ?? '',
+        },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
+
+        async load() {
+          const url = '/api/odonto/professionals' + (this.q ? `?q=${encodeURIComponent(this.q)}` : '');
+          const r = await fetch(url);
+          if (r.ok) this.rows = await r.json();
+          else this.error = (await r.json()).error ?? 'Erro ao carregar.';
+        },
+        openNew() {
+          this.form = { active: true };
+          this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        openEdit(r) {
+          this.form = { ...r, active: !!r.active };
+          this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        async save() {
+          const isEdit = !!this.form.id;
+          const payload = {
+            name: this.form.name,
+            cro: this.form.cro || null,
+            cro_state: this.form.cro_state || null,
+            specialties: this.form.specialties || null,
+            phone: this.form.phone || null,
+            email: this.form.email || null,
+            active: !!this.form.active,
+          };
+          const r = await fetch(isEdit ? `/api/odonto/professionals/${this.form.id}` : '/api/odonto/professionals', {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(row) {
+          if (!await window.confirmDlg(`Excluir o profissional "${row.name}"?`)) return;
+          const r = await fetch(`/api/odonto/professionals/${row.id}`, { method: 'DELETE' });
+          if (r.ok) this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Pacientes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="patientsPage()" x-init="load()">
+    <h1>Pacientes</h1>
+    <div class="toolbar">
+      <% if (user.permissions.has('odonto.patients.create')) { %>
+        <button class="btn" @click="openNew()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo paciente
+        </button>
+      <% } %>
+      <input type="text" placeholder="Buscar por nome, CPF, telefone ou e-mail…" x-model="q" @input.debounce.400ms="load()" class="input-search" />
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
+        <th>CPF/CNPJ</th>
+        <th>Telefone</th>
+        <th @click="sortCycle('birthday')" class="sortable">Nascimento<span class="sort-arrow" x-text="sortArrow('birthday')"></span></th>
+        <% if (canViewClinical) { %><th>Ficha clínica</th><% } %>
+        <th>Situação</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="r in pageRows" :key="r.id">
+          <tr>
+            <td><a :href="'/app/odonto/pacientes/' + r.id" x-text="r.name"></a></td>
+            <td class="muted" x-text="r.document || '—'"></td>
+            <td class="muted" x-text="r.phone || '—'"></td>
+            <td class="muted" x-text="fmtDate(r.birthday)"></td>
+            <% if (canViewClinical) { %>
+            <td class="muted" x-text="r.has_clinical ? 'Preenchida' : 'Em branco'"></td>
+            <% } %>
+            <td><span class="badge" x-text="r.active ? 'Ativo' : 'Inativo'"></span></td>
+            <td class="text-right">
+              <div class="dropdown">
+                <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                </button>
+                <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
+                  <a :href="'/app/odonto/pacientes/' + r.id">Abrir ficha</a>
+                  <% if (user.permissions.has('odonto.patients.edit')) { %>
+                  <button @click="openMenu = null; openEdit(r)">Editar cadastro</button>
+                  <% } %>
+                  <% if (user.permissions.has('odonto.patients.delete')) { %>
+                  <button class="danger" @click="openMenu = null; remove(r)">Excluir ficha</button>
+                  <% } %>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!displayRows.length"><td colspan="<%= canViewClinical ? 7 : 6 %>"><%- include('partials/empty-state', { message: 'Nenhum paciente cadastrado ainda.' }) %></td></tr>
+      </tbody>
+    </table>
+    <%- include('partials/pager') %>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? 'Editar cadastro do paciente' : 'Novo paciente'"></h1>
+      <div class="dialog-body">
+        <label>Nome completo</label><input type="text" x-model="form.name" />
+        <div class="pm-grid">
+          <div class="pm-field"><label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="000.000.000-00" /></div>
+          <div class="pm-field"><label>Nascimento</label><input type="date" x-model="form.birthday" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" /></div>
+          <div class="pm-field"><label>E-mail</label><input type="text" x-model="form.email" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>CEP</label><input type="text" x-model="form.cep" @input="form.cep = maskCEP(form.cep)" placeholder="00000-000" /></div>
+          <div class="pm-field"><label>RG</label><input type="text" x-model="form.rg" /></div>
+        </div>
+        <label>Endereço</label><input type="text" x-model="form.address" />
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Sexo</label>
+            <select x-model="form.sex">
+              <option value="">Não informado</option>
+              <option value="feminino">Feminino</option>
+              <option value="masculino">Masculino</option>
+              <option value="outro">Outro</option>
+              <option value="nao_informado">Prefere não informar</option>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Situação</label>
+            <select x-model="form.active">
+              <option :value="true">Ativo</option>
+              <option :value="false">Inativo</option>
+            </select>
+          </div>
+        </div>
+        <label>Observações do atendimento</label><textarea x-model="form.notes" rows="2"></textarea>
+        <span class="muted text-xs">Alergias, histórico e medicações ficam na ficha clínica, dentro do paciente.</span>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()">Salvar</button>
+      </div>
+    </dialog>
+  </main>
+  <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function patientsPage() {
+      return {
+        ...tableToolkit(),
+        rows: [], q: '', error: '', dlgError: '', form: {},
+        sortGetters: {
+          name: (r) => r.name,
+          birthday: (r) => r.birthday ?? '',
+        },
+        get displayRows() { return this.sortedRows(this.rows, this.sortGetters); },
+        get pageTotal() { return this.displayRows.length; },
+        get pageRows() { return this.pagedRows(this.displayRows); },
+
+        async load() {
+          const url = '/api/odonto/patients' + (this.q ? `?q=${encodeURIComponent(this.q)}` : '');
+          const r = await fetch(url);
+          if (r.ok) this.rows = await r.json();
+          else this.error = (await r.json()).error ?? 'Erro ao carregar.';
+        },
+        openNew() {
+          this.form = { active: true };
+          this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        openEdit(r) {
+          this.form = { ...r, active: !!r.active };
+          this.dlgError = '';
+          this.$refs.dlg.showModal();
+        },
+        /** Só o cadastro: o bloco clínico é gravado na ficha do paciente. */
+        payload() {
+          return {
+            name: this.form.name,
+            document: this.form.document || null,
+            phone: this.form.phone || null,
+            email: this.form.email || null,
+            birthday: this.form.birthday || null,
+            cep: this.form.cep || null,
+            address: this.form.address || null,
+            sex: this.form.sex || null,
+            rg: this.form.rg || null,
+            notes: this.form.notes || null,
+            active: !!this.form.active,
+          };
+        },
+        async save() {
+          const isEdit = !!this.form.id;
+          const r = await fetch(isEdit ? `/api/odonto/patients/${this.form.id}` : '/api/odonto/patients', {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.payload()),
+          });
+          if (r.ok) { this.$refs.dlg.close(); this.load(); }
+          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+        },
+        async remove(row) {
+          const ok = await window.confirmDlg(
+            `Excluir a ficha do paciente "${row.name}"? O cadastro de cliente e o financeiro permanecem.`,
+          );
+          if (!ok) return;
+          const r = await fetch(`/api/odonto/patients/${row.id}`, { method: 'DELETE' });
+          if (r.ok) this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>
