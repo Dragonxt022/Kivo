@@ -209,7 +209,7 @@
                 <% }); %>
               </select>
               <p class="field-hint">Empresa indicada: toda cobrança sai com o desconto do afiliado aplicado e, quando paga, gera a comissão do afiliado. Gerencie em <a href="/admin/affiliates">Afiliados</a>.</p>
-              <%- include('partials/module-toggles', { checkedModules: company.modules || [] }) %>
+              <%- include('partials/module-toggles', { checkedModules: company.modules || [], businessType: company.business_type || '' }) %>
             </div>
 
             <div class="form-actions-bar">

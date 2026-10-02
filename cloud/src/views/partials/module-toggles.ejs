@@ -1,4 +1,15 @@
 <%
+  /**
+   * Módulos da empresa + atalho de PERFIL DO SEGMENTO.
+   *
+   * A lista de módulos é fixa (o painel é quem decide o que existe); o perfil é só um
+   * atalho que pré-marca os módulos que costumam ser ligados num ramo — quem provisiona
+   * continua livre para ajustar antes de salvar. Serve para não esquecer um módulo do qual
+   * outro depende (o Odonto, por exemplo, depende do Comercial).
+   *
+   * `businessType` é o ramo que o cliente declarou no assistente de boas-vindas
+   * (`companies.business_type`): quando existe, o perfil correspondente já vem sugerido.
+   */
   var KNOWN_MODULES = [
     { id: 'commercial', label: 'Comercial (cadastros e estoque)' },
     { id: 'finance', label: 'Financeiro (caixa e contas)' },
@@ -11,8 +22,45 @@
     { id: 'labels', label: 'Gerador de Etiquetas (produto em folha A4)' },
     { id: 'odonto', label: 'Kivo Odonto (consultórios e clínicas odontológicas)' },
   ];
+
+  var TODOS = KNOWN_MODULES.map(function (m) { return m.id; });
+
+  // Perfis por segmento. Regra de bolso usada aqui:
+  //  - Comercial é a base de tudo (cadastro de cliente, produto, estoque) → em todos;
+  //  - Financeiro entra sempre que existe dinheiro a receber/pagar;
+  //  - Fiscal só onde se emite NFC-e (mercadoria); serviço/consultório fica sem;
+  //  - NF-e onde se compra de distribuidora com XML;
+  //  - Etiquetas onde há gôndola/prateleira;
+  //  - Comandas/Food Service só em comida servida em mesa.
+  var SEGMENT_PROFILES = [
+    { id: '', label: '— escolher um perfil —', modules: [] },
+    { id: 'odontologia', label: 'Odontologia / clínica', modules: ['commercial', 'finance', 'store', 'odonto', 'dre', 'nfe'] },
+    { id: 'farmacia', label: 'Farmácia', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },
+    { id: 'roupas', label: 'Loja de roupas / calçados', modules: ['commercial', 'finance', 'store', 'fiscal', 'dre', 'labels'] },
+    { id: 'sorveteria', label: 'Sorveteria / açaí', modules: ['commercial', 'finance', 'store', 'dre', 'labels'] },
+    { id: 'restaurante', label: 'Restaurante / lanchonete', modules: ['commercial', 'finance', 'store', 'comandas', 'foodservice', 'fiscal', 'dre', 'labels'] },
+    { id: 'padaria', label: 'Padaria / confeitaria', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },
+    { id: 'mercado', label: 'Mercado / mercearia', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },
+    { id: 'conveniencia', label: 'Conveniência / adega', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },
+    { id: 'petshop', label: 'Petshop', modules: ['commercial', 'finance', 'store', 'nfe', 'dre', 'labels'] },
+    { id: 'servicos', label: 'Serviços (salão, assistência técnica)', modules: ['commercial', 'finance', 'store', 'dre'] },
+    { id: 'todos', label: 'Todos os módulos (cliente completo)', modules: TODOS },
+  ];
+
   var checked = typeof checkedModules !== 'undefined' && checkedModules ? checkedModules : [];
+  var ramo = typeof businessType !== 'undefined' && businessType ? String(businessType) : '';
 %>
+<label>Perfil do segmento</label>
+<select id="segment-profile" onchange="kivoApplySegmentProfile(this.value)">
+  <% SEGMENT_PROFILES.forEach(function(p) { %>
+  <option value="<%= p.id %>"><%= p.label %></option>
+  <% }) %>
+</select>
+<p class="field-hint">
+  Marca os módulos que costumam ser ligados nesse ramo — revise antes de salvar.
+  <% if (ramo) { %><br>O cliente declarou no assistente: <strong><%= ramo %></strong>.<% } %>
+</p>
+
 <label>Módulos</label>
 <div class="module-toggles">
   <% KNOWN_MODULES.forEach(function(mod) { %>
@@ -26,3 +74,28 @@
   <% }) %>
 </div>
 <p class="field-hint">Nenhum módulo ligado = sem restrição (todos liberados, independente do plano).</p>
+
+<script>
+  (function () {
+    var PERFIS = <%- JSON.stringify(SEGMENT_PROFILES) %>;
+    // Pré-marca os módulos do perfil escolhido. Só o painel decide módulos: os recursos
+    // finos (capabilities) são ligados dentro do app, em Configurações › Recursos, ou
+    // pelo assistente de boas-vindas na primeira execução.
+    window.kivoApplySegmentProfile = function (id) {
+      var perfil = null;
+      for (var i = 0; i < PERFIS.length; i++) if (PERFIS[i].id === id) perfil = PERFIS[i];
+      if (!perfil) return;
+      var caixas = document.querySelectorAll('.module-toggles input[name="modules"]');
+      for (var j = 0; j < caixas.length; j++) {
+        caixas[j].checked = perfil.modules.indexOf(caixas[j].value) !== -1;
+      }
+    };
+    // Ramo declarado pelo cliente: deixa o perfil sugerido já selecionado (sem marcar nada
+    // sozinho — quem salva é quem confere).
+    var declarado = <%- JSON.stringify(ramo) %>;
+    if (declarado) {
+      var sel = document.getElementById('segment-profile');
+      if (sel) sel.value = declarado;
+    }
+  })();
+</script>
