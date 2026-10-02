@@ -25,6 +25,7 @@ Regras de negócio por módulo, para suporte e treinamento de agentes de IA. É 
 | [Etiquetas](/admin/documentacao?doc=etiquetas) | Gerador de etiquetas de produto |
 | [Kivo Odonto](/admin/documentacao?doc=odonto) | Pacientes, ficha clínica, profissionais e procedimentos |
 | [Perfis por segmento](/admin/documentacao?doc=segmentos) | O que ligar em cada ramo (módulos, recursos e cargos) |
+| [Assinatura](/admin/documentacao?doc=assinatura) | Cobrança e pagamento online (Pix, boleto, cartão) via Mercado Pago |
 | [DRE](/admin/documentacao?doc=dre) | Demonstrativo de resultado |
 | [Painel](/admin/documentacao?doc=painel) | Painel de controle (KPIs) |
 | [NF-e](/admin/documentacao?doc=nfe) | Importação de NF-e de compra |
