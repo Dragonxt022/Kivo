@@ -31,6 +31,8 @@ function onboardingWizard() {
       { id: 'farmacia', label: 'Farmácia', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/>', hint: 'Medicamentos, higiene, vitaminas e kits de conveniência.' },
       { id: 'petshop', label: 'Petshop', icon: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10c-3 0-5 3-5 6a3 3 0 0 0 5 2 4 4 0 0 1 4 0 3 3 0 0 0 5-2c0-3-2-6-5-6Z"/>', hint: 'Rações, acessórios e banho & tosa como serviços.' },
       { id: 'servicos', label: 'Serviços', icon: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/>', hint: 'Hora técnica, visita e manutenção como serviços.' },
+      { id: 'odontologia', label: 'Odontologia / clínica', icon: '<path d="M12 5.5c-1.5-2-4-2.5-6-1.5-2.5 1.3-3 4.5-1.5 8.5 1 2.7 2 5 3.5 5 1.2 0 1.2-1.8 1.5-3.2.2-1 .6-1.8 1.5-1.8s1.3.8 1.5 1.8c.3 1.4.3 3.2 1.5 3.2 1.5 0 2.5-2.3 3.5-5 1.5-4 1-7.2-1.5-8.5-2-1-4.5-.5-6 1.5Z"/>', hint: 'Pacientes, ficha clínica, profissionais com CRO e procedimentos — material com lote e validade.' },
+      { id: 'sorveteria', label: 'Sorveteria / açaí', icon: '<path d="m7 11 4.08 10.35a1 1 0 0 0 1.84 0L17 11"/><path d="M17 7A5 5 0 0 0 7 7"/><path d="M17 7a2 2 0 0 1 0 4H7a2 2 0 0 1 0-4"/>', hint: 'Sabores, potes, casquinhas, açaí com complementos e combos.' },
       { id: 'outro', label: 'Outro', icon: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/>', hint: 'Começa sem produtos de exemplo — você cadastra do seu jeito.' },
     ],
     // Cor de destaque sugerida por ramo (espelho das telas, não vai pro servidor). O ramo
@@ -46,6 +48,8 @@ function onboardingWizard() {
       farmacia: { theme: 'blue', hex: '#2563eb' },
       petshop: { theme: 'custom', hex: '#0ea5e9' },
       servicos: { theme: 'blue', hex: '#2563eb' },
+      odontologia: { theme: 'custom', hex: '#0ea5e9' },
+      sorveteria: { theme: 'pink', hex: '#ec4899' },
     },
     // Layout (cartões/menu lateral) é preferência deste computador (localStorage) e nunca
     // vai em `answers` nem no POST de /api/onboarding/provision. Já a COR de destaque é
