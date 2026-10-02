@@ -91,6 +91,7 @@ function listCommands() {
       'test:comandas',
       'test:comanda-qty',
       'test:odonto-patients',
+      'test:odonto-anamnese',
       'test:billing-gateway',
       'test:billing-app-pix',
       'test:contracts',

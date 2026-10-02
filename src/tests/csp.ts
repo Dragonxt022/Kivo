@@ -83,6 +83,8 @@ const PAGINAS = [
   '/app/foodservice/roteamento',
   '/app/odonto/pacientes',
   '/app/odonto/pacientes/1',
+  '/app/odonto/pacientes/1/anamnese',
+  '/app/odonto/anamnese-modelos',
   '/app/odonto/profissionais',
   '/app/odonto/procedimentos',
 ];

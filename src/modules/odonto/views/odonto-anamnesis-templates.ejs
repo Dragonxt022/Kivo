@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Formulários de anamnese</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="templatesPage()" x-init="load()">
+    <p class="muted"><a href="/app/odonto/pacientes">← Pacientes</a></p>
+    <h1>Formulários de anamnese</h1>
+    <p class="muted muted-block">
+      Editar um formulário <strong>não apaga nada</strong>: publicar cria uma versão nova e as
+      anamneses já respondidas continuam apontando para a versão em que foram dadas.
+    </p>
+
+    <div class="toolbar">
+      <button class="btn" @click="openNew(null)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        Novo formulário
+      </button>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th>Formulário</th><th>Versão</th><th>Perguntas</th><th>Padrão</th><th>Criado em</th><th></th>
+      </tr></thead>
+      <tbody>
+        <template x-for="t in templates" :key="t.id">
+          <tr>
+            <td x-text="t.name"></td>
+            <td class="muted" x-text="'v' + t.version"></td>
+            <td class="muted" x-text="t.fields.length"></td>
+            <td><span class="badge" x-show="t.is_default">padrão</span></td>
+            <td class="muted" x-text="fmtDateTime(t.created_at)"></td>
+            <td class="text-right">
+              <button class="btn secondary small" @click="openNew(t)">Nova versão a partir desta</button>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="!templates.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum formulário cadastrado.' }) %></td></tr>
+      </tbody>
+    </table>
+
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.base ? ('Nova versão de “' + form.base.name + '”') : 'Novo formulário'"></h1>
+      <div class="dialog-body">
+        <p class="muted text-xs" style="margin-top:0" x-show="form.base">
+          A versão atual (v<span x-text="form.base ? form.base.version : ''"></span>) continua valendo para
+          as anamneses já respondidas. Esta será a v<span x-text="form.base ? form.base.version + 1 : 1"></span>.
+        </p>
+
+        <label>Nome do formulário</label>
+        <input type="text" x-model="form.name" maxlength="120" placeholder="Anamnese odontológica" />
+
+        <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" x-model="form.is_default" />
+          <span>Usar como formulário padrão do consultório</span>
+        </label>
+
+        <label>Perguntas</label>
+        <template x-for="(f, i) in form.fields" :key="i">
+          <div class="panel" style="padding:.6rem;margin-bottom:.5rem">
+            <div class="pm-grid">
+              <div class="pm-field">
+                <label>Rótulo</label>
+                <input type="text" x-model="f.label" maxlength="120" placeholder="Histórico médico" />
+              </div>
+              <div class="pm-field">
+                <label>Chave (sem espaços)</label>
+                <input type="text" x-model="f.key" maxlength="41" placeholder="historico_medico"
+                       @input="f.key = f.key.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
+              </div>
+            </div>
+            <div class="pm-grid">
+              <div class="pm-field">
+                <label>Tipo</label>
+                <select x-model="f.type">
+                  <option value="texto">Texto curto</option>
+                  <option value="texto_longo">Texto longo</option>
+                  <option value="sim_nao">Sim / Não / Não sei</option>
+                  <option value="selecao">Escolha única</option>
+                  <option value="multipla">Múltipla escolha</option>
+                  <option value="data">Data</option>
+                  <option value="numero">Número</option>
+                </select>
+              </div>
+              <div class="pm-field">
+                <label>Obrigatória</label>
+                <select x-model="f.required">
+                  <option :value="false">Não</option>
+                  <option :value="true">Sim</option>
+                </select>
+              </div>
+            </div>
+            <div class="pm-field" x-show="f.type === 'selecao' || f.type === 'multipla'">
+              <label>Opções (separadas por vírgula)</label>
+              <input type="text" :value="(f.options || []).join(', ')"
+                     @input="f.options = $event.target.value.split(',').map(o => o.trim()).filter(Boolean)" />
+            </div>
+            <div class="pm-field">
+              <label>Dica (opcional)</label>
+              <input type="text" x-model="f.help" maxlength="200" placeholder="O que perguntar exatamente" />
+            </div>
+            <button class="btn secondary small danger" @click.prevent="form.fields.splice(i, 1)">Remover pergunta</button>
+          </div>
+        </template>
+
+        <button class="btn secondary small" @click.prevent="addField()">+ Adicionar pergunta</button>
+
+        <label>Observações internas</label>
+        <textarea x-model="form.notes" rows="2" placeholder="Para quem usa o sistema, não aparece para o paciente."></textarea>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="save()" :disabled="saving" x-text="saving ? 'Publicando…' : 'Publicar versão'"></button>
+      </div>
+    </dialog>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function templatesPage() {
+      return {
+        templates: [],
+        error: '',
+        dlgError: '',
+        saving: false,
+        form: { base: null, name: '', fields: [], is_default: false, notes: '' },
+
+        async load() {
+          const r = await fetch('/api/odonto/anamnesis/templates');
+          if (r.ok) this.templates = await r.json();
+          else this.error = (await r.json()).error ?? 'Erro ao carregar os formulários.';
+        },
+
+        addField(campo) {
+          this.form.fields.push(campo || { key: '', label: '', type: 'texto', required: false, options: [], help: '' });
+        },
+
+        openNew(base) {
+          this.dlgError = '';
+          this.form = {
+            base: base || null,
+            name: base ? base.name : 'Anamnese odontológica',
+            is_default: base ? !!base.is_default : this.templates.length === 0,
+            notes: base ? (base.notes || '') : '',
+            // Copia as perguntas da versão atual: a nova versão nasce igual e o usuário ajusta.
+            fields: base
+              ? base.fields.map((f) => ({ ...f, options: [...(f.options || [])], required: !!f.required }))
+              : [{ key: 'queixa_principal', label: 'Queixa principal', type: 'texto_longo', required: true, options: [], help: '' }],
+          };
+          this.$refs.dlg.showModal();
+        },
+
+        async save() {
+          this.saving = true;
+          this.dlgError = '';
+          try {
+            const r = await fetch('/api/odonto/anamnesis/templates', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: this.form.name,
+                fields: this.form.fields.map((f) => ({
+                  key: f.key, label: f.label, type: f.type, required: !!f.required,
+                  options: f.options && f.options.length ? f.options : undefined,
+                  help: f.help || undefined,
+                })),
+                notes: this.form.notes || null,
+                is_default: !!this.form.is_default,
+              }),
+            });
+            if (r.ok) {
+              const publicado = await r.json();
+              this.$refs.dlg.close();
+              showToast(`Formulário publicado na versão ${publicado.version}.`, 'success');
+              await this.load();
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao publicar o formulário.';
+            }
+          } finally {
+            this.saving = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

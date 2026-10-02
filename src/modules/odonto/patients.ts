@@ -6,6 +6,8 @@ import { assertAuth } from '../../shared/auth';
 import { validateDocument } from '../../shared/documents';
 import type { CommercialCustomersService } from '../commercial/setup';
 import type { CustomerPatch } from '../commercial/customers';
+import { canEditClinical, canViewClinical, type Result } from './permissions';
+import { removeAnamnesisByPatient } from './anamnesis';
 import {
   patientRepository,
   type PatientClinicalInput,
@@ -29,6 +31,10 @@ import {
 
 export const PERM_CLINICAL_VIEW = 'odonto.clinical.view';
 export const PERM_CLINICAL_EDIT = 'odonto.clinical.edit';
+
+/** Permissões e tipo de resultado vivem em `permissions.ts` (evita ciclo com a anamnese). */
+export { canViewClinical, canEditClinical } from './permissions';
+export type { Result } from './permissions';
 
 export interface PatientInput {
   /** Dados do cliente (`customers`). */
@@ -59,8 +65,6 @@ export interface PatientDetail extends PatientListRow {
   clinical?: PatientClinicalOutput | null;
 }
 
-export type Result<T> = { ok: true; data: T } | { ok: false; error: string; status: number };
-
 function customersService(): CommercialCustomersService {
   if (!hasService('commercial.customers')) {
     throw new Error('odonto: serviço commercial.customers indisponível (módulo commercial fora do plano?).');
@@ -84,14 +88,6 @@ function customerPatch(input: PatientInput): CustomerPatch {
 function activeFlag(value: boolean | number | undefined): number | undefined {
   if (value === undefined) return undefined;
   return value ? 1 : 0;
-}
-
-export function canViewClinical(req: Request): boolean {
-  return !!req.user?.permissions.has(PERM_CLINICAL_VIEW);
-}
-
-export function canEditClinical(req: Request): boolean {
-  return !!req.user?.permissions.has(PERM_CLINICAL_EDIT);
 }
 
 function clinicalOutput(row: PatientClinicalRow | undefined): PatientClinicalOutput | null {
@@ -230,6 +226,8 @@ export function removePatient(req: Request, id: number): Result<{ ok: true }> {
   if (!before) return { ok: false, error: 'Paciente não encontrado.', status: 404 };
   patientRepository.transaction(() => {
     patientRepository.softDeleteClinical(id);
+    // A anamnese é histórico clínico do paciente: sai junto (soft delete), nunca fica órfã.
+    removeAnamnesisByPatient(id);
     patientRepository.softDelete(id);
   });
   audit(req, 'excluir', 'odonto_patient', id, before, null);

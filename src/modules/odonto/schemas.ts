@@ -66,3 +66,31 @@ export const createProcedureSchema = z.object({
 });
 
 export const updateProcedureSchema = createProcedureSchema.partial();
+
+// ─────────────────────────────── Anamnese (PR §5) ───────────────────────────────
+
+/** Uma pergunta do formulário. A estrutura é flexível de propósito: pergunta nova não exige migration. */
+export const anamnesisFieldSchema = z.object({
+  key: z.string().min(2).max(41),
+  label: z.string().min(1).max(120),
+  type: z.enum(['texto', 'texto_longo', 'sim_nao', 'selecao', 'multipla', 'data', 'numero']),
+  required: z.union([z.boolean(), z.number().int()]).optional(),
+  options: z.array(z.string().max(60)).max(30).optional(),
+  help: optionalText(200),
+});
+
+/** Publicar o formulário = criar uma versão nova (a anterior fica, com as respostas dela). */
+export const createAnamnesisTemplateSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  fields: z.array(anamnesisFieldSchema).min(1).max(100),
+  notes: optionalText(1000),
+  is_default: z.union([z.boolean(), z.number().int()]).optional(),
+});
+
+/** Responder = gravar uma revisão nova. As chaves são conferidas contra o formulário no serviço. */
+export const saveAnamnesisSchema = z.object({
+  template_id: z.number().int().positive().nullable().optional(),
+  answers: z.record(z.string(), z.unknown()),
+  professional_id: z.number().int().positive().nullable().optional(),
+  notes: optionalText(1000),
+});
