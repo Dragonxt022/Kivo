@@ -108,7 +108,7 @@
 
             <% if (charge.mp_ticket_url) { %>
               <div class="link-row">
-                <a class="btn secondary" href="<%= charge.mp_ticket_url %>" target="_blank" rel="noopener">Abrir boleto</a>
+                <a class="btn secondary" href="<%= charge.mp_ticket_url %>" target="_blank" rel="noopener"><%= charge.mp_method === 'boleto' ? 'Abrir boleto' : (charge.mp_method === 'card' ? 'Pagar com cartão' : 'Ver o Pix no Mercado Pago') %></a>
               </div>
             <% } %>
 

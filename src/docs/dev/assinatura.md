@@ -43,13 +43,19 @@ oferece o pagamento — ele nunca fala com o Mercado Pago.
 
 ## Teste automatizado
 
-`node scripts/test-isolated.js src/tests/billing-gateway.ts` (ou `npm run kivo test:billing-gateway`).
+`node scripts/test-isolated.js src/tests/billing-gateway.ts` (ou `npm run kivo test:billing-gateway`)
+cobre o **lado do cloud**: credenciais, criação da cobrança com link, página pública, Pix
+(QR + copia e cola), boleto, cartão (Checkout Pro), confirmação por status, webhook com
+assinatura válida/inválida e idempotência.
 
-Ele sobe um **Mercado Pago de mentira** dentro do próprio teste e aponta o cloud para ele com
-`MP_API_BASE`, então roda sem internet, sem credencial real e sem dinheiro: credenciais,
-criação da cobrança com link, página pública, Pix (QR + copia e cola), boleto, cartão
-(Checkout Pro), confirmação por status, webhook com assinatura válida/inválida e idempotência.
-Requer o MySQL do `cloud/docker-compose.yml` no ar (`npm test` o marca como **SKIP** sem ele).
+`node scripts/test-isolated.js src/tests/billing-app-pix.ts` (ou `npm run kivo test:billing-app-pix`)
+cobre o **lado do programa**: lista de Cobranças, geração do Pix pelo app, QR chegando à
+tela, "já paguei?" baixando a cobrança, licença estendida e a recusa de gerar pagamento
+para cobrança já paga.
+
+Os dois sobem um **Mercado Pago de mentira** dentro do próprio teste e apontam o cloud para
+ele com `MP_API_BASE`, então rodam sem internet, sem credencial real e sem dinheiro. Requerem
+o MySQL do `cloud/docker-compose.yml` no ar (`npm test` os marca como **SKIP** sem ele).
 
 ## Arquivos-chave
 

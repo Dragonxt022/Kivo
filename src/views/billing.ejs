@@ -76,12 +76,14 @@
 
         <template x-if="payment">
           <div>
+            <p class="error" x-text="payError"></p>
+
             <!-- Pix: QR Code + copia e cola -->
             <template x-if="payment.mp_qr_code_base64 || payment.mp_qr_code">
               <div>
-                <div x-show="payment.mp_qr_code_base64" style="text-align:center;margin:.6rem 0">
+                <div x-show="payment.mp_qr_code_base64" style="text-align:center;margin:.4rem 0">
                   <img :src="'data:image/png;base64,' + payment.mp_qr_code_base64" alt="QR code do Pix"
-                       style="width:220px;height:220px;background:#fff;padding:8px;border-radius:12px;border:1px solid var(--border-light)" />
+                       style="width:180px;height:180px;background:#fff;padding:6px;border-radius:12px;border:1px solid var(--border-light)" />
                 </div>
                 <label>Pix copia e cola</label>
                 <div style="display:flex;gap:8px;align-items:center">
@@ -92,10 +94,21 @@
               </div>
             </template>
 
-            <!-- Boleto e cartão: link -->
+            <!-- Ação principal logo abaixo do QR: quem pagou não deve precisar rolar o modal. -->
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:.5rem">
+              <button class="btn secondary small" @click="verify(false)" :disabled="loading">
+                Já paguei — verificar agora
+              </button>
+              <p class="muted text-xs" x-show="statusMsg" x-text="statusMsg" style="margin:0"></p>
+            </div>
+            <p class="muted text-xs" x-show="polling">Conferindo o pagamento automaticamente a cada 5 segundos…</p>
+
+            <!-- Boleto, cartão e o comprovante do Pix: link -->
             <template x-if="payment.mp_ticket_url || payment.mp_init_point">
-              <div>
-                <label x-text="method === 'card' ? 'Link do pagamento no cartão' : 'Link do boleto'"></label>
+              <div style="margin-top:.6rem">
+                <label x-text="method === 'card'
+                  ? 'Link do pagamento no cartão'
+                  : (method === 'boleto' ? 'Link do boleto' : 'Link do Pix no Mercado Pago')"></label>
                 <div style="display:flex;gap:8px;align-items:center">
                   <input type="text" readonly :value="payment.mp_init_point || payment.mp_ticket_url || ''" />
                   <button class="btn secondary" @click="copy(payment.mp_init_point || payment.mp_ticket_url)">Copiar</button>
@@ -115,13 +128,6 @@
                 <p class="muted text-xs">Pode mandar por WhatsApp ou e-mail: a página abre sem login e mostra só esta cobrança.</p>
               </div>
             </template>
-
-            <p class="error" x-text="payError"></p>
-            <p class="muted text-xs" x-show="statusMsg" x-text="statusMsg"></p>
-            <button class="btn secondary small" @click="verify(false)" :disabled="loading">
-              Já paguei — verificar agora
-            </button>
-            <p class="muted text-xs" x-show="polling">Conferindo o pagamento automaticamente a cada 5 segundos…</p>
           </div>
         </template>
 
