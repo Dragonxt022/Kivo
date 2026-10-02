@@ -148,6 +148,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       'overview.view',
       'odonto.patients.view', 'odonto.patients.create', 'odonto.patients.edit',
       'odonto.clinical.view', 'odonto.clinical.edit',
+      'odonto.agenda.view', 'odonto.agenda.manage',
       'odonto.procedures.view', 'odonto.professionals.view',
       'store.sales.view', 'store.sales.create', 'store.quotes.view', 'store.quotes.create',
       'finance.receivables.view',
@@ -162,6 +163,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     permissions: [
       'overview.view',
       'odonto.patients.view', 'odonto.patients.create', 'odonto.patients.edit',
+      'odonto.agenda.view', 'odonto.agenda.manage',
       'odonto.procedures.view', 'odonto.professionals.view',
       'store.quotes.view', 'store.quotes.create', 'store.quotes.edit',
       'store.sales.view', 'store.sales.create',
@@ -178,6 +180,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       'overview.view',
       'odonto.patients.view',
       'odonto.clinical.view',
+      'odonto.agenda.view',
       'odonto.procedures.view', 'odonto.professionals.view',
       'commercial.products.search',
     ],

@@ -34,6 +34,40 @@ A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
 5. **CRO e código de procedimento não se repetem** entre registros ativos.
 6. **UF do CRO** é normalizada para maiúsculas e 2 caracteres.
 
+## Agenda (PR §6)
+
+Agenda do consultório em três visões (**dia**, **semana** e **mês**), com filtro por
+profissional e por situação.
+
+Regras que sustentam o dia a dia:
+
+1. **Um profissional não atende dois pacientes no mesmo horário.** Ao agendar ou reagendar, o
+   serviço procura sobreposição para aquele profissional e recusa com **409** dizendo com quem
+   bate ("já atende Ana das 09:00 às 09:30"). Quem libera o horário é a situação: `cancelado` e
+   `faltou` não bloqueiam; `atendido` continua ocupando (o horário existiu).
+2. **Encaixe é exceção declarada.** `is_fit_in` permite a sobreposição — é a razão de existir —
+   e o histórico registra o evento `encaixe` dizendo sobre quem entrou.
+3. **Reagendar move o MESMO agendamento** e grava `reagendado` com o de/para. Não cria linha
+   nova: a agenda do dia não vira pilha de cancelados e o histórico de remarcações continua.
+4. **Situação anda na ordem**: `agendado → confirmado → em_atendimento → atendido` (com `faltou`
+   e `cancelado` no caminho). `atendido` é final; `faltou` e `cancelado` podem voltar para
+   `agendado`. Cada mudança carimba a hora (`confirmed_at`, `started_at`, `finished_at`,
+   `cancelled_at`) e vira linha em `odonto_appointment_events` (append-only).
+5. Atendimento já realizado **não** é reagendado, cancelado nem apagado — o caminho é registrar
+   o ocorrido na evolução (Fase 4).
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| GET | `/appointments?view=dia\|semana\|mes&date=&professional_id=&status=` | `odonto.agenda.view` |
+| GET | `/appointments/:id` (com histórico) | `odonto.agenda.view` |
+| POST | `/appointments` | `odonto.agenda.manage` |
+| PUT | `/appointments/:id` (reagendar/editar) | `odonto.agenda.manage` |
+| POST | `/appointments/:id/status` | `odonto.agenda.manage` |
+| DELETE | `/appointments/:id` (lançado por engano) | `odonto.agenda.manage` |
+
+Página: `/app/odonto/agenda`. Cargos de fábrica: Dentista e Recepção **gerenciam** a agenda;
+Auxiliar só **vê**.
+
 ## Anamnese (PR §5)
 
 Questionário clínico **versionado dos dois lados**:
@@ -148,11 +182,11 @@ do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
 ## Próximas fases (roadmap da PR)
 
-Agenda (3), prontuário/evolução com retificação versionada (4), odontograma (5),
+Prontuário/evolução com retificação versionada (4), odontograma (5),
 plano de tratamento + cobrança (6), documentos com variáveis (7), exames e imagens (8),
 refinamento (9). As capabilities de cada recurso entram junto com a tela — não antes.
 
-Concluído: fundação (1) e pacientes + anamnese (2).
+Concluído: fundação (1), pacientes + anamnese (2) e agenda (3).
 
 ## Arquivos-chave
 
@@ -162,6 +196,8 @@ Concluído: fundação (1) e pacientes + anamnese (2).
 - `src/modules/odonto/patients.ts` — regras do paciente e do bloco clínico.
 - `src/modules/odonto/anamnesis.ts` — formulários versionados, validação das respostas e
   revisões imutáveis.
+- `src/modules/odonto/appointments.ts` — agenda: conflito de horário, encaixe, transições de
+  situação e histórico do atendimento.
 - `src/modules/odonto/professionals.ts` / `procedures.ts` — CRUD com validação e auditoria.
 - `src/modules/odonto/repositories/` — SQL (paciente faz `JOIN` com `customers`).
 - `src/modules/odonto/migrations/0078_odonto_base/` — tabelas da fundação.

@@ -94,3 +94,28 @@ export const saveAnamnesisSchema = z.object({
   professional_id: z.number().int().positive().nullable().optional(),
   notes: optionalText(1000),
 });
+
+// ─────────────────────────────── Agenda (PR §6) ───────────────────────────────
+
+/** Data e hora do atendimento: o input datetime-local manda 'YYYY-MM-DDTHH:MM'. */
+const dataHora = z.string().min(16).max(16);
+
+export const createAppointmentSchema = z.object({
+  patient_id: z.number().int().positive(),
+  professional_id: z.number().int().positive(),
+  procedure_id: z.number().int().positive().nullable().optional(),
+  starts_at: dataHora,
+  duration_min: z.number().int().min(5).max(480).optional(),
+  room: optionalText(40),
+  notes: optionalText(1000),
+  /** Encaixe: pode sobrepor outro atendimento do mesmo profissional. */
+  is_fit_in: z.union([z.boolean(), z.number().int()]).optional(),
+});
+
+/** Reagendar/editar: tudo opcional — o serviço só mexe no que veio. */
+export const updateAppointmentSchema = createAppointmentSchema.partial();
+
+export const appointmentStatusSchema = z.object({
+  status: z.enum(['agendado', 'confirmado', 'em_atendimento', 'atendido', 'faltou', 'cancelado']),
+  motivo: optionalText(200),
+});

@@ -81,6 +81,7 @@ const PAGINAS = [
   '/app/comandas/mesas',
   '/app/foodservice/cozinha',
   '/app/foodservice/roteamento',
+  '/app/odonto/agenda',
   '/app/odonto/pacientes',
   '/app/odonto/pacientes/1',
   '/app/odonto/pacientes/1/anamnese',
