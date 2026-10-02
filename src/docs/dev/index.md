@@ -24,6 +24,7 @@ Regras de negócio por módulo, para suporte e treinamento de agentes de IA. É 
 | [Food Service](/admin/documentacao?doc=foodservice) | Cozinha (KDS) e roteamento de produção |
 | [Etiquetas](/admin/documentacao?doc=etiquetas) | Gerador de etiquetas de produto |
 | [Kivo Odonto](/admin/documentacao?doc=odonto) | Pacientes, ficha clínica, profissionais e procedimentos |
+| [Perfis por segmento](/admin/documentacao?doc=segmentos) | O que ligar em cada ramo (módulos, recursos e cargos) |
 | [DRE](/admin/documentacao?doc=dre) | Demonstrativo de resultado |
 | [Painel](/admin/documentacao?doc=painel) | Painel de controle (KPIs) |
 | [NF-e](/admin/documentacao?doc=nfe) | Importação de NF-e de compra |
@@ -38,7 +39,8 @@ compartilhado.
 ```
 core
  ├─ commercial ── nfe
- │             └─ labels
+ │             ├─ labels
+ │             └─ odonto  (paciente é um cliente + ficha clínica própria)
  ├─ finance
  ├─ store            (depende de commercial + finance)
  │    └─ fiscal      (depende de commercial + store)
