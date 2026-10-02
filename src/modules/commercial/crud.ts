@@ -23,6 +23,13 @@ export interface CrudConfig {
   filterFields?: string[];
   /** Campos com formato de data ISO (YYYY-MM-DD) validados na gravação. */
   dateFields?: string[];
+  /**
+   * Valor usado no INSERT quando o cliente omite o campo. Existe porque colunas
+   * `NOT NULL DEFAULT x` recebem `NULL` explícito no INSERT genérico (o DEFAULT da coluna
+   * não vale para valor explícito) e o cadastro falhava com 500 em vez de gravar o padrão.
+   * Sem `defaults` declarado, o comportamento é o de antes (`?? null`).
+   */
+  defaults?: Record<string, string | number | boolean | null>;
   /** Garante CPF/CNPJ único (comparando apenas os dígitos). */
   uniqueDocument?: boolean;
   /** Colunas liberadas para edição em massa via `POST /bulk-update`. */
@@ -216,7 +223,7 @@ export function makeCrudRouter(cfg: CrudConfig): Router {
         return;
       }
     }
-    const values = cfg.fields.map((f) => body[f] ?? null);
+    const values = cfg.fields.map((f) => body[f] ?? cfg.defaults?.[f] ?? null);
     const info = repo.rawRun(
       `INSERT INTO ${cfg.table} (${cfg.fields.join(', ')}, uuid, origin_machine) VALUES (${cfg.fields.map(() => '?').join(', ')}, ?, ?)`,
       ...values, randomUUID(), machineId(),

@@ -27,6 +27,9 @@ function inline(md: string): string {
   s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
   s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
   s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // \u0000 é o sentinela intencional que guarda o código inline (linha 23); a regra
+  // no-control-regex só vê um caractere de controle no literal.
+  // eslint-disable-next-line no-control-regex -- sentinela \u0000 deliberado para proteger código inline
   s = s.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => `<code>${codes[Number(i)]}</code>`);
   return s;
 }
