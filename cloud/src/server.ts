@@ -22,6 +22,9 @@ import quotePublicRoutes from './routes/quotePublic';
 import telemetryRoutes, { startTelemetryRetention } from './routes/telemetry';
 import aiRoutes from './routes/ai';
 import affiliateRoutes from './routes/affiliate';
+import webhookRoutes from './routes/webhooks';
+import publicPayRoutes from './routes/payPublic';
+import paymentRoutes from './routes/payments';
 import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAuth';
 import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
@@ -92,6 +95,9 @@ export function createCloudServer() {
     next();
   });
   app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'kivo-cloud' }));
+  // Página pública de pagamento da assinatura: é o link que o lojista manda ao cliente
+  // (WhatsApp/e-mail). Fica antes da landing porque `/pagar/<token>` não é página do site.
+  app.use('/pagar', publicPayRoutes);
   app.use('/', landingRoutes);
   app.use('/wiki', wikiRoutes);
   app.use('/cardapio', menuRoutes);
@@ -120,10 +126,16 @@ export function createCloudServer() {
   // KIVO IA: o app local manda a requisição com as credenciais de licença e o cloud
   // encaminha para o Ollama local da VPS (OLLAMA_URL).
   app.use('/api/ai', aiRoutes);
+  // Webhook do gateway de pagamento (Mercado Pago). Público de propósito: quem autentica é a
+  // assinatura HMAC do Mercado Pago, e o status é sempre reconferido na API deles — a
+  // notificação, sozinha, não marca cobrança como paga (ver routes/webhooks.ts).
+  app.use('/api/webhooks', webhookRoutes);
   // Portal do afiliado (representante): login próprio e visão restrita às indicações dele.
   app.use('/afiliado', affiliateRoutes);
   app.use('/admin/messages', adminMessagesRoutes);
   app.use('/admin', adminRoutes);
+  // Credenciais do gateway de pagamento e geração de Pix/boleto/cartão por cobrança.
+  app.use('/admin', paymentRoutes);
 
   // Middleware de erro global: captura falhas de conexão com o banco de dados
   // e exibe uma página amigável com instruções em português.

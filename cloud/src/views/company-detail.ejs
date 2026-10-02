@@ -325,6 +325,7 @@
                   <th class="sortable text-right" @click="sortCycle('amount_cents')">Valor<span class="sort-arrow" x-text="sortArrow('amount_cents')"></span></th>
                   <th class="sortable" @click="sortCycle('due_date')">Vencimento<span class="sort-arrow" x-text="sortArrow('due_date')"></span></th>
                   <th class="sortable" @click="sortCycle('status')">Status<span class="sort-arrow" x-text="sortArrow('status')"></span></th>
+                  <th>Pagamento</th>
                   <th>Pago em</th><th>Instruções</th><th></th>
                 </tr></thead>
                 <tbody>
@@ -344,6 +345,23 @@
                         <span :class="dueClass(ch)" x-text="fmtDate(ch.due_date)"></span>
                       </td>
                       <td><span class="badge" :class="ch.status" x-text="ch.status"></span></td>
+                      <td class="cell-muted">
+                        <template x-if="ch.mp_status">
+                          <div>
+                            <span class="badge" x-text="ch.mp_status"></span>
+                            <div style="font-size:11px;margin-top:2px" x-text="ch.mp_method ? ('via ' + ch.mp_method) : ''"></div>
+                          </div>
+                        </template>
+                        <template x-if="!ch.mp_status"><span>—</span></template>
+                        <template x-if="ch.public_url">
+                          <div style="margin-top:4px;display:flex;gap:8px;align-items:center">
+                            <a :href="ch.public_url" target="_blank" rel="noopener" style="font-size:12px">página de pagamento</a>
+                            <button type="button" class="icon-btn" title="Copiar link de pagamento" @click="copyLink(ch)">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            </button>
+                          </div>
+                        </template>
+                      </td>
                       <td class="cell-muted" x-text="ch.paid_at ? fmtDate(ch.paid_at) : '—'"></td>
                       <td class="instructions-cell cell-muted" :title="ch.instructions || ''" x-text="ch.instructions || '—'"></td>
                       <td class="text-right" @click.outside="openMenu = null">
@@ -354,6 +372,23 @@
                           <div class="dropdown-menu" x-show="openMenu === ch.id" x-cloak>
                             <template x-if="ch.status === 'pendente'">
                               <div>
+                                <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/gateway'">
+                                  <input type="hidden" name="method" value="pix">
+                                  <button type="submit">Gerar Pix</button>
+                                </form>
+                                <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/gateway'">
+                                  <input type="hidden" name="method" value="boleto">
+                                  <button type="submit">Gerar boleto</button>
+                                </form>
+                                <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/gateway'">
+                                  <input type="hidden" name="method" value="card">
+                                  <button type="submit">Gerar link de cartão</button>
+                                </form>
+                                <template x-if="ch.mp_payment_id">
+                                  <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/sync'">
+                                    <button type="submit">Verificar pagamento agora</button>
+                                  </form>
+                                </template>
                                 <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/pay'"><button type="submit">Marcar paga</button></form>
                                 <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/cancel'"><button type="submit" class="danger">Cancelar</button></form>
                               </div>
@@ -374,7 +409,7 @@
                     </tr>
                   </template>
                   <tr x-show="!displayRows.length">
-                    <td colspan="7">
+                    <td colspan="8">
                       <div class="empty-state-box">
                         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                         <p x-text="rows.length ? 'Nenhuma cobrança com esse status.' : 'Nenhuma cobrança ainda.'"></p>
@@ -564,6 +599,12 @@
         <label>Instruções de pagamento</label>
         <textarea name="instructions" rows="3" placeholder="ex.: chave PIX, dados bancários, como enviar o comprovante..."></textarea>
         <p class="field-hint">Aparece para o cliente na tela de Cobranças do app instalado.</p>
+        <label>E-mail do pagador (opcional)</label>
+        <input type="email" name="payerEmail" placeholder="cliente@email.com">
+        <p class="field-hint">O Pix exige um e-mail. Em branco, o Kivo usa o e-mail do cadastro da empresa.</p>
+        <label>Estende a licença em (dias)</label>
+        <input type="number" name="extendsDays" min="0" max="3650" placeholder="ex.: 30">
+        <p class="field-hint">Quando o pagamento cair, a validade da empresa avança esses dias (contando de hoje se já venceu). Em branco, a baixa é só financeira.</p>
         <div class="modal-actions">
           <button type="button" class="btn secondary" onclick="window.document.getElementById('modal-new-charge').close()">Cancelar</button>
           <button type="submit" class="btn">Registrar cobrança</button>
@@ -679,6 +720,17 @@
         fmtDate(v) {
           const s = String(v).slice(0, 10).split('-');
           return s[2] + '/' + s[1] + '/' + s[0];
+        },
+        /** Copia o link da página pública de pagamento (o que se manda ao cliente). */
+        copyLink(ch) {
+          if (!ch.public_url) return;
+          const aviso = window.showToast || function () {};
+          const feito = () => aviso('Link copiado: ' + ch.public_url, 'success');
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(ch.public_url).then(feito).catch(() => window.prompt('Copie o link:', ch.public_url));
+            return;
+          }
+          window.prompt('Copie o link:', ch.public_url);
         },
         /** Vencida e ainda pendente é o que precisa saltar aos olhos. */
         dueClass(ch) {

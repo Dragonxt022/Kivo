@@ -16,6 +16,7 @@ import {
   reversePayout,
 } from '../affiliates';
 import { sendTestEmail, sendPasswordResetEmail, smtpConfigFromBody } from '../mailer';
+import { publicPayUrl } from '../gateway';
 import { searchPexels } from '../imageApi';
 import { createRateLimiter } from '../rateLimit';
 import { hashAffiliatePassword } from '../affiliateAuth';
@@ -96,7 +97,13 @@ async function loadCompanyDetail(companyUuid: string) {
     [companyUuid],
   );
 
-  const [charges] = await pool.query('SELECT * FROM charges WHERE company_uuid = ? ORDER BY due_date DESC', [companyUuid]);
+  const [chargesRows] = await pool.query('SELECT * FROM charges WHERE company_uuid = ? ORDER BY due_date DESC', [companyUuid]);
+  // `public_url` é o link da página pública de pagamento — o que o admin copia e manda ao
+  // cliente. Montado aqui para a tela não precisar saber o domínio do cloud.
+  const charges = (chargesRows as Record<string, unknown>[]).map((c) => ({
+    ...c,
+    public_url: c.public_token ? publicPayUrl(String(c.public_token)) : null,
+  }));
 
   const [devices] = await pool.query(
     'SELECT id, machine_id, first_seen_at, last_seen_at FROM company_devices WHERE company_uuid = ? AND removed_at IS NULL ORDER BY last_seen_at DESC',
@@ -1248,16 +1255,19 @@ router.get('/api/companies/:uuid/commands', requireAdminAuth, async (req, res) =
 
 router.post('/companies/:uuid/charges', requireAdminAuth, async (req, res) => {
   const uuid = String(req.params.uuid);
-  const { description, amount, dueDate, instructions } = req.body ?? {};
+  const { description, amount, dueDate, instructions, payerEmail, extendsDays } = req.body ?? {};
   if (description && amount && dueDate) {
     const amountCents = parseAmountCents(amount);
     // Mesmo desconto de indicação da tela global: o valor informado é o cheio.
     const { pct, discountCents } = await affiliateDiscountFor(uuid, amountCents);
     await getPool().query(
       `INSERT INTO charges
-         (company_uuid, description, instructions, amount_cents, original_amount_cents, discount_pct, discount_cents, due_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [uuid, description, instructions || null, amountCents - discountCents, amountCents, pct, discountCents, dueDate],
+         (company_uuid, description, instructions, amount_cents, original_amount_cents, discount_pct, discount_cents, due_date, payer_email, extends_days, public_token)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        uuid, description, instructions || null, amountCents - discountCents, amountCents, pct, discountCents,
+        dueDate, normalizaPayerEmail(payerEmail), normalizaExtendsDays(extendsDays), randomUUID(),
+      ],
     );
   }
   res.redirect(`/admin/companies/${uuid}`);
@@ -1342,6 +1352,27 @@ function parseAmountCents(v: unknown): number {
 }
 
 /**
+ * E-mail do pagador informado na cobrança (o Pix do Mercado Pago exige um). Em branco grava
+ * NULL e o gateway cai no e-mail da empresa / no padrão das configurações de pagamento.
+ */
+function normalizaPayerEmail(v: unknown): string | null {
+  const s = String(v ?? '').trim();
+  return s && s.includes('@') ? s.slice(0, 160) : null;
+}
+
+/**
+ * "Estende a licença em N dias" da cobrança. Em branco/zero grava NULL: a baixa é só
+ * financeira e a validade continua sendo ajustada à mão.
+ */
+function normalizaExtendsDays(v: unknown): number | null {
+  const s = String(v ?? '').replace(',', '.').trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(3650, Math.round(n));
+}
+
+/**
  * Desconto de indicação da empresa: se ela aponta para um afiliado ATIVO, devolve o
  * percentual e o desconto em centavos sobre o valor cheio. Sem afiliado (ou inativo),
  * zero. É a única fonte da regra — a criação da cobrança e a prévia da tela usam a mesma.
@@ -1417,7 +1448,7 @@ router.get('/charges', requireAdminAuth, async (req, res) => {
 });
 
 router.post('/charges', requireAdminAuth, async (req, res) => {
-  const { companyUuid, description, amount, dueDate, instructions } = req.body ?? {};
+  const { companyUuid, description, amount, dueDate, instructions, payerEmail, extendsDays } = req.body ?? {};
   if (!companyUuid || !description || !amount || !dueDate) {
     res.redirect('/admin/charges');
     return;
@@ -1432,9 +1463,12 @@ router.post('/charges', requireAdminAuth, async (req, res) => {
   const { pct, discountCents } = await affiliateDiscountFor(String(companyUuid), amountCents);
   await getPool().query(
     `INSERT INTO charges
-       (company_uuid, description, instructions, amount_cents, original_amount_cents, discount_pct, discount_cents, due_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [String(companyUuid), description, instructions || null, amountCents - discountCents, amountCents, pct, discountCents, dueDate],
+       (company_uuid, description, instructions, amount_cents, original_amount_cents, discount_pct, discount_cents, due_date, payer_email, extends_days, public_token)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      String(companyUuid), description, instructions || null, amountCents - discountCents, amountCents, pct,
+      discountCents, dueDate, normalizaPayerEmail(payerEmail), normalizaExtendsDays(extendsDays), randomUUID(),
+    ],
   );
   res.redirect('/admin/charges');
 });
