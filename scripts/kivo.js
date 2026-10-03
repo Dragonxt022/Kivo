@@ -99,6 +99,7 @@ function listCommands() {
       'test:alpine-expressoes',
       'test:odonto-interface',
       'test:icones-citados',
+      'test:home-cards',
       'test:odonto-documentos',
       'test:odonto-painel',
       'test:billing-gateway',

@@ -398,10 +398,15 @@
         <a class="app-card drag-enabled" :href="a.href" :data-href="a.href" draggable="false"
            x-show="matches(a.label)"
            :class="[dragId === a.href ? 'dragging' : '', dropOverId === a.href ? 'drop-target' : '']"
-           @pointerdown="onCardPointerDown($event, a)">
-           <span class="card-icon" x-html="iconSvg(a.icon)"></span>
+           @pointerdown="podeArrumarCards && onCardPointerDown($event, a)">
+          <span class="card-icon" x-html="iconSvg(a.icon)"></span>
           <span class="card-title" x-text="a.label"></span>
           <span class="card-desc" x-text="a.description"></span>
+          <%# Atalho discreto: só aparece no hover e leva para a lista completa de recursos. %>
+          <button type="button" class="card-more" title="Ver todos os recursos"
+                  @click.prevent.stop="mostrarTudo()">
+            <span x-html="iconSvg('more')"></span>
+          </button>
         </a>
       </template>
       <%
@@ -420,6 +425,10 @@
         if (user.permissions.has('roles.view')) adminItems.push({ label: 'Cargos', href: '/admin/cargos', icon: 'key', description: 'Permissões por cargo.' });
         if (user.permissions.has('audit.view')) adminItems.push({ label: 'Auditoria', href: '/admin/auditoria', icon: 'audit', description: 'Quem fez o quê, quando e de onde.' });
         if (user.permissions.has('backup.view')) adminItems.push({ label: 'Backup', href: '/admin/backup', icon: 'database', description: 'Cópias de segurança do banco.' });
+        // Cobrança e Recursos existiam no menu mas não tinham card: ficavam escondidos de quem usa
+        // a tela inicial como ponto de partida.
+        if (user.permissions.has('billing.view')) adminItems.push({ label: 'Cobrança', href: '/admin/cobrancas', icon: 'credit-card', description: 'Assinatura, faturas e pagamento.' });
+        if (user.permissions.has('settings.capabilities.edit')) adminItems.push({ label: 'Recursos', href: '/admin/recursos', icon: 'trophy', description: 'O que a licença libera e o que dá para ligar.' });
         if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', description: 'Parâmetros do sistema e licença.' });
         if (user.permissions.has('dev.docs.view')) adminItems.push({ label: 'Documentação técnica', href: '/admin/documentacao', icon: 'file-text', description: 'Regras de negócio por módulo (suporte).' });
         visibleItems = visibleItems.concat(adminItems);
@@ -429,7 +438,7 @@
       <button type="button" class="app-card" @click="showMore = !showMore" x-show="!q">
         <span class="card-icon"><%- svgIcon('more', 40, 40) %></span>
         <span class="card-title" x-text="showMore ? 'Mostrar menos' : 'Mais'"></span>
-        <span class="card-desc">Usuários, cargos, auditoria, backup e configurações.</span>
+        <span class="card-desc">Usuários, cargos, auditoria, backup, cobrança, recursos e configurações.</span>
       </button>
       <% } %>
 
@@ -479,7 +488,12 @@
   <% } %>
   <script nonce="<%= cspNonce %>">
     const HOME_APPS_SEED = <%- JSON.stringify(typeof visibleItemsForAlpine !== 'undefined' ? visibleItemsForAlpine : []) %>;
-    const HOME_ORDER_KEY = 'kivo-home-order';
+    // Ordem dos cards: preferência da EMPRESA, lida no servidor (settings) — vale em qualquer
+    // aparelho/navegador, ao contrário do localStorage que existia aqui antes.
+    // `PRIORIDADE_CARDS` só é usada enquanto ninguém salvou uma ordem (vem do perfil do boas-vindas).
+    const ORDEM_CARDS = <%- JSON.stringify(typeof ordemCards !== 'undefined' ? ordemCards : []) %>;
+    const PRIORIDADE_CARDS = <%- JSON.stringify(typeof prioridadeCards !== 'undefined' ? prioridadeCards : []) %>;
+    const PODE_ARRUMAR_CARDS = <%= user.permissions.has('settings.edit') ? 'true' : 'false' %>;
     const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
 
     function homePage() {
@@ -507,25 +521,59 @@
         quickLoading: false,
         quickError: '',
         apps: [],
+        // Arrastar só para quem pode mudar a ordem da empresa (`settings.edit`): os demais veem a
+        // mesma ordem, sem risco de mexer na tela de todo mundo sem querer.
+        podeArrumarCards: PODE_ARRUMAR_CARDS,
         dragId: null,
         dropOverId: null,
         iconSvg(name) { return SVG_ICONS[name] || ''; },
 
+        // A ordem NÃO mora mais no navegador: vem do servidor (`settings`), igual à cor de
+        // destaque e ao logo. Assim a arrumação vale no computador da loja, no tablet, no celular
+        // na rede local e em qualquer navegador que abra este Kivo.
         loadOrder(items) {
-          let saved = [];
-          try { saved = JSON.parse(localStorage.getItem(HOME_ORDER_KEY) || '[]'); } catch {}
-          if (!saved.length) return items;
-          const byHref = new Map(items.map((i) => [i.href, i]));
-          const ordered = [];
-          saved.forEach((href) => {
-            const it = byHref.get(href);
-            if (it) { ordered.push(it); byHref.delete(href); }
-          });
-          byHref.forEach((it) => ordered.push(it));
-          return ordered;
+          const ordem = ORDEM_CARDS;
+          if (ordem.length) {
+            const posicao = new Map(ordem.map((href, i) => [href, i]));
+            return items
+              .map((it, i) => ({ it, i }))
+              .sort((a, b) => {
+                const pa = posicao.has(a.it.href) ? posicao.get(a.it.href) : ordem.length + a.i;
+                const pb = posicao.has(b.it.href) ? posicao.get(b.it.href) : ordem.length + b.i;
+                return pa - pb;
+              })
+              .map((x) => x.it);
+          }
+          // Nunca salvou ordem? A sugestão vem do perfil respondido no boas-vindas (o mais
+          // importante primeiro). Depois que a equipe arruma, quem manda é a ordem salva.
+          const prioridade = PRIORIDADE_CARDS;
+          if (!prioridade.length) return items;
+          const peso = (href) => {
+            const i = prioridade.findIndex((p) => href.startsWith(p));
+            return i === -1 ? prioridade.length + 1 : i;
+          };
+          return items.map((it, i) => ({ it, i }))
+            .sort((a, b) => peso(a.it.href) - peso(b.it.href) || a.i - b.i)
+            .map((x) => x.it);
         },
         saveOrder() {
-          localStorage.setItem(HOME_ORDER_KEY, JSON.stringify(this.apps.map((a) => a.href)));
+          if (!this.podeArrumarCards) return;
+          // Salva para a empresa (vale em qualquer aparelho). Sem permissão, o card nem arrasta.
+          fetch('/api/settings/interface/cards', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ordem: this.apps.map((a) => a.href) }),
+          }).catch(() => {});
+        },
+        /** Abre a segunda camada e leva até ela — é o atalho do ícone que aparece no hover. */
+        mostrarTudo() {
+          this.showMore = true;
+          this.q = '';
+          this.$nextTick(() => {
+            const cards = document.querySelectorAll('.app-grid .app-card');
+            const alvo = cards[cards.length - 1];
+            if (alvo && alvo.scrollIntoView) alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
         },
 
         onCardPointerDown(e, a) {

@@ -20,6 +20,7 @@ import settingsRoutes from './config/routes';
 import { getMachinePrefs } from './config/machinePrefs';
 import { businessLabelsLocals } from './config/businessLabels';
 import { themeColorLocals } from './config/themeColor';
+import { homeCardsLocals } from './config/homeCards';
 import backupRoutes from './backup/routes';
 import licenseRoutes from './license/routes';
 import syncRoutes from './sync/routes';
@@ -317,6 +318,9 @@ export async function createServer(): Promise<KivoServer> {
   // Cor de destaque da empresa: entra em res.locals já aqui para valer na tela de ativação
   // e no login, antes de qualquer rota autenticada.
   app.use(themeColorLocals);
+  // Ordem/visibilidade dos cards da tela inicial: preferência da empresa em `settings`, pelo
+  // mesmo motivo da cor — precisa valer também no navegador (outro aparelho), não só nesta máquina.
+  app.use(homeCardsLocals);
 
   // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
   app.use(responseEnvelope);

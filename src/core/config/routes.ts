@@ -19,8 +19,16 @@ import { restartSyncScheduler } from '../sync/scheduler';
 import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, installIconPack, saveIconPackCover, invalidateIconPackCache, listIconPacks } from '../icons/service';
 import { cloudAuthHeaders, cloudBaseUrl } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
+import { getCardsOrder, getCardsHidden, saveCardsLayout } from './homeCards';
+import { z } from 'zod';
 
 const log = createLogger('reset');
+
+/** Corpo da preferência de cards: lista de `href` (a ordem) e a lista dos que ficam no "Mais". */
+const cardsLayoutSchema = z.object({
+  ordem: z.array(z.string().min(1).max(200)).max(200).optional(),
+  ocultos: z.array(z.string().min(1).max(200)).max(200).optional(),
+});
 
 const router = Router();
 
@@ -447,6 +455,25 @@ router.put('/:key', requirePermission('settings.edit'), validateBody(setSettingS
   } else if (key === 'sync.intervalo_minutos') {
     restartSyncScheduler();
   }
+});
+
+/**
+ * Ordem dos cards da tela inicial (preferência da EMPRESA, guardada em `settings`).
+ *
+ * Fica no servidor de propósito: assim a arrumação vale no computador da loja, no celular na rede
+ * local e em qualquer navegador que abra este Kivo — antes vivia em `localStorage`, e cada
+ * aparelho mostrava uma ordem diferente.
+ */
+router.get('/interface/cards', requirePermission('settings.view'), (_req, res) => {
+  res.json({ success: true, data: { ordem: getCardsOrder(), ocultos: getCardsHidden() } });
+});
+
+router.put('/interface/cards', requirePermission('settings.edit'), validateBody(cardsLayoutSchema), (req, res) => {
+  const ordem = req.body.ordem ?? [];
+  const ocultos = req.body.ocultos ?? [];
+  saveCardsLayout(ordem, ocultos);
+  audit(req, 'editar', 'interface_cards', 'home', null, { ordem: ordem.length, ocultos: ocultos.length });
+  res.json({ success: true, data: { ordem: getCardsOrder(), ocultos: getCardsHidden() } });
 });
 
 export default router;
