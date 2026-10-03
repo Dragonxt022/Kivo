@@ -287,6 +287,14 @@
     "description": "Testes: agenda do Kivo Odonto (horários, sobreposição, encaixe, situações e permissões)",
     "run": "node scripts/test-isolated.js src/tests/odonto-agenda.ts"
   },
+  "test:alpine-expressoes": {
+    "description": "Testes: expressões Alpine das views (pega atributo quebrado que só apareceria no navegador)",
+    "run": "node scripts/test-isolated.js src/tests/alpine-expressoes.ts"
+  },
+  "test:odonto-planos": {
+    "description": "Testes: planos de tratamento do Kivo Odonto e cobrança no financeiro",
+    "run": "node scripts/test-isolated.js src/tests/odonto-planos.ts"
+  },
   "test:odonto-odontograma": {
     "description": "Testes: odontograma do Kivo Odonto (dentes, faces, situações e histórico)",
     "run": "node scripts/test-isolated.js src/tests/odonto-odontograma.ts"
