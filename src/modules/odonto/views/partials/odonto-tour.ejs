@@ -98,6 +98,13 @@
       },
     ];
 
+    /** Fim do tutorial: confete + parabéns (o motor cuida da animação). */
+    var CELEBRACAO = {
+      title: 'Consultório pronto! 🎉',
+      body: 'Paciente, anamnese, agenda, evolução, odontograma, plano, cobrança e documentos: '
+        + 'você já conhece o caminho inteiro. Bom trabalho!',
+    };
+
     /** Só os passos cujo alvo existe nesta tela (o motor pula os outros, mas o primeiro manda). */
     function passosDaTela() {
       return PASSOS.filter(function (p) {
@@ -108,7 +115,7 @@
     window.startOdontoTour = function () {
       if (!window.KivoTour) return;
       var lista = passosDaTela();
-      if (lista.length) window.KivoTour.start(lista);
+      if (lista.length) window.KivoTour.start(lista, { celebrate: CELEBRACAO });
     };
 
     // O botão é ligado por listener, não por `onclick=`: o CSP da aplicação bloqueia handler
@@ -123,7 +130,7 @@
       ligarBotao();
       var lista = passosDaTela();
       if (window.KivoTour && window.KivoTour.autoStart && lista.length) {
-        window.KivoTour.autoStart('kivo-tour-odonto-v1', lista);
+        window.KivoTour.autoStart('kivo-tour-odonto-v1', lista, { celebrate: CELEBRACAO });
       }
     }
 

@@ -2109,7 +2109,13 @@
       setTimeout(function () {
         if (!window.KivoTour || window.KivoTour.isActive()) return;
         if (document.querySelector('dialog[open]')) return;
-        window.KivoTour.autoStart(TOUR_KEY, pdvTourSteps());
+        window.KivoTour.autoStart(TOUR_KEY, pdvTourSteps(), {
+          // Fim do tutorial: confete e parabéns (motor em /js/tour.js).
+          celebrate: {
+            title: 'Venda dominada! 🎉',
+            body: 'Você já sabe o caminho da venda: buscar, montar o carrinho, escolher a forma de pagamento e finalizar. Bons negócios!',
+          },
+        });
       }, 900);
     })();
   </script>

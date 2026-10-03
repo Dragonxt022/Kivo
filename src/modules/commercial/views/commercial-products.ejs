@@ -2819,7 +2819,12 @@
           if (!window.KivoTour || window.KivoTour.isActive()) return;
           // Não disputa a camada superior com um modal aberto (novidade/assistente).
           if (document.querySelector('dialog[open]')) return;
-          window.KivoTour.autoStart(TOUR_KEY, produtosTourSteps());
+          window.KivoTour.autoStart(TOUR_KEY, produtosTourSteps(), {
+            celebrate: {
+              title: 'Estoque na mão! 🎉',
+              body: 'Cadastro, busca, importação e etiquetas: o catálogo está sob controle. Qualquer dúvida, é só rever o tutorial.',
+            },
+          });
         }, 500);
       });
     })();
