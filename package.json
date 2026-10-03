@@ -59,7 +59,11 @@
   "build": {
     "appId": "com.kivo.desktop",
     "productName": "Kivo",
-    "asar": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**",
+      "**/*.node"
+    ],
     "files": [
       "dist/**/*",
       "drizzle/migrations/**/*",
