@@ -47,6 +47,8 @@ const manifest: ModuleManifest = {
     { key: 'odonto.documents.manage', description: 'Gerar, editar rascunho, emitir, cancelar e versionar documentos' },
     { key: 'odonto.documents.templates', description: 'Criar e editar os modelos de documento da clínica (TCLE, receita, contrato...)' },
     { key: 'odonto.reports.view', description: 'Ver o painel do consultório e os relatórios (contagens e valores)' },
+    { key: 'odonto.exams.view', description: 'Ver, abrir e baixar os exames e imagens do paciente (radiografia, tomografia, fotos)' },
+    { key: 'odonto.exams.manage', description: 'Anexar, editar e excluir exames e imagens do paciente' },
   ],
   routes: './routes',
   pages: './pages',

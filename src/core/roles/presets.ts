@@ -152,6 +152,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       'odonto.plans.view', 'odonto.plans.manage', 'odonto.plans.charge',
       'odonto.documents.view', 'odonto.documents.manage', 'odonto.documents.templates',
       'odonto.reports.view',
+      'odonto.exams.view', 'odonto.exams.manage',
       'odonto.procedures.view', 'odonto.professionals.view',
       'store.sales.view', 'store.sales.create', 'store.quotes.view', 'store.quotes.create',
       'finance.receivables.view',

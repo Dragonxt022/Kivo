@@ -32,6 +32,7 @@ import activationRoutes from './license/activationRoutes';
 import { productImagesDir, categoryImagesDir, trySubmitPending } from './catalog/submissionQueue';
 import { companyLogoDir, LOGO_SETTING_KEY } from './config/companyLogo';
 import { billAttachmentsDir } from '../modules/finance/attachments';
+import { examFilesDir } from '../modules/odonto/examFiles';
 import { getSqlite } from './database/connection';
 import { registerSyncTables } from './sync/registry';
 import { startSyncScheduler } from './sync/scheduler';
@@ -314,6 +315,8 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/uploads/categories', express.static(categoryImagesDir()));
   app.use('/uploads/company', express.static(companyLogoDir()));
   app.use('/uploads/bills', express.static(billAttachmentsDir()));
+  // Exames e imagens do Kivo Odonto (radiografia, tomografia, fotografia clínica).
+  app.use('/uploads/odonto-exams', express.static(examFilesDir()));
 
   // Cor de destaque da empresa: entra em res.locals já aqui para valer na tela de ativação
   // e no login, antes de qualquer rota autenticada.
