@@ -295,6 +295,10 @@
     "description": "Testes: documentos e modelos com variáveis do Kivo Odonto",
     "run": "node scripts/test-isolated.js src/tests/odonto-documentos.ts"
   },
+  "test:icones-citados": {
+    "description": "Testes: ícones citados pelos módulos x arquivos do pacote (o ícone errado não dá erro no console)",
+    "run": "node scripts/test-isolated.js src/tests/icones-citados.ts"
+  },
   "test:odonto-interface": {
     "description": "Testes: interface do Kivo Odonto (campos com estilo, subtítulos, vazios e tutorial)",
     "run": "node scripts/test-isolated.js src/tests/odonto-interface.ts"

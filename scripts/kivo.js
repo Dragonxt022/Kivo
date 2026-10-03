@@ -98,6 +98,7 @@ function listCommands() {
       'test:odonto-planos',
       'test:alpine-expressoes',
       'test:odonto-interface',
+      'test:icones-citados',
       'test:odonto-documentos',
       'test:odonto-painel',
       'test:billing-gateway',
