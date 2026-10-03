@@ -12,6 +12,7 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb } from './resetTestDb';
+import { todayLocalIso } from '../shared/datetime';
 
 let failures = 0;
 
@@ -50,9 +51,15 @@ async function main() {
     // Configurar multa 2% + juros 0,033%/dia ativos
     setCfg(true, 2, true, 0.033);
 
-    // Conta vencida há 10 dias
-    const hoje = new Date().toISOString().slice(0, 10);
-    const dezDiasAtras = new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10);
+    // Conta vencida há 10 dias.
+    //
+    // As datas são montadas a partir do dia LOCAL da loja (`todayLocalIso`), que é o mesmo
+    // relógio que `computeLateCharges` usa. Com data em UTC, entre 20h e a meia-noite (UTC-4) o
+    // UTC já está no dia seguinte e a conta dava "9 dias de atraso" — o teste falhava por causa
+    // da hora em que rodava, não da regra.
+    const hoje = todayLocalIso();
+    const dezDiasAtras = new Date(new Date(`${hoje}T12:00:00Z`).getTime() - 10 * 86400000)
+      .toISOString().slice(0, 10);
     // baseCents=100000, multa=2%, 10 dias de juros a 0,033%/dia
     const res = computeLateCharges(100000, dezDiasAtras);
     check('multa = 2000 (2% de 100000)', res.multaCents === 2000, `${res.multaCents}`);
@@ -60,7 +67,8 @@ async function main() {
     check('diasAtraso = 10', res.diasAtraso === 10, `${res.diasAtraso}`);
 
     // Conta com vencimento FUTURO → sem encargos
-    const futuro = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const futuro = new Date(new Date(`${hoje}T12:00:00Z`).getTime() + 30 * 86400000)
+      .toISOString().slice(0, 10);
     const fut = computeLateCharges(50000, futuro);
     check('conta futura: multa=0', fut.multaCents === 0);
     check('conta futura: juros=0', fut.jurosCents === 0);
