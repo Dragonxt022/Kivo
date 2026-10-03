@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -19,21 +20,21 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/painel' }) %>
-  <main x-data="painelPage()" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="painelPage()" x-init="load()">
     <h1>Painel do consultório</h1>
-    <p class="muted text-xs" style="margin-top:-.4rem">
+    <p class="page-subtitle">
       Contagens e valores do período. Conteúdo clínico (evolução, anamnese, documento) fica no
       prontuário, com permissão clínica — o painel não mostra texto de paciente.
     </p>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <a class="btn secondary small" href="/app/odonto/agenda">Abrir agenda</a>
       <a class="btn secondary small" href="/admin/auditoria?q=odonto">Auditoria do odonto</a>
       <span class="muted text-xs" x-text="d.hoje ? ('hoje: ' + fmtDate(d.hoje)) : ''"></span>
       <span class="error" x-text="error"></span>
     </div>
 
-    <div class="cards">
+    <div class="cards" id="tour-odonto-painel">
       <div class="card-num">
         <div class="rotulo">Pacientes ativos</div>
         <div class="valor" x-text="d.pacientes.ativos"></div>
@@ -91,14 +92,14 @@
     <div class="card">
       <h2 style="margin-top:0">Relatórios</h2>
       <div class="toolbar">
-        <select x-model="tipo" @change="carregarRelatorio()" style="max-width:240px">
+        <select class="input" x-model="tipo" @change="carregarRelatorio()" style="max-width:240px">
           <template x-for="r in tipos" :key="r.type">
             <option :value="r.type" x-text="r.label"></option>
           </template>
         </select>
-        <input type="date" x-model="from" @change="carregarRelatorio()" />
+        <input class="input" type="date" x-model="from" @change="carregarRelatorio()" />
         <span class="muted">até</span>
-        <input type="date" x-model="to" @change="carregarRelatorio()" />
+        <input class="input" type="date" x-model="to" @change="carregarRelatorio()" />
         <button class="btn secondary small" @click="carregarRelatorio()">Atualizar</button>
         <a class="btn secondary small" :href="'/api/odonto/reports/' + tipo + '/csv?from=' + from + '&to=' + to">Exportar CSV</a>
       </div>
@@ -123,12 +124,14 @@
           </template>
         </tbody>
       </table>
-      <p class="muted" x-show="!(rel.linhas && rel.linhas.length)">Nada no período.</p>
+      <div class="odonto-vazio" x-show="!(rel.linhas && rel.linhas.length)"><strong>Nada no período escolhido</strong>Ajuste as datas acima ou escolha outro relatório.</div>
 
       <p class="muted text-xs" x-show="rel.totais">
         <span x-text="'Totais: ' + Object.entries(rel.totais || {}).map(([k, v]) => k + ' = ' + (k.includes('cents') ? brl(v) : v)).join(' · ')"></span>
       </p>
     </div>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

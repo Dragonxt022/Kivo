@@ -1,0 +1,136 @@
+<!-- Tutorial do Kivo Odonto (mesmo motor do PDV e do estoque: /js/tour.js).
+     Aparece UMA vez por máquina, na primeira tela do módulo que a pessoa abrir, e pode ser
+     revisto pelo botão fixo no canto. Um só texto explica o fluxo inteiro; os passos cujo alvo
+     não existe nesta tela são pulados pelo motor, então vale para todas as telas. -->
+<script nonce="<%= cspNonce %>" src="/js/tour.js"></script>
+<button type="button" class="odonto-tour-btn" title="Rever o tutorial do Kivo Odonto">
+  Rever tutorial
+</button>
+<script nonce="<%= cspNonce %>">
+  (function () {
+    var PASSOS = [
+      {
+        // Primeiro passo com alvo que existe em TODA tela (`<main>`): é o que explica o módulo
+        // inteiro para quem entra pela primeira vez — e o motor desiste se o primeiro alvo faltar.
+        el: '#tour-odonto-conteudo',
+        title: 'Como o Kivo Odonto funciona',
+        body: 'O caminho é sempre o mesmo: cadastre o PACIENTE → responda a ANAMNESE → agende na '
+          + 'AGENDA → registre o atendimento na EVOLUÇÃO (prontuário) → marque o ODONTOGRAMA → monte o '
+          + 'PLANO de tratamento e gere a COBRANÇA (que cai no Financeiro do Kivo) → emita os '
+          + 'DOCUMENTOS. No fim do dia, o PAINEL mostra os números. Este tutorial explica cada parte; '
+          + 'dá para revê-lo no botão "Rever tutorial", no canto inferior esquerdo.',
+      },
+      {
+        el: '#tour-odonto-secoes',
+        title: 'O prontuário do paciente em abas',
+        body: 'Cada aba é uma parte do prontuário: Resumo, Anamnese, Prontuário (evolução clínica), '
+          + 'Odontograma, Tratamentos, Consultas, Documentos, Exames e Financeiro. O que ainda não '
+          + 'existe aparece apagado com a fase — assim você sabe onde cada coisa vai ficar.',
+      },
+      {
+        el: '#tour-odonto-toolbar',
+        title: 'As ações desta tela',
+        body: 'Aqui ficam as ações do dia a dia (criar, filtrar, imprimir) e o resumo do que existe. '
+          + 'A busca e os filtros são sempre no canto esquerdo.',
+      },
+      {
+        el: '#tour-odonto-conteudo',
+        title: 'O conteúdo',
+        body: 'A lista ou ficha da tela. Nada é apagado de verdade: registro clínico se corrige por '
+          + 'retificação e documento emitido se corrige por nova versão, sempre mantendo o histórico.',
+      },
+      {
+        el: '#tour-odonto-pacientes',
+        title: 'Comece pelo paciente',
+        body: 'Cadastre o paciente (nome, CPF, telefone e nascimento). Ele vira um cliente do Kivo, '
+          + 'então a cobrança e o financeiro já funcionam sem cadastro duplicado.',
+      },
+      {
+        el: '#tour-odonto-ficha',
+        title: 'A ficha é o centro',
+        body: 'Da ficha saem todas as telas clínicas do paciente: anamnese, prontuário, odontograma, '
+          + 'planos e documentos. A Recepção vê o cadastro e a cobrança; o conteúdo clínico só aparece '
+          + 'para quem tem a permissão clínica.',
+      },
+      {
+        el: '#tour-odonto-agenda',
+        title: 'Agenda de atendimentos',
+        body: 'Dia, semana e mês. Clique num horário para agendar (o sistema avisa se bate com outro '
+          + 'atendimento), confirme, marque o atendimento como realizado ou registre falta.',
+      },
+      {
+        el: '#tour-odonto-anamnese',
+        title: 'Anamnese versionada',
+        body: 'As perguntas vêm de um formulário da clínica. Cada resposta salva vira uma revisão com '
+          + 'data e autor — nada é sobrescrito, o histórico fica inteiro.',
+      },
+      {
+        el: '#tour-odonto-prontuario',
+        title: 'Evolução clínica',
+        body: 'Registre o atendimento: procedimentos (por dente), observações, diagnóstico, conduta e '
+          + 'próximos passos. Errou? Use Retificar — o texto anterior continua no histórico com o motivo.',
+      },
+      {
+        el: '#tour-odonto-odontograma',
+        title: 'Odontograma',
+        body: 'Clique na face do dente (ou no número, para o dente inteiro) e escolha a situação. Cada '
+          + 'mudança entra no histórico do dente; desfazer revela o estado anterior sem apagar nada.',
+      },
+      {
+        el: '#tour-odonto-planos',
+        title: 'Plano de tratamento',
+        body: 'Monte o plano com procedimento, dente, valor e quantidade. Aprovado o plano, gere a '
+          + 'cobrança: ela cai no Financeiro do Kivo, parcelada, no nome do cliente — o Odonto não tem '
+          + 'financeiro próprio.',
+      },
+      {
+        el: '#tour-odonto-documentos',
+        title: 'Documentos',
+        body: 'TCLE, receita, atestado, contrato e orçamento saem de modelos com variáveis '
+          + '({{paciente.nome}}, {{data}}...). O documento guarda o texto como foi emitido e imprimi-lo '
+          + 'permite "Salvar em PDF".',
+      },
+      {
+        el: '#tour-odonto-painel',
+        title: 'Painel do consultório',
+        body: 'Onde o dia começa: agenda de hoje, próximos atendimentos, planos em aberto, o que foi '
+          + 'cobrado no mês e os relatórios. O painel conta e soma — o conteúdo clínico fica no prontuário.',
+      },
+    ];
+
+    /** Só os passos cujo alvo existe nesta tela (o motor pula os outros, mas o primeiro manda). */
+    function passosDaTela() {
+      return PASSOS.filter(function (p) {
+        return typeof p.el === 'string' && document.querySelector(p.el);
+      });
+    }
+
+    window.startOdontoTour = function () {
+      if (!window.KivoTour) return;
+      var lista = passosDaTela();
+      if (lista.length) window.KivoTour.start(lista);
+    };
+
+    // O botão é ligado por listener, não por `onclick=`: o CSP da aplicação bloqueia handler
+    // inline (`script-src` com nonce, sem 'unsafe-inline'/'unsafe-hashes').
+    function ligarBotao() {
+      var btn = document.querySelector('.odonto-tour-btn');
+      if (btn) btn.addEventListener('click', window.startOdontoTour);
+    }
+
+    // Primeira entrada no módulo: roda sozinho. Depois, só pelo botão (a chave fica na máquina).
+    function iniciarTutorial() {
+      ligarBotao();
+      var lista = passosDaTela();
+      if (window.KivoTour && window.KivoTour.autoStart && lista.length) {
+        window.KivoTour.autoStart('kivo-tour-odonto-v1', lista);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', iniciarTutorial);
+    } else {
+      iniciarTutorial();
+    }
+  })();
+</script>

@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     /* Grade da semana: sete colunas, uma por dia (domingo a sábado, igual ao servidor). */
@@ -29,11 +30,11 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/agenda' }) %>
-  <main x-data="agendaPage()" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="agendaPage()" x-init="load()">
     <h1>Agenda</h1>
 
-    <div class="toolbar">
-      <div class="filter-chips" role="group" aria-label="Visão da agenda">
+    <div class="toolbar" id="tour-odonto-toolbar">
+      <div class="filter-chips" id="tour-odonto-agenda" role="group" aria-label="Visão da agenda">
         <button type="button" class="chip" :class="{ active: view === 'dia' }" @click="mudarVisao('dia')">Dia</button>
         <button type="button" class="chip" :class="{ active: view === 'semana' }" @click="mudarVisao('semana')">Semana</button>
         <button type="button" class="chip" :class="{ active: view === 'mes' }" @click="mudarVisao('mes')">Mês</button>
@@ -42,9 +43,9 @@
       <button class="btn secondary small" @click="passo(-1)">← Anterior</button>
       <button class="btn secondary small" @click="irHoje()">Hoje</button>
       <button class="btn secondary small" @click="passo(1)">Próximo →</button>
-      <input type="date" x-model="date" @change="load()" />
+      <input class="input" type="date" x-model="date" @change="load()" />
 
-      <select x-model="professionalId" @change="load()">
+      <select class="input" x-model="professionalId" @change="load()">
         <option value="">Todos os profissionais</option>
         <template x-for="p in professionals" :key="p.id">
           <option :value="p.id" x-text="p.name"></option>
@@ -147,7 +148,7 @@
         <p class="muted" style="margin-top:0" x-show="cancelando"
            x-text="cancelando ? (cancelando.patient_name + ' · ' + fmtDateTimeLocal(cancelando.starts_at)) : ''"></p>
         <label>Motivo (opcional)</label>
-        <textarea x-model="motivoCancelamento" rows="2" placeholder="Ex.: paciente pediu para remarcar, faltou luz na clínica…"></textarea>
+        <textarea class="input" x-model="motivoCancelamento" rows="2" placeholder="Ex.: paciente pediu para remarcar, faltou luz na clínica…"></textarea>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -160,8 +161,8 @@
       <h1 x-text="form.id ? 'Reagendar / editar atendimento' : 'Novo agendamento'"></h1>
       <div class="dialog-body">
         <label>Paciente</label>
-        <input type="text" x-model="buscaPaciente" placeholder="Filtrar por nome, CPF ou telefone…" />
-        <select x-model="form.patient_id" size="1">
+        <input class="input" type="text" x-model="buscaPaciente" placeholder="Filtrar por nome, CPF ou telefone…" />
+        <select class="input" x-model="form.patient_id" size="1">
           <option value="">Escolha o paciente…</option>
           <template x-for="p in pacientesFiltrados()" :key="p.id">
             <option :value="p.id" x-text="p.name + (p.phone ? ' · ' + p.phone : '')"></option>
@@ -171,7 +172,7 @@
         <div class="pm-grid">
           <div class="pm-field">
             <label>Profissional</label>
-            <select x-model="form.professional_id">
+            <select class="input" x-model="form.professional_id">
               <option value="">Escolha…</option>
               <template x-for="p in professionals" :key="p.id">
                 <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
@@ -180,7 +181,7 @@
           </div>
           <div class="pm-field">
             <label>Procedimento</label>
-            <select x-model="form.procedure_id" @change="preencherDuracao()">
+            <select class="input" x-model="form.procedure_id" @change="preencherDuracao()">
               <option value="">—</option>
               <template x-for="p in procedures" :key="p.id">
                 <option :value="p.id" x-text="p.name + (p.duration_min ? ' (' + p.duration_min + ' min)' : '')"></option>
@@ -190,12 +191,12 @@
         </div>
 
         <div class="pm-grid">
-          <div class="pm-field"><label>Data</label><input type="date" x-model="form.data" /></div>
-          <div class="pm-field"><label>Hora</label><input type="time" x-model="form.hora" /></div>
+          <div class="pm-field"><label>Data</label><input class="input" type="date" x-model="form.data" /></div>
+          <div class="pm-field"><label>Hora</label><input class="input" type="time" x-model="form.hora" /></div>
         </div>
         <div class="pm-grid">
-          <div class="pm-field"><label>Duração (minutos)</label><input type="number" x-model="form.duration_min" min="5" max="480" step="5" /></div>
-          <div class="pm-field"><label>Sala / cadeira</label><input type="text" x-model="form.room" maxlength="40" /></div>
+          <div class="pm-field"><label>Duração (minutos)</label><input class="input" type="number" x-model="form.duration_min" min="5" max="480" step="5" /></div>
+          <div class="pm-field"><label>Sala / cadeira</label><input class="input" type="text" x-model="form.room" maxlength="40" /></div>
         </div>
 
         <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:8px">
@@ -204,7 +205,7 @@
         </label>
 
         <label>Observação do agendamento</label>
-        <textarea x-model="form.notes" rows="2" placeholder="Ex.: paciente pediu para avisar 1h antes, traz exame…"></textarea>
+        <textarea class="input" x-model="form.notes" rows="2" placeholder="Ex.: paciente pediu para avisar 1h antes, traz exame…"></textarea>
 
         <template x-if="form.id && historico.length">
           <div>
@@ -231,6 +232,8 @@
       </div>
     </dialog>
     <% } %>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

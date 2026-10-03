@@ -7,13 +7,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/procedimentos' }) %>
-  <main x-data="proceduresPage()" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="proceduresPage()" x-init="load()">
     <h1>Procedimentos</h1>
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.procedures.manage')) { %>
         <button class="btn" @click="openNew()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -66,18 +67,18 @@
     <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar procedimento' : 'Novo procedimento'"></h1>
       <div class="dialog-body">
-        <label>Nome</label><input type="text" x-model="form.name" placeholder="Ex.: Restauração em resina" />
+        <label>Nome</label><input class="input" type="text" x-model="form.name" placeholder="Ex.: Restauração em resina" />
         <div class="pm-grid">
-          <div class="pm-field"><label>Código interno</label><input type="text" x-model="form.code" placeholder="Ex.: REST-01" /></div>
-          <div class="pm-field"><label>Categoria</label><input type="text" x-model="form.category" placeholder="Ex.: Dentística" /></div>
+          <div class="pm-field"><label>Código interno</label><input class="input" type="text" x-model="form.code" placeholder="Ex.: REST-01" /></div>
+          <div class="pm-field"><label>Categoria</label><input class="input" type="text" x-model="form.category" placeholder="Ex.: Dentística" /></div>
         </div>
         <div class="pm-grid">
-          <div class="pm-field"><label>Valor padrão</label><input type="text" inputmode="numeric" x-model="form.priceMask" @input="form.priceMask = maskMoney(form.priceMask)" placeholder="0,00" /></div>
-          <div class="pm-field"><label>Duração estimada (min)</label><input type="number" min="0" x-model.number="form.duration_min" /></div>
+          <div class="pm-field"><label>Valor padrão</label><input class="input" type="text" inputmode="numeric" x-model="form.priceMask" @input="form.priceMask = maskMoney(form.priceMask)" placeholder="0,00" /></div>
+          <div class="pm-field"><label>Duração estimada (min)</label><input class="input" type="number" min="0" x-model.number="form.duration_min" /></div>
         </div>
-        <label>Descrição</label><textarea x-model="form.description" rows="2"></textarea>
+        <label>Descrição</label><textarea class="input" x-model="form.description" rows="2"></textarea>
         <label>Situação</label>
-        <select x-model="form.active">
+        <select class="input" x-model="form.active">
           <option :value="true">Ativo</option>
           <option :value="false">Inativo</option>
         </select>
@@ -89,6 +90,8 @@
         <button class="btn" @click="save()">Salvar</button>
       </div>
     </dialog>
+
+  <%- include('partials/odonto-tour') %>
   </main>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>

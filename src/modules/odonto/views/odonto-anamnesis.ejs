@@ -7,15 +7,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="anamnesisPage(<%= patientId %>)" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="anamnesisPage(<%= patientId %>)" x-init="load()">
     <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Voltar para a ficha do paciente</a></p>
+    <div id="tour-odonto-anamnese"></div>
     <h1>Anamnese <span class="muted" x-text="patient ? ('· ' + patient.name) : ''"></span></h1>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <% if (canEditClinical) { %>
         <button class="btn" @click="openNew()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -28,7 +30,7 @@
       <span class="error" x-text="error"></span>
     </div>
 
-    <p class="muted text-xs" style="margin-top:-.4rem">
+    <p class="page-subtitle">
       Cada salvamento grava uma <strong>revisão nova</strong>: o que foi respondido antes continua
       no histórico e não é reescrito.
     </p>
@@ -99,19 +101,19 @@
             <label x-text="f.label + (f.required ? ' *' : '')"></label>
 
             <template x-if="f.type === 'texto'">
-              <input type="text" x-model="form.answers[f.key]" maxlength="200" />
+              <input class="input" type="text" x-model="form.answers[f.key]" maxlength="200" />
             </template>
             <template x-if="f.type === 'texto_longo'">
-              <textarea x-model="form.answers[f.key]" rows="3"></textarea>
+              <textarea class="input" x-model="form.answers[f.key]" rows="3"></textarea>
             </template>
             <template x-if="f.type === 'data'">
-              <input type="date" x-model="form.answers[f.key]" />
+              <input class="input" type="date" x-model="form.answers[f.key]" />
             </template>
             <template x-if="f.type === 'numero'">
-              <input type="number" x-model="form.answers[f.key]" />
+              <input class="input" type="number" x-model="form.answers[f.key]" />
             </template>
             <template x-if="f.type === 'sim_nao'">
-              <select x-model="form.answers[f.key]">
+              <select class="input" x-model="form.answers[f.key]">
                 <option value="">—</option>
                 <option value="sim">Sim</option>
                 <option value="nao">Não</option>
@@ -119,7 +121,7 @@
               </select>
             </template>
             <template x-if="f.type === 'selecao'">
-              <select x-model="form.answers[f.key]">
+              <select class="input" x-model="form.answers[f.key]">
                 <option value="">—</option>
                 <template x-for="o in (f.options || [])" :key="o">
                   <option :value="o" x-text="o"></option>
@@ -144,7 +146,7 @@
         <div class="pm-grid">
           <div class="pm-field">
             <label>Profissional responsável</label>
-            <select x-model="form.professional_id">
+            <select class="input" x-model="form.professional_id">
               <option value="">—</option>
               <template x-for="p in professionals" :key="p.id">
                 <option :value="p.id" x-text="p.name"></option>
@@ -153,7 +155,7 @@
           </div>
           <div class="pm-field">
             <label>Formulário</label>
-            <select x-model="form.template_id" @change="trocarFormulario()">
+            <select class="input" x-model="form.template_id" @change="trocarFormulario()">
               <template x-for="t in templates" :key="t.id">
                 <option :value="t.id" x-text="t.name + ' (v' + t.version + ')'"></option>
               </template>
@@ -162,7 +164,7 @@
         </div>
 
         <label>Observações desta revisão</label>
-        <textarea x-model="form.notes" rows="2" placeholder="Ex.: paciente trouxe exames, relato complementar..."></textarea>
+        <textarea class="input" x-model="form.notes" rows="2" placeholder="Ex.: paciente trouxe exames, relato complementar..."></textarea>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -194,6 +196,8 @@
         <button class="btn secondary" @click="$refs.dlgView.close()">Fechar</button>
       </div>
     </dialog>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

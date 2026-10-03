@@ -7,13 +7,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/profissionais' }) %>
-  <main x-data="professionalsPage()" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="professionalsPage()" x-init="load()">
     <h1>Profissionais</h1>
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.professionals.manage')) { %>
         <button class="btn" @click="openNew()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -64,19 +65,19 @@
     <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar profissional' : 'Novo profissional'"></h1>
       <div class="dialog-body">
-        <label>Nome</label><input type="text" x-model="form.name" />
+        <label>Nome</label><input class="input" type="text" x-model="form.name" />
         <div class="pm-grid">
-          <div class="pm-field"><label>CRO</label><input type="text" x-model="form.cro" placeholder="Ex.: 12345" /></div>
-          <div class="pm-field"><label>UF do CRO</label><input type="text" x-model="form.cro_state" maxlength="2" placeholder="SP" style="text-transform:uppercase" /></div>
+          <div class="pm-field"><label>CRO</label><input class="input" type="text" x-model="form.cro" placeholder="Ex.: 12345" /></div>
+          <div class="pm-field"><label>UF do CRO</label><input class="input" type="text" x-model="form.cro_state" maxlength="2" placeholder="SP" style="text-transform:uppercase" /></div>
         </div>
         <label>Especialidades</label>
-        <input type="text" x-model="form.specialties" placeholder="Ex.: Endodontia, Implantodontia" />
+        <input class="input" type="text" x-model="form.specialties" placeholder="Ex.: Endodontia, Implantodontia" />
         <div class="pm-grid">
-          <div class="pm-field"><label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" /></div>
-          <div class="pm-field"><label>E-mail</label><input type="text" x-model="form.email" /></div>
+          <div class="pm-field"><label>Telefone</label><input class="input" type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" /></div>
+          <div class="pm-field"><label>E-mail</label><input class="input" type="text" x-model="form.email" /></div>
         </div>
         <label>Situação</label>
-        <select x-model="form.active">
+        <select class="input" x-model="form.active">
           <option :value="true">Ativo</option>
           <option :value="false">Inativo</option>
         </select>
@@ -88,6 +89,8 @@
         <button class="btn" @click="save()">Salvar</button>
       </div>
     </dialog>
+
+  <%- include('partials/odonto-tour') %>
   </main>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>

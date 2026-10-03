@@ -7,13 +7,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="patientFicha(<%= patientId %>, <%= canViewClinical ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.view') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.documents.view') ? 'true' : 'false' %>)" x-init="load()">
-    <div class="toolbar">
+  <main id="tour-odonto-conteudo" x-data="patientFicha(<%= patientId %>, <%= canViewClinical ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.view') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.documents.view') ? 'true' : 'false' %>)" x-init="load()">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <a class="btn secondary" href="/app/odonto/pacientes">Voltar para pacientes</a>
+      <div id="tour-odonto-ficha"></div>
       <h1 x-text="p.name || 'Paciente'"></h1>
       <span class="badge" x-show="p.id" x-text="p.active ? 'Ativo' : 'Inativo'"></span>
       <span class="error" x-text="error"></span>
@@ -53,16 +55,16 @@
         </p>
         <% if (canEditClinical) { %>
           <div class="pm-grid">
-            <div class="pm-field"><label>Histórico médico</label><textarea x-model="clinical.medical_history" rows="3"></textarea></div>
-            <div class="pm-field"><label>Histórico odontológico</label><textarea x-model="clinical.dental_history" rows="3"></textarea></div>
+            <div class="pm-field"><label>Histórico médico</label><textarea class="input" x-model="clinical.medical_history" rows="3"></textarea></div>
+            <div class="pm-field"><label>Histórico odontológico</label><textarea class="input" x-model="clinical.dental_history" rows="3"></textarea></div>
           </div>
           <div class="pm-grid">
-            <div class="pm-field"><label>Alergias</label><textarea x-model="clinical.allergies" rows="2"></textarea></div>
-            <div class="pm-field"><label>Medicamentos em uso</label><textarea x-model="clinical.medications" rows="2"></textarea></div>
+            <div class="pm-field"><label>Alergias</label><textarea class="input" x-model="clinical.allergies" rows="2"></textarea></div>
+            <div class="pm-field"><label>Medicamentos em uso</label><textarea class="input" x-model="clinical.medications" rows="2"></textarea></div>
           </div>
           <div class="pm-grid">
-            <div class="pm-field"><label>Condições relevantes</label><textarea x-model="clinical.conditions" rows="2"></textarea></div>
-            <div class="pm-field"><label>Observações clínicas</label><textarea x-model="clinical.clinical_notes" rows="3"></textarea></div>
+            <div class="pm-field"><label>Condições relevantes</label><textarea class="input" x-model="clinical.conditions" rows="2"></textarea></div>
+            <div class="pm-field"><label>Observações clínicas</label><textarea class="input" x-model="clinical.clinical_notes" rows="3"></textarea></div>
           </div>
           <div class="toolbar">
             <button class="btn" @click="saveClinical()">Salvar ficha clínica</button>
@@ -228,24 +230,24 @@
     <dialog x-ref="dlg" class="dialog-fixed">
       <h1>Editar cadastro</h1>
       <div class="dialog-body">
-        <label>Nome completo</label><input type="text" x-model="form.name" />
+        <label>Nome completo</label><input class="input" type="text" x-model="form.name" />
         <div class="pm-grid">
-          <div class="pm-field"><label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" /></div>
-          <div class="pm-field"><label>Nascimento</label><input type="date" x-model="form.birthday" /></div>
+          <div class="pm-field"><label>CPF/CNPJ</label><input class="input" type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" /></div>
+          <div class="pm-field"><label>Nascimento</label><input class="input" type="date" x-model="form.birthday" /></div>
         </div>
         <div class="pm-grid">
-          <div class="pm-field"><label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" /></div>
-          <div class="pm-field"><label>E-mail</label><input type="text" x-model="form.email" /></div>
+          <div class="pm-field"><label>Telefone</label><input class="input" type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" /></div>
+          <div class="pm-field"><label>E-mail</label><input class="input" type="text" x-model="form.email" /></div>
         </div>
         <div class="pm-grid">
-          <div class="pm-field"><label>CEP</label><input type="text" x-model="form.cep" @input="form.cep = maskCEP(form.cep)" /></div>
-          <div class="pm-field"><label>RG</label><input type="text" x-model="form.rg" /></div>
+          <div class="pm-field"><label>CEP</label><input class="input" type="text" x-model="form.cep" @input="form.cep = maskCEP(form.cep)" /></div>
+          <div class="pm-field"><label>RG</label><input class="input" type="text" x-model="form.rg" /></div>
         </div>
-        <label>Endereço</label><input type="text" x-model="form.address" />
+        <label>Endereço</label><input class="input" type="text" x-model="form.address" />
         <div class="pm-grid">
           <div class="pm-field">
             <label>Sexo</label>
-            <select x-model="form.sex">
+            <select class="input" x-model="form.sex">
               <option value="">Não informado</option>
               <option value="feminino">Feminino</option>
               <option value="masculino">Masculino</option>
@@ -255,13 +257,13 @@
           </div>
           <div class="pm-field">
             <label>Situação</label>
-            <select x-model="form.active">
+            <select class="input" x-model="form.active">
               <option :value="true">Ativo</option>
               <option :value="false">Inativo</option>
             </select>
           </div>
         </div>
-        <label>Observações do atendimento</label><textarea x-model="form.notes" rows="2"></textarea>
+        <label>Observações do atendimento</label><textarea class="input" x-model="form.notes" rows="2"></textarea>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -269,6 +271,8 @@
         <button class="btn" @click="saveCadastro()">Salvar</button>
       </div>
     </dialog>
+
+  <%- include('partials/odonto-tour') %>
   </main>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
