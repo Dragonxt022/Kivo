@@ -287,6 +287,14 @@
     "description": "Testes: agenda do Kivo Odonto (horários, sobreposição, encaixe, situações e permissões)",
     "run": "node scripts/test-isolated.js src/tests/odonto-agenda.ts"
   },
+  "test:odonto-painel": {
+    "description": "Testes: painel e relatórios do Kivo Odonto",
+    "run": "node scripts/test-isolated.js src/tests/odonto-painel.ts"
+  },
+  "test:odonto-documentos": {
+    "description": "Testes: documentos e modelos com variáveis do Kivo Odonto",
+    "run": "node scripts/test-isolated.js src/tests/odonto-documentos.ts"
+  },
   "test:alpine-expressoes": {
     "description": "Testes: expressões Alpine das views (pega atributo quebrado que só apareceria no navegador)",
     "run": "node scripts/test-isolated.js src/tests/alpine-expressoes.ts"
