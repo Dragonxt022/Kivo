@@ -299,6 +299,10 @@
     "description": "Testes: exames e imagens do Kivo Odonto (arquivo no disco, fases e permissões)",
     "run": "node scripts/test-isolated.js src/tests/odonto-exames.ts"
   },
+  "test:onboarding-ramos": {
+    "description": "Testes: todo ramo do assistente de boas-vindas completa o primeiro acesso",
+    "run": "node scripts/test-isolated.js src/tests/onboarding-ramos.ts"
+  },
   "test:home-cards": {
     "description": "Testes: ordem dos cards da tela inicial (preferência da empresa, vale em qualquer navegador)",
     "run": "node scripts/test-isolated.js src/tests/home-cards.ts"

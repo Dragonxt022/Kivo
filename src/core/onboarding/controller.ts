@@ -3,13 +3,13 @@ import { audit } from '../audit/service';
 import { assertAuth } from '../../shared/auth';
 // `resetDemoData` não entra aqui: o nome é reaproveitado pelo destructuring do corpo da
 // requisição logo abaixo, que sombreava o import e o deixava morto desde sempre.
-import { EMPLOYEE_RANGES, getOnboardingStatus, listFeaturesForWizard, listPaymentMethodsForWizard, markOnboardingCompleted, provision, type OnboardingBusinessType, type OnboardingEmployeeRange, type OnboardingUsage } from './service';
+import { BUSINESS_TYPES, EMPLOYEE_RANGES, getOnboardingStatus, listFeaturesForWizard, listPaymentMethodsForWizard, markOnboardingCompleted, provision, type OnboardingBusinessType, type OnboardingEmployeeRange, type OnboardingUsage } from './service';
 
 const USAGE_VALUES = new Set(['balcao', 'mesas', 'ambos']);
-const BUSINESS_TYPE_VALUES = new Set<string>([
-  'restaurante', 'roupas', 'outro',
-  'padaria', 'mercado', 'conveniencia', 'adega', 'farmacia', 'petshop', 'servicos',
-]);
+// Aceita EXATAMENTE os ramos que o assistente oferece: a lista vem do service, não de um `Set`
+// escrito à mão aqui. Foi assim que "Odontologia / clínica" e "Sorveteria / açaí" ficaram de fora
+// e o primeiro acesso terminava em "Campo businessType inválido." na última etapa.
+const BUSINESS_TYPE_VALUES = new Set<string>(BUSINESS_TYPES);
 const EMPLOYEE_RANGE_VALUES = new Set<string>(EMPLOYEE_RANGES);
 
 export const onboardingController = {
