@@ -31,19 +31,30 @@ export type OnboardingUsage = 'balcao' | 'mesas' | 'ambos';
  * Os demais entraram para a lista servir de pesquisa: com só três opções, quase toda loja
  * caía em "outro" e o dado não dizia nada sobre quem usa o Kivo.
  */
-export type OnboardingBusinessType =
-  | 'restaurante'
-  | 'roupas'
-  | 'outro'
-  | 'padaria'
-  | 'mercado'
-  | 'conveniencia'
-  | 'adega'
-  | 'farmacia'
-  | 'petshop'
-  | 'servicos'
-  | 'odontologia'
-  | 'sorveteria';
+/**
+ * Ramos oferecidos no assistente de boas-vindas — **fonte única**.
+ *
+ * O tipo sai daqui e a validação do controller também: antes havia uma união de tipos escrita à
+ * mão e um `Set` de valores aceitos em OUTRO arquivo, e os dois saíram de sincronia quando
+ * "Odontologia / clínica" e "Sorveteria / açaí" entraram na tela — o assistente oferecia o ramo e
+ * o servidor respondia "Campo businessType inválido." na última etapa.
+ */
+export const BUSINESS_TYPES = [
+  'restaurante',
+  'padaria',
+  'mercado',
+  'conveniencia',
+  'adega',
+  'roupas',
+  'farmacia',
+  'petshop',
+  'servicos',
+  'odontologia',
+  'sorveteria',
+  'outro',
+] as const;
+
+export type OnboardingBusinessType = (typeof BUSINESS_TYPES)[number];
 
 /**
  * Faixas de porte. Não se sobrepõem de propósito: como o objetivo é pesquisa, faixas
