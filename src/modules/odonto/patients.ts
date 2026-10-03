@@ -11,6 +11,7 @@ import { removeAnamnesisByPatient } from './anamnesis';
 import { removeNotesByPatient } from './clinicalNotes';
 import { removeOdontogramByPatient } from './odontogram';
 import { removePlansByPatient } from './treatmentPlans';
+import { removeDocumentsByPatient } from './documents';
 import {
   patientRepository,
   type PatientClinicalInput,
@@ -234,6 +235,7 @@ export function removePatient(req: Request, id: number): Result<{ ok: true }> {
     removeNotesByPatient(id);
     removeOdontogramByPatient(id);
     removePlansByPatient(id);
+    removeDocumentsByPatient(id);
     patientRepository.softDelete(id);
   });
   audit(req, 'excluir', 'odonto_patient', id, before, null);

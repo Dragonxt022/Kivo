@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Documento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    /* Folha A4: o "exportar em PDF" do Kivo é a impressão do navegador (Salvar como PDF), igual
+       ao cupom, ao orçamento e ao carnê — um caminho de impressão só no sistema. */
+    .folha { background: #fff; color: #111; width: 21cm; min-height: 27cm; margin: 0 auto 24px;
+             padding: 2cm 1.8cm; box-shadow: 0 1px 6px rgba(0,0,0,.15); }
+    .folha pre { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.55;
+                 white-space: pre-wrap; word-wrap: break-word; margin: 0; }
+    .folha .topo { display: flex; justify-content: space-between; align-items: center;
+                   border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 18px;
+                   font-size: 9pt; color: #555; }
+    .folha .rodape { border-top: 1px solid #ddd; margin-top: 22px; padding-top: 8px;
+                     font-size: 8.5pt; color: #666; display: flex; justify-content: space-between; }
+    .barra { max-width: 21cm; margin: 0 auto 12px; display: flex; gap: 8px; align-items: center; }
+    @media print {
+      .barra, nav, .no-print { display: none !important; }
+      body { background: #fff; }
+      .folha { box-shadow: none; margin: 0; width: auto; min-height: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body x-data="documentoPrint(<%= documentId %>)" x-init="load()">
+  <div class="no-print">
+    <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  </div>
+  <main>
+    <div class="barra no-print">
+      <button class="btn" @click="window.print()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+        Imprimir / Salvar em PDF
+      </button>
+      <a class="btn secondary" :href="'/app/odonto/pacientes/' + (doc.patient_id || '') + '/documentos'">← Documentos do paciente</a>
+      <span class="muted text-xs" x-text="doc.type_label ? (doc.type_label + ' · versão ' + doc.version + (doc.status === 'cancelado' ? ' · CANCELADO' : (doc.status === 'rascunho' ? ' · RASCUNHO' : ''))) : ''"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <div class="folha">
+      <div class="topo">
+        <span x-text="doc.patient_name || ''"></span>
+        <span x-text="doc.issued_at ? ('Emitido em ' + fmtDateTimeLocal(doc.issued_at)) : (doc.created_at ? ('Rascunho de ' + fmtDateTimeLocal(doc.created_at)) : '')"></span>
+      </div>
+      <pre x-text="doc.body || ''"></pre>
+      <div class="rodape">
+        <span x-text="doc.professional_name ? (doc.professional_name + (doc.professional_cro ? ' — CRO ' + doc.professional_cro : '')) : ''"></span>
+        <span x-text="doc.replaced_by_id ? ('Substituído pela versão seguinte') : ''"></span>
+      </div>
+    </div>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function documentoPrint(documentId) {
+      return {
+        documentId,
+        doc: {},
+        error: '',
+        async load() {
+          const r = await fetch('/api/odonto/documents/' + documentId);
+          if (r.ok) this.doc = await r.json();
+          else this.error = (await r.json()).error ?? 'Erro ao carregar o documento.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

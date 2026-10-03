@@ -11,7 +11,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="patientFicha(<%= patientId %>, <%= canViewClinical ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.view') ? 'true' : 'false' %>)" x-init="load()">
+  <main x-data="patientFicha(<%= patientId %>, <%= canViewClinical ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.view') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.documents.view') ? 'true' : 'false' %>)" x-init="load()">
     <div class="toolbar">
       <a class="btn secondary" href="/app/odonto/pacientes">Voltar para pacientes</a>
       <h1 x-text="p.name || 'Paciente'"></h1>
@@ -162,6 +162,30 @@
         </div>
         <% } %>
 
+        <% if (user.permissions.has('odonto.documents.view')) { %>
+        <h2>Documentos</h2>
+        <p class="muted text-xs" style="margin-top:0">
+          TCLE, receita, atestado, encaminhamento, contrato e alta gerados a partir dos modelos da
+          clínica, com os dados do paciente substituídos. Emitido não muda: corrige-se pela versão
+          seguinte, e o que foi entregue fica no histórico.
+        </p>
+        <table>
+          <tbody>
+            <tr>
+              <th style="width:32%">Situação</th>
+              <td>
+                <span x-show="documents.total > 0" x-cloak
+                      x-text="documents.emitidos + ' emitido(s)' + (documents.rascunhos ? ' · ' + documents.rascunhos + ' rascunho(s)' : '') + (documents.ultimo_em ? ' · último em ' + fmtDate(documents.ultimo_em) : '')"></span>
+                <span class="muted" x-show="documents.total === 0" x-cloak>Nenhum documento ainda</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="toolbar">
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/documentos'">Abrir documentos</a>
+        </div>
+        <% } %>
+
         <% if (user.permissions.has('odonto.plans.view')) { %>
         <h2>Planos de tratamento</h2>
         <p class="muted text-xs" style="margin-top:0">
@@ -190,11 +214,11 @@
           <thead><tr><th>Recurso</th><th>Situação</th></tr></thead>
           <tbody>
             <tr><td>Anamnese</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Agenda e atendimento</td><td class="muted">Planejada (fase 3)</td></tr>
+            <tr><td>Agenda e atendimento</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Prontuário e evolução</td><td><span class="badge">Disponível com retificação</span></td></tr>
             <tr><td>Odontograma</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Plano de tratamento e cobrança</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Documentos com variáveis</td><td class="muted">Planejada (fase 7)</td></tr>
+            <tr><td>Documentos (TCLE, receita, atestado, contrato)</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Exames e imagens</td><td class="muted">Planejada (fase 8)</td></tr>
           </tbody>
         </table>
@@ -249,7 +273,7 @@
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>">
-    function patientFicha(id, podeVerClinica, podeVerPlanos) {
+    function patientFicha(id, podeVerClinica, podeVerPlanos, podeVerDocumentos) {
       const CLINICAL_KEYS = ['medical_history', 'dental_history', 'allergies', 'medications', 'conditions', 'clinical_notes'];
       const emptyClinical = () => CLINICAL_KEYS.reduce((acc, k) => { acc[k] = ''; return acc; }, {});
       return {
@@ -262,6 +286,7 @@
         records: { vigentes: 0, retificadas: 0, ultima: null },
         odontogram: { dentes_com_situacao: 0, planejados: 0, registros: 0 },
         plans: { planos_abertos: 0, itens_pendentes: 0, total_aberto_cents: 0 },
+        documents: { total: 0, emitidos: 0, rascunhos: 0, ultimo_em: null },
         error: '', dlgError: '', clinicalError: '', clinicalSaved: false,
 
         sexLabel(v) {
@@ -285,6 +310,7 @@
           // A anamnese/odontograma só são consultados por quem tem a permissão clínica (a API
           // recusaria). Os planos são outra permissão: a Recepção vê (ela cobra), não o clínico.
           this.carregarPlanos();
+          this.carregarDocumentos();
           if (!podeVerClinica) return;
           const a = await fetch('/api/odonto/patients/' + this.id + '/anamnesis');
           if (a.ok) this.anamnesis = (await a.json()).summary;
@@ -297,6 +323,11 @@
           if (!podeVerPlanos) return;
           const pl = await fetch('/api/odonto/patients/' + this.id + '/treatment-plans');
           if (pl.ok) this.plans = (await pl.json()).resumo;
+        },
+        async carregarDocumentos() {
+          if (!podeVerDocumentos) return;
+          const d = await fetch('/api/odonto/patients/' + this.id + '/documents');
+          if (d.ok) this.documents = (await d.json()).resumo;
         },
         openEdit() {
           // Copia para o formulário: cancelar não pode deixar a tela mostrando dado não salvo.

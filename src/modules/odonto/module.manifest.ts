@@ -11,8 +11,9 @@ import type { ModuleManifest } from '../../core/modules/types';
  * A auditoria que fundamenta estas escolhas está em
  * `doc/KIVO_ODONTO_ARCHITECTURE_AUDIT.md` (arquivo:linha de cada decisão).
  *
- * Fase atual (fundação + pacientes + anamnese + agenda): pacientes, profissionais,
- * procedimentos, anamnese versionada e agenda de atendimentos.
+ * Fase atual (fases 1 a 7): pacientes, profissionais, procedimentos, anamnese versionada, agenda
+ * de atendimentos, prontuário com retificação, odontograma, plano de tratamento com cobrança no
+ * financeiro existente e documentos gerados de modelos com variáveis.
  * Nenhuma tabela do módulo entra em `syncTables` nesta versão — dado clínico fica na máquina
  * que o produziu (decisão registrada na auditoria, seções 10 e 19). As capabilities de
  * agenda/odontograma/documentos/exames entram junto com cada tela, para não existir recurso
@@ -42,6 +43,10 @@ const manifest: ModuleManifest = {
     { key: 'odonto.plans.view', description: 'Ver os planos de tratamento do paciente (itens, dentes e valores)' },
     { key: 'odonto.plans.manage', description: 'Criar, editar, aprovar e concluir planos de tratamento' },
     { key: 'odonto.plans.charge', description: 'Gerar a cobrança do plano aprovado no Financeiro' },
+    { key: 'odonto.documents.view', description: 'Ver, imprimir e exportar em PDF os documentos do paciente' },
+    { key: 'odonto.documents.manage', description: 'Gerar, editar rascunho, emitir, cancelar e versionar documentos' },
+    { key: 'odonto.documents.templates', description: 'Criar e editar os modelos de documento da clínica (TCLE, receita, contrato...)' },
+    { key: 'odonto.reports.view', description: 'Ver o painel do consultório e os relatórios (contagens e valores)' },
   ],
   routes: './routes',
   pages: './pages',
@@ -49,6 +54,13 @@ const manifest: ModuleManifest = {
   migrations: './migrations',
   setup: './setup',
   menu: [
+    {
+      label: 'Painel',
+      href: '/app/odonto/painel',
+      permission: 'odonto.reports.view',
+      description: 'Situação do consultório: agenda do dia, planos, documentos e relatórios.',
+      icon: 'chart',
+    },
     {
       label: 'Agenda',
       href: '/app/odonto/agenda',
@@ -69,6 +81,13 @@ const manifest: ModuleManifest = {
       permission: 'odonto.professionals.view',
       description: 'Dentistas e auxiliares que atendem, com CRO e especialidades.',
       icon: 'user-cog',
+    },
+    {
+      label: 'Modelos de documentos',
+      href: '/app/odonto/modelos-documentos',
+      permission: 'odonto.documents.view',
+      description: 'TCLE, receita, atestado, contrato: os modelos com variáveis da clínica.',
+      icon: 'file-text',
     },
     {
       label: 'Procedimentos',

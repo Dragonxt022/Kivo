@@ -34,6 +34,74 @@ A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
 5. **CRO e código de procedimento não se repetem** entre registros ativos.
 6. **UF do CRO** é normalizada para maiúsculas e 2 caracteres.
 
+## Documentos e modelos com variáveis (PR §14 e §15)
+
+A §15 pede modelos com variáveis para "não precisar programar cada documento individualmente".
+Então o modelo é **conteúdo em texto** (`odonto_document_templates.body`) com `{{variavel}}`, e os
+onze tipos da §14 (anamnese, plano/orçamento, TCLE, contrato, atestado, declaração,
+encaminhamento, receita, termo de responsabilidade, termo de recusa, alta) vêm **semeados como
+conteúdo** — a clínica edita e cria os seus pela tela, sem código novo.
+
+Variáveis disponíveis (`GET /document-variables`): `paciente.nome/cpf/rg/data_nascimento/idade/
+sexo/telefone/email/endereco`, `profissional.nome/cro/especialidade`, `data`, `hora`, `data_hora`,
+`procedimento`, `consulta.data/hora`, `plano.total`, `plano.itens`. Os dados pessoais vêm do
+**cliente** que ancora o paciente (`customers`), como no resto do módulo.
+
+Três decisões que protegem o consultório:
+
+1. **O documento guarda o texto JÁ RENDERIZADO** (snapshot): editar o modelo depois não muda o
+   documento que o paciente levou.
+2. **Variável sem valor não desaparece**: vira `____________________` para preencher à mão e é
+   listada em `missing_variables` — a tela avisa antes de emitir, em vez de imprimir documento
+   furado (variável *inexistente* é mantida como `{{...}}` e também reportada).
+3. **Emitido não se edita nem se apaga**: a correção é a **versão seguinte** (`replaces_id` /
+   `replaced_by_id`), e o documento entregue fica no histórico. Rascunho é livre.
+
+`receita`, `atestado`, `declaração`, `encaminhamento`, `termo de recusa`, `alta` e `contrato`
+marcam `requires_professional`: só emitem com profissional **com CRO** (documento clínico sem
+CRO não vale). Auditoria registra o ato, o tipo e quantas variáveis ficaram sem valor — nunca o
+texto.
+
+**"Exportar em PDF"** é a tela de impressão (`/app/odonto/documentos/:id/imprimir`, folha A4) e o
+"Salvar como PDF" do navegador — o mesmo caminho de impressão do cupom, do orçamento e do carnê.
+O Electron do Kivo não expõe `printToPDF` (o `preload.ts` está vazio): gerar arquivo `.pdf`
+sozinho exigiria uma ponte nova no shell, e não vale ter dois caminhos de impressão no sistema.
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| GET | `/document-variables` · `/document-templates` | `odonto.documents.view` |
+| POST/PUT/DELETE | `/document-templates[/:id]` | `odonto.documents.templates` |
+| GET | `/patients/:id/documents?type=` | `odonto.documents.view` |
+| POST | `/patients/:id/documents` | `odonto.documents.manage` |
+| GET/PUT/DELETE | `/documents/:id` | ver / `odonto.documents.manage` |
+| POST | `/documents/:id/issue` · `/cancel` · `/new-version` | `odonto.documents.manage` |
+
+Páginas: `/app/odonto/pacientes/:id/documentos` (lista, geração, ver, emitir, cancelar, versão) e
+`/app/odonto/modelos-documentos` (modelos da clínica). Modelo em uso é **desativado**, não
+apagado.
+
+## Painel, relatórios e auditoria (fase 9, PR §21 e §27)
+
+Página `/app/odonto/painel` (permissão `odonto.reports.view`): pacientes ativos/novos/sem
+anamnese, atendimentos de hoje por situação, próximos atendimentos, planos em aberto e valor
+previsto, valor cobrado no mês, documentos emitidos e dentes avaliados no odontograma.
+
+Relatórios (`GET /reports/:tipo?from&to`, com `.../csv` para exportar): **atendimentos** (por
+situação e por profissional, com faltas), **produção** (procedimentos registrados nas evoluções,
+por procedimento e profissional, com valor de tabela), **planos** (por situação e valor),
+**documentos** (por tipo, gerados x emitidos), **anamnese** (respostas e pacientes) e
+**pacientes** (carteira). O CSV sai com BOM para o Excel abrir acento corretamente.
+
+**Regra que vale para tudo aqui: o painel CONTA e SOMA, nunca mostra texto clínico.** Nenhuma
+consulta deste módulo devolve observação de evolução, resposta de anamnese ou corpo de documento
+— isso é papel do prontuário, com `odonto.clinical.view` (PR §25). O teste `odonto-painel.ts`
+verifica explicitamente que esses textos não aparecem na resposta.
+
+**Auditoria não é reimplementada**: a trilha do Core (`/admin/auditoria`, permissão
+`audit.view`) já lista as entidades `odonto_*` como qualquer outra. O painel aponta para lá com
+`?q=odonto`, e a tela de auditoria passou a **inicializar o filtro pela URL** (`?q=`) — mudança
+pequena e genérica, em vez de uma segunda tela de auditoria.
+
 ## Plano de tratamento e cobrança no financeiro (PR §11 e §12)
 
 O plano (migration `0083`) tem itens com **procedimento, dente (FDI), descrição, valor unitário,
@@ -299,12 +367,12 @@ do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
 ## Próximas fases (roadmap da PR)
 
-Documentos com variáveis (7), exames e imagens (8) e refinamento (9). As capabilities de cada
-recurso entram junto com a tela — não antes.
+Falta a **fase 8 — exames e imagens** (upload, organização, visualização e vínculo ao paciente).
+As capabilities de cada recurso entram junto com a tela — não antes.
 
 Concluído: fundação (1), pacientes + anamnese (2), agenda (3), prontuário/evolução com
-retificação versionada (4), odontograma + situações (5) e plano de tratamento + cobrança no
-financeiro (6).
+retificação versionada (4), odontograma + situações (5), plano de tratamento + cobrança no
+financeiro (6), documentos com modelos e variáveis (7) e painel/relatórios/auditoria (9).
 
 ## Arquivos-chave
 
@@ -320,6 +388,9 @@ financeiro (6).
   a recusa explícita de apagar registro clínico.
 - `src/modules/odonto/odontogram.ts` — odontograma: catálogo de situações e estado do dente por
   face em histórico append-only (com desfazer que revela o anterior).
+- `src/modules/odonto/documents.ts` — documentos: motor de variáveis, modelos, emissão, versões e
+  a marcação do que ficou sem valor.
+- `src/modules/odonto/reports.ts` — painel e relatórios: só contagem e soma, sem texto clínico.
 - `src/modules/odonto/professionals.ts` / `procedures.ts` — CRUD com validação e auditoria.
 - `src/modules/odonto/repositories/` — SQL (paciente faz `JOIN` com `customers`).
 - `src/modules/odonto/migrations/0078_odonto_base/` — tabelas da fundação.
