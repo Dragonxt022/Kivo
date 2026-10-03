@@ -214,3 +214,41 @@ export const chargePlanSchema = z.object({
   installments: z.number().int().min(1).max(36).optional(),
   first_due_date: optionalText(10),
 });
+
+// ─────────────────── Documentos e modelos (PR §14 e §15) ───────────────────
+
+const documentType = z.enum([
+  'anamnese', 'plano_tratamento', 'tcle', 'contrato', 'atestado', 'declaracao',
+  'encaminhamento', 'receita', 'termo_responsabilidade', 'termo_recusa', 'alta', 'outro',
+]);
+
+export const documentTemplateSchema = z.object({
+  code: optionalText(40),
+  name: optionalText(120),
+  type: documentType.optional(),
+  body: optionalText(20000),
+  requires_professional: z.union([z.boolean(), z.number().int()]).optional(),
+  active: z.union([z.boolean(), z.number().int()]).optional(),
+  sort_order: z.number().int().min(0).max(9999).optional(),
+});
+
+export const createDocumentSchema = z.object({
+  template_id: z.number().int().positive().nullable().optional(),
+  type: documentType.optional(),
+  title: optionalText(160),
+  body: optionalText(20000),
+  appointment_id: z.number().int().positive().nullable().optional(),
+  plan_id: z.number().int().positive().nullable().optional(),
+  professional_id: z.number().int().positive().nullable().optional(),
+});
+
+/** Editar rascunho: os mesmos campos, todos opcionais. */
+export const updateDocumentSchema = createDocumentSchema.partial();
+
+export const issueDocumentSchema = z.object({
+  professional_id: z.number().int().positive().nullable().optional(),
+});
+
+export const cancelDocumentSchema = z.object({
+  motivo: z.string().min(3, 'Informe o motivo do cancelamento.').max(300),
+});

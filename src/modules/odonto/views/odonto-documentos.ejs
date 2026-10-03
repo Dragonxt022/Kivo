@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Documentos do paciente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
+    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
+    .secoes span.planejado { opacity: .6; }
+    .doc { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+    .doc h3 { margin: 0 0 2px; font-size: .98rem; }
+    .doc .meta { color: var(--muted); font-size: .78rem; }
+    .doc pre { white-space: pre-wrap; font-family: inherit; font-size: .84rem; color: var(--muted);
+               max-height: 120px; overflow: hidden; margin: 8px 0 0; }
+    .variaveis { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
+    .variaveis button { font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-light);
+                        background: var(--surface-hover); color: var(--muted); cursor: pointer; }
+    .editor textarea { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
+    .aviso { color: #b45309; font-size: .78rem; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="documentosPage(<%= patientId %>, <%= user.permissions.has('odonto.documents.manage') ? 'true' : 'false' %>)" x-init="load()">
+    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
+    <h1>Documentos <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+
+    <div class="secoes">
+      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
+      <a href="/app/odonto/agenda">Consultas</a>
+      <a class="atual" href="#">Documentos</a>
+      <span class="planejado">Exames e imagens (fase 8)</span>
+    </div>
+
+    <div class="toolbar">
+      <% if (user.permissions.has('odonto.documents.manage')) { %>
+        <button class="btn" @click="novo()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo documento
+        </button>
+      <% } %>
+      <select x-model="filtroTipo" @change="load()" style="max-width:220px">
+        <option value="">Todos os tipos</option>
+        <template x-for="t in types" :key="t.type">
+          <option :value="t.type" x-text="t.label"></option>
+        </template>
+      </select>
+      <span class="muted text-xs"
+            x-text="resumo.total + ' documento(s) · ' + resumo.emitidos + ' emitido(s)' + (resumo.rascunhos ? ' · ' + resumo.rascunhos + ' rascunho(s)' : '')"></span>
+      <a class="btn secondary small" href="/app/odonto/modelos-documentos">Modelos da clínica</a>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <template x-for="d in documentos" :key="d.id">
+      <div class="doc">
+        <h3>
+          <span x-text="d.title"></span>
+          <span class="badge" :class="d.status === 'emitido' ? 'ok' : (d.status === 'cancelado' ? 'off' : 'neutral')" x-text="d.status"></span>
+          <span class="muted text-xs" x-show="d.version > 1" x-text="'versão ' + d.version"></span>
+        </h3>
+        <div class="meta">
+          <span x-text="d.type_label"></span>
+          <span x-show="d.template_name" x-text="' · modelo: ' + d.template_name"></span>
+          <span x-show="d.professional_name" x-text="' · ' + d.professional_name + (d.professional_cro ? ' (CRO ' + d.professional_cro + ')' : '')"></span>
+          <span x-show="d.appointment_at" x-text="' · consulta ' + fmtDateTimeLocal(d.appointment_at)"></span>
+          <span x-show="d.plan_title || d.plan_id" x-text="' · plano ' + (d.plan_title || ('#' + d.plan_id))"></span>
+          <span x-text="' · criado ' + fmtDateTimeLocal(d.created_at)"></span>
+          <span x-show="d.issued_at" x-text="' · emitido ' + fmtDateTimeLocal(d.issued_at)"></span>
+          <span x-show="d.cancel_reason" x-text="' · cancelado: ' + d.cancel_reason"></span>
+          <span x-show="d.replaced_by_id" x-text="' · substituído pela versão seguinte'"></span>
+        </div>
+        <p class="aviso" x-show="d.missing_variables.length"
+           x-text="'Faltou preencher: ' + d.missing_variables.join(', ')"></p>
+        <div class="toolbar" style="margin:8px 0 0">
+          <button class="btn secondary small" @click="ver(d)">Ver</button>
+          <a class="btn secondary small" :href="'/app/odonto/documentos/' + d.id + '/imprimir'">Imprimir / PDF</a>
+          <% if (user.permissions.has('odonto.documents.manage')) { %>
+            <button class="btn secondary small" x-show="d.status === 'rascunho'" @click="editar(d)">Editar rascunho</button>
+            <button class="btn small" x-show="d.status === 'rascunho'" @click="emitir(d)">Emitir</button>
+            <button class="btn secondary small" x-show="d.status !== 'cancelado'" @click="novaVersao(d)">Nova versão</button>
+            <button class="btn secondary small danger" x-show="d.status !== 'cancelado'" @click="cancelar(d)">Cancelar</button>
+            <button class="btn secondary small danger" x-show="d.status === 'rascunho'" @click="apagar(d)">Apagar</button>
+          <% } %>
+        </div>
+      </div>
+    </template>
+
+    <div x-show="!documentos.length">
+      <%- include('partials/empty-state', { message: 'Nenhum documento deste paciente ainda.' }) %>
+    </div>
+
+    <% if (user.permissions.has('odonto.documents.manage')) { %>
+    <!-- ─────────── Novo documento / editar rascunho ─────────── -->
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? ('Editar rascunho #' + form.id) : 'Novo documento'"></h1>
+      <div class="dialog-body">
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Modelo</label>
+            <select x-model="form.template_id" @change="aplicarModelo()" :disabled="!!form.id">
+              <option value="">Documento em branco</option>
+              <template x-for="t in modelos" :key="t.id">
+                <option :value="t.id" x-text="t.name + ' (' + t.type_label + ')'"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field"><label>Título</label><input type="text" x-model="form.title" maxlength="160" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Profissional</label>
+            <select x-model="form.professional_id">
+              <option value="">—</option>
+              <template x-for="p in profissionais" :key="p.id">
+                <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Consulta (opcional)</label>
+            <select x-model="form.appointment_id">
+              <option value="">—</option>
+              <template x-for="a in atendimentos" :key="a.id">
+                <option :value="a.id" x-text="fmtDateTimeLocal(a.starts_at) + ' · ' + a.professional_name"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Plano de tratamento (opcional)</label>
+            <select x-model="form.plan_id">
+              <option value="">—</option>
+              <template x-for="p in planos" :key="p.id">
+                <option :value="p.id" x-text="(p.title || ('Plano #' + p.id)) + ' · ' + brl(p.total_cents)"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <label>Variáveis (clique para inserir no fim do texto)</label>
+        <div class="variaveis">
+          <template x-for="v in variaveis" :key="v.key">
+            <button type="button" @click="inserir(v.key)" :title="v.label + ' — ex.: ' + v.exemplo" x-text="'{{' + v.key + '}}'"></button>
+          </template>
+        </div>
+
+        <label>Conteúdo do documento</label>
+        <div class="editor">
+          <textarea x-model="form.body" rows="16" placeholder="Escreva o documento ou escolha um modelo acima."></textarea>
+        </div>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : (form.id ? 'Salvar rascunho' : 'Gerar documento')"></button>
+      </div>
+    </dialog>
+    <% } %>
+
+    <!-- ─────────── Ver documento ─────────── -->
+    <dialog x-ref="dlgVer" class="dialog-fixed">
+      <h1 x-text="vendo.title || 'Documento'"></h1>
+      <div class="dialog-body">
+        <p class="muted text-xs" style="margin-top:0"
+           x-text="vendo.type_label + (vendo.template_name ? ' · modelo: ' + vendo.template_name : '') + ' · versão ' + (vendo.version || 1) + ' · ' + vendo.status"></p>
+        <p class="aviso" x-show="(vendo.missing_variables || []).length"
+           x-text="'Faltou preencher: ' + (vendo.missing_variables || []).join(', ')"></p>
+        <pre style="white-space:pre-wrap; font-family:inherit; font-size:.86rem" x-text="vendo.body"></pre>
+        <template x-if="(vendo.revision_chain || []).length > 1">
+          <div>
+            <label>Versões deste documento</label>
+            <template x-for="v in vendo.revision_chain" :key="v.id">
+              <div class="meta" x-text="'versão ' + v.version + ' · ' + v.status + ' · ' + fmtDateTimeLocal(v.created_at)"></div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div class="actions">
+        <a class="btn secondary" :href="'/app/odonto/documentos/' + vendo.id + '/imprimir'" target="_blank">Imprimir / PDF</a>
+        <button class="btn secondary" @click="$refs.dlgVer.close()">Fechar</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function documentosPage(patientId, podeGerenciar) {
+      return {
+        patientId,
+        podeGerenciar,
+        paciente: null,
+        documentos: [],
+        resumo: { total: 0, emitidos: 0, rascunhos: 0, ultimo_em: null },
+        types: [],
+        modelos: [],
+        profissionais: [],
+        atendimentos: [],
+        planos: [],
+        variaveis: [],
+        filtroTipo: '',
+        form: {},
+        vendo: {},
+        error: '',
+        dlgError: '',
+        salvando: false,
+
+        brl(cents) { return (Number(cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); },
+
+        async load() {
+          const q = this.filtroTipo ? ('?type=' + this.filtroTipo) : '';
+          const [p, l] = await Promise.all([
+            fetch('/api/odonto/patients/' + patientId),
+            fetch('/api/odonto/patients/' + patientId + '/documents' + q),
+          ]);
+          if (p.ok) this.paciente = await p.json();
+          if (l.ok) {
+            const data = await l.json();
+            this.documentos = data.items || [];
+            this.resumo = data.resumo || this.resumo;
+            this.types = data.types || [];
+          } else {
+            this.error = (await l.json()).error ?? 'Erro ao carregar os documentos.';
+          }
+          <% if (user.permissions.has('odonto.documents.manage')) { %>
+          const m = await fetch('/api/odonto/document-templates');
+          if (m.ok) this.modelos = await m.json();
+          if (!this.profissionais.length) {
+            const pr = await fetch('/api/odonto/professionals?active=true');
+            if (pr.ok) this.profissionais = await pr.json();
+          }
+          <% } %>
+        },
+
+        async carregarVinculos() {
+          const [a, pl] = await Promise.all([
+            fetch(`/api/odonto/appointments?view=todos&patient_id=${patientId}`),
+            fetch(`/api/odonto/patients/${patientId}/treatment-plans`),
+          ]);
+          if (a.ok) {
+            const data = await a.json();
+            this.atendimentos = (data.items || []).filter((x) => x.status !== 'cancelado');
+          }
+          if (pl.ok) this.planos = (await pl.json()).items || [];
+        },
+
+        async carregarVariaveis() {
+          if (this.variaveis.length) return;
+          const r = await fetch('/api/odonto/document-variables');
+          if (r.ok) this.variaveis = await r.json();
+        },
+
+        async novo() {
+          this.dlgError = '';
+          this.form = { id: null, template_id: '', title: '', body: '', professional_id: '', appointment_id: '', plan_id: '' };
+          await Promise.all([this.carregarVinculos(), this.carregarVariaveis()]);
+          this.$refs.dlg.showModal();
+        },
+
+        aplicarModelo() {
+          const t = this.modelos.find((x) => x.id === Number(this.form.template_id));
+          if (!t) return;
+          this.form.body = t.body;
+          if (!this.form.title) this.form.title = t.name;
+        },
+
+        inserir(chave) {
+          this.form.body = (this.form.body || '') + '{{' + chave + '}}';
+        },
+
+        async editar(d) {
+          this.dlgError = '';
+          const r = await fetch('/api/odonto/documents/' + d.id);
+          const cheio = r.ok ? await r.json() : {};
+          this.form = {
+            id: d.id,
+            template_id: cheio.template_id || '',
+            title: cheio.title || '',
+            body: cheio.body || '',
+            professional_id: cheio.professional_id || '',
+            appointment_id: cheio.appointment_id || '',
+            plan_id: cheio.plan_id || '',
+          };
+          await Promise.all([this.carregarVinculos(), this.carregarVariaveis()]);
+          this.$refs.dlg.showModal();
+        },
+
+        async salvar() {
+          if (!String(this.form.body || '').trim()) {
+            this.dlgError = 'O documento precisa de conteúdo.';
+            return;
+          }
+          this.salvando = true;
+          this.dlgError = '';
+          const corpo = {
+            template_id: this.form.template_id ? Number(this.form.template_id) : null,
+            title: this.form.title || null,
+            body: this.form.body,
+            professional_id: this.form.professional_id ? Number(this.form.professional_id) : null,
+            appointment_id: this.form.appointment_id ? Number(this.form.appointment_id) : null,
+            plan_id: this.form.plan_id ? Number(this.form.plan_id) : null,
+          };
+          try {
+            const r = await fetch(
+              this.form.id
+                ? '/api/odonto/documents/' + this.form.id
+                : `/api/odonto/patients/${patientId}/documents`,
+              { method: this.form.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) },
+            );
+            if (r.ok) {
+              const salvo = await r.json();
+              this.$refs.dlg.close();
+              await this.load();
+              if (salvo.missing_variables && salvo.missing_variables.length) {
+                showToast('Documento gerado, mas faltou preencher: ' + salvo.missing_variables.join(', '), 'error');
+              } else {
+                showToast(this.form.id ? 'Rascunho atualizado.' : 'Documento gerado.', 'success');
+              }
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao salvar o documento.';
+            }
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        async ver(d) {
+          const r = await fetch('/api/odonto/documents/' + d.id);
+          if (r.ok) {
+            this.vendo = await r.json();
+            this.$refs.dlgVer.showModal();
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao abrir o documento.';
+          }
+        },
+
+        async emitir(d) {
+          const r = await fetch(`/api/odonto/documents/${d.id}/issue`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+          });
+          if (r.ok) { showToast('Documento emitido.', 'success'); await this.load(); }
+          else this.error = (await r.json()).error ?? 'Erro ao emitir.';
+        },
+
+        async novaVersao(d) {
+          const ok = await window.confirmDlg('Criar a versão seguinte deste documento? A versão atual fica no histórico.');
+          if (!ok) return;
+          const r = await fetch(`/api/odonto/documents/${d.id}/new-version`, { method: 'POST' });
+          if (r.ok) { showToast('Nova versão criada como rascunho.', 'success'); await this.load(); }
+          else this.error = (await r.json()).error ?? 'Erro ao criar a versão.';
+        },
+
+        async cancelar(d) {
+          const ok = await window.confirmDlg(`Cancelar o documento "${d.title}"?`);
+          if (!ok) return;
+          const r = await fetch(`/api/odonto/documents/${d.id}/cancel`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ motivo: 'cancelado pela tela de documentos' }),
+          });
+          if (r.ok) { showToast('Documento cancelado.', 'success'); await this.load(); }
+          else this.error = (await r.json()).error ?? 'Erro ao cancelar.';
+        },
+
+        async apagar(d) {
+          const ok = await window.confirmDlg('Apagar este rascunho?');
+          if (!ok) return;
+          const r = await fetch('/api/odonto/documents/' + d.id, { method: 'DELETE' });
+          if (r.ok) await this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao apagar.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

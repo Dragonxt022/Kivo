@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Painel do consultório</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .card-num { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; }
+    .card-num .rotulo { color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; }
+    .card-num .valor { font-size: 1.5rem; font-weight: 700; margin-top: 2px; }
+    .card-num .detalhe { color: var(--muted); font-size: .78rem; }
+    .tag-status { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; background: var(--surface-hover); color: var(--muted); margin-right: 4px; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/painel' }) %>
+  <main x-data="painelPage()" x-init="load()">
+    <h1>Painel do consultório</h1>
+    <p class="muted text-xs" style="margin-top:-.4rem">
+      Contagens e valores do período. Conteúdo clínico (evolução, anamnese, documento) fica no
+      prontuário, com permissão clínica — o painel não mostra texto de paciente.
+    </p>
+
+    <div class="toolbar">
+      <a class="btn secondary small" href="/app/odonto/agenda">Abrir agenda</a>
+      <a class="btn secondary small" href="/admin/auditoria?q=odonto">Auditoria do odonto</a>
+      <span class="muted text-xs" x-text="d.hoje ? ('hoje: ' + fmtDate(d.hoje)) : ''"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <div class="cards">
+      <div class="card-num">
+        <div class="rotulo">Pacientes ativos</div>
+        <div class="valor" x-text="d.pacientes.ativos"></div>
+        <div class="detalhe" x-text="d.pacientes.novos_mes + ' novo(s) no mês · ' + d.pacientes.sem_anamnese + ' sem anamnese'"></div>
+      </div>
+      <div class="card-num">
+        <div class="rotulo">Atendimentos hoje</div>
+        <div class="valor" x-text="d.agenda.total"></div>
+        <div class="detalhe">
+          <template x-for="s in d.agenda.por_status" :key="s.status">
+            <span class="tag-status" x-text="s.status + ': ' + s.total"></span>
+          </template>
+        </div>
+      </div>
+      <div class="card-num">
+        <div class="rotulo">Planos em aberto</div>
+        <div class="valor" x-text="d.planos.abertos"></div>
+        <div class="detalhe" x-text="brl(d.planos.valor_aberto_cents) + ' previstos'"></div>
+      </div>
+      <div class="card-num">
+        <div class="rotulo">Cobrado no mês</div>
+        <div class="valor" x-text="brl(d.planos.valor_cobrado_cents)"></div>
+        <div class="detalhe" x-text="d.planos.cobrados + ' plano(s) viraram cobrança'"></div>
+      </div>
+      <div class="card-num">
+        <div class="rotulo">Documentos emitidos no mês</div>
+        <div class="valor" x-text="d.documentos.emitidos"></div>
+        <div class="detalhe" x-text="'por tipo no período: ' + (d.documentos_do_mes.por_tipo.length || 0) + ' tipo(s)'"></div>
+      </div>
+      <div class="card-num">
+        <div class="rotulo">Dentes avaliados</div>
+        <div class="valor" x-text="d.odontograma.dentes_avaliados"></div>
+        <div class="detalhe" x-text="d.odontograma.registros + ' registro(s) no odontograma'"></div>
+      </div>
+    </div>
+
+    <div class="card" x-show="d.proximos.length">
+      <h2 style="margin-top:0">Próximos atendimentos</h2>
+      <table>
+        <thead><tr><th>Quando</th><th>Paciente</th><th>Profissional</th><th>Situação</th></tr></thead>
+        <tbody>
+          <template x-for="a in d.proximos" :key="a.id">
+            <tr>
+              <td class="muted" x-text="fmtDateTimeLocal(a.starts_at)"></td>
+              <td x-text="a.patient_name"></td>
+              <td class="muted" x-text="a.professional_name || '—'"></td>
+              <td><span class="badge neutral" x-text="a.status"></span></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ─────────── Relatórios ─────────── -->
+    <div class="card">
+      <h2 style="margin-top:0">Relatórios</h2>
+      <div class="toolbar">
+        <select x-model="tipo" @change="carregarRelatorio()" style="max-width:240px">
+          <template x-for="r in tipos" :key="r.type">
+            <option :value="r.type" x-text="r.label"></option>
+          </template>
+        </select>
+        <input type="date" x-model="from" @change="carregarRelatorio()" />
+        <span class="muted">até</span>
+        <input type="date" x-model="to" @change="carregarRelatorio()" />
+        <button class="btn secondary small" @click="carregarRelatorio()">Atualizar</button>
+        <a class="btn secondary small" :href="'/api/odonto/reports/' + tipo + '/csv?from=' + from + '&to=' + to">Exportar CSV</a>
+      </div>
+      <p class="muted text-xs" x-text="tipos.find((t) => t.type === tipo)?.descricao || ''"></p>
+
+      <table x-show="rel.linhas && rel.linhas.length">
+        <thead>
+          <tr>
+            <template x-for="c in rel.colunas" :key="c.key">
+              <th x-text="c.label"></th>
+            </template>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(linha, i) in (rel.linhas || [])" :key="i">
+            <tr>
+              <template x-for="c in rel.colunas" :key="c.key">
+                <td :class="c.money ? 'tabular' : ''"
+                    x-text="c.money && typeof linha[c.key] === 'number' ? brl(linha[c.key]) : (linha[c.key] === '' ? '—' : linha[c.key])"></td>
+              </template>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <p class="muted" x-show="!(rel.linhas && rel.linhas.length)">Nada no período.</p>
+
+      <p class="muted text-xs" x-show="rel.totais">
+        <span x-text="'Totais: ' + Object.entries(rel.totais || {}).map(([k, v]) => k + ' = ' + (k.includes('cents') ? brl(v) : v)).join(' · ')"></span>
+      </p>
+    </div>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function painelPage() {
+      const hoje = () => new Date().toISOString().slice(0, 10);
+      return {
+        d: {
+          hoje: null, pacientes: { ativos: 0, novos_mes: 0, sem_anamnese: 0 },
+          agenda: { total: 0, por_status: [] }, proximos: [],
+          planos: { abertos: 0, valor_aberto_cents: 0, aprovados: 0, concluidos: 0, cobrados: 0, valor_cobrado_cents: 0 },
+          odontograma: { dentes_avaliados: 0, registros: 0 },
+          documentos: { total: 0, emitidos: 0, rascunhos: 0, ultimo_em: null },
+          documentos_do_mes: { total: 0, por_tipo: [] },
+        },
+        tipos: [],
+        tipo: 'atendimentos',
+        from: hoje().slice(0, 8) + '01',
+        to: hoje(),
+        rel: { colunas: [], linhas: [], totais: null },
+        error: '',
+
+        brl(cents) { return (Number(cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); },
+
+        async load() {
+          const [r, t] = await Promise.all([
+            fetch('/api/odonto/dashboard'),
+            fetch('/api/odonto/reports'),
+          ]);
+          if (r.ok) this.d = await r.json();
+          else this.error = (await r.json()).error ?? 'Erro ao carregar o painel.';
+          if (t.ok) this.tipos = await t.json();
+          await this.carregarRelatorio();
+        },
+
+        async carregarRelatorio() {
+          const r = await fetch(`/api/odonto/reports/${this.tipo}?from=${this.from}&to=${this.to}`);
+          if (r.ok) this.rel = await r.json();
+          else this.error = (await r.json()).error ?? 'Erro ao carregar o relatório.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -51,7 +51,10 @@
     function auditPage() {
       return {
         ...tableToolkit(),
-        logs: [], q: '',
+        logs: [],
+        // O filtro vem da URL quando alguém chega com `?q=odonto` (ex.: painel do Kivo Odonto
+        // apontando para a auditoria do módulo) — mesma caixa de busca, já preenchida.
+        q: new URLSearchParams(location.search).get('q') ?? '',
         sortGetters: {
           created_at: (l) => l.created_at ?? '', username: (l) => l.username ?? '',
           action: (l) => l.action ?? '', entity: (l) => l.entity ?? '',

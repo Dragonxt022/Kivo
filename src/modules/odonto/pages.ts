@@ -69,6 +69,20 @@ router.get('/pacientes/:id/odontograma', (req, res) => {
 // é `odonto.plans.view` (o plano mostra procedimentos e valores, não o texto clínico).
 router.get('/pacientes/:id/planos', page2('odonto-planos', 'odonto.plans.view', { patientId: true }));
 
+// Painel e relatórios do consultório (fase 9, PR §21).
+router.get('/painel', page('odonto-painel', 'odonto.reports.view'));
+
+// Documentos do paciente (PR §14): listar, gerar de modelo, emitir, imprimir/exportar em PDF.
+router.get('/pacientes/:id/documentos', page2('odonto-documentos', 'odonto.documents.view', { patientId: true }));
+// Modelos da clínica (PR §15): TCLE, receita, atestado, contrato...
+router.get('/modelos-documentos', page('odonto-documentos-templates', 'odonto.documents.view'));
+// Tela de impressão do documento: é o "exportar em PDF" do sistema (imprimir → salvar em PDF).
+router.get('/documentos/:id/imprimir', (req, res) => {
+  assertAuth(req);
+  if (!req.user.permissions.has('odonto.documents.view')) return res.redirect('/');
+  res.render('odonto-documento-print', locals(req, { documentId: Number(req.params.id) }));
+});
+
 router.get('/profissionais', page('odonto-professionals', 'odonto.professionals.view'));
 router.get('/procedimentos', page('odonto-procedures', 'odonto.procedures.view'));
 

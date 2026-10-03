@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Modelos de documentos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .modelo { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+    .modelo h3 { margin: 0 0 2px; font-size: .98rem; }
+    .modelo .meta { color: var(--muted); font-size: .78rem; }
+    .modelo pre { white-space: pre-wrap; font-family: inherit; font-size: .8rem; color: var(--muted);
+                  max-height: 100px; overflow: hidden; margin: 8px 0 0; }
+    .variaveis { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
+    .variaveis button { font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-light);
+                        background: var(--surface-hover); color: var(--muted); cursor: pointer; }
+    textarea { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/modelos-documentos' }) %>
+  <main x-data="modelosPage(<%= user.permissions.has('odonto.documents.templates') ? 'true' : 'false' %>)" x-init="load()">
+    <h1>Modelos de documentos</h1>
+    <p class="muted text-xs" style="margin-top:-.4rem">
+      O documento sai do modelo com as variáveis trocadas pelos dados do paciente e do
+      profissional. A clínica edita os textos — nada aqui depende de programação.
+    </p>
+
+    <div class="toolbar">
+      <% if (user.permissions.has('odonto.documents.templates')) { %>
+        <button class="btn" @click="novo()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo modelo
+        </button>
+      <% } %>
+      <span class="muted text-xs" x-text="modelos.length + ' modelo(s)' + (inativos ? ' · ' + inativos + ' inativo(s)' : '')"></span>
+      <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" x-model="mostrarInativos" @change="load()" />
+        <span>Mostrar inativos</span>
+      </label>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <template x-for="m in modelos" :key="m.id">
+      <div class="modelo">
+        <h3>
+          <span x-text="m.name"></span>
+          <span class="badge neutral" x-text="m.type_label"></span>
+          <span class="badge off" x-show="!m.active">inativo</span>
+          <span class="badge neutral" x-show="m.requires_professional">exige CRO</span>
+          <span class="badge ok" x-show="m.is_system">do sistema</span>
+        </h3>
+        <div class="meta" x-text="m.variables.length + ' variável(is): ' + (m.variables.join(', ') || 'nenhuma')"></div>
+        <pre x-text="m.body"></pre>
+        <% if (user.permissions.has('odonto.documents.templates')) { %>
+        <div class="toolbar" style="margin:8px 0 0">
+          <button class="btn secondary small" @click="editar(m)">Editar</button>
+          <button class="btn secondary small" @click="alternar(m)" x-text="m.active ? 'Desativar' : 'Ativar'"></button>
+          <button class="btn secondary small danger" @click="remover(m)">Excluir</button>
+        </div>
+        <% } %>
+      </div>
+    </template>
+
+    <div x-show="!modelos.length">
+      <%- include('partials/empty-state', { message: 'Nenhum modelo cadastrado.' }) %>
+    </div>
+
+    <% if (user.permissions.has('odonto.documents.templates')) { %>
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? ('Editar modelo #' + form.id) : 'Novo modelo'"></h1>
+      <div class="dialog-body">
+        <div class="pm-grid">
+          <div class="pm-field"><label>Nome</label><input type="text" x-model="form.name" maxlength="120" placeholder="Ex.: Termo de clareamento" /></div>
+          <div class="pm-field">
+            <label>Tipo</label>
+            <select x-model="form.type">
+              <template x-for="t in tipos" :key="t.type">
+                <option :value="t.type" x-text="t.label"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <label>Variáveis (clique para inserir no fim do texto)</label>
+        <div class="variaveis">
+          <template x-for="v in variaveis" :key="v.key">
+            <button type="button" @click="inserir(v.key)" :title="v.label + ' — ex.: ' + v.exemplo" x-text="'{{' + v.key + '}}'"></button>
+          </template>
+        </div>
+
+        <label>Conteúdo do modelo</label>
+        <textarea x-model="form.body" rows="16" placeholder="Escreva o documento usando {{paciente.nome}}, {{data}}..."></textarea>
+        <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:6px;margin-top:8px">
+          <input type="checkbox" x-model="form.requires_professional" />
+          <span>Exige profissional com CRO para emitir (receita, atestado, termos assinados)</span>
+        </label>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Salvar modelo'"></button>
+      </div>
+    </dialog>
+    <% } %>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    function modelosPage(podeEditar) {
+      return {
+        podeEditar,
+        modelos: [],
+        tipos: [],
+        variaveis: [],
+        mostrarInativos: false,
+        inativos: 0,
+        form: {},
+        error: '',
+        dlgError: '',
+        salvando: false,
+
+        async load() {
+          const r = await fetch('/api/odonto/document-templates' + (this.mostrarInativos ? '?active=false' : ''));
+          if (r.ok) {
+            this.modelos = await r.json();
+            this.inativos = this.modelos.filter((m) => !m.active).length;
+          } else {
+            this.error = (await r.json()).error ?? 'Erro ao carregar os modelos.';
+          }
+          if (!this.variaveis.length) {
+            const v = await fetch('/api/odonto/document-variables');
+            if (v.ok) this.variaveis = await v.json();
+          }
+          if (!this.tipos.length) {
+            const l = await fetch('/api/odonto/patients');
+            // Os tipos vêm junto da listagem de documentos; aqui usa-se a lista fixa da PR §14.
+            this.tipos = [
+              { type: 'anamnese', label: 'Anamnese' },
+              { type: 'plano_tratamento', label: 'Plano de tratamento' },
+              { type: 'tcle', label: 'TCLE (consentimento)' },
+              { type: 'contrato', label: 'Contrato' },
+              { type: 'atestado', label: 'Atestado' },
+              { type: 'declaracao', label: 'Declaração' },
+              { type: 'encaminhamento', label: 'Encaminhamento' },
+              { type: 'receita', label: 'Receita' },
+              { type: 'termo_responsabilidade', label: 'Termo de responsabilidade' },
+              { type: 'termo_recusa', label: 'Termo de recusa' },
+              { type: 'alta', label: 'Alta' },
+              { type: 'outro', label: 'Outro documento' },
+            ];
+            void l;
+          }
+        },
+
+        inserir(chave) {
+          this.form.body = (this.form.body || '') + '{{' + chave + '}}';
+        },
+
+        novo() {
+          this.dlgError = '';
+          this.form = { id: null, name: '', type: 'outro', body: '', requires_professional: false };
+          this.$refs.dlg.showModal();
+        },
+
+        editar(m) {
+          this.dlgError = '';
+          this.form = {
+            id: m.id, name: m.name, type: m.type, body: m.body,
+            requires_professional: !!m.requires_professional,
+          };
+          this.$refs.dlg.showModal();
+        },
+
+        async salvar() {
+          this.salvando = true;
+          this.dlgError = '';
+          try {
+            const corpo = {
+              name: this.form.name,
+              type: this.form.type,
+              body: this.form.body,
+              requires_professional: this.form.requires_professional,
+            };
+            const r = await fetch(
+              this.form.id ? '/api/odonto/document-templates/' + this.form.id : '/api/odonto/document-templates',
+              { method: this.form.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) },
+            );
+            if (r.ok) {
+              this.$refs.dlg.close();
+              showToast('Modelo salvo.', 'success');
+              await this.load();
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao salvar o modelo.';
+            }
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        async alternar(m) {
+          const r = await fetch('/api/odonto/document-templates/' + m.id, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: !m.active }),
+          });
+          if (r.ok) await this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao alterar.';
+        },
+
+        async remover(m) {
+          const ok = await window.confirmDlg(`Excluir o modelo "${m.name}"? Se já tiver sido usado, ele é apenas desativado.`);
+          if (!ok) return;
+          const r = await fetch('/api/odonto/document-templates/' + m.id, { method: 'DELETE' });
+          if (r.ok) await this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

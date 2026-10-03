@@ -2,12 +2,13 @@ import { Router, type Response } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
 import {
-  createAnamnesisTemplateSchema, createAppointmentSchema, createPatientSchema, createPlanSchema,
-  createProcedureSchema, createProfessionalSchema, appointmentStatusSchema, chargePlanSchema,
-  clinicalNoteSchema, itemStatusSchema, planStatusSchema, retifyClinicalNoteSchema,
+  createAnamnesisTemplateSchema, createAppointmentSchema, createDocumentSchema, createPatientSchema,
+  createPlanSchema, createProcedureSchema, createProfessionalSchema, appointmentStatusSchema,
+  cancelDocumentSchema, chargePlanSchema, clinicalNoteSchema, documentTemplateSchema,
+  issueDocumentSchema, itemStatusSchema, planStatusSchema, retifyClinicalNoteSchema,
   saveAnamnesisSchema, toothConditionSchema, toothStateSchema, undoToothStateSchema,
-  updateAppointmentSchema, updatePatientSchema, updatePlanSchema, updateProcedureSchema,
-  updateProfessionalSchema,
+  updateAppointmentSchema, updateDocumentSchema, updatePatientSchema, updatePlanSchema,
+  updateProcedureSchema, updateProfessionalSchema,
 } from './schemas';
 import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
 import {
@@ -22,6 +23,16 @@ import {
 import {
   changeItemStatus, changePlanStatus, chargePlan, createPlan, getPlan, listPlans, removePlan, updatePlan,
 } from './treatmentPlans';
+import {
+  cancelDocument, createDocument, getDocument, issueDocument, listDocuments, newVersion,
+  removeDocument, updateDocument, VARIABLES,
+  // `listTemplates`/`createTemplate`... também existem na anamnese: aqui vão com alias.
+  createTemplate as createDocumentTemplate,
+  listTemplates as listDocumentTemplates,
+  removeTemplate as removeDocumentTemplate,
+  updateTemplate as updateDocumentTemplate,
+} from './documents';
+import { dashboard, report, reportCsv, REPORT_TYPES } from './reports';
 import {
   createTemplateVersion, getForm, getPatientAnamnesis, getTemplate, listTemplates, savePatientAnamnesis,
 } from './anamnesis';
@@ -283,6 +294,90 @@ router.delete('/plans/:id', requirePermission('odonto.plans.manage'), (req, res)
 // A cobrança NÃO mora aqui: o serviço cria contas a receber no financeiro do Kivo (PR §12).
 router.post('/plans/:id/charge', requirePermission('odonto.plans.charge'), validateBody(chargePlanSchema), (req, res) => {
   send(res, chargePlan(req, Number(req.params.id), req.body), 201);
+});
+
+// ─────────────── Documentos e modelos (PR §14 e §15) ───────────────
+
+// Lista as variáveis disponíveis (a tela mostra e insere no texto do modelo).
+router.get('/document-variables', requirePermission('odonto.documents.view'), (_req, res) => {
+  send(res, { ok: true, data: VARIABLES });
+});
+
+router.get('/document-templates', requirePermission('odonto.documents.view'), (req, res) => {
+  send(res, listDocumentTemplates(req, { type: req.query.type ? String(req.query.type) : undefined, activeOnly: activeParam(req.query.active) !== false }));
+});
+
+router.post('/document-templates', requirePermission('odonto.documents.templates'), validateBody(documentTemplateSchema), (req, res) => {
+  send(res, createDocumentTemplate(req, req.body), 201);
+});
+
+router.put('/document-templates/:id', requirePermission('odonto.documents.templates'), validateBody(documentTemplateSchema), (req, res) => {
+  send(res, updateDocumentTemplate(req, Number(req.params.id), req.body));
+});
+
+router.delete('/document-templates/:id', requirePermission('odonto.documents.templates'), (req, res) => {
+  send(res, removeDocumentTemplate(req, Number(req.params.id)));
+});
+
+router.get('/patients/:id/documents', requirePermission('odonto.documents.view'), (req, res) => {
+  send(res, listDocuments(req, Number(req.params.id), { type: req.query.type ? String(req.query.type) : undefined }));
+});
+
+router.post('/patients/:id/documents', requirePermission('odonto.documents.manage'), validateBody(createDocumentSchema), (req, res) => {
+  send(res, createDocument(req, Number(req.params.id), req.body), 201);
+});
+
+router.get('/documents/:id', requirePermission('odonto.documents.view'), (req, res) => {
+  send(res, getDocument(req, Number(req.params.id)));
+});
+
+router.put('/documents/:id', requirePermission('odonto.documents.manage'), validateBody(updateDocumentSchema), (req, res) => {
+  send(res, updateDocument(req, Number(req.params.id), req.body));
+});
+
+router.post('/documents/:id/issue', requirePermission('odonto.documents.manage'), validateBody(issueDocumentSchema), (req, res) => {
+  send(res, issueDocument(req, Number(req.params.id), req.body.professional_id));
+});
+
+router.post('/documents/:id/cancel', requirePermission('odonto.documents.manage'), validateBody(cancelDocumentSchema), (req, res) => {
+  send(res, cancelDocument(req, Number(req.params.id), req.body.motivo));
+});
+
+// Emitido não muda: a correção é a versão seguinte, ligada à anterior.
+router.post('/documents/:id/new-version', requirePermission('odonto.documents.manage'), (req, res) => {
+  send(res, newVersion(req, Number(req.params.id)), 201);
+});
+
+router.delete('/documents/:id', requirePermission('odonto.documents.manage'), (req, res) => {
+  send(res, removeDocument(req, Number(req.params.id)));
+});
+
+// ─────────────── Painel e relatórios (fase 9, PR §21) ───────────────
+
+router.get('/dashboard', requirePermission('odonto.reports.view'), (req, res) => {
+  send(res, dashboard(req));
+});
+
+router.get('/reports', requirePermission('odonto.reports.view'), (_req, res) => {
+  send(res, { ok: true, data: REPORT_TYPES });
+});
+
+router.get('/reports/:tipo', requirePermission('odonto.reports.view'), (req, res) => {
+  send(res, report(req, String(req.params.tipo), req.query.from, req.query.to));
+});
+
+// CSV: o "exportar" do Kivo (mesmo caminho do resto do sistema).
+router.get('/reports/:tipo/csv', requirePermission('odonto.reports.view'), (req, res) => {
+  const resultado = report(req, String(req.params.tipo), req.query.from, req.query.to);
+  if (!resultado.ok) {
+    res.status(resultado.status).json({ success: false, error: resultado.error });
+    return;
+  }
+  const nome = `odonto-${resultado.data.type}-${resultado.data.from}-a-${resultado.data.to}.csv`;
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
+  // BOM: o Excel no Windows abre o CSV com acento correto só com ele.
+  res.send('\uFEFF' + reportCsv(resultado.data));
 });
 
 export default router;
