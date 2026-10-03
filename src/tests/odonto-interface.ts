@@ -19,6 +19,7 @@ import path from 'node:path';
 
 const DIR = path.resolve(__dirname, '..', 'modules', 'odonto', 'views');
 const PARTIAL = path.join(DIR, 'partials');
+const RAIZ_PUBLIC = path.resolve(__dirname, '..', 'public');
 
 let failures = 0;
 
@@ -81,15 +82,33 @@ check('os estilos trazem a caixa de vazio', ui.includes('.odonto-vazio'));
 check('o tutorial usa o motor do PDV/estoque', tour.includes('/js/tour.js'));
 check('o tutorial roda sozinho na primeira entrada', /KivoTour\.autoStart\('kivo-tour-odonto-v1'/.test(tour));
 check('o tutorial pode ser revisto depois', /startOdontoTour/.test(tour) && /Rever tutorial/.test(tour));
-const passos = [...tour.matchAll(/title: '([^']+)'/g)].map((m) => m[1]);
+const blocoPassos = /var PASSOS = \[([\s\S]*?)\n    \];/.exec(tour)?.[1] ?? '';
+const passos = [...blocoPassos.matchAll(/title: '([^']+)'/g)].map((m) => m[1]);
 check('o tutorial explica o fluxo inteiro', passos.length >= 10, `${passos.length} passos: ${passos.slice(0, 3).join(' / ')}...`);
-check('todo passo tem texto', (tour.match(/body:/g) ?? []).length === passos.length);
+check('todo passo tem texto', (blocoPassos.match(/body:/g) ?? []).length === passos.length);
 check('os passos apontam para âncoras do módulo',
-  (tour.match(/el: '#tour-odonto-/g) ?? []).length === passos.length);
+  (blocoPassos.match(/el: '#tour-odonto-/g) ?? []).length === passos.length);
 const ancorasNoTour = [...tour.matchAll(/el: '#(tour-odonto-[a-z-]+)'/g)].map((m) => m[1]);
 const semAncora = ancorasNoTour.filter((a) => !telas.some((f) => conteudo.get(f)!.includes(`id="${a}"`)));
 check('toda âncora do tutorial existe em alguma tela', semAncora.length === 0, semAncora.join(', '));
 check('o script do tutorial respeita o CSP', (tour.match(/<script nonce="<%= cspNonce %>"/g) ?? []).length >= 2);
+
+// ─────────────────────── Celebração do tutorial (todos os módulos) ───────────────────────
+// O motor do tour é compartilhado: PDV, estoque e odonto. Se a celebração sumir do motor ou do
+// CSS, os três módulos perdem o confete e o cartão de parabéns — por isso a guarda mora aqui.
+const motor = readFileSync(path.resolve(RAIZ_PUBLIC, 'js', 'tour.js'), 'utf8');
+const css = readFileSync(path.resolve(RAIZ_PUBLIC, 'css', 'app.css'), 'utf8');
+check('o motor anima o holofote', css.includes('kivo-tour-pulse'));
+check('o motor tem barra de progresso', motor.includes('kivo-tour-progress') && css.includes('.kivo-tour-progress'));
+check('o fim do tutorial comemora', motor.includes('function parabenizar') && motor.includes('function soltarConfete'));
+check('o confete tem estilo próprio', css.includes('.kivo-tour-confetti'));
+check('pular o tutorial NÃO comemora',
+  motor.includes("var celebrar = reason === 'finish'") && motor.includes('if (celebrar) parabenizar'));
+check('quem pediu menos movimento não recebe animação', /prefers-reduced-motion[\s\S]{0,200}kivo-tour/.test(css));
+check('os três módulos dizem o que celebrar',
+  conteudo.get('odonto-patients.ejs')!.includes("include('partials/odonto-tour')") || tour.includes('CELEBRACAO'));
+const celebraram = [motor, tour].join(' ');
+check('a celebração tem texto próprio', celebraram.includes('Consultório pronto') || tour.includes('CELEBRACAO'));
 
 console.log(failures === 0
   ? `\nInterface do odonto: TODOS OS TESTES PASSARAM (${telas.length} telas, ${passos.length} passos de tutorial)`

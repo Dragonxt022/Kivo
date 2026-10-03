@@ -20,6 +20,9 @@
   'use strict';
 
   var root = null;
+  var ultimaLista = null;
+  var celebraOpts = null;
+  var cartaoFinal = null;
   var mask = null;
   var pop = null;
   var steps = [];
@@ -79,17 +82,25 @@
       '<div class="kivo-tour-count"></div>' +
       '<h3 class="kivo-tour-title"></h3>' +
       '<p class="kivo-tour-body"></p>' +
+      '<div class="kivo-tour-progress"><i></i></div>' +
       '<div class="kivo-tour-actions">' +
       '<button type="button" class="btn secondary small" data-tour="skip">Pular</button>' +
       '<span class="kivo-tour-spacer"></span>' +
       (primeiro ? '' : '<button type="button" class="btn secondary small" data-tour="prev">Anterior</button>') +
       '<button type="button" class="btn small" data-tour="next">' +
-      (ultimo ? 'Concluir' : 'Próximo') +
+      (ultimo ? 'Concluir 🎉' : 'Próximo') +
       '</button>' +
       '</div>';
     pop.querySelector('.kivo-tour-count').textContent = 'Passo ' + (index + 1) + ' de ' + total;
     pop.querySelector('.kivo-tour-title').textContent = step.title || '';
     pop.querySelector('.kivo-tour-body').textContent = step.body || '';
+    // Barra de progresso: mostra o quanto falta, sem precisar ler o contador.
+    var barra = pop.querySelector('.kivo-tour-progress > i');
+    if (barra) barra.style.width = Math.round(((index + 1) / total) * 100) + '%';
+    // Reanima a entrada do balão a cada passo (a classe é removida e recolocada no próximo frame).
+    pop.classList.remove('kivo-tour-pop--in');
+    void pop.offsetWidth;
+    if (!reduced()) pop.classList.add('kivo-tour-pop--in');
     var primario = pop.querySelector('[data-tour="next"]');
     if (primario) primario.focus();
   }
@@ -197,6 +208,9 @@
     if (root && root.parentNode) root.parentNode.removeChild(root);
     root = mask = pop = null;
     var cb = onDone;
+    var celebrar = reason === 'finish';
+    var lista = ultimaLista;
+    var cfg = celebraOpts;
     steps = [];
     index = 0;
     onDone = null;
@@ -208,6 +222,124 @@
         // O callback não pode travar a limpeza da tela.
       }
     }
+    // Terminou o tutorial inteiro (não pulou): comemora. Pular não merece confete.
+    if (celebrar) parabenizar(lista, cfg);
+  }
+
+  /** Fim do tutorial: confete + cartão de parabéns, com opção de rever. */
+  function parabenizar(lista, cfg) {
+    cfg = cfg || {};
+    limparFinal();
+    var final = document.createElement('div');
+    final.className = 'kivo-tour-final';
+    final.innerHTML =
+      '<div class="kivo-tour-final-emoji">' + (cfg.emoji || '🎉') + '</div>' +
+      '<h3></h3><p></p>' +
+      '<div class="kivo-tour-actions">' +
+      '<button type="button" class="btn secondary small" data-final="close">Fechar</button>' +
+      '<button type="button" class="btn small" data-final="again">Ver de novo</button>' +
+      '</div>';
+    final.querySelector('h3').textContent = cfg.title || 'Tutorial concluído!';
+    final.querySelector('p').textContent = cfg.body
+      || 'Pronto: você já conhece esta parte do Kivo. O tutorial fica disponível no botão "Rever tutorial".';
+    final.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-final]');
+      if (!b) return;
+      var acao = b.getAttribute('data-final');
+      limparFinal();
+      if (acao === 'again' && lista && lista.length) start(lista, { celebrate: cfg });
+    });
+    document.body.appendChild(final);
+    cartaoFinal = final;
+    // Escape fecha o cartão de parabéns (o ouvinte do tour já foi removido no finish).
+    function escFinal(e) {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', escFinal, true);
+        limparFinal();
+      }
+    }
+    document.addEventListener('keydown', escFinal, true);
+    soltarConfete(cfg);
+  }
+
+  function limparFinal() {
+    if (cartaoFinal && cartaoFinal.parentNode) cartaoFinal.parentNode.removeChild(cartaoFinal);
+    cartaoFinal = null;
+    var c = document.querySelector('.kivo-tour-confetti');
+    if (c && c.parentNode) c.parentNode.removeChild(c);
+  }
+
+  /**
+   * Confete em canvas, sem biblioteca: partículas com gravidade, giro e cores do tema.
+   * Sai cedo (sem animar) para quem pediu menos movimento.
+   */
+  function soltarConfete(cfg) {
+    if (reduced()) return;
+    var canvas = document.createElement('canvas');
+    canvas.className = 'kivo-tour-confetti';
+    document.body.appendChild(canvas);
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    function medir() {
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+    medir();
+    var tokens = getComputedStyle(document.documentElement);
+    var cores = ['--primary', '--success', '--warning', '--info', '--danger']
+      .map(function (t) { return tokens.getPropertyValue(t).trim(); })
+      .filter(Boolean);
+    if (!cores.length) cores = ['#f97316', '#22c55e', '#3b82f6', '#eab308'];
+    // Confete caindo do alto: duas "explosões" dão sensação de festa sem poluir.
+    var pecas = [];
+    function explodir(qtd, origemX) {
+      for (var i = 0; i < qtd; i++) {
+        pecas.push({
+          x: (origemX === undefined ? Math.random() * canvas.width : origemX + (Math.random() - 0.5) * 160 * dpr),
+          y: -20 * dpr - Math.random() * 80 * dpr,
+          vx: (Math.random() - 0.5) * 2.2 * dpr,
+          vy: (1.6 + Math.random() * 2.4) * dpr,
+          w: (5 + Math.random() * 6) * dpr,
+          h: (8 + Math.random() * 8) * dpr,
+          cor: cores[Math.floor(Math.random() * cores.length)],
+          giro: Math.random() * Math.PI * 2,
+          vGiro: (Math.random() - 0.5) * 0.22,
+          onda: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+    explodir(150);
+    var inicio = performance.now();
+    var fim = inicio + (cfg.duracao || 2600);
+    function quadro(agora) {
+      if (!canvas.parentNode) return;
+      var t = agora - inicio;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (t > 900 && t < 1000) explodir(60, canvas.width * 0.5);
+      var restantes = 0;
+      for (var i = 0; i < pecas.length; i++) {
+        var p = pecas[i];
+        p.onda += 0.08;
+        p.x += p.vx + Math.sin(p.onda) * 1.1 * dpr;
+        p.y += p.vy;
+        p.vy += 0.035 * dpr;
+        p.giro += p.vGiro;
+        if (p.y < canvas.height + 40 * dpr) restantes++;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.giro);
+        ctx.fillStyle = p.cor;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+      if (restantes > 0 && agora < fim) requestAnimationFrame(quadro);
+      else if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    }
+    requestAnimationFrame(quadro);
+    window.addEventListener('resize', medir, { once: true });
   }
 
   function start(list, options) {
@@ -217,8 +349,11 @@
     });
     if (!validos.length) return;
     steps = validos;
+    // Guarda a lista e a celebração: "Ver de novo" no cartão de parabéns reusa as duas.
+    ultimaLista = validos.slice();
     index = 0;
     options = options || {};
+    celebraOpts = options.celebrate || null;
     onDone = typeof options.onDone === 'function' ? options.onDone : null;
     build();
     document.addEventListener('keydown', onKey, true);
@@ -241,14 +376,16 @@
     } catch {
       // Sem localStorage: mostra sempre, é melhor que não mostrar.
     }
+    options = options || {};
     start(list, {
+      celebrate: options.celebrate,
       onDone: function (reason) {
         try {
           localStorage.setItem(key, '1');
         } catch {
           // segue
         }
-        if (options && typeof options.onDone === 'function') options.onDone(reason);
+        if (typeof options.onDone === 'function') options.onDone(reason);
       },
     });
     return true;
@@ -257,6 +394,9 @@
   window.KivoTour = {
     start: start,
     autoStart: autoStart,
+    celebrate: function (cfg) {
+      parabenizar(ultimaLista, cfg);
+    },
     isActive: function () {
       return !!root;
     },

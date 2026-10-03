@@ -6268,3 +6268,106 @@ button.icon-pack-card:disabled {
 .icon-pack-grid--pick .icon-pack-info {
   padding-bottom: 0.8rem;
 }
+
+/* ═══ Tour guiado: animações e celebração ═══════════════════════════════════════════════════
+   Complemento do motor (`public/js/tour.js`): holofote que respira, balão que entra deslizando,
+   barra de progresso, e o fim do tutorial com confete e parabéns. Tudo sai dos tokens do tema e
+   respeita `prefers-reduced-motion` — no modo leve (`--transition: 0s`) nada anima. */
+
+/* Holofote que "respira": um segundo anel que sai do alvo e some. */
+.kivo-tour-mask::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  opacity: 0;
+  animation: kivo-tour-pulse 2.1s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+@keyframes kivo-tour-pulse {
+  0% { transform: scale(0.98); opacity: 0.85; }
+  70% { transform: scale(1.06); opacity: 0; }
+  100% { transform: scale(1.06); opacity: 0; }
+}
+
+/* Balão: entra deslizando de baixo para cima a cada passo. */
+.kivo-tour-pop {
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.kivo-tour-pop--in {
+  animation: kivo-tour-pop-in 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+@keyframes kivo-tour-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Barra de progresso do tutorial. */
+.kivo-tour-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  overflow: hidden;
+  margin: 0.5rem 0 0.1rem;
+}
+.kivo-tour-progress > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 60%, #ffffff));
+  transition: width 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Confete: canvas por cima de tudo, sem capturar clique. */
+.kivo-tour-confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4100;
+}
+
+/* Cartão de parabéns no fim do tutorial. */
+.kivo-tour-final {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  width: min(420px, calc(100vw - 32px));
+  z-index: 4200;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 1.4rem 1.3rem 1.1rem;
+  text-align: center;
+  pointer-events: auto;
+  animation: kivo-tour-final-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+@keyframes kivo-tour-final-in {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(0.94); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.kivo-tour-final-emoji { font-size: 2.4rem; line-height: 1; margin-bottom: 0.4rem; }
+.kivo-tour-final h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+.kivo-tour-final p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.kivo-tour-final .kivo-tour-actions { justify-content: center; }
+
+/* Respeita quem pediu menos movimento: sem pulso, sem confete animado, sem deslize. */
+@media (prefers-reduced-motion: reduce) {
+  .kivo-tour-mask::before { animation: none; }
+  .kivo-tour-pop--in,
+  .kivo-tour-final { animation: none; }
+  .kivo-tour-progress > i { transition: none; }
+}
+[data-motion='leve'] .kivo-tour-mask::before { animation: none; }
+[data-motion='leve'] .kivo-tour-pop--in,
+[data-motion='leve'] .kivo-tour-final { animation: none; }
