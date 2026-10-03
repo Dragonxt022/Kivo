@@ -295,6 +295,10 @@
     "description": "Testes: documentos e modelos com variáveis do Kivo Odonto",
     "run": "node scripts/test-isolated.js src/tests/odonto-documentos.ts"
   },
+  "test:home-cards": {
+    "description": "Testes: ordem dos cards da tela inicial (preferência da empresa, vale em qualquer navegador)",
+    "run": "node scripts/test-isolated.js src/tests/home-cards.ts"
+  },
   "test:icones-citados": {
     "description": "Testes: ícones citados pelos módulos x arquivos do pacote (o ícone errado não dá erro no console)",
     "run": "node scripts/test-isolated.js src/tests/icones-citados.ts"

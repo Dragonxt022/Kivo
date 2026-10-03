@@ -6405,3 +6405,34 @@ button.icon-pack-card:disabled {
 .chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 /* Sem o contêiner (uso solto), os chips ficam lado a lado com um respiro. */
 .chip + .chip { margin-left: 4px; }
+
+/* ═══ Atalho discreto no card da tela inicial ════════════════════════════════════════════════
+   Um ícone pequeno no canto: fica invisível até o mouse passar sobre o card, e leva para a lista
+   completa de recursos (a segunda camada de cards). Serve para quem quer ver tudo sem caçar o
+   card "Mais" no fim da grade. */
+.app-card { position: relative; }
+.card-more {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--transition), color var(--transition), border-color var(--transition);
+}
+.app-card:hover .card-more,
+.app-card:focus-within .card-more { opacity: 1; }
+.card-more:hover { color: var(--primary); border-color: var(--primary); }
+.card-more svg { width: 16px; height: 16px; }
+/* Toque não tem hover: no aparelho sem mouse o atalho aparece sempre, senão seria inalcançável. */
+@media (hover: none) {
+  .card-more { opacity: 0.75; }
+}
