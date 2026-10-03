@@ -10,7 +10,8 @@ import { getSqlite } from '../core/database/connection';
 import { refreshLicenseFromCloud, validateLicense } from '../core/license/service';
 import { canAutoUpdate } from '../core/license/plans';
 import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/machinePrefs';
-import { patchUpdateState, getUpdateState, registrarUpdaterDriver } from '../core/updater';
+import { patchUpdateState, getUpdateState, registrarUpdaterDriver, BAIXAR_AUTOMATICO_KEY } from '../core/updater';
+import { settingsRepository } from '../core/repositories/SettingsRepository';
 import { createLogger } from '../core/logger';
 import { installTelemetry, registerInventoryProvider, recordError } from '../core/telemetry/service';
 
@@ -179,6 +180,11 @@ function setupAutoUpdater(win: BrowserWindow): void {
       });
   };
 
+  // O Kivo BAIXA a versão nova sozinho e instala quando o programa fecha (ver
+  // `autoInstallOnAppQuit` logo abaixo). O pedido do dono é literal: "mesmo que o cliente tenha
+  // um instalador antigo, quem está online usa sempre a versão mais nova" — sem depender de
+  // ninguém clicar em "Baixar". Quem quiser controlar o ritmo desliga em
+  // Configurações › Atualização (`update.baixar_automatico`), e aí volta ao fluxo manual.
   autoUpdater.autoDownload = false;
   // Depois de baixada, a atualização entra sozinha quando o Kivo fecha (isSilent, sem
   // reabrir) — é o "instalar ao fechar" do comando de atualização forçada do suporte.
@@ -202,10 +208,22 @@ function setupAutoUpdater(win: BrowserWindow): void {
     // Só na primeira vez que ESTA versão aparece: a checagem se repete a cada 6h e o
     // lojista não precisa do mesmo aviso três vezes por dia.
     if (primeiraVez) {
+      // Baixa SOZINHO em segundo plano (o cliente não precisa fazer nada) e avisa que já está
+      // cuidando disso. Antes o aviso mandava o lojista ir em Configurações › Atualização e
+      // clicar em "Baixar" — e o que se via era máquina velha por semanas.
+      const automatico = settingsRepository.getBool(BAIXAR_AUTOMATICO_KEY, true);
       avisarNaTela(
-        `Nova versão do Kivo disponível (${info.version}). Baixe em Configurações › Atualização.`,
+        automatico
+          ? `Nova versão do Kivo (${info.version}) sendo baixada. A instalação acontece quando você fechar o Kivo.`
+          : `Nova versão do Kivo disponível (${info.version}). Baixe em Configurações › Atualização.`,
         'info',
       );
+      if (automatico) {
+        void autoUpdater.downloadUpdate().catch((e: Error) => {
+          logUpdate(`falha ao baixar automaticamente: ${e.message}`);
+          patchUpdateState({ status: 'erro', erro: e.message, progresso: null });
+        });
+      }
     }
   });
   autoUpdater.on('update-not-available', () => {

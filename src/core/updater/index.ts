@@ -16,6 +16,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+/**
+ * Preferência: baixar a versão nova sozinho assim que ela aparece (padrão LIGADO).
+ *
+ * O dono pediu o comportamento literal: quem está online usa sempre a versão mais nova, mesmo
+ * tendo instalado um pacote antigo. Quem preferir controlar o ritmo — baixar só quando quiser —
+ * desliga em Configurações › Atualização, e aí o app volta a avisar em vez de baixar.
+ */
+export const BAIXAR_AUTOMATICO_KEY = 'update.baixar_automatico';
+
 export type UpdateStatus =
   /** Nada em andamento; nenhuma versão nova conhecida. */
   | 'ocioso'
