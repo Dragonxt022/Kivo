@@ -109,6 +109,34 @@ Páginas: `/app/odonto/pacientes/:id/documentos` (lista, geração, ver, emitir,
 `/app/odonto/modelos-documentos` (modelos da clínica). Modelo em uso é **desativado**, não
 apagado.
 
+## Exames e imagens (PR §16 e §17)
+
+Um exame é **um arquivo** com paciente, data, tipo, descrição e responsável (§16): radiografia,
+tomografia, fotografia clínica, documento ou outro. A fotografia ganha a **fase** antes/durante/
+depois (§17), e o desenho já guarda isso em coluna própria — a comparação lado a lado que a PR
+prevê para o futuro não vai precisar de migração.
+
+**O arquivo não mora no banco.** Fica em `storage/odonto-exams/` e a tabela guarda só a referência
+(nome no disco, nome original, mime, tamanho). Mesmo motivo do anexo do financeiro: as tabelas do
+módulo sincronizam entre as máquinas da empresa, e uma tomografia em base64 faria cada ciclo de
+sync carregar o arquivo inteiro. O nome no disco é um UUID — o nome do consultório nunca vira
+caminho de arquivo. O upload chega em base64 no corpo JSON (servidor local/Electron) e o arquivo é
+servido por `/uploads/odonto-exams/`.
+
+| Regra | Como ficou |
+| --- | --- |
+| Formatos | PDF, PNG, JPG/JPEG, WEBP, GIF, BMP — **fora**: SVG e HTML (podem carregar script) e DICOM |
+| Tamanho | até **12MB** (radiografia e tomografia passam de 5MB) |
+| Excluir | a linha sai por soft delete (fica o rastro de quem apagou) e o **arquivo sai do disco** — é o que libera espaço; arquivo anexado por engano precisa poder sair |
+| Trocar o arquivo | grava o novo primeiro e só então remove o antigo |
+| Excluir o paciente | linhas em soft delete **e** arquivos removidos |
+| Auditoria | registra tipo, fase e tamanho do arquivo; **nunca** o conteúdo |
+| Permissão | `odonto.exams.view` (ver/baixar) e `odonto.exams.manage` (anexar/editar/excluir) — exame é dado clínico: a Recepção não vê |
+
+Página: `/app/odonto/pacientes/:id/exames`, com galeria das fotografias agrupada por fase (antes/
+durante/depois), lista dos demais arquivos com filtro por tipo, fase e período, prévia antes de
+enviar e abertura da imagem em tela cheia.
+
 ## Painel, relatórios e auditoria (fase 9, PR §21 e §27)
 
 Página `/app/odonto/painel` (permissão `odonto.reports.view`): pacientes ativos/novos/sem
@@ -394,14 +422,17 @@ Detalhe prático: não conceda `commercial.customers.*` à Recepção. O cadastr
 funciona sem isso (a ponte é feita pelo serviço interno `commercial.customers`); a permissão
 do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
-## Próximas fases (roadmap da PR)
+## Roadmap da PR: concluído
 
-Falta a **fase 8 — exames e imagens** (upload, organização, visualização e vínculo ao paciente).
-As capabilities de cada recurso entram junto com a tela — não antes.
+Todas as fases da PR estão implementadas: fundação (1), pacientes + anamnese (2), agenda (3),
+prontuário/evolução com retificação versionada (4), odontograma + situações (5), plano de
+tratamento + cobrança no financeiro (6), documentos com modelos e variáveis (7), exames e imagens
+(8) e painel/relatórios/auditoria (9).
 
-Concluído: fundação (1), pacientes + anamnese (2), agenda (3), prontuário/evolução com
-retificação versionada (4), odontograma + situações (5), plano de tratamento + cobrança no
-financeiro (6), documentos com modelos e variáveis (7) e painel/relatórios/auditoria (9).
+Fora de escopo por decisão registrada: **assinatura eletrônica** de documento/contrato (o PDF é
+anexado, não assinado dentro do sistema), **reajuste anual automático** de contrato e **dentição
+decídua** (a PR diz "posteriormente"; o campo do dente é texto e a validação usa a lista FDI
+permanente).
 
 ## Arquivos-chave
 

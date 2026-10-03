@@ -252,3 +252,26 @@ export const issueDocumentSchema = z.object({
 export const cancelDocumentSchema = z.object({
   motivo: z.string().min(3, 'Informe o motivo do cancelamento.').max(300),
 });
+
+// ─────────────────── Exames e imagens (PR §16 e §17) ───────────────────
+
+const examType = z.enum(['radiografia', 'tomografia', 'fotografia', 'documento', 'outro']);
+const examPhase = z.enum(['antes', 'durante', 'depois']).nullable().optional();
+
+export const createExamSchema = z.object({
+  type: examType,
+  phase: examPhase,
+  exam_date: optionalText(10),
+  tooth: optionalText(2),
+  title: z.string().min(1).max(160),
+  description: optionalText(1000),
+  appointment_id: z.number().int().positive().nullable().optional(),
+  plan_id: z.number().int().positive().nullable().optional(),
+  professional_id: z.number().int().positive().nullable().optional(),
+  // O arquivo chega em base64 no corpo JSON, como os demais uploads do sistema.
+  file_base64: z.string().min(1),
+  file_name: optionalText(180),
+  file_mime: optionalText(80),
+});
+
+export const updateExamSchema = createExamSchema.partial();

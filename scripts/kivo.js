@@ -100,6 +100,7 @@ function listCommands() {
       'test:odonto-interface',
       'test:icones-citados',
       'test:home-cards',
+      'test:odonto-exames',
       'test:odonto-documentos',
       'test:odonto-painel',
       'test:billing-gateway',

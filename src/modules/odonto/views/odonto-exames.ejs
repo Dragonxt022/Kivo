@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Exames e imagens</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .exame { border: 1px solid var(--border-light); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+    .exame h3 { margin: 0 0 2px; font-size: .96rem; }
+    .exame .meta { color: var(--muted); font-size: .78rem; }
+    .galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    .foto { border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; background: var(--surface-hover); }
+    .foto img { width: 100%; height: 140px; object-fit: cover; display: block; cursor: zoom-in; }
+    .foto .rodape { padding: 6px 8px; font-size: .74rem; color: var(--muted); }
+    .fase-grupo { margin-bottom: 16px; }
+    .fase-grupo h3 { font-size: .9rem; margin: 0 0 6px; }
+    .previa { max-width: 100%; max-height: 220px; border-radius: 10px; border: 1px solid var(--border-light); }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main id="tour-odonto-conteudo" x-data="examesPage(<%= patientId %>, <%= user.permissions.has('odonto.exams.manage') ? 'true' : 'false' %>)" x-init="load()">
+    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
+    <h1>Exames e imagens <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+
+    <div class="secoes" id="tour-odonto-secoes">
+      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/documentos'">Documentos</a>
+      <a class="atual" href="#">Exames e imagens</a>
+    </div>
+
+    <div class="toolbar" id="tour-odonto-toolbar">
+      <% if (user.permissions.has('odonto.exams.manage')) { %>
+        <button class="btn" @click="novo()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Anexar exame
+        </button>
+      <% } %>
+      <select class="input" x-model="filtro.tipo" @change="load()">
+        <option value="">Todos os tipos</option>
+        <template x-for="t in tipos" :key="t.type">
+          <option :value="t.type" x-text="t.label"></option>
+        </template>
+      </select>
+      <select class="input" x-model="filtro.fase" @change="load()">
+        <option value="">Todas as fases</option>
+        <template x-for="f in fases" :key="f.phase">
+          <option :value="f.phase" x-text="f.label"></option>
+        </template>
+      </select>
+      <input class="input" type="date" x-model="filtro.from" @change="load()" title="A partir de" />
+      <input class="input" type="date" x-model="filtro.to" @change="load()" title="Até" />
+      <span class="muted text-xs" x-text="resumo.total + ' arquivo(s)' + (resumo.ultimo_em ? ' · mais recente ' + fmtDate(resumo.ultimo_em) : '')"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <p class="page-subtitle">
+      Radiografia, tomografia, fotografia clínica e documentos do paciente. As fotos podem ser
+      marcadas como <strong>antes</strong>, <strong>durante</strong> ou <strong>depois</strong> do
+      tratamento — assim dá para comparar a evolução lado a lado. O arquivo fica guardado no
+      computador da clínica e é o mesmo que você abre aqui.
+    </p>
+
+    <!-- ─────────── Fotografias clínicas, agrupadas por fase (PR §17) ─────────── -->
+    <template x-for="fase in ['antes', 'durante', 'depois']" :key="fase">
+      <div class="fase-grupo" x-show="fotosPorFase(fase).length">
+        <h3 x-text="'Fotografias · ' + fase"></h3>
+        <div class="galeria">
+          <template x-for="e in fotosPorFase(fase)" :key="e.id">
+            <div class="foto">
+              <img :src="e.url" :alt="e.title" @click="abrir(e)" @error="$el.style.display = 'none'" />
+              <div class="rodape">
+                <div x-text="e.title"></div>
+                <div class="muted" x-text="fmtDate(e.exam_date) + (e.tooth ? ' · dente ' + e.tooth : '')"></div>
+                <% if (user.permissions.has('odonto.exams.manage')) { %>
+                  <button class="btn secondary small" @click="editar(e)">Editar</button>
+                  <button class="btn secondary small danger" @click="apagar(e)">Excluir</button>
+                <% } %>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <!-- ─────────── Demais arquivos (radiografia, tomografia, documento) ─────────── -->
+    <template x-for="e in naoFotos()" :key="e.id">
+      <div class="exame">
+        <h3>
+          <span x-text="e.title"></span>
+          <span class="badge neutral" x-text="e.type_label"></span>
+          <span class="badge neutral" x-show="e.phase" x-text="e.phase_label"></span>
+        </h3>
+        <div class="meta">
+          <span x-text="fmtDate(e.exam_date)"></span>
+          <span x-show="e.tooth" x-text="' · dente ' + e.tooth"></span>
+          <span x-show="e.professional_name" x-text="' · ' + e.professional_name"></span>
+          <span x-show="e.appointment_at" x-text="' · consulta ' + fmtDateTimeLocal(e.appointment_at)"></span>
+          <span x-text="' · ' + e.original_name + ' (' + tamanho(e.size_bytes) + ')'"></span>
+          <span x-show="e.created_by_name" x-text="' · anexado por ' + e.created_by_name"></span>
+        </div>
+        <p class="muted text-xs" x-show="e.description" x-text="e.description"></p>
+        <div class="toolbar" style="margin:6px 0 0">
+          <a class="btn secondary small" :href="e.url" target="_blank">Abrir arquivo</a>
+          <% if (user.permissions.has('odonto.exams.manage')) { %>
+            <button class="btn secondary small" @click="editar(e)">Editar</button>
+            <button class="btn secondary small danger" @click="apagar(e)">Excluir</button>
+          <% } %>
+        </div>
+      </div>
+    </template>
+
+    <div class="odonto-vazio" x-show="!arquivos.length">
+      <strong>Nenhum exame anexado ainda</strong>
+      Anexe a radiografia, a tomografia ou as fotos clínicas deste paciente. Elas ficam junto do
+      prontuário, com data, descrição e quem anexou — e as fotos marcadas como antes/durante/depois
+      ficam lado a lado para comparar o tratamento.
+    </div>
+
+    <% if (user.permissions.has('odonto.exams.manage')) { %>
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? ('Editar exame #' + form.id) : 'Anexar exame ou imagem'"></h1>
+      <div class="dialog-body">
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Tipo</label>
+            <select class="input" x-model="form.type">
+              <template x-for="t in tipos" :key="t.type">
+                <option :value="t.type" x-text="t.label"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field"><label>Título</label><input class="input" type="text" x-model="form.title" maxlength="160" placeholder="Ex.: Radiografia periapical do 26" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field"><label>Data do exame</label><input class="input" type="date" x-model="form.exam_date" /></div>
+          <div class="pm-field"><label>Dente (opcional)</label><input class="input" type="text" x-model="form.tooth" maxlength="2" placeholder="26" /></div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field" x-show="form.type === 'fotografia'">
+            <label>Fase do tratamento</label>
+            <select class="input" x-model="form.phase">
+              <option value="">—</option>
+              <template x-for="f in fases" :key="f.phase">
+                <option :value="f.phase" x-text="f.label"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Profissional</label>
+            <select class="input" x-model="form.professional_id">
+              <option value="">—</option>
+              <template x-for="p in profissionais" :key="p.id">
+                <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Consulta (opcional)</label>
+            <select class="input" x-model="form.appointment_id">
+              <option value="">—</option>
+              <template x-for="a in atendimentos" :key="a.id">
+                <option :value="a.id" x-text="fmtDateTimeLocal(a.starts_at) + ' · ' + a.professional_name"></option>
+              </template>
+            </select>
+          </div>
+          <div class="pm-field">
+            <label>Plano de tratamento (opcional)</label>
+            <select class="input" x-model="form.plan_id">
+              <option value="">—</option>
+              <template x-for="p in planos" :key="p.id">
+                <option :value="p.id" x-text="p.title || ('Plano #' + p.id)"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <label>Descrição</label>
+        <textarea class="input" x-model="form.description" rows="2" placeholder="O que o exame mostra, laudo, observações…"></textarea>
+
+        <label>Arquivo <span class="muted text-xs" x-text="form.id ? '(deixe vazio para manter o atual)' : '(PDF, PNG, JPG, WEBP, GIF ou BMP — até 12MB)'"></span></label>
+        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp" @change="escolherArquivo($event)" />
+        <template x-if="previa">
+          <img class="previa" :src="previa" alt="Prévia do arquivo" />
+        </template>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Enviando…' : 'Salvar exame'"></button>
+      </div>
+    </dialog>
+    <% } %>
+
+    <!-- ─────────── Ver a imagem grande ─────────── -->
+    <dialog x-ref="dlgVer" class="dialog-fixed">
+      <h1 x-text="vendo.title || 'Exame'"></h1>
+      <div class="dialog-body">
+        <p class="muted text-xs" style="margin-top:0"
+           x-text="(vendo.type_label || '') + (vendo.phase_label ? ' · ' + vendo.phase_label : '') + ' · ' + fmtDate(vendo.exam_date || '') + (vendo.tooth ? ' · dente ' + vendo.tooth : '')"></p>
+        <img :src="vendo.url" :alt="vendo.title" style="max-width:100%; border-radius:10px" />
+      </div>
+      <div class="actions">
+        <a class="btn secondary" :href="vendo.url" target="_blank">Abrir em nova aba</a>
+        <button class="btn secondary" @click="$refs.dlgVer.close()">Fechar</button>
+      </div>
+    </dialog>
+  </main>
+
+  <%- include('partials/odonto-tour') %>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function examesPage(patientId, podeGerenciar) {
+      const hoje = () => new Date().toISOString().slice(0, 10);
+      return {
+        patientId,
+        podeGerenciar,
+        paciente: null,
+        arquivos: [],
+        tipos: [],
+        fases: [],
+        resumo: { total: 0, por_tipo: [], ultimo_em: null },
+        profissionais: [],
+        atendimentos: [],
+        planos: [],
+        filtro: { tipo: '', fase: '', from: '', to: '' },
+        form: {},
+        vendo: {},
+        previa: '',
+        error: '',
+        dlgError: '',
+        salvando: false,
+
+        tamanho(bytes) {
+          const n = Number(bytes || 0);
+          if (n < 1024) return n + ' B';
+          if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+          return (n / 1024 / 1024).toFixed(1) + ' MB';
+        },
+        fotos() { return this.arquivos.filter((e) => e.type === 'fotografia' && e.is_image); },
+        fotosPorFase(fase) { return this.fotos().filter((e) => e.phase === fase); },
+        naoFotos() { return this.arquivos.filter((e) => !(e.type === 'fotografia' && e.is_image)); },
+        abrir(e) { this.vendo = e; this.$refs.dlgVer.showModal(); },
+
+        async load() {
+          const q = new URLSearchParams();
+          if (this.filtro.tipo) q.set('type', this.filtro.tipo);
+          if (this.filtro.fase) q.set('phase', this.filtro.fase);
+          if (this.filtro.from) q.set('from', this.filtro.from);
+          if (this.filtro.to) q.set('to', this.filtro.to);
+          const [p, l] = await Promise.all([
+            fetch('/api/odonto/patients/' + patientId),
+            fetch('/api/odonto/patients/' + patientId + '/exams?' + q.toString()),
+          ]);
+          if (p.ok) this.paciente = await p.json();
+          if (l.ok) {
+            const dados = await l.json();
+            this.arquivos = dados.items || [];
+            this.resumo = dados.resumo || this.resumo;
+            this.tipos = dados.tipos || [];
+            this.fases = dados.fases || [];
+          } else {
+            this.error = (await l.json()).error ?? 'Erro ao carregar os exames.';
+          }
+          <% if (user.permissions.has('odonto.exams.manage')) { %>
+          if (!this.profissionais.length) {
+            const pr = await fetch('/api/odonto/professionals?active=true');
+            if (pr.ok) this.profissionais = await pr.json();
+          }
+          <% } %>
+        },
+
+        async carregarVinculos() {
+          const [a, pl] = await Promise.all([
+            fetch(`/api/odonto/appointments?view=todos&patient_id=${patientId}`),
+            fetch(`/api/odonto/patients/${patientId}/treatment-plans`),
+          ]);
+          if (a.ok) {
+            const dados = await a.json();
+            this.atendimentos = (dados.items || []).filter((x) => x.status !== 'cancelado');
+          }
+          if (pl.ok) this.planos = (await pl.json()).items || [];
+        },
+
+        async novo() {
+          this.dlgError = '';
+          this.previa = '';
+          this.form = {
+            id: null, type: 'radiografia', phase: '', exam_date: hoje(), tooth: '',
+            title: '', description: '', professional_id: '', appointment_id: '', plan_id: '',
+            file_base64: '', file_name: '', file_mime: '',
+          };
+          await this.carregarVinculos();
+          this.$refs.dlg.showModal();
+        },
+
+        async editar(e) {
+          this.dlgError = '';
+          this.previa = '';
+          this.form = {
+            id: e.id, type: e.type, phase: e.phase || '', exam_date: e.exam_date, tooth: e.tooth || '',
+            title: e.title, description: e.description || '', professional_id: e.professional_id || '',
+            appointment_id: e.appointment_id || '', plan_id: e.plan_id || '',
+            file_base64: '', file_name: '', file_mime: '',
+          };
+          await this.carregarVinculos();
+          this.$refs.dlg.showModal();
+        },
+
+        escolherArquivo(ev) {
+          const arquivo = ev.target.files && ev.target.files[0];
+          if (!arquivo) return;
+          if (arquivo.size > 12 * 1024 * 1024) {
+            this.dlgError = 'Arquivo maior que 12MB.';
+            ev.target.value = '';
+            return;
+          }
+          const leitor = new FileReader();
+          leitor.onload = () => {
+            const texto = String(leitor.result || '');
+            this.form.file_base64 = texto.replace(/^data:[^;]+;base64,/, '');
+            this.form.file_name = arquivo.name;
+            this.form.file_mime = arquivo.type;
+            this.previa = /^image\//.test(arquivo.type) ? texto : '';
+            this.dlgError = '';
+          };
+          leitor.readAsDataURL(arquivo);
+        },
+
+        async salvar() {
+          if (!this.form.title || !this.form.title.trim()) {
+            this.dlgError = 'Dê um título ao exame.';
+            return;
+          }
+          if (!this.form.id && !this.form.file_base64) {
+            this.dlgError = 'Escolha o arquivo do exame.';
+            return;
+          }
+          this.salvando = true;
+          this.dlgError = '';
+          const corpo = {
+            type: this.form.type,
+            phase: this.form.type === 'fotografia' ? (this.form.phase || null) : null,
+            exam_date: this.form.exam_date || null,
+            tooth: this.form.tooth || null,
+            title: this.form.title,
+            description: this.form.description || null,
+            professional_id: this.form.professional_id ? Number(this.form.professional_id) : null,
+            appointment_id: this.form.appointment_id ? Number(this.form.appointment_id) : null,
+            plan_id: this.form.plan_id ? Number(this.form.plan_id) : null,
+            ...(this.form.file_base64
+              ? { file_base64: this.form.file_base64, file_name: this.form.file_name, file_mime: this.form.file_mime }
+              : {}),
+          };
+          try {
+            const r = await fetch(
+              this.form.id
+                ? '/api/odonto/exams/' + this.form.id
+                : `/api/odonto/patients/${patientId}/exams`,
+              { method: this.form.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) },
+            );
+            if (r.ok) {
+              this.$refs.dlg.close();
+              showToast(this.form.id ? 'Exame atualizado.' : 'Exame anexado.', 'success');
+              await this.load();
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao salvar o exame.';
+            }
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        async apagar(e) {
+          const ok = await window.confirmDlg(`Excluir "${e.title}"? O arquivo é removido do computador da clínica.`);
+          if (!ok) return;
+          const r = await fetch('/api/odonto/exams/' + e.id, { method: 'DELETE' });
+          if (r.ok) { showToast('Exame excluído.', 'success'); await this.load(); }
+          else this.error = (await r.json()).error ?? 'Erro ao excluir.';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

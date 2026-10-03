@@ -295,6 +295,10 @@
     "description": "Testes: documentos e modelos com variáveis do Kivo Odonto",
     "run": "node scripts/test-isolated.js src/tests/odonto-documentos.ts"
   },
+  "test:odonto-exames": {
+    "description": "Testes: exames e imagens do Kivo Odonto (arquivo no disco, fases e permissões)",
+    "run": "node scripts/test-isolated.js src/tests/odonto-exames.ts"
+  },
   "test:home-cards": {
     "description": "Testes: ordem dos cards da tela inicial (preferência da empresa, vale em qualquer navegador)",
     "run": "node scripts/test-isolated.js src/tests/home-cards.ts"

@@ -2,13 +2,13 @@ import { Router, type Response } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
 import {
-  createAnamnesisTemplateSchema, createAppointmentSchema, createDocumentSchema, createPatientSchema,
-  createPlanSchema, createProcedureSchema, createProfessionalSchema, appointmentStatusSchema,
-  cancelDocumentSchema, chargePlanSchema, clinicalNoteSchema, documentTemplateSchema,
-  issueDocumentSchema, itemStatusSchema, planStatusSchema, retifyClinicalNoteSchema,
-  saveAnamnesisSchema, toothConditionSchema, toothStateSchema, undoToothStateSchema,
-  updateAppointmentSchema, updateDocumentSchema, updatePatientSchema, updatePlanSchema,
-  updateProcedureSchema, updateProfessionalSchema,
+  createAnamnesisTemplateSchema, createAppointmentSchema, createDocumentSchema, createExamSchema,
+  createPatientSchema, createPlanSchema, createProcedureSchema, createProfessionalSchema,
+  appointmentStatusSchema, cancelDocumentSchema, chargePlanSchema, clinicalNoteSchema,
+  documentTemplateSchema, issueDocumentSchema, itemStatusSchema, planStatusSchema,
+  retifyClinicalNoteSchema, saveAnamnesisSchema, toothConditionSchema, toothStateSchema,
+  undoToothStateSchema, updateAppointmentSchema, updateDocumentSchema, updateExamSchema,
+  updatePatientSchema, updatePlanSchema, updateProcedureSchema, updateProfessionalSchema,
 } from './schemas';
 import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
 import {
@@ -33,6 +33,7 @@ import {
   updateTemplate as updateDocumentTemplate,
 } from './documents';
 import { dashboard, report, reportCsv, REPORT_TYPES } from './reports';
+import { createExam, getExam, listExams, removeExam, updateExam } from './exams';
 import {
   createTemplateVersion, getForm, getPatientAnamnesis, getTemplate, listTemplates, savePatientAnamnesis,
 } from './anamnesis';
@@ -378,6 +379,33 @@ router.get('/reports/:tipo/csv', requirePermission('odonto.reports.view'), (req,
   res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
   // BOM: o Excel no Windows abre o CSV com acento correto só com ele.
   res.send('\uFEFF' + reportCsv(resultado.data));
+});
+
+// ─────────────── Exames e imagens (PR §16 e §17) ───────────────
+
+router.get('/patients/:id/exams', requirePermission('odonto.exams.view'), (req, res) => {
+  send(res, listExams(req, Number(req.params.id), {
+    type: req.query.type ? String(req.query.type) : undefined,
+    phase: req.query.phase ? String(req.query.phase) : undefined,
+    from: req.query.from ? String(req.query.from) : undefined,
+    to: req.query.to ? String(req.query.to) : undefined,
+  }));
+});
+
+router.post('/patients/:id/exams', requirePermission('odonto.exams.manage'), validateBody(createExamSchema), (req, res) => {
+  send(res, createExam(req, Number(req.params.id), req.body), 201);
+});
+
+router.get('/exams/:id', requirePermission('odonto.exams.view'), (req, res) => {
+  send(res, getExam(req, Number(req.params.id)));
+});
+
+router.put('/exams/:id', requirePermission('odonto.exams.manage'), validateBody(updateExamSchema), (req, res) => {
+  send(res, updateExam(req, Number(req.params.id), req.body));
+});
+
+router.delete('/exams/:id', requirePermission('odonto.exams.manage'), (req, res) => {
+  send(res, removeExam(req, Number(req.params.id)));
 });
 
 export default router;

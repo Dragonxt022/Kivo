@@ -92,6 +92,7 @@ const PAGINAS = [
   '/app/odonto/modelos-documentos',
   '/app/odonto/documentos/1/imprimir',
   '/app/odonto/painel',
+  '/app/odonto/pacientes/1/exames',
   '/app/odonto/anamnese-modelos',
   '/app/odonto/profissionais',
   '/app/odonto/procedimentos',

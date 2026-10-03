@@ -69,6 +69,9 @@ router.get('/pacientes/:id/odontograma', (req, res) => {
 // é `odonto.plans.view` (o plano mostra procedimentos e valores, não o texto clínico).
 router.get('/pacientes/:id/planos', page2('odonto-planos', 'odonto.plans.view', { patientId: true }));
 
+// Exames e imagens do paciente (PR §16 e §17): radiografia, tomografia, fotografia clínica.
+router.get('/pacientes/:id/exames', page2('odonto-exames', 'odonto.exams.view', { patientId: true }));
+
 // Painel e relatórios do consultório (fase 9, PR §21).
 router.get('/painel', page('odonto-painel', 'odonto.reports.view'));
 
