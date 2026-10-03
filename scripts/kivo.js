@@ -97,6 +97,7 @@ function listCommands() {
       'test:odonto-odontograma',
       'test:odonto-planos',
       'test:alpine-expressoes',
+      'test:odonto-interface',
       'test:odonto-documentos',
       'test:odonto-painel',
       'test:billing-gateway',

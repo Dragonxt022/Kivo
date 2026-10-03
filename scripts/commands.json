@@ -295,6 +295,10 @@
     "description": "Testes: documentos e modelos com variáveis do Kivo Odonto",
     "run": "node scripts/test-isolated.js src/tests/odonto-documentos.ts"
   },
+  "test:odonto-interface": {
+    "description": "Testes: interface do Kivo Odonto (campos com estilo, subtítulos, vazios e tutorial)",
+    "run": "node scripts/test-isolated.js src/tests/odonto-interface.ts"
+  },
   "test:alpine-expressoes": {
     "description": "Testes: expressões Alpine das views (pega atributo quebrado que só apareceria no navegador)",
     "run": "node scripts/test-isolated.js src/tests/alpine-expressoes.ts"
