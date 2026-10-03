@@ -82,7 +82,7 @@ check('os estilos trazem a caixa de vazio', ui.includes('.odonto-vazio'));
 check('o tutorial usa o motor do PDV/estoque', tour.includes('/js/tour.js'));
 check('o tutorial roda sozinho na primeira entrada', /KivoTour\.autoStart\('kivo-tour-odonto-v1'/.test(tour));
 check('o tutorial pode ser revisto depois', /startOdontoTour/.test(tour) && /Rever tutorial/.test(tour));
-const blocoPassos = /var PASSOS = \[([\s\S]*?)\n    \];/.exec(tour)?.[1] ?? '';
+const blocoPassos = /var PASSOS = \[([\s\S]*?)\n {4}\];/.exec(tour)?.[1] ?? '';
 const passos = [...blocoPassos.matchAll(/title: '([^']+)'/g)].map((m) => m[1]);
 check('o tutorial explica o fluxo inteiro', passos.length >= 10, `${passos.length} passos: ${passos.slice(0, 3).join(' / ')}...`);
 check('todo passo tem texto', (blocoPassos.match(/body:/g) ?? []).length === passos.length);
@@ -109,6 +109,25 @@ check('os três módulos dizem o que celebrar',
   conteudo.get('odonto-patients.ejs')!.includes("include('partials/odonto-tour')") || tour.includes('CELEBRACAO'));
 const celebraram = [motor, tour].join(' ');
 check('a celebração tem texto próprio', celebraram.includes('Consultório pronto') || tour.includes('CELEBRACAO'));
+
+// ─────────────────────── Classe usada na tela TEM de existir no CSS ───────────────────────
+// Foi assim que os botões Dia/Semana/Mês da agenda saíram sem estilo: a view usava `.chip` e a
+// classe não existia em lugar nenhum. O CSS do sistema vive no app.css; o do módulo, no partial.
+const cssSistema = readFileSync(path.resolve(RAIZ_PUBLIC, 'css', 'app.css'), 'utf8') + '\n' + ui;
+for (const classe of ['chip', 'filter-chips', 'page-subtitle', 'odonto-vazio']) {
+  check(`a classe .${classe} existe no CSS`, new RegExp(`\\.${classe}\\b`).test(cssSistema));
+}
+// Toda classe `chip`/`filter-chips` usada nas telas do módulo precisa estar no CSS.
+const classesUsadas = new Set<string>();
+for (const f of telas) {
+  for (const m of conteudo.get(f)!.matchAll(/class="([^"]*)"/g)) {
+    m[1].split(/\s+/).forEach((c) => {
+      if (c && !c.includes('<') && (c === 'chip' || c === 'filter-chips')) classesUsadas.add(c);
+    });
+  }
+}
+const classesSemCss = [...classesUsadas].filter((c) => !new RegExp(`\\.${c}\\b`).test(cssSistema));
+check('nenhuma classe de botão em pílula usada sem CSS', classesSemCss.length === 0, classesSemCss.join(', '));
 
 console.log(failures === 0
   ? `\nInterface do odonto: TODOS OS TESTES PASSARAM (${telas.length} telas, ${passos.length} passos de tutorial)`

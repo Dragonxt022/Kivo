@@ -6371,3 +6371,37 @@ button.icon-pack-card:disabled {
 [data-motion='leve'] .kivo-tour-mask::before { animation: none; }
 [data-motion='leve'] .kivo-tour-pop--in,
 [data-motion='leve'] .kivo-tour-final { animation: none; }
+
+/* ═══ Botões de alternância em "pílula" (chips) ══════════════════════════════════════════════
+   Usados para escolher uma visão entre poucas (Dia / Semana / Mês na agenda). A classe `.chip`
+   era usada nas telas mas NÃO existia no CSS — os botões saíam sem estilo nenhum, do jeito que o
+   navegador desenha. Agora é componente do sistema, como `.btn`. */
+.filter-chips {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border-light);
+}
+.chip {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.chip:hover { color: var(--text); }
+.chip.active {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: var(--border-light);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* Sem o contêiner (uso solto), os chips ficam lado a lado com um respiro. */
+.chip + .chip { margin-left: 4px; }
