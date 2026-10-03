@@ -55,7 +55,7 @@
             <td>
               <span x-text="b.description"></span>
               <span class="badge neutral" x-show="b.installment_count > 1" style="margin-left:.4rem" x-text="b.installment_no + '/' + b.installment_count"></span>
-              <a class="badge neutral" x-show="b.attachment_name" :href="api + '/' + b.id + '/attachment"
+              <a class="badge neutral" x-show="b.attachment_name" :href="api + '/' + b.id + '/attachment'"
                  :title="'Baixar documento: ' + b.attachment_name" style="margin-left:.4rem; text-decoration:none">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 anexo
@@ -79,7 +79,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Detalhes
                   </button>
-                  <a x-show="b.attachment_name" :href="api + '/' + b.id + '/attachment" @click="openMenu = null"
+                  <a x-show="b.attachment_name" :href="api + '/' + b.id + '/attachment'" @click="openMenu = null"
                      :title="'Baixar documento: ' + b.attachment_name">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Baixar anexo
@@ -198,7 +198,7 @@
             <div style="display:flex; align-items:center; gap:.5rem; flex-wrap:wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               <span x-text="details.attachment_name" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap"></span>
-              <a class="btn secondary small" :href="api + '/' + details.id + '/attachment">
+              <a class="btn secondary small" :href="api + '/' + details.id + '/attachment'">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Baixar
               </a>
@@ -295,6 +295,10 @@
         ...tableToolkit(),
         ...paymentMethodsMixin(),
         ...cashRegisterInlineOpenMixin(),
+        // `api` PRECISA estar no objeto: as linhas usam `:href="api + '/' + b.id + '/attachment'"`
+        // e a fábrica o recebia só como parâmetro — o link de anexo quebrava com "api is not
+        // defined" a cada linha da tabela.
+        api,
         rows: [], categories: [], form: {}, error: '', dlgError: '', filter: {},
         fromDate: '', toDate: '',
         details: {},

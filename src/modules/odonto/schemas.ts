@@ -172,3 +172,45 @@ export const toothConditionSchema = z.object({
   sort_order: z.number().int().min(0).max(9999).optional(),
   active: z.union([z.boolean(), z.number().int()]).optional(),
 });
+
+// ─────────────────── Plano de tratamento (PR §11 e §12) ───────────────────
+
+const itemStatus = z.enum(['planejado', 'aprovado', 'em_andamento', 'concluido', 'cancelado']);
+const planStatus = z.enum(['planejado', 'apresentado', 'aprovado', 'em_andamento', 'concluido', 'cancelado']);
+
+export const planItemSchema = z.object({
+  /** Presente quando o item já existe (a edição manda a lista completa). */
+  id: z.number().int().positive().optional(),
+  procedure_id: z.number().int().positive().nullable().optional(),
+  tooth: optionalText(2),
+  description: z.string().min(1).max(200),
+  amount_cents: z.number().int().min(0).max(100000000).optional(),
+  quantity: z.number().int().min(1).max(999).optional(),
+  professional_id: z.number().int().positive().nullable().optional(),
+  status: itemStatus.optional(),
+  sort_order: z.number().int().min(0).max(9999).optional(),
+  notes: optionalText(500),
+});
+
+export const createPlanSchema = z.object({
+  title: optionalText(120),
+  notes: optionalText(1000),
+  professional_id: z.number().int().positive().nullable().optional(),
+  items: z.array(planItemSchema).min(1).max(100),
+});
+
+export const updatePlanSchema = z.object({
+  title: optionalText(120),
+  notes: optionalText(1000),
+  professional_id: z.number().int().positive().nullable().optional(),
+  items: z.array(planItemSchema).max(100).optional(),
+});
+
+export const planStatusSchema = z.object({ status: planStatus, motivo: optionalText(300) });
+export const itemStatusSchema = z.object({ status: itemStatus });
+
+/** Cobrança do plano: parcelamento e primeiro vencimento (o valor vem do plano). */
+export const chargePlanSchema = z.object({
+  installments: z.number().int().min(1).max(36).optional(),
+  first_due_date: optionalText(10),
+});

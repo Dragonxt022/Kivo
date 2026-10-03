@@ -156,19 +156,16 @@
               </template>
             </select>
 
-            <div class="pm-grid">
-              <div class="pm-field">
-                <label>Registrar como</label>
-                <select x-model="form.kind">
-                  <option value="situacao">Situação do dente</option>
-                  <option value="planejado">Tratamento planejado</option>
-                </select>
-              </div>
-              <div class="pm-field">
-                <label>Data e hora do exame</label>
-                <input type="datetime-local" x-model="form.recorded_at" />
-              </div>
+            <div class="pm-field">
+              <label>Data e hora do exame</label>
+              <input type="datetime-local" x-model="form.recorded_at" />
             </div>
+          </div>
+          <p class="muted text-xs" style="margin-top:-.3rem">
+            Aqui se registra a <strong>situação</strong> do dente/face. Tratamento previsto é no
+            <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">plano de tratamento</a>
+            (com valor e aprovação) — o "P" do desenho vem de lá.
+          </p>
 
             <label>Profissional</label>
             <select x-model="form.professional_id">
@@ -203,6 +200,18 @@
               </div>
             </template>
             <p class="muted text-xs" x-show="!historico.length">Nada registrado neste dente ainda.</p>
+
+            <h3 style="font-size:.9rem">Tratamento planejado (do plano)</h3>
+            <template x-for="(p, i) in planejadosDoDente()" :key="i">
+              <div class="painel-linha">
+                <span x-text="p.description + ' · ' + p.status"></span>
+                <span class="muted text-xs" x-text="'plano #' + p.plan_id"></span>
+              </div>
+            </template>
+            <p class="muted text-xs" x-show="!planejadosDoDente().length">
+              Nada previsto para este dente.
+              <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Abrir planos</a>
+            </p>
 
             <h3 style="font-size:.9rem">Tratamentos realizados (do prontuário)</h3>
             <template x-for="p in procedimentos" :key="p.id">
@@ -288,6 +297,8 @@
         conditions: [],
         todasCondicoes: [],
         states: [],
+        /** Planejado vem do PLANO de tratamento (fase 6) — não há dois lugares dizendo o previsto. */
+        planned: [],
         current: {},
         resumo: { dentes_com_situacao: 0, planejados: 0, registros: 0 },
         profissionais: [],
@@ -312,6 +323,7 @@
             const data = await o.json();
             this.conditions = data.conditions || [];
             this.states = data.states || [];
+            this.planned = data.planned || [];
             this.current = data.current || {};
             this.resumo = data.resumo || this.resumo;
           } else {
@@ -329,20 +341,24 @@
         /** Sigla desenhada dentro do dente (situação do dente inteiro, quando houver). */
         sigla(t) {
           const st = this.current[t];
-          if (!st) return '';
-          const planejado = this.mostrarPlanejados && st.planned && st.planned.length;
-          if (st.whole && !st.whole.is_neutral) return st.whole.condition_name.slice(0, 3).toUpperCase();
+          const planejado = this.mostrarPlanejados && this.planned.some((p) => p.tooth === t);
+          if (st && st.whole && !st.whole.is_neutral) return st.whole.condition_name.slice(0, 3).toUpperCase();
           return planejado ? 'P' : '';
         },
         /** Cor da face: a situação da própria face ou, na falta, a do dente inteiro. */
         cor(t, s) {
           const st = this.current[t];
-          if (!st) return '#ffffff';
+          const planejado = this.mostrarPlanejados && this.planned.some((p) => p.tooth === t);
+          if (!st) return planejado ? '#f3f4f6' : '#ffffff';
           const face = st.surfaces ? st.surfaces[s] : null;
           if (face) return face.is_neutral ? '#ffffff' : face.condition_color;
           if (st.whole && !st.whole.is_neutral) return st.whole.condition_color;
-          if (this.mostrarPlanejados && st.planned && st.planned.length) return '#f3f4f6';
-          return '#ffffff';
+          return planejado ? '#f3f4f6' : '#ffffff';
+        },
+
+        /** Tratamentos previstos para o dente selecionado (do plano de tratamento). */
+        planejadosDoDente() {
+          return this.planned.filter((p) => p.tooth === this.selecionado.tooth);
         },
 
         nomeSuperficie(s) { return NOMES[s] || s; },

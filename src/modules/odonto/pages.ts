@@ -32,6 +32,15 @@ function page(view: string, permission: string) {
   };
 }
 
+/** Como `page`, mas para telas de paciente: injeta o `patientId` da rota. */
+function page2(view: string, permission: string, extra: { patientId?: boolean } = {}) {
+  return (req: Request, res: Response) => {
+    assertAuth(req);
+    if (!req.user.permissions.has(permission)) return res.redirect('/');
+    res.render(view, locals(req, extra.patientId ? { patientId: Number(req.params.id) } : {}));
+  };
+}
+
 router.get('/agenda', page('odonto-agenda', 'odonto.agenda.view'));
 
 router.get('/pacientes', page('odonto-patients', 'odonto.patients.view'));
@@ -55,6 +64,10 @@ router.get('/pacientes/:id/odontograma', (req, res) => {
   if (!canViewClinical(req)) return res.redirect('/');
   res.render('odonto-odontograma', locals(req, { patientId: Number(req.params.id) }));
 });
+
+// Planos de tratamento: a Recepção cobra, então a página não exige permissão clínica — o gate
+// é `odonto.plans.view` (o plano mostra procedimentos e valores, não o texto clínico).
+router.get('/pacientes/:id/planos', page2('odonto-planos', 'odonto.plans.view', { patientId: true }));
 
 router.get('/profissionais', page('odonto-professionals', 'odonto.professionals.view'));
 router.get('/procedimentos', page('odonto-procedures', 'odonto.procedures.view'));

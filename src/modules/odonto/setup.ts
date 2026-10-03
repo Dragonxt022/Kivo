@@ -5,6 +5,7 @@ import { ensureDefaultTemplate, odontoAnamnesisService, type OdontoAnamnesisServ
 import { odontoAgendaService, type OdontoAgendaService } from './appointments';
 import { odontoRecordsService, type OdontoRecordsService } from './clinicalNotes';
 import { ensureDefaultConditions, odontoOdontogramService, type OdontoOdontogramService } from './odontogram';
+import { odontoPlansService, type OdontoPlansService } from './treatmentPlans';
 
 /**
  * Setup do módulo odonto — roda no boot, depois das migrations e antes de qualquer
@@ -18,6 +19,7 @@ export default function setup(): void {
   registerService('odonto.agenda', odontoAgendaService satisfies OdontoAgendaService);
   registerService('odonto.records', odontoRecordsService satisfies OdontoRecordsService);
   registerService('odonto.odontogram', odontoOdontogramService satisfies OdontoOdontogramService);
+  registerService('odonto.plans', odontoPlansService satisfies OdontoPlansService);
   // Formulário padrão da anamnese: sem ele o consultório não teria por onde começar a
   // responder. Só cria se não existir NENHUM formulário (não mexe no que o usuário montou).
   ensureDefaultTemplate();

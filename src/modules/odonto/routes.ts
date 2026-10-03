@@ -2,10 +2,12 @@ import { Router, type Response } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
 import {
-  createAnamnesisTemplateSchema, createAppointmentSchema, createPatientSchema, createProcedureSchema,
-  createProfessionalSchema, appointmentStatusSchema, clinicalNoteSchema, retifyClinicalNoteSchema,
-  saveAnamnesisSchema, toothConditionSchema, toothStateSchema, undoToothStateSchema, updateAppointmentSchema,
-  updatePatientSchema, updateProcedureSchema, updateProfessionalSchema,
+  createAnamnesisTemplateSchema, createAppointmentSchema, createPatientSchema, createPlanSchema,
+  createProcedureSchema, createProfessionalSchema, appointmentStatusSchema, chargePlanSchema,
+  clinicalNoteSchema, itemStatusSchema, planStatusSchema, retifyClinicalNoteSchema,
+  saveAnamnesisSchema, toothConditionSchema, toothStateSchema, undoToothStateSchema,
+  updateAppointmentSchema, updatePatientSchema, updatePlanSchema, updateProcedureSchema,
+  updateProfessionalSchema,
 } from './schemas';
 import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
 import {
@@ -17,6 +19,9 @@ import {
   createCondition, getOdontogram, getTooth, listConditions, removeCondition, setToothState,
   undoToothState, updateCondition,
 } from './odontogram';
+import {
+  changeItemStatus, changePlanStatus, chargePlan, createPlan, getPlan, listPlans, removePlan, updatePlan,
+} from './treatmentPlans';
 import {
   createTemplateVersion, getForm, getPatientAnamnesis, getTemplate, listTemplates, savePatientAnamnesis,
 } from './anamnesis';
@@ -243,6 +248,41 @@ router.post('/patients/:id/odontogram', requirePermission('odonto.clinical.edit'
 
 router.post('/odontogram/:stateId/undo', requirePermission('odonto.clinical.edit'), validateBody(undoToothStateSchema), (req, res) => {
   send(res, undoToothState(req, Number(req.params.stateId), req.body.motivo));
+});
+
+// ─────────────── Plano de tratamento e cobrança (PR §11 e §12) ───────────────
+
+router.get('/patients/:id/treatment-plans', requirePermission('odonto.plans.view'), (req, res) => {
+  send(res, listPlans(req, Number(req.params.id)));
+});
+
+router.post('/patients/:id/treatment-plans', requirePermission('odonto.plans.manage'), validateBody(createPlanSchema), (req, res) => {
+  send(res, createPlan(req, Number(req.params.id), req.body), 201);
+});
+
+router.get('/plans/:id', requirePermission('odonto.plans.view'), (req, res) => {
+  send(res, getPlan(req, Number(req.params.id)));
+});
+
+router.put('/plans/:id', requirePermission('odonto.plans.manage'), validateBody(updatePlanSchema), (req, res) => {
+  send(res, updatePlan(req, Number(req.params.id), req.body));
+});
+
+router.post('/plans/:id/status', requirePermission('odonto.plans.manage'), validateBody(planStatusSchema), (req, res) => {
+  send(res, changePlanStatus(req, Number(req.params.id), req.body.status, req.body.motivo));
+});
+
+router.post('/plans/:id/items/:itemId/status', requirePermission('odonto.plans.manage'), validateBody(itemStatusSchema), (req, res) => {
+  send(res, changeItemStatus(req, Number(req.params.id), Number(req.params.itemId), req.body.status));
+});
+
+router.delete('/plans/:id', requirePermission('odonto.plans.manage'), (req, res) => {
+  send(res, removePlan(req, Number(req.params.id)));
+});
+
+// A cobrança NÃO mora aqui: o serviço cria contas a receber no financeiro do Kivo (PR §12).
+router.post('/plans/:id/charge', requirePermission('odonto.plans.charge'), validateBody(chargePlanSchema), (req, res) => {
+  send(res, chargePlan(req, Number(req.params.id), req.body), 201);
 });
 
 export default router;

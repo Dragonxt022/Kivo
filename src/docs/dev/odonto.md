@@ -34,6 +34,53 @@ A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
 5. **CRO e código de procedimento não se repetem** entre registros ativos.
 6. **UF do CRO** é normalizada para maiúsculas e 2 caracteres.
 
+## Plano de tratamento e cobrança no financeiro (PR §11 e §12)
+
+O plano (migration `0083`) tem itens com **procedimento, dente (FDI), descrição, valor unitário,
+quantidade, profissional e situação própria**; o total é `valor × quantidade` somado. Situações
+do plano: planejado → apresentado → aprovado → em andamento → concluído, com cancelado saindo de
+qualquer uma (e podendo ser reaberto como planejado). Aprovar o plano aprova os itens; concluir
+conclui os itens — assim nenhum item fica para trás.
+
+**A PR §12 proíbe financeiro paralelo** ("não criar um segundo financeiro específico para
+odontologia"). Então o módulo não tem tabela de cobrança: ao cobrar um plano aprovado, ele chama
+o serviço publicado pelo módulo financeiro —
+
+```ts
+getService<FinanceReceivablesService>('finance.receivables').create({
+  description: `Plano de tratamento #${id} (parcela 1/3)`,
+  amountCents, dueDate, customerId, installmentNo, installmentCount,
+});
+```
+
+— uma conta a receber por parcela, do **cliente que ancora o paciente**, com `installment_no` /
+`installment_count` (é o que faz a parcela aparecer na tela "Contas a receber" e no extrato do
+cliente). O Odonto guarda só `charged_at`, `installments` e `first_due_date`, para a MESMA
+cobrança não sair duas vezes: plano cobrado não tem mais itens editáveis nem pode ser apagado —
+o caminho é cancelar (as contas já geradas continuam no Financeiro).
+
+Vencimentos: mensais a partir do primeiro, mantendo o dia (dia 31 cai no fim do mês: 31/01 →
+28/02 → 31/03). A divisão é feita em centavos, com o resto na última parcela, para a soma fechar
+exatamente o total. Se o módulo Financeiro não estiver ligado na empresa, a parte clínica
+funciona e só a cobrança é recusada, com a explicação.
+
+Permissões: `odonto.plans.view` (Dentista, Recepção e Auxiliar — a Recepção cobra),
+`odonto.plans.manage` (Dentista) e `odonto.plans.charge` (Dentista e Recepção).
+
+| Método | Rota | Permissão |
+| --- | --- | --- |
+| GET | `/patients/:id/treatment-plans` | `odonto.plans.view` |
+| POST | `/patients/:id/treatment-plans` | `odonto.plans.manage` |
+| GET | `/plans/:id` | `odonto.plans.view` |
+| PUT | `/plans/:id` (lista de itens completa) | `odonto.plans.manage` |
+| POST | `/plans/:id/status` · `/plans/:id/items/:itemId/status` | `odonto.plans.manage` |
+| DELETE | `/plans/:id` (só plano não cobrado e sem item concluído) | `odonto.plans.manage` |
+| POST | `/plans/:id/charge` | `odonto.plans.charge` |
+
+Página: `/app/odonto/pacientes/:id/planos`. O **odontograma não duplica** o planejamento: o "P"
+no dente e a lista "Tratamento planejado" vêm do plano (`plannedByTooth`), e a tela do
+odontograma só registra situação (a antiga opção "tratamento planejado" saiu do formulário).
+
 ## Odontograma e situações odontológicas (PR §9 e §10)
 
 Mapa dos dentes na numeração **FDI** (18–11 | 21–28 / 48–41 | 31–38), com cinco faces por dente:
@@ -252,11 +299,12 @@ do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
 ## Próximas fases (roadmap da PR)
 
-Plano de tratamento + cobrança (6), documentos com variáveis (7), exames e imagens (8) e
-refinamento (9). As capabilities de cada recurso entram junto com a tela — não antes.
+Documentos com variáveis (7), exames e imagens (8) e refinamento (9). As capabilities de cada
+recurso entram junto com a tela — não antes.
 
 Concluído: fundação (1), pacientes + anamnese (2), agenda (3), prontuário/evolução com
-retificação versionada (4) e odontograma + situações (5).
+retificação versionada (4), odontograma + situações (5) e plano de tratamento + cobrança no
+financeiro (6).
 
 ## Arquivos-chave
 
