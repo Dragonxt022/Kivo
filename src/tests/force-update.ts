@@ -4,12 +4,21 @@
  * Usa um driver falso, então não depende do Electron nem de rede.
  */
 import { applyCommand } from '../core/sync/commands';
+import { migrateUp } from '../core/database/migrator';
+import { runSeeds } from '../core/database/seeds';
+import { resetTestDb } from './resetTestDb';
 import {
   getUpdateState,
   patchUpdateState,
   registrarUpdaterDriver,
   forcarAtualizacaoSilenciosa,
 } from '../core/updater';
+
+// O updater lê preferência em `settings` já na carga do módulo: sem migrar, o teste unitário
+// quebrava só quando rodava isolado (no runner completo o banco já vinha migrado).
+resetTestDb();
+migrateUp();
+runSeeds();
 
 let failures = 0;
 function check(label: string, ok: boolean, extra = '') {
