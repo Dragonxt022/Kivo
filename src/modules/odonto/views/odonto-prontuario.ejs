@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     /* Mapa de seções do prontuário (PR §7): o que existe hoje e o que vem em cada fase. */
@@ -31,11 +32,11 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="prontuarioPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>, <%= canRetify ? 'true' : 'false' %>)" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="prontuarioPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>, <%= canRetify ? 'true' : 'false' %>)" x-init="load()">
     <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
     <h1>Prontuário <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
 
-    <div class="secoes">
+    <div class="secoes" id="tour-odonto-secoes">
       <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
       <a class="atual" href="#">Prontuário</a>
@@ -47,7 +48,7 @@
       <span class="planejado">Financeiro</span>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <% if (canEditClinical) { %>
         <button class="btn" @click="nova()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -59,11 +60,12 @@
       <span class="error" x-text="error"></span>
     </div>
 
-    <p class="muted text-xs" style="margin-top:-.4rem">
+    <p class="page-subtitle">
       Registro clínico <strong>não é apagado</strong>: para corrigir, use a retificação — o texto
       anterior fica no histórico com o motivo, quem corrigiu e quando.
     </p>
 
+    <div id="tour-odonto-prontuario"></div>
     <template x-for="n in notes" :key="n.id">
       <div class="evolucao" :class="{ retificada: n.status === 'retificado' }">
         <h3 x-text="fmtDateTimeLocal(n.happened_at) + (n.title ? ' · ' + n.title : '')"></h3>
@@ -116,10 +118,10 @@
         </p>
 
         <div class="pm-grid">
-          <div class="pm-field"><label>Data e hora do atendimento</label><input type="datetime-local" x-model="form.happened_at" /></div>
+          <div class="pm-field"><label>Data e hora do atendimento</label><input class="input" type="datetime-local" x-model="form.happened_at" /></div>
           <div class="pm-field">
             <label>Profissional responsável</label>
-            <select x-model="form.professional_id">
+            <select class="input" x-model="form.professional_id">
               <option value="">—</option>
               <template x-for="p in profissionais" :key="p.id">
                 <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
@@ -131,45 +133,45 @@
         <div class="pm-grid">
           <div class="pm-field">
             <label>Consulta (opcional)</label>
-            <select x-model="form.appointment_id">
+            <select class="input" x-model="form.appointment_id">
               <option value="">—</option>
               <template x-for="a in atendimentos" :key="a.id">
                 <option :value="a.id" x-text="fmtDateTimeLocal(a.starts_at) + ' · ' + a.professional_name"></option>
               </template>
             </select>
           </div>
-          <div class="pm-field"><label>Assunto</label><input type="text" x-model="form.title" maxlength="120" placeholder="Ex.: Restauração dente 26" /></div>
+          <div class="pm-field"><label>Assunto</label><input class="input" type="text" x-model="form.title" maxlength="120" placeholder="Ex.: Restauração dente 26" /></div>
         </div>
 
         <label>Procedimentos realizados</label>
         <template x-for="(p, i) in form.procedures" :key="i">
           <div class="proc-linha">
-            <select x-model="p.procedure_id">
+            <select class="input" x-model="p.procedure_id">
               <option value="">Escolha…</option>
               <template x-for="proc in procedimentos" :key="proc.id">
                 <option :value="proc.id" x-text="proc.name"></option>
               </template>
             </select>
-            <input type="text" x-model="p.tooth" placeholder="dente" maxlength="8" />
-            <input type="text" x-model="p.note" placeholder="observação do procedimento" maxlength="300" />
+            <input class="input" type="text" x-model="p.tooth" placeholder="dente" maxlength="8" />
+            <input class="input" type="text" x-model="p.note" placeholder="observação do procedimento" maxlength="300" />
             <button class="btn secondary small danger" @click.prevent="form.procedures.splice(i, 1)">×</button>
           </div>
         </template>
         <button class="btn secondary small" @click.prevent="form.procedures.push({ procedure_id: '', tooth: '', note: '' })">+ Procedimento</button>
 
         <label>Observações do atendimento</label>
-        <textarea x-model="form.observations" rows="3" placeholder="O que foi feito, como o paciente respondeu…"></textarea>
+        <textarea class="input" x-model="form.observations" rows="3" placeholder="O que foi feito, como o paciente respondeu…"></textarea>
         <div class="pm-grid">
-          <div class="pm-field"><label>Diagnóstico</label><textarea x-model="form.diagnosis" rows="2"></textarea></div>
-          <div class="pm-field"><label>Conduta</label><textarea x-model="form.conduct" rows="2"></textarea></div>
+          <div class="pm-field"><label>Diagnóstico</label><textarea class="input" x-model="form.diagnosis" rows="2"></textarea></div>
+          <div class="pm-field"><label>Conduta</label><textarea class="input" x-model="form.conduct" rows="2"></textarea></div>
         </div>
         <label>Próximos passos</label>
-        <textarea x-model="form.next_steps" rows="2" placeholder="Ex.: retorno em 15 dias para controle; aguardar exame…"></textarea>
+        <textarea class="input" x-model="form.next_steps" rows="2" placeholder="Ex.: retorno em 15 dias para controle; aguardar exame…"></textarea>
 
         <template x-if="modo === 'retificar'">
           <div>
             <label>Motivo da retificação *</label>
-            <textarea x-model="form.motivo" rows="2" placeholder="Ex.: troquei o dente no registro (era 36, não 26)."></textarea>
+            <textarea class="input" x-model="form.motivo" rows="2" placeholder="Ex.: troquei o dente no registro (era 36, não 26)."></textarea>
           </div>
         </template>
 
@@ -215,6 +217,8 @@
         <button class="btn secondary" @click="$refs.dlgHist.close()">Fechar</button>
       </div>
     </dialog>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

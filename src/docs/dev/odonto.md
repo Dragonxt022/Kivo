@@ -34,6 +34,35 @@ A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
 5. **CRO e código de procedimento não se repetem** entre registros ativos.
 6. **UF do CRO** é normalizada para maiúsculas e 2 caracteres.
 
+## Interface do módulo: mesmos campos, mesmo respiro, tutorial na primeira entrada
+
+O módulo cresceu em 14 telas escritas em momentos diferentes, e a diferença aparecia para quem
+usa. Três coisas passaram a ser regra, com teste que impede a volta (`odonto-interface.ts`):
+
+1. **Campo é campo em qualquer lugar.** O sistema estiliza `.pm-field input` e a classe `.input`;
+   filtro de barra de ferramentas e linha de item não estão dentro de `.pm-field`, então todo
+   campo solto carrega `class="input"` (119 campos). Checkbox, rádio e seletor de cor ficam
+   **nativos** de propósito — não recebem preenchimento de caixa de texto.
+2. **Título não cola no parágrafo.** O subtítulo de tela é `.page-subtitle` (definido no partial
+   `views/partials/odonto-ui.ejs`, incluído por todas as telas). Acabou a margem negativa que
+   apertava o texto contra o `h1`.
+3. **Nada vazio sem explicação.** Toda tela de lista tem `partials/empty-state` ou a caixa
+   `.odonto-vazio`, que diz o que fazer (e não só "nenhum registro").
+
+**Tutorial** (`views/partials/odonto-tour.ejs`, mesmo motor do PDV e do estoque: `/js/tour.js`):
+12 passos explicando o fluxo inteiro — paciente → anamnese → agenda → evolução → odontograma →
+plano → cobrança → documentos → painel. Roda **uma vez por máquina** (`KivoTour.autoStart` com a
+chave `kivo-tour-odonto-v1`) na primeira tela do módulo que a pessoa abrir, e pode ser revisto no
+botão fixo "Rever tutorial".
+
+Dois detalhes que custaram para acertar e ficam registrados:
+
+- o motor **desiste se o alvo do primeiro passo não existir**, e nem toda tela tem o mapa de
+  seções — por isso o passo de abertura aponta para `<main>` (existe sempre) e a lista é filtrada
+  pelos alvos presentes antes de iniciar;
+- o botão é ligado por `addEventListener`, **nunca por `onclick=`**: o CSP da aplicação
+  (`script-src` com nonce, sem `unsafe-inline`/`unsafe-hashes`) bloqueia handler inline.
+
 ## Documentos e modelos com variáveis (PR §14 e §15)
 
 A §15 pede modelos com variáveis para "não precisar programar cada documento individualmente".

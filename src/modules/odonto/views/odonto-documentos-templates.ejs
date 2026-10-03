@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .modelo { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
@@ -22,14 +23,14 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/modelos-documentos' }) %>
-  <main x-data="modelosPage(<%= user.permissions.has('odonto.documents.templates') ? 'true' : 'false' %>)" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="modelosPage(<%= user.permissions.has('odonto.documents.templates') ? 'true' : 'false' %>)" x-init="load()">
     <h1>Modelos de documentos</h1>
-    <p class="muted text-xs" style="margin-top:-.4rem">
+    <p class="page-subtitle">
       O documento sai do modelo com as variáveis trocadas pelos dados do paciente e do
       profissional. A clínica edita os textos — nada aqui depende de programação.
     </p>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.documents.templates')) { %>
         <button class="btn" @click="novo()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -74,10 +75,10 @@
       <h1 x-text="form.id ? ('Editar modelo #' + form.id) : 'Novo modelo'"></h1>
       <div class="dialog-body">
         <div class="pm-grid">
-          <div class="pm-field"><label>Nome</label><input type="text" x-model="form.name" maxlength="120" placeholder="Ex.: Termo de clareamento" /></div>
+          <div class="pm-field"><label>Nome</label><input class="input" type="text" x-model="form.name" maxlength="120" placeholder="Ex.: Termo de clareamento" /></div>
           <div class="pm-field">
             <label>Tipo</label>
-            <select x-model="form.type">
+            <select class="input" x-model="form.type">
               <template x-for="t in tipos" :key="t.type">
                 <option :value="t.type" x-text="t.label"></option>
               </template>
@@ -93,7 +94,7 @@
         </div>
 
         <label>Conteúdo do modelo</label>
-        <textarea x-model="form.body" rows="16" placeholder="Escreva o documento usando {{paciente.nome}}, {{data}}..."></textarea>
+        <textarea class="input" x-model="form.body" rows="16" placeholder="Escreva o documento usando {{paciente.nome}}, {{data}}..."></textarea>
         <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:6px;margin-top:8px">
           <input type="checkbox" x-model="form.requires_professional" />
           <span>Exige profissional com CRO para emitir (receita, atestado, termos assinados)</span>
@@ -106,6 +107,8 @@
       </div>
     </dialog>
     <% } %>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>">

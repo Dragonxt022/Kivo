@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -38,22 +39,22 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="odontogramaPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>)" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="odontogramaPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>)" x-init="load()">
     <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
     <h1>Odontograma <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
 
-    <div class="secoes">
+    <div class="secoes" id="tour-odonto-secoes">
       <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
       <a class="atual" href="#">Odontograma</a>
-      <span class="planejado">Tratamentos (fase 6)</span>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
       <a href="/app/odonto/agenda">Consultas</a>
-      <span class="planejado">Documentos (fase 7)</span>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/documentos'">Documentos</a>
       <span class="planejado">Exames e imagens (fase 8)</span>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <span class="muted text-xs"
             x-text="resumo.dentes_com_situacao + ' dente(s) com situação · ' + resumo.planejados + ' com tratamento planejado · ' + resumo.registros + ' registro(s) no histórico'"></span>
       <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:6px">
@@ -66,7 +67,7 @@
       <span class="error" x-text="error"></span>
     </div>
 
-    <p class="muted text-xs" style="margin-top:-.4rem">
+    <p class="page-subtitle">
       Cada dente tem quatro faces e o centro (oclusal/incisal): M mesial · D distal · V vestibular ·
       L lingual/palatina · O oclusal. Clique numa face (ou no número do dente) para registrar a
       situação — o registro anterior vai para o histórico do dente, nunca é apagado.
@@ -77,7 +78,7 @@
       <div class="card">
         <h2 style="margin-top:0">Arcadas (numeração FDI)</h2>
 
-        <div class="arcadas">
+        <div class="arcadas" id="tour-odonto-odontograma">
         <div class="arcada">
           <!-- Um `x-for` por quadrantes, com os cinco polígonos EXPLÍCITOS dentro do SVG:
                o Alpine manipula SVG bem, mas `template x-for` no namespace SVG é frágil. -->
@@ -149,7 +150,7 @@
 
             <% if (canEditClinical) { %>
             <label>Situação</label>
-            <select x-model="form.condition_id">
+            <select class="input" x-model="form.condition_id">
               <option value="">Escolha a situação…</option>
               <template x-for="c in conditionsFiltradas()" :key="c.id">
                 <option :value="c.id" x-text="c.name"></option>
@@ -158,17 +159,17 @@
 
             <div class="pm-field">
               <label>Data e hora do exame</label>
-              <input type="datetime-local" x-model="form.recorded_at" />
+              <input class="input" type="datetime-local" x-model="form.recorded_at" />
             </div>
           </div>
-          <p class="muted text-xs" style="margin-top:-.3rem">
+          <p class="page-subtitle">
             Aqui se registra a <strong>situação</strong> do dente/face. Tratamento previsto é no
             <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">plano de tratamento</a>
             (com valor e aprovação) — o "P" do desenho vem de lá.
           </p>
 
             <label>Profissional</label>
-            <select x-model="form.professional_id">
+            <select class="input" x-model="form.professional_id">
               <option value="">—</option>
               <template x-for="p in profissionais" :key="p.id">
                 <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
@@ -176,7 +177,7 @@
             </select>
 
             <label>Observação</label>
-            <input type="text" x-model="form.note" maxlength="500" placeholder="Ex.: cárie oclusal profunda, sem exposição pulpar" />
+            <input class="input" type="text" x-model="form.note" maxlength="500" placeholder="Ex.: cárie oclusal profunda, sem exposição pulpar" />
             <div class="toolbar" style="margin-top:8px">
               <button class="btn" @click="registrar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Registrar no odontograma'"></button>
             </div>
@@ -199,7 +200,8 @@
                 <% } %>
               </div>
             </template>
-            <p class="muted text-xs" x-show="!historico.length">Nada registrado neste dente ainda.</p>
+            <div class="odonto-vazio" x-show="!historico.length"><strong>Nenhuma situação registrada neste dente</strong>
+Clique numa face acima e escolha a situação (cárie, restaurado, ausente...) para começar o histórico do dente.</div>
 
             <h3 style="font-size:.9rem">Tratamento planejado (do plano)</h3>
             <template x-for="(p, i) in planejadosDoDente()" :key="i">
@@ -208,10 +210,9 @@
                 <span class="muted text-xs" x-text="'plano #' + p.plan_id"></span>
               </div>
             </template>
-            <p class="muted text-xs" x-show="!planejadosDoDente().length">
-              Nada previsto para este dente.
-              <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Abrir planos</a>
-            </p>
+            <div class="odonto-vazio" x-show="!planejadosDoDente().length"><strong>Nada previsto para este dente</strong>
+Quando houver tratamento planejado, ele aparece aqui e marca o dente com "P" no desenho.
+<a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Abrir planos de tratamento</a></div>
 
             <h3 style="font-size:.9rem">Tratamentos realizados (do prontuário)</h3>
             <template x-for="p in procedimentos" :key="p.id">
@@ -220,7 +221,8 @@
                 <span class="muted text-xs" x-text="fmtDateTimeLocal(p.happened_at)"></span>
               </div>
             </template>
-            <p class="muted text-xs" x-show="!procedimentos.length">Nenhum procedimento registrado neste dente.</p>
+            <div class="odonto-vazio" x-show="!procedimentos.length"><strong>Nenhum procedimento neste dente</strong>
+Os procedimentos aparecem aqui quando você registra uma evolução no prontuário citando este dente.</div>
           </div>
         </template>
       </div>
@@ -238,8 +240,8 @@
         <template x-for="c in todasCondicoes" :key="c.id">
           <div class="situacao-linha">
             <input type="color" x-model="c.color" @change="salvarCondicao(c)" />
-            <input type="text" x-model="c.name" @change="salvarCondicao(c)" maxlength="60" />
-            <select x-model="c.applies_to" @change="salvarCondicao(c)">
+            <input class="input" type="text" x-model="c.name" @change="salvarCondicao(c)" maxlength="60" />
+            <select class="input" x-model="c.applies_to" @change="salvarCondicao(c)">
               <option value="ambos">Dente e face</option>
               <option value="dente">Só dente</option>
               <option value="superficie">Só face</option>
@@ -254,14 +256,14 @@
 
         <h3 style="font-size:.9rem">Nova situação</h3>
         <div class="pm-grid">
-          <div class="pm-field"><label>Nome</label><input type="text" x-model="nova.name" maxlength="60" placeholder="Ex.: Selante" /></div>
-          <div class="pm-field"><label>Código</label><input type="text" x-model="nova.code" maxlength="30" placeholder="selante" @input="nova.code = nova.code.toLowerCase().replace(/[^a-z0-9_]/g, '_')" /></div>
+          <div class="pm-field"><label>Nome</label><input class="input" type="text" x-model="nova.name" maxlength="60" placeholder="Ex.: Selante" /></div>
+          <div class="pm-field"><label>Código</label><input class="input" type="text" x-model="nova.code" maxlength="30" placeholder="selante" @input="nova.code = nova.code.toLowerCase().replace(/[^a-z0-9_]/g, '_')" /></div>
         </div>
         <div class="pm-grid">
           <div class="pm-field"><label>Cor</label><input type="color" x-model="nova.color" /></div>
           <div class="pm-field">
             <label>Vale para</label>
-            <select x-model="nova.applies_to">
+            <select class="input" x-model="nova.applies_to">
               <option value="ambos">Dente e face</option>
               <option value="dente">Só dente</option>
               <option value="superficie">Só face</option>
@@ -278,6 +280,8 @@
       </div>
     </dialog>
     <% } %>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

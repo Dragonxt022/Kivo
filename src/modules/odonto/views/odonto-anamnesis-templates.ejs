@@ -7,11 +7,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="templatesPage()" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="templatesPage()" x-init="load()">
     <p class="muted"><a href="/app/odonto/pacientes">← Pacientes</a></p>
     <h1>Formulários de anamnese</h1>
     <p class="muted muted-block">
@@ -19,7 +20,7 @@
       anamneses já respondidas continuam apontando para a versão em que foram dadas.
     </p>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <button class="btn" @click="openNew(null)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
         Novo formulário
@@ -57,7 +58,7 @@
         </p>
 
         <label>Nome do formulário</label>
-        <input type="text" x-model="form.name" maxlength="120" placeholder="Anamnese odontológica" />
+        <input class="input" type="text" x-model="form.name" maxlength="120" placeholder="Anamnese odontológica" />
 
         <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:8px">
           <input type="checkbox" x-model="form.is_default" />
@@ -70,18 +71,18 @@
             <div class="pm-grid">
               <div class="pm-field">
                 <label>Rótulo</label>
-                <input type="text" x-model="f.label" maxlength="120" placeholder="Histórico médico" />
+                <input class="input" type="text" x-model="f.label" maxlength="120" placeholder="Histórico médico" />
               </div>
               <div class="pm-field">
                 <label>Chave (sem espaços)</label>
-                <input type="text" x-model="f.key" maxlength="41" placeholder="historico_medico"
+                <input class="input" type="text" x-model="f.key" maxlength="41" placeholder="historico_medico"
                        @input="f.key = f.key.toLowerCase().replace(/[^a-z0-9_]/g, '_')" />
               </div>
             </div>
             <div class="pm-grid">
               <div class="pm-field">
                 <label>Tipo</label>
-                <select x-model="f.type">
+                <select class="input" x-model="f.type">
                   <option value="texto">Texto curto</option>
                   <option value="texto_longo">Texto longo</option>
                   <option value="sim_nao">Sim / Não / Não sei</option>
@@ -93,7 +94,7 @@
               </div>
               <div class="pm-field">
                 <label>Obrigatória</label>
-                <select x-model="f.required">
+                <select class="input" x-model="f.required">
                   <option :value="false">Não</option>
                   <option :value="true">Sim</option>
                 </select>
@@ -101,12 +102,12 @@
             </div>
             <div class="pm-field" x-show="f.type === 'selecao' || f.type === 'multipla'">
               <label>Opções (separadas por vírgula)</label>
-              <input type="text" :value="(f.options || []).join(', ')"
+              <input class="input" type="text" :value="(f.options || []).join(', ')"
                      @input="f.options = $event.target.value.split(',').map(o => o.trim()).filter(Boolean)" />
             </div>
             <div class="pm-field">
               <label>Dica (opcional)</label>
-              <input type="text" x-model="f.help" maxlength="200" placeholder="O que perguntar exatamente" />
+              <input class="input" type="text" x-model="f.help" maxlength="200" placeholder="O que perguntar exatamente" />
             </div>
             <button class="btn secondary small danger" @click.prevent="form.fields.splice(i, 1)">Remover pergunta</button>
           </div>
@@ -115,7 +116,7 @@
         <button class="btn secondary small" @click.prevent="addField()">+ Adicionar pergunta</button>
 
         <label>Observações internas</label>
-        <textarea x-model="form.notes" rows="2" placeholder="Para quem usa o sistema, não aparece para o paciente."></textarea>
+        <textarea class="input" x-model="form.notes" rows="2" placeholder="Para quem usa o sistema, não aparece para o paciente."></textarea>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -123,6 +124,8 @@
         <button class="btn" @click="save()" :disabled="saving" x-text="saving ? 'Publicando…' : 'Publicar versão'"></button>
       </div>
     </dialog>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

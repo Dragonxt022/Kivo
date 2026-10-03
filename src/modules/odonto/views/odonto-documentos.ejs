@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -27,11 +28,11 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="documentosPage(<%= patientId %>, <%= user.permissions.has('odonto.documents.manage') ? 'true' : 'false' %>)" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="documentosPage(<%= patientId %>, <%= user.permissions.has('odonto.documents.manage') ? 'true' : 'false' %>)" x-init="load()">
     <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
     <h1>Documentos <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
 
-    <div class="secoes">
+    <div class="secoes" id="tour-odonto-secoes">
       <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
@@ -42,14 +43,14 @@
       <span class="planejado">Exames e imagens (fase 8)</span>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.documents.manage')) { %>
         <button class="btn" @click="novo()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           Novo documento
         </button>
       <% } %>
-      <select x-model="filtroTipo" @change="load()" style="max-width:220px">
+      <select class="input" x-model="filtroTipo" @change="load()" style="max-width:220px">
         <option value="">Todos os tipos</option>
         <template x-for="t in types" :key="t.type">
           <option :value="t.type" x-text="t.label"></option>
@@ -61,6 +62,7 @@
       <span class="error" x-text="error"></span>
     </div>
 
+    <div id="tour-odonto-documentos"></div>
     <template x-for="d in documentos" :key="d.id">
       <div class="doc">
         <h3>
@@ -107,19 +109,19 @@
         <div class="pm-grid">
           <div class="pm-field">
             <label>Modelo</label>
-            <select x-model="form.template_id" @change="aplicarModelo()" :disabled="!!form.id">
+            <select class="input" x-model="form.template_id" @change="aplicarModelo()" :disabled="!!form.id">
               <option value="">Documento em branco</option>
               <template x-for="t in modelos" :key="t.id">
                 <option :value="t.id" x-text="t.name + ' (' + t.type_label + ')'"></option>
               </template>
             </select>
           </div>
-          <div class="pm-field"><label>Título</label><input type="text" x-model="form.title" maxlength="160" /></div>
+          <div class="pm-field"><label>Título</label><input class="input" type="text" x-model="form.title" maxlength="160" /></div>
         </div>
         <div class="pm-grid">
           <div class="pm-field">
             <label>Profissional</label>
-            <select x-model="form.professional_id">
+            <select class="input" x-model="form.professional_id">
               <option value="">—</option>
               <template x-for="p in profissionais" :key="p.id">
                 <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
@@ -128,7 +130,7 @@
           </div>
           <div class="pm-field">
             <label>Consulta (opcional)</label>
-            <select x-model="form.appointment_id">
+            <select class="input" x-model="form.appointment_id">
               <option value="">—</option>
               <template x-for="a in atendimentos" :key="a.id">
                 <option :value="a.id" x-text="fmtDateTimeLocal(a.starts_at) + ' · ' + a.professional_name"></option>
@@ -139,7 +141,7 @@
         <div class="pm-grid">
           <div class="pm-field">
             <label>Plano de tratamento (opcional)</label>
-            <select x-model="form.plan_id">
+            <select class="input" x-model="form.plan_id">
               <option value="">—</option>
               <template x-for="p in planos" :key="p.id">
                 <option :value="p.id" x-text="(p.title || ('Plano #' + p.id)) + ' · ' + brl(p.total_cents)"></option>
@@ -157,7 +159,7 @@
 
         <label>Conteúdo do documento</label>
         <div class="editor">
-          <textarea x-model="form.body" rows="16" placeholder="Escreva o documento ou escolha um modelo acima."></textarea>
+          <textarea class="input" x-model="form.body" rows="16" placeholder="Escreva o documento ou escolha um modelo acima."></textarea>
         </div>
         <div class="error" x-text="dlgError"></div>
       </div>
@@ -191,6 +193,8 @@
         <button class="btn secondary" @click="$refs.dlgVer.close()">Fechar</button>
       </div>
     </dialog>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -25,11 +26,11 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
-  <main x-data="planosPage(<%= patientId %>, <%= user.permissions.has('odonto.plans.manage') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.charge') ? 'true' : 'false' %>)" x-init="load()">
+  <main id="tour-odonto-conteudo" x-data="planosPage(<%= patientId %>, <%= user.permissions.has('odonto.plans.manage') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.charge') ? 'true' : 'false' %>)" x-init="load()">
     <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
     <h1>Planos de tratamento <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
 
-    <div class="secoes">
+    <div class="secoes" id="tour-odonto-secoes">
       <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
@@ -40,7 +41,7 @@
       <span class="planejado">Exames e imagens (fase 8)</span>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.plans.manage')) { %>
         <button class="btn" @click="novo()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -52,11 +53,12 @@
       <span class="error" x-text="error"></span>
     </div>
 
-    <p class="muted text-xs" style="margin-top:-.4rem">
+    <p class="page-subtitle">
       Aprovado o plano, a cobrança é gerada no <strong>Financeiro do Kivo</strong> (conta a receber
       do cliente, com parcelamento) — o Odonto não tem financeiro próprio.
     </p>
 
+    <div id="tour-odonto-planos"></div>
     <template x-for="p in planos" :key="p.id">
       <div class="plano">
         <h3>
@@ -124,10 +126,10 @@
       <h1 x-text="form.id ? ('Editar plano #' + form.id) : 'Novo plano de tratamento'"></h1>
       <div class="dialog-body">
         <div class="pm-grid">
-          <div class="pm-field"><label>Assunto</label><input type="text" x-model="form.title" maxlength="120" placeholder="Ex.: Reabilitação do lado direito" /></div>
+          <div class="pm-field"><label>Assunto</label><input class="input" type="text" x-model="form.title" maxlength="120" placeholder="Ex.: Reabilitação do lado direito" /></div>
           <div class="pm-field">
             <label>Profissional responsável</label>
-            <select x-model="form.professional_id">
+            <select class="input" x-model="form.professional_id">
               <option value="">—</option>
               <template x-for="p in profissionais" :key="p.id">
                 <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
@@ -139,17 +141,17 @@
         <label>Itens do plano</label>
         <template x-for="(it, idx) in form.items" :key="idx">
           <div class="item-linha">
-            <select x-model="it.procedure_id" @change="preencherItem(it)">
+            <select class="input" x-model="it.procedure_id" @change="preencherItem(it)">
               <option value="">Procedimento…</option>
               <template x-for="proc in procedimentos" :key="proc.id">
                 <option :value="proc.id" x-text="proc.name"></option>
               </template>
             </select>
-            <input type="text" x-model="it.tooth" maxlength="2" placeholder="dente" />
-            <input type="text" x-model="it.description" maxlength="200" placeholder="descrição do item" />
-            <input type="number" x-model.number="it.quantity" min="1" max="999" placeholder="qtd" />
-            <input type="text" :value="centavosParaTexto(it.amount_cents)" @input="it.amount_cents = textoParaCentavos($event.target.value)" placeholder="valor R$" />
-            <select x-model="it.professional_id">
+            <input class="input" type="text" x-model="it.tooth" maxlength="2" placeholder="dente" />
+            <input class="input" type="text" x-model="it.description" maxlength="200" placeholder="descrição do item" />
+            <input class="input" type="number" x-model.number="it.quantity" min="1" max="999" placeholder="qtd" />
+            <input class="input" type="text" :value="centavosParaTexto(it.amount_cents)" @input="it.amount_cents = textoParaCentavos($event.target.value)" placeholder="valor R$" />
+            <select class="input" x-model="it.professional_id">
               <option value="">Profissional…</option>
               <template x-for="p in profissionais" :key="p.id">
                 <option :value="p.id" x-text="p.name"></option>
@@ -164,7 +166,7 @@
         </div>
 
         <label>Observações</label>
-        <textarea x-model="form.notes" rows="2" placeholder="Ex.: prioridade do lado direito, paciente pediu para parcelar…"></textarea>
+        <textarea class="input" x-model="form.notes" rows="2" placeholder="Ex.: prioridade do lado direito, paciente pediu para parcelar…"></textarea>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -186,9 +188,9 @@
         <div class="pm-grid">
           <div class="pm-field">
             <label>Parcelas</label>
-            <input type="number" x-model.number="cobranca.installments" min="1" max="36" />
+            <input class="input" type="number" x-model.number="cobranca.installments" min="1" max="36" />
           </div>
-          <div class="pm-field"><label>Primeiro vencimento</label><input type="date" x-model="cobranca.first_due_date" /></div>
+          <div class="pm-field"><label>Primeiro vencimento</label><input class="input" type="date" x-model="cobranca.first_due_date" /></div>
         </div>
         <p class="previa" x-text="previaCobranca()"></p>
         <div class="error" x-text="erroCobranca"></div>
@@ -199,6 +201,8 @@
       </div>
     </dialog>
     <% } %>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>

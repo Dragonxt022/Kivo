@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     /* Folha A4: o "exportar em PDF" do Kivo é a impressão do navegador (Salvar como PDF), igual
@@ -54,6 +55,8 @@
         <span x-text="doc.replaced_by_id ? ('Substituído pela versão seguinte') : ''"></span>
       </div>
     </div>
+
+  <%- include('partials/odonto-tour') %>
   </main>
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
