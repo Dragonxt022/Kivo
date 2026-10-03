@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { ResultSetHeader } from 'mysql2';
 import { getPool } from '../db';
 import { requireCompanyAuth, type AuthedRequest } from '../auth';
 import { requireMobileAuth, type MobileRequest } from '../mobileAuth';
@@ -143,6 +144,36 @@ desktopSide.post('/:id/ack', requireCompanyAuth, async (req: AuthedRequest, res)
     [status, JSON.stringify(result ?? {}), req.params.id, req.companyUuid],
   );
   // Avisa o celular que está na tela de status esperando.
+  emitToCompany(req.companyUuid!, 'command-done', { id: Number(req.params.id), status });
+  res.json({ ok: true });
+});
+
+/**
+ * Desfecho POSTERIOR de um comando: para o que responde na hora e só termina depois.
+ *
+ * O caso que originou isto é o "forçar atualização": o desktop precisa confirmar o comando na
+ * hora (o ack tem 10s e o download leva minutos), então ele acusa "agendado" — e, sem esta rota,
+ * ficava assim para sempre no painel, mesmo quando o download falhava. O `/ack` NÃO serve: ele é
+ * idempotente de propósito (`WHERE status = 'pendente'`), para um reenvio de rede não sobrescrever
+ * o que já foi gravado. Aqui a intenção é outra — atualizar o resultado —, então é rota própria,
+ * e ela aceita comando já aplicado.
+ */
+desktopSide.post('/:id/outcome', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const { status, result } = (req.body ?? {}) as { status?: string; result?: unknown };
+  if (status !== 'aplicado' && status !== 'erro') {
+    res.status(400).json({ error: "status deve ser 'aplicado' ou 'erro'." });
+    return;
+  }
+  const [r] = await getPool().query<ResultSetHeader>(
+    `UPDATE company_commands
+        SET status = ?, result = CAST(? AS JSON), applied_at = NOW()
+      WHERE id = ? AND company_uuid = ?`,
+    [status, JSON.stringify(result ?? {}), req.params.id, req.companyUuid],
+  );
+  if (!r.affectedRows) {
+    res.status(404).json({ error: 'Comando não encontrado para esta empresa.' });
+    return;
+  }
   emitToCompany(req.companyUuid!, 'command-done', { id: Number(req.params.id), status });
   res.json({ ok: true });
 });

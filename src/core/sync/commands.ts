@@ -211,20 +211,58 @@ const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {
     };
   },
   // "Forçar atualização": baixa a versão nova em silêncio e deixa o instalador rodar quando o
-  // Kivo for fechado (sem reiniciar no meio de uma venda). O download é longo, então dispara
-  // em fire-and-forget e confirma o comando na hora; o desfecho fica na aba Atualização.
-  'support.force_update': () => {
+  // Kivo for fechado (sem reiniciar no meio de uma venda). O download é longo, então confirma o
+  // comando na hora — mas com a verdade: "agendado", não "atualizado". O DESFECHO real (versão
+  // baixada ou o erro) vai depois para a nuvem por `reportarDesfecho`, senão o painel ficava
+  // mostrando sucesso para sempre enquanto a máquina seguia na versão antiga.
+  'support.force_update': (cmd) => {
     const estado = getUpdateState();
     if (!estado.suportado) {
       return { ok: false, error: estado.motivo ?? 'Atualização automática indisponível nesta instalação.' };
     }
-    void forcarAtualizacaoSilenciosa().then((r) => {
-      if (r.ok) log.info(`atualização ${r.versao ?? ''} baixada; será instalada ao fechar o Kivo.`);
-      else log.error('atualização forçada falhou', { erro: r.error });
+    void forcarAtualizacaoSilenciosa().then(async (r) => {
+      if (r.ok) {
+        log.info(`atualização ${r.versao ?? ''} baixada; será instalada ao fechar o Kivo.`);
+        await reportarDesfecho(cmd.id, { ok: true, result: { baixada: r.versao ?? null, agendado: false, instalacao: 'ao fechar o Kivo' } });
+      } else {
+        log.error('atualização forçada falhou', { erro: r.error });
+        await reportarDesfecho(cmd.id, { ok: false, result: { error: r.error } });
+      }
     });
     return { ok: true, result: { agendado: true, acao: 'atualizacao' } };
   },
 };
+
+/**
+ * Conta à nuvem o desfecho de um comando que respondeu na hora e terminou depois.
+ *
+ * O `ack` é idempotente de propósito no cloud (`WHERE status = 'pendente'`): reenviar nunca
+ * sobrescreve o resultado gravado. Isso é certo para retry de rede, mas deixava o comando de
+ * "forçar atualização" marcado como sucesso para sempre, mesmo quando o download falhava — o
+ * operador via "atualizado" e a máquina seguia na versão antiga. Aqui a intenção é outra
+ * (atualizar o resultado), então vai numa rota própria e sem segurar o ack.
+ */
+export async function reportarDesfecho(
+  commandId: number,
+  outcome: { ok: true; result: Record<string, unknown> } | { ok: false; result: { error: string } },
+): Promise<boolean> {
+  const base = cloudBaseUrl();
+  const auth = cloudAuthHeaders();
+  if (!base || !auth) return false;
+  try {
+    const r = await fetch(`${base}/api/commands/${commandId}/outcome`, {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify(outcome.ok ? { status: 'aplicado', result: outcome.result } : { status: 'erro', result: outcome.result }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) log.warn(`desfecho do comando ${commandId} não aceito (HTTP ${r.status}).`);
+    return r.ok;
+  } catch (e) {
+    log.warn(`não foi possível reportar o desfecho do comando ${commandId}: ${(e as Error).message}`);
+    return false;
+  }
+}
 
 /**
  * Aplica UM comando, sem tocar na rede — separado de `drainCommands` para poder ser testado
