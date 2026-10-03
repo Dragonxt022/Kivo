@@ -7,6 +7,7 @@ import {
   FDI_TEETH, SURFACES, odontogramRepository,
   type StateKind, type Surface, type ToothConditionRow, type ToothStateDetailRow,
 } from './repositories/OdontogramRepository';
+import { treatmentPlanRepository } from './repositories/TreatmentPlanRepository';
 import { canEditClinical, canViewClinical, type Result } from './permissions';
 
 /**
@@ -124,6 +125,11 @@ export interface OdontogramOutput {
     surfaces: Partial<Record<Surface, ToothStateOutput>>;
     planned: ToothStateOutput[];
   }>;
+  /**
+   * Tratamento PLANEJADO vem do plano de tratamento (fase 6), não do odontograma: o plano é a
+   * fonte única do que está previsto (com valor e aprovação). O desenho marca "P" no dente.
+   */
+  planned: { tooth: string; description: string; plan_id: number; status: string }[];
   resumo: { dentes_com_situacao: number; planejados: number; registros: number };
 }
 
@@ -170,6 +176,8 @@ export function getOdontogram(req: Request, patientId: number): Result<Odontogra
       // Mais recente primeiro é o que a tela de histórico espera.
       states: [...estados].reverse(),
       current: calcularAtual(estados),
+      // Planejado: vem do plano de tratamento (fase 6) — uma fonte só para "o que está previsto".
+      planned: treatmentPlanRepository.plannedByTooth(patientId),
       resumo: odontogramRepository.resumo(patientId),
     },
   };

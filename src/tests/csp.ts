@@ -87,6 +87,7 @@ const PAGINAS = [
   '/app/odonto/pacientes/1/anamnese',
   '/app/odonto/pacientes/1/prontuario',
   '/app/odonto/pacientes/1/odontograma',
+  '/app/odonto/pacientes/1/planos',
   '/app/odonto/anamnese-modelos',
   '/app/odonto/profissionais',
   '/app/odonto/procedimentos',

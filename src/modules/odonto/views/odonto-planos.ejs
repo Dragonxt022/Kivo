@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Planos de tratamento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
+    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
+    .secoes span.planejado { opacity: .6; }
+    .plano { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    .plano h3 { margin: 0 0 2px; font-size: 1rem; }
+    .plano .meta { color: var(--muted); font-size: .78rem; }
+    .plano .total { font-weight: 700; }
+    .item-linha { display: grid; grid-template-columns: 1.6fr 70px 1.8fr 70px 110px 110px auto; gap: 6px; align-items: center; margin-bottom: 4px; }
+    .item-linha input, .item-linha select { min-width: 0; }
+    .acoes-linha { display: flex; gap: 6px; flex-wrap: wrap; }
+    .previa { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--surface-hover); font-size: .82rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
+  <main x-data="planosPage(<%= patientId %>, <%= user.permissions.has('odonto.plans.manage') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.charge') ? 'true' : 'false' %>)" x-init="load()">
+    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
+    <h1>Planos de tratamento <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+
+    <div class="secoes">
+      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
+      <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
+      <a class="atual" href="#">Tratamentos</a>
+      <a href="/app/odonto/agenda">Consultas</a>
+      <span class="planejado">Documentos (fase 7)</span>
+      <span class="planejado">Exames e imagens (fase 8)</span>
+    </div>
+
+    <div class="toolbar">
+      <% if (user.permissions.has('odonto.plans.manage')) { %>
+        <button class="btn" @click="novo()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo plano
+        </button>
+      <% } %>
+      <span class="muted text-xs"
+            x-text="resumo.planos_abertos + ' plano(s) em aberto · ' + resumo.itens_pendentes + ' item(ns) pendente(s) · ' + brl(resumo.total_aberto_cents)"></span>
+      <span class="error" x-text="error"></span>
+    </div>
+
+    <p class="muted text-xs" style="margin-top:-.4rem">
+      Aprovado o plano, a cobrança é gerada no <strong>Financeiro do Kivo</strong> (conta a receber
+      do cliente, com parcelamento) — o Odonto não tem financeiro próprio.
+    </p>
+
+    <template x-for="p in planos" :key="p.id">
+      <div class="plano">
+        <h3>
+          <span x-text="p.title || ('Plano #' + p.id)"></span>
+          <span class="badge" :class="classePlano(p.status)" x-text="rotulo(p.status)"></span>
+        </h3>
+        <div class="meta">
+          <span x-text="p.items_count + ' item(ns) · total ' + brl(p.total_cents)"></span>
+          <span x-show="p.professional_name" x-text="' · ' + p.professional_name + (p.professional_cro ? ' (CRO ' + p.professional_cro + ')' : '')"></span>
+          <span x-show="p.approved_at" x-text="' · aprovado em ' + fmtDate(p.approved_at)"></span>
+          <span x-show="p.charged_at" x-text="' · cobrado em ' + fmtDate(p.charged_at) + (p.installments ? ' em ' + p.installments + 'x' : '')"></span>
+          <span x-show="p.cancel_reason" x-text="' · motivo: ' + p.cancel_reason"></span>
+        </div>
+
+        <table style="margin-top:8px">
+          <thead><tr><th>Dente</th><th>Procedimento</th><th class="text-right">Qtd</th><th class="text-right">Valor</th><th class="text-right">Total</th><th>Situação</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="i in (detalhes[p.id] || [])" :key="i.id">
+              <tr>
+                <td class="muted" x-text="i.tooth || '—'"></td>
+                <td><span x-text="i.description"></span><div class="muted text-xs" x-show="i.professional_name" x-text="i.professional_name"></div></td>
+                <td class="text-right tabular" x-text="i.quantity"></td>
+                <td class="text-right tabular" x-text="brl(i.amount_cents)"></td>
+                <td class="text-right tabular" x-text="brl(i.total_cents)"></td>
+                <td><span class="badge" :class="classePlano(i.status)" x-text="rotulo(i.status)"></span></td>
+                <td class="text-right">
+                  <% if (user.permissions.has('odonto.plans.manage')) { %>
+                    <div class="acoes-linha" style="justify-content:flex-end">
+                      <button class="btn secondary small" x-show="i.status === 'planejado'" @click="itemStatus(p, i, 'aprovado')">Aprovar</button>
+                      <button class="btn secondary small" x-show="i.status === 'aprovado'" @click="itemStatus(p, i, 'em_andamento')">Iniciar</button>
+                      <button class="btn secondary small" x-show="i.status === 'em_andamento'" @click="itemStatus(p, i, 'concluido')">Concluir</button>
+                      <button class="btn secondary small danger" x-show="i.status !== 'concluido' && i.status !== 'cancelado'" @click="itemStatus(p, i, 'cancelado')">Cancelar</button>
+                    </div>
+                  <% } %>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+
+        <div class="toolbar" style="margin-top:8px">
+          <% if (user.permissions.has('odonto.plans.manage')) { %>
+            <button class="btn secondary small" x-show="p.status === 'planejado'" @click="status(p, 'apresentado')">Apresentado ao paciente</button>
+            <button class="btn small" x-show="p.status === 'planejado' || p.status === 'apresentado'" @click="status(p, 'aprovado')">Aprovar plano</button>
+            <button class="btn secondary small" x-show="p.status === 'aprovado'" @click="status(p, 'em_andamento')">Iniciar tratamento</button>
+            <button class="btn secondary small" x-show="p.status === 'em_andamento'" @click="status(p, 'concluido')">Concluir plano</button>
+            <button class="btn secondary small" x-show="p.status !== 'concluido' && p.status !== 'cancelado'" @click="editar(p)">Editar itens</button>
+            <button class="btn secondary small danger" x-show="p.status !== 'concluido' && p.status !== 'cancelado'" @click="cancelar(p)">Cancelar plano</button>
+            <button class="btn secondary small danger" x-show="!p.charged_at && p.status !== 'concluido'" @click="apagar(p)">Apagar</button>
+          <% } %>
+          <% if (user.permissions.has('odonto.plans.charge')) { %>
+            <button class="btn small" x-show="!p.charged_at && (p.status === 'aprovado' || p.status === 'em_andamento' || p.status === 'concluido')" @click="abrirCobranca(p)">Gerar cobrança</button>
+          <% } %>
+        </div>
+      </div>
+    </template>
+
+    <div x-show="!planos.length">
+      <%- include('partials/empty-state', { message: 'Nenhum plano de tratamento ainda.' }) %>
+    </div>
+
+    <!-- ─────────── Plano (novo/editar) ─────────── -->
+    <% if (user.permissions.has('odonto.plans.manage')) { %>
+    <dialog x-ref="dlg" class="dialog-fixed">
+      <h1 x-text="form.id ? ('Editar plano #' + form.id) : 'Novo plano de tratamento'"></h1>
+      <div class="dialog-body">
+        <div class="pm-grid">
+          <div class="pm-field"><label>Assunto</label><input type="text" x-model="form.title" maxlength="120" placeholder="Ex.: Reabilitação do lado direito" /></div>
+          <div class="pm-field">
+            <label>Profissional responsável</label>
+            <select x-model="form.professional_id">
+              <option value="">—</option>
+              <template x-for="p in profissionais" :key="p.id">
+                <option :value="p.id" x-text="p.name + (p.cro ? ' · CRO ' + p.cro : '')"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <label>Itens do plano</label>
+        <template x-for="(it, idx) in form.items" :key="idx">
+          <div class="item-linha">
+            <select x-model="it.procedure_id" @change="preencherItem(it)">
+              <option value="">Procedimento…</option>
+              <template x-for="proc in procedimentos" :key="proc.id">
+                <option :value="proc.id" x-text="proc.name"></option>
+              </template>
+            </select>
+            <input type="text" x-model="it.tooth" maxlength="2" placeholder="dente" />
+            <input type="text" x-model="it.description" maxlength="200" placeholder="descrição do item" />
+            <input type="number" x-model.number="it.quantity" min="1" max="999" placeholder="qtd" />
+            <input type="text" :value="centavosParaTexto(it.amount_cents)" @input="it.amount_cents = textoParaCentavos($event.target.value)" placeholder="valor R$" />
+            <select x-model="it.professional_id">
+              <option value="">Profissional…</option>
+              <template x-for="p in profissionais" :key="p.id">
+                <option :value="p.id" x-text="p.name"></option>
+              </template>
+            </select>
+            <button class="btn secondary small danger" @click.prevent="form.items.splice(idx, 1)">×</button>
+          </div>
+        </template>
+        <div class="toolbar" style="margin-top:6px">
+          <button class="btn secondary small" @click.prevent="adicionarItem()">+ Item</button>
+          <span class="total" x-text="'Total: ' + brl(totalFormulario())"></span>
+        </div>
+
+        <label>Observações</label>
+        <textarea x-model="form.notes" rows="2" placeholder="Ex.: prioridade do lado direito, paciente pediu para parcelar…"></textarea>
+        <div class="error" x-text="dlgError"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
+        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Salvar plano'"></button>
+      </div>
+    </dialog>
+    <% } %>
+
+    <!-- ─────────── Cobrança no financeiro ─────────── -->
+    <% if (user.permissions.has('odonto.plans.charge')) { %>
+    <dialog x-ref="dlgCobranca" class="dialog-fixed">
+      <h1>Gerar cobrança no Financeiro</h1>
+      <div class="dialog-body">
+        <p class="muted" style="margin-top:0" x-show="cobrando">
+          Plano <strong x-text="cobrando ? (cobrando.title || '#' + cobrando.id) : ''"></strong>
+          · total <strong x-text="cobrando ? brl(cobrando.total_cents) : ''"></strong>
+        </p>
+        <div class="pm-grid">
+          <div class="pm-field">
+            <label>Parcelas</label>
+            <input type="number" x-model.number="cobranca.installments" min="1" max="36" />
+          </div>
+          <div class="pm-field"><label>Primeiro vencimento</label><input type="date" x-model="cobranca.first_due_date" /></div>
+        </div>
+        <p class="previa" x-text="previaCobranca()"></p>
+        <div class="error" x-text="erroCobranca"></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlgCobranca.close()">Cancelar</button>
+        <button class="btn" @click="cobrar()" :disabled="cobrandoAgora" x-text="cobrandoAgora ? 'Gerando…' : 'Gerar cobrança'"></button>
+      </div>
+    </dialog>
+    <% } %>
+  </main>
+
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>">
+    function planosPage(patientId, podeGerenciar, podeCobrar) {
+      const ROTULOS = {
+        planejado: 'Planejado', apresentado: 'Apresentado', aprovado: 'Aprovado',
+        em_andamento: 'Em andamento', concluido: 'Concluído', cancelado: 'Cancelado',
+      };
+      const CLASSES = { concluido: 'ok', cancelado: '', apresentado: 'off', aprovado: 'ok' };
+      const hoje = () => new Date().toISOString().slice(0, 10);
+      return {
+        patientId,
+        podeGerenciar,
+        podeCobrar,
+        paciente: null,
+        planos: [],
+        detalhes: {},
+        resumo: { planos_abertos: 0, itens_pendentes: 0, total_aberto_cents: 0 },
+        profissionais: [],
+        procedimentos: [],
+        form: { items: [] },
+        cobranca: { installments: 1, first_due_date: hoje() },
+        cobrando: null,
+        cobrandoAgora: false,
+        erroCobranca: '',
+        error: '',
+        dlgError: '',
+        salvando: false,
+
+        rotulo(s) { return ROTULOS[s] || s; },
+        classePlano(s) { return CLASSES[s] ?? 'off'; },
+        brl(cents) { return (Number(cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); },
+        centavosParaTexto(c) { return (Number(c || 0) / 100).toFixed(2).replace('.', ','); },
+        textoParaCentavos(t) {
+          const s = String(t || '').replace(/[^\d,.]/g, '');
+          const norm = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+          const n = parseFloat(norm);
+          return isFinite(n) ? Math.round(n * 100) : 0;
+        },
+
+        async load() {
+          const [p, l] = await Promise.all([
+            fetch('/api/odonto/patients/' + patientId),
+            fetch('/api/odonto/patients/' + patientId + '/treatment-plans'),
+          ]);
+          if (p.ok) this.paciente = await p.json();
+          if (l.ok) {
+            const data = await l.json();
+            this.planos = data.items || [];
+            this.resumo = data.resumo || this.resumo;
+            // Detalhe (itens) de cada plano: uma chamada por plano, em paralelo.
+            const pares = await Promise.all(this.planos.map(async (pl) => {
+              const r = await fetch('/api/odonto/plans/' + pl.id);
+              return [pl.id, r.ok ? ((await r.json()).items || []) : []];
+            }));
+            this.detalhes = Object.fromEntries(pares);
+          } else {
+            this.error = (await l.json()).error ?? 'Erro ao carregar os planos.';
+          }
+          <% if (user.permissions.has('odonto.plans.manage')) { %>
+          if (!this.profissionais.length) {
+            const pr = await fetch('/api/odonto/professionals?active=true');
+            if (pr.ok) this.profissionais = await pr.json();
+          }
+          if (!this.procedimentos.length) {
+            const pc = await fetch('/api/odonto/procedures?active=true');
+            if (pc.ok) this.procedimentos = await pc.json();
+          }
+          <% } %>
+        },
+
+        // ── Formulário ──
+        adicionarItem() {
+          this.form.items.push({ procedure_id: '', tooth: '', description: '', quantity: 1, amount_cents: 0, professional_id: '' });
+        },
+        preencherItem(item) {
+          const proc = this.procedimentos.find((p) => p.id === Number(item.procedure_id));
+          if (!proc) return;
+          item.description = proc.name;
+          if (!item.amount_cents) item.amount_cents = proc.default_price_cents || 0;
+        },
+        totalFormulario() {
+          return (this.form.items || []).reduce((s, i) => s + (Number(i.amount_cents) || 0) * (Number(i.quantity) || 0), 0);
+        },
+        novo() {
+          this.dlgError = '';
+          this.form = { id: null, title: '', notes: '', professional_id: '', items: [] };
+          this.adicionarItem();
+          this.$refs.dlg.showModal();
+        },
+        async editar(plano) {
+          this.dlgError = '';
+          const r = await fetch('/api/odonto/plans/' + plano.id);
+          const dados = r.ok ? await r.json() : { items: [] };
+          this.form = {
+            id: plano.id,
+            title: plano.title || '',
+            notes: plano.notes || '',
+            professional_id: plano.professional_id || '',
+            items: (dados.items || []).map((i) => ({
+              id: i.id,
+              procedure_id: i.procedure_id || '',
+              tooth: i.tooth || '',
+              description: i.description,
+              quantity: i.quantity,
+              amount_cents: i.amount_cents,
+              professional_id: i.professional_id || '',
+            })),
+          };
+          if (!this.form.items.length) this.adicionarItem();
+          this.$refs.dlg.showModal();
+        },
+        async salvar() {
+          const itens = (this.form.items || []).filter((i) => i.description && i.description.trim());
+          if (!itens.length) {
+            this.dlgError = 'Inclua pelo menos um item com descrição.';
+            return;
+          }
+          this.salvando = true;
+          this.dlgError = '';
+          const corpo = {
+            title: this.form.title || null,
+            notes: this.form.notes || null,
+            professional_id: this.form.professional_id ? Number(this.form.professional_id) : null,
+            items: itens.map((i) => ({
+              ...(i.id ? { id: i.id } : {}),
+              procedure_id: i.procedure_id ? Number(i.procedure_id) : null,
+              tooth: i.tooth || null,
+              description: i.description,
+              amount_cents: Number(i.amount_cents) || 0,
+              quantity: Number(i.quantity) || 1,
+              professional_id: i.professional_id ? Number(i.professional_id) : null,
+            })),
+          };
+          try {
+            const r = await fetch(
+              this.form.id ? '/api/odonto/plans/' + this.form.id : `/api/odonto/patients/${patientId}/treatment-plans`,
+              { method: this.form.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) },
+            );
+            if (r.ok) {
+              this.$refs.dlg.close();
+              showToast(this.form.id ? 'Plano atualizado.' : 'Plano criado.', 'success');
+              await this.load();
+            } else {
+              this.dlgError = (await r.json()).error ?? 'Erro ao salvar o plano.';
+            }
+          } finally {
+            this.salvando = false;
+          }
+        },
+
+        // ── Situações ──
+        async status(plano, novo) {
+          const r = await fetch(`/api/odonto/plans/${plano.id}/status`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: novo }),
+          });
+          if (r.ok) { showToast('Situação do plano atualizada.', 'success'); await this.load(); }
+          else this.error = (await r.json()).error ?? 'Erro ao mudar a situação.';
+        },
+        async itemStatus(plano, item, novo) {
+          const r = await fetch(`/api/odonto/plans/${plano.id}/items/${item.id}/status`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: novo }),
+          });
+          if (r.ok) await this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao mudar a situação do item.';
+        },
+        async cancelar(plano) {
+          const ok = await window.confirmDlg(`Cancelar o plano "${plano.title || '#' + plano.id}"? As contas já geradas continuam no Financeiro.`);
+          if (!ok) return;
+          const r = await fetch(`/api/odonto/plans/${plano.id}/status`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'cancelado', motivo: 'cancelado pela tela de planos' }),
+          });
+          if (r.ok) await this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao cancelar.';
+        },
+        async apagar(plano) {
+          const ok = await window.confirmDlg(`Apagar o plano "${plano.title || '#' + plano.id}"? Use só para plano lançado por engano.`);
+          if (!ok) return;
+          const r = await fetch('/api/odonto/plans/' + plano.id, { method: 'DELETE' });
+          if (r.ok) await this.load();
+          else this.error = (await r.json()).error ?? 'Erro ao apagar.';
+        },
+
+        // ── Cobrança (vai para o financeiro) ──
+        abrirCobranca(plano) {
+          this.cobrando = plano;
+          this.erroCobranca = '';
+          this.cobranca = { installments: 1, first_due_date: hoje() };
+          this.$refs.dlgCobranca.showModal();
+        },
+        previaCobranca() {
+          if (!this.cobrando) return '';
+          const n = Math.max(1, Number(this.cobranca.installments) || 1);
+          const total = Number(this.cobrando.total_cents) || 0;
+          const base = Math.floor(total / n);
+          const resto = total - base * n;
+          if (n === 1) return 'Uma conta a receber de ' + this.brl(total) + ' vencendo em ' + this.cobranca.first_due_date + '.';
+          return n + ' parcelas de ' + this.brl(base)
+            + (resto ? ' (a última com ' + this.brl(base + resto) + ')' : '')
+            + ', a primeira em ' + this.cobranca.first_due_date + '.';
+        },
+        async cobrar() {
+          this.cobrandoAgora = true;
+          this.erroCobranca = '';
+          try {
+            const r = await fetch(`/api/odonto/plans/${this.cobrando.id}/charge`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                installments: Number(this.cobranca.installments) || 1,
+                first_due_date: this.cobranca.first_due_date,
+              }),
+            });
+            if (r.ok) {
+              const dados = await r.json();
+              this.$refs.dlgCobranca.close();
+              showToast(`${dados.installments} conta(s) gerada(s) no Financeiro.`, 'success');
+              await this.load();
+            } else {
+              this.erroCobranca = (await r.json()).error ?? 'Erro ao gerar a cobrança.';
+            }
+          } finally {
+            this.cobrandoAgora = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>
