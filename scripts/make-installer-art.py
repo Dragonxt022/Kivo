@@ -1,77 +1,92 @@
-"""Gera as artes do instalador NSIS do Kivo (Pillow do runtime do DSH).
+"""Gera as duas artes do instalador NSIS a partir das fontes em `build/art/`.
 
-O electron-builder usa dois bitmaps do NSIS:
-  - `installer-sidebar.bmp`  164x314 — faixa lateral das telas de boas-vindas/fim;
-  - `installer-header.bmp`   150x57  — faixa do topo das telas internas.
+O QUE O NSIS EXIGE (e o motivo de este script existir):
 
-Identidade: laranja da marca (#FF8000) sobre fundo escuro, mesma dupla do splash e do ícone.
-São arquivos gerados (não versionados por engano): o `build/` guarda o resultado.
+  - `installer-sidebar.bmp` — 164x314, usado em `MUI_WELCOMEFINISHPAGE_BITMAP` (boas-vindas e
+    fim da instalação) e em `MUI_UNWELCOMEFINISHPAGE_BITMAP` (as mesmas telas na desinstalação);
+  - `installer-header.bmp`  — 150x57, usado em `MUI_HEADERIMAGE_BITMAP` (faixa do topo das
+    telas internas);
+  - **24 bits, sem canal alfa, sem compressão** (`BI_RGB`).
+
+Por que não dá para entregar o BMP que sai de uma ferramenta de design: o MUI carrega essas
+imagens com `LoadImage` do Windows, e um BMP de **32 bits com alpha/bitfields** simplesmente não
+carrega — `LoadImage` devolve 0 e a tela aparece SEM a imagem, sem erro nenhum no build, sem
+aviso no instalador. Foi exatamente o que aconteceu quando as artes foram trocadas por versões
+em alta resolução (RGBA 690x1326 e 1404x537): o instalador e o desinstalador ficaram sem arte e
+nada indicava o motivo. Tamanho fora da medida também não ajuda: o NSIS não redimensiona.
+
+Por isso a arte vive em PNG (com transparência, em qualquer resolução) e este script entrega o
+BMP no formato exato — e CONFERE o arquivo que gravou, falhando alto se algo sair diferente.
+
+Uso:  python scripts/make-installer-art.py
 """
-from PIL import Image, ImageDraw, ImageFont
+
+from PIL import Image
 import os
+import struct
+import sys
 
-ORANGE = (255, 128, 0)
-DARK = (22, 24, 29)
-DARK2 = (34, 37, 45)
-WHITE = (255, 255, 255)
-MUTED = (168, 172, 182)
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ARTE = os.path.join(RAIZ, 'build', 'art')
+SAIDA = os.path.join(RAIZ, 'build')
 
-BUILD = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build')
-FONT_BOLD = r'C:\Windows\Fonts\arialbd.ttf'
-FONT_REG = r'C:\Windows\Fonts\arial.ttf'
+# Fundo da marca: é sobre ele que a transparência da arte é achatada (o NSIS não tem alpha).
+FUNDO = (22, 24, 29)
 
-
-def fonte(caminho, tamanho):
-    try:
-        return ImageFont.truetype(caminho, tamanho)
-    except OSError:
-        return ImageFont.load_default()
+# (fonte, destino, (largura, altura), descrição)
+ALVOS = [
+    ('installer-sidebar.png', 'installer-sidebar.bmp', (164, 314), 'barra lateral (boas-vindas/fim)'),
+    ('installer-header.png', 'installer-header.bmp', (150, 57), 'faixa do topo das telas internas'),
+]
 
 
-def fundo(w, h):
-    """Fundo escuro com um degrade suave e uma faixa laranja na diagonal."""
-    img = Image.new('RGB', (w, h), DARK)
-    d = ImageDraw.Draw(img)
-    for y in range(h):
-        t = y / max(1, h - 1)
-        cor = tuple(int(DARK[i] + (DARK2[i] - DARK[i]) * t) for i in range(3))
-        d.line([(0, y), (w, y)], fill=cor)
-    # Faixa diagonal da marca, saindo do canto superior direito.
-    d.polygon([(w, 0), (w, int(h * 0.34)), (int(w * 0.18), 0)], fill=ORANGE)
-    return img, d
+def achatar(img):
+    """Funde o alpha sobre o fundo da marca — sem isso as áreas transparentes saem pretas."""
+    img = img.convert('RGBA')
+    fundo = Image.new('RGB', img.size, FUNDO)
+    fundo.paste(img, mask=img.getchannel('A'))
+    return fundo
 
 
-def marca(d, x, y, escala=1.0):
-    """O 'K' da logo desenhado com dois traços — sem depender de rasterizar o SVG."""
-    l = int(26 * escala)
-    e = max(2, int(5 * escala))
-    d.line([(x, y), (x, y + l)], fill=WHITE, width=e)
-    d.line([(x, y + l // 2), (x + l * 0.8, y)], fill=WHITE, width=e)
-    d.line([(x, y + l // 2), (x + l * 0.8, y + l)], fill=ORANGE, width=e)
+def conferir(caminho, largura, altura):
+    """Relê o BMP gravado e valida o que o NSIS realmente precisa."""
+    with open(caminho, 'rb') as f:
+        b = f.read()
+    if b[:2] != b'BM':
+        raise SystemExit(f'{caminho}: não é um BMP.')
+    deslocamento, = struct.unpack('<I', b[10:14])
+    tamanho_cabecalho, = struct.unpack('<I', b[14:18])
+    l, a = struct.unpack('<ii', b[18:26])
+    bits, = struct.unpack('<H', b[28:30])
+    compressao, = struct.unpack('<I', b[30:34])
+    if (l, a) != (largura, altura):
+        raise SystemExit(f'{caminho}: {l}x{a} — o NSIS exige {largura}x{altura}.')
+    if bits != 24 or compressao != 0:
+        raise SystemExit(
+            f'{caminho}: {bits} bits, compressão {compressao} — o instalador só carrega BMP de '
+            '24 bits sem compressão (32 bits com alpha não aparece, e não dá erro nenhum).',
+        )
+    if tamanho_cabecalho < 40 or deslocamento < 54:
+        raise SystemExit(f'{caminho}: cabeçalho de BMP inesperado.')
+    return len(b)
 
 
-def sidebar():
-    w, h = 164, 314
-    img, d = fundo(w, h)
-    marca(d, 22, 26, 1.5)
-    d.text((22, 92), 'Kivo', font=fonte(FONT_BOLD, 34), fill=WHITE)
-    d.line([(22, 138), (78, 138)], fill=ORANGE, width=3)
-    for i, linha in enumerate(['Sistema de', 'gestão para o', 'seu negócio']):
-        d.text((22, 152 + i * 20), linha, font=fonte(FONT_REG, 15), fill=MUTED)
-    d.text((22, h - 34), 'Instalador', font=fonte(FONT_REG, 12), fill=MUTED)
-    img.save(os.path.join(BUILD, 'installer-sidebar.bmp'))
-    print('build/installer-sidebar.bmp', img.size)
+def main():
+    if not os.path.isdir(ARTE):
+        raise SystemExit(f'faltando a pasta de fontes {ARTE} (a arte original em PNG).')
+    for origem, destino, (largura, altura), descricao in ALVOS:
+        caminho_origem = os.path.join(ARTE, origem)
+        if not os.path.exists(caminho_origem):
+            raise SystemExit(f'faltando a fonte {caminho_origem}.')
+        img = achatar(Image.open(caminho_origem))
+        # LANCZOS porque a fonte é bem maior que o alvo (ex.: 690x1326 -> 164x314).
+        img = img.resize((largura, altura), Image.LANCZOS).convert('RGB')
+        caminho_saida = os.path.join(SAIDA, destino)
+        img.save(caminho_saida, format='BMP')
+        tamanho = conferir(caminho_saida, largura, altura)
+        print(f'{destino}: {largura}x{altura}, 24 bits, sem compressão, {tamanho} bytes — {descricao}')
 
 
-def header():
-    w, h = 150, 57
-    img, d = fundo(w, h)
-    marca(d, 12, 14, 0.85)
-    d.text((52, 17), 'Kivo', font=fonte(FONT_BOLD, 22), fill=WHITE)
-    img.save(os.path.join(BUILD, 'installer-header.bmp'))
-    print('build/installer-header.bmp', img.size)
-
-
-os.makedirs(BUILD, exist_ok=True)
-sidebar()
-header()
+if __name__ == '__main__':
+    main()
+    sys.exit(0)

@@ -23,12 +23,12 @@
   },
   "dist:win": {
     "description": "Gerar instalador Windows (NSIS)",
-    "pre": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
+    "pre": "node scripts/check-installer-art.js && tsc -p tsconfig.json && node scripts/copy-build-assets.js",
     "run": "electron-rebuild -f -w better-sqlite3 && node scripts/verify-native-abi.js && electron-builder --win"
   },
   "release:win": {
     "description": "Gerar e publicar release no GitHub",
-    "pre": "tsc -p tsconfig.json && node scripts/copy-build-assets.js",
+    "pre": "node scripts/check-installer-art.js && tsc -p tsconfig.json && node scripts/copy-build-assets.js",
     "run": "electron-rebuild -f -w better-sqlite3 && node scripts/verify-native-abi.js && electron-builder --win --publish always"
   },
   "lint": {
