@@ -9,6 +9,8 @@ import { paymentMethodRepository } from '../../modules/finance/repositories/Paym
 import { createLogger } from '../logger';
 import { createDemoCatalog } from './demoCatalog';
 import type { DemoFlags } from './demoCatalog';
+import { createOdontoDemoData, odontoDemoDisponivel } from '../../modules/odonto/demoData';
+import type { OdontoDemoSummary } from '../../modules/odonto/demoData';
 import { setComandasRotulo } from '../config/businessLabels';
 
 const log = createLogger('onboarding');
@@ -89,6 +91,13 @@ export interface ProvisionResult {
   paymentMethodsActive: string[];
   featuresEnabled: string[];
   featuresDisabled: string[];
+  /**
+   * Clínica de exemplo do Odonto (só no ramo odontologia e quando o módulo está na instalação).
+   * `null` = não se aplica: o catálogo de PRODUTOS que o assistente cria não cobre paciente,
+   * agenda, prontuário, odontograma, plano, documento nem exame — era o que faltava para o
+   * dentista poder avaliar o módulo sem cadastrar nada.
+   */
+  odontoDemo: OdontoDemoSummary | null;
 }
 
 /**
@@ -370,6 +379,7 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
   let productsCreated = 0;
   let categoriesCreated = 0;
   let kitchenRoutesCreated = 0;
+  let odontoDemo: OdontoDemoSummary | null = null;
 
   if (input.resetDemoData) {
     settingsRepository.set(DEMO_DATA_KEY, '0');
@@ -387,6 +397,12 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
     productsCreated = demo.productsCreated;
     categoriesCreated = demo.categoriesCreated;
     kitchenRoutesCreated = demo.kitchenRoutesCreated;
+    // O catálogo acima é de PRODUTOS. Consultório odontológico precisa da clínica inteira
+    // (paciente, agenda, prontuário, odontograma, plano, documento e exame) para o módulo Odonto
+    // ter o que mostrar — e é só neste ramo que isso faz sentido.
+    if (input.businessType === 'odontologia' && odontoDemoDisponivel()) {
+      odontoDemo = createOdontoDemoData();
+    }
     settingsRepository.set(DEMO_DATA_KEY, '1');
   }
 
@@ -400,5 +416,6 @@ export function provision(req: Request, input: ProvisionInput): ProvisionResult 
     paymentMethodsActive,
     featuresEnabled: features.enabled,
     featuresDisabled: features.disabled,
+    odontoDemo,
   };
 }

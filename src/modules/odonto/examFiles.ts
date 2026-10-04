@@ -124,3 +124,37 @@ export function deleteExamFile(fileName: string): void {
     // Arquivo já removido não pode derrubar a exclusão do registro.
   }
 }
+
+/**
+ * Esvazia a pasta de exames e devolve quantos arquivos saíram. Usado pelo reset de fábrica.
+ *
+ * O reset apaga as LINHAS de `odonto_exams` (a varredura de `resetData.ts` percorre todas as
+ * tabelas), mas nada toca no disco — sem esta função, cada reset deixava as radiografias da
+ * clínica de teste órfãs em `storage/odonto-exams` para sempre, sem nenhuma tela que as
+ * mostrasse ou apagasse. Aqui é seguro apagar tudo: depois do reset não sobrou linha nenhuma
+ * apontando para esses arquivos.
+ *
+ * Best-effort: arquivo travado por outro processo não pode derrubar o reset (mesma razão do
+ * backup que falha sem abortar, em `core/reset/service.ts`).
+ */
+export function clearExamFilesDir(): number {
+  const dir = examFilesDir();
+  let removidos = 0;
+  let arquivos: string[];
+  try {
+    arquivos = fs.readdirSync(dir);
+  } catch {
+    return 0;
+  }
+  for (const nome of arquivos) {
+    const completo = path.join(dir, nome);
+    try {
+      if (!fs.statSync(completo).isFile()) continue;
+      fs.unlinkSync(completo);
+      removidos++;
+    } catch {
+      // Segue: um arquivo preso não invalida os outros.
+    }
+  }
+  return removidos;
+}

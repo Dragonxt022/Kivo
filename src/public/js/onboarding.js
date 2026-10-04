@@ -446,6 +446,14 @@ function onboardingWizard() {
       if (this.result.tablesCreated) parts.push(`${this.result.tablesCreated} mesas`);
       if (this.result.productsCreated) parts.push(`${this.result.productsCreated} produtos de exemplo`);
       if (this.result.categoriesCreated) parts.push(`${this.result.categoriesCreated} categorias`);
+      // Clínica de exemplo do Odonto: sem ela o dentista terminaria o assistente com agenda,
+      // prontuário e exames vazios, sem saber que o módulo tem o que mostrar.
+      const odonto = this.result.odontoDemo;
+      if (odonto) {
+        if (odonto.pacientes) parts.push(`${odonto.pacientes} pacientes no Odonto`);
+        if (odonto.agendamentos) parts.push(`${odonto.agendamentos} atendimentos na agenda`);
+        if (odonto.exames) parts.push(`${odonto.exames} exames com imagem`);
+      }
       const criado = parts.length ? `Criamos ${parts.join(', ')}. ` : '';
       const cozinha = this.result.kitchenRoutesCreated
         ? `${this.result.kitchenRoutesCreated} produtos já vão pro Painel de cozinha. `
