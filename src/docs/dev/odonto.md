@@ -422,6 +422,33 @@ Detalhe prático: não conceda `commercial.customers.*` à Recepção. O cadastr
 funciona sem isso (a ponte é feita pelo serviço interno `commercial.customers`); a permissão
 do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
+## Ambiente de teste: a clínica de exemplo
+
+O dentista que instala o Kivo não tem como avaliar o módulo com as telas vazias — e o catálogo de
+demonstração do assistente de boas-vindas cria só PRODUTOS (procedimentos e material). Por isso
+existe um gerador da clínica inteira:
+
+- **Onde:** card **Ambiente de teste do Odonto**, no fim da tela inicial (só para quem tem
+  `settings.edit`), e também no fim do assistente de boas-vindas quando o ramo é
+  **Odontologia / clínica**. As duas portas chamam a mesma coisa (`createOdontoDemoData`).
+- **O que cria:** 4 profissionais, 10 pacientes (com cliente no Comercial e ficha clínica), 10
+  procedimentos, anamnese respondida, agenda em torno do dia de hoje (atendido, faltou,
+  confirmado, agendado, em atendimento e cancelado), odontograma com situação e planejado, 4
+  planos em estados diferentes, documentos emitidos e em rascunho, prontuário **com um par de
+  retificação** e 6 exames — 5 com imagem e 1 laudo em PDF.
+- **As imagens nascem em código** (`demoImages.ts`): PNG desenhado na hora (panorâmica,
+  periapical, tomografia e fotos antes/depois) e um PDF de laudo. Nada de arquivo de imagem no
+  repositório nem base64 gigante no fonte.
+- **É idempotente:** rodar de novo completa o que faltar, sem duplicar (chave natural: nome,
+  código, título, paciente + horário). A agenda é relativa a HOJE, então rodar em outro dia
+  acrescenta a semana nova — é o que "regenerar" significa.
+- **Nunca encosta em paciente real:** se já existir um cliente com o mesmo nome e sem a marca da
+  demonstração, aquele paciente de exemplo é **pulado** (e contado no resumo). Os pacientes
+  criados levam a marca em `notes`.
+- **Como apagar:** Configurações → Avançado → **Recomeçar do zero** (zona de perigo). Ele apaga
+  tudo — exemplo e real —, tira backup antes, limpa a nuvem e agora também **apaga os arquivos de
+  exame do disco** (`clearExamFilesDir`), que antes ficavam órfãos depois de cada reset.
+
 ## Roadmap da PR: concluído
 
 Todas as fases da PR estão implementadas: fundação (1), pacientes + anamnese (2), agenda (3),
@@ -451,6 +478,10 @@ permanente).
 - `src/modules/odonto/documents.ts` — documentos: motor de variáveis, modelos, emissão, versões e
   a marcação do que ficou sem valor.
 - `src/modules/odonto/reports.ts` — painel e relatórios: só contagem e soma, sem texto clínico.
+- `src/modules/odonto/demoData.ts` — clínica de exemplo (idempotente, não encosta em paciente real).
+- `src/modules/odonto/demoImages.ts` — imagens e laudo da demonstração, desenhados em código.
+- `src/tests/odonto-demo.ts` — teste da demonstração (cobertura, idempotência, PNG íntegro,
+  proteção do paciente real e limpeza dos arquivos).
 - `src/modules/odonto/professionals.ts` / `procedures.ts` — CRUD com validação e auditoria.
 - `src/modules/odonto/repositories/` — SQL (paciente faz `JOIN` com `customers`).
 - `src/modules/odonto/migrations/0078_odonto_base/` — tabelas da fundação.

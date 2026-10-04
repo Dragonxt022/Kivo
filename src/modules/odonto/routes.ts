@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import { audit } from '../../core/audit/service';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
 import {
@@ -41,6 +42,7 @@ import {
   createProfessional, getProfessional, listProfessionals, removeProfessional, updateProfessional,
 } from './professionals';
 import { createProcedure, getProcedure, listProcedures, removeProcedure, updateProcedure } from './procedures';
+import { createOdontoDemoData, odontoDemoDisponivel, odontoDemoResumo } from './demoData';
 
 /**
  * API do módulo odonto (montada em /api/odonto, já autenticada pelo Core).
@@ -406,6 +408,31 @@ router.put('/exams/:id', requirePermission('odonto.exams.manage'), validateBody(
 
 router.delete('/exams/:id', requirePermission('odonto.exams.manage'), (req, res) => {
   send(res, removeExam(req, Number(req.params.id)));
+});
+
+// ─────────────── Ambiente de teste: clínica de exemplo ───────────────
+//
+// A porta pela tela inicial (card "Ambiente de teste") e pelo assistente de boas-vindas. A
+// permissão é `settings.edit` de propósito: é a mesma de quem já pode reabrir o assistente e
+// apertar o reset de fábrica — criar demonstração e apagá-la são a mesma decisão.
+
+/** Estado da demonstração: se o módulo está ativo e o que já existe hoje. */
+router.get('/demo-data', requirePermission('settings.edit'), (_req, res) => {
+  const disponivel = odontoDemoDisponivel();
+  res.json({ disponivel, resumo: disponivel ? odontoDemoResumo() : null });
+});
+
+/** Cria (ou completa) a clínica de exemplo. Reexecutar não duplica o que já existe. */
+router.post('/demo-data', requirePermission('settings.edit'), (req, res) => {
+  if (!odontoDemoDisponivel()) {
+    // 409 e não 500: não é falha, é um módulo que esta instalação não tem (as tabelas dele
+    // nem existem, porque as migrations só rodam para módulo carregado).
+    res.status(409).json({ error: 'O módulo Odonto não está ativo nesta instalação.' });
+    return;
+  }
+  const criados = createOdontoDemoData();
+  audit(req, 'odonto_demo_dados', 'odonto', 'demo-data', null, criados);
+  res.json({ criados, resumo: odontoDemoResumo() });
 });
 
 export default router;

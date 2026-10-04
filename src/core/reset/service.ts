@@ -22,6 +22,7 @@ import type { Request } from 'express';
 import { audit } from '../audit/service';
 import { runBackup } from '../backup/service';
 import { resetToFactory, type ResetSummary } from '../database/resetData';
+import { clearExamFilesDir } from '../../modules/odonto/examFiles';
 import { resetCompanyData, type CompanyResetResult } from '../sync/client';
 import { getLicenseCredentials, validateLicense } from '../license/service';
 import { canSaveToCloud } from '../license/plans';
@@ -44,6 +45,8 @@ export interface FactoryResetResult {
   cloudSkippedReason: string | null;
   tables: ResetSummary[];
   rowsRemoved: number;
+  /** Arquivos de exame do Odonto apagados do disco junto com as linhas. */
+  examFilesRemoved: number;
 }
 
 function sessionTokenFrom(req: Request): string | undefined {
@@ -92,6 +95,13 @@ export async function factoryReset(req: Request, input: FactoryResetInput = {}):
   const tables = resetToFactory(sessionTokenFrom(req), req.user?.id);
   const rowsRemoved = tables.reduce((acc, t) => acc + t.removed, 0);
 
+  // Arquivos de exame do Odonto: o wipe acima apaga as LINHAS de `odonto_exams`, mas elas são só
+  // referência — o arquivo mora no disco (`storage/odonto-exams`). Sem isto, cada reset deixaria
+  // as radiografias da clínica de teste órfãs e ocupando espaço para sempre, sem tela que as
+  // alcance. Importar o helper do módulo (em vez de repetir o caminho aqui) é de propósito: a
+  // regra de onde a pasta fica tem um dono só — duas cópias divergiriam na primeira mudança.
+  const examFilesRemoved = clearExamFilesDir();
+
   // Depois do wipe, de propósito: `audit_logs` é uma das tabelas zeradas, então registrar
   // antes seria apagar o próprio registro. Esta vira a primeira linha da auditoria nova.
   audit(req, 'reset_fabrica', 'sistema', 'factory-reset', null, {
@@ -100,8 +110,9 @@ export async function factoryReset(req: Request, input: FactoryResetInput = {}):
     cloud,
     cloudSkippedReason: skipped,
     rowsRemoved,
+    examFilesRemoved,
     tables,
   });
 
-  return { backupId, backupError, cloud, cloudSkippedReason: skipped, tables, rowsRemoved };
+  return { backupId, backupError, cloud, cloudSkippedReason: skipped, tables, rowsRemoved, examFilesRemoved };
 }

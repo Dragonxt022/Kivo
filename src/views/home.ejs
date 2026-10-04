@@ -9,6 +9,16 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
+    /* Ambiente de teste (clínica de exemplo do Odonto): texto de um lado, ação do outro, e
+       quebra em telas estreitas em vez de espremer os dois. */
+    .demo-panel {
+      display: flex; gap: 1.5rem; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; margin-top: 1.5rem;
+    }
+    .demo-panel-text { flex: 1 1 420px; }
+    .demo-panel h2 { font-size: 1rem; margin-bottom: .35rem; }
+    .demo-panel-action { display: flex; flex-direction: column; align-items: flex-end; gap: .5rem; }
+    .demo-panel .demo-erro { color: var(--danger); margin: 0; }
     .login-overlay {
       position: fixed; inset: 0; z-index: 200;
       display: grid; place-items: center;
@@ -461,6 +471,39 @@
         }
       %>
     </div>
+    <% } %>
+
+    <%# ─── Ambiente de teste: clínica de exemplo do Odonto ───────────────────────────────
+        Fecha a tela inicial de propósito (não empurra o painel do dia para baixo), e aparece
+        só para quem tem `settings.edit` — a mesma permissão de reabrir o assistente e de
+        apertar o reset de fábrica: criar a demonstração e apagá-la são a mesma decisão.
+        O próprio componente se esconde quando a instalação não tem o módulo Odonto. %>
+    <% if (user && user.permissions.has('settings.edit')) { %>
+    <section class="panel demo-panel" x-data="odontoDemoData()" x-init="carregar()" x-show="disponivel" x-cloak>
+      <div class="demo-panel-text">
+        <h2>Ambiente de teste do Odonto</h2>
+        <p class="hint mt-0">
+          Cria uma clínica <strong>fictícia</strong> completa — profissionais, pacientes com
+          anamnese e odontograma, agenda, planos de tratamento, prontuário, documentos e exames
+          com radiografia e fotos — para conhecer o módulo sem cadastrar nada.
+        </p>
+        <p class="hint">
+          <strong>Não duplica:</strong> rodar de novo completa só o que faltar. Para apagar
+          depois, use <a href="/admin/configuracoes">Configurações → Avançado → Recomeçar do
+          zero</a> — ele apaga tudo (dados de exemplo <em>e</em> reais) e tira um backup antes.
+        </p>
+        <p class="hint" x-show="resumo" x-text="textoResumo()"></p>
+      </div>
+      <div class="demo-panel-action">
+        <button type="button" class="btn primary" @click="criar()" :disabled="rodando">
+          <span x-text="rodando ? 'Criando…' : (criado ? 'Completar dados de exemplo' : 'Criar dados de exemplo')"></span>
+        </button>
+        <% if (user.permissions.has('odonto.reports.view')) { %>
+        <a class="btn secondary" href="/app/odonto/painel" x-show="criado" x-cloak>Abrir o Odonto</a>
+        <% } %>
+        <p class="hint demo-erro" x-show="erro" x-text="erro"></p>
+      </div>
+    </section>
     <% } %>
   </main>
 
@@ -994,6 +1037,69 @@
           <% } %>
           await Promise.all(jobs);
           this.loading = false;
+        },
+      };
+    }
+
+    /**
+     * Ambiente de teste do Odonto (card no fim da tela inicial).
+     *
+     * A existência do módulo é perguntada ao servidor em vez de decidida no EJS: o módulo Odonto
+     * só é carregado quando a licença o libera, então um `if` aqui dentro teria de replicar a
+     * regra de entitlement do Core. A rota responde `disponivel: false` (ou nem existe) quando
+     * o módulo não está na instalação, e o card simplesmente não aparece.
+     */
+    function odontoDemoData() {
+      return {
+        disponivel: false,
+        rodando: false,
+        criado: false,
+        erro: '',
+        resumo: null,
+
+        async carregar() {
+          try {
+            const r = await fetch('/api/odonto/demo-data');
+            if (!r.ok) return;
+            // O Core embrulha toda resposta JSON em `{ success, data }` (shared/responseEnvelope.ts).
+            const d = (await r.json()).data ?? {};
+            this.disponivel = !!d.disponivel;
+            this.resumo = d.resumo ?? null;
+          } catch {
+            // Sem servidor local não há o que oferecer: o card fica escondido.
+          }
+        },
+
+        textoResumo() {
+          const r = this.resumo;
+          if (!r) return '';
+          const plural = (n, um, muitos) => n + ' ' + (n === 1 ? um : muitos);
+          const partes = [];
+          if (r.pacientes) partes.push(plural(r.pacientes, 'paciente', 'pacientes'));
+          if (r.profissionais) partes.push(plural(r.profissionais, 'profissional', 'profissionais'));
+          if (r.agendamentos) partes.push(plural(r.agendamentos, 'atendimento', 'atendimentos'));
+          if (r.planos) partes.push(plural(r.planos, 'plano de tratamento', 'planos de tratamento'));
+          if (r.exames) partes.push(plural(r.exames, 'exame', 'exames'));
+          return partes.length
+            ? 'Hoje o consultório tem ' + partes.join(', ') + '.'
+            : 'O consultório ainda está vazio.';
+        },
+
+        async criar() {
+          if (this.rodando) return;
+          this.rodando = true; this.erro = '';
+          try {
+            const r = await fetch('/api/odonto/demo-data', { method: 'POST' });
+            const corpo = await r.json().catch(() => ({}));
+            // Erro sobe no nível de cima (`{ success:false, error }`); o sucesso vem em `data`.
+            if (!r.ok) { this.erro = corpo.error ?? 'Não foi possível criar os dados de exemplo.'; return; }
+            this.resumo = corpo.data?.resumo ?? null;
+            this.criado = true;
+          } catch {
+            this.erro = 'Erro de conexão com o servidor local.';
+          } finally {
+            this.rodando = false;
+          }
         },
       };
     }
