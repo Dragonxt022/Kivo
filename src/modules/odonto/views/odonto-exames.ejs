@@ -10,6 +10,13 @@
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
+    /* Abas das telas do paciente. As telas irmãs (documentos, odontograma, planos, prontuário)
+       trazem este bloco no próprio <style>; aqui ele faltava, e as abas caíam no padrão do
+       navegador: link azul sublinhado, sem espaçamento e sem destaque da ativa. */
+    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
+    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
+    .secoes span.planejado { opacity: .6; }
     .exame { border: 1px solid var(--border-light); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
     .exame h3 { margin: 0 0 2px; font-size: .96rem; }
     .exame .meta { color: var(--muted); font-size: .78rem; }
@@ -34,6 +41,7 @@
       <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
+      <a href="/app/odonto/agenda">Consultas</a>
       <a :href="'/app/odonto/pacientes/' + patientId + '/documentos'">Documentos</a>
       <a class="atual" href="#">Exames e imagens</a>
     </div>

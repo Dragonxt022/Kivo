@@ -211,6 +211,18 @@
         </div>
         <% } %>
 
+        <% if (user.permissions.has('odonto.exams.view')) { %>
+        <h2>Exames e imagens</h2>
+        <p class="muted text-xs" style="margin-top:0">
+          Radiografia, tomografia e fotografia clínica do paciente, marcadas como antes, durante ou
+          depois do tratamento para comparar a evolução lado a lado. O arquivo fica guardado no
+          computador da clínica.
+        </p>
+        <div class="toolbar">
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/exames'">Abrir exames e imagens</a>
+        </div>
+        <% } %>
+
         <h2>Próximas fases do módulo</h2>
         <table>
           <thead><tr><th>Recurso</th><th>Situação</th></tr></thead>
@@ -221,7 +233,7 @@
             <tr><td>Odontograma</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Plano de tratamento e cobrança</td><td><span class="badge">Disponível</span></td></tr>
             <tr><td>Documentos (TCLE, receita, atestado, contrato)</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Exames e imagens</td><td class="muted">Planejada (fase 8)</td></tr>
+            <tr><td>Exames e imagens</td><td><span class="badge">Disponível</span></td></tr>
           </tbody>
         </table>
       </div>

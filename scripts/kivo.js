@@ -52,6 +52,7 @@ function listCommands() {
       'build',
       'rebuild:electron',
       'verify:native',
+      'check:packaged-abi',
       'dist:win',
       'release:win',
     ],

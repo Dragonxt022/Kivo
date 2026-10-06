@@ -40,6 +40,11 @@
   }
   .odonto-vazio strong { display: block; color: var(--text); margin-bottom: 4px; font-size: 0.94rem; }
 
+  /* Valores e quantias em coluna: sem isto os dígitos não alinham verticalmente e a coluna
+     de dinheiro "dança". Os outros módulos fazem o mesmo com `font-variant-numeric` nas
+     próprias classes (ex.: `.num` no overview); aqui o utilitário é `.tabular`. */
+  .tabular { font-variant-numeric: tabular-nums; }
+
   /* Botão de rever o tutorial, fixo no canto: existe em toda tela do módulo. */
   .odonto-tour-btn {
     position: fixed; left: 16px; bottom: 16px; z-index: 40;

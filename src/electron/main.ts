@@ -13,6 +13,7 @@ import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/
 import { patchUpdateState, getUpdateState, registrarUpdaterDriver, BAIXAR_AUTOMATICO_KEY } from '../core/updater';
 import { settingsRepository } from '../core/repositories/SettingsRepository';
 import { createLogger } from '../core/logger';
+import { bootLog } from './bootLog';
 import { installTelemetry, registerInventoryProvider, recordError } from '../core/telemetry/service';
 
 const log = createLogger('electron');
@@ -116,6 +117,7 @@ function currentIconPath(): string {
  */
 function reportFatalBootError(err: unknown): void {
   const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  bootLog(`ERRO FATAL no boot: ${message}`);
   try {
     const logPath = path.join(app.getPath('userData'), 'boot-error.log');
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
@@ -381,8 +383,38 @@ function criarSplash(): BrowserWindow {
 }
 
 async function boot() {
-  if (!app.requestSingleInstanceLock()) {
-    app.quit();
+  /**
+   * Trava de instância única.
+   *
+   * O caminho de FALHA precisa deixar rastro. Antes era só `app.quit()`: o sintoma para o
+   * lojista era "dou dois cliques e não abre nada" — sem janela, sem log, sem pista nenhuma; e,
+   * nesta máquina, o próprio encerramento abortava o processo com EXCEPTION_BREAKPOINT no
+   * desmonte do Node (`node::FreePlatform`), o que ainda escondia a causa atrás de um stack de
+   * V8. Agora a recusa vira linha no `error.log` e uma caixa explicando o que fazer.
+   *
+   * `KIVO_IGNORAR_TRAVA_INSTANCIA=1` pula a trava: serve para provar, numa máquina onde o app
+   * "não abre", se o problema é a trava recusando a instância (canal do Windows bloqueado, ou
+   * um Kivo.exe órfão segurando a trava) ou outra coisa.
+   */
+  const ignorarTrava = process.env.KIVO_IGNORAR_TRAVA_INSTANCIA === '1';
+  if (!ignorarTrava && !app.requestSingleInstanceLock()) {
+    bootLog('[instancia] trava de instância única recusada — já existe um Kivo rodando');
+    appendErrorLog(
+      '[instancia] trava de instância única recusada: já existe um Kivo rodando (ou o Windows ' +
+      'recusou o canal). Esta cópia vai encerrar sem abrir janela.',
+    );
+    try {
+      dialog.showErrorBox(
+        'Kivo já está aberto',
+        'Já existe um Kivo em execução neste computador.\n\n' +
+        'Se você não vê a janela dele, feche o Kivo pelo Gerenciador de Tarefas ' +
+        '(aba Detalhes, processo Kivo.exe) e abra o Kivo de novo.',
+      );
+    } catch {
+      // Sem interface (sessão sem desktop): o log acima é a única pista possível.
+    }
+    // `exit` e não `quit`: encerrar durante o boot já abortou o processo no desmonte do Node.
+    app.exit(0);
     return;
   }
 
@@ -394,9 +426,11 @@ async function boot() {
   const splash = criarSplash();
   const splashInicio = Date.now();
   await new Promise((r) => setTimeout(r, 50));
+  bootLog('boot: splash criada — rodando migrations');
 
   migrateUp();
   runSeeds();
+  bootLog('boot: migrations e seeds OK');
   installTelemetry();
   registerInventoryProvider(() => {
     let screenInfo: { width: number; height: number; scaleFactor: number } | null = null;
@@ -431,6 +465,7 @@ async function boot() {
   // vigor depois de um "Sincronizar agora" manual — reiniciar sozinho não bastava.
   await refreshLicenseFromCloud();
   const { app: api } = await createServer();
+  bootLog('boot: servidor Express criado');
   // Desligado por padrão: só passa a escutar em todas as interfaces (alcançável pelo
   // celular do garçom / tablet da cozinha na mesma rede Wi-Fi/cabo) se o admin ligar
   // "Acesso pela rede local" em Configurações. A troca vale na hora, sem reiniciar —
@@ -475,6 +510,7 @@ async function boot() {
   }
 
   servidor = escutar(lanAtivo, true);
+  bootLog(`boot: escutando em ${lanAtivo ? '0.0.0.0' : '127.0.0.1'}:${PORT}`);
 
   /**
    * Troca o host do servidor em execução, sem reiniciar o Kivo. Chamado pela rota
@@ -530,6 +566,7 @@ async function boot() {
     }, restante);
   });
   await win.loadURL(`http://localhost:${PORT}/`);
+  bootLog('boot: janela principal carregada');
 
   // Acompanha o tema claro/escuro do Windows em tempo real (o ícone gravado no .exe
   // no build é fixo; isto troca o ícone da janela/taskbar enquanto o app está aberto).

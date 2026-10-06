@@ -21,15 +21,25 @@
     "description": "Verificar compatibilidade ABI dos módulos nativos",
     "run": "node scripts/verify-native-abi.js"
   },
+  "check:packaged-abi": {
+    "description": "Verificar o ABI nativo DENTRO do pacote gerado (roda sozinho no post do dist:win)",
+    "run": "node scripts/check-packaged-abi.js"
+  },
+  "limpar:instalacao": {
+    "description": "Remover residuos de instalacao anterior (chave HKCU do app + processo pendurado) antes de instalar",
+    "run": "node scripts/limpar-instalacao-anterior.js --apply"
+  },
   "dist:win": {
     "description": "Gerar instalador Windows (NSIS)",
-    "pre": "node scripts/check-installer-art.js && tsc -p tsconfig.json && node scripts/copy-build-assets.js",
-    "run": "electron-rebuild -f -w better-sqlite3 && node scripts/verify-native-abi.js && electron-builder --win"
+    "pre": "node scripts/check-installer-art.js && node scripts/limpar-instalacao-anterior.js --apply && node scripts/ensure-native-abi.js electron && tsc -p tsconfig.json && node scripts/copy-build-assets.js && node scripts/installer-preflight.js",
+    "run": "node scripts/verify-native-abi.js && electron-builder --win",
+    "post": "node scripts/check-packaged-abi.js"
   },
   "release:win": {
     "description": "Gerar e publicar release no GitHub",
-    "pre": "node scripts/check-installer-art.js && tsc -p tsconfig.json && node scripts/copy-build-assets.js",
-    "run": "electron-rebuild -f -w better-sqlite3 && node scripts/verify-native-abi.js && electron-builder --win --publish always"
+    "pre": "node scripts/check-installer-art.js && node scripts/limpar-instalacao-anterior.js --apply && node scripts/ensure-native-abi.js electron && tsc -p tsconfig.json && node scripts/copy-build-assets.js && node scripts/installer-preflight.js",
+    "run": "node scripts/verify-native-abi.js && electron-builder --win --publish always",
+    "post": "node scripts/check-packaged-abi.js"
   },
   "lint": {
     "description": "ESLint — verificar código",
