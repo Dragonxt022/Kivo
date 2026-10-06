@@ -1,6 +1,6 @@
 {
   "name": "Kivo",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Kivo — plataforma comercial modular desktop-first",
   "author": "Kivo",
   "private": true,
@@ -70,23 +70,28 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis",
-      "icon": "build/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh",
       "installerHeader": "build/installer-header.bmp",
       "installerSidebar": "build/installer-sidebar.bmp",
       "uninstallerSidebar": "build/installer-sidebar.bmp",
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Kivo",
-      "menuCategory": "Kivo",
-      "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false,
-      "artifactName": "Kivo-Setup-${version}.${ext}",
-      "include": "build/installer.nsh"
+      "artifactName": "Kivo-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Kivo-Portable-${version}.${ext}"
     },
     "publish": {
       "provider": "github",

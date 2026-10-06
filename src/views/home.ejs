@@ -536,7 +536,7 @@
     // `PRIORIDADE_CARDS` só é usada enquanto ninguém salvou uma ordem (vem do perfil do boas-vindas).
     const ORDEM_CARDS = <%- JSON.stringify(typeof ordemCards !== 'undefined' ? ordemCards : []) %>;
     const PRIORIDADE_CARDS = <%- JSON.stringify(typeof prioridadeCards !== 'undefined' ? prioridadeCards : []) %>;
-    const PODE_ARRUMAR_CARDS = <%= user.permissions.has('settings.edit') ? 'true' : 'false' %>;
+    const PODE_ARRUMAR_CARDS = <%= user && user.permissions.has('settings.edit') ? 'true' : 'false' %>;
     const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
 
     function homePage() {
