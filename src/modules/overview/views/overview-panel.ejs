@@ -102,6 +102,13 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/overview' }) %>
+  <%
+    // Perfil operacional (definido por filterModuleMenu). Num consultório, venda/estoque/mesas
+    // não fazem parte da operação: a visão geral mostra caixa, contas, DRE e o Painel do Odonto.
+    var perfil = (typeof businessProfile !== 'undefined' ? businessProfile : 'generico');
+    var temVarejo = perfil !== 'odontologia';
+    var temOdonto = perfil === 'odontologia' && user.permissions.has('odonto.reports.view');
+  %>
   <main x-data="overviewPage()" x-init="init()">
     <div class="ov-head">
       <div>
@@ -116,9 +123,12 @@
       </div>
     </div>
 
-    <!-- ─── Atalhos rápidos (respeitam a permissão) ─── -->
+    <!-- ─── Atalhos rápidos (respeitam a permissão e o ramo) ─── -->
     <div class="ov-actions">
-      <% if (user.permissions.has('store.sales.create')) { %>
+      <% if (temOdonto) { %>
+      <a class="btn small" href="/app/odonto/painel"><%- svgIcon('clipboard', 15, 15) %>Painel do Odonto</a>
+      <% } %>
+      <% if (temVarejo && user.permissions.has('store.sales.create')) { %>
       <a class="btn small" href="/app/store/pdv"><%- svgIcon('cart', 15, 15) %>Nova venda</a>
       <% } %>
       <% if (user.permissions.has('finance.cash.open')) { %>
@@ -127,13 +137,13 @@
       <% if (user.permissions.has('finance.payables.create')) { %>
       <a class="btn secondary small" href="/app/finance/pagar"><%- svgIcon('credit-card', 15, 15) %>Nova conta a pagar</a>
       <% } %>
-      <% if (user.permissions.has('store.quotes.create')) { %>
+      <% if (temVarejo && user.permissions.has('store.quotes.create')) { %>
       <a class="btn secondary small" href="/app/store/orcamentos"><%- svgIcon('clipboard', 15, 15) %>Novo orçamento</a>
       <% } %>
-      <% if (user.permissions.has('commercial.products.create')) { %>
+      <% if (temVarejo && user.permissions.has('commercial.products.create')) { %>
       <a class="btn secondary small" href="/app/commercial/produtos"><%- svgIcon('package', 15, 15) %>Novo produto</a>
       <% } %>
-      <% if (user.permissions.has('comandas.view')) { %>
+      <% if (temVarejo && user.permissions.has('comandas.view')) { %>
       <a class="btn secondary small" href="/app/comandas/mesas"><%- svgIcon('utensils', 15, 15) %>Mesas</a>
       <% } %>
     </div>
@@ -150,6 +160,7 @@
              x-text="kpis.cash.open ? 'Aberto ' + fmtDateTime(kpis.cash.openedAt) : 'Nenhum caixa aberto'"></div>
       </a>
 
+      <% if (temVarejo) { %>
       <a href="/app/store/vendas" class="stat-tile">
         <div class="kpi-tile-top">
           <span class="kpi-tile-icon"><%- svgIcon('cart', 16, 16) %></span>
@@ -176,6 +187,7 @@
         <div class="stat-tile-value" x-text="loading ? '…' : brl(ticketMedio)"></div>
         <div class="stat-tile-status muted" x-text="kpis.salesMonth.count + ' venda(s) no mês'"></div>
       </a>
+      <% } %>
 
       <a href="/app/finance/pagar" class="stat-tile">
         <div class="kpi-tile-top">
@@ -197,6 +209,7 @@
              x-text="kpis.receivables.overdueCount + ' vencida(s) · ' + kpis.receivables.dueSoonCount + ' a vencer (7d)'"></div>
       </a>
 
+      <% if (temVarejo) { %>
       <a href="#estoque" class="stat-tile">
         <div class="kpi-tile-top">
           <span class="kpi-tile-icon" :class="kpis.stock.zeroCount > 0 ? 'danger' : (kpis.stock.lowCount > 0 ? 'warn' : '')"><%- svgIcon('package', 16, 16) %></span>
@@ -205,8 +218,10 @@
         <div class="stat-tile-value" x-text="loading ? '…' : kpis.stock.lowCount + ' abaixo do mínimo'"></div>
         <div class="stat-tile-status" :class="kpis.stock.zeroCount > 0 ? 'warning' : 'muted'" x-text="kpis.stock.zeroCount + ' zerado(s)'"></div>
       </a>
+      <% } %>
     </div>
 
+    <% if (temVarejo) { %>
     <!-- ─── Evolução do faturamento ─── -->
     <div class="dashboard-chart-panel">
       <div class="dashboard-chart-header">
@@ -237,6 +252,8 @@
       </div>
     </div>
 
+    <% } %>
+
     <!-- ─── Período (manda em: vendas, fluxo, DRE e caixas) ─── -->
     <div class="ov-period">
       <div class="seg">
@@ -251,6 +268,7 @@
       <button type="button" class="btn secondary" @click="reloadPeriod()">Aplicar</button>
     </div>
 
+    <% if (temVarejo) { %>
     <!-- ─── Insights de vendas com IA ─── -->
     <section class="panel" style="margin-top:1.25rem">
       <div class="section-head">
@@ -317,6 +335,7 @@
         </div>
       </section>
     </div>
+    <% } %>
 
     <!-- ─── Financeiro: fluxo de caixa + vencimentos ─── -->
     <div class="ov-cols" style="margin-top:1.25rem">
@@ -395,6 +414,7 @@
     </section>
     <% } %>
 
+    <% if (temVarejo) { %>
     <!-- ─── Estoque ─── -->
     <section class="panel" id="estoque" style="margin-top:1.25rem">
       <div class="section-head">
@@ -437,6 +457,7 @@
         </table>
       </div>
     </section>
+    <% } %>
 
     <!-- ─── Caixas ─── -->
     <section class="panel">

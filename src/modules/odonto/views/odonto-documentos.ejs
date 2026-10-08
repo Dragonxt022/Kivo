@@ -10,20 +10,17 @@
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
-    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
-    .secoes span.planejado { opacity: .6; }
-    .doc { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
-    .doc h3 { margin: 0 0 2px; font-size: .98rem; }
-    .doc .meta { color: var(--muted); font-size: .78rem; }
-    .doc pre { white-space: pre-wrap; font-family: inherit; font-size: .84rem; color: var(--muted);
-               max-height: 120px; overflow: hidden; margin: 8px 0 0; }
+    .doc { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow-xs); }
+    .doc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+    .doc-head h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .doc .meta { color: var(--muted); font-size: .78rem; line-height: 1.6; margin-top: .3rem; }
+    .doc-actions { margin: .85rem 0 0; }
     .variaveis { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
     .variaveis button { font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-light);
                         background: var(--surface-hover); color: var(--muted); cursor: pointer; }
     .editor textarea { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
-    .aviso { color: #b45309; font-size: .78rem; }
+    .aviso { display: inline-block; color: var(--warning-text); background: var(--warning-bg); border-radius: 8px;
+             padding: .3rem .6rem; font-size: .78rem; margin: .55rem 0 0; }
   </style>
 </head>
 <body>
@@ -65,11 +62,13 @@
     <div id="tour-odonto-documentos"></div>
     <template x-for="d in documentos" :key="d.id">
       <div class="doc">
-        <h3>
-          <span x-text="d.title"></span>
-          <span class="badge" :class="d.status === 'emitido' ? 'ok' : (d.status === 'cancelado' ? 'off' : 'neutral')" x-text="d.status"></span>
-          <span class="muted text-xs" x-show="d.version > 1" x-text="'versão ' + d.version"></span>
-        </h3>
+        <div class="doc-head">
+          <h3>
+            <span x-text="d.title"></span>
+            <span class="badge" :class="d.status === 'emitido' ? 'ok' : (d.status === 'cancelado' ? 'off' : 'neutral')" x-text="d.status"></span>
+            <span class="muted text-xs" x-show="d.version > 1" x-text="'versão ' + d.version"></span>
+          </h3>
+        </div>
         <div class="meta">
           <span x-text="d.type_label"></span>
           <span x-show="d.template_name" x-text="' · modelo: ' + d.template_name"></span>
@@ -83,7 +82,7 @@
         </div>
         <p class="aviso" x-show="d.missing_variables.length"
            x-text="'Faltou preencher: ' + d.missing_variables.join(', ')"></p>
-        <div class="toolbar" style="margin:8px 0 0">
+        <div class="toolbar doc-actions">
           <button class="btn secondary small" @click="ver(d)">Ver</button>
           <a class="btn secondary small" :href="'/app/odonto/documentos/' + d.id + '/imprimir'">Imprimir / PDF</a>
           <% if (user.permissions.has('odonto.documents.manage')) { %>
@@ -171,16 +170,18 @@
     <% } %>
 
     <!-- ─────────── Ver documento ─────────── -->
-    <dialog x-ref="dlgVer" class="dialog-fixed">
+    <dialog x-ref="dlgVer" class="dialog-doc">
       <h1 x-text="vendo.title || 'Documento'"></h1>
       <div class="dialog-body">
         <p class="muted text-xs" style="margin-top:0"
            x-text="vendo.type_label + (vendo.template_name ? ' · modelo: ' + vendo.template_name : '') + ' · versão ' + (vendo.version || 1) + ' · ' + vendo.status"></p>
         <p class="aviso" x-show="(vendo.missing_variables || []).length"
            x-text="'Faltou preencher: ' + (vendo.missing_variables || []).join(', ')"></p>
-        <pre style="white-space:pre-wrap; font-family:inherit; font-size:.86rem" x-text="vendo.body"></pre>
+        <div class="doc-preview full">
+          <pre x-text="vendo.body"></pre>
+        </div>
         <template x-if="(vendo.revision_chain || []).length > 1">
-          <div>
+          <div style="margin-top:.9rem">
             <label>Versões deste documento</label>
             <template x-for="v in vendo.revision_chain" :key="v.id">
               <div class="meta" x-text="'versão ' + v.version + ' · ' + v.status + ' · ' + fmtDateTimeLocal(v.created_at)"></div>

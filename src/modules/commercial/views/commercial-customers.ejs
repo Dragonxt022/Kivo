@@ -201,6 +201,18 @@
     <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar cliente' : 'Novo cliente'"></h1>
       <div class="dialog-body">
+        <div style="display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;margin-bottom:.4rem">
+          <span style="width:64px;height:64px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--primary-bg);color:var(--primary);font-weight:700;font-size:1.4rem;border:1px solid var(--border-light);flex:none">
+            <template x-if="photoPreview"><img :src="photoPreview" alt="" style="width:100%;height:100%;object-fit:cover" /></template>
+            <template x-if="!photoPreview"><span x-text="initials(form.name)"></span></template>
+          </span>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+            <input type="file" style="display:none" accept="image/jpeg,image/png,image/webp,image/avif" x-ref="photoFile" @change="onPhotoFile($event)" />
+            <button type="button" class="btn secondary small" @click="$refs.photoFile.click()">Foto</button>
+            <button type="button" class="btn secondary small danger" x-show="photoPreview" @click="removePhoto()">Remover</button>
+          </div>
+          <span class="muted text-xs">JPG, PNG ou WEBP, até 6MB.</span>
+        </div>
         <label>Nome</label><input type="text" x-model="form.name" />
         <label>CPF/CNPJ</label><input type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="000.000.000-00" />
         <label>Telefone</label><input type="text" x-model="form.phone" @input="form.phone = maskPhone(form.phone)" placeholder="(00) 00000-0000" />
@@ -281,6 +293,7 @@
         filters: { active: '1', agreement_company_id: '', price_list_id: '', tag: '', birthdayMonth: '', inactiveDays: '', debtors: false },
         bulkForm: { price_list_id: '', agreement_company_id: '' },
         priceLists: [], agreements: [],
+        photoPreview: null, pendingPhotoBase64: null, photoRemoved: false,
         monthNames: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'],
         sortGetters: {
           name: (r) => r.name, document: (r) => r.document ?? '',
@@ -327,8 +340,40 @@
           if (p.ok) this.priceLists = await p.json();
           if (a.ok) this.agreements = await a.json();
         },
-        openNew() { this.form = { active: true }; this.dlgError = ''; this.$refs.dlg.showModal(); },
-        openEdit(r) { this.form = { ...r, active: !!r.active }; this.dlgError = ''; this.$refs.dlg.showModal(); },
+        openNew() { this.form = { active: true }; this.dlgError = ''; this.resetPhoto(); this.$refs.dlg.showModal(); },
+        openEdit(r) {
+          this.form = { ...r, active: !!r.active };
+          this.dlgError = '';
+          this.resetPhoto();
+          if (r.photo_file) this.photoPreview = r.photo_file;
+          this.$refs.dlg.showModal();
+        },
+        /** Iniciais para o avatar quando não há foto: "Maria Souza" → "MS". */
+        initials(name) {
+          const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+          if (!parts.length) return '?';
+          return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+        },
+        resetPhoto() {
+          this.photoPreview = null;
+          this.pendingPhotoBase64 = null;
+          this.photoRemoved = false;
+        },
+        onPhotoFile(e) {
+          const file = e.target.files[0];
+          e.target.value = '';
+          if (!file) return;
+          if (file.size > 6 * 1024 * 1024) { this.dlgError = 'Imagem muito grande (máximo 6MB).'; return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result);
+            this.photoPreview = dataUrl;
+            this.pendingPhotoBase64 = dataUrl.split(',')[1] ?? '';
+            this.photoRemoved = false;
+          };
+          reader.readAsDataURL(file);
+        },
+        removePhoto() { this.photoPreview = null; this.pendingPhotoBase64 = null; this.photoRemoved = true; },
         async autoCep() {
           const digits = String(this.form.cep || '').replace(/\D/g, '');
           if (digits.length !== 8) return;
@@ -350,8 +395,22 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(this.form),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); showToast('Cliente salvo.', 'success'); }
-          else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
+          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); return; }
+          const salvo = await r.json();
+          const id = isEdit ? this.form.id : (salvo.id ?? salvo.data?.id);
+          // Foto é upload separado (base64) e vive no cliente — vale também para o Odonto.
+          if (this.pendingPhotoBase64 && id) {
+            const pr = await fetch(`/api/commercial/customers/${id}/photo`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ photoBase64: this.pendingPhotoBase64 }),
+            });
+            if (!pr.ok) { this.dlgError = (await pr.json()).error ?? 'Erro ao enviar a foto.'; showToast(this.dlgError, 'error'); return; }
+          } else if (this.photoRemoved && isEdit) {
+            await fetch(`/api/commercial/customers/${id}/photo`, { method: 'DELETE' });
+          }
+          this.$refs.dlg.close();
+          this.load();
+          showToast('Cliente salvo.', 'success');
         },
         async remove(row) {
           if (!await window.confirmDlg(`Excluir "${row.name}"?`)) return;

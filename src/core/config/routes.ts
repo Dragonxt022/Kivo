@@ -20,6 +20,7 @@ import { ICON_PACK_SETTING, getSelectedPackId, iconPackCover, installIconPack, s
 import { cloudAuthHeaders, cloudBaseUrl } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
 import { getCardsOrder, getCardsHidden, saveCardsLayout } from './homeCards';
+import { getVisibleModulesOverride, saveVisibleModules } from './businessProfile';
 import { z } from 'zod';
 
 const log = createLogger('reset');
@@ -28,6 +29,11 @@ const log = createLogger('reset');
 const cardsLayoutSchema = z.object({
   ordem: z.array(z.string().min(1).max(200)).max(200).optional(),
   ocultos: z.array(z.string().min(1).max(200)).max(200).optional(),
+});
+
+/** Módulos que a empresa escolheu mostrar (override do padrão do ramo). */
+const modulesVisibilitySchema = z.object({
+  visiveis: z.array(z.string().min(1).max(64)).max(200),
 });
 
 const router = Router();
@@ -474,6 +480,21 @@ router.put('/interface/cards', requirePermission('settings.edit'), validateBody(
   saveCardsLayout(ordem, ocultos);
   audit(req, 'editar', 'interface_cards', 'home', null, { ordem: ordem.length, ocultos: ocultos.length });
   res.json({ success: true, data: { ordem: getCardsOrder(), ocultos: getCardsHidden() } });
+});
+
+/**
+ * Módulos visíveis (preferência da EMPRESA). Sem personalizar, vale o padrão do ramo
+ * (`onboarding.business_type`). Aqui a resposta é a lista salva — `null` quando nunca salvou.
+ */
+router.get('/interface/modules', requirePermission('settings.view'), (_req, res) => {
+  res.json({ success: true, data: { visiveis: getVisibleModulesOverride() } });
+});
+
+router.put('/interface/modules', requirePermission('settings.edit'), validateBody(modulesVisibilitySchema), (req, res) => {
+  const visiveis = req.body.visiveis ?? [];
+  saveVisibleModules(visiveis);
+  audit(req, 'editar', 'interface_modules', 'menu', null, { visiveis: visiveis.length });
+  res.json({ success: true, data: { visiveis: getVisibleModulesOverride() } });
 });
 
 export default router;

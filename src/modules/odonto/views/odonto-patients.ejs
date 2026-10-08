@@ -27,6 +27,7 @@
 
     <table id="tour-odonto-pacientes">
       <thead><tr>
+        <th class="col-num">#</th>
         <th @click="sortCycle('name')" class="sortable">Nome<span class="sort-arrow" x-text="sortArrow('name')"></span></th>
         <th>CPF/CNPJ</th>
         <th>Telefone</th>
@@ -36,16 +37,25 @@
         <th></th>
       </tr></thead>
       <tbody>
-        <template x-for="r in pageRows" :key="r.id">
+        <template x-for="(r, idx) in pageRows" :key="r.id">
           <tr>
-            <td><a :href="'/app/odonto/pacientes/' + r.id" x-text="r.name"></a></td>
+            <td class="col-num" x-text="rowNumber(idx)"></td>
+            <td>
+              <div class="odonto-name-cell">
+                <span class="odonto-avatar">
+                  <img x-show="r.photo_file" :src="r.photo_file || ''" :alt="r.name" x-cloak />
+                  <span x-show="!r.photo_file" x-text="initials(r.name)"></span>
+                </span>
+                <a :href="'/app/odonto/pacientes/' + r.id" x-text="r.name"></a>
+              </div>
+            </td>
             <td class="muted" x-text="r.document || '—'"></td>
             <td class="muted" x-text="r.phone || '—'"></td>
             <td class="muted" x-text="fmtDate(r.birthday)"></td>
             <% if (canViewClinical) { %>
             <td class="muted" x-text="r.has_clinical ? 'Preenchida' : 'Em branco'"></td>
             <% } %>
-            <td><span class="badge" x-text="r.active ? 'Ativo' : 'Inativo'"></span></td>
+            <td><span class="badge" :class="r.active ? 'ok' : 'off'" x-text="r.active ? 'Ativo' : 'Inativo'"></span></td>
             <td class="text-right">
               <div class="dropdown">
                 <button class="icon-btn" @click="openMenu = openMenu === r.id ? null : r.id" title="Mais ações">
@@ -64,7 +74,7 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!displayRows.length"><td colspan="<%= canViewClinical ? 7 : 6 %>"><%- include('partials/empty-state', { message: 'Nenhum paciente cadastrado ainda.' }) %></td></tr>
+        <tr x-show="!displayRows.length"><td colspan="<%= canViewClinical ? 8 : 7 %>"><%- include('partials/empty-state', { message: 'Nenhum paciente cadastrado ainda.' }) %></td></tr>
       </tbody>
     </table>
     <%- include('partials/pager') %>
@@ -72,6 +82,18 @@
     <dialog x-ref="dlg" class="dialog-fixed">
       <h1 x-text="form.id ? 'Editar cadastro do paciente' : 'Novo paciente'"></h1>
       <div class="dialog-body">
+        <div class="odonto-photo-field" style="margin-bottom:.5rem">
+          <span class="odonto-avatar lg">
+            <img x-show="photoPreview" :src="photoPreview || ''" alt="" x-cloak />
+            <span x-show="!photoPreview" x-text="initials(form.name)"></span>
+          </span>
+          <div class="odonto-photo-actions">
+            <input type="file" class="sr-only" style="display:none" accept="image/jpeg,image/png,image/webp,image/avif" x-ref="photoFile" @change="onPhotoFile($event)" />
+            <button type="button" class="btn secondary small" @click="$refs.photoFile.click()">Enviar foto</button>
+            <button type="button" class="btn secondary small danger" x-show="photoPreview" @click="removePhoto()">Remover</button>
+          </div>
+          <span class="muted text-xs">JPG, PNG ou WEBP, até 6MB.</span>
+        </div>
         <label>Nome completo</label><input class="input" type="text" x-model="form.name" />
         <div class="pm-grid">
           <div class="pm-field"><label>CPF/CNPJ</label><input class="input" type="text" x-model="form.document" @input="form.document = maskDoc(form.document)" placeholder="000.000.000-00" /></div>
@@ -125,6 +147,7 @@
       return {
         ...tableToolkit(),
         rows: [], q: '', error: '', dlgError: '', form: {},
+        photoPreview: null, pendingPhotoBase64: null, photoRemoved: false,
         sortGetters: {
           name: (r) => r.name,
           birthday: (r) => r.birthday ?? '',
@@ -133,20 +156,55 @@
         get pageTotal() { return this.displayRows.length; },
         get pageRows() { return this.pagedRows(this.displayRows); },
 
+        /** Iniciais para o avatar quando não há foto: "Maria Souza" → "MS". */
+        initials(name) {
+          const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+          if (!parts.length) return '?';
+          return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+        },
+        rowNumber(idx) { return (this.page - 1) * this.pageSize + idx + 1; },
+
         async load() {
           const url = '/api/odonto/patients' + (this.q ? `?q=${encodeURIComponent(this.q)}` : '');
           const r = await fetch(url);
           if (r.ok) this.rows = await r.json();
           else this.error = (await r.json()).error ?? 'Erro ao carregar.';
         },
+        resetPhoto() {
+          this.photoPreview = null;
+          this.pendingPhotoBase64 = null;
+          this.photoRemoved = false;
+        },
+        onPhotoFile(e) {
+          const file = e.target.files[0];
+          e.target.value = '';
+          if (!file) return;
+          if (file.size > 6 * 1024 * 1024) { this.dlgError = 'Imagem muito grande (máximo 6MB).'; return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result);
+            this.photoPreview = dataUrl;
+            this.pendingPhotoBase64 = dataUrl.split(',')[1] ?? '';
+            this.photoRemoved = false;
+          };
+          reader.readAsDataURL(file);
+        },
+        removePhoto() {
+          this.photoPreview = null;
+          this.pendingPhotoBase64 = null;
+          this.photoRemoved = true;
+        },
         openNew() {
           this.form = { active: true };
           this.dlgError = '';
+          this.resetPhoto();
           this.$refs.dlg.showModal();
         },
         openEdit(r) {
           this.form = { ...r, active: !!r.active };
           this.dlgError = '';
+          this.resetPhoto();
+          if (r.photo_file) this.photoPreview = r.photo_file;
           this.$refs.dlg.showModal();
         },
         /** Só o cadastro: o bloco clínico é gravado na ficha do paciente. */
@@ -172,8 +230,20 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(this.payload()),
           });
-          if (r.ok) { this.$refs.dlg.close(); this.load(); }
-          else this.dlgError = (await r.json()).error ?? 'Erro ao salvar.';
+          if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; return; }
+          const salvo = await r.json();
+          const id = isEdit ? this.form.id : salvo.id;
+          if (this.pendingPhotoBase64) {
+            const pr = await fetch(`/api/odonto/patients/${id}/photo`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ photoBase64: this.pendingPhotoBase64 }),
+            });
+            if (!pr.ok) { this.dlgError = (await pr.json()).error ?? 'Erro ao enviar a foto.'; return; }
+          } else if (this.photoRemoved && isEdit) {
+            await fetch(`/api/odonto/patients/${id}/photo`, { method: 'DELETE' });
+          }
+          this.$refs.dlg.close();
+          this.load();
         },
         async remove(row) {
           const ok = await window.confirmDlg(

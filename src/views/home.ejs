@@ -129,6 +129,27 @@
       letter-spacing: .1em; text-transform: uppercase;
     }
     .recovery-ok { color: var(--success); font-weight: 600; text-align: center; margin-bottom: .5rem; }
+
+    /* ─── Personalização da tela inicial ─── */
+    .home-tools { display: flex; gap: .5rem; flex-wrap: wrap; margin: 0 0 1rem; }
+    .card-hide {
+      position: absolute; top: 40px; right: 8px; z-index: 3;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border: 1px solid var(--border-light); border-radius: 8px;
+      background: var(--surface); color: var(--muted); cursor: pointer;
+      opacity: 0; transition: opacity var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .app-card:hover .card-hide, .app-card:focus-within .card-hide { opacity: 1; }
+    .card-hide:hover { color: var(--primary); border-color: var(--primary); }
+    .card-hide.card-show { opacity: .85; color: var(--primary); }
+    @media (hover: none) { .card-hide { opacity: .75; } }
+    .mod-toggle {
+      display: flex; align-items: center; gap: .55rem; padding: .5rem .6rem;
+      border: 1px solid var(--border-light); border-radius: 10px; margin-bottom: .4rem;
+      cursor: pointer; font-size: .9rem;
+    }
+    .mod-toggle:hover { background: var(--surface-hover); }
+    .mod-toggle input { width: 16px; height: 16px; }
   </style>
 </head>
 <body>
@@ -330,15 +351,26 @@
     </div>
 
     <% if (user) { %>
+    <%
+      // Perfil operacional (definido por filterModuleMenu): adapta a saudação e o que o
+      // painelzinho da home mostra. Num consultório, a "evolução de vendas do PDV" não se aplica.
+      var perfilHome = (typeof businessProfile !== 'undefined' ? businessProfile : 'generico');
+      var subtitulos = {
+        odontologia: 'Sua clínica organizada: agenda, prontuário, documentos e financeiro.',
+        food: 'Comida que alimenta, sistema que organiza.',
+        varejo: 'Sua loja organizada: produtos, vendas e financeiro.',
+        servicos: 'Seus serviços organizados: ordens, clientes e financeiro.',
+      };
+    %>
     <div class="greeting">
       <h1><span x-html="greetingIcon" style="vertical-align:-.3rem;margin-right:.4rem"></span><span x-text="greeting + ', '"></span><%= user.name %></h1>
-      <p>Comida que alimenta, sistema que organiza.</p>
+      <p><%= subtitulos[perfilHome] || 'Seu negócio, organizado do início ao fim.' %></p>
     </div>
 
     <%
       var showDashCash = user.permissions.has('finance.cash.view');
       var showDashBills = user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view');
-      var showDashSales = user.permissions.has('store.reports.view');
+      var showDashSales = perfilHome !== 'odontologia' && user.permissions.has('store.reports.view');
     %>
     <% if (showDashCash || showDashBills || showDashSales) { %>
     <div x-data="homeDashboard()" x-init="init()">
@@ -403,10 +435,21 @@
       <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
     </div>
 
+    <% if (user && user.permissions.has('settings.edit')) { %>
+    <div class="home-tools">
+      <button type="button" class="btn secondary small" @click="abrirPersonalizar()">
+        <%- svgIcon('settings', 15, 15) %>Personalizar módulos
+      </button>
+      <button type="button" class="btn secondary small" x-show="hiddenHrefs.length" x-cloak
+              @click="showHidden = !showHidden"
+              x-text="(showHidden ? 'Esconder' : 'Mostrar') + ' ' + hiddenHrefs.length + ' oculto(s)'"></button>
+    </div>
+    <% } %>
+
     <div class="app-grid" x-ref="grid">
       <template x-for="a in apps" :key="a.href">
         <a class="app-card drag-enabled" :href="a.href" :data-href="a.href" draggable="false"
-           x-show="matches(a.label)"
+           x-show="matches(a.label) && (showHidden || !isHidden(a.href))"
            :class="[dragId === a.href ? 'dragging' : '', dropOverId === a.href ? 'drop-target' : '']"
            @pointerdown="podeArrumarCards && onCardPointerDown($event, a)">
           <span class="card-icon" x-html="iconSvg(a.icon)"></span>
@@ -417,6 +460,16 @@
                   @click.prevent.stop="mostrarTudo()">
             <span x-html="iconSvg('more')"></span>
           </button>
+          <% if (user && user.permissions.has('settings.edit')) { %>
+          <button type="button" class="card-hide" x-show="!isHidden(a.href)" title="Ocultar do início"
+                  @pointerdown.stop @click.prevent.stop="hideCard(a)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+          </button>
+          <button type="button" class="card-hide card-show" x-show="isHidden(a.href)" title="Mostrar no início"
+                  @pointerdown.stop @click.prevent.stop="showCard(a)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <% } %>
         </a>
       </template>
       <%
@@ -429,6 +482,19 @@
         var visibleItemsForAlpine = moduleItems.map(function (item) {
           return { label: item.label, href: item.href, icon: item.icon, description: item.description ?? '' };
         });
+        // Módulos do sistema para o diálogo "Personalizar" (um toggle por módulo). Vem da lista
+        // COMPLETA (antes do filtro de perfil), senão um módulo oculto não poderia ser reexibido.
+        var modulesTodosSeed = [];
+        (function () {
+          var vistos = {};
+          (typeof moduleMenuTodos !== 'undefined' ? moduleMenuTodos : []).forEach(function (item) {
+            if (!item.moduleId || vistos[item.moduleId]) return;
+            vistos[item.moduleId] = true;
+            var full = item.moduleName || item.label || item.moduleId;
+            var nome = full.indexOf(' (') !== -1 ? full.slice(0, full.indexOf(' (')) : full;
+            modulesTodosSeed.push({ id: item.moduleId, label: nome });
+          });
+        })();
         var visibleItems = moduleItems.slice();
         var adminItems = [];
         if (user.permissions.has('users.view')) adminItems.push({ label: 'Usuários', href: '/admin/usuarios', icon: 'user-cog', description: 'Contas, cargos e acesso.' });
@@ -505,6 +571,31 @@
       </div>
     </section>
     <% } %>
+
+    <% if (user) { %>
+    <!-- ─── Personalizar módulos (tela inicial + menu) ─── -->
+    <dialog x-ref="dlgPersonalizar" class="dialog-fixed">
+      <h1>Personalizar módulos</h1>
+      <div class="dialog-body">
+        <p class="page-subtitle">
+          O que estiver ligado aqui aparece no início e no menu. O padrão segue o ramo do negócio
+          (um consultório não mostra Mesas/Cozinha); o que você salvar passa a valer para a empresa.
+        </p>
+        <template x-for="m in modulesTodos" :key="m.id">
+          <label class="mod-toggle">
+            <input type="checkbox" :checked="moduleSel[m.id]" @change="toggleModule(m.id)" />
+            <span x-text="m.label"></span>
+          </label>
+        </template>
+        <p class="hint" x-show="!modulesTodos.length">Nenhum módulo contratado para personalizar.</p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlgPersonalizar.close()">Cancelar</button>
+        <button class="btn" @click="salvarModulos()" :disabled="salvandoModulos"
+                x-text="salvandoModulos ? 'Salvando…' : 'Salvar'"></button>
+      </div>
+    </dialog>
+    <% } %>
   </main>
 
   <% if (user && user.permissions.has('settings.edit')) { %>
@@ -536,6 +627,9 @@
     // `PRIORIDADE_CARDS` só é usada enquanto ninguém salvou uma ordem (vem do perfil do boas-vindas).
     const ORDEM_CARDS = <%- JSON.stringify(typeof ordemCards !== 'undefined' ? ordemCards : []) %>;
     const PRIORIDADE_CARDS = <%- JSON.stringify(typeof prioridadeCards !== 'undefined' ? prioridadeCards : []) %>;
+    const CARDS_OCULTOS = <%- JSON.stringify(typeof cardsOcultos !== 'undefined' ? cardsOcultos : []) %>;
+    const MODULES_TODOS = <%- JSON.stringify(typeof modulesTodosSeed !== 'undefined' ? modulesTodosSeed : []) %>;
+    const MODULOS_OCULTOS = <%- JSON.stringify(typeof modulosOcultos !== 'undefined' ? modulosOcultos : []) %>;
     const PODE_ARRUMAR_CARDS = <%= user && user.permissions.has('settings.edit') ? 'true' : 'false' %>;
     const SVG_ICONS = <%- typeof svgIconMapJson !== 'undefined' ? svgIconMapJson : '{}' %>;
 
@@ -569,7 +663,16 @@
         podeArrumarCards: PODE_ARRUMAR_CARDS,
         dragId: null,
         dropOverId: null,
+        // Cards que a empresa ocultou manualmente (por href) + os módulos do perfil.
+        hiddenHrefs: CARDS_OCULTOS.slice(),
+        showHidden: false,
+        modulesTodos: MODULES_TODOS.slice(),
+        modulosOcultos: MODULOS_OCULTOS.slice(),
+        moduleSel: {},
+        salvandoModulos: false,
         iconSvg(name) { return SVG_ICONS[name] || ''; },
+
+        isHidden(href) { return this.hiddenHrefs.indexOf(href) !== -1; },
 
         // A ordem NÃO mora mais no navegador: vem do servidor (`settings`), igual à cor de
         // destaque e ao logo. Assim a arrumação vale no computador da loja, no tablet, no celular
@@ -599,14 +702,49 @@
             .sort((a, b) => peso(a.it.href) - peso(b.it.href) || a.i - b.i)
             .map((x) => x.it);
         },
-        saveOrder() {
+        saveOrder() { return this.saveLayout(); },
+        /** Grava ordem + ocultos juntos (a preferência é da empresa, vale em qualquer aparelho). */
+        async saveLayout() {
           if (!this.podeArrumarCards) return;
-          // Salva para a empresa (vale em qualquer aparelho). Sem permissão, o card nem arrasta.
-          fetch('/api/settings/interface/cards', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ordem: this.apps.map((a) => a.href) }),
-          }).catch(() => {});
+          try {
+            await fetch('/api/settings/interface/cards', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ordem: this.apps.map((a) => a.href), ocultos: this.hiddenHrefs }),
+            });
+          } catch {}
+        },
+        async hideCard(a) {
+          if (!this.podeArrumarCards) return;
+          if (!this.isHidden(a.href)) this.hiddenHrefs.push(a.href);
+          this.showHidden = false;
+          await this.saveLayout();
+        },
+        async showCard(a) {
+          if (!this.podeArrumarCards) return;
+          this.hiddenHrefs = this.hiddenHrefs.filter((h) => h !== a.href);
+          await this.saveLayout();
+        },
+        abrirPersonalizar() {
+          const sel = {};
+          this.modulesTodos.forEach((m) => { sel[m.id] = this.modulosOcultos.indexOf(m.id) === -1; });
+          this.moduleSel = sel;
+          this.$refs.dlgPersonalizar.showModal();
+        },
+        toggleModule(id) { this.moduleSel[id] = !this.moduleSel[id]; },
+        async salvarModulos() {
+          this.salvandoModulos = true;
+          try {
+            const visiveis = this.modulesTodos.filter((m) => this.moduleSel[m.id]).map((m) => m.id);
+            const r = await fetch('/api/settings/interface/modules', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ visiveis }),
+            });
+            if (r.ok) window.location.reload();
+          } finally {
+            this.salvandoModulos = false;
+          }
         },
         /** Abre a segunda camada e leva até ela — é o atalho do ícone que aparece no hover. */
         mostrarTudo() {

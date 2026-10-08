@@ -47,6 +47,7 @@ interface PatientDetail {
   customer_id: number;
   name: string;
   document: string | null;
+  photo_file: string | null;
   has_clinical: number;
   clinical?: { allergies: string | null } | null;
 }
@@ -90,6 +91,29 @@ async function main(): Promise<void> {
 
     const list = await unwrap<PatientDetail[]>(await api(`${O}/patients?q=Maria`, {}, admin!));
     check('lista encontra o paciente pela busca', list.length === 1 && list[0].id === patientId);
+
+    // ── Foto de identificação: upload base64, validação e remoção ────────────
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(3000, 1),
+    ]);
+    const fotoRes = await api(`${O}/patients/${patientId}/photo`, {
+      method: 'POST', body: JSON.stringify({ photoBase64: png.toString('base64') }),
+    }, admin!);
+    check('foto do paciente enviada (201)', fotoRes.status === 201, String(fotoRes.status));
+    const comFoto = await unwrap<PatientDetail>(await api(`${O}/patients/${patientId}`, {}, admin!));
+    check('foto aparece no cadastro do paciente (gravada no cliente)',
+      !!comFoto.photo_file && comFoto.photo_file.startsWith('/uploads/customers/'),
+      String(comFoto.photo_file));
+
+    const fotoInvalida = await api(`${O}/patients/${patientId}/photo`, {
+      method: 'POST', body: JSON.stringify({ photoBase64: Buffer.from('nao é imagem').toString('base64') }),
+    }, admin!);
+    check('arquivo que não é imagem → 400', fotoInvalida.status === 400, String(fotoInvalida.status));
+
+    check('foto removida', (await api(`${O}/patients/${patientId}/photo`, { method: 'DELETE' }, admin!)).status === 200);
+    const semFoto = await unwrap<PatientDetail>(await api(`${O}/patients/${patientId}`, {}, admin!));
+    check('cadastro sem foto após remover', !semFoto.photo_file);
 
     // O cliente precisa existir para a cobrança do tratamento funcionar depois.
     const customers = await unwrap<{ id: number; name: string }[]>(

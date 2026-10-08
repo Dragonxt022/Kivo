@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { audit } from '../../core/audit/service';
+import { validateImageBuffer } from '../../core/catalog/imageValidation';
 import { getService, hasService } from '../../core/services/registry';
 import { assertAuth } from '../../shared/auth';
 import { validateDocument } from '../../shared/documents';
 import type { CommercialCustomersService } from '../commercial/setup';
 import type { CustomerPatch } from '../commercial/customers';
 import { canEditClinical, canViewClinical, type Result } from './permissions';
+import { deleteCustomerPhotoByUrl, saveCustomerPhoto } from '../../core/config/customerPhoto';
 import { removeAnamnesisByPatient } from './anamnesis';
 import { removeNotesByPatient } from './clinicalNotes';
 import { removeOdontogramByPatient } from './odontogram';
@@ -240,7 +242,50 @@ export function removePatient(req: Request, id: number): Result<{ ok: true }> {
     removeExamsByPatient(id);
     patientRepository.softDelete(id);
   });
+  // A foto agora pertence ao CLIENTE (`customers.photo_file`): excluir a ficha do paciente NÃO
+  // apaga a foto — o cliente continua no comercial/financeiro com a mesma imagem.
   audit(req, 'excluir', 'odonto_patient', id, before, null);
+  return { ok: true, data: { ok: true } };
+}
+
+/** Grava a foto de identificação no CLIENTE (base64 no corpo) e descarta a anterior. */
+export function setPatientPhoto(req: Request, id: number, base64: unknown): Result<{ photo_file: string }> {
+  assertAuth(req);
+  const patient = patientRepository.findById(id);
+  if (!patient) return { ok: false, error: 'Paciente não encontrado.', status: 404 };
+  const limpo = String(base64 ?? '').replace(/^data:[^;]+;base64,/, '');
+  if (!limpo) return { ok: false, error: 'Campo obrigatório: photoBase64', status: 400 };
+
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(limpo, 'base64');
+  } catch {
+    return { ok: false, error: 'Imagem inválida (base64).', status: 400 };
+  }
+  const check = validateImageBuffer(buffer);
+  if (!check.ok) return { ok: false, error: check.error, status: 400 };
+
+  const svc = customersService();
+  const cliente = svc.findById(patient.customer_id) as { photo_file?: string | null } | undefined;
+  const anterior = cliente?.photo_file ?? null;
+  const foto = saveCustomerPhoto(buffer, check.format);
+  svc.update(patient.customer_id, { photo_file: foto });
+  deleteCustomerPhotoByUrl(anterior);
+  audit(req, 'editar', 'odonto_patient', id, { photo_file: anterior }, { photo_file: foto });
+  return { ok: true, data: { photo_file: foto } };
+}
+
+/** Remove a foto de identificação do cliente (sem tocar no resto do cadastro). */
+export function removePatientPhoto(req: Request, id: number): Result<{ ok: true }> {
+  assertAuth(req);
+  const patient = patientRepository.findById(id);
+  if (!patient) return { ok: false, error: 'Paciente não encontrado.', status: 404 };
+  const svc = customersService();
+  const cliente = svc.findById(patient.customer_id) as { photo_file?: string | null } | undefined;
+  const anterior = cliente?.photo_file ?? null;
+  svc.update(patient.customer_id, { photo_file: null });
+  deleteCustomerPhotoByUrl(anterior);
+  audit(req, 'editar', 'odonto_patient', id, { photo_file: anterior }, { photo_file: null });
   return { ok: true, data: { ok: true } };
 }
 
