@@ -31,6 +31,8 @@ export interface PatientListRow extends Row {
   birthday: string | null;
   sex: string | null;
   rg: string | null;
+  /** URL da foto de identificação (`/uploads/odonto-patients/…`), ou null sem foto. */
+  photo_file: string | null;
   notes: string | null;
   active: number;
   updated_at: string;
@@ -93,7 +95,7 @@ class PatientRepository extends BaseRepository<PatientRow> {
     }
     return this.raw(
       `SELECT p.id, p.customer_id, c.name, c.document, c.phone, c.email, c.address, c.cep,
-              c.birthday, p.sex, p.rg, p.notes, p.active, p.updated_at,
+              c.birthday, p.sex, p.rg, c.photo_file, p.notes, p.active, p.updated_at,
               EXISTS(
                 SELECT 1 FROM odonto_patient_clinical cc
                  WHERE cc.patient_id = p.id AND cc.deleted_at IS NULL
@@ -111,7 +113,7 @@ class PatientRepository extends BaseRepository<PatientRow> {
   findDetail(id: number): PatientListRow | undefined {
     return this.rawOne(
       `SELECT p.id, p.customer_id, c.name, c.document, c.phone, c.email, c.address, c.cep,
-              c.birthday, p.sex, p.rg, p.notes, p.active, p.updated_at,
+              c.birthday, p.sex, p.rg, c.photo_file, p.notes, p.active, p.updated_at,
               EXISTS(
                 SELECT 1 FROM odonto_patient_clinical cc
                  WHERE cc.patient_id = p.id AND cc.deleted_at IS NULL

@@ -21,13 +21,15 @@ export interface CustomerInput {
   cep?: string | null;
   notes?: string | null;
   birthday?: string | null;
+  /** Foto de identificação (`/uploads/customers/…`). Una por cliente; o Odonto lê daqui. */
+  photo_file?: string | null;
 }
 
 /** Atualização parcial: só as chaves presentes são gravadas. */
 export type CustomerPatch = Partial<CustomerInput>;
 
 /** Campos que o serviço aceita atualizar (evita sobrescrever saldo/pontos/convênio). */
-const UPDATABLE = ['name', 'document', 'email', 'phone', 'address', 'cep', 'notes', 'birthday'] as const;
+const UPDATABLE = ['name', 'document', 'email', 'phone', 'address', 'cep', 'notes', 'birthday', 'photo_file'] as const;
 
 function pickUpdatable(input: CustomerPatch): Record<string, unknown> {
   const data: Record<string, unknown> = {};

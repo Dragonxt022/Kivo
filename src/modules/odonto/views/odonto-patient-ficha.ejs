@@ -13,13 +13,40 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="patientFicha(<%= patientId %>, <%= canViewClinical ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.view') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.documents.view') ? 'true' : 'false' %>)" x-init="load()">
-    <div class="toolbar" id="tour-odonto-toolbar">
-      <a class="btn secondary" href="/app/odonto/pacientes">Voltar para pacientes</a>
+    <header class="odonto-patient-head" id="tour-odonto-toolbar">
+      <a class="btn secondary" href="/app/odonto/pacientes">← Pacientes</a>
+      <div class="odonto-photo-field">
+        <span class="odonto-avatar lg">
+          <img x-show="photoPreview" :src="photoPreview || ''" alt="" x-cloak />
+          <span x-show="!photoPreview" x-text="initials(p.name)"></span>
+        </span>
+        <% if (user.permissions.has('odonto.patients.edit')) { %>
+        <div class="odonto-photo-actions">
+          <input type="file" class="sr-only" style="display:none" accept="image/jpeg,image/png,image/webp,image/avif" x-ref="photoFile" @change="onPhotoFile($event)" />
+          <button type="button" class="btn secondary small" @click="$refs.photoFile.click()">Trocar foto</button>
+          <button type="button" class="btn secondary small danger" x-show="photoPreview" @click="removePhoto()">Remover</button>
+        </div>
+        <% } %>
+      </div>
+      <div class="odonto-patient-titles">
+        <h1 x-text="p.name || 'Paciente'"></h1>
+        <div class="odonto-patient-meta">
+          <span class="badge" x-show="p.id" :class="p.active ? 'ok' : 'off'" x-text="p.active ? 'Ativo' : 'Inativo'"></span>
+          <span class="muted text-xs" x-show="p.document" x-text="'CPF/CNPJ ' + p.document"></span>
+          <span class="muted text-xs" x-show="p.phone" x-text="p.phone"></span>
+          <span class="error" x-text="error"></span>
+        </div>
+      </div>
+      <% if (user.permissions.has('odonto.patients.edit')) { %>
+      <div class="toolbar odonto-head-actions">
+        <button class="btn" @click="openEdit()">Editar cadastro</button>
+        <% if (user.permissions.has('commercial.customers.view')) { %>
+        <a class="btn secondary" :href="'/app/commercial/clientes/' + p.customer_id + '/financeiro'">Financeiro</a>
+        <% } %>
+      </div>
+      <% } %>
       <div id="tour-odonto-ficha"></div>
-      <h1 x-text="p.name || 'Paciente'"></h1>
-      <span class="badge" x-show="p.id" x-text="p.active ? 'Ativo' : 'Inativo'"></span>
-      <span class="error" x-text="error"></span>
-    </div>
+    </header>
 
     <template x-if="!p.id && !error">
       <p class="muted">Carregando…</p>
@@ -27,29 +54,23 @@
 
     <template x-if="p.id">
       <div>
-        <% if (user.permissions.has('odonto.patients.edit')) { %>
-        <div class="toolbar">
-          <button class="btn" @click="openEdit()">Editar cadastro</button>
-          <% if (user.permissions.has('commercial.customers.view')) { %>
-          <a class="btn secondary" :href="'/app/commercial/clientes/' + p.customer_id + '/financeiro'">Financeiro do paciente</a>
-          <% } %>
-        </div>
-        <% } %>
-
-        <h2>Cadastro</h2>
-        <table>
-          <tbody>
-            <tr><th>CPF/CNPJ</th><td x-text="p.document || '—'"></td><th>Nascimento</th><td x-text="fmtDate(p.birthday)"></td></tr>
-            <tr><th>Telefone</th><td x-text="p.phone || '—'"></td><th>E-mail</th><td x-text="p.email || '—'"></td></tr>
-            <tr><th>Sexo</th><td x-text="sexLabel(p.sex)"></td><th>RG</th><td x-text="p.rg || '—'"></td></tr>
-            <tr><th>CEP</th><td x-text="p.cep || '—'"></td><th>Endereço</th><td x-text="p.address || '—'"></td></tr>
-            <tr><th>Observações</th><td colspan="3" x-text="p.notes || '—'"></td></tr>
-          </tbody>
-        </table>
+        <section class="odonto-section">
+          <h2>Cadastro</h2>
+          <table>
+            <tbody>
+              <tr><th>CPF/CNPJ</th><td x-text="p.document || '—'"></td><th>Nascimento</th><td x-text="fmtDate(p.birthday)"></td></tr>
+              <tr><th>Telefone</th><td x-text="p.phone || '—'"></td><th>E-mail</th><td x-text="p.email || '—'"></td></tr>
+              <tr><th>Sexo</th><td x-text="sexLabel(p.sex)"></td><th>RG</th><td x-text="p.rg || '—'"></td></tr>
+              <tr><th>CEP</th><td x-text="p.cep || '—'"></td><th>Endereço</th><td x-text="p.address || '—'"></td></tr>
+              <tr><th>Observações</th><td colspan="3" x-text="p.notes || '—'"></td></tr>
+            </tbody>
+          </table>
+        </section>
 
         <% if (canViewClinical) { %>
+        <section class="odonto-section">
         <h2>Ficha clínica</h2>
-        <p class="muted text-xs">
+        <p class="page-subtitle">
           Dado de saúde: só quem tem a permissão clínica vê este bloco. A auditoria registra quem alterou —
           o conteúdo não é copiado para o log.
         </p>
@@ -83,11 +104,13 @@
             </tbody>
           </table>
         <% } %>
+        </section>
         <% } %>
 
         <% if (canViewClinical) { %>
+        <section class="odonto-section">
         <h2>Anamnese</h2>
-        <p class="muted text-xs" style="margin-top:0">
+        <p class="page-subtitle">
           Questionário respondido em revisões: cada salvamento vira uma revisão nova e o
           histórico não é reescrito.
         </p>
@@ -112,11 +135,13 @@
           <a class="btn" :href="'/app/odonto/pacientes/' + id + '/anamnese'"
              x-text="anamnesis.revisions > 0 ? 'Ver anamnese' : 'Responder anamnese'"></a>
         </div>
+        </section>
         <% } %>
 
         <% if (canViewClinical) { %>
+        <section class="odonto-section">
         <h2>Prontuário</h2>
-        <p class="muted text-xs" style="margin-top:0">
+        <p class="page-subtitle">
           Evolução clínica do paciente: cada atendimento vira um registro com procedimentos,
           observações, diagnóstico, conduta e próximos passos. Registro clínico não se apaga —
           corrige-se por retificação, com motivo e histórico.
@@ -139,11 +164,13 @@
         <div class="toolbar">
           <a class="btn" :href="'/app/odonto/pacientes/' + id + '/prontuario'">Abrir prontuário</a>
         </div>
+        </section>
         <% } %>
 
         <% if (canViewClinical) { %>
+        <section class="odonto-section">
         <h2>Odontograma</h2>
-        <p class="muted text-xs" style="margin-top:0">
+        <p class="page-subtitle">
           Mapa dos dentes (numeração FDI) com situação por face e por dente, histórico de cada
           mudança e os procedimentos já realizados.
         </p>
@@ -162,11 +189,13 @@
         <div class="toolbar">
           <a class="btn" :href="'/app/odonto/pacientes/' + id + '/odontograma'">Abrir odontograma</a>
         </div>
+        </section>
         <% } %>
 
         <% if (user.permissions.has('odonto.documents.view')) { %>
+        <section class="odonto-section">
         <h2>Documentos</h2>
-        <p class="muted text-xs" style="margin-top:0">
+        <p class="page-subtitle">
           TCLE, receita, atestado, encaminhamento, contrato e alta gerados a partir dos modelos da
           clínica, com os dados do paciente substituídos. Emitido não muda: corrige-se pela versão
           seguinte, e o que foi entregue fica no histórico.
@@ -186,11 +215,13 @@
         <div class="toolbar">
           <a class="btn" :href="'/app/odonto/pacientes/' + id + '/documentos'">Abrir documentos</a>
         </div>
+        </section>
         <% } %>
 
         <% if (user.permissions.has('odonto.plans.view')) { %>
+        <section class="odonto-section">
         <h2>Planos de tratamento</h2>
-        <p class="muted text-xs" style="margin-top:0">
+        <p class="page-subtitle">
           O que está previsto, com valor por item e dente. O plano aprovado gera a cobrança no
           Financeiro do Kivo (conta a receber do cliente, com parcelamento).
         </p>
@@ -209,11 +240,13 @@
         <div class="toolbar">
           <a class="btn" :href="'/app/odonto/pacientes/' + id + '/planos'">Abrir planos de tratamento</a>
         </div>
+        </section>
         <% } %>
 
         <% if (user.permissions.has('odonto.exams.view')) { %>
+        <section class="odonto-section">
         <h2>Exames e imagens</h2>
-        <p class="muted text-xs" style="margin-top:0">
+        <p class="page-subtitle">
           Radiografia, tomografia e fotografia clínica do paciente, marcadas como antes, durante ou
           depois do tratamento para comparar a evolução lado a lado. O arquivo fica guardado no
           computador da clínica.
@@ -221,8 +254,10 @@
         <div class="toolbar">
           <a class="btn" :href="'/app/odonto/pacientes/' + id + '/exames'">Abrir exames e imagens</a>
         </div>
+        </section>
         <% } %>
 
+        <section class="odonto-section">
         <h2>Próximas fases do módulo</h2>
         <table>
           <thead><tr><th>Recurso</th><th>Situação</th></tr></thead>
@@ -236,6 +271,7 @@
             <tr><td>Exames e imagens</td><td><span class="badge">Disponível</span></td></tr>
           </tbody>
         </table>
+        </section>
       </div>
     </template>
 
@@ -304,7 +340,14 @@
         plans: { planos_abertos: 0, itens_pendentes: 0, total_aberto_cents: 0 },
         documents: { total: 0, emitidos: 0, rascunhos: 0, ultimo_em: null },
         error: '', dlgError: '', clinicalError: '', clinicalSaved: false,
+        photoPreview: null,
 
+        /** Iniciais para o avatar quando não há foto: "Maria Souza" → "MS". */
+        initials(name) {
+          const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+          if (!parts.length) return '?';
+          return ((parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+        },
         sexLabel(v) {
           return { feminino: 'Feminino', masculino: 'Masculino', outro: 'Outro', nao_informado: 'Prefere não informar' }[v] || '—';
         },
@@ -314,12 +357,45 @@
         brl(cents) {
           return (Number(cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         },
+        onPhotoFile(e) {
+          const file = e.target.files[0];
+          e.target.value = '';
+          if (!file) return;
+          if (file.size > 6 * 1024 * 1024) { this.error = 'Imagem muito grande (máximo 6MB).'; return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result);
+            this.photoPreview = dataUrl;
+            this.enviarFoto(dataUrl.split(',')[1] ?? '');
+          };
+          reader.readAsDataURL(file);
+        },
+        async enviarFoto(base64) {
+          this.error = '';
+          const r = await fetch(`/api/odonto/patients/${this.id}/photo`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoBase64: base64 }),
+          });
+          if (r.ok) {
+            this.p.photo_file = (await r.json()).photo_file;
+            window.showToast('Foto atualizada.', 'success');
+          } else {
+            this.photoPreview = this.p.photo_file || null;
+            this.error = (await r.json()).error ?? 'Erro ao enviar a foto.';
+          }
+        },
+        async removePhoto() {
+          const r = await fetch(`/api/odonto/patients/${this.id}/photo`, { method: 'DELETE' });
+          if (r.ok) { this.photoPreview = null; this.p.photo_file = null; }
+          else this.error = (await r.json()).error ?? 'Erro ao remover a foto.';
+        },
         async load() {
           const r = await fetch('/api/odonto/patients/' + this.id);
           if (r.ok) {
             const data = await r.json();
             this.p = { ...data, active: !!data.active };
             this.clinical = { ...emptyClinical(), ...(data.clinical || {}) };
+            this.photoPreview = data.photo_file || null;
           } else {
             this.error = (await r.json()).error ?? 'Erro ao carregar a ficha.';
           }

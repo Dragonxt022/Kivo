@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { settingsRepository } from '../repositories/SettingsRepository';
+import { BUSINESS_TYPE_KEY } from './businessProfile';
 
 /**
  * Ordem e visibilidade dos cards da tela inicial — **preferência da empresa**, não do navegador.
@@ -17,8 +18,8 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 
 export const CARDS_ORDER_KEY = 'interface.ordem_cards';
 export const CARDS_HIDDEN_KEY = 'interface.cards_ocultos';
-/** Perfil respondido no assistente de boas-vindas (usado só para a ordem INICIAL). */
-export const BUSINESS_TYPE_KEY = 'onboarding.business_type';
+/** Reexportado de `businessProfile` para quem já importava daqui (assistente, etc.). */
+export { BUSINESS_TYPE_KEY };
 
 function lerLista(chave: string): string[] {
   try {

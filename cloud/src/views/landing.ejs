@@ -5,35 +5,56 @@
     title: 'Kivo — PDV, estoque, financeiro e mesas num só sistema',
     description: 'Sistema completo para comércio e food service. PDV rápido, gestão de estoque, compras inteligentes, DRE, caixa, mesas e cardápio online. Funciona offline e salva na nuvem. Teste grátis por 15 dias.'
   }) %>
+  <%# Esconde o hero só enquanto o GSAP vai animá-lo. Sem JS (ou com "reduzir
+      animações") a classe não entra e o conteúdo aparece normalmente. %>
+  <script>
+    (function () {
+      try {
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!reduce) document.documentElement.classList.add('hero-motion');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <%- include('partials/site/topbar', { page: 'home', downloadUrl: downloadUrl }) %>
 
   <!-- ─── HERO ─── -->
-  <section class="hero">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-bg" aria-hidden="true">
+      <span class="hero-orb a"></span>
+      <span class="hero-orb b"></span>
+    </div>
     <div class="wrap">
-      <h1>O sistema completo para <br /><em>vender, controlar e crescer</em></h1>
-      <p class="sub">
-        PDV rápido, estoque inteligente, financeiro, mesas e cardápio online — tudo num só lugar.
-        Funciona <strong>sem internet</strong> e, quando conectado, salva tudo automaticamente na nuvem.
+      <p class="kicker" data-hero-fade>PDV · Estoque · Compras · Financeiro · Mesas</p>
+      <h1 id="hero-title">
+        <span class="hero-line"><span class="hero-line-inner" data-hero-line>Vender, controlar o estoque e fechar o caixa</span></span>
+        <span class="hero-line"><span class="hero-line-inner" data-hero-line><em>mesmo sem internet</em></span></span>
+      </h1>
+      <p class="sub" data-hero-fade>
+        O Kivo reúne PDV, estoque, compras, financeiro e mesas num só programa para Windows.
+        Roda no seu computador e continua <strong>100% offline</strong> quando a conexão cai.
+        Ao voltar a internet, as informações são sincronizadas com a nuvem automaticamente.
       </p>
-      <div class="hero-ctas">
+      <div class="hero-ctas" data-hero-fade>
         <a class="btn big" href="<%= downloadUrl %>">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Baixar para Windows — v<%= appVersion %>
         </a>
         <a class="btn big secondary" href="#comece">Escolher por onde começar</a>
       </div>
-      <div class="hero-note">✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração de dados inclusa</div>
+      <p class="hero-note" data-hero-fade>✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração de dados inclusa</p>
 
-      <div class="chips">
-        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</span>
-        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Nuvem automática</span>
-        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Treinamento e suporte humano</span>
-        <span class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Wiki bem documentada</span>
+      <ul class="chips" data-hero-chips>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</li>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sincroniza com a nuvem sozinho</li>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Suporte humano</li>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Wiki documentada</li>
+      </ul>
+
+      <div class="hero-media-3d" data-hero-media>
+        <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com carrinho de venda montado' }) %>
       </div>
-
-      <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com carrinho de venda montado' }) %>
     </div>
   </section>
 
@@ -434,5 +455,9 @@
 
   <%- include('partials/site/cta', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
   <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+
+  <!-- GSAP (CDN) + animação de entrada do hero. Carregados por último, sem bloquear a renderização. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script defer src="/js/hero-motion.js"></script>
 </body>
 </html>

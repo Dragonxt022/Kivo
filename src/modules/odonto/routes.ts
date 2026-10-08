@@ -11,7 +11,8 @@ import {
   undoToothStateSchema, updateAppointmentSchema, updateDocumentSchema, updateExamSchema,
   updatePatientSchema, updatePlanSchema, updateProcedureSchema, updateProfessionalSchema,
 } from './schemas';
-import { createPatient, getPatient, listPatients, removePatient, updatePatient } from './patients';
+import { createPatient, getPatient, listPatients, removePatient, removePatientPhoto, setPatientPhoto, updatePatient } from './patients';
+import { patientRepository } from './repositories/PatientRepository';
 import {
   changeAppointmentStatus, createAppointment, getAppointment, listAppointments, removeAppointment,
   updateAppointment,
@@ -82,6 +83,17 @@ router.get('/patients', requirePermission('odonto.patients.view'), (req, res) =>
   res.json(listPatients({ q: textParam(req.query.q), active: activeParam(req.query.active) }));
 });
 
+// Um cliente pode ser paciente do consultório. Usado pela ficha do cliente (commercial) para
+// oferecer o atalho "Abrir ficha odontológica" — 404 quando aquele cliente não é paciente.
+router.get('/patients/by-customer/:customerId', requirePermission('odonto.patients.view'), (req, res) => {
+  const p = patientRepository.findByCustomer(Number(req.params.customerId));
+  if (!p) {
+    res.status(404).json({ error: 'Este cliente não tem ficha de paciente.' });
+    return;
+  }
+  res.json({ id: p.id, active: !!p.active });
+});
+
 router.get('/patients/:id', requirePermission('odonto.patients.view'), (req, res) => {
   send(res, getPatient(req, Number(req.params.id)));
 });
@@ -96,6 +108,15 @@ router.put('/patients/:id', requirePermission('odonto.patients.edit'), validateB
 
 router.delete('/patients/:id', requirePermission('odonto.patients.delete'), (req, res) => {
   send(res, removePatient(req, Number(req.params.id)));
+});
+
+// Foto de identificação do paciente (base64 no corpo JSON), como a imagem de categoria.
+router.post('/patients/:id/photo', requirePermission('odonto.patients.edit'), (req, res) => {
+  send(res, setPatientPhoto(req, Number(req.params.id), req.body?.photoBase64), 201);
+});
+
+router.delete('/patients/:id/photo', requirePermission('odonto.patients.edit'), (req, res) => {
+  send(res, removePatientPhoto(req, Number(req.params.id)));
 });
 
 // ───────────────────────────── Profissionais ─────────────────────────────

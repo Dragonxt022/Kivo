@@ -53,4 +53,109 @@
     cursor: pointer; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
   }
   .odonto-tour-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+  /* Navegação entre as abas do paciente (Resumo, Anamnese, Tratamentos…). Estava repetida,
+     com a mesma regra, em cinco telas — aqui fala a mesma língua em todas. */
+  .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .secoes a, .secoes span {
+    padding: 5px 12px; border-radius: 999px; font-size: .78rem; font-weight: 600;
+    border: 1px solid var(--border-light); text-decoration: none; color: var(--muted);
+    transition: border-color var(--transition), color var(--transition);
+  }
+  .secoes a:hover { color: var(--text); border-color: var(--border); }
+  .secoes a.atual { background: var(--primary-soft, var(--primary-bg)); color: var(--primary); border-color: transparent; }
+  .secoes span.planejado { opacity: .55; }
+
+  /* Bloco de conteúdo com respiro próprio: agrupa título, texto e ações para o botão não
+     encostar na tabela nem o subtítulo no título. */
+  .odonto-section {
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 1.05rem 1.2rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-xs);
+  }
+  .odonto-section > h2 { margin: 0 0 .3rem; font-size: 1.02rem; }
+  .odonto-section > h2:not(:first-child) { margin-top: .4rem; }
+  .odonto-section > table { box-shadow: none; }
+  .odonto-section > .toolbar { margin: .85rem 0 0; }
+  .odonto-section > .page-subtitle { margin: 0 0 .8rem; }
+
+  /* Foto do paciente: a imagem quando existe, as iniciais quando não — nunca um vazio sem
+     cara. O tamanho vem de --avatar-size para o mesmo componente servir lista e ficha. */
+  .odonto-avatar {
+    width: var(--avatar-size, 34px);
+    height: var(--avatar-size, 34px);
+    border-radius: 50%;
+    overflow: hidden;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--primary-bg);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: calc(var(--avatar-size, 34px) * .38);
+    text-transform: uppercase;
+    -webkit-user-select: none;
+    user-select: none;
+    border: 1px solid var(--border-light);
+  }
+  .odonto-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .odonto-avatar.lg { --avatar-size: 76px; border-width: 2px; border-color: var(--primary-soft, var(--primary-bg)); }
+  .odonto-avatar.sm { --avatar-size: 26px; }
+
+  /* Célula "foto + nome" da listagem. */
+  .odonto-name-cell { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+  .odonto-name-cell a { font-weight: 600; text-decoration: none; color: var(--text); }
+  .odonto-name-cell a:hover { color: var(--primary); }
+  .odonto-name-cell .odonto-name-sub { font-size: .74rem; color: var(--text-muted); }
+
+  /* Numeração das linhas da listagem. */
+  .col-num { width: 46px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  /* Cabeçalho da ficha do paciente, com a foto ao lado do nome. */
+  .odonto-patient-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+  .odonto-patient-titles { min-width: 0; }
+  .odonto-patient-head h1 { margin: 0 0 .2rem; }
+  .odonto-patient-head .odonto-patient-meta { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .odonto-patient-head .odonto-head-actions { margin: 0 0 0 auto; }
+
+  /* Upload de foto do paciente (ficha). */
+  .odonto-photo-field { display: flex; flex-direction: column; align-items: center; gap: .5rem; flex: none; }
+  .odonto-photo-actions { display: flex; gap: .4rem; }
+
+  /* Prévia do documento na tela de documentos: papel claro, fonte monoespaçada (os
+     pontilhados do orçamento alinham) e um fade no fim em vez de corte seco. */
+  .doc-preview {
+    position: relative;
+    margin: 10px 0 0;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 12px 14px;
+    max-height: 148px;
+    overflow: hidden;
+  }
+  .doc-preview pre {
+    margin: 0;
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: .78rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-secondary);
+  }
+  .doc-preview::after {
+    content: '';
+    position: absolute; left: 0; right: 0; bottom: 0; height: 46px;
+    background: linear-gradient(to bottom, transparent, var(--surface));
+    pointer-events: none;
+  }
+  /* Prévia completa (modal "Ver"): sem corte e num diálogo mais largo, para o texto do
+     documento caber como numa folha. */
+  .doc-preview.full { max-height: none; padding: 16px 18px; }
+  .doc-preview.full::after { display: none; }
+  .doc-preview.full pre { font-size: .82rem; }
+  dialog.dialog-doc { width: min(820px, calc(100vw - 2rem)); }
 </style>

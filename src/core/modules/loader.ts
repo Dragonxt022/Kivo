@@ -8,6 +8,7 @@ import { isModuleEntitled } from '../license/service';
 import { hasCapability } from '../capabilities/service';
 import { stableUuid } from '../../shared/uuid';
 import type { LoadedModule, ModuleManifest, ModuleMenuItem } from './types';
+import { getBusinessProfile, hiddenModuleIds, isModuleMenuItemVisible } from '../config/businessProfile';
 import { createLogger } from '../logger';
 
 const log = createLogger('modules');
@@ -157,11 +158,20 @@ export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
  */
 export function filterModuleMenu(req: Request, res: Response, next: NextFunction): void {
   const all = (req.app.locals.moduleMenu ?? []) as ModuleMenuItem[];
-  res.locals.moduleMenu = all.filter(
+  const permitidos = all.filter(
     (item) =>
       (item.alwaysEnabled || !item.moduleId || isModuleEntitled(item.moduleId)) &&
       (!item.capability || hasCapability(item.capability)),
   );
+  // Perfil operacional: esconde módulos de outro ramo (o consultório não vê Mesas/Cozinha).
+  // A empresa pode sobrepor gravando `interface.modulos_visiveis` — depois disso, o que vale
+  // é a escolha dela. Módulos de sistema (alwaysEnabled) nunca são ocultados.
+  const ids = [...new Set(permitidos.map((i) => i.moduleId).filter((x): x is string => !!x))];
+  const ocultos = new Set(hiddenModuleIds(ids));
+  res.locals.moduleMenuTodos = permitidos;
+  res.locals.moduleMenu = permitidos.filter((item) => isModuleMenuItemVisible(item, ocultos));
+  res.locals.businessProfile = getBusinessProfile();
+  res.locals.modulosOcultos = [...ocultos];
   next();
 }
 

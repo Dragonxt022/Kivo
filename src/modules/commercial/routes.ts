@@ -22,6 +22,7 @@ import { complementGroupRepository, complementItemRepository, productComplementG
 import { productRepository } from './repositories/ProductRepository';
 import { validateImageBuffer } from '../../core/catalog/imageValidation';
 import { saveLocalCategoryImage, categoryImagesDir } from '../../core/catalog/submissionQueue';
+import { saveCustomerPhoto, deleteCustomerPhotoByUrl } from '../../core/config/customerPhoto';
 
 const router = Router();
 
@@ -68,7 +69,9 @@ const CUSTOMERS_CRUD: CrudConfig = {
   table: 'customers', entity: 'customer', permPrefix: 'commercial.customers',
   fields: ['name', 'document', 'email', 'phone', 'address', 'notes', 'price_list_id', 'cep', 'agreement_company_id', 'birthday', 'tags'],
   required: ['name'],
-  readOnlyFields: ['store_credit_cents', 'loyalty_points'],
+  // `photo_file` é gravado pela rota dedicada de foto (base64), não pelo CRUD — mas precisa
+  // aparecer na leitura, senão a ficha/diálogo não mostram a imagem.
+  readOnlyFields: ['store_credit_cents', 'loyalty_points', 'photo_file'],
   searchFields: ['name', 'document', 'phone', 'email'],
   digitSearchFields: ['document', 'phone'],
   filterFields: ['active', 'price_list_id', 'agreement_company_id'],
@@ -128,6 +131,42 @@ router.get('/customers/export.csv', requirePermission('commercial.customers.view
 });
 
 router.use('/customers', makeCrudRouter(CUSTOMERS_CRUD));
+
+// ---------- Cliente: foto de identificação (base64 no corpo, como a imagem de categoria) ----------
+router.post('/customers/:id/photo', requirePermission('commercial.customers.edit'), (req, res) => {
+  const id = Number(req.params.id);
+  const cliente = customerRepository.findById(id) as { id: number; photo_file?: string | null } | undefined;
+  if (!cliente) { res.status(404).json({ error: 'Cliente não encontrado.' }); return; }
+  const b64 = req.body?.photoBase64;
+  if (!b64) { res.status(400).json({ error: 'Campo obrigatório: photoBase64' }); return; }
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(String(b64).replace(/^data:[^;]+;base64,/, ''), 'base64');
+  } catch {
+    res.status(400).json({ error: 'Imagem inválida (base64).' });
+    return;
+  }
+  const check = validateImageBuffer(buf);
+  if (!check.ok) { res.status(400).json({ error: check.error }); return; }
+
+  const anterior = cliente.photo_file ?? null;
+  const imageUrl = saveCustomerPhoto(buf, check.format);
+  customerRepository.update(id, { photo_file: imageUrl } as Record<string, unknown>);
+  deleteCustomerPhotoByUrl(anterior);
+  audit(req, 'editar', 'customer', id, { photo_file: anterior }, { photo_file: imageUrl });
+  res.json({ imageUrl, photo_file: imageUrl });
+});
+
+router.delete('/customers/:id/photo', requirePermission('commercial.customers.edit'), (req, res) => {
+  const id = Number(req.params.id);
+  const cliente = customerRepository.findById(id) as { id: number; photo_file?: string | null } | undefined;
+  if (!cliente) { res.status(404).json({ error: 'Cliente não encontrado.' }); return; }
+  const anterior = cliente.photo_file ?? null;
+  customerRepository.update(id, { photo_file: null } as Record<string, unknown>);
+  deleteCustomerPhotoByUrl(anterior);
+  audit(req, 'editar', 'customer', id, { photo_file: anterior }, { photo_file: null });
+  res.json({ ok: true });
+});
 
 /**
  * Resumo da ficha: agrega no servidor o que antes a tela calculava carregando todas as

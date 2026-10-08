@@ -203,8 +203,42 @@ img {
 
 /* ─── Hero ─── */
 .hero {
+  position: relative;
   padding: 4.5rem 0 2.5rem;
   text-align: center;
+}
+/* Orbes de fundo: decorativos, ficam atrás do conteúdo e são animados pelo GSAP. */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.hero-orb.a {
+  width: 360px;
+  height: 360px;
+  top: -90px;
+  left: -70px;
+  background: color-mix(in srgb, var(--primary) 45%, transparent);
+}
+.hero-orb.b {
+  width: 320px;
+  height: 320px;
+  top: 30px;
+  right: -80px;
+  background: color-mix(in srgb, var(--accent-blue) 38%, transparent);
+}
+.hero .wrap {
+  position: relative;
+  z-index: 1;
 }
 .hero h1 {
   font-size: clamp(1.75rem, 6vw, 3.4rem);
@@ -216,6 +250,29 @@ img {
 .hero h1 em {
   color: var(--primary);
   font-style: normal;
+}
+/* Cada frase do título é um bloco; o miolo recebe o flip 3D do GSAP. */
+.hero h1 .hero-line {
+  display: block;
+}
+.hero h1 .hero-line-inner {
+  display: block;
+}
+/* Estado inicial do hero só enquanto o GSAP vai animá-lo. Sem JS, CDN bloqueado
+   ou "reduzir animações", a classe não entra e o conteúdo aparece direto. */
+.hero-motion [data-hero-line],
+.hero-motion [data-hero-fade],
+.hero-motion [data-hero-chips] .chip,
+.hero-motion [data-hero-media] {
+  opacity: 0;
+}
+/* Palco com perspectiva para o tilt 3D da screenshot. */
+.hero-media-3d {
+  perspective: 1300px;
+}
+.hero-media-3d .shot-frame {
+  transform-style: preserve-3d;
+  will-change: transform;
 }
 .hero p.sub {
   font-size: clamp(1.05rem, 2vw, 1.3rem);
@@ -235,6 +292,8 @@ img {
   font-size: 0.9rem;
 }
 .chips {
+  list-style: none;
+  padding: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
