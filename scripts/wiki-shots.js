@@ -59,6 +59,18 @@ const PAGES = {
   'configuracoes': '/admin/configuracoes',
   'cobrancas': '/admin/cobrancas',
   'recursos': '/admin/recursos',
+  // Odonto (módulo opcional). As telas de paciente usam um id fixo (1); se não
+  // existir paciente cadastrado com esse id, aquela captura só falha e é pulada.
+  'odonto-painel': '/app/odonto/painel',
+  'odonto-agenda': '/app/odonto/agenda',
+  'odonto-pacientes': '/app/odonto/pacientes',
+  'odonto-procedimentos': '/app/odonto/procedimentos',
+  'odonto-profissionais': '/app/odonto/profissionais',
+  'odonto-prontuario': '/app/odonto/pacientes/1/prontuario',
+  'odonto-odontograma': '/app/odonto/pacientes/1/odontograma',
+  'odonto-planos': '/app/odonto/pacientes/1/planos',
+  'odonto-documentos': '/app/odonto/pacientes/1/documentos',
+  'odonto-exames': '/app/odonto/pacientes/1/exames',
 };
 
 async function login(page) {

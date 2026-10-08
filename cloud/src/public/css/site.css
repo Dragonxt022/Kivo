@@ -663,3 +663,22 @@ section[id] {
     padding: 1.25rem 1.15rem;
   }
 }
+
+/* ═══ Motion do site (GSAP) ═══
+   `.tilt-stage` é o palco com perspectiva de cada screenshot; `data-reveal` e
+   `data-reveal-children` são os ganchos usados pelo `site-motion.js`. A classe
+   `.motion-js` (posta no <html> por script inline) esconde os alvos só até o JS
+   assumir — sem JS/GSAP ou com "reduzir animações" ela nunca entra e o conteúdo
+   aparece direto, sem risco de tela em branco. */
+.tilt-stage {
+  perspective: 1200px;
+}
+.tilt-stage .shot-frame {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.motion-js [data-reveal],
+.motion-js [data-reveal-children] > *,
+.motion-js [data-motion-media] .shot-frame {
+  opacity: 0;
+}

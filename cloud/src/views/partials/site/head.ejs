@@ -20,3 +20,15 @@
 <link rel="stylesheet" href="/css/landing.css">
 <link rel="stylesheet" href="/css/site.css">
 <% if (_theme) { %><link rel="stylesheet" href="/css/<%= _theme %>.css"><% } %>
+<%# Motion compartilhado. A classe `motion-js` esconde os alvos só até o JS
+    assumir; sem JS/GSAP ou com "reduzir animações" ela não entra. %>
+<script>
+  (function () {
+    try {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!reduce) document.documentElement.classList.add('motion-js');
+    } catch (e) {}
+  })();
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script defer src="/js/site-motion.js"></script>

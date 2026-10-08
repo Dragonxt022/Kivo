@@ -218,23 +218,23 @@ img {
 .hero-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
+  filter: blur(90px);
+  opacity: 0.4;
   will-change: transform;
 }
 .hero-orb.a {
-  width: 360px;
-  height: 360px;
-  top: -90px;
-  left: -70px;
-  background: color-mix(in srgb, var(--primary) 45%, transparent);
+  width: 340px;
+  height: 340px;
+  top: -110px;
+  left: -90px;
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
 }
 .hero-orb.b {
-  width: 320px;
-  height: 320px;
-  top: 30px;
-  right: -80px;
-  background: color-mix(in srgb, var(--accent-blue) 38%, transparent);
+  width: 300px;
+  height: 300px;
+  top: 20px;
+  right: -100px;
+  background: color-mix(in srgb, var(--accent-blue) 26%, transparent);
 }
 .hero .wrap {
   position: relative;

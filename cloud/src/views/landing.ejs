@@ -53,7 +53,7 @@
       </ul>
 
       <div class="hero-media-3d" data-hero-media>
-        <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com carrinho de venda montado' }) %>
+        <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo com carrinho de venda montado', motion: false }) %>
       </div>
     </div>
   </section>
@@ -61,7 +61,7 @@
   <!-- ─── HUB DE ESCOLHA ─── -->
   <section id="comece">
     <div class="wrap">
-      <div class="center">
+      <div class="center" data-reveal>
         <div class="kicker">Comece por aqui</div>
         <h2>O que você vende? A gente mostra o caminho</h2>
         <p>
@@ -70,7 +70,7 @@
         </p>
       </div>
 
-      <div class="choose-grid">
+      <div class="choose-grid" data-reveal-children>
         <a class="choose-card" href="/lojas">
           <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
           <div>
@@ -103,6 +103,14 @@
             <span class="go">Ver o Kivo Serviços →</span>
           </div>
         </a>
+        <a class="choose-card" href="/odonto">
+          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5c-1.2-1.6-3-2.5-4.8-2.5A4.7 4.7 0 0 0 2.5 7.7c0 4.3 4.2 6.6 5.1 11.2a2 2 0 0 0 3.9.1l.5-2.6c0-.4.5-.4.5 0l.5 2.6a2 2 0 0 0 3.9-.1c.9-4.6 5.1-6.9 5.1-11.2a4.7 4.7 0 0 0-4.7-4.7c-1.8 0-3.6.9-4.8 2.5Z"/></svg></div>
+          <div>
+            <h3>Odonto</h3>
+            <p>Clínicas e consultórios. Agenda, prontuário, odontograma e planos de tratamento.</p>
+            <span class="go">Ver o Kivo Odonto →</span>
+          </div>
+        </a>
         <a class="choose-card" href="/recursos">
           <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M3 9h18"/><path d="M9 22v-6h6v6"/></svg></div>
           <div>
@@ -115,7 +123,7 @@
 
       <div class="choose-divider">Ou escolha pelo recurso</div>
 
-      <div class="res-grid">
+      <div class="res-grid" data-reveal-children>
         <a class="res-tile" href="/recursos/pdv">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           PDV &amp; Vendas
@@ -159,13 +167,13 @@
   <!-- ─── MÓDULOS ─── -->
   <section id="recursos">
     <div class="wrap">
-      <div class="center">
+      <div class="center" data-reveal>
         <div class="kicker">Cada recurso por dentro</div>
         <h2>Um sistema modular: você liga só o que usa</h2>
         <p>Clique em qualquer módulo para ver as telas reais e como ele funciona no dia a dia do seu negócio.</p>
       </div>
 
-      <div class="mod-grid">
+      <div class="mod-grid" data-reveal-children>
         <a class="mod-card" href="/recursos/pdv">
           <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
           <h3>PDV &amp; Vendas</h3>
@@ -228,7 +236,7 @@
   <section>
     <div class="wrap">
       <div class="two-col">
-        <div>
+        <div data-reveal>
           <div class="kicker">Lucro real</div>
           <h2>Quanto o negócio deu de lucro? O DRE responde</h2>
           <p style="color:var(--muted); font-size:1.05rem">
@@ -251,7 +259,7 @@
     <div class="wrap">
       <div class="two-col flip">
         <%- include('partials/site/shot', { name: 'cozinha', alt: 'Painel de cozinha do Kivo com tickets por mesa e estação' }) %>
-        <div>
+        <div data-reveal>
           <div class="kicker">Food service</div>
           <h2>O pedido sai da mesa e chega na chapa</h2>
           <p style="color:var(--muted); font-size:1.05rem">
@@ -272,7 +280,7 @@
   <section>
     <div class="wrap">
       <div class="two-col">
-        <div>
+        <div data-reveal>
           <div class="kicker">Importação de NF-e</div>
           <h2>A nota do fornecedor vira estoque sem digitação</h2>
           <p style="color:var(--muted); font-size:1.05rem">
@@ -295,11 +303,11 @@
   <!-- ─── DIFERENCIAIS ─── -->
   <section>
     <div class="wrap">
-      <div class="center">
+      <div class="center" data-reveal>
         <div class="kicker">Por que o Kivo</div>
         <h2>Feito para operar sem sustos</h2>
       </div>
-      <div class="grid">
+      <div class="grid" data-reveal-children>
         <div class="card">
           <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
           <h3>Offline primeiro, nuvem sempre</h3>
@@ -338,7 +346,7 @@
   <section>
     <div class="wrap">
       <div class="two-col">
-        <div>
+        <div data-reveal>
           <div class="kicker">Primeiros passos</div>
           <h2>Instalou, configurou, vendeu — no mesmo dia</h2>
           <p style="color:var(--muted); font-size:1.05rem">
@@ -360,12 +368,12 @@
   <!-- ─── PLANOS (resumo) ─── -->
   <section id="planos">
     <div class="wrap">
-      <div class="center">
+      <div class="center" data-reveal>
         <div class="kicker">Planos</div>
-        <h2>Comece grátis, cresça no seu ritmo</h2>
+        <h2>Comece grátis e escolha o plano quando fizer sentido</h2>
         <p>Todos os planos incluem migração de dados, treinamento e suporte humano (resposta em até 8h úteis).</p>
       </div>
-      <div class="plans">
+      <div class="plans" data-reveal-children>
         <div class="plan">
           <h3>Teste</h3>
           <div class="price free">Grátis</div>
@@ -420,11 +428,11 @@
   <!-- ─── FAQ ─── -->
   <section id="faq">
     <div class="wrap">
-      <div class="center">
+      <div class="center" data-reveal>
         <div class="kicker">Dúvidas frequentes</div>
         <h2>Perguntas que todo mundo faz</h2>
       </div>
-      <div class="faq">
+      <div class="faq" data-reveal-children>
         <details>
           <summary>O Kivo funciona sem internet?</summary>
           <p>Sim, 100%. O Kivo roda no seu computador e não depende de conexão para vender, controlar estoque ou fechar o caixa. Quando a internet volta, tudo é sincronizado automaticamente com a nuvem (planos Ouro e Diamante).</p>
@@ -456,8 +464,7 @@
   <%- include('partials/site/cta', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
   <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
 
-  <!-- GSAP (CDN) + animação de entrada do hero. Carregados por último, sem bloquear a renderização. -->
-  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <%# O GSAP e o site-motion.js vêm do partial de cabeçalho; aqui só a entrada do hero. %>
   <script defer src="/js/hero-motion.js"></script>
 </body>
 </html>
