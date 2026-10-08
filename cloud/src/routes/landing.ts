@@ -79,6 +79,7 @@ const SITE_PAGES: Record<string, string> = {
   '/farmacias': 'farmacias',
   '/restaurantes': 'restaurantes',
   '/servicos': 'servicos',
+  '/odonto': 'odonto',
   '/recursos': 'recursos',
   '/recursos/pdv': 'recursos-pdv',
   '/recursos/estoque': 'recursos-estoque',

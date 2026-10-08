@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <%- include('partials/site/head', {
+    title: 'Kivo Odonto — sistema para clínicas e consultórios odontológicos',
+    description: 'Agenda de atendimentos, prontuário com retificação, odontograma, planos de tratamento com cobrança no financeiro, documentos (TCLE, receita, contrato), exames e imagens, profissionais e procedimentos. Funciona offline e salva na nuvem.',
+    theme: 'odonto',
+    themeColor: '#0d9488'
+  }) %>
+</head>
+<body class="theme-odonto">
+  <%- include('partials/site/topbar', { page: 'odonto', downloadUrl: downloadUrl }) %>
+
+  <!-- ─── HERO ─── -->
+  <section class="hero" aria-labelledby="odonto-title">
+    <div class="hero-bg" aria-hidden="true">
+      <span class="hero-orb a"></span>
+      <span class="hero-orb b"></span>
+    </div>
+    <div class="wrap">
+      <span class="seg-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5c-1.2-1.6-3-2.5-4.8-2.5A4.7 4.7 0 0 0 2.5 7.7c0 4.3 4.2 6.6 5.1 11.2a2 2 0 0 0 3.9.1l.5-2.6c0-.4.5-.4.5 0l.5 2.6a2 2 0 0 0 3.9-.1c.9-4.6 5.1-6.9 5.1-11.2a4.7 4.7 0 0 0-4.7-4.7c-1.8 0-3.6.9-4.8 2.5Z"/></svg>
+        Para clínicas e consultórios odontológicos
+      </span>
+      <h1 id="odonto-title">
+        <span class="hero-line"><span class="hero-line-inner" data-hero-line>A clínica odontológica inteira</span></span>
+        <span class="hero-line"><span class="hero-line-inner" data-hero-line><em>num sistema só.</em></span></span>
+      </h1>
+      <p class="sub" data-hero-fade>
+        Agenda, prontuário, odontograma, planos de tratamento e documentos —
+        integrados ao estoque, ao financeiro e ao PDV que você já usa. Funciona
+        <strong>sem internet</strong> e sincroniza na nuvem quando ela volta.
+      </p>
+      <div class="hero-ctas" data-hero-fade>
+        <a class="btn big" href="<%= downloadUrl %>">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar para Windows — v<%= appVersion %>
+        </a>
+        <a class="btn big secondary" href="/contato">Falar com um especialista</a>
+      </div>
+      <p class="hero-note" data-hero-fade>✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração de pacientes e catálogo inclusa</p>
+
+      <ul class="chips" data-hero-chips>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Agenda de atendimentos</li>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Prontuário e odontograma</li>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Cobrança no financeiro</li>
+        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</li>
+      </ul>
+
+      <div class="hero-media-3d" data-hero-media>
+        <%- include('partials/site/odonto-mock', { variant: 'painel' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── MÓDULOS DO CONSULTÓRIO ─── -->
+  <section id="recursos">
+    <div class="wrap">
+      <div class="center" data-reveal>
+        <div class="kicker">O que o consultório usa</div>
+        <h2>Do agendamento à cobrança, sem sair do Kivo</h2>
+        <p>Um módulo a mais no mesmo sistema: o Odonto aproveita clientes, estoque e financeiro que o Kivo já tem — em vez de duplicar cadastro.</p>
+      </div>
+
+      <div class="mod-grid" data-reveal-children>
+        <a class="mod-card" href="/wiki#odonto-painel">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+          <h3>Painel do consultório</h3>
+          <p>Agenda do dia, atendimentos a confirmar, planos aprovados e os relatórios do período numa tela só.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-agenda">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <h3>Agenda</h3>
+          <p>Atendimentos por dia, semana e mês, com confirmação, registro de presença, falta e cancelamento.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-pacientes">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h3>Pacientes e ficha</h3>
+          <p>O paciente é um cliente do Kivo com ficha clínica: alergias, histórico médico, medicações e anamnese.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-prontuario">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <h3>Prontuário</h3>
+          <p>Evolução clínica do paciente com retificação: corrigir um registro preserva o anterior e o motivo.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-odontograma">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5c-1.2-1.6-3-2.5-4.8-2.5A4.7 4.7 0 0 0 2.5 7.7c0 4.3 4.2 6.6 5.1 11.2a2 2 0 0 0 3.9.1l.5-2.6c0-.4.5-.4.5 0l.5 2.6a2 2 0 0 0 3.9-.1c.9-4.6 5.1-6.9 5.1-11.2a4.7 4.7 0 0 0-4.7-4.7c-1.8 0-3.6.9-4.8 2.5Z"/></svg></div>
+          <h3>Odontograma</h3>
+          <p>O mapa dos dentes com condição e face, procedimento por dente e histórico do que já foi tratado.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-planos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>Planos de tratamento</h3>
+          <p>Monte o plano com procedimentos, dentes e valores, aprove e gere a cobrança direto no financeiro.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-documentos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
+          <h3>Documentos</h3>
+          <p>TCLE, receita, atestado e contrato gerados de modelos com variáveis, com versão, impressão e PDF.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-exames">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>
+          <h3>Exames e imagens</h3>
+          <p>Radiografia, tomografia e fotos clínicas anexadas ao paciente, com visualização e download.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+        <a class="mod-card" href="/wiki#odonto-procedimentos">
+          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+          <h3>Procedimentos e profissionais</h3>
+          <p>Catálogo de procedimentos com valor e duração, e a equipe com CRO e especialidades.</p>
+          <span class="mod-more">Ver na wiki →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── AGENDA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div data-reveal>
+          <div class="kicker">Agenda</div>
+          <h2>A cadeira não pode ficar parada</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            A agenda mostra o dia, a semana e o mês do consultório. Cada atendimento tem
+            profissional, procedimento e duração — e o status muda conforme o paciente
+            confirma, comparece ou falta.
+          </p>
+          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Agendar, reagendar e confirmar por profissional</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Registrar presença e falta, sem perder o histórico</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Duração estimada puxada do procedimento</li>
+          </ul>
+          <a class="mod-more" href="/wiki#odonto-agenda">Ver a agenda na wiki →</a>
+        </div>
+        <%- include('partials/site/odonto-mock', { variant: 'agenda' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PRONTUÁRIO + ODONTOGRAMA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col flip">
+        <%- include('partials/site/odonto-mock', { variant: 'odontograma' }) %>
+        <div data-reveal>
+          <div class="kicker">Prontuário e odontograma</div>
+          <h2>O histórico clínico sem papel</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            O prontuário reúne as evoluções do paciente, e o odontograma mostra a situação
+            dente por dente. Um registro assinado não se apaga: ele é retificado, com
+            motivo, mantendo o que foi escrito antes.
+          </p>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Anamnese versionada</h3>
+              <p>Formulários de anamnese com perguntas e revisões, aplicados ao paciente.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Odontograma por face</h3>
+              <p>Condição e face de cada dente, com o que já foi tratado marcado na tela.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Permissão clínica</h3>
+              <p>Dado de saúde exige permissão própria: só quem pode ver abre o conteúdo clínico.</p>
+            </div>
+            <div class="detail-item">
+              <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Retificação com motivo</h3>
+              <p>Corrigir um registro preserva o original e registra quem retificou e por quê.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PLANOS → FINANCEIRO ─── -->
+  <section>
+    <div class="wrap">
+      <div class="two-col">
+        <div data-reveal>
+          <div class="kicker">Planos de tratamento</div>
+          <h2>Aprovou o plano, a cobrança sai sozinha</h2>
+          <p style="color:var(--muted); font-size:1.05rem">
+            Monte o plano com procedimentos, dentes e valores. Depois de aprovado, o Kivo
+            gera a cobrança no financeiro existente — a recepção acompanha o que ficou
+            combinado e o que já foi pago, sem redigitar nada.
+          </p>
+          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Itens com dente, procedimento e valor</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Aprovação e conclusão do plano</li>
+            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Cobrança no contas a receber, com parcelas</li>
+          </ul>
+          <a class="mod-more" href="/wiki#odonto-planos">Ver os planos na wiki →</a>
+        </div>
+        <%- include('partials/site/odonto-mock', { variant: 'planos' }) %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DIFERENCIAIS ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center" data-reveal>
+        <div class="kicker">Por que o Kivo Odonto</div>
+        <h2>Um módulo, não um sistema à parte</h2>
+      </div>
+      <div class="grid" data-reveal-children>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+          <h3>Offline primeiro</h3>
+          <p>A internet caiu? A agenda e o prontuário continuam funcionando. Ao voltar, os dados sincronizam.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
+          <h3>Dado clínico protegido</h3>
+          <p>O conteúdo de saúde tem permissão própria e fica na máquina do consultório, separado do operacional.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
+          <h3>Estoque junto</h3>
+          <p>Materiais e medicamentos usam o estoque com lote e validade que o comercial já controla.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg></div>
+          <h3>Documentos da clínica</h3>
+          <p>Modelos com variáveis para TCLE, receita, atestado e contrato — versionados e prontos para imprimir.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+          <h3>Relatórios do consultório</h3>
+          <p>Atendimentos, faltas, planos aprovados e valores — o painel mostra o movimento do período.</p>
+        </div>
+        <div class="card">
+          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <h3>Wiki documentada</h3>
+          <p>Cada tela tem passo a passo ilustrado na <a href="/wiki#odonto-painel">wiki do Kivo</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── COMO FUNCIONA ─── -->
+  <section>
+    <div class="wrap">
+      <div class="center" data-reveal>
+        <div class="kicker">Como funciona na prática</div>
+        <h2>Do primeiro contato à cadeira</h2>
+      </div>
+      <div class="steps" data-reveal-children>
+        <div class="step">
+          <h3>Cadastra o paciente</h3>
+          <p>Cliente com ficha clínica: contato, alergias, histórico médico e anamnese.</p>
+        </div>
+        <div class="step">
+          <h3>Agenda o atendimento</h3>
+          <p>Escolhe profissional, procedimento e horário. A duração vem do procedimento.</p>
+        </div>
+        <div class="step">
+          <h3>Atende e registra</h3>
+          <p>Prontuário, odontograma e exames atualizados durante ou após o atendimento.</p>
+        </div>
+        <div class="step">
+          <h3>Aprova e cobra</h3>
+          <p>O plano de tratamento é aprovado e a cobrança entra no financeiro do Kivo.</p>
+        </div>
+      </div>
+
+      <div class="pull" data-reveal>
+        <p><strong>Um paciente, a clínica inteira alinhada.</strong> Ele é um cliente do Kivo: a mesma ficha aparece no financeiro e no caixa, o material sai do estoque e o valor entra no contas a receber — sem cadastro paralelo.</p>
+      </div>
+    </div>
+  </section>
+
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl, appVersion: appVersion,
+    ctaTitle: 'Coloque o consultório no Kivo',
+    ctaText: 'No teste grátis o assistente já deixa pacientes, profissionais e procedimentos de exemplo — dá pra simular uma agenda e um plano de tratamento antes de decidir.'
+  }) %>
+  <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+</body>
+</html>

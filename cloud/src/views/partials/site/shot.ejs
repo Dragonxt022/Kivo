@@ -1,10 +1,16 @@
 <%
   /* Screenshot do sistema numa moldura de janela, trocando automaticamente entre
      as versões clara e escura conforme o tema do site.
-     Espera: name (arquivo base, sem extensão e sem "-dark"), alt. */
+     Espera: name (arquivo base, sem extensão e sem "-dark"), alt.
+     O `.tilt-stage` dá a perspectiva 3D e o gancho `data-motion-media` para o
+     JS de animação revelar a moldura ao rolar e aplicar o tilt com o mouse.
+     `motion: false` desliga o gancho (usado pelo hero, que tem motion próprio). */
+  var _motion = typeof motion !== 'undefined' ? motion : true;
 %>
-<div class="shot-frame theme-swap">
-  <div class="bar"><i></i><i></i><i></i></div>
-  <img class="shot-light" loading="lazy" src="/img/landing/<%= name %>.png" alt="<%= alt %>" />
-  <img class="shot-dark" loading="lazy" src="/img/landing/<%= name %>-dark.png" alt="<%= alt %>" />
+<div class="tilt-stage"<%= _motion ? ' data-motion-media' : '' %>>
+  <div class="shot-frame theme-swap">
+    <div class="bar"><i></i><i></i><i></i></div>
+    <img class="shot-light" loading="lazy" src="/img/landing/<%= name %>.png" alt="<%= alt %>" />
+    <img class="shot-dark" loading="lazy" src="/img/landing/<%= name %>-dark.png" alt="<%= alt %>" />
+  </div>
 </div>

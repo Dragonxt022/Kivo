@@ -24,7 +24,7 @@
 
   var tl = gsap.timeline({ defaults: { ease: 'power3.out' }, onComplete: startIdle });
 
-  tl.fromTo('.hero-orb', { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.4, stagger: 0.2 }, 0)
+  tl.fromTo('.hero-orb', { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 0.4, duration: 1.4, stagger: 0.2 }, 0)
     .fromTo(
       '[data-hero-line]',
       { yPercent: 110, rotateX: -80, opacity: 0, transformPerspective: 800, transformOrigin: '50% 100%' },
@@ -66,19 +66,37 @@
       window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     if (!media || !finePointer) return;
 
-    var rotX = gsap.quickTo(shot, 'rotateX', { duration: 0.5, ease: 'power2.out' });
-    var rotY = gsap.quickTo(shot, 'rotateY', { duration: 0.5, ease: 'power2.out' });
+    // Tilt 3D seguindo o mouse, com throttle por frame para não criar tween a cada evento.
+    var targetX = 0;
+    var targetY = 0;
+    var ticking = false;
+
+    function applyTilt() {
+      ticking = false;
+      gsap.to(shot, {
+        rotateX: targetX,
+        rotateY: targetY,
+        duration: 0.6,
+        ease: 'power2.out',
+        overwrite: 'auto',
+      });
+    }
 
     media.addEventListener('pointermove', function (e) {
       var r = media.getBoundingClientRect();
       var px = (e.clientX - r.left) / r.width - 0.5;
       var py = (e.clientY - r.top) / r.height - 0.5;
-      rotY(px * 12);
-      rotX(-py * 10);
+      targetY = px * 12;
+      targetX = -py * 10;
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(applyTilt);
+      }
     });
     media.addEventListener('pointerleave', function () {
-      rotX(0);
-      rotY(0);
+      targetX = 0;
+      targetY = 0;
+      gsap.to(shot, { rotateX: 0, rotateY: 0, duration: 0.7, ease: 'power2.out', overwrite: 'auto' });
     });
   }
 })();

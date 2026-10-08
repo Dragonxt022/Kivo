@@ -1,0 +1,85 @@
+<%
+  /* Mockup em CSS de uma tela do Kivo Odonto (não usa imagem). Variantes:
+       'painel', 'agenda', 'odontograma', 'planos'.
+     O `.tilt-stage[data-motion-media]` faz a moldura ganhar o tilt 3D via site-motion.js.
+     Todo o conteúdo é decorativo (aria-hidden): é uma ilustração, não dado real. */
+  var v = typeof variant !== 'undefined' ? variant : 'painel';
+  var menu = [
+    ['painel', 'Painel'],
+    ['agenda', 'Agenda'],
+    ['pacientes', 'Pacientes'],
+    ['odontograma', 'Odontograma'],
+    ['planos', 'Planos'],
+    ['documentos', 'Documentos'],
+    ['exames', 'Exames'],
+  ];
+  var activeByVariant = { painel: 'painel', agenda: 'agenda', odontograma: 'odontograma', planos: 'planos' };
+  var active = activeByVariant[v] || 'painel';
+  var teeth = ['18','17','16','15','14','13','12','11','21','22','23','24','25','26','27','28'];
+%>
+<div class="tilt-stage" data-motion-media>
+  <div class="shot-frame odonto-frame">
+    <div class="bar"><i></i><i></i><i></i></div>
+    <div class="odonto-mock" aria-hidden="true">
+      <aside class="odonto-side">
+        <span class="odo-logo">Kivo <b>Odonto</b></span>
+        <% menu.forEach(function (item) { %>
+          <span class="<%= item[0] === active ? 'on' : '' %>"><%= item[1] %></span>
+        <% }); %>
+      </aside>
+
+      <div class="odonto-main">
+        <% if (v === 'painel') { %>
+          <div class="odo-top">Painel do consultório <em>hoje</em></div>
+          <div class="odo-stats">
+            <div><b>12</b><span>atendimentos marcados</span></div>
+            <div><b>3</b><span>a confirmar</span></div>
+            <div><b>R$ 4.380</b><span>planos aprovados</span></div>
+          </div>
+          <div class="odo-teeth">
+            <% teeth.forEach(function (t, i) { %>
+              <span class="odo-tooth <%= i === 5 ? 'mark' : (i === 13 ? 'attn' : '') %>"><b><%= t %></b></span>
+            <% }); %>
+          </div>
+          <div class="odo-rows">
+            <div><span>09:00</span> Maria Silva <b class="pill ok">Limpeza</b></div>
+            <div><span>10:30</span> João Souza <b class="pill">Canal · dente 26</b></div>
+            <div><span>14:00</span> Ana Lima <b class="pill">Restauração · 36</b></div>
+          </div>
+        <% } else if (v === 'agenda') { %>
+          <div class="odo-top">Agenda <em>hoje · 09 out</em></div>
+          <div class="odo-agenda">
+            <div class="row"><span class="h">08:30</span><div><b>Maria Silva</b><small>Profilaxia · 40 min</small></div><span class="st ok">Confirmado</span></div>
+            <div class="row"><span class="h">09:15</span><div><b>João Souza</b><small>Endodontia · 90 min</small></div><span class="st wait">A confirmar</span></div>
+            <div class="row"><span class="h">11:00</span><div><b>Ana Lima</b><small>Restauração · 45 min</small></div><span class="st ok">Confirmado</span></div>
+            <div class="row"><span class="h">14:30</span><div><b>Carlos Dias</b><small>Avaliação · 30 min</small></div><span class="st new">Novo</span></div>
+            <div class="row"><span class="h">16:00</span><div><b>Beatriz Nunes</b><small>Clareamento · 60 min</small></div><span class="st ok">Confirmado</span></div>
+          </div>
+        <% } else if (v === 'odontograma') { %>
+          <div class="odo-top">Odontograma <em>Maria Silva</em></div>
+          <p class="odo-hint">Clique no dente para registrar condição, face e procedimento.</p>
+          <div class="odo-teeth big">
+            <% teeth.forEach(function (t, i) { %>
+              <span class="odo-tooth <%= i === 5 || i === 10 ? 'mark' : (i === 13 ? 'attn' : '') %>"><b><%= t %></b></span>
+            <% }); %>
+          </div>
+          <div class="odo-legend">
+            <span><i class="sw mark"></i> Tratado</span>
+            <span><i class="sw attn"></i> Em tratamento</span>
+            <span><i class="sw"></i> Sadio</span>
+          </div>
+        <% } else { %>
+          <div class="odo-top">Plano de tratamento <em>Maria Silva</em></div>
+          <div class="odo-plan">
+            <div class="row head"><span>Procedimento</span><span>Dente</span><span>Valor</span></div>
+            <div class="row"><span>Profilaxia + aplicação de flúor</span><span>Geral</span><span>R$ 180,00</span></div>
+            <div class="row"><span>Restauração em resina</span><span>26</span><span>R$ 320,00</span></div>
+            <div class="row"><span>Tratamento de canal</span><span>36</span><span>R$ 780,00</span></div>
+            <div class="row total"><span>Total aprovado</span><span></span><span>R$ 1.280,00</span></div>
+          </div>
+          <div class="odo-cta">Cobrar plano no Financeiro →</div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

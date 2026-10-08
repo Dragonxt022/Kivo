@@ -84,6 +84,19 @@
       </div>
 
       <div class="wiki-toc-group">
+        <div class="wiki-toc-label">Odonto</div>
+        <a href="#odonto-painel" class="wiki-toc-link" data-section="odonto-painel">Painel</a>
+        <a href="#odonto-agenda" class="wiki-toc-link" data-section="odonto-agenda">Agenda</a>
+        <a href="#odonto-pacientes" class="wiki-toc-link" data-section="odonto-pacientes">Pacientes</a>
+        <a href="#odonto-prontuario" class="wiki-toc-link" data-section="odonto-prontuario">Prontuário</a>
+        <a href="#odonto-odontograma" class="wiki-toc-link" data-section="odonto-odontograma">Odontograma</a>
+        <a href="#odonto-planos" class="wiki-toc-link" data-section="odonto-planos">Planos de Tratamento</a>
+        <a href="#odonto-documentos" class="wiki-toc-link" data-section="odonto-documentos">Documentos</a>
+        <a href="#odonto-exames" class="wiki-toc-link" data-section="odonto-exames">Exames e Imagens</a>
+        <a href="#odonto-procedimentos" class="wiki-toc-link" data-section="odonto-procedimentos">Procedimentos</a>
+      </div>
+
+      <div class="wiki-toc-group">
         <div class="wiki-toc-label">Administração</div>
         <a href="#usuarios" class="wiki-toc-link" data-section="usuarios">Usuários e Cargos</a>
         <a href="#notificacoes" class="wiki-toc-link" data-section="notificacoes">Central de Mensagens</a>
@@ -1026,6 +1039,275 @@
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
             <p>Você marca "Visível no cardápio" nos 20 pratos principais e nas bebidas, cada um com foto e categoria. Gera um QR Code do link e cola em cada mesa. O cliente aponta o celular, vê o cardápio com fotos e preços atualizados — e você nunca mais reimprime um cardápio de papel por causa de um reajuste.</p>
+          </div>
+        </div>
+
+        <hr class="wiki-divider" />
+
+        <!-- ============================================================ -->
+        <!-- ODONTO -->
+        <!-- ============================================================ -->
+        <div class="wiki-section" id="odonto-painel">
+          <h2>Odonto</h2>
+          <div class="wiki-card">
+            <h4>O que é o Kivo Odonto?</h4>
+            <p>É um módulo para <strong>clínicas e consultórios odontológicos</strong> que funciona dentro do mesmo Kivo. Ele não duplica o que o sistema já faz: o <strong>paciente é um cliente</strong> (com ficha clínica), o procedimento pode apontar para um produto do catálogo, a cobrança do tratamento usa o financeiro existente e materiais usam o estoque com lote e validade.</p>
+          </div>
+          <div class="wiki-callout">
+            <p><strong>Requer o módulo "Odonto" ativo</strong> e a permissão correspondente. É um módulo opcional — ative em <em>Configurações → Recursos</em> ou fale com o suporte.</p>
+          </div>
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <h3>Painel do consultório</h3>
+          </div>
+          <p>O painel reúne a situação do dia: <strong>agenda</strong>, atendimentos a confirmar, <strong>planos aprovados</strong> e os relatórios do período.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Abrir o dia sabendo o que vai acontecer: quantos pacientes vêm, o que ainda não confirmou e qual o valor em planos aprovados — sem planilha e sem somar tudo de cabeça.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> no menu do módulo, em <em>Painel</em>.</p>
+          <ol>
+            <li>Confira a <strong>agenda de hoje</strong> e os atendimentos a confirmar.</li>
+            <li>Veja os <strong>planos aprovados</strong> e os valores do período.</li>
+            <li>Use os relatórios para acompanhar atendimentos e faltas.</li>
+          </ol>
+        </div>
+
+        <div class="wiki-section" id="odonto-agenda">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <h3>Agenda</h3>
+          </div>
+          <p>A agenda mostra os atendimentos por <strong>dia, semana e mês</strong>, com profissional, procedimento e duração estimada. Cada atendimento muda de status conforme o paciente confirma, comparece ou falta.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Não deixar a cadeira parada nem marcar dois pacientes no mesmo horário do mesmo dentista — e saber, no fim do mês, quantas faltas aconteceram.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> no menu do módulo, em <em>Agenda</em>.</p>
+          <ol>
+            <li>Clique no horário para <strong>agendar</strong>: escolha o paciente, o profissional e o procedimento (a duração vem do procedimento).</li>
+            <li>Use <strong>Confirmar</strong> quando o paciente avisar que vem.</li>
+            <li>No dia, registre <strong>Atendido</strong> ou <strong>Falta</strong>.</li>
+            <li>Para remarcar, use <strong>Reagendar</strong>; para desmarcar, <strong>Cancelar</strong>.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>A paciente <strong>Maria</strong> liga e marca uma limpeza com o Dr. João para terça às 09:00. Você agenda escolhendo o procedimento "Profilaxia" (40 min) — a agenda já reserva o tempo certo. Na véspera, ela confirma; no dia, você registra "Atendido".</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="odonto-pacientes">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3>Pacientes</h3>
+          </div>
+          <p>Na lista de pacientes, cada pessoa é um <strong>cliente do Kivo</strong> com uma <strong>ficha clínica</strong> ao lado. Os dados cadastrais vêm do cadastro de <a href="#clientes">Clientes</a>; a ficha guarda o que é clínico.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Ter toda a informação do paciente num lugar só — o que ele tem de saúde, o que já foi feito e quanto deve — sem cadastro paralelo e sem procurar em dois sistemas.</p>
+            </div>
+          </div>
+          <div class="wiki-callout">
+            <p><strong>Dado de saúde exige permissão própria.</strong> Ver alergias, histórico médico e medicações depende da permissão clínica — quem não tem, não vê esse bloco (e a API também bloqueia).</p>
+          </div>
+          <p><strong>Como acessar:</strong> no menu do módulo, em <em>Pacientes</em>.</p>
+          <ol>
+            <li>Clique em <strong>+ Novo paciente</strong> e informe os dados cadastrais (nome, contato, CPF).</li>
+            <li>Complete a <strong>ficha clínica</strong>: alergias, histórico médico e medicações.</li>
+            <li>Preencha a <a href="#odonto-prontuario">anamnese</a> a partir de um formulário.</li>
+            <li>Salve — o paciente já pode ser agendado e receber planos.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Cadastrar <strong>Maria Silva</strong> com telefone e CPF, e registrar na ficha clínica a alergia a <em>penicilina</em>. Ao prescrever qualquer medicação depois, essa informação está à vista.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="odonto-prontuario">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <h3>Prontuário</h3>
+          </div>
+          <p>O prontuário é a <strong>evolução clínica</strong> do paciente: o que foi feito em cada atendimento, quem registrou e quando. Um registro <strong>assinado não se apaga</strong> — ele é <strong>retificado</strong>, com motivo, preservando o que foi escrito antes.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Manter um histórico clínico confiável e auditável, como manda a boa prática odontológica: dá para corrigir um erro sem esconder o que foi registrado, e sempre se sabe quem escreveu o quê.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> abra o paciente e vá em <em>Prontuário</em>.</p>
+          <ol>
+            <li>Clique em <strong>+ Nova evolução</strong> e registre o atendimento.</li>
+            <li>Assine o registro ao concluir.</li>
+            <li>Precisou corrigir algo já assinado? Use <strong>Retificar</strong> e informe o motivo — o original permanece no histórico.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Após uma restauração no dente 26, o dentista registra a evolução e assina. Dias depois percebe que anotou o dente errado. Em vez de apagar, ele <strong>retifica</strong> com o motivo "dente correto: 26" — o registro original continua visível para auditoria.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="odonto-odontograma">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5c-1.2-1.6-3-2.5-4.8-2.5A4.7 4.7 0 0 0 2.5 7.7c0 4.3 4.2 6.6 5.1 11.2a2 2 0 0 0 3.9.1l.5-2.6c0-.4.5-.4.5 0l.5 2.6a2 2 0 0 0 3.9-.1c.9-4.6 5.1-6.9 5.1-11.2a4.7 4.7 0 0 0-4.7-4.7c-1.8 0-3.6.9-4.8 2.5Z"/></svg>
+            </div>
+            <h3>Odontograma</h3>
+          </div>
+          <p>O odontograma é o <strong>mapa dos dentes</strong>: para cada dente você registra a <strong>condição</strong> (sadio, cariado, tratado…), a <strong>face</strong> afetada e o procedimento. O histórico mostra o que já foi feito dente por dente.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Ver a boca inteira de relance e planejar o tratamento sem depender da memória nem de anotações soltas — cada marcação tem data e responsável.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> abra o paciente e vá em <em>Odontograma</em>.</p>
+          <ol>
+            <li>Clique no dente para registrar condição, face e procedimento.</li>
+            <li>As marcações aparecem no mapa (tratado, em tratamento, sadio).</li>
+            <li>Consulte o histórico para saber o que já foi feito naquele dente.</li>
+          </ol>
+        </div>
+
+        <div class="wiki-section" id="odonto-planos">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <h3>Planos de Tratamento</h3>
+          </div>
+          <p>O plano de tratamento reúne os procedimentos combinados com o paciente — com <strong>dente, procedimento e valor</strong>. Depois de <strong>aprovado</strong>, o Kivo gera a <strong>cobrança no financeiro existente</strong> (contas a receber), sem redigitar nada.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Deixar claro o que foi combinado e quanto custa — para o paciente e para a recepção — e transformar o plano aprovado em cobrança controlada, com acompanhamento de pagamento, sem caderninho nem planilha.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> abra o paciente e vá em <em>Planos</em>.</p>
+          <ol>
+            <li>Crie o plano e adicione os itens (dente, procedimento e valor).</li>
+            <li>Apresente ao paciente e marque como <strong>Aprovado</strong>.</li>
+            <li>Clique em <strong>Cobrar no Financeiro</strong> — a cobrança entra no <a href="#contas-receber">contas a receber</a>, pronta para parcelar e acompanhar.</li>
+            <li>Ao concluir os procedimentos, marque o plano como <strong>Concluído</strong>.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Para a Maria, o plano tem "Restauração no 26 (R$ 320)" e "Canal no 36 (R$ 780)". Ela aprova. Você gera a cobrança de <strong>R$ 1.100,00</strong> no financeiro, parcelada — e acompanha os pagamentos na tela de contas a receber.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="odonto-documentos">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            </div>
+            <h3>Documentos</h3>
+          </div>
+          <p>Gere documentos do paciente a partir de <strong>modelos com variáveis</strong> da clínica — <strong>TCLE</strong>, receita, atestado e contrato. O documento é versionado: rascunho, emitido e cancelado ficam registrados, e a impressão serve como PDF (imprimir → salvar em PDF).</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Emitir com segurança os documentos que a clínica sempre precisa — já preenchidos com os dados do paciente e da clínica, padronizados e prontos para anexar ao prontuário.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> abra o paciente e vá em <em>Documentos</em> (modelos da clínica ficam em <em>Modelos de documentos</em>).</p>
+          <ol>
+            <li>Cadastre os modelos da clínica, com as variáveis que devem ser preenchidas.</li>
+            <li>Ao gerar um documento do paciente, escolha o modelo — as variáveis entram sozinhas.</li>
+            <li>Revise o rascunho e clique em <strong>Emitir</strong>.</li>
+            <li>Imprima ou exporte em PDF. Se precisar anular, use <strong>Cancelar</strong>.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Antes de uma extração, gere o <strong>TCLE</strong> do modelo da clínica, com o nome da Maria já preenchido. Ela assina, você emite e anexa ao prontuário — e o documento fica versionado para consulta futura.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="odonto-exames">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            </div>
+            <h3>Exames e Imagens</h3>
+          </div>
+          <p>Anexe ao paciente <strong>radiografias, tomografias e fotos clínicas</strong>. Ficam organizados por data e podem ser abertos ou baixados quando precisar.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Guardar o exame junto do histórico do paciente, em vez de espalhado em pastas e pen drives — para comparar a evolução e mostrar ao paciente na cadeira.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> abra o paciente e vá em <em>Exames</em>.</p>
+          <ol>
+            <li>Clique em <strong>+ Anexar exame</strong> e descreva o tipo (radiografia, tomografia, foto).</li>
+            <li>Envie o arquivo de imagem.</li>
+            <li>Abra, baixe ou exclua quando necessário.</li>
+          </ol>
+        </div>
+
+        <div class="wiki-section" id="odonto-procedimentos">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <h3>Procedimentos e Profissionais</h3>
+          </div>
+          <p>O <strong>catálogo de procedimentos</strong> traz nome, valor e duração estimada — é ele que alimenta a agenda e os planos. Os <strong>profissionais</strong> são a equipe que atende, com CRO e especialidades.</p>
+          <div class="wiki-objective">
+            <div class="wiki-objective-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="wiki-objective-body">
+              <div class="wiki-objective-label">Objetivo</div>
+              <p>Padronizar valores e durações para agendar e cobrar sem divergência, e manter a equipe identificada nos atendimentos e registros.</p>
+            </div>
+          </div>
+          <p><strong>Como acessar:</strong> no menu do módulo, em <em>Procedimentos</em> e <em>Profissionais</em>.</p>
+          <ol>
+            <li>Em <em>Procedimentos</em>, cadastre cada procedimento com valor e duração estimada.</li>
+            <li>Em <em>Profissionais</em>, cadastre os dentistas e auxiliares com CRO e especialidades.</li>
+            <li>Ao agendar, escolha o profissional e o procedimento — a duração vem do cadastro.</li>
+          </ol>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>Cadastrar <strong>Profilaxia</strong> (R$ 180,00 · 40 min) e <strong>Restauração em resina</strong> (R$ 320,00 · 45 min). Ao montar um plano ou agendar, esses valores e tempos já vêm prontos.</p>
           </div>
         </div>
 
