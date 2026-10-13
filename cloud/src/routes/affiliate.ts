@@ -20,12 +20,9 @@ import {
  */
 const router = Router();
 
-router.get('/login', (req, res) => {
-  if (readAffiliateCookie(req)) {
-    res.redirect('/afiliado');
-    return;
-  }
-  res.render('afiliado-login', { error: null });
+router.get('/login', (_req, res) => {
+  // Tela única de login (decide admin x afiliado).
+  res.redirect('/login');
 });
 
 router.post('/login', async (req, res) => {

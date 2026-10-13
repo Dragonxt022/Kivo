@@ -81,16 +81,16 @@ export interface AffiliateRequest extends Request {
   affiliateName?: string;
 }
 
-export async function requireAffiliateAuth(
-  req: AffiliateRequest,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+/**
+ * Sessão válida do afiliado a partir do cookie, ou `null`. Valida no banco (existe, não
+ * venceu e o afiliado segue ativo) e já apaga a linha de uma sessão vencida. É a base do
+ * `requireAffiliateAuth` e da tela única de login (que decide admin x afiliado).
+ */
+export async function getAffiliateSession(
+  req: Request,
+): Promise<{ affiliateId: number; name: string } | null> {
   const token = readCookie(req);
-  if (!token) {
-    res.redirect('/afiliado/login');
-    return;
-  }
+  if (!token) return null;
   const hash = hashToken(token);
   let row: { affiliate_id: number; expires_at: string; name: string; active: number } | undefined;
   try {
@@ -102,18 +102,29 @@ export async function requireAffiliateAuth(
     );
     row = (rows as { affiliate_id: number; expires_at: string; name: string; active: number }[])[0];
   } catch {
-    res.redirect('/afiliado/login');
-    return;
+    return null;
   }
   if (!row || new Date(row.expires_at) < new Date() || !row.active) {
     if (row) await getPool().query('DELETE FROM affiliate_sessions WHERE token_hash = ?', [hash]).catch(() => {});
+    return null;
+  }
+  return { affiliateId: Number(row.affiliate_id), name: row.name };
+}
+
+export async function requireAffiliateAuth(
+  req: AffiliateRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const session = await getAffiliateSession(req);
+  if (!session) {
     res.redirect('/afiliado/login');
     return;
   }
-  req.affiliateId = Number(row.affiliate_id);
-  req.affiliateName = row.name;
-  res.locals.affiliateId = Number(row.affiliate_id);
-  res.locals.affiliateName = row.name;
+  req.affiliateId = session.affiliateId;
+  req.affiliateName = session.name;
+  res.locals.affiliateId = session.affiliateId;
+  res.locals.affiliateName = session.name;
   next();
 }
 

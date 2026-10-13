@@ -13,6 +13,7 @@ import adminRoutes from './routes/admin';
 import adminMessagesRoutes from './routes/adminMessages';
 import wikiRoutes from './routes/wiki';
 import landingRoutes from './routes/landing';
+import loginRoutes from './routes/login';
 import supportRoutes from './routes/support';
 import menuRoutes from './routes/menu';
 import mobileGrantsRoutes from './routes/mobileGrants';
@@ -102,6 +103,8 @@ export function createCloudServer() {
   // Página pública de pagamento da assinatura: é o link que o lojista manda ao cliente
   // (WhatsApp/e-mail). Fica antes da landing porque `/pagar/<token>` não é página do site.
   app.use('/pagar', publicPayRoutes);
+  // Tela única de login (admin x afiliado): o controller decide o destino pelo usuário/senha.
+  app.use('/', loginRoutes);
   app.use('/', landingRoutes);
   app.use('/wiki', wikiRoutes);
   app.use('/cardapio', menuRoutes);

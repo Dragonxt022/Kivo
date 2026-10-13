@@ -39,7 +39,6 @@ import {
   createAdminSession,
   destroyAdminSession,
   requireAdminAuth,
-  isAdminAuthenticated,
   readAdminCookie,
   hashPassword,
   findAdminByIdentity,
@@ -152,16 +151,13 @@ async function loadCompanyDetail(companyUuid: string) {
 // --- Autenticação ---
 
 router.get('/login', async (req, res) => {
+  // Sem admin criado ainda, manda para o setup inicial.
   if (!(await hasAnyAdmin())) {
     res.redirect('/admin/setup');
     return;
   }
-  // Já autenticado: pula o formulário e vai direto ao painel.
-  if (await isAdminAuthenticated(req)) {
-    res.redirect('/admin');
-    return;
-  }
-  res.render('login', { error: null });
+  // Tela única de login (decide admin x afiliado).
+  res.redirect('/login');
 });
 
 router.post('/login', async (req, res) => {
