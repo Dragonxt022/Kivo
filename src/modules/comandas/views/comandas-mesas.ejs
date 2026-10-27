@@ -11,7 +11,11 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/comandas/mesas' }) %>
-  <main x-data="mesasPage(<%- JSON.stringify(user.permissions.has('comandas.tables.manage')) %>, <%- JSON.stringify(comandasLabels) %>)" x-init="init()">
+  <%# O JSON.stringify dos rótulos é escapado de propósito: as aspas viram entidades
+      e não fecham o atributo x-data. Sem isso o HTML cortava o x-data no primeiro ",
+      o Alpine não montava o componente e nenhum botão da página funcionava
+      (inclusive o "Nova mesa"/"Novo balcão"). %>
+  <main x-data="mesasPage(<%- JSON.stringify(user.permissions.has('comandas.tables.manage')) %>, <%= JSON.stringify(comandasLabels) %>)" x-init="init()">
     <h1><%= comandasLabels.plural %></h1>
     <div class="toolbar">
       <% if (user.permissions.has('comandas.tables.manage')) { %>
