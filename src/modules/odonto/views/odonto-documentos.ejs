@@ -21,30 +21,24 @@
     .editor textarea { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
     .aviso { display: inline-block; color: var(--warning-text); background: var(--warning-bg); border-radius: 8px;
              padding: .3rem .6rem; font-size: .78rem; margin: .55rem 0 0; }
+    /* Zoom do modo de leitura (o documento abre na modal, sem nova janela). */
+    .doc-zoom { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; }
+    .doc-zoom .icon-btn { border: 1px solid var(--border-light); }
+    .doc-zoom .pct { min-width: 44px; text-align: center; }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="documentosPage(<%= patientId %>, <%= user.permissions.has('odonto.documents.manage') ? 'true' : 'false' %>)" x-init="load()">
-    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
-    <h1>Documentos <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'file-text', size: 24 }) %> Documentos <span class="patient-ref" x-show="paciente" x-cloak><%- include('partials/odonto-icon', { name: 'users', size: 14 }) %><span x-text="paciente ? paciente.name : ''"></span></span></h1>
 
-    <div class="secoes" id="tour-odonto-secoes">
-      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
-      <a href="/app/odonto/agenda">Consultas</a>
-      <a class="atual" href="#">Documentos</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/exames'">Exames e imagens</a>
-    </div>
+    <div id="tour-odonto-secoes"><%- include('partials/odonto-paciente-tabs', { patientId: patientId, atual: 'documentos' }) %></div>
 
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.documents.manage')) { %>
         <button class="btn" @click="novo()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Novo documento
+          <%- include('partials/odonto-icon', { name: 'plus' }) %>
+          <span>Novo documento</span>
         </button>
       <% } %>
       <select class="input" x-model="filtroTipo" @change="load()" style="max-width:220px">
@@ -55,7 +49,7 @@
       </select>
       <span class="muted text-xs"
             x-text="resumo.total + ' documento(s) · ' + resumo.emitidos + ' emitido(s)' + (resumo.rascunhos ? ' · ' + resumo.rascunhos + ' rascunho(s)' : '')"></span>
-      <a class="btn secondary small" href="/app/odonto/modelos-documentos">Modelos da clínica</a>
+      <a class="btn secondary small" href="/app/odonto/modelos-documentos"><%- include('partials/odonto-icon', { name: 'settings', size: 14 }) %><span>Modelos da clínica</span></a>
       <span class="error" x-text="error"></span>
     </div>
 
@@ -83,14 +77,14 @@
         <p class="aviso" x-show="d.missing_variables.length"
            x-text="'Faltou preencher: ' + d.missing_variables.join(', ')"></p>
         <div class="toolbar doc-actions">
-          <button class="btn secondary small" @click="ver(d)">Ver</button>
-          <a class="btn secondary small" :href="'/app/odonto/documentos/' + d.id + '/imprimir'">Imprimir / PDF</a>
+          <button class="btn secondary small" @click="ver(d)"><%- include('partials/odonto-icon', { name: 'eye', size: 14 }) %><span>Ver</span></button>
+          <a class="btn secondary small" :href="'/app/odonto/documentos/' + d.id + '/imprimir'"><%- include('partials/odonto-icon', { name: 'printer', size: 14 }) %><span>Imprimir / PDF</span></a>
           <% if (user.permissions.has('odonto.documents.manage')) { %>
-            <button class="btn secondary small" x-show="d.status === 'rascunho'" @click="editar(d)">Editar rascunho</button>
-            <button class="btn small" x-show="d.status === 'rascunho'" @click="emitir(d)">Emitir</button>
-            <button class="btn secondary small" x-show="d.status !== 'cancelado'" @click="novaVersao(d)">Nova versão</button>
-            <button class="btn secondary small danger" x-show="d.status !== 'cancelado'" @click="cancelar(d)">Cancelar</button>
-            <button class="btn secondary small danger" x-show="d.status === 'rascunho'" @click="apagar(d)">Apagar</button>
+            <button class="btn secondary small" x-show="d.status === 'rascunho'" @click="editar(d)"><%- include('partials/odonto-icon', { name: 'pencil', size: 14 }) %><span>Editar rascunho</span></button>
+            <button class="btn small" x-show="d.status === 'rascunho'" @click="emitir(d)"><%- include('partials/odonto-icon', { name: 'send', size: 14 }) %><span>Emitir</span></button>
+            <button class="btn secondary small" x-show="d.status === 'emitido'" @click="novaVersao(d)"><%- include('partials/odonto-icon', { name: 'refresh', size: 14 }) %><span>Nova versão</span></button>
+            <button class="btn secondary small danger" x-show="d.status === 'emitido'" @click="cancelar(d)"><%- include('partials/odonto-icon', { name: 'ban', size: 14 }) %><span>Cancelar</span></button>
+            <button class="btn secondary small danger" x-show="d.status === 'rascunho'" @click="apagar(d)"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %><span>Apagar</span></button>
           <% } %>
         </div>
       </div>
@@ -163,14 +157,15 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : (form.id ? 'Salvar rascunho' : 'Gerar documento')"></button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="salvar()" :disabled="salvando"><%- include('partials/odonto-icon', { name: 'save' }) %><span x-text="salvando ? 'Salvando…' : (form.id ? 'Salvar rascunho' : 'Gerar documento')"></span></button>
       </div>
     </dialog>
     <% } %>
 
     <!-- ─────────── Ver documento ─────────── -->
     <dialog x-ref="dlgVer" class="dialog-doc">
+      <button type="button" class="dialog-close" @click="$refs.dlgVer.close()" title="Fechar" aria-label="Fechar"><%- include('partials/odonto-icon', { name: 'x', size: 18 }) %></button>
       <h1 x-text="vendo.title || 'Documento'"></h1>
       <div class="dialog-body">
         <p class="muted text-xs" style="margin-top:0"
@@ -178,7 +173,13 @@
         <p class="aviso" x-show="(vendo.missing_variables || []).length"
            x-text="'Faltou preencher: ' + (vendo.missing_variables || []).join(', ')"></p>
         <div class="doc-preview full">
-          <pre x-text="vendo.body"></pre>
+          <pre :style="'font-size: ' + docZoom + 'rem'" x-text="vendo.body"></pre>
+        </div>
+        <div class="doc-zoom">
+          <button type="button" class="icon-btn" @click="docZoomOut()" title="Diminuir zoom" aria-label="Diminuir zoom"><%- include('partials/odonto-icon', { name: 'minus', size: 16 }) %></button>
+          <span class="pct muted text-xs" x-text="Math.round(docZoom / 0.82 * 100) + '%'"></span>
+          <button type="button" class="icon-btn" @click="docZoomIn()" title="Aumentar zoom" aria-label="Aumentar zoom"><%- include('partials/odonto-icon', { name: 'plus', size: 16 }) %></button>
+          <button type="button" class="btn secondary small" @click="docZoomReset()"><%- include('partials/odonto-icon', { name: 'refresh', size: 14 }) %><span>Tamanho original</span></button>
         </div>
         <template x-if="(vendo.revision_chain || []).length > 1">
           <div style="margin-top:.9rem">
@@ -190,8 +191,8 @@
         </template>
       </div>
       <div class="actions">
-        <a class="btn secondary" :href="'/app/odonto/documentos/' + vendo.id + '/imprimir'" target="_blank">Imprimir / PDF</a>
-        <button class="btn secondary" @click="$refs.dlgVer.close()">Fechar</button>
+        <a class="btn secondary" :href="'/app/odonto/documentos/' + vendo.id + '/imprimir'" target="_blank"><%- include('partials/odonto-icon', { name: 'printer' }) %><span>Imprimir / PDF</span></a>
+        <button class="btn secondary" @click="$refs.dlgVer.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Fechar</span></button>
       </div>
     </dialog>
 
@@ -216,6 +217,7 @@
         filtroTipo: '',
         form: {},
         vendo: {},
+        docZoom: 0.82,
         error: '',
         dlgError: '',
         salvando: false,
@@ -343,11 +345,15 @@
           const r = await fetch('/api/odonto/documents/' + d.id);
           if (r.ok) {
             this.vendo = await r.json();
+            this.docZoomReset();
             this.$refs.dlgVer.showModal();
           } else {
             this.error = (await r.json()).error ?? 'Erro ao abrir o documento.';
           }
         },
+        docZoomReset() { this.docZoom = 0.82; },
+        docZoomIn() { this.docZoom = Math.min(1.8, Math.round((this.docZoom + 0.1) * 100) / 100); },
+        docZoomOut() { this.docZoom = Math.max(0.6, Math.round((this.docZoom - 0.1) * 100) / 100); },
 
         async emitir(d) {
           const r = await fetch(`/api/odonto/documents/${d.id}/issue`, {

@@ -10,6 +10,11 @@
   --primary: #ff8000;
   --icon-color: #ff8000;
   --primary-hover: #ff9225;
+  /* Cor de FUNDO dos botões de ação: um tom mais escuro do primário, para o texto branco
+     alcançar contraste AAA/AA (o #ff8000 vibrante só dá ~2.5:1 com branco). O primário puro
+     continua em ícones, links, bordas e realces — a identidade não muda, só o botão clicável. */
+  --primary-btn: color-mix(in srgb, var(--primary) 68%, #000);
+  --primary-btn-hover: color-mix(in srgb, var(--primary) 58%, #000);
   --accent-blue: #3b82f6;
   --primary-bg: color-mix(in srgb, #ff8000 8%, transparent);
   --danger: #ef4444;
@@ -1171,7 +1176,7 @@ button.app-card {
   height: 52px;
   border-radius: 50%;
   border: 0;
-  background: var(--primary);
+  background: var(--primary-btn);
   color: #fff;
   cursor: pointer;
   display: grid;
@@ -1184,7 +1189,7 @@ button.app-card {
   z-index: 90;
 }
 .fab:hover {
-  background: var(--primary-hover);
+  background: var(--primary-btn-hover);
   transform: scale(1.08);
   box-shadow: 0 6px 24px color-mix(in srgb, var(--primary) 45%, transparent);
 }
@@ -1568,7 +1573,7 @@ code.truncate {
   padding: 0.55rem 1rem;
   font-size: 0.9rem;
   cursor: pointer;
-  background: var(--primary);
+  background: var(--primary-btn);
   color: #fff;
   font-weight: 600;
   transition:
@@ -1588,7 +1593,7 @@ code.truncate {
   border: none;
 }
 .btn:hover {
-  background: var(--primary-hover);
+  background: var(--primary-btn-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-xs);
 }
@@ -1616,9 +1621,9 @@ code.truncate {
   background: var(--danger);
 }
 .btn.secondary.active {
-  background: var(--primary);
+  background: var(--primary-btn);
   color: #fff;
-  border-color: var(--primary);
+  border-color: var(--primary-btn);
 }
 .btn.danger:hover {
   background: #dc2626;
@@ -1909,6 +1914,7 @@ dialog textarea {
   background: var(--surface-hover);
   color: var(--text);
   font-size: 0.95rem;
+  font-family: inherit;
   transition:
     border-color var(--transition),
     box-shadow var(--transition);
@@ -2867,6 +2873,7 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   background: var(--surface-hover);
   color: var(--text);
   font-size: 0.9rem;
+  font-family: inherit;
   transition:
     border-color var(--transition),
     box-shadow var(--transition);
@@ -6385,6 +6392,9 @@ button.icon-pack-card:disabled {
   border: 1px solid var(--border-light);
 }
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 14px;
   border-radius: 999px;
   border: 1px solid transparent;
@@ -6411,6 +6421,10 @@ button.icon-pack-card:disabled {
    completa de recursos (a segunda camada de cards). Serve para quem quer ver tudo sem caçar o
    card "Mais" no fim da grade. */
 .app-card { position: relative; }
+/* Link de navegação do card: cobre toda a área por cima do conteúdo. O card é um <div> para
+   poder conter os botões de hover — botão dentro de <a> é HTML inválido. */
+.app-card .card-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.app-card .card-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .card-more {
   position: absolute;
   top: 8px;

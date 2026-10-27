@@ -1,0 +1,42 @@
+<!-- Um dente do odontograma, em silhueta ANATÔMICA (coroa + raiz), com as cinco faces
+     clicáveis (V M O D L) dentro da coroa.
+     Locals: `t` (nº FDI), `upper` (arcada superior), `mirror` (espelha M/D — o mesial tem de
+     olhar para a linha média, dos dois lados da boca).
+     A geometria é escrita uma vez (arcada superior, mesial à esquerda); `upper`/`mirror` viram
+     um `transform` no <g>, e o texto do dente fica FORA do grupo para não sair espelhado.
+     As faces levam `fill="#ffffff"` como padrão: sem o Alpine (ou antes dele rodar) elas não
+     podem nascer preenchidas de preto. O `:fill` do Alpine troca a cor depois. -->
+<%
+  var _t = String(typeof t !== 'undefined' ? t : '');
+  var _upper = typeof upper !== 'undefined' ? !!upper : true;
+  var _mirror = typeof mirror !== 'undefined' ? !!mirror : false;
+  var _tf = '';
+  if (_mirror) _tf += 'translate(44 0) scale(-1 1)';
+  if (!_upper) _tf += ' translate(0 58) scale(1 -1)';
+  var _numY = _upper ? 42 : 16;
+  var _crown = 'M33 28 L11 28 C7.5 28 5 30.5 5 34 L5 50 C5 53.5 7.5 56 11 56 L33 56 C36.5 56 39 53.5 39 50 L39 34 C39 30.5 36.5 28 33 28 Z';
+  // Silhueta única (raiz + coroa): sem a emenda, o desenho lê como UM dente, não um gorro.
+  var _outline = 'M15 28 C12 22 11.5 12 15 6.5 C16.5 4.2 27.5 4.2 29 6.5 C32.5 12 32 22 29 28 L33 28 C36.5 28 39 30.5 39 34 L39 50 C39 53.5 36.5 56 33 56 L11 56 C7.5 56 5 53.5 5 50 L5 34 C5 30.5 7.5 28 11 28 Z';
+%>
+<div class="dente" :class="{ selecionado: selecionado.tooth === '<%= _t %>' }">
+  <% if (_upper) { %>
+  <div class="num" @click="selecionar('<%= _t %>', null)" title="Dente <%= _t %> (dente inteiro)"><%= _t %></div>
+  <% } %>
+  <svg class="tooth" viewBox="0 0 44 58" width="40" height="53" role="img" aria-label="Dente <%= _t %>">
+    <defs><clipPath id="crown-<%= _t %>"><path d="<%= _crown %>"/></clipPath></defs>
+    <g<% if (_tf) { %> transform="<%= _tf.trim() %>"<% } %>>
+      <path class="tooth-body" d="<%= _outline %>"/>
+      <g clip-path="url(#crown-<%= _t %>)">
+        <polygon class="sup" points="7,30 37,30 29,38 15,38" fill="#ffffff" :fill="cor('<%= _t %>','V')" @click="selecionar('<%= _t %>','V')"><title>Vestibular</title></polygon>
+        <polygon class="sup" points="7,30 15,38 15,46 7,54" fill="#ffffff" :fill="cor('<%= _t %>','M')" @click="selecionar('<%= _t %>','M')"><title>Mesial</title></polygon>
+        <polygon class="sup" points="15,38 29,38 29,46 15,46" fill="#ffffff" :fill="cor('<%= _t %>','O')" @click="selecionar('<%= _t %>','O')"><title>Oclusal / incisal</title></polygon>
+        <polygon class="sup" points="37,30 29,38 29,46 37,54" fill="#ffffff" :fill="cor('<%= _t %>','D')" @click="selecionar('<%= _t %>','D')"><title>Distal</title></polygon>
+        <polygon class="sup" points="7,54 15,46 29,46 37,54" fill="#ffffff" :fill="cor('<%= _t %>','L')" @click="selecionar('<%= _t %>','L')"><title>Lingual / palatina</title></polygon>
+      </g>
+    </g>
+    <text class="tooth-sigla" x="22" y="<%= _numY %>" text-anchor="middle" dominant-baseline="middle" x-text="sigla('<%= _t %>')"></text>
+  </svg>
+  <% if (!_upper) { %>
+  <div class="num" @click="selecionar('<%= _t %>', null)" title="Dente <%= _t %> (dente inteiro)"><%= _t %></div>
+  <% } %>
+</div>

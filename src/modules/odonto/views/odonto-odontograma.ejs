@@ -10,49 +10,69 @@
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
-    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
-    .secoes span.planejado { opacity: .6; }
+    .odonto-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+    @media (max-width: 1150px) { .odonto-grid { grid-template-columns: 1fr; } }
 
-    .odonto-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
-    @media (max-width: 1100px) { .odonto-grid { grid-template-columns: 1fr; } }
+    /* ── Cabeçalho do desenho ── */
+    .chart-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chart-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.02rem; }
+    .chart-head h2 svg { color: var(--primary); }
 
-    /* O desenho é largo (16 dentes por arcada): rola na horizontal em tela estreita em vez de
-       quebrar linha — arcada quebrada deixa de representar a boca. */
-    .arcadas { overflow-x: auto; padding-bottom: 4px; }
-    .arcada { display: flex; justify-content: center; gap: 16px; margin-bottom: 8px; min-width: max-content; }
-    .quadrante { display: flex; gap: 2px; }
-    .dente { text-align: center; }
-    .dente .num { font-size: .7rem; color: var(--muted); cursor: pointer; }
+    /* Arcadas RESPONSIVAS: os dentes encolhem juntos para caber na largura do card. Antes a
+       arcada pedia rolagem horizontal e um dente podia ficar fora da vista sem o usuário notar. */
+    .arcadas { padding: 8px 2px 4px; }
+    .arcada { display: flex; justify-content: center; align-items: center; gap: 2px; }
+    .arcada + .arcada { margin-top: 2px; }
+    .quadrante { display: flex; gap: 1px; }
+    .midline { align-self: stretch; flex: none; width: 2px; margin: 4px 6px; border-radius: 2px; background: repeating-linear-gradient(to bottom, var(--border) 0 4px, transparent 4px 8px); }
+
+    .dente { flex: 0 1 40px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 2px 1px; border-radius: 10px; transition: background var(--transition); }
+    .dente .num { font-size: .68rem; line-height: 1; color: var(--muted); cursor: pointer; font-variant-numeric: tabular-nums; padding: 1px 3px; border-radius: 6px; }
+    .dente .num:hover { color: var(--text); background: var(--surface-hover); }
+    .dente.selecionado { background: var(--primary-bg); }
     .dente.selecionado .num { color: var(--primary); font-weight: 700; }
-    .dente.selecionado svg { outline: 2px solid var(--primary); outline-offset: 1px; border-radius: 3px; }
-    .dente svg { cursor: pointer; display: block; width: 32px; height: 32px; }
-    .dente svg .sup:hover { stroke: var(--primary); stroke-width: 2; }
-    .legenda { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
-    .legenda .item { display: flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--muted); }
-    .legenda .cor { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-light); }
-    .painel-linha { display: flex; justify-content: space-between; gap: 8px; font-size: .82rem; padding: 3px 0; border-bottom: 1px dashed var(--border-light); }
+
+    /* ── O dente (silhueta anatômica: coroa + raiz) ── */
+    .tooth { display: block; width: 100%; height: auto; aspect-ratio: 44 / 58; transition: transform var(--transition), filter var(--transition); }
+    .tooth .tooth-body { fill: var(--surface-hover); stroke: var(--border); stroke-width: 1; }
+    .tooth .sup { stroke: var(--border-light); stroke-width: 1; cursor: pointer; transition: stroke var(--transition); }
+    .tooth .sup:hover { stroke: var(--primary); stroke-width: 1.6; }
+    .tooth-sigla { font-size: 8px; font-weight: 700; fill: var(--text-secondary); pointer-events: none; }
+    .dente:hover .tooth { transform: translateY(-2px); }
+    .dente.selecionado .tooth { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--primary) 65%, transparent)); }
+
+    /* ── Legenda ── */
+    .legenda { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 2px; padding-top: 12px; border-top: 1px dashed var(--border-light); }
+    .legenda .item { display: inline-flex; align-items: center; gap: 6px; font-size: .76rem; color: var(--muted);
+                     padding: 3px 9px; border-radius: 999px; background: var(--surface-hover); }
+    .legenda .cor { width: 12px; height: 12px; border-radius: 4px; border: 1px solid var(--border-light); flex: none; }
+
+    /* ── Painel lateral ── */
+    .painel-secao { margin-top: 14px; }
+    .painel-secao > h3 { display: flex; align-items: center; gap: 7px; font-size: .86rem; margin: 0 0 6px; color: var(--text); }
+    .painel-secao > h3 svg { color: var(--muted); }
+    .painel-linha { display: flex; justify-content: space-between; gap: 8px; font-size: .82rem; padding: 5px 0; border-bottom: 1px dashed var(--border-light); }
+    .painel-linha:last-child { border-bottom: 0; }
     .painel-linha.off { opacity: .55; text-decoration: line-through; }
-    .situacao-linha { display: grid; grid-template-columns: 40px 1fr 90px 70px auto; gap: 6px; align-items: center; margin-bottom: 4px; }
+    .atual-box { border: 1px solid var(--border-light); border-radius: 10px; padding: 8px 10px; background: var(--surface-hover); margin-bottom: 10px; }
+    .situacao-linha { display: grid; grid-template-columns: 34px 1fr 110px 78px auto; gap: 6px; align-items: center; margin-bottom: 5px; }
+    .situacao-linha input[type='color'] { width: 34px; height: 30px; padding: 0; }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="odontogramaPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>)" x-init="load()">
-    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
-    <h1>Odontograma <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'tooth', size: 26 }) %> Odontograma <span class="patient-ref" x-show="paciente" x-cloak><%- include('partials/odonto-icon', { name: 'users', size: 14 }) %><span x-text="paciente ? paciente.name : ''"></span></span></h1>
 
-    <div class="secoes" id="tour-odonto-secoes">
-      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
-      <a class="atual" href="#">Odontograma</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
-      <a href="/app/odonto/agenda">Consultas</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/documentos'">Documentos</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/exames'">Exames e imagens</a>
-    </div>
+    <div id="tour-odonto-secoes"><%- include('partials/odonto-paciente-tabs', { patientId: patientId, atual: 'odontograma' }) %></div>
+
+    <p class="page-subtitle">
+      Cada dente tem quatro faces e o centro (oclusal/incisal): <strong>M</strong> mesial ·
+      <strong>D</strong> distal · <strong>V</strong> vestibular · <strong>L</strong> lingual/palatina ·
+      <strong>O</strong> oclusal. O mesial olha para a linha média da boca. Clique numa face (ou no
+      número do dente) para registrar a situação — o registro anterior vai para o histórico do
+      dente, nunca é apagado.
+    </p>
 
     <div class="toolbar" id="tour-odonto-toolbar">
       <span class="muted text-xs"
@@ -62,64 +82,34 @@
         <span>Destacar tratamentos planejados</span>
       </label>
       <% if (canEditClinical) { %>
-        <button class="btn secondary small" @click="abrirSituacoes()">Situações odontológicas</button>
+        <button class="btn secondary small" @click="abrirSituacoes()"><%- include('partials/odonto-icon', { name: 'settings', size: 15 }) %><span>Situações odontológicas</span></button>
       <% } %>
       <span class="error" x-text="error"></span>
     </div>
 
-    <p class="page-subtitle">
-      Cada dente tem quatro faces e o centro (oclusal/incisal): M mesial · D distal · V vestibular ·
-      L lingual/palatina · O oclusal. Clique numa face (ou no número do dente) para registrar a
-      situação — o registro anterior vai para o histórico do dente, nunca é apagado.
-    </p>
-
     <div class="odonto-grid">
       <!-- ─────────── Desenho ─────────── -->
       <div class="card">
-        <h2 style="margin-top:0">Arcadas (numeração FDI)</h2>
+        <div class="chart-head">
+          <h2><%- include('partials/odonto-icon', { name: 'tooth', size: 18 }) %> Arcadas <span class="muted text-xs">numeração FDI</span></h2>
+          <span class="muted text-xs">Superior 18–28 · Inferior 48–38</span>
+        </div>
 
         <div class="arcadas" id="tour-odonto-odontograma">
-        <div class="arcada">
-          <!-- Um `x-for` por quadrantes, com os cinco polígonos EXPLÍCITOS dentro do SVG:
-               o Alpine manipula SVG bem, mas `template x-for` no namespace SVG é frágil. -->
-          <template x-for="(q, qi) in [['18','17','16','15','14','13','12','11'], ['21','22','23','24','25','26','27','28']]" :key="'sup' + qi">
-            <div class="quadrante">
-              <template x-for="t in q" :key="t">
-                <div class="dente" :class="{ selecionado: selecionado.tooth === t }">
-                  <svg width="40" height="40" viewBox="0 0 40 40">
-                    <polygon class="sup" points="2,2 38,2 28,12 12,12" :fill="cor(t, 'V')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'V')"></polygon>
-                    <polygon class="sup" points="2,2 12,12 12,28 2,38" :fill="cor(t, 'M')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'M')"></polygon>
-                    <polygon class="sup" points="12,12 28,12 28,28 12,28" :fill="cor(t, 'O')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'O')"></polygon>
-                    <polygon class="sup" points="38,2 28,12 28,28 38,38" :fill="cor(t, 'D')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'D')"></polygon>
-                    <polygon class="sup" points="2,38 12,28 28,28 38,38" :fill="cor(t, 'L')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'L')"></polygon>
-                    <text x="20" y="24" text-anchor="middle" font-size="9" fill="#374151" x-text="sigla(t)"></text>
-                  </svg>
-                  <div class="num" @click="selecionar(t, null)" :title="'Dente ' + t + ' (dente inteiro)'" x-text="t"></div>
-                </div>
-              </template>
-            </div>
-          </template>
-        </div>
-
-        <div class="arcada">
-          <template x-for="(q, qi) in [['48','47','46','45','44','43','42','41'], ['31','32','33','34','35','36','37','38']]" :key="'inf' + qi">
-            <div class="quadrante">
-              <template x-for="t in q" :key="t">
-                <div class="dente" :class="{ selecionado: selecionado.tooth === t }">
-                  <svg width="40" height="40" viewBox="0 0 40 40">
-                    <polygon class="sup" points="2,2 38,2 28,12 12,12" :fill="cor(t, 'V')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'V')"></polygon>
-                    <polygon class="sup" points="2,2 12,12 12,28 2,38" :fill="cor(t, 'M')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'M')"></polygon>
-                    <polygon class="sup" points="12,12 28,12 28,28 12,28" :fill="cor(t, 'O')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'O')"></polygon>
-                    <polygon class="sup" points="38,2 28,12 28,28 38,38" :fill="cor(t, 'D')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'D')"></polygon>
-                    <polygon class="sup" points="2,38 12,28 28,28 38,38" :fill="cor(t, 'L')" stroke="#d1d5db" stroke-width="1" @click="selecionar(t, 'L')"></polygon>
-                    <text x="20" y="24" text-anchor="middle" font-size="9" fill="#374151" x-text="sigla(t)"></text>
-                  </svg>
-                  <div class="num" @click="selecionar(t, null)" :title="'Dente ' + t + ' (dente inteiro)'" x-text="t"></div>
-                </div>
-              </template>
-            </div>
-          </template>
-        </div>
+          <% const supEsq = ['18','17','16','15','14','13','12','11']; %>
+          <% const supDir = ['21','22','23','24','25','26','27','28']; %>
+          <% const infEsq = ['48','47','46','45','44','43','42','41']; %>
+          <% const infDir = ['31','32','33','34','35','36','37','38']; %>
+          <div class="arcada">
+            <div class="quadrante"><% supEsq.forEach(function (t) { %><%- include('partials/odonto-tooth', { t: t, upper: true, mirror: true }) %><% }); %></div>
+            <span class="midline" aria-hidden="true"></span>
+            <div class="quadrante"><% supDir.forEach(function (t) { %><%- include('partials/odonto-tooth', { t: t, upper: true, mirror: false }) %><% }); %></div>
+          </div>
+          <div class="arcada">
+            <div class="quadrante"><% infEsq.forEach(function (t) { %><%- include('partials/odonto-tooth', { t: t, upper: false, mirror: true }) %><% }); %></div>
+            <span class="midline" aria-hidden="true"></span>
+            <div class="quadrante"><% infDir.forEach(function (t) { %><%- include('partials/odonto-tooth', { t: t, upper: false, mirror: false }) %><% }); %></div>
+          </div>
         </div>
 
         <div class="legenda">
@@ -143,7 +133,7 @@
 
         <template x-if="selecionado.tooth">
           <div>
-            <div class="muted text-xs" style="margin-bottom:6px">
+            <div class="atual-box muted text-xs">
               <span x-show="estadoAtual()">Situação atual: <strong x-text="estadoAtual() ? estadoAtual().condition_name : ''"></strong></span>
               <span x-show="!estadoAtual()">Sem situação registrada neste ponto.</span>
             </div>
@@ -161,11 +151,6 @@
               <label>Data e hora do exame</label>
               <input class="input" type="datetime-local" x-model="form.recorded_at" />
             </div>
-          <p class="page-subtitle">
-            Aqui se registra a <strong>situação</strong> do dente/face. Tratamento previsto é no
-            <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">plano de tratamento</a>
-            (com valor e aprovação) — o "P" do desenho vem de lá.
-          </p>
 
             <label>Profissional</label>
             <select class="input" x-model="form.professional_id">
@@ -177,51 +162,62 @@
 
             <label>Observação</label>
             <input class="input" type="text" x-model="form.note" maxlength="500" placeholder="Ex.: cárie oclusal profunda, sem exposição pulpar" />
-            <div class="toolbar" style="margin-top:8px">
-              <button class="btn" @click="registrar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Registrar no odontograma'"></button>
+            <div class="toolbar" style="margin-top:10px">
+              <button class="btn" @click="registrar()" :disabled="salvando"><%- include('partials/odonto-icon', { name: 'check', size: 16 }) %><span x-text="salvando ? 'Salvando…' : 'Registrar no odontograma'"></span></button>
             </div>
+            <p class="muted text-xs" style="margin-top:6px">
+              Aqui se registra a <strong>situação</strong> do dente/face. Tratamento previsto é no
+              <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">plano de tratamento</a>
+              (com valor e aprovação) — o “P” do desenho vem de lá.
+            </p>
             <div class="error" x-text="dlgError"></div>
             <% } %>
 
-            <h3 style="font-size:.9rem">Histórico deste dente</h3>
-            <template x-for="h in historico" :key="h.id">
-              <div class="painel-linha" :class="{ off: !!h.undone_at }">
-                <span>
-                  <strong x-text="h.condition_name"></strong>
-                  <span class="muted text-xs" x-text="' · ' + (h.surface ? nomeSuperficie(h.surface) : 'dente inteiro') + (h.kind === 'planejado' ? ' · planejado' : '')"></span>
-                  <span class="muted text-xs" x-text="' · ' + fmtDateTimeLocal(h.recorded_at)"></span>
-                  <span class="muted text-xs" x-show="h.note" x-text="' · ' + h.note"></span>
-                  <span class="muted text-xs" x-show="h.created_by_name" x-text="' · por ' + h.created_by_name"></span>
-                  <span class="muted text-xs" x-show="h.undone_at" x-text="' · desfeito por ' + (h.undone_by_name || '—')"></span>
-                </span>
-                <% if (canEditClinical) { %>
-                <span><button class="btn secondary small" x-show="!h.undone_at" @click="desfazer(h)">Desfazer</button></span>
-                <% } %>
-              </div>
-            </template>
-            <div class="odonto-vazio" x-show="!historico.length"><strong>Nenhuma situação registrada neste dente</strong>
+            <div class="painel-secao">
+              <h3><%- include('partials/odonto-icon', { name: 'clipboard', size: 15 }) %> Histórico deste dente</h3>
+              <template x-for="h in historico" :key="h.id">
+                <div class="painel-linha" :class="{ off: !!h.undone_at }">
+                  <span>
+                    <strong x-text="h.condition_name"></strong>
+                    <span class="muted text-xs" x-text="' · ' + (h.surface ? nomeSuperficie(h.surface) : 'dente inteiro') + (h.kind === 'planejado' ? ' · planejado' : '')"></span>
+                    <span class="muted text-xs" x-text="' · ' + fmtDateTimeLocal(h.recorded_at)"></span>
+                    <span class="muted text-xs" x-show="h.note" x-text="' · ' + h.note"></span>
+                    <span class="muted text-xs" x-show="h.created_by_name" x-text="' · por ' + h.created_by_name"></span>
+                    <span class="muted text-xs" x-show="h.undone_at" x-text="' · desfeito por ' + (h.undone_by_name || '—')"></span>
+                  </span>
+                  <% if (canEditClinical) { %>
+                  <span><button class="btn secondary small" x-show="!h.undone_at" @click="desfazer(h)"><%- include('partials/odonto-icon', { name: 'rotate-ccw', size: 14 }) %><span>Desfazer</span></button></span>
+                  <% } %>
+                </div>
+              </template>
+              <div class="odonto-vazio" x-show="!historico.length"><strong>Nenhuma situação registrada neste dente</strong>
 Clique numa face acima e escolha a situação (cárie, restaurado, ausente...) para começar o histórico do dente.</div>
+            </div>
 
-            <h3 style="font-size:.9rem">Tratamento planejado (do plano)</h3>
-            <template x-for="(p, i) in planejadosDoDente()" :key="i">
-              <div class="painel-linha">
-                <span x-text="p.description + ' · ' + p.status"></span>
-                <span class="muted text-xs" x-text="'plano #' + p.plan_id"></span>
-              </div>
-            </template>
-            <div class="odonto-vazio" x-show="!planejadosDoDente().length"><strong>Nada previsto para este dente</strong>
+            <div class="painel-secao">
+              <h3><%- include('partials/odonto-icon', { name: 'wallet', size: 15 }) %> Tratamento planejado</h3>
+              <template x-for="(p, i) in planejadosDoDente()" :key="i">
+                <div class="painel-linha">
+                  <span x-text="p.description + ' · ' + p.status"></span>
+                  <span class="muted text-xs" x-text="'plano #' + p.plan_id"></span>
+                </div>
+              </template>
+              <div class="odonto-vazio" x-show="!planejadosDoDente().length"><strong>Nada previsto para este dente</strong>
 Quando houver tratamento planejado, ele aparece aqui e marca o dente com "P" no desenho.
 <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Abrir planos de tratamento</a></div>
+            </div>
 
-            <h3 style="font-size:.9rem">Tratamentos realizados (do prontuário)</h3>
-            <template x-for="p in procedimentos" :key="p.id">
-              <div class="painel-linha">
-                <span x-text="p.name + (p.note ? ' · ' + p.note : '')"></span>
-                <span class="muted text-xs" x-text="fmtDateTimeLocal(p.happened_at)"></span>
-              </div>
-            </template>
-            <div class="odonto-vazio" x-show="!procedimentos.length"><strong>Nenhum procedimento neste dente</strong>
+            <div class="painel-secao">
+              <h3><%- include('partials/odonto-icon', { name: 'file-text', size: 15 }) %> Tratamentos realizados</h3>
+              <template x-for="p in procedimentos" :key="p.id">
+                <div class="painel-linha">
+                  <span x-text="p.name + (p.note ? ' · ' + p.note : '')"></span>
+                  <span class="muted text-xs" x-text="fmtDateTimeLocal(p.happened_at)"></span>
+                </div>
+              </template>
+              <div class="odonto-vazio" x-show="!procedimentos.length"><strong>Nenhum procedimento neste dente</strong>
 Os procedimentos aparecem aqui quando você registra uma evolução no prontuário citando este dente.</div>
+            </div>
           </div>
         </template>
       </div>
@@ -245,10 +241,10 @@ Os procedimentos aparecem aqui quando você registra uma evolução no prontuár
               <option value="dente">Só dente</option>
               <option value="superficie">Só face</option>
             </select>
-            <span class="badge" :class="c.active ? 'paga' : 'cancelada'" x-text="c.active ? 'ativa' : 'inativa'"></span>
-            <span>
-              <button class="btn secondary small" @click="alternarCondicao(c)" x-text="c.active ? 'Desativar' : 'Ativar'"></button>
-              <button class="btn secondary small danger" @click="removerCondicao(c)">Excluir</button>
+            <span class="badge" :class="c.active ? 'ok' : 'off'" x-text="c.active ? 'ativa' : 'inativa'"></span>
+            <span class="acoes-linha">
+              <button class="btn secondary small" @click="alternarCondicao(c)"><span x-show="c.active"><%- include('partials/odonto-icon', { name: 'ban', size: 14 }) %></span><span x-show="!c.active"><%- include('partials/odonto-icon', { name: 'check', size: 14 }) %></span><span x-text="c.active ? 'Desativar' : 'Ativar'"></span></button>
+              <button class="btn secondary small danger" @click="removerCondicao(c)" title="Excluir"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %></button>
             </span>
           </div>
         </template>
@@ -270,12 +266,12 @@ Os procedimentos aparecem aqui quando você registra uma evolução no prontuár
           </div>
         </div>
         <div class="toolbar">
-          <button class="btn" @click="criarCondicao()">Adicionar situação</button>
+          <button class="btn" @click="criarCondicao()"><%- include('partials/odonto-icon', { name: 'plus' }) %><span>Adicionar situação</span></button>
           <span class="error" x-text="erroCondicao"></span>
         </div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlgSit.close()">Fechar</button>
+        <button class="btn secondary" @click="$refs.dlgSit.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Fechar</span></button>
       </div>
     </dialog>
     <% } %>

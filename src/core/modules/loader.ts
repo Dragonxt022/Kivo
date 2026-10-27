@@ -172,6 +172,9 @@ export function filterModuleMenu(req: Request, res: Response, next: NextFunction
   res.locals.moduleMenu = permitidos.filter((item) => isModuleMenuItemVisible(item, ocultos));
   res.locals.businessProfile = getBusinessProfile();
   res.locals.modulosOcultos = [...ocultos];
+  // Módulos incluídos no plano (antes do filtro de perfil): as views usam para só oferecer um
+  // atalho entre módulos quando o outro módulo existe de fato (ex.: "Ficha odontológica").
+  res.locals.modulosAtivos = ids;
   next();
 }
 

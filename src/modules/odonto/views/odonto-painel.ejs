@@ -11,37 +11,39 @@
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
-    .card-num { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; }
-    .card-num .rotulo { color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; }
-    .card-num .valor { font-size: 1.5rem; font-weight: 700; margin-top: 2px; }
-    .card-num .detalhe { color: var(--muted); font-size: .78rem; }
-    .tag-status { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; background: var(--surface-hover); color: var(--muted); margin-right: 4px; }
+    /* Card de métrica: fundo e sombra próprios (antes era só uma borda clara, que sumia no fundo). */
+    .card-num { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-xs); }
+    .card-num .rotulo { display: flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: .74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+    .card-num .rotulo svg { color: var(--primary); flex: none; padding: 4px; background: var(--primary-bg); border-radius: 8px; box-sizing: content-box; }
+    .card-num .valor { font-size: 1.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .card-num .detalhe { color: var(--text-secondary); font-size: .78rem; margin-top: 2px; }
+    .tag-status { display: inline-block; font-size: .72rem; padding: 1px 8px; border-radius: 999px; background: var(--surface-hover); color: var(--text-secondary); margin-right: 4px; }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/painel' }) %>
   <main id="tour-odonto-conteudo" x-data="painelPage()" x-init="load()">
-    <h1>Painel do consultório</h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'chart', size: 24 }) %> Painel do consultório</h1>
     <p class="page-subtitle">
       Contagens e valores do período. Conteúdo clínico (evolução, anamnese, documento) fica no
       prontuário, com permissão clínica — o painel não mostra texto de paciente.
     </p>
 
     <div class="toolbar" id="tour-odonto-toolbar">
-      <a class="btn secondary small" href="/app/odonto/agenda">Abrir agenda</a>
-      <a class="btn secondary small" href="/admin/auditoria?q=odonto">Auditoria do odonto</a>
+      <a class="btn secondary small" href="/app/odonto/agenda"><%- include('partials/odonto-icon', { name: 'calendar', size: 15 }) %><span>Abrir agenda</span></a>
+      <a class="btn secondary small" href="/admin/auditoria?q=odonto"><%- include('partials/odonto-icon', { name: 'shield-check', size: 15 }) %><span>Auditoria do odonto</span></a>
       <span class="muted text-xs" x-text="d.hoje ? ('hoje: ' + fmtDate(d.hoje)) : ''"></span>
       <span class="error" x-text="error"></span>
     </div>
 
     <div class="cards" id="tour-odonto-painel">
       <div class="card-num">
-        <div class="rotulo">Pacientes ativos</div>
+        <div class="rotulo"><%- include('partials/odonto-icon', { name: 'users', size: 14 }) %> Pacientes ativos</div>
         <div class="valor" x-text="d.pacientes.ativos"></div>
         <div class="detalhe" x-text="d.pacientes.novos_mes + ' novo(s) no mês · ' + d.pacientes.sem_anamnese + ' sem anamnese'"></div>
       </div>
       <div class="card-num">
-        <div class="rotulo">Atendimentos hoje</div>
+        <div class="rotulo"><%- include('partials/odonto-icon', { name: 'calendar', size: 14 }) %> Atendimentos hoje</div>
         <div class="valor" x-text="d.agenda.total"></div>
         <div class="detalhe">
           <template x-for="s in d.agenda.por_status" :key="s.status">
@@ -50,22 +52,22 @@
         </div>
       </div>
       <div class="card-num">
-        <div class="rotulo">Planos em aberto</div>
+        <div class="rotulo"><%- include('partials/odonto-icon', { name: 'wallet', size: 14 }) %> Planos em aberto</div>
         <div class="valor" x-text="d.planos.abertos"></div>
         <div class="detalhe" x-text="brl(d.planos.valor_aberto_cents) + ' previstos'"></div>
       </div>
       <div class="card-num">
-        <div class="rotulo">Cobrado no mês</div>
+        <div class="rotulo"><%- include('partials/odonto-icon', { name: 'dollar', size: 14 }) %> Cobrado no mês</div>
         <div class="valor" x-text="brl(d.planos.valor_cobrado_cents)"></div>
         <div class="detalhe" x-text="d.planos.cobrados + ' plano(s) viraram cobrança'"></div>
       </div>
       <div class="card-num">
-        <div class="rotulo">Documentos emitidos no mês</div>
+        <div class="rotulo"><%- include('partials/odonto-icon', { name: 'file-text', size: 14 }) %> Documentos emitidos no mês</div>
         <div class="valor" x-text="d.documentos.emitidos"></div>
         <div class="detalhe" x-text="'por tipo no período: ' + (d.documentos_do_mes.por_tipo.length || 0) + ' tipo(s)'"></div>
       </div>
       <div class="card-num">
-        <div class="rotulo">Dentes avaliados</div>
+        <div class="rotulo"><%- include('partials/odonto-icon', { name: 'tooth', size: 14 }) %> Dentes avaliados</div>
         <div class="valor" x-text="d.odontograma.dentes_avaliados"></div>
         <div class="detalhe" x-text="d.odontograma.registros + ' registro(s) no odontograma'"></div>
       </div>
@@ -100,8 +102,8 @@
         <input class="input" type="date" x-model="from" @change="carregarRelatorio()" />
         <span class="muted">até</span>
         <input class="input" type="date" x-model="to" @change="carregarRelatorio()" />
-        <button class="btn secondary small" @click="carregarRelatorio()">Atualizar</button>
-        <a class="btn secondary small" :href="'/api/odonto/reports/' + tipo + '/csv?from=' + from + '&to=' + to">Exportar CSV</a>
+        <button class="btn secondary small" @click="carregarRelatorio()"><%- include('partials/odonto-icon', { name: 'refresh', size: 15 }) %><span>Atualizar</span></button>
+        <a class="btn secondary small" :href="'/api/odonto/reports/' + tipo + '/csv?from=' + from + '&to=' + to"><%- include('partials/odonto-icon', { name: 'download', size: 15 }) %><span>Exportar CSV</span></a>
       </div>
       <p class="muted text-xs" x-text="tipos.find((t) => t.type === tipo)?.descricao || ''"></p>
 

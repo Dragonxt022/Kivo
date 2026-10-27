@@ -131,7 +131,17 @@
     .recovery-ok { color: var(--success); font-weight: 600; text-align: center; margin-bottom: .5rem; }
 
     /* ─── Personalização da tela inicial ─── */
-    .home-tools { display: flex; gap: .5rem; flex-wrap: wrap; margin: 0 0 1rem; }
+    /* A busca e o botão de personalizar dividem a mesma linha; nada de uma barra de botões
+       soltos acima da grade (o combo "Personalizar + Mostrar X oculto(s)" poluía a tela). */
+    .home-bar { display: flex; align-items: center; gap: .6rem; margin: 1.5rem 0 2rem; }
+    .home-bar .search-wrap { flex: 1; margin: 0; }
+    .home-personalizar {
+      flex: none; display: inline-flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; border: 1.5px solid var(--border-light); border-radius: 12px;
+      background: var(--surface); color: var(--muted); cursor: pointer;
+      transition: color var(--transition), border-color var(--transition), background var(--transition);
+    }
+    .home-personalizar:hover { color: var(--primary); border-color: var(--primary); background: var(--surface-hover); }
     .card-hide {
       position: absolute; top: 40px; right: 8px; z-index: 3;
       display: inline-flex; align-items: center; justify-content: center;
@@ -141,7 +151,6 @@
     }
     .app-card:hover .card-hide, .app-card:focus-within .card-hide { opacity: 1; }
     .card-hide:hover { color: var(--primary); border-color: var(--primary); }
-    .card-hide.card-show { opacity: .85; color: var(--primary); }
     @media (hover: none) { .card-hide { opacity: .75; } }
     .mod-toggle {
       display: flex; align-items: center; gap: .55rem; padding: .5rem .6rem;
@@ -159,7 +168,14 @@
     <!-- ─── Overlay de login (quando não autenticado ou ?login=1) ─── -->
     <div class="login-overlay" x-show="showLogin" x-cloak>
       <div class="login-card" :class="recovery.open ? 'wide' : ''">
-        <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
+        <img class="logo" id="kivo-login-logo" src="/logo_kivo-horizontal.svg" alt="Kivo"
+             :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" />
+        <script nonce="<%= cspNonce %>">
+          (function () {
+            var l = document.getElementById('kivo-login-logo');
+            if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kivo-horizontal_branco.svg';
+          })();
+        </script>
 
         <!-- Primeiro acesso: instalação recém-ativada, ainda com o admin/admin de fábrica.
              Pedir login aqui é pedir uma senha que o lojista nunca recebeu — então em vez
@@ -430,28 +446,25 @@
     </div>
     <% } %>
 
-    <div class="search-wrap">
-      <span class="search-icon"><%- svgIcon('search', 18, 18) %></span>
-      <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
-    </div>
-
-    <% if (user && user.permissions.has('settings.edit')) { %>
-    <div class="home-tools">
-      <button type="button" class="btn secondary small" @click="abrirPersonalizar()">
-        <%- svgIcon('settings', 15, 15) %>Personalizar módulos
+    <div class="home-bar">
+      <div class="search-wrap">
+        <span class="search-icon"><%- svgIcon('search', 18, 18) %></span>
+        <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
+      </div>
+      <% if (user && user.permissions.has('settings.edit')) { %>
+      <button type="button" class="home-personalizar" title="Personalizar o início" aria-label="Personalizar o início" @click="abrirPersonalizar()">
+        <%- svgIcon('settings', 18, 18) %>
       </button>
-      <button type="button" class="btn secondary small" x-show="hiddenHrefs.length" x-cloak
-              @click="showHidden = !showHidden"
-              x-text="(showHidden ? 'Esconder' : 'Mostrar') + ' ' + hiddenHrefs.length + ' oculto(s)'"></button>
+      <% } %>
     </div>
-    <% } %>
 
     <div class="app-grid" x-ref="grid">
       <template x-for="a in apps" :key="a.href">
-        <a class="app-card drag-enabled" :href="a.href" :data-href="a.href" draggable="false"
-           x-show="matches(a.label) && (showHidden || !isHidden(a.href))"
+        <div class="app-card drag-enabled" :data-href="a.href"
+           x-show="matches(a.label) && !isHidden(a.href)"
            :class="[dragId === a.href ? 'dragging' : '', dropOverId === a.href ? 'drop-target' : '']"
            @pointerdown="podeArrumarCards && onCardPointerDown($event, a)">
+          <a class="card-link" :href="a.href" :aria-label="a.label"></a>
           <span class="card-icon" x-html="iconSvg(a.icon)"></span>
           <span class="card-title" x-text="a.label"></span>
           <span class="card-desc" x-text="a.description"></span>
@@ -465,12 +478,8 @@
                   @pointerdown.stop @click.prevent.stop="hideCard(a)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
           </button>
-          <button type="button" class="card-hide card-show" x-show="isHidden(a.href)" title="Mostrar no início"
-                  @pointerdown.stop @click.prevent.stop="showCard(a)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
           <% } %>
-        </a>
+        </div>
       </template>
       <%
         var moduleItems = [];
@@ -575,7 +584,7 @@
     <% if (user) { %>
     <!-- ─── Personalizar módulos (tela inicial + menu) ─── -->
     <dialog x-ref="dlgPersonalizar" class="dialog-fixed">
-      <h1>Personalizar módulos</h1>
+      <h1>Personalizar início</h1>
       <div class="dialog-body">
         <p class="page-subtitle">
           O que estiver ligado aqui aparece no início e no menu. O padrão segue o ramo do negócio
@@ -590,6 +599,10 @@
         <p class="hint" x-show="!modulesTodos.length">Nenhum módulo contratado para personalizar.</p>
       </div>
       <div class="actions">
+        <button class="btn secondary" x-show="hiddenHrefs.length" x-cloak style="margin-right:auto"
+                @click="restaurarCards()">
+          <%- svgIcon('refresh-cw', 15, 15) %>Restaurar cards ocultos (<span x-text="hiddenHrefs.length"></span>)
+        </button>
         <button class="btn secondary" @click="$refs.dlgPersonalizar.close()">Cancelar</button>
         <button class="btn" @click="salvarModulos()" :disabled="salvandoModulos"
                 x-text="salvandoModulos ? 'Salvando…' : 'Salvar'"></button>
@@ -665,7 +678,6 @@
         dropOverId: null,
         // Cards que a empresa ocultou manualmente (por href) + os módulos do perfil.
         hiddenHrefs: CARDS_OCULTOS.slice(),
-        showHidden: false,
         modulesTodos: MODULES_TODOS.slice(),
         modulosOcultos: MODULOS_OCULTOS.slice(),
         moduleSel: {},
@@ -717,13 +729,14 @@
         async hideCard(a) {
           if (!this.podeArrumarCards) return;
           if (!this.isHidden(a.href)) this.hiddenHrefs.push(a.href);
-          this.showHidden = false;
           await this.saveLayout();
         },
-        async showCard(a) {
-          if (!this.podeArrumarCards) return;
-          this.hiddenHrefs = this.hiddenHrefs.filter((h) => h !== a.href);
+        /** Traz de volta TODOS os cards ocultos — o card nunca fica escondido para sempre. */
+        async restaurarCards() {
+          if (!this.podeArrumarCards || !this.hiddenHrefs.length) return;
+          this.hiddenHrefs = [];
           await this.saveLayout();
+          showToast('Cards restaurados no início.', 'success');
         },
         abrirPersonalizar() {
           const sel = {};

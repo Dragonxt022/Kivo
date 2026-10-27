@@ -38,6 +38,9 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/commercial/clientes' }) %>
   <main x-data="customerFichaPage(<%= customerId %>)" x-init="load()" @month-change.window="buildMonthly()">
+    <%# Só oferece o atalho quando o módulo Odonto está no plano (senão a rota /app/odonto
+        devolve para a home) E o usuário pode ver pacientes. %>
+    <% const odontoAtivo = (typeof modulosAtivos !== 'undefined' && modulosAtivos.includes('odonto')) && user.permissions.has('odonto.patients.view'); %>
     <a href="/app/commercial/clientes" class="muted text-sm no-print">← Voltar para clientes</a>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
       <div style="display:flex;align-items:center;gap:.75rem;min-width:0">
@@ -57,7 +60,7 @@
           Imprimir
         </button>
         <%- include('partials/month-nav') %>
-        <% if (user.permissions.has('odonto.patients.view')) { %>
+        <% if (odontoAtivo) { %>
         <a class="btn small" x-show="paciente" x-cloak :href="'/app/odonto/pacientes/' + (paciente ? paciente.id : '')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5c-1.5-1.5-4-1.5-5.5 0S4.9 9 6 11c1 1.8 1.6 4 2 6 .2 1 .6 2 1.6 2s1.3-1 1.6-2c.2-.8.4-1.7.8-2.4.4.7.6 1.6.8 2.4.3 1 .6 2 1.6 2s1.4-1 1.6-2c.4-2 1-4.2 2-6 1.1-2 1-4-.5-5.5S13.5 4 12 5.5Z"/></svg>
           Ficha odontológica
@@ -330,8 +333,8 @@
           ]);
           if (c.ok) this.customer = await c.json();
           // Integração com o Odonto: se este cliente também é paciente, a ficha dele já oferece
-          // o atalho. Falha aqui (módulo fora do plano / sem permissão) só esconde o atalho.
-          if (<%= user.permissions.has('odonto.patients.view') ? 'true' : 'false' %>) {
+          // o atalho. Só busca quando o módulo está no plano e o usuário pode ver pacientes.
+          if (<%= odontoAtivo ? 'true' : 'false' %>) {
             const o = await fetch(`/api/odonto/patients/by-customer/${this.id}`);
             this.paciente = o.ok ? await o.json() : null;
           }

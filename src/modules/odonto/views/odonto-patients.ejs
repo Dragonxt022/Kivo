@@ -14,11 +14,12 @@
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="patientsPage()" x-init="load()">
     <h1>Pacientes</h1>
+    <p class="page-subtitle">Cadastro e ficha de cada paciente. Ao salvar, o Kivo cria também o cliente no Comercial — nome, CPF/CNPJ, contato e nascimento ficam num só lugar.</p>
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.patients.create')) { %>
         <button class="btn" @click="openNew()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Novo paciente
+          <%- include('partials/odonto-icon', { name: 'user-plus' }) %>
+          <span>Novo paciente</span>
         </button>
       <% } %>
       <input type="text" placeholder="Buscar por nome, CPF, telefone ou e-mail…" x-model="q" @input.debounce.400ms="load()" class="input-search" />
@@ -62,12 +63,12 @@
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                 </button>
                 <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
-                  <a :href="'/app/odonto/pacientes/' + r.id">Abrir ficha</a>
+                  <a :href="'/app/odonto/pacientes/' + r.id"><%- include('partials/odonto-icon', { name: 'eye', size: 15 }) %><span>Abrir ficha</span></a>
                   <% if (user.permissions.has('odonto.patients.edit')) { %>
-                  <button @click="openMenu = null; openEdit(r)">Editar cadastro</button>
+                  <button @click="openMenu = null; openEdit(r)"><%- include('partials/odonto-icon', { name: 'pencil', size: 15 }) %><span>Editar cadastro</span></button>
                   <% } %>
                   <% if (user.permissions.has('odonto.patients.delete')) { %>
-                  <button class="danger" @click="openMenu = null; remove(r)">Excluir ficha</button>
+                  <button class="danger" @click="openMenu = null; remove(r)"><%- include('partials/odonto-icon', { name: 'trash', size: 15 }) %><span>Excluir ficha</span></button>
                   <% } %>
                 </div>
               </div>
@@ -89,8 +90,8 @@
           </span>
           <div class="odonto-photo-actions">
             <input type="file" class="sr-only" style="display:none" accept="image/jpeg,image/png,image/webp,image/avif" x-ref="photoFile" @change="onPhotoFile($event)" />
-            <button type="button" class="btn secondary small" @click="$refs.photoFile.click()">Enviar foto</button>
-            <button type="button" class="btn secondary small danger" x-show="photoPreview" @click="removePhoto()">Remover</button>
+            <button type="button" class="btn secondary small" @click="$refs.photoFile.click()"><%- include('partials/odonto-icon', { name: 'upload', size: 14 }) %><span>Enviar foto</span></button>
+            <button type="button" class="btn secondary small danger" x-show="photoPreview" @click="removePhoto()"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %><span>Remover</span></button>
           </div>
           <span class="muted text-xs">JPG, PNG ou WEBP, até 6MB.</span>
         </div>
@@ -132,8 +133,8 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="save()"><%- include('partials/odonto-icon', { name: 'save' }) %><span>Salvar</span></button>
       </div>
     </dialog>
 

@@ -1,0 +1,24 @@
+<!-- Navegação entre as seções do paciente, com ícone em cada aba.
+     Locals: `patientId` (obrigatório) e `atual` ('resumo' | 'anamnese' | 'prontuario' |
+     'odontograma' | 'planos' | 'documentos' | 'exames' | 'agenda').
+     Antes cada tela repetia estas oito abas na mão — e algumas (ficha, anamnese) não tinham
+     navegação nenhuma. O id `tour-odonto-secoes` continua na view que envolve este partial. -->
+<%
+  var _pid = patientId;
+  var _atual = typeof atual !== 'undefined' ? atual : '';
+  var _abas = [
+    { id: 'resumo',      label: 'Resumo',           ico: 'activity',  href: '/app/odonto/pacientes/' + _pid },
+    { id: 'anamnese',    label: 'Anamnese',         ico: 'clipboard', href: '/app/odonto/pacientes/' + _pid + '/anamnese' },
+    { id: 'prontuario',  label: 'Prontuário',       ico: 'file-text', href: '/app/odonto/pacientes/' + _pid + '/prontuario' },
+    { id: 'odontograma', label: 'Odontograma',      ico: 'tooth',     href: '/app/odonto/pacientes/' + _pid + '/odontograma' },
+    { id: 'planos',      label: 'Tratamentos',      ico: 'wallet',    href: '/app/odonto/pacientes/' + _pid + '/planos' },
+    { id: 'agenda',      label: 'Consultas',        ico: 'calendar',  href: '/app/odonto/agenda' },
+    { id: 'documentos',  label: 'Documentos',       ico: 'file-text', href: '/app/odonto/pacientes/' + _pid + '/documentos' },
+    { id: 'exames',      label: 'Exames e imagens', ico: 'image',     href: '/app/odonto/pacientes/' + _pid + '/exames' },
+  ];
+%>
+<nav class="secoes">
+  <% _abas.forEach(function (aba) { %>
+    <a class="secao<%= aba.id === _atual ? ' atual' : '' %>" href="<%= aba.href %>"><%- include('partials/odonto-icon', { name: aba.ico, size: 14 }) %><span><%= aba.label %></span></a>
+  <% }); %>
+</nav>

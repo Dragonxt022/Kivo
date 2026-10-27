@@ -15,15 +15,15 @@
   <main id="tour-odonto-conteudo" x-data="templatesPage()" x-init="load()">
     <p class="muted"><a href="/app/odonto/pacientes">← Pacientes</a></p>
     <h1>Formulários de anamnese</h1>
-    <p class="muted muted-block">
+    <p class="page-subtitle">
       Editar um formulário <strong>não apaga nada</strong>: publicar cria uma versão nova e as
       anamneses já respondidas continuam apontando para a versão em que foram dadas.
     </p>
 
     <div class="toolbar" id="tour-odonto-toolbar">
       <button class="btn" @click="openNew(null)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-        Novo formulário
+        <%- include('partials/odonto-icon', { name: 'plus' }) %>
+        <span>Novo formulário</span>
       </button>
       <span class="error" x-text="error"></span>
     </div>
@@ -41,7 +41,7 @@
             <td><span class="badge" x-show="t.is_default">padrão</span></td>
             <td class="muted" x-text="fmtDateTime(t.created_at)"></td>
             <td class="text-right">
-              <button class="btn secondary small" @click="openNew(t)">Nova versão a partir desta</button>
+              <button class="btn secondary small" @click="openNew(t)"><%- include('partials/odonto-icon', { name: 'refresh', size: 14 }) %><span>Nova versão a partir desta</span></button>
             </td>
           </tr>
         </template>
@@ -109,19 +109,19 @@
               <label>Dica (opcional)</label>
               <input class="input" type="text" x-model="f.help" maxlength="200" placeholder="O que perguntar exatamente" />
             </div>
-            <button class="btn secondary small danger" @click.prevent="form.fields.splice(i, 1)">Remover pergunta</button>
+            <button class="btn secondary small danger" @click.prevent="form.fields.splice(i, 1)"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %><span>Remover pergunta</span></button>
           </div>
         </template>
 
-        <button class="btn secondary small" @click.prevent="addField()">+ Adicionar pergunta</button>
+        <button class="btn secondary small" @click.prevent="addField()"><%- include('partials/odonto-icon', { name: 'plus', size: 14 }) %><span>Adicionar pergunta</span></button>
 
         <label>Observações internas</label>
         <textarea class="input" x-model="form.notes" rows="2" placeholder="Para quem usa o sistema, não aparece para o paciente."></textarea>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()" :disabled="saving" x-text="saving ? 'Publicando…' : 'Publicar versão'"></button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="save()" :disabled="saving"><%- include('partials/odonto-icon', { name: 'save' }) %><span x-text="saving ? 'Publicando…' : 'Publicar versão'"></span></button>
       </div>
     </dialog>
 

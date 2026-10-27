@@ -36,10 +36,10 @@
   <main>
     <div class="barra no-print">
       <button class="btn" @click="window.print()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
-        Imprimir / Salvar em PDF
+        <%- include('partials/odonto-icon', { name: 'printer' }) %>
+        <span>Imprimir / Salvar em PDF</span>
       </button>
-      <a class="btn secondary" :href="'/app/odonto/pacientes/' + (doc.patient_id || '') + '/documentos'">← Documentos do paciente</a>
+      <a class="btn secondary" :href="'/app/odonto/pacientes/' + (doc.patient_id || '') + '/documentos'"><%- include('partials/odonto-icon', { name: 'arrow-left' }) %><span>Documentos do paciente</span></a>
       <span class="muted text-xs" x-text="doc.type_label ? (doc.type_label + ' · versão ' + doc.version + (doc.status === 'cancelado' ? ' · CANCELADO' : (doc.status === 'rascunho' ? ' · RASCUNHO' : ''))) : ''"></span>
       <span class="error" x-text="error"></span>
     </div>

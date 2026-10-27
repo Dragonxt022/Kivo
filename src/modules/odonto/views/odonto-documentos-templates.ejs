@@ -10,21 +10,24 @@
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    .modelo { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
-    .modelo h3 { margin: 0 0 2px; font-size: .98rem; }
-    .modelo .meta { color: var(--muted); font-size: .78rem; }
-    .modelo pre { white-space: pre-wrap; font-family: inherit; font-size: .8rem; color: var(--muted);
-                  max-height: 100px; overflow: hidden; margin: 8px 0 0; }
+    .modelo { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: var(--surface); box-shadow: var(--shadow-xs); }
+    .modelo h3 { margin: 0 0 4px; font-size: .98rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .modelo .meta { color: var(--text-secondary); font-size: .78rem; }
+    .modelo-preview { position: relative; margin: 8px 0 0; max-height: 96px; overflow: hidden; }
+    .modelo-preview pre { white-space: pre-wrap; font-family: inherit; font-size: .8rem; color: var(--text-secondary); margin: 0; }
+    .modelo-preview::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: linear-gradient(to bottom, transparent, var(--surface)); pointer-events: none; }
     .variaveis { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
-    .variaveis button { font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-light);
-                        background: var(--surface-hover); color: var(--muted); cursor: pointer; }
-    textarea { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
+    .variaveis button { font-size: .72rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border-light);
+                        background: var(--surface-hover); color: var(--text-secondary); cursor: pointer; }
+    .variaveis button:hover { color: var(--primary); border-color: var(--primary); }
+    /* Editor de modelo em monoespaçado: o texto tem {{variáveis}} e o alinhamento ajuda a revisar. */
+    .editor-modelo { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/modelos-documentos' }) %>
   <main id="tour-odonto-conteudo" x-data="modelosPage(<%= user.permissions.has('odonto.documents.templates') ? 'true' : 'false' %>)" x-init="load()">
-    <h1>Modelos de documentos</h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'file-text', size: 24 }) %> Modelos de documentos</h1>
     <p class="page-subtitle">
       O documento sai do modelo com as variáveis trocadas pelos dados do paciente e do
       profissional. A clínica edita os textos — nada aqui depende de programação.
@@ -33,8 +36,8 @@
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.documents.templates')) { %>
         <button class="btn" @click="novo()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Novo modelo
+          <%- include('partials/odonto-icon', { name: 'plus' }) %>
+          <span>Novo modelo</span>
         </button>
       <% } %>
       <span class="muted text-xs" x-text="modelos.length + ' modelo(s)' + (inativos ? ' · ' + inativos + ' inativo(s)' : '')"></span>
@@ -55,12 +58,12 @@
           <span class="badge ok" x-show="m.is_system">do sistema</span>
         </h3>
         <div class="meta" x-text="m.variables.length + ' variável(is): ' + (m.variables.join(', ') || 'nenhuma')"></div>
-        <pre x-text="m.body"></pre>
+        <div class="modelo-preview"><pre x-text="m.body"></pre></div>
         <% if (user.permissions.has('odonto.documents.templates')) { %>
         <div class="toolbar" style="margin:8px 0 0">
-          <button class="btn secondary small" @click="editar(m)">Editar</button>
-          <button class="btn secondary small" @click="alternar(m)" x-text="m.active ? 'Desativar' : 'Ativar'"></button>
-          <button class="btn secondary small danger" @click="remover(m)">Excluir</button>
+          <button class="btn secondary small" @click="editar(m)"><%- include('partials/odonto-icon', { name: 'pencil', size: 14 }) %><span>Editar</span></button>
+          <button class="btn secondary small" @click="alternar(m)"><span x-show="m.active"><%- include('partials/odonto-icon', { name: 'ban', size: 14 }) %></span><span x-show="!m.active"><%- include('partials/odonto-icon', { name: 'check', size: 14 }) %></span><span x-text="m.active ? 'Desativar' : 'Ativar'"></span></button>
+          <button class="btn secondary small danger" @click="remover(m)"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %><span>Excluir</span></button>
         </div>
         <% } %>
       </div>
@@ -94,7 +97,7 @@
         </div>
 
         <label>Conteúdo do modelo</label>
-        <textarea class="input" x-model="form.body" rows="16" placeholder="Escreva o documento usando {{paciente.nome}}, {{data}}..."></textarea>
+        <textarea class="input editor-modelo" x-model="form.body" rows="16" placeholder="Escreva o documento usando {{paciente.nome}}, {{data}}..."></textarea>
         <label class="label-checkbox-sm" style="display:flex;align-items:center;gap:6px;margin-top:8px">
           <input type="checkbox" x-model="form.requires_professional" />
           <span>Exige profissional com CRO para emitir (receita, atestado, termos assinados)</span>
@@ -102,8 +105,8 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Salvar modelo'"></button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="salvar()" :disabled="salvando"><%- include('partials/odonto-icon', { name: 'save' }) %><span x-text="salvando ? 'Salvando…' : 'Salvar modelo'"></span></button>
       </div>
     </dialog>
     <% } %>

@@ -264,9 +264,19 @@
     <% if (typeof empresaLogoUrl !== 'undefined' && empresaLogoUrl) { %>
       <img class="logo logo-empresa" id="kivo-logo-empresa" src="<%= empresaLogoUrl %>" alt="<%= (typeof empresaNome !== 'undefined' && empresaNome) ? empresaNome : 'Logo da empresa' %>" />
     <% } else { %>
-      <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
+      <%# `src` estático (e não só `:src`): sem ele, o <img> nasce sem fonte e o navegador
+          pisca o ícone de imagem quebrada a cada troca de página, até o Alpine rodar. %>
+      <img class="logo" id="kivo-logo" src="/logo_kivo-horizontal.svg" alt="Kivo"
+           :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" />
     <% } %>
   </a>
+  <script nonce="<%= cspNonce %>">
+    // Corrige o logo do tema escuro JÁ na primeira pintura (o Alpine é `defer` e chegaria tarde).
+    (function () {
+      var l = document.getElementById('kivo-logo');
+      if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kivo-horizontal_branco.svg';
+    })();
+  </script>
 
   <% if (user) { %>
   <div class="nav-end">

@@ -9,24 +9,43 @@
   <link rel="stylesheet" href="/css/app.css" />
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    /* Foto do paciente: ao passar o mouse, escurece e revela as ações (ver ampliada, atualizar, remover). */
+    .photo-wrap { position: relative; display: inline-block; }
+    .photo-overlay { position: absolute; inset: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 7px;
+      background: rgba(15, 23, 42, .5); opacity: 0; transition: opacity var(--transition); }
+    .photo-wrap:hover .photo-overlay, .photo-wrap:focus-within .photo-overlay { opacity: 1; }
+    .photo-btn { width: 30px; height: 30px; border-radius: 50%; border: 0; display: grid; place-items: center;
+      background: rgba(255, 255, 255, .92); color: #1e293b; cursor: pointer; transition: transform var(--transition), color var(--transition); }
+    .photo-btn:hover { background: #fff; color: var(--primary); transform: scale(1.08); }
+    .photo-btn.danger:hover { color: var(--danger); }
+    /* Sem mouse (toque) não há hover: mantém o overlay visível, mais suave. */
+    @media (hover: none) { .photo-overlay { opacity: 1; background: rgba(15, 23, 42, .35); } }
+    .dialog-photo { width: min(720px, calc(100vw - 2rem)); }
+    .photo-view { display: flex; align-items: center; justify-content: center; background: var(--surface-hover); border-radius: 10px; padding: 8px; }
+    .photo-view img { max-width: 100%; max-height: 66vh; border-radius: 8px; display: block; }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="patientFicha(<%= patientId %>, <%= canViewClinical ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.view') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.documents.view') ? 'true' : 'false' %>)" x-init="load()">
     <header class="odonto-patient-head" id="tour-odonto-toolbar">
-      <a class="btn secondary" href="/app/odonto/pacientes">← Pacientes</a>
+      <a class="btn secondary" href="/app/odonto/pacientes"><%- include('partials/odonto-icon', { name: 'arrow-left' }) %><span>Pacientes</span></a>
       <div class="odonto-photo-field">
-        <span class="odonto-avatar lg">
-          <img x-show="photoPreview" :src="photoPreview || ''" alt="" x-cloak />
-          <span x-show="!photoPreview" x-text="initials(p.name)"></span>
-        </span>
-        <% if (user.permissions.has('odonto.patients.edit')) { %>
-        <div class="odonto-photo-actions">
+        <div class="photo-wrap">
+          <span class="odonto-avatar lg">
+            <img x-show="photoPreview" :src="photoPreview || ''" alt="" x-cloak />
+            <span x-show="!photoPreview" x-text="initials(p.name)"></span>
+          </span>
+          <% if (user.permissions.has('odonto.patients.edit')) { %>
           <input type="file" class="sr-only" style="display:none" accept="image/jpeg,image/png,image/webp,image/avif" x-ref="photoFile" @change="onPhotoFile($event)" />
-          <button type="button" class="btn secondary small" @click="$refs.photoFile.click()">Trocar foto</button>
-          <button type="button" class="btn secondary small danger" x-show="photoPreview" @click="removePhoto()">Remover</button>
+          <div class="photo-overlay">
+            <button type="button" class="photo-btn" x-show="photoPreview" x-cloak @click="$refs.dlgFoto.showModal()" title="Ver imagem ampliada" aria-label="Ver imagem ampliada"><%- include('partials/odonto-icon', { name: 'expand', size: 15 }) %></button>
+            <button type="button" class="photo-btn" @click="$refs.photoFile.click()" title="Atualizar imagem" aria-label="Atualizar imagem"><%- include('partials/odonto-icon', { name: 'camera', size: 16 }) %></button>
+            <button type="button" class="photo-btn danger" x-show="photoPreview" x-cloak @click="removePhoto()" title="Remover foto" aria-label="Remover foto"><%- include('partials/odonto-icon', { name: 'trash', size: 15 }) %></button>
+          </div>
+          <% } %>
         </div>
-        <% } %>
       </div>
       <div class="odonto-patient-titles">
         <h1 x-text="p.name || 'Paciente'"></h1>
@@ -39,14 +58,16 @@
       </div>
       <% if (user.permissions.has('odonto.patients.edit')) { %>
       <div class="toolbar odonto-head-actions">
-        <button class="btn" @click="openEdit()">Editar cadastro</button>
+        <button class="btn" @click="openEdit()"><%- include('partials/odonto-icon', { name: 'pencil' }) %><span>Editar cadastro</span></button>
         <% if (user.permissions.has('commercial.customers.view')) { %>
-        <a class="btn secondary" :href="'/app/commercial/clientes/' + p.customer_id + '/financeiro'">Financeiro</a>
+        <a class="btn secondary" :href="'/app/commercial/clientes/' + p.customer_id + '/financeiro'"><%- include('partials/odonto-icon', { name: 'wallet' }) %><span>Financeiro</span></a>
         <% } %>
       </div>
       <% } %>
       <div id="tour-odonto-ficha"></div>
     </header>
+
+    <div id="tour-odonto-secoes"><%- include('partials/odonto-paciente-tabs', { patientId: patientId, atual: 'resumo' }) %></div>
 
     <template x-if="!p.id && !error">
       <p class="muted">Carregando…</p>
@@ -55,7 +76,7 @@
     <template x-if="p.id">
       <div>
         <section class="odonto-section">
-          <h2>Cadastro</h2>
+          <h2><%- include('partials/odonto-icon', { name: 'clipboard', size: 16 }) %> Cadastro</h2>
           <table>
             <tbody>
               <tr><th>CPF/CNPJ</th><td x-text="p.document || '—'"></td><th>Nascimento</th><td x-text="fmtDate(p.birthday)"></td></tr>
@@ -69,7 +90,7 @@
 
         <% if (canViewClinical) { %>
         <section class="odonto-section">
-        <h2>Ficha clínica</h2>
+        <h2><%- include('partials/odonto-icon', { name: 'shield-check', size: 16 }) %> Ficha clínica</h2>
         <p class="page-subtitle">
           Dado de saúde: só quem tem a permissão clínica vê este bloco. A auditoria registra quem alterou —
           o conteúdo não é copiado para o log.
@@ -88,7 +109,7 @@
             <div class="pm-field"><label>Observações clínicas</label><textarea class="input" x-model="clinical.clinical_notes" rows="3"></textarea></div>
           </div>
           <div class="toolbar">
-            <button class="btn" @click="saveClinical()">Salvar ficha clínica</button>
+            <button class="btn" @click="saveClinical()"><%- include('partials/odonto-icon', { name: 'save' }) %><span>Salvar ficha clínica</span></button>
             <span class="muted text-xs" x-show="clinicalSaved">Ficha salva.</span>
             <span class="error" x-text="clinicalError"></span>
           </div>
@@ -109,7 +130,7 @@
 
         <% if (canViewClinical) { %>
         <section class="odonto-section">
-        <h2>Anamnese</h2>
+        <h2><%- include('partials/odonto-icon', { name: 'clipboard', size: 16 }) %> Anamnese</h2>
         <p class="page-subtitle">
           Questionário respondido em revisões: cada salvamento vira uma revisão nova e o
           histórico não é reescrito.
@@ -132,15 +153,14 @@
           </tbody>
         </table>
         <div class="toolbar">
-          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/anamnese'"
-             x-text="anamnesis.revisions > 0 ? 'Ver anamnese' : 'Responder anamnese'"></a>
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/anamnese'"><%- include('partials/odonto-icon', { name: 'clipboard' }) %><span x-text="anamnesis.revisions > 0 ? 'Ver anamnese' : 'Responder anamnese'"></span></a>
         </div>
         </section>
         <% } %>
 
         <% if (canViewClinical) { %>
         <section class="odonto-section">
-        <h2>Prontuário</h2>
+        <h2><%- include('partials/odonto-icon', { name: 'file-text', size: 16 }) %> Prontuário</h2>
         <p class="page-subtitle">
           Evolução clínica do paciente: cada atendimento vira um registro com procedimentos,
           observações, diagnóstico, conduta e próximos passos. Registro clínico não se apaga —
@@ -162,14 +182,14 @@
           </tbody>
         </table>
         <div class="toolbar">
-          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/prontuario'">Abrir prontuário</a>
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/prontuario'"><%- include('partials/odonto-icon', { name: 'file-text' }) %><span>Abrir prontuário</span></a>
         </div>
         </section>
         <% } %>
 
         <% if (canViewClinical) { %>
         <section class="odonto-section">
-        <h2>Odontograma</h2>
+        <h2><%- include('partials/odonto-icon', { name: 'tooth', size: 16 }) %> Odontograma</h2>
         <p class="page-subtitle">
           Mapa dos dentes (numeração FDI) com situação por face e por dente, histórico de cada
           mudança e os procedimentos já realizados.
@@ -187,14 +207,14 @@
           </tbody>
         </table>
         <div class="toolbar">
-          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/odontograma'">Abrir odontograma</a>
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/odontograma'"><%- include('partials/odonto-icon', { name: 'tooth' }) %><span>Abrir odontograma</span></a>
         </div>
         </section>
         <% } %>
 
         <% if (user.permissions.has('odonto.documents.view')) { %>
         <section class="odonto-section">
-        <h2>Documentos</h2>
+        <h2><%- include('partials/odonto-icon', { name: 'file-text', size: 16 }) %> Documentos</h2>
         <p class="page-subtitle">
           TCLE, receita, atestado, encaminhamento, contrato e alta gerados a partir dos modelos da
           clínica, com os dados do paciente substituídos. Emitido não muda: corrige-se pela versão
@@ -213,14 +233,14 @@
           </tbody>
         </table>
         <div class="toolbar">
-          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/documentos'">Abrir documentos</a>
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/documentos'"><%- include('partials/odonto-icon', { name: 'file-text' }) %><span>Abrir documentos</span></a>
         </div>
         </section>
         <% } %>
 
         <% if (user.permissions.has('odonto.plans.view')) { %>
         <section class="odonto-section">
-        <h2>Planos de tratamento</h2>
+        <h2><%- include('partials/odonto-icon', { name: 'wallet', size: 16 }) %> Planos de tratamento</h2>
         <p class="page-subtitle">
           O que está previsto, com valor por item e dente. O plano aprovado gera a cobrança no
           Financeiro do Kivo (conta a receber do cliente, com parcelamento).
@@ -238,40 +258,24 @@
           </tbody>
         </table>
         <div class="toolbar">
-          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/planos'">Abrir planos de tratamento</a>
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/planos'"><%- include('partials/odonto-icon', { name: 'wallet' }) %><span>Abrir planos de tratamento</span></a>
         </div>
         </section>
         <% } %>
 
         <% if (user.permissions.has('odonto.exams.view')) { %>
         <section class="odonto-section">
-        <h2>Exames e imagens</h2>
+        <h2><%- include('partials/odonto-icon', { name: 'image', size: 16 }) %> Exames e imagens</h2>
         <p class="page-subtitle">
           Radiografia, tomografia e fotografia clínica do paciente, marcadas como antes, durante ou
           depois do tratamento para comparar a evolução lado a lado. O arquivo fica guardado no
           computador da clínica.
         </p>
         <div class="toolbar">
-          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/exames'">Abrir exames e imagens</a>
+          <a class="btn" :href="'/app/odonto/pacientes/' + id + '/exames'"><%- include('partials/odonto-icon', { name: 'image' }) %><span>Abrir exames e imagens</span></a>
         </div>
         </section>
         <% } %>
-
-        <section class="odonto-section">
-        <h2>Próximas fases do módulo</h2>
-        <table>
-          <thead><tr><th>Recurso</th><th>Situação</th></tr></thead>
-          <tbody>
-            <tr><td>Anamnese</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Agenda e atendimento</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Prontuário e evolução</td><td><span class="badge">Disponível com retificação</span></td></tr>
-            <tr><td>Odontograma</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Plano de tratamento e cobrança</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Documentos (TCLE, receita, atestado, contrato)</td><td><span class="badge">Disponível</span></td></tr>
-            <tr><td>Exames e imagens</td><td><span class="badge">Disponível</span></td></tr>
-          </tbody>
-        </table>
-        </section>
       </div>
     </template>
 
@@ -315,8 +319,20 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="saveCadastro()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="saveCadastro()"><%- include('partials/odonto-icon', { name: 'save' }) %><span>Salvar</span></button>
+      </div>
+    </dialog>
+
+    <!-- ─────────── Ver a foto do paciente ampliada ─────────── -->
+    <dialog x-ref="dlgFoto" class="dialog-fixed dialog-photo">
+      <button type="button" class="dialog-close" @click="$refs.dlgFoto.close()" title="Fechar" aria-label="Fechar"><%- include('partials/odonto-icon', { name: 'x', size: 18 }) %></button>
+      <h1 x-text="p.name || 'Foto do paciente'"></h1>
+      <div class="dialog-body">
+        <div class="photo-view"><img :src="photoPreview || ''" :alt="p.name || 'Foto do paciente'" /></div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" @click="$refs.dlgFoto.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Fechar</span></button>
       </div>
     </dialog>
 

@@ -10,59 +10,47 @@
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    /* Mapa de seções do prontuário (PR §7): o que existe hoje e o que vem em cada fase. */
-    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-    .secoes a, .secoes span {
-      padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600;
-      border: 1px solid var(--border-light); text-decoration: none; color: var(--muted);
-    }
-    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
-    .secoes span.planejado { opacity: .6; }
-    .evolucao { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
-    .evolucao.retificada { border-style: dashed; opacity: .85; }
-    .evolucao h3 { margin: 0 0 4px; font-size: .98rem; }
-    .evolucao .meta { color: var(--muted); font-size: .78rem; margin-bottom: 8px; }
-    .evolucao dl { display: grid; grid-template-columns: 150px 1fr; gap: 4px 10px; margin: 0 0 8px; font-size: .88rem; }
-    .evolucao dt { color: var(--muted); }
+    .evolucao { border: 1px solid var(--border-light); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; background: var(--surface); }
+    .evolucao.retificada { border-style: dashed; opacity: .9; }
+    .evolucao h3 { margin: 0 0 4px; font-size: 1rem; }
+    .evolucao .meta { color: var(--text-secondary); font-size: .78rem; margin-bottom: 10px; }
+    /* Procedimentos separados dos campos por uma linha: antes tudo ficava colado. */
+    .evolucao .proc { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px dashed var(--border-light); }
+    .evolucao .proc .tag { background: var(--surface-hover); border: 1px solid var(--border-light); border-radius: 8px; padding: 3px 9px; font-size: .78rem; }
+    /* Campos em grade: rótulo à esquerda, resposta à direita, com separador leve por linha
+       (antes as linhas ficavam grudadas e o rótulo curto deixava um vão irregular). */
+    .evolucao dl { display: grid; grid-template-columns: 136px 1fr; gap: 0 14px; margin: 0; font-size: .88rem; }
+    .evolucao dl > div dt, .evolucao dl > div dd { padding: 7px 0; border-top: 1px solid var(--border-light); }
+    .evolucao dl > div:first-child dt, .evolucao dl > div:first-child dd { border-top: 0; }
+    .evolucao dt { color: var(--text-secondary); font-weight: 600; }
     .evolucao dd { margin: 0; white-space: pre-wrap; }
-    .evolucao .proc { display: flex; gap: 6px; flex-wrap: wrap; }
-    .evolucao .proc .tag { background: var(--surface-hover); border-radius: 8px; padding: 2px 8px; font-size: .78rem; }
     .proc-linha { display: grid; grid-template-columns: 2fr 90px 2fr auto; gap: 6px; align-items: center; margin-bottom: 4px; }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="prontuarioPage(<%= patientId %>, <%= canEditClinical ? 'true' : 'false' %>, <%= canRetify ? 'true' : 'false' %>)" x-init="load()">
-    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
-    <h1>Prontuário <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'file-text', size: 24 }) %> Prontuário <span class="patient-ref" x-show="paciente" x-cloak><%- include('partials/odonto-icon', { name: 'users', size: 14 }) %><span x-text="paciente ? paciente.name : ''"></span></span></h1>
 
-    <div class="secoes" id="tour-odonto-secoes">
-      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
-      <a class="atual" href="#">Prontuário</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
-      <a href="/app/odonto/agenda">Consultas</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/documentos'">Documentos</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/exames'">Exames e imagens</a>
-      <span class="planejado">Financeiro</span>
-    </div>
+    <div id="tour-odonto-secoes"><%- include('partials/odonto-paciente-tabs', { patientId: patientId, atual: 'prontuario' }) %></div>
 
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (canEditClinical) { %>
         <button class="btn" @click="nova()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Nova evolução
+          <%- include('partials/odonto-icon', { name: 'plus' }) %>
+          <span>Nova evolução</span>
         </button>
       <% } %>
-      <span class="muted text-xs"
-            x-text="resumo.vigentes + ' evolução(ões)' + (resumo.retificadas ? ' · ' + resumo.retificadas + ' retificada(s)' : '') + (resumo.ultima ? ' · última ' + fmtDateTimeLocal(resumo.ultima) : '')"></span>
+      <span class="toolbar-note">
+        <%- include('partials/odonto-icon', { name: 'clipboard', size: 14 }) %>
+        <span x-text="resumo.vigentes + ' evolução(ões)' + (resumo.retificadas ? ' · ' + resumo.retificadas + ' retificada(s)' : '') + (resumo.ultima ? ' · última ' + fmtDateTimeLocal(resumo.ultima) : '')"></span>
+      </span>
       <span class="error" x-text="error"></span>
     </div>
 
-    <p class="page-subtitle">
-      Registro clínico <strong>não é apagado</strong>: para corrigir, use a retificação — o texto
-      anterior fica no histórico com o motivo, quem corrigiu e quando.
+    <p class="helper">
+      <%- include('partials/odonto-icon', { name: 'info', size: 15 }) %>
+      <span>Registro clínico <strong>não é apagado</strong>: para corrigir, use a <strong>retificação</strong> — o texto anterior fica no histórico com o motivo, quem corrigiu e quando.</span>
     </p>
 
     <div id="tour-odonto-prontuario"></div>
@@ -96,9 +84,9 @@
         </dl>
 
         <div class="toolbar" style="margin:0">
-          <button class="btn secondary small" @click="verHistorico(n)">Histórico de versões</button>
+          <button class="btn secondary small" @click="verHistorico(n)"><%- include('partials/odonto-icon', { name: 'clock', size: 14 }) %><span>Histórico de versões</span></button>
           <% if (canRetify) { %>
-            <button class="btn secondary small" x-show="n.status === 'vigente'" @click="retificar(n)">Retificar</button>
+            <button class="btn secondary small" x-show="n.status === 'vigente'" @click="retificar(n)" title="Cria uma versão corrigida; a atual vai para o histórico com o motivo"><%- include('partials/odonto-icon', { name: 'pencil', size: 14 }) %><span>Retificar</span></button>
           <% } %>
         </div>
       </div>
@@ -154,10 +142,10 @@
             </select>
             <input class="input" type="text" x-model="p.tooth" placeholder="dente" maxlength="8" />
             <input class="input" type="text" x-model="p.note" placeholder="observação do procedimento" maxlength="300" />
-            <button class="btn secondary small danger" @click.prevent="form.procedures.splice(i, 1)">×</button>
+            <button class="btn secondary small danger" @click.prevent="form.procedures.splice(i, 1)" title="Remover procedimento"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %></button>
           </div>
         </template>
-        <button class="btn secondary small" @click.prevent="form.procedures.push({ procedure_id: '', tooth: '', note: '' })">+ Procedimento</button>
+        <button class="btn secondary small" @click.prevent="form.procedures.push({ procedure_id: '', tooth: '', note: '' })"><%- include('partials/odonto-icon', { name: 'plus', size: 14 }) %><span>Procedimento</span></button>
 
         <label>Observações do atendimento</label>
         <textarea class="input" x-model="form.observations" rows="3" placeholder="O que foi feito, como o paciente respondeu…"></textarea>
@@ -178,9 +166,12 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="salvar()" :disabled="salvando"
-                x-text="salvando ? 'Salvando…' : (modo === 'retificar' ? 'Retificar registro' : 'Registrar evolução')"></button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="salvar()" :disabled="salvando">
+          <span x-show="modo !== 'retificar'"><%- include('partials/odonto-icon', { name: 'save' }) %></span>
+          <span x-show="modo === 'retificar'"><%- include('partials/odonto-icon', { name: 'pencil' }) %></span>
+          <span x-text="salvando ? 'Salvando…' : (modo === 'retificar' ? 'Retificar registro' : 'Registrar evolução')"></span>
+        </button>
       </div>
     </dialog>
     <% } %>
@@ -214,7 +205,7 @@
         </template>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlgHist.close()">Fechar</button>
+        <button class="btn secondary" @click="$refs.dlgHist.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Fechar</span></button>
       </div>
     </dialog>
 

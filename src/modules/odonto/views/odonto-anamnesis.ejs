@@ -13,18 +13,19 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="anamnesisPage(<%= patientId %>)" x-init="load()">
-    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Voltar para a ficha do paciente</a></p>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'clipboard', size: 24 }) %> Anamnese <span class="patient-ref" x-show="patient" x-cloak><%- include('partials/odonto-icon', { name: 'users', size: 14 }) %><span x-text="patient ? patient.name : ''"></span></span></h1>
+
+    <div id="tour-odonto-secoes"><%- include('partials/odonto-paciente-tabs', { patientId: patientId, atual: 'anamnese' }) %></div>
     <div id="tour-odonto-anamnese"></div>
-    <h1>Anamnese <span class="muted" x-text="patient ? ('· ' + patient.name) : ''"></span></h1>
 
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (canEditClinical) { %>
         <button class="btn" @click="openNew()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          <%- include('partials/odonto-icon', { name: 'plus' }) %>
           <span x-text="hasAnamnesis ? 'Nova revisão' : 'Responder anamnese'"></span>
         </button>
       <% } %>
-      <a class="btn secondary" href="/app/odonto/anamnese-modelos">Formulários</a>
+      <a class="btn secondary" href="/app/odonto/anamnese-modelos"><%- include('partials/odonto-icon', { name: 'settings' }) %><span>Formulários</span></a>
       <span class="muted text-xs" x-show="summary.last_filled_at"
             x-text="'Última: ' + fmtDateTime(summary.last_filled_at) + (summary.last_template_name ? ' · ' + summary.last_template_name : '')"></span>
       <span class="error" x-text="error"></span>
@@ -80,7 +81,7 @@
             <td class="muted" x-text="fmtDateTime(f.filled_at)"></td>
             <td class="muted" x-text="f.filled_by_name || '—'"></td>
             <td class="muted" x-text="f.professional_name || '—'"></td>
-            <td class="text-right"><button class="btn secondary small" @click="openRevision(f)">Ver respostas</button></td>
+            <td class="text-right"><button class="btn secondary small" @click="openRevision(f)"><%- include('partials/odonto-icon', { name: 'eye', size: 14 }) %><span>Ver respostas</span></button></td>
           </tr>
         </template>
         <tr x-show="!history.length"><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhuma anamnese respondida ainda.' }) %></td></tr>
@@ -168,8 +169,8 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()" :disabled="saving" x-text="saving ? 'Salvando…' : 'Salvar revisão'"></button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="save()" :disabled="saving"><%- include('partials/odonto-icon', { name: 'save' }) %><span x-text="saving ? 'Salvando…' : 'Salvar revisão'"></span></button>
       </div>
     </dialog>
     <% } %>
@@ -193,7 +194,7 @@
         <p class="muted text-xs" x-show="viewing && viewing.notes" x-text="viewing ? ('Observações: ' + (viewing.notes || '')) : ''"></p>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlgView.close()">Fechar</button>
+        <button class="btn secondary" @click="$refs.dlgView.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Fechar</span></button>
       </div>
     </dialog>
 

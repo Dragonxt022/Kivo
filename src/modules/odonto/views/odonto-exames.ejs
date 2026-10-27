@@ -10,47 +10,46 @@
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    /* Abas das telas do paciente. As telas irmãs (documentos, odontograma, planos, prontuário)
-       trazem este bloco no próprio <style>; aqui ele faltava, e as abas caíam no padrão do
-       navegador: link azul sublinhado, sem espaçamento e sem destaque da ativa. */
-    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
-    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
-    .secoes span.planejado { opacity: .6; }
-    .exame { border: 1px solid var(--border-light); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
-    .exame h3 { margin: 0 0 2px; font-size: .96rem; }
-    .exame .meta { color: var(--muted); font-size: .78rem; }
-    .galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-    .foto { border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; background: var(--surface-hover); }
-    .foto img { width: 100%; height: 140px; object-fit: cover; display: block; cursor: zoom-in; }
-    .foto .rodape { padding: 6px 8px; font-size: .74rem; color: var(--muted); }
+    .exame { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: var(--surface); box-shadow: var(--shadow-xs); }
+    .exame h3 { margin: 0 0 4px; font-size: .96rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .exame .meta { color: var(--text-secondary); font-size: .78rem; line-height: 1.55; }
+    .galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+    .foto { border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow-xs); }
+    .foto img { width: 100%; height: 150px; object-fit: cover; display: block; cursor: zoom-in; transition: transform var(--transition); }
+    .foto img:hover { transform: scale(1.03); }
+    .foto .rodape { padding: 8px 10px; font-size: .76rem; color: var(--text-secondary); }
+    .foto .rodape .titulo { font-weight: 600; color: var(--text); }
     .fase-grupo { margin-bottom: 16px; }
-    .fase-grupo h3 { font-size: .9rem; margin: 0 0 6px; }
+    .fase-grupo h3 { font-size: .8rem; margin: 0 0 8px; text-transform: capitalize; color: var(--text-secondary); }
     .previa { max-width: 100%; max-height: 220px; border-radius: 10px; border: 1px solid var(--border-light); }
+    /* Blocos da tela: título + cards soltos (sem "card dentro de card"). */
+    .exames-bloco { margin-bottom: 18px; }
+    .exames-bloco > h2 { display: flex; align-items: center; gap: 8px; font-size: 1rem; margin: 0 0 4px; }
+    .exames-bloco > h2 svg { color: var(--primary); }
+    /* Visualizador: imagem com zoom/arrasto, ou PDF num iframe (sem abrir nova janela). */
+    .dialog-viewer { width: min(1100px, calc(100vw - 2rem)); height: min(92vh, 840px); }
+    .viewer { position: relative; height: 60vh; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 10px; background: var(--surface-hover); touch-action: none; }
+    .viewer.pannable { cursor: grab; }
+    .viewer.pannable:active { cursor: grabbing; }
+    .viewer img { max-width: 100%; max-height: 100%; transform-origin: center center; user-select: none; -webkit-user-drag: none; border-radius: 6px; }
+    .viewer-frame { width: 100%; height: 68vh; border: 0; border-radius: 10px; background: #fff; }
+    .viewer-zoom { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; }
+    .viewer-zoom .icon-btn { border: 1px solid var(--border-light); }
+    .viewer-zoom .pct { min-width: 44px; text-align: center; }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="examesPage(<%= patientId %>, <%= user.permissions.has('odonto.exams.manage') ? 'true' : 'false' %>)" x-init="load()">
-    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
-    <h1>Exames e imagens <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'image', size: 24 }) %> Exames e imagens <span class="patient-ref" x-show="paciente" x-cloak><%- include('partials/odonto-icon', { name: 'users', size: 14 }) %><span x-text="paciente ? paciente.name : ''"></span></span></h1>
 
-    <div class="secoes" id="tour-odonto-secoes">
-      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/planos'">Tratamentos</a>
-      <a href="/app/odonto/agenda">Consultas</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/documentos'">Documentos</a>
-      <a class="atual" href="#">Exames e imagens</a>
-    </div>
+    <div id="tour-odonto-secoes"><%- include('partials/odonto-paciente-tabs', { patientId: patientId, atual: 'exames' }) %></div>
 
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.exams.manage')) { %>
         <button class="btn" @click="novo()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Anexar exame
+          <%- include('partials/odonto-icon', { name: 'upload' }) %>
+          <span>Anexar exame</span>
         </button>
       <% } %>
       <select class="input" x-model="filtro.tipo" @change="load()">
@@ -79,53 +78,62 @@
     </p>
 
     <!-- ─────────── Fotografias clínicas, agrupadas por fase (PR §17) ─────────── -->
-    <template x-for="fase in ['antes', 'durante', 'depois']" :key="fase">
-      <div class="fase-grupo" x-show="fotosPorFase(fase).length">
-        <h3 x-text="'Fotografias · ' + fase"></h3>
-        <div class="galeria">
-          <template x-for="e in fotosPorFase(fase)" :key="e.id">
-            <div class="foto">
-              <img :src="e.url" :alt="e.title" @click="abrir(e)" @error="$el.style.display = 'none'" />
-              <div class="rodape">
-                <div x-text="e.title"></div>
-                <div class="muted" x-text="fmtDate(e.exam_date) + (e.tooth ? ' · dente ' + e.tooth : '')"></div>
-                <% if (user.permissions.has('odonto.exams.manage')) { %>
-                  <button class="btn secondary small" @click="editar(e)">Editar</button>
-                  <button class="btn secondary small danger" @click="apagar(e)">Excluir</button>
-                <% } %>
+    <section class="exames-bloco" x-show="fotos().length">
+      <h2><%- include('partials/odonto-icon', { name: 'image', size: 16 }) %> Fotografias clínicas</h2>
+      <p class="page-subtitle">Compare a evolução nas fases <strong>antes</strong>, <strong>durante</strong> e <strong>depois</strong> do tratamento.</p>
+      <template x-for="fase in ['antes', 'durante', 'depois']" :key="fase">
+        <div class="fase-grupo" x-show="fotosPorFase(fase).length">
+          <h3 x-text="fase"></h3>
+          <div class="galeria">
+            <template x-for="e in fotosPorFase(fase)" :key="e.id">
+              <div class="foto">
+                <img :src="e.url" :alt="e.title" title="Ver ampliado" @click="abrir(e)" @error="$el.style.display = 'none'" />
+                <div class="rodape">
+                  <div class="titulo" x-text="e.title"></div>
+                  <div class="muted text-xs" x-text="fmtDate(e.exam_date) + (e.tooth ? ' · dente ' + e.tooth : '')"></div>
+                  <% if (user.permissions.has('odonto.exams.manage')) { %>
+                  <div class="toolbar" style="margin:6px 0 0">
+                    <button class="btn secondary small" @click="editar(e)"><%- include('partials/odonto-icon', { name: 'pencil', size: 14 }) %><span>Editar</span></button>
+                    <button class="btn secondary small danger" @click="apagar(e)"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %><span>Excluir</span></button>
+                  </div>
+                  <% } %>
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
+          </div>
         </div>
-      </div>
-    </template>
+      </template>
+    </section>
 
     <!-- ─────────── Demais arquivos (radiografia, tomografia, documento) ─────────── -->
-    <template x-for="e in naoFotos()" :key="e.id">
-      <div class="exame">
-        <h3>
-          <span x-text="e.title"></span>
-          <span class="badge neutral" x-text="e.type_label"></span>
-          <span class="badge neutral" x-show="e.phase" x-text="e.phase_label"></span>
-        </h3>
-        <div class="meta">
-          <span x-text="fmtDate(e.exam_date)"></span>
-          <span x-show="e.tooth" x-text="' · dente ' + e.tooth"></span>
-          <span x-show="e.professional_name" x-text="' · ' + e.professional_name"></span>
-          <span x-show="e.appointment_at" x-text="' · consulta ' + fmtDateTimeLocal(e.appointment_at)"></span>
-          <span x-text="' · ' + e.original_name + ' (' + tamanho(e.size_bytes) + ')'"></span>
-          <span x-show="e.created_by_name" x-text="' · anexado por ' + e.created_by_name"></span>
+    <section class="exames-bloco" x-show="naoFotos().length">
+      <h2><%- include('partials/odonto-icon', { name: 'file-text', size: 16 }) %> Radiografias, tomografias e documentos</h2>
+      <template x-for="e in naoFotos()" :key="e.id">
+        <div class="exame">
+          <h3>
+            <span x-text="e.title"></span>
+            <span class="badge neutral" x-text="e.type_label"></span>
+            <span class="badge neutral" x-show="e.phase" x-text="e.phase_label"></span>
+          </h3>
+          <div class="meta">
+            <span x-text="fmtDate(e.exam_date)"></span>
+            <span x-show="e.tooth" x-text="' · dente ' + e.tooth"></span>
+            <span x-show="e.professional_name" x-text="' · ' + e.professional_name"></span>
+            <span x-show="e.appointment_at" x-text="' · consulta ' + fmtDateTimeLocal(e.appointment_at)"></span>
+            <span x-text="' · ' + e.original_name + ' (' + tamanho(e.size_bytes) + ')'"></span>
+            <span x-show="e.created_by_name" x-text="' · anexado por ' + e.created_by_name"></span>
+          </div>
+          <p class="muted text-xs" x-show="e.description" x-text="e.description"></p>
+          <div class="toolbar" style="margin:8px 0 0">
+            <button class="btn secondary small" @click="abrir(e)"><%- include('partials/odonto-icon', { name: 'eye', size: 14 }) %><span>Ver</span></button>
+            <% if (user.permissions.has('odonto.exams.manage')) { %>
+              <button class="btn secondary small" @click="editar(e)"><%- include('partials/odonto-icon', { name: 'pencil', size: 14 }) %><span>Editar</span></button>
+              <button class="btn secondary small danger" @click="apagar(e)"><%- include('partials/odonto-icon', { name: 'trash', size: 14 }) %><span>Excluir</span></button>
+            <% } %>
+          </div>
         </div>
-        <p class="muted text-xs" x-show="e.description" x-text="e.description"></p>
-        <div class="toolbar" style="margin:6px 0 0">
-          <a class="btn secondary small" :href="e.url" target="_blank">Abrir arquivo</a>
-          <% if (user.permissions.has('odonto.exams.manage')) { %>
-            <button class="btn secondary small" @click="editar(e)">Editar</button>
-            <button class="btn secondary small danger" @click="apagar(e)">Excluir</button>
-          <% } %>
-        </div>
-      </div>
-    </template>
+      </template>
+    </section>
 
     <div class="odonto-vazio" x-show="!arquivos.length">
       <strong>Nenhum exame anexado ainda</strong>
@@ -205,23 +213,44 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Enviando…' : 'Salvar exame'"></button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="salvar()" :disabled="salvando"><%- include('partials/odonto-icon', { name: 'upload' }) %><span x-text="salvando ? 'Enviando…' : 'Salvar exame'"></span></button>
       </div>
     </dialog>
     <% } %>
 
-    <!-- ─────────── Ver a imagem grande ─────────── -->
-    <dialog x-ref="dlgVer" class="dialog-fixed">
+    <!-- ─────────── Ver em modal (imagem com zoom / PDF) ─────────── -->
+    <dialog x-ref="dlgVer" class="dialog-fixed dialog-viewer">
+      <button type="button" class="dialog-close" @click="$refs.dlgVer.close()" title="Fechar" aria-label="Fechar"><%- include('partials/odonto-icon', { name: 'x', size: 18 }) %></button>
       <h1 x-text="vendo.title || 'Exame'"></h1>
       <div class="dialog-body">
         <p class="muted text-xs" style="margin-top:0"
            x-text="(vendo.type_label || '') + (vendo.phase_label ? ' · ' + vendo.phase_label : '') + ' · ' + fmtDate(vendo.exam_date || '') + (vendo.tooth ? ' · dente ' + vendo.tooth : '')"></p>
-        <img :src="vendo.url" :alt="vendo.title" style="max-width:100%; border-radius:10px" />
+
+        <template x-if="vendo.is_image">
+          <div class="viewer" :class="{ pannable: zoom > 1 }"
+               @wheel.prevent="onWheel($event)"
+               @pointerdown="startPan($event)" @pointermove="onPan($event)"
+               @pointerup="endPan()" @pointerleave="endPan()">
+            <img :src="vendo.url" :alt="vendo.title" draggable="false"
+                 :style="'transform: translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')'" />
+          </div>
+        </template>
+        <template x-if="vendo.url && !vendo.is_image">
+          <iframe class="viewer-frame" :src="vendo.url" title="Arquivo do exame"></iframe>
+        </template>
+
+        <div class="viewer-zoom" x-show="vendo.is_image" x-cloak>
+          <button type="button" class="icon-btn" @click="zoomOut()" title="Diminuir zoom" aria-label="Diminuir zoom"><%- include('partials/odonto-icon', { name: 'minus', size: 16 }) %></button>
+          <span class="pct muted text-xs" x-text="Math.round(zoom * 100) + '%'"></span>
+          <button type="button" class="icon-btn" @click="zoomIn()" title="Aumentar zoom" aria-label="Aumentar zoom"><%- include('partials/odonto-icon', { name: 'plus', size: 16 }) %></button>
+          <button type="button" class="btn secondary small" @click="resetZoom()"><%- include('partials/odonto-icon', { name: 'refresh', size: 14 }) %><span>Tamanho original</span></button>
+          <span class="muted text-xs">Arraste para mover quando ampliado.</span>
+        </div>
       </div>
       <div class="actions">
-        <a class="btn secondary" :href="vendo.url" target="_blank">Abrir em nova aba</a>
-        <button class="btn secondary" @click="$refs.dlgVer.close()">Fechar</button>
+        <a class="btn secondary" :href="vendo.url" target="_blank"><%- include('partials/odonto-icon', { name: 'arrow-right' }) %><span>Abrir original</span></a>
+        <button class="btn secondary" @click="$refs.dlgVer.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Fechar</span></button>
       </div>
     </dialog>
   </main>
@@ -250,6 +279,14 @@
         error: '',
         dlgError: '',
         salvando: false,
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        _arrastando: false,
+        _sx: 0,
+        _sy: 0,
+        _px: 0,
+        _py: 0,
 
         tamanho(bytes) {
           const n = Number(bytes || 0);
@@ -260,7 +297,29 @@
         fotos() { return this.arquivos.filter((e) => e.type === 'fotografia' && e.is_image); },
         fotosPorFase(fase) { return this.fotos().filter((e) => e.phase === fase); },
         naoFotos() { return this.arquivos.filter((e) => !(e.type === 'fotografia' && e.is_image)); },
-        abrir(e) { this.vendo = e; this.$refs.dlgVer.showModal(); },
+        abrir(e) { this.vendo = e; this.resetZoom(); this.$refs.dlgVer.showModal(); },
+
+        // Visualizador: zoom por botões/roda do mouse e arrasto quando ampliado.
+        resetZoom() { this.zoom = 1; this.panX = 0; this.panY = 0; },
+        zoomIn() { this.zoom = Math.min(6, Math.round((this.zoom + 0.25) * 100) / 100); },
+        zoomOut() {
+          this.zoom = Math.max(0.5, Math.round((this.zoom - 0.25) * 100) / 100);
+          if (this.zoom <= 1) { this.panX = 0; this.panY = 0; }
+        },
+        onWheel(ev) { if (ev.deltaY < 0) this.zoomIn(); else this.zoomOut(); },
+        startPan(ev) {
+          if (this.zoom <= 1) return;
+          this._arrastando = true;
+          this._sx = ev.clientX; this._sy = ev.clientY;
+          this._px = this.panX; this._py = this.panY;
+          if (ev.currentTarget.setPointerCapture) ev.currentTarget.setPointerCapture(ev.pointerId);
+        },
+        onPan(ev) {
+          if (!this._arrastando) return;
+          this.panX = this._px + (ev.clientX - this._sx);
+          this.panY = this._py + (ev.clientY - this._sy);
+        },
+        endPan() { this._arrastando = false; },
 
         async load() {
           const q = new URLSearchParams();

@@ -10,53 +10,51 @@
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
-    .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-    .secoes a, .secoes span { padding: 4px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; border: 1px solid var(--border-light); text-decoration: none; color: var(--muted); }
-    .secoes a.atual { background: var(--primary-soft); color: var(--primary); border-color: transparent; }
-    .secoes span.planejado { opacity: .6; }
     .plano { border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     .plano h3 { margin: 0 0 2px; font-size: 1rem; }
     .plano .meta { color: var(--muted); font-size: .78rem; }
     .plano .total { font-weight: 700; }
-    .item-linha { display: grid; grid-template-columns: 1.6fr 70px 1.8fr 70px 110px 110px auto; gap: 6px; align-items: center; margin-bottom: 4px; }
-    .item-linha input, .item-linha select { min-width: 0; }
+    /* Cada item do plano é um BLOCO com campos rotulados. O formulário antigo era uma grade
+       única de 7 colunas sem cabeçalho: os campos cortavam o texto e ninguém sabia o que era
+       cada um ("26" é dente? "900,00" é unitário ou total?). */
+    .item-card { border: 1px solid var(--border-light); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; background: var(--surface-hover); }
+    .item-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .item-card-head .item-card-num { font-size: .78rem; font-weight: 600; color: var(--text-secondary); }
+    .item-card .pm-field label { color: var(--text-secondary); }
+    .subtotal { display: flex; align-items: center; min-height: 38px; padding: .4rem .7rem; border-radius: 10px; background: var(--surface); border: 1.5px solid var(--border-light); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .plano-resumo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-light); }
+    .plano-total { display: flex; align-items: baseline; gap: 8px; }
+    .plano-total span { color: var(--muted); font-size: .85rem; }
+    .plano-total strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+    /* Modal do plano mais largo: os campos não podem mais pedir scroll horizontal. */
+    .dialog-plano { width: min(720px, calc(100vw - 2rem)); }
+    .dialog-plano > h1 { padding-right: 40px; }
     .acoes-linha { display: flex; gap: 6px; flex-wrap: wrap; }
+    /* Rodapé do plano: UMA ação primária à esquerda e o resto no menu "···" à direita —
+       antes eram cinco botões coloridos competindo, com o destrutivo no mesmo peso do principal. */
+    .plano-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-light); }
+    .plano-acoes .dropdown { margin-left: auto; }
     .previa { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--surface-hover); font-size: .82rem; color: var(--muted); }
   </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/odonto/pacientes' }) %>
   <main id="tour-odonto-conteudo" x-data="planosPage(<%= patientId %>, <%= user.permissions.has('odonto.plans.manage') ? 'true' : 'false' %>, <%= user.permissions.has('odonto.plans.charge') ? 'true' : 'false' %>)" x-init="load()">
-    <p class="muted"><a :href="'/app/odonto/pacientes/' + patientId">← Ficha do paciente</a></p>
-    <h1>Planos de tratamento <span class="muted" x-text="paciente ? ('· ' + paciente.name) : ''"></span></h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><%- include('partials/odonto-icon', { name: 'wallet', size: 24 }) %> Planos de tratamento <span class="patient-ref" x-show="paciente" x-cloak><%- include('partials/odonto-icon', { name: 'users', size: 14 }) %><span x-text="paciente ? paciente.name : ''"></span></span></h1>
 
-    <div class="secoes" id="tour-odonto-secoes">
-      <a :href="'/app/odonto/pacientes/' + patientId">Resumo</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/anamnese'">Anamnese</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/prontuario'">Prontuário</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/odontograma'">Odontograma</a>
-      <a class="atual" href="#">Tratamentos</a>
-      <a href="/app/odonto/agenda">Consultas</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/documentos'">Documentos</a>
-      <a :href="'/app/odonto/pacientes/' + patientId + '/exames'">Exames e imagens</a>
-    </div>
+    <div id="tour-odonto-secoes"><%- include('partials/odonto-paciente-tabs', { patientId: patientId, atual: 'planos' }) %></div>
 
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.plans.manage')) { %>
         <button class="btn" @click="novo()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Novo plano
+          <%- include('partials/odonto-icon', { name: 'plus' }) %>
+          <span>Novo plano</span>
         </button>
       <% } %>
       <span class="muted text-xs"
             x-text="resumo.planos_abertos + ' plano(s) em aberto · ' + resumo.itens_pendentes + ' item(ns) pendente(s) · ' + brl(resumo.total_aberto_cents)"></span>
       <span class="error" x-text="error"></span>
     </div>
-
-    <p class="page-subtitle">
-      Aprovado o plano, a cobrança é gerada no <strong>Financeiro do Kivo</strong> (conta a receber
-      do cliente, com parcelamento) — o Odonto não tem financeiro próprio.
-    </p>
 
     <div id="tour-odonto-planos"></div>
     <template x-for="p in planos" :key="p.id">
@@ -86,11 +84,11 @@
                 <td><span class="badge" :class="classePlano(i.status)" x-text="rotulo(i.status)"></span></td>
                 <td class="text-right">
                   <% if (user.permissions.has('odonto.plans.manage')) { %>
-                    <div class="acoes-linha" style="justify-content:flex-end">
-                      <button class="btn secondary small" x-show="i.status === 'planejado'" @click="itemStatus(p, i, 'aprovado')">Aprovar</button>
-                      <button class="btn secondary small" x-show="i.status === 'aprovado'" @click="itemStatus(p, i, 'em_andamento')">Iniciar</button>
-                      <button class="btn secondary small" x-show="i.status === 'em_andamento'" @click="itemStatus(p, i, 'concluido')">Concluir</button>
-                      <button class="btn secondary small danger" x-show="i.status !== 'concluido' && i.status !== 'cancelado'" @click="itemStatus(p, i, 'cancelado')">Cancelar</button>
+                    <div class="acoes-linha" style="justify-content:flex-end;flex-wrap:nowrap">
+                      <button class="btn secondary small" x-show="i.status === 'planejado'" @click="itemStatus(p, i, 'aprovado')" title="Aprova este item"><%- include('partials/odonto-icon', { name: 'check', size: 14 }) %><span>Aprovar item</span></button>
+                      <button class="btn secondary small" x-show="i.status === 'aprovado'" @click="itemStatus(p, i, 'em_andamento')" title="Inicia este item"><%- include('partials/odonto-icon', { name: 'play', size: 14 }) %><span>Iniciar item</span></button>
+                      <button class="btn secondary small" x-show="i.status === 'em_andamento'" @click="itemStatus(p, i, 'concluido')" title="Conclui este item"><%- include('partials/odonto-icon', { name: 'check-check', size: 14 }) %><span>Concluir item</span></button>
+                      <button class="icon-btn" x-show="i.status !== 'concluido' && i.status !== 'cancelado'" @click="itemStatus(p, i, 'cancelado')" title="Cancelar este item (não o plano inteiro)" aria-label="Cancelar este item"><%- include('partials/odonto-icon', { name: 'ban', size: 15 }) %></button>
                     </div>
                   <% } %>
                 </td>
@@ -99,18 +97,36 @@
           </tbody>
         </table>
 
-        <div class="toolbar" style="margin-top:8px">
+        <div class="plano-acoes">
+          <!-- UMA ação primária: o próximo passo lógico do plano (ou a cobrança, quando é o que falta). -->
           <% if (user.permissions.has('odonto.plans.manage')) { %>
-            <button class="btn secondary small" x-show="p.status === 'planejado'" @click="status(p, 'apresentado')">Apresentado ao paciente</button>
-            <button class="btn small" x-show="p.status === 'planejado' || p.status === 'apresentado'" @click="status(p, 'aprovado')">Aprovar plano</button>
-            <button class="btn secondary small" x-show="p.status === 'aprovado'" @click="status(p, 'em_andamento')">Iniciar tratamento</button>
-            <button class="btn secondary small" x-show="p.status === 'em_andamento'" @click="status(p, 'concluido')">Concluir plano</button>
-            <button class="btn secondary small" x-show="p.status !== 'concluido' && p.status !== 'cancelado'" @click="editar(p)">Editar itens</button>
-            <button class="btn secondary small danger" x-show="p.status !== 'concluido' && p.status !== 'cancelado'" @click="cancelar(p)">Cancelar plano</button>
-            <button class="btn secondary small danger" x-show="!p.charged_at && p.status !== 'concluido'" @click="apagar(p)">Apagar</button>
+            <button class="btn" x-show="p.status === 'planejado' || p.status === 'apresentado'" @click="status(p, 'aprovado')" title="Aprova o plano e marca todos os itens"><%- include('partials/odonto-icon', { name: 'check' }) %><span>Aprovar plano</span></button>
+            <button class="btn" x-show="p.status === 'aprovado' && (p.charged_at || !podeCobrar)" @click="status(p, 'em_andamento')"><%- include('partials/odonto-icon', { name: 'play' }) %><span>Iniciar tratamento</span></button>
+            <button class="btn" x-show="p.status === 'em_andamento'" @click="status(p, 'concluido')"><%- include('partials/odonto-icon', { name: 'check-check' }) %><span>Concluir plano</span></button>
           <% } %>
           <% if (user.permissions.has('odonto.plans.charge')) { %>
-            <button class="btn small" x-show="!p.charged_at && (p.status === 'aprovado' || p.status === 'em_andamento' || p.status === 'concluido')" @click="abrirCobranca(p)">Gerar cobrança</button>
+            <button class="btn" x-show="!p.charged_at && (p.status === 'aprovado' || p.status === 'concluido')" @click="abrirCobranca(p)" title="Cria a conta a receber no Financeiro do Kivo (com parcelamento), no nome do cliente do paciente"><%- include('partials/odonto-icon', { name: 'wallet' }) %><span>Gerar cobrança</span></button>
+          <% } %>
+
+          <!-- Secundárias e destrutivas ficam no menu "···", longe do caminho principal. -->
+          <% if (user.permissions.has('odonto.plans.manage') || user.permissions.has('odonto.plans.charge')) { %>
+          <div class="dropdown">
+            <button class="icon-btn" @click="menuAberto = menuAberto === p.id ? null : p.id" title="Mais opções" aria-label="Mais opções" aria-haspopup="true"><%- include('partials/odonto-icon', { name: 'more', size: 18 }) %></button>
+            <div class="dropdown-menu" x-show="menuAberto === p.id" x-cloak @click.outside="menuAberto = null">
+              <% if (user.permissions.has('odonto.plans.manage')) { %>
+                <button x-show="p.status === 'planejado'" @click="menuAberto = null; status(p, 'apresentado')"><%- include('partials/odonto-icon', { name: 'send', size: 15 }) %><span>Marcar como apresentado</span></button>
+                <button x-show="p.status === 'aprovado' && !p.charged_at && podeCobrar" @click="menuAberto = null; status(p, 'em_andamento')"><%- include('partials/odonto-icon', { name: 'play', size: 15 }) %><span>Iniciar tratamento</span></button>
+                <button x-show="p.status !== 'concluido' && p.status !== 'cancelado'" @click="menuAberto = null; editar(p)"><%- include('partials/odonto-icon', { name: 'pencil', size: 15 }) %><span>Editar itens</span></button>
+              <% } %>
+              <% if (user.permissions.has('odonto.plans.charge')) { %>
+                <button x-show="!p.charged_at && p.status === 'em_andamento' && podeCobrar" @click="menuAberto = null; abrirCobranca(p)"><%- include('partials/odonto-icon', { name: 'wallet', size: 15 }) %><span>Gerar cobrança</span></button>
+              <% } %>
+              <% if (user.permissions.has('odonto.plans.manage')) { %>
+                <button class="danger" x-show="p.status !== 'concluido' && p.status !== 'cancelado'" @click="menuAberto = null; cancelar(p)"><%- include('partials/odonto-icon', { name: 'ban', size: 15 }) %><span>Cancelar plano</span></button>
+                <button class="danger" x-show="!p.charged_at && p.status !== 'concluido'" @click="menuAberto = null; apagar(p)"><%- include('partials/odonto-icon', { name: 'trash', size: 15 }) %><span>Apagar plano</span></button>
+              <% } %>
+            </div>
+          </div>
           <% } %>
         </div>
       </div>
@@ -122,7 +138,8 @@
 
     <!-- ─────────── Plano (novo/editar) ─────────── -->
     <% if (user.permissions.has('odonto.plans.manage')) { %>
-    <dialog x-ref="dlg" class="dialog-fixed">
+    <dialog x-ref="dlg" class="dialog-fixed dialog-plano">
+      <button type="button" class="dialog-close" @click="$refs.dlg.close()" title="Fechar" aria-label="Fechar"><%- include('partials/odonto-icon', { name: 'x', size: 18 }) %></button>
       <h1 x-text="form.id ? ('Editar plano #' + form.id) : 'Novo plano de tratamento'"></h1>
       <div class="dialog-body">
         <div class="pm-grid">
@@ -140,29 +157,43 @@
 
         <label>Itens do plano</label>
         <template x-for="(it, idx) in form.items" :key="idx">
-          <div class="item-linha">
-            <select class="input" x-model="it.procedure_id" @change="preencherItem(it)">
-              <option value="">Procedimento…</option>
-              <template x-for="proc in procedimentos" :key="proc.id">
-                <option :value="proc.id" x-text="proc.name"></option>
-              </template>
-            </select>
-            <input class="input" type="text" x-model="it.tooth" maxlength="2" placeholder="dente" />
-            <input class="input" type="text" x-model="it.description" maxlength="200" placeholder="descrição do item" />
-            <input class="input" type="number" x-model.number="it.quantity" min="1" max="999" placeholder="qtd" />
-            <input class="input" type="text" :value="centavosParaTexto(it.amount_cents)" @input="it.amount_cents = textoParaCentavos($event.target.value)" placeholder="valor R$" />
-            <select class="input" x-model="it.professional_id">
-              <option value="">Profissional…</option>
-              <template x-for="p in profissionais" :key="p.id">
-                <option :value="p.id" x-text="p.name"></option>
-              </template>
-            </select>
-            <button class="btn secondary small danger" @click.prevent="form.items.splice(idx, 1)">×</button>
+          <div class="item-card">
+            <div class="item-card-head">
+              <span class="item-card-num" x-text="'Item ' + (idx + 1)"></span>
+              <button class="icon-btn" @click.prevent="form.items.splice(idx, 1)" title="Remover este item" aria-label="Remover este item"><%- include('partials/odonto-icon', { name: 'trash', size: 15 }) %></button>
+            </div>
+            <div class="pm-grid">
+              <div class="pm-field">
+                <label>Procedimento</label>
+                <select class="input" x-model="it.procedure_id" @change="preencherItem(it)">
+                  <option value="">Escolha o procedimento…</option>
+                  <template x-for="proc in procedimentos" :key="proc.id">
+                    <option :value="proc.id" x-text="proc.name"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="pm-field"><label>Dente (FDI)</label><input class="input" type="text" x-model="it.tooth" maxlength="2" placeholder="Ex.: 26" /></div>
+            </div>
+            <div class="pm-field"><label>Descrição</label><input class="input" type="text" x-model="it.description" maxlength="200" placeholder="Descrição do item" /></div>
+            <div class="pm-grid">
+              <div class="pm-field"><label>Quantidade</label><input class="input" type="number" x-model.number="it.quantity" min="1" max="999" /></div>
+              <div class="pm-field"><label>Valor unitário (R$)</label><input class="input" type="text" inputmode="decimal" :value="centavosParaTexto(it.amount_cents)" @input="it.amount_cents = textoParaCentavos($event.target.value)" placeholder="0,00" /></div>
+              <div class="pm-field">
+                <label>Profissional</label>
+                <select class="input" x-model="it.professional_id">
+                  <option value="">—</option>
+                  <template x-for="p in profissionais" :key="p.id">
+                    <option :value="p.id" x-text="p.name"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="pm-field"><label>Subtotal</label><div class="subtotal" x-text="brl((Number(it.amount_cents) || 0) * (Number(it.quantity) || 0))"></div></div>
+            </div>
           </div>
         </template>
-        <div class="toolbar" style="margin-top:6px">
-          <button class="btn secondary small" @click.prevent="adicionarItem()">+ Item</button>
-          <span class="total" x-text="'Total: ' + brl(totalFormulario())"></span>
+        <div class="plano-resumo">
+          <button class="btn secondary small" @click.prevent="adicionarItem()"><%- include('partials/odonto-icon', { name: 'plus', size: 14 }) %><span>Adicionar item</span></button>
+          <div class="plano-total"><span>Total do plano</span><strong x-text="brl(totalFormulario())"></strong></div>
         </div>
 
         <label>Observações</label>
@@ -170,8 +201,8 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="salvar()" :disabled="salvando" x-text="salvando ? 'Salvando…' : 'Salvar plano'"></button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="salvar()" :disabled="salvando"><%- include('partials/odonto-icon', { name: 'save' }) %><span x-text="salvando ? 'Salvando…' : 'Salvar plano'"></span></button>
       </div>
     </dialog>
     <% } %>
@@ -179,6 +210,7 @@
     <!-- ─────────── Cobrança no financeiro ─────────── -->
     <% if (user.permissions.has('odonto.plans.charge')) { %>
     <dialog x-ref="dlgCobranca" class="dialog-fixed">
+      <button type="button" class="dialog-close" @click="$refs.dlgCobranca.close()" title="Fechar" aria-label="Fechar"><%- include('partials/odonto-icon', { name: 'x', size: 18 }) %></button>
       <h1>Gerar cobrança no Financeiro</h1>
       <div class="dialog-body">
         <p class="muted" style="margin-top:0" x-show="cobrando">
@@ -193,11 +225,12 @@
           <div class="pm-field"><label>Primeiro vencimento</label><input class="input" type="date" x-model="cobranca.first_due_date" /></div>
         </div>
         <p class="previa" x-text="previaCobranca()"></p>
+        <p class="helper"><%- include('partials/odonto-icon', { name: 'info', size: 14 }) %><span>A cobrança é criada no <strong>Financeiro do Kivo</strong>, no nome do cliente que responde pelo paciente, com o parcelamento escolhido.</span></p>
         <div class="error" x-text="erroCobranca"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlgCobranca.close()">Cancelar</button>
-        <button class="btn" @click="cobrar()" :disabled="cobrandoAgora" x-text="cobrandoAgora ? 'Gerando…' : 'Gerar cobrança'"></button>
+        <button class="btn secondary" @click="$refs.dlgCobranca.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="cobrar()" :disabled="cobrandoAgora"><%- include('partials/odonto-icon', { name: 'wallet' }) %><span x-text="cobrandoAgora ? 'Gerando…' : 'Gerar cobrança'"></span></button>
       </div>
     </dialog>
     <% } %>
@@ -232,6 +265,7 @@
         error: '',
         dlgError: '',
         salvando: false,
+        menuAberto: null,
 
         rotulo(s) { return ROTULOS[s] || s; },
         classePlano(s) { return CLASSES[s] ?? 'off'; },

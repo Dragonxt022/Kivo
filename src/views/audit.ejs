@@ -9,39 +9,145 @@
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <style>
+    .audit-filters { margin-bottom: .6rem; }
+    /* Badges de ação com cor semântica. */
+    .badge.acao-criar { background: color-mix(in srgb, #10b981 16%, var(--surface)); color: color-mix(in srgb, #10b981 82%, var(--text)); border: 1px solid color-mix(in srgb, #10b981 38%, transparent); }
+    .badge.acao-editar { background: color-mix(in srgb, #3b82f6 16%, var(--surface)); color: color-mix(in srgb, #3b82f6 82%, var(--text)); border: 1px solid color-mix(in srgb, #3b82f6 38%, transparent); }
+    .badge.acao-critico { background: color-mix(in srgb, #ef4444 16%, var(--surface)); color: color-mix(in srgb, #ef4444 85%, var(--text)); border: 1px solid color-mix(in srgb, #ef4444 42%, transparent); }
+    .badge.acao-acesso { background: var(--surface-hover); color: var(--text-secondary); border: 1px solid var(--border-light); }
+    .badge.acao-outros { background: var(--surface-hover); color: var(--text-secondary); border: 1px solid var(--border-light); }
+    .badge .warn { color: var(--danger); margin-right: 2px; }
+
+    .log-row { cursor: pointer; }
+    .log-row.aberto { background: var(--surface-hover); }
+    .log-row .chev { display: inline-flex; transition: transform var(--transition); color: var(--text-muted); }
+    .log-row.aberto .chev { transform: rotate(90deg); }
+    .log-detail > td { background: var(--surface-hover); border-top: 0; }
+    .diff { padding: 4px 2px 8px; }
+    .diff-table { width: auto; min-width: 60%; border-collapse: collapse; font-size: .82rem; }
+    .diff-table th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); padding: 2px 12px 4px 0; }
+    .diff-table td { padding: 3px 12px 3px 0; vertical-align: top; border-top: 1px solid var(--border-light); }
+    .diff-table .campo { color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+    .diff-table .antes { color: var(--danger-text); text-decoration: line-through; }
+    .diff-table .depois { color: color-mix(in srgb, #10b981 70%, var(--text)); }
+    .diff-meta { margin-top: 6px; }
+    .ver-link { text-decoration: none; white-space: nowrap; }
+    .ver-link:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'audit' }) %>
   <main x-data="auditPage()" x-init="load()">
     <h1>Auditoria</h1>
-    <div class="toolbar">
-      <input type="text" placeholder="Filtrar por usuário, ação ou entidade…" x-model="q"
-             class="input-search-ghost" style="min-width:280px" />
-      <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
+    <p class="page-subtitle">Trilha de tudo que foi feito no sistema: quem, quando, o que mudou e de onde. Clique numa linha para ver o detalhe da alteração.</p>
+
+    <div class="toolbar audit-filters">
+      <input type="search" placeholder="Filtrar por usuário, ação, objeto ou situação…" x-model="q" class="input" style="min-width:280px" />
+      <div class="filter-chips" role="group" aria-label="Período">
+        <button type="button" class="chip" :class="{ active: periodo === 'tudo' }" @click="setPeriodo('tudo')">Tudo</button>
+        <button type="button" class="chip" :class="{ active: periodo === 'hoje' }" @click="setPeriodo('hoje')">Hoje</button>
+        <button type="button" class="chip" :class="{ active: periodo === '7d' }" @click="setPeriodo('7d')">7 dias</button>
+        <button type="button" class="chip" :class="{ active: periodo === 'mes' }" @click="setPeriodo('mes')">Este mês</button>
+        <button type="button" class="chip" :class="{ active: periodo === 'custom' }" @click="setPeriodo('custom')">Personalizado</button>
+      </div>
+      <input class="input" type="date" x-model="from" x-show="periodo === 'custom'" x-cloak @change="load()" title="De" />
+      <input class="input" type="date" x-model="to" x-show="periodo === 'custom'" x-cloak @change="load()" title="Até" />
     </div>
+
+    <div class="toolbar">
+      <select class="input" x-model="fAcao" style="max-width:190px">
+        <option value="">Todas as ações</option>
+        <option value="criar">Criar</option>
+        <option value="editar">Alterar</option>
+        <option value="critico">Excluir / Cancelar</option>
+        <option value="acesso">Acesso</option>
+        <option value="outros">Outros</option>
+      </select>
+      <select class="input" x-model="fModulo" style="max-width:210px">
+        <option value="">Todos os módulos</option>
+        <option value="odonto">Odontologia</option>
+        <option value="comercial">Comercial</option>
+        <option value="financeiro">Financeiro</option>
+        <option value="fiscal">Fiscal</option>
+        <option value="config">Configurações</option>
+        <option value="acesso">Usuários e acesso</option>
+        <option value="restaurante">Restaurante</option>
+        <option value="pdv">PDV</option>
+        <option value="outros">Outros</option>
+      </select>
+      <select class="input" x-model="fUsuario" style="max-width:200px">
+        <option value="">Todos os usuários</option>
+        <template x-for="u in usuarios" :key="u"><option :value="u" x-text="u"></option></template>
+      </select>
+      <button type="button" class="btn secondary small" @click="exportarCsv()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </button>
+      <span class="muted" x-text="pageTotal + ' registro(s)' + (logs.length >= limite ? ' (máx. ' + limite + ')' : '')"></span>
+    </div>
+
     <table>
       <thead>
         <tr>
           <th @click="sortCycle('created_at')" class="sortable">Quando<span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
           <th @click="sortCycle('username')" class="sortable">Usuário<span class="sort-arrow" x-text="sortArrow('username')"></span></th>
           <th @click="sortCycle('action')" class="sortable">Ação<span class="sort-arrow" x-text="sortArrow('action')"></span></th>
-          <th @click="sortCycle('entity')" class="sortable">Entidade<span class="sort-arrow" x-text="sortArrow('entity')"></span></th>
-          <th>ID</th><th>IP</th><th>Máquina</th>
+          <th>Objeto</th>
+          <th>O que mudou</th>
+          <th></th>
         </tr>
       </thead>
-      <tbody>
-        <template x-for="l in pageRows" :key="l.id">
-          <tr>
-            <td class="muted" x-text="fmtDateTime(l.created_at)"></td>
+      <template x-for="l in pageRows" :key="l.id">
+        <tbody>
+          <tr class="log-row" :class="{ aberto: abertos[l.id] }" @click="toggle(l.id)">
+            <td class="muted tabular" x-text="fmtDateTime(l.created_at)"></td>
             <td x-text="l.username ?? '—'"></td>
-            <td x-text="l.action"></td>
-            <td x-text="l.entity"></td>
-            <td class="muted" x-text="l.entity_id ?? '—'"></td>
-            <td class="muted" x-text="l.ip ?? '—'"></td>
-            <td class="muted" x-text="l.machine ?? '—'"></td>
+            <td>
+              <span class="badge" :class="'acao-' + acaoTipo(l.action)">
+                <span class="warn" x-show="acaoTipo(l.action) === 'critico'">⚠</span><span x-text="acaoLabel(l.action)"></span>
+              </span>
+            </td>
+            <td>
+              <span x-text="entidadeLabel(l.entity)"></span>
+              <template x-if="link(l)"><a class="muted text-xs ver-link" :href="link(l)" @click.stop> · ver →</a></template>
+              <span class="muted text-xs" x-show="l.entity_id" x-text="' #' + l.entity_id"></span>
+            </td>
+            <td class="muted" x-text="resumoMudanca(l)"></td>
+            <td class="text-right"><span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span></td>
           </tr>
-        </template>
-        <tr x-show="!displayRows.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum registro de auditoria encontrado.' }) %></td></tr>
+          <tr class="log-detail" x-show="abertos[l.id]" x-cloak>
+            <td colspan="6">
+              <div class="diff">
+                <template x-if="diff(l).tipo === 'sem'">
+                  <p class="muted text-xs" style="margin:0">Sem detalhes de valores para esta ação.</p>
+                </template>
+                <template x-if="diff(l).tipo !== 'sem'">
+                  <table class="diff-table">
+                    <thead><tr><th>Campo</th><th>Antes</th><th>Depois</th></tr></thead>
+                    <tbody>
+                      <template x-for="r in diff(l).rows" :key="r.k">
+                        <tr>
+                          <td class="campo" x-text="r.label"></td>
+                          <td class="antes" x-text="fmtVal(r.de, r.k)"></td>
+                          <td class="depois" x-text="fmtVal(r.para, r.k)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </template>
+                <p class="muted text-xs diff-meta">
+                  <span x-text="'Registro de auditoria #' + l.id"></span>
+                  <span x-show="l.ip" x-text="' · IP ' + l.ip"></span>
+                  <span x-show="l.machine" x-text="' · máquina ' + l.machine"></span>
+                </p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </template>
+      <tbody x-show="!displayRows.length">
+        <tr><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum registro de auditoria para os filtros escolhidos.' }) %></td></tr>
       </tbody>
     </table>
     <%- include('partials/pager') %>
@@ -49,34 +155,208 @@
   <script nonce="<%= cspNonce %>" src="/js/table-toolkit.js"></script>
   <script nonce="<%= cspNonce %>">
     function auditPage() {
+      // ── Vocabulário: ação e entidade técnicas → linguagem de negócio ──
+      const ACOES = {
+        criar: 'Criou', editar: 'Alterou', excluir: 'Excluiu', cancelar: 'Cancelou',
+        login: 'Entrou', login_rapido: 'Entrou (acesso rápido)', logout: 'Saiu', backup: 'Backup',
+        caixa_abrir: 'Abriu o caixa', caixa_fechar: 'Fechou o caixa', caixa_editar: 'Alterou o caixa',
+        venda: 'Registrou venda', venda_cancelar: 'Cancelou venda', venda_devolver: 'Devolveu venda',
+        reverter_nfe: 'Reverteu NF-e', importar: 'Importou', exportar: 'Exportou',
+        editar_permissoes: 'Alterou permissões', reset_fabrica: 'Restaurou a fábrica',
+        acesso_negado: 'Acesso negado', login_falhou: 'Falha de login', senha_falhou: 'Falha de senha',
+        senha_trocada: 'Trocou a senha', senha_resgatada: 'Redefiniu a senha',
+        conceder_acesso_remoto: 'Concedeu acesso remoto', revogar_acesso_remoto: 'Revogou acesso remoto',
+        instalar_atualizacao: 'Instalou atualização', sync: 'Sincronizou',
+      };
+      const ENTIDADES = {
+        odonto_appointment: 'Agendamento', odonto_patient: 'Paciente', odonto_document: 'Documento',
+        odonto_document_template: 'Modelo de documento', odonto_treatment_plan: 'Plano de tratamento',
+        odonto_treatment_item: 'Item de plano', odonto_treatment_plan_charge: 'Cobrança de plano',
+        odonto_clinical_note: 'Evolução clínica', odonto_anamnesis: 'Anamnese',
+        odonto_anamnesis_template: 'Formulário de anamnese', odonto_exam: 'Exame',
+        odonto_professional: 'Profissional', odonto_procedure: 'Procedimento',
+        odonto_tooth_condition: 'Situação odontológica', odonto_tooth_state: 'Odontograma',
+        customer: 'Cliente', product: 'Produto', product_attribute: 'Atributo do produto',
+        complement_group: 'Grupo de complementos', category: 'Categoria', price_list: 'Tabela de preço',
+        supplier: 'Fornecedor', quote: 'Orçamento', purchase: 'Compra', purchase_invoice: 'Nota da compra',
+        sale: 'Venda', label_sheet: 'Folha de etiquetas', user: 'Usuário', role: 'Cargo',
+        permission: 'Permissão', capability: 'Recurso', remote_access: 'Acesso remoto',
+        security_pin: 'PIN de segurança', setting: 'Configuração', interface_cards: 'Cards do início',
+        interface_modules: 'Módulos do início', license: 'Licença', backup: 'Backup', app: 'Sistema',
+        cash_register: 'Caixa', cash_movement: 'Movimento de caixa', cloud_charge: 'Cobrança da nuvem',
+        agreement_company: 'Convênio', dre_category: 'Categoria da DRE', fiscal_document: 'Documento fiscal',
+        fiscal_config: 'Configuração fiscal', fiscal_certificado: 'Certificado fiscal',
+        'machine-prefs': 'Preferências da máquina', onboarding: 'Configuração inicial',        odonto: 'Odontologia', comanda: 'Comanda', comanda_item: 'Item da comanda',
+      };
+      const ACOES_CRIAR = new Set(['criar','criar_mesa','criar_roteamento_cozinha','criar_ticket_cozinha','abrir_comanda','adicionar_item_comanda','gerar_pagamento','gerar_variantes','convenio_fatura_gerar','preencher_imagens_auto','pin_definido','primeiro_acesso','onboarding_concluir','dividir_comanda']);
+      const ACOES_EDITAR = new Set(['editar','editar_mesa','editar_permissoes','editar_obs_item_comanda','editar_obs_item_cozinha','editar_qtd_item_comanda','editar_roteamento_cozinha','caixa_editar','avancar_item_cozinha','avancar_ticket_cozinha','reavaliar_ticket_cozinha','transferir_comanda','unir_comandas','converter','receber','confirmar_pagamento','enviar_cozinha','estoque_baixa_lote','instalar_atualizacao','senha_trocada','backup_baixar_nuvem','exportar','importar','onboarding_pular','conceder_acesso_remoto']);
+      const ACOES_CRITICO = new Set(['excluir','cancelar','cancelar_comanda','cancelar_ticket_cozinha','anular_item_comanda','anular_item_cozinha','excluir_nuvem','reverter_nfe','venda_cancelar','venda_devolver','remover_mesa','remover_roteamento_cozinha','revogar_acesso_remoto','reset_fabrica','acesso_negado','login_falhou','login_rapido_falhou','senha_falhou']);
+      const ACOES_ACESSO = new Set(['login','login_rapido','logout','backup','caixa_abrir','caixa_fechar','fechar_comanda','venda','senha_resgatada','odonto_demo_dados','sync.run']);
+      const CAMPOS = { starts_at:'Início', ends_at:'Fim', duration_min:'Duração (min)', status:'Situação', patient_id:'Paciente', professional_id:'Profissional', procedure_id:'Procedimento', room:'Sala/cadeira', is_fit_in:'Encaixe', notes:'Observação', title:'Título', name:'Nome', active:'Ativo', type:'Tipo', amount_cents:'Valor', quantity:'Quantidade', total_cents:'Total', description:'Descrição', phone:'Telefone', email:'E-mail', document:'CPF/CNPJ', birthday:'Nascimento', address:'Endereço', cro:'CRO', cro_state:'UF do CRO', default_price_cents:'Valor padrão', due_date:'Vencimento', date:'Data', reason:'Motivo', valid_until:'Válido até', mime:'Formato', size_bytes:'Tamanho', recorded_at:'Data do exame', phase:'Fase', tooth:'Dente', condition_id:'Situação', kind:'Origem' };
+      const MODULO_DE = {
+        odonto: (e) => e.startsWith('odonto'), comercial: (e) => ['customer','product','product_attribute','product_attribute_value','complement_group','complement_group_item','product_complement_group','product_recipe_item','kit_item','category','price_list','price_list_items','supplier','quote','purchase','purchase_invoice','label_sheet','product_type_config'].includes(e),
+        financeiro: (e) => ['cash_register','cash_movement','agreement_company','cloud_charge','dre_category','dre_report'].includes(e),
+        fiscal: (e) => e.startsWith('fiscal'),
+        config: (e) => ['setting','interface_cards','interface_modules','machine-prefs','license','backup','app'].includes(e),
+        acesso: (e) => ['user','role','permission','capability','remote_access','security_pin','quick_profile'].includes(e),
+        restaurante: (e) => ['comanda','comanda_item','table','kitchen_ticket','kitchen_ticket_item','kitchen_routing'].includes(e),
+        pdv: (e) => e === 'sale',
+      };
+
+      const hoje = () => new Date().toISOString().slice(0, 10);
       return {
         ...tableToolkit(),
         logs: [],
-        // O filtro vem da URL quando alguém chega com `?q=odonto` (ex.: painel do Kivo Odonto
-        // apontando para a auditoria do módulo) — mesma caixa de busca, já preenchida.
+        limite: 2000,
         q: new URLSearchParams(location.search).get('q') ?? '',
+        periodo: 'tudo', from: '', to: '',
+        fAcao: '', fModulo: '', fUsuario: '',
+        usuarios: [],
+        abertos: {},
+        error: '',
+
         sortGetters: {
           created_at: (l) => l.created_at ?? '', username: (l) => l.username ?? '',
           action: (l) => l.action ?? '', entity: (l) => l.entity ?? '',
         },
+
+        // ── Tradução ──
+        acaoTipo(a) {
+          const k = String(a || '').toLowerCase();
+          if (ACOES_CRIAR.has(k)) return 'criar';
+          if (ACOES_EDITAR.has(k)) return 'editar';
+          if (ACOES_CRITICO.has(k)) return 'critico';
+          if (ACOES_ACESSO.has(k)) return 'acesso';
+          if (/excluir|cancelar|anular|remover|falh|negado|revogar/.test(k)) return 'critico';
+          if (/criar|gerar|abrir|adicionar|concluir/.test(k)) return 'criar';
+          if (/editar|alterar|avancar|transferir|unir|dividir|converter/.test(k)) return 'editar';
+          return 'outros';
+        },
+        acaoLabel(a) {
+          if (ACOES[a]) return ACOES[a];
+          const g = String(a || '').split(/[._]/).pop();
+          return g ? g.charAt(0).toUpperCase() + g.slice(1).replace(/_/g, ' ') : (a || '—');
+        },
+        entidadeLabel(e) { return ENTIDADES[e] || String(e || '').replace(/^odonto_/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()); },
+        moduloDe(e) { for (const m of Object.keys(MODULO_DE)) if (MODULO_DE[m](e)) return m; return 'outros'; },
+        rotuloCampo(k) { return CAMPOS[k] || String(k || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()); },
+        fmtVal(v, k) {
+          if (v === null || v === undefined || v === '') return '—';
+          if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
+          const key = String(k || '').toLowerCase();
+          if (typeof v === 'number') {
+            if (key.includes('cent') || key.includes('price') || key.includes('amount') || key.includes('total') || key.includes('value')) return window.brl(v);
+            return String(v);
+          }
+          if (typeof v === 'string') {
+            if (/(_at|date|data|nascimento|vencimento|due)/.test(key) && /^\d{4}-\d{2}-\d{2}/.test(v)) return window.fmtDateTime(v);
+            return v;
+          }
+          const s = JSON.stringify(v);
+          return s && s.length > 80 ? s.slice(0, 77) + '…' : s;
+        },
+        parse(json) { try { return json ? JSON.parse(json) : null; } catch (e) { return null; } },
+        diff(l) {
+          const b = this.parse(l.before_json), a = this.parse(l.after_json);
+          if (!b && !a) return { tipo: 'sem', rows: [] };
+          const mk = (obj) => Object.entries(obj).filter(([k]) => k !== 'id').map(([k, v]) => ({ k, label: this.rotuloCampo(k), de: null, para: v }));
+          if (!b && a) return { tipo: 'novo', rows: mk(a) };
+          if (b && !a) return { tipo: 'removido', rows: Object.entries(b).filter(([k]) => k !== 'id').map(([k, v]) => ({ k, label: this.rotuloCampo(k), de: v, para: null })) };
+          const chaves = new Set([...Object.keys(b), ...Object.keys(a)]);
+          const rows = [];
+          for (const k of chaves) {
+            if (k === 'id') continue;
+            if (JSON.stringify(b[k]) !== JSON.stringify(a[k])) rows.push({ k, label: this.rotuloCampo(k), de: b[k], para: a[k] });
+          }
+          return { tipo: rows.length ? 'alterado' : 'sem', rows };
+        },
+        resumoMudanca(l) {
+          const d = this.diff(l);
+          if (d.tipo === 'novo') return 'Registro criado';
+          if (d.tipo === 'removido') return 'Registro removido';
+          if (!d.rows.length) return '—';
+          const txt = d.rows.slice(0, 2).map((r) => `${r.label}: ${this.fmtVal(r.de, r.k)} → ${this.fmtVal(r.para, r.k)}`).join(' · ');
+          return txt + (d.rows.length > 2 ? ` (+${d.rows.length - 2})` : '');
+        },
+        link(l) {
+          const e = l.entity, id = l.entity_id;
+          if (!id) return null;
+          if (e === 'odonto_patient') return '/app/odonto/pacientes/' + id;
+          if (e === 'odonto_document') return '/app/odonto/documentos/' + id + '/imprimir';
+          if (e === 'odonto_document_template' || e === 'odonto_anamnesis_template') return '/app/odonto/modelos-documentos';
+          if (e === 'odonto_appointment') return '/app/odonto/agenda';
+          if (e === 'customer') return '/app/commercial/clientes/' + id;
+          if (e === 'user') return '/admin/usuarios';
+          if (e === 'role') return '/admin/cargos';
+          if (e === 'supplier') return '/app/commercial/fornecedores';
+          if (e === 'category') return '/app/commercial/categorias';
+          if (e === 'product') return '/app/commercial/produtos';
+          return null;
+        },
+        toggle(id) { this.abertos[id] = !this.abertos[id]; },
+
+        // ── Filtros ──
         filtered() {
-          if (!this.q.trim()) return this.logs;
-          const t = this.q.toLowerCase();
-          return this.logs.filter((l) =>
-            (l.username ?? '').toLowerCase().includes(t) ||
-            (l.action ?? '').toLowerCase().includes(t) ||
-            (l.entity ?? '').toLowerCase().includes(t));
+          const t = this.q.trim().toLowerCase();
+          return this.logs.filter((l) => {
+            if (this.fUsuario && l.username !== this.fUsuario) return false;
+            if (this.fAcao && this.acaoTipo(l.action) !== this.fAcao) return false;
+            if (this.fModulo && this.moduloDe(l.entity) !== this.fModulo) return false;
+            if (!t) return true;
+            return [l.username, l.action, l.entity, this.acaoLabel(l.action), this.entidadeLabel(l.entity), String(l.entity_id ?? '')]
+              .join(' ').toLowerCase().includes(t);
+          });
         },
         get displayRows() { return this.sortedRows(this.filtered(), this.sortGetters); },
         get pageTotal() { return this.displayRows.length; },
         get pageRows() { return this.pagedRows(this.displayRows); },
+
+        setPeriodo(p) { this.periodo = p; if (p !== 'custom') this.load(); },
+        intervalo() {
+          const d = new Date();
+          const iso = (x) => x.toISOString().slice(0, 10);
+          if (this.periodo === 'hoje') return { from: iso(d), to: iso(d) };
+          if (this.periodo === '7d') { const x = new Date(d); x.setDate(x.getDate() - 6); return { from: iso(x), to: iso(d) }; }
+          if (this.periodo === 'mes') { const x = new Date(d.getFullYear(), d.getMonth(), 1); return { from: iso(x), to: iso(d) }; }
+          if (this.periodo === 'custom') return { from: this.from, to: this.to };
+          return { from: '', to: '' };
+        },
         async load() {
-          const r = await fetch('/api/audit?limit=500');
-          if (r.ok) this.logs = await r.json();
+          const { from, to } = this.intervalo();
+          const params = new URLSearchParams({ limit: String(this.limite) });
+          if (from) params.set('from', from);
+          if (to) params.set('to', to);
+          const r = await fetch('/api/audit?' + params.toString());
+          if (r.ok) {
+            this.logs = await r.json();
+            if (!this.usuarios.length) {
+              this.usuarios = [...new Set(this.logs.map((l) => l.username).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+            }
+          } else if (r.status === 403) {
+            this.error = 'Sem permissão para ver a auditoria.';
+          }
+        },
+
+        exportarCsv() {
+          const cols = ['Quando', 'Usuário', 'Ação', 'Módulo', 'Objeto', 'ID', 'O que mudou', 'IP', 'Máquina'];
+          const linhas = this.displayRows.map((l) => [
+            this.fmtDateTime(l.created_at), l.username ?? '', this.acaoLabel(l.action), this.moduloDe(l.entity),
+            this.entidadeLabel(l.entity), l.entity_id ?? '', this.resumoMudanca(l), l.ip ?? '', l.machine ?? '',
+          ]);
+          const csv = [cols, ...linhas]
+            .map((r) => r.map((c) => '"' + String(c).replace(/"/g, '""') + '"').join(';'))
+            .join('\r\n');
+          const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'auditoria-' + hoje() + '.csv';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(a.href);
         },
       };
     }
   </script>
 </body>
 </html>
-

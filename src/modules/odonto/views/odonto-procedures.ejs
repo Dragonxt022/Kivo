@@ -14,11 +14,12 @@
   <%- include('partials/nav', { user, page: '/app/odonto/procedimentos' }) %>
   <main id="tour-odonto-conteudo" x-data="proceduresPage()" x-init="load()">
     <h1>Procedimentos</h1>
+    <p class="page-subtitle">Catálogo clínico com valor de tabela e duração estimada. É daqui que saem os itens do orçamento e a agenda sugere o tempo de cada atendimento.</p>
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.procedures.manage')) { %>
         <button class="btn" @click="openNew()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Novo procedimento
+          <%- include('partials/odonto-icon', { name: 'plus' }) %>
+          <span>Novo procedimento</span>
         </button>
       <% } %>
       <input type="text" placeholder="Buscar por nome, código ou categoria…" x-model="q" @input.debounce.400ms="load()" class="input-search" />
@@ -51,8 +52,8 @@
                 </button>
                 <div class="dropdown-menu" x-show="openMenu === r.id" x-cloak @click.outside="openMenu = null">
                   <% if (user.permissions.has('odonto.procedures.manage')) { %>
-                  <button @click="openMenu = null; openEdit(r)">Editar</button>
-                  <button class="danger" @click="openMenu = null; remove(r)">Excluir</button>
+                  <button @click="openMenu = null; openEdit(r)"><%- include('partials/odonto-icon', { name: 'pencil', size: 15 }) %><span>Editar</span></button>
+                  <button class="danger" @click="openMenu = null; remove(r)"><%- include('partials/odonto-icon', { name: 'trash', size: 15 }) %><span>Excluir</span></button>
                   <% } %>
                 </div>
               </div>
@@ -86,8 +87,8 @@
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
-        <button class="btn secondary" @click="$refs.dlg.close()">Cancelar</button>
-        <button class="btn" @click="save()">Salvar</button>
+        <button class="btn secondary" @click="$refs.dlg.close()"><%- include('partials/odonto-icon', { name: 'x' }) %><span>Cancelar</span></button>
+        <button class="btn" @click="save()"><%- include('partials/odonto-icon', { name: 'save' }) %><span>Salvar</span></button>
       </div>
     </dialog>
 

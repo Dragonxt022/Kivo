@@ -28,6 +28,10 @@
   .item-linha input.input, .item-linha select.input,
   .situacao-linha input.input, .situacao-linha select.input { padding: 0.4rem 0.6rem; font-size: 0.84rem; }
 
+  /* Grupo de botões de ação de uma linha (aprovar/iniciar/cancelar…): sem isto eles ficam
+     colados, sem respiro nem quebra de linha. Vale para a tela do odontograma e a de planos. */
+  .acoes-linha { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
   /* Mensagem amigável de "nada aqui": nunca um quadro vazio sem explicação. */
   .odonto-vazio {
     border: 1px dashed var(--border-light);
@@ -45,6 +49,11 @@
      próprias classes (ex.: `.num` no overview); aqui o utilitário é `.tabular`. */
   .tabular { font-variant-numeric: tabular-nums; }
 
+  /* Ícone no botão: `app.css` só dá a folga da direita (ícone na frente do texto). Quando o
+     ícone é o único filho ou o último (ex.: "Próximo →"), a folga muda de lado. */
+  .btn > svg:last-child { margin-right: 0; }
+  .btn > svg:last-child:not(:only-child) { margin-left: 0.4rem; }
+
   /* Botão de rever o tutorial, fixo no canto: existe em toda tela do módulo. */
   .odonto-tour-btn {
     position: fixed; left: 16px; bottom: 16px; z-index: 40;
@@ -54,17 +63,64 @@
   }
   .odonto-tour-btn:hover { color: var(--primary); border-color: var(--primary); }
 
-  /* Navegação entre as abas do paciente (Resumo, Anamnese, Tratamentos…). Estava repetida,
-     com a mesma regra, em cinco telas — aqui fala a mesma língua em todas. */
-  .secoes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-  .secoes a, .secoes span {
-    padding: 5px 12px; border-radius: 999px; font-size: .78rem; font-weight: 600;
-    border: 1px solid var(--border-light); text-decoration: none; color: var(--muted);
-    transition: border-color var(--transition), color var(--transition);
+  /* Respiro no fim da página para os atalhos FIXOS (tutorial aqui à esquerda e o suporte à
+     direita) não cobrirem o último card. Só na tela — a impressão (folha A4) fica intacta. */
+  @media screen { main { padding-bottom: 88px; } }
+
+  /* "X" de fechar no canto do diálogo: fechar não deve depender só do rodapé. */
+  .dialog-close {
+    position: absolute; top: 12px; right: 12px; z-index: 2;
+    width: 32px; height: 32px; display: grid; place-items: center;
+    border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer;
+    transition: background var(--transition), color var(--transition);
   }
-  .secoes a:hover { color: var(--text); border-color: var(--border); }
-  .secoes a.atual { background: var(--primary-soft, var(--primary-bg)); color: var(--primary); border-color: transparent; }
-  .secoes span.planejado { opacity: .55; }
+  .dialog-close:hover { background: var(--surface-hover); color: var(--text); }
+
+  /* Navegação entre as abas do paciente (Resumo, Anamnese, Tratamentos…) em estilo de ABA
+     (sublinhado na ativa), não de botão: antes eram pílulas com borda e fundo, e se
+     confundiam com botões de ação/badges de status. */
+  .secoes { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 16px; border-bottom: 1px solid var(--border-light); }
+  .secoes a, .secoes > span {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 12px 7px; margin-bottom: -1px; font-size: .82rem; font-weight: 600;
+    border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0;
+    text-decoration: none; color: var(--muted);
+    transition: color var(--transition), background var(--transition), border-color var(--transition);
+  }
+  .secoes a svg { opacity: .7; }
+  .secoes a:hover { color: var(--text); background: var(--surface-hover); }
+  .secoes a.atual { color: var(--primary); border-bottom-color: var(--primary); }
+  .secoes a.atual svg { opacity: 1; }
+  .secoes > span.planejado { opacity: .55; }
+  /* Foco por teclado nas abas: sem isto, o contorno preto padrão do navegador parece um
+     "segundo estado ativo" e confunde (parecia que duas abas estavam selecionadas). */
+  .secoes a:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: 8px; }
+
+  /* Callout informativo: regra de negócio vira caixa de apoio em vez de texto solto na tela. */
+  .helper {
+    display: flex; gap: 7px; align-items: flex-start;
+    margin: 10px 0 0; padding: 9px 11px; border-radius: 8px;
+    background: var(--surface-hover); border: 1px solid var(--border-light);
+    color: var(--text-secondary); font-size: .8rem; line-height: 1.45;
+  }
+  .helper svg { color: var(--primary); flex: none; margin-top: 1px; }
+
+  /* Rótulo/contador em pílula dentro de uma barra de ferramentas (resumos, filtros ativos). */
+  .toolbar-note {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--surface-hover); border: 1px solid var(--border-light);
+    color: var(--text-secondary); font-size: .78rem;
+  }
+  .toolbar-note svg { color: var(--muted); }
+
+  /* Referência do paciente no título da tela: identificação clara (e não cinza quase invisível). */
+  .patient-ref {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px;
+    background: var(--surface-hover); border: 1px solid var(--border-light);
+    color: var(--text-secondary); font-size: .82rem; font-weight: 600; vertical-align: middle;
+  }
+  .patient-ref svg { color: var(--primary); }
 
   /* Bloco de conteúdo com respiro próprio: agrupa título, texto e ações para o botão não
      encostar na tabela nem o subtítulo no título. */
@@ -76,7 +132,8 @@
     margin-bottom: 1rem;
     box-shadow: var(--shadow-xs);
   }
-  .odonto-section > h2 { margin: 0 0 .3rem; font-size: 1.02rem; }
+  .odonto-section > h2 { margin: 0 0 .3rem; font-size: 1.02rem; display: flex; align-items: center; gap: 8px; }
+  .odonto-section > h2 svg { color: var(--primary); flex: none; }
   .odonto-section > h2:not(:first-child) { margin-top: .4rem; }
   .odonto-section > table { box-shadow: none; }
   .odonto-section > .toolbar { margin: .85rem 0 0; }
