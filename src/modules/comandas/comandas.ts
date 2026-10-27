@@ -22,6 +22,44 @@ interface ComandaRow {
 
 interface ComandaItemRow { id: number; productId: number; productName: string; qty: number; notes: string | null; lineGroupUuid: string | null; unit_price_cents: number }
 
+/**
+ * Produto principal da mesma linha de complementos (`line_group_uuid`).
+ *
+ * O primeiro item lançado no grupo é o principal; os seguintes são complementos.
+ * Quando o próprio item consultado é o primeiro (ou não há grupo), devolve `null`
+ * e o preço segue o caminho normal. Usado tanto ao lançar quanto ao só alterar a
+ * quantidade — sem isso, mudar a qtd de um adicional re-resolvia o preço de
+ * catálogo e apagava o `price_override_cents` do grupo.
+ */
+function findLineBaseProductId(
+  comandaId: number, lineGroupUuid: string | null, currentItemId?: number,
+): number | null {
+  if (!lineGroupUuid) return null;
+  const base = comandaItemRepository.rawOne(
+    // Inclui itens anulados de propósito: se o principal foi anulado mas os
+    // adicionais continuam na mesa, o preço deles ainda é o do grupo.
+    `SELECT id, product_id FROM comanda_items
+      WHERE comanda_id = ? AND line_group_uuid = ? AND deleted_at IS NULL
+      ORDER BY id LIMIT 1`,
+    comandaId, lineGroupUuid,
+  ) as { id: number; product_id: number } | undefined;
+  if (!base || base.id === currentItemId) return null;
+  return base.product_id;
+}
+
+/** Preço congelado da linha: complemento usa override/catálogo do grupo; o resto, pricing. */
+function resolveLineUnitPrice(
+  pricing: CommercialPricingService, comanda: ComandaRow, productId: number, qty: number,
+  lineGroupUuid: string | null, currentItemId?: number,
+): number {
+  const baseProductId = findLineBaseProductId(comanda.id, lineGroupUuid, currentItemId);
+  if (baseProductId != null && baseProductId !== productId) {
+    const complementCents = pricing.resolveComplementPrice(baseProductId, productId);
+    if (complementCents != null) return complementCents;
+  }
+  return pricing.resolvePrice(productId, qty, comanda.customer_id).unitCents;
+}
+
 export function openComanda(req: Request, params: OpenComandaParams): { ok: true; id: number } | { ok: false; error: string } {
   assertAuth(req);
   if (params.tableId) {
@@ -67,7 +105,9 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
   ) as { id: number; name: string; price_cents: number; deleted_at: string | null } | undefined;
   if (!product) return { ok: false, error: 'Produto nao encontrado.' };
   const pricing = getService<CommercialPricingService>('commercial.pricing');
-  const unitPriceCents = pricing.resolvePrice(product.id, params.qty, comanda.customer_id).unitCents;
+  const unitPriceCents = resolveLineUnitPrice(
+    pricing, comanda, product.id, params.qty, params.lineGroupUuid ?? null,
+  );
   const itemId = comandaItemRepository.create({
     comanda_id: comandaId,
     product_id: product.id,
@@ -138,12 +178,15 @@ export function updateItemQty(req: Request, comandaId: number, itemId: number, q
   const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  const item = comandaItemRepository.findInComanda(itemId, comandaId) as { id: number; voided_at: string | null; product_id: number } | undefined;
+  const item = comandaItemRepository.findInComanda(itemId, comandaId) as
+    { id: number; voided_at: string | null; product_id: number; line_group_uuid: string | null } | undefined;
   if (!item) return { ok: false, error: 'Item nao encontrado.' };
   if (item.voided_at) return { ok: false, error: 'Item ja foi anulado.' };
   if (!(qty > 0)) return { ok: false, error: 'Quantidade deve ser positiva.' };
   const pricing = getService<CommercialPricingService>('commercial.pricing');
-  const unitPriceCents = pricing.resolvePrice(item.product_id, qty, comanda.customer_id).unitCents;
+  const unitPriceCents = resolveLineUnitPrice(
+    pricing, comanda, item.product_id, qty, item.line_group_uuid, item.id,
+  );
   comandaItemRepository.update(itemId, { qty, unit_price_cents: unitPriceCents });
   audit(req, 'editar_qtd_item_comanda', 'comanda_item', itemId, null, { qty, unitPriceCents });
   comandaRepository.setReadyForPayment(comandaId, false);
@@ -293,15 +336,39 @@ export function closeComanda(
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
   const dbItems = comandaItemRepository.listActiveByComanda(comandaId) as unknown as ComandaItemRow[];
+  const pricing = getService<CommercialPricingService>('commercial.pricing');
+  // O primeiro item de cada line_group_uuid é o produto principal; os demais são
+  // complementos. A busca inclui anulados: se o principal foi anulado mas o adicional
+  // ficou, o preço do adicional continua sendo o do grupo (override ?? catálogo).
+  const lineBase = new Map<string, number>();
+  for (const row of comandaItemRepository.raw(
+    `SELECT product_id AS productId, line_group_uuid AS lineGroupUuid
+       FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL ORDER BY id`,
+    comandaId,
+  ) as { productId: number; lineGroupUuid: string | null }[]) {
+    if (row.lineGroupUuid && !lineBase.has(row.lineGroupUuid)) {
+      lineBase.set(row.lineGroupUuid, row.productId);
+    }
+  }
   const items = input.items?.length
     ? input.items
-    : dbItems.map((i) => ({
-        productId: i.productId,
-        qty: i.qty,
-        notes: i.notes ?? undefined,
-        lineGroupUuid: i.lineGroupUuid ?? undefined,
-        unitPriceCents: i.unit_price_cents,
-      }));
+    : dbItems.map((i) => {
+        let unitPriceCents = i.unit_price_cents;
+        if (i.lineGroupUuid) {
+          const baseProductId = lineBase.get(i.lineGroupUuid);
+          if (baseProductId != null && baseProductId !== i.productId) {
+            const complementCents = pricing.resolveComplementPrice(baseProductId, i.productId);
+            if (complementCents != null) unitPriceCents = complementCents;
+          }
+        }
+        return {
+          productId: i.productId,
+          qty: i.qty,
+          notes: i.notes ?? undefined,
+          lineGroupUuid: i.lineGroupUuid ?? undefined,
+          unitPriceCents,
+        };
+      });
   if (!items.length) return { ok: false, error: 'Comanda sem itens para fechar.' };
   const saleInput: SaleInput = {
     items,

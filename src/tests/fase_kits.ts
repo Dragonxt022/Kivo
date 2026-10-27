@@ -7,7 +7,7 @@ import { registerCapabilities } from '../core/modules/loader';
 import { registerService } from '../core/services/registry';
 import type { CommercialStockService, CommercialPricingService, CommercialStoreCreditService, CommercialLoyaltyService } from '../modules/commercial/setup';
 import { moveStock, moveStockRaw, listMovements } from '../modules/commercial/stock';
-import { resolvePrice, resolveMany } from '../modules/commercial/pricing';
+import { resolvePrice, resolveMany, resolveComplementPrice } from '../modules/commercial/pricing';
 import * as storeCredit from '../modules/commercial/storeCredit';
 import * as loyalty from '../modules/commercial/loyalty';
 
@@ -39,7 +39,7 @@ async function main() {
 
   // Registrar servicos necessarios para createSale
   registerService('commercial.stock', { move: moveStock, moveRaw: moveStockRaw, listMovements } satisfies CommercialStockService);
-  registerService('commercial.pricing', { resolvePrice, resolveMany } satisfies CommercialPricingService);
+  registerService('commercial.pricing', { resolvePrice, resolveMany, resolveComplementPrice } satisfies CommercialPricingService);
   registerService('commercial.storeCredit', {
     grantRaw: storeCredit.grant, redeemRaw: storeCredit.redeem, reverseRaw: storeCredit.reverse,
     balance: storeCredit.getBalance, listMovements: storeCredit.listCreditMovements,

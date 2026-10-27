@@ -66,6 +66,12 @@ function resolveQuoteItems(
   allowPriceOverride: boolean,
 ): ResolvedQuoteItem[] | { error: string } {
   const out: ResolvedQuoteItem[] = [];
+  const lineBase = new Map<string, number>();
+  for (const item of items) {
+    if (item.lineGroupUuid && !lineBase.has(item.lineGroupUuid)) {
+      lineBase.set(item.lineGroupUuid, item.productId);
+    }
+  }
   for (const item of items) {
     const p = productRepository.rawOne(
       'SELECT id, name, price_cents, active FROM products WHERE id = ? AND deleted_at IS NULL',
@@ -73,10 +79,15 @@ function resolveQuoteItems(
     ) as { id: number; name: string; price_cents: number; active: number } | undefined;
     if (!p || !p.active) return { error: `Produto ${item.productId} não encontrado ou inativo.` };
     if (!(item.qty > 0)) return { error: `Quantidade inválida para "${p.name}".` };
+    const baseProductId = item.lineGroupUuid ? lineBase.get(item.lineGroupUuid) : undefined;
+    const complementCents =
+      baseProductId != null && baseProductId !== p.id
+        ? pricing.resolveComplementPrice(baseProductId, p.id)
+        : null;
     const unitCents =
       allowPriceOverride && item.unitPriceCents != null
         ? Math.round(item.unitPriceCents)
-        : pricing.resolvePrice(p.id, item.qty, customerId).unitCents;
+        : complementCents ?? pricing.resolvePrice(p.id, item.qty, customerId).unitCents;
     out.push({
       productId: p.id,
       name: p.name,

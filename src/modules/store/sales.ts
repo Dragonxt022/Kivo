@@ -98,6 +98,15 @@ function resolveSaleItems(
   opts: { allowPriceOverride?: boolean },
 ): ResolvedItem[] | { error: string } {
   const items: ResolvedItem[] = [];
+  // Primeiro item de cada line_group_uuid = produto principal; os seguintes são
+  // complementos. Serve para achar o preço do grupo (override ?? catálogo) mesmo
+  // quando o cliente não manda `unitPriceCents` — o caso normal do PDV.
+  const lineBase = new Map<string, number>();
+  for (const item of input.items) {
+    if (item.lineGroupUuid && !lineBase.has(item.lineGroupUuid)) {
+      lineBase.set(item.lineGroupUuid, item.productId);
+    }
+  }
   // Custo FIFO: com o método em "fifo" (Configurações › Estoque), o custo da venda é o do
   // lote que a saída vai consumir — a média dos lotes que cobrem a quantidade. Produtos sem
   // lote caem no próprio custo (não há lote para consumir).
@@ -117,10 +126,15 @@ function resolveSaleItems(
       return { error: `"${p.name}" é um produto com variações — escolha a variação (tamanho, cor etc.) que será vendida.` };
     }
     if (!(item.qty > 0)) return { error: `Quantidade inválida para "${p.name}".` };
+    const baseProductId = item.lineGroupUuid ? lineBase.get(item.lineGroupUuid) : undefined;
+    const complementCents =
+      baseProductId != null && baseProductId !== p.id
+        ? pricing.resolveComplementPrice(baseProductId, p.id)
+        : null;
     const unitCents =
       opts.allowPriceOverride && item.unitPriceCents != null
         ? Math.round(item.unitPriceCents)
-        : pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
+        : complementCents ?? pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
     const notes = item.notes ?? null;
     const lineGroupUuid = item.lineGroupUuid ?? null;
     items.push({

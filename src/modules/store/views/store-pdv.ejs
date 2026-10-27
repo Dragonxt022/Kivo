@@ -1079,7 +1079,10 @@
                 sku: null,
                 image_url: null,
               };
-              this.addToCart(complementProduct, qty, lineGroupUuid, this.complementDlg.mainNotes || null);
+              // priceLocked: o preço do complemento vem do grupo (override/catálogo) e
+              // não pode ser sobrescrito pelo repriceCart com o preço de catálogo do
+              // produto. O servidor recalcula esse mesmo valor ao fechar a venda.
+              this.addToCart(complementProduct, qty, lineGroupUuid, this.complementDlg.mainNotes || null, true);
             }
           }
           this.$refs.complementDlg.close();
@@ -1500,11 +1503,11 @@
           }
           this.addToCart(p, qty, null, null);
         },
-        addToCart(p, qty, lineGroupUuid, notes) {
+        addToCart(p, qty, lineGroupUuid, notes, priceLocked = false) {
           this.cart.push({
             productId: p.id, name: p.name, price_cents: p.price_cents, qty,
             sku: p.sku ?? null, image_url: p.image_url ?? null,
-            lineGroupUuid, notes,
+            lineGroupUuid, notes, ...(priceLocked ? { priceLocked: true } : {}),
           });
           this.q = ''; this.results = []; this.highlightIdx = -1;
           this.focusSearch();
@@ -1532,15 +1535,20 @@
           // Preço congelado: na comanda (congelado no pedido) e no orçamento (o cliente
           // recebeu um papel com o valor). Re-resolver aqui apagaria o preço cotado.
           if (this.slots[this.activeSlot].comandaId || this.slots[this.activeSlot].quoteId) return;
+          // Complementos têm preço próprio do grupo (`price_override_cents`); re-resolver
+          // por productId trocaria pelo catálogo e sumiria com o adicional do total.
+          const lines = this.cart.filter((i) => !i.priceLocked);
+          if (!lines.length) return;
           const r = await fetch('/api/commercial/pricing/resolve', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ customerId: this.customerId || null, items: this.cart.map((i) => ({ productId: i.productId, qty: i.qty })) }),
+            body: JSON.stringify({ customerId: this.customerId || null, items: lines.map((i) => ({ productId: i.productId, qty: i.qty })) }),
           });
           if (!r.ok) return;
           const { prices } = await r.json();
-          for (const p of prices) {
-            const line = this.cart.find((i) => i.productId === p.productId);
-            if (line) line.price_cents = p.unitCents;
+          // A resposta vem na mesma ordem do pedido — parear por índice evita aplicar
+          // o preço da primeira ocorrência a outra linha do mesmo produto.
+          for (let i = 0; i < prices.length && i < lines.length; i++) {
+            lines[i].price_cents = prices[i].unitCents;
           }
           this.persistSlots();
         },
@@ -2000,15 +2008,21 @@
             discountReason: this.discountReason || undefined,
             customerId: this.customerId || undefined,
             customerName: freeName,
-            items: this.cart.map((i) => ({
-              productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined,
-              // Só envia o preço da linha quando o operador o alterou de propósito (desconto
-              // por item). Sem isso, o servidor re-resolve o preço de catálogo.
-              unitPriceCents: i.priceOverridden ? i.price_cents : undefined,
-            })),
             clientRequestId: this.pay.clientRequestId || undefined,
           };
+          if (!comandaId) {
+            commonBody.items = this.cart.map((i) => ({
+              productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined,
+              // Só envia o preço da linha quando o operador o alterou de propósito (desconto
+              // por item). Sem isso, o servidor re-resolve o preço de catálogo — e nos
+              // complementos ele aplica o override/catálogo do grupo.
+              unitPriceCents: i.priceOverridden ? i.price_cents : undefined,
+            }));
+          }
           if (comandaId) {
+            // A comanda é a fonte da verdade do preço congelado (inclusive complementos).
+            // O carrinho aqui é só espelho e não pode ser editado, então o servidor lê os
+            // itens do banco e recalcula o override dos adicionais ao fechar.
             r = await fetch(`/api/comandas/comandas/${comandaId}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(commonBody) });
           } else if (quoteId) {
             // Faturar o orçamento: os itens vão com o preço cotado (o servidor honra via

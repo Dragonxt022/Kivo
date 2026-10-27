@@ -106,6 +106,17 @@ async function main(): Promise<void> {
     check('preço unitário NÃO zera ao atualizar quantidade', item.unit_price_cents === 600,
       `unit_price_cents=${item.unit_price_cents}`);
 
+    // ── Quantidade decimal (o "0,240" que o input type=number recusava) ──
+    const updDecimal = await api(`/api/comandas/comandas/${comandaId}/items/${itemId}/qty`, {
+      method: 'PUT', body: JSON.stringify({ qty: 0.24 }),
+    });
+    const itensDecimal = await getComanda();
+    const itemDecimal = itensDecimal.find((i) => i.id === itemId)!;
+    check('quantidade decimal é aceita e gravada', updDecimal.ok && itemDecimal.qty === 0.24,
+      `qty=${itemDecimal.qty}`);
+    check('preço continua o mesmo com quantidade decimal', itemDecimal.unit_price_cents === 600,
+      `unit_price_cents=${itemDecimal.unit_price_cents}`);
+
     // ── Remover (anular) item da comanda ──
     const del = await api(`/api/comandas/comandas/${comandaId}/items/${itemId}`, { method: 'DELETE' });
     const itemsApos = await getComanda();
@@ -114,10 +125,14 @@ async function main(): Promise<void> {
       `${itemsApos.length} item(ns) restante(s)`);
 
     // Erro de EJS não aparece em teste de API — GET na tela pega o typo antes do garçom.
+    // A edição de quantidade agora abre uma modal com teclado próprio (aceita "0,240");
+    // o input type=number antigo recusava vírgula e zerava a quantidade.
     const pagina = await api(`/app/comandas/mesas/${comandaId}`);
     const html = await pagina.text();
-    check('a tela da comanda abre com o controle de quantidade',
-      pagina.ok && html.includes('x-model.number="item.qty"') && html.includes('onQtyInput'),
+    check('a tela da comanda abre com a modal de quantidade',
+      pagina.ok && html.includes('x-ref="qtyDlg"') && html.includes('openQtyDlg')
+        && html.includes("qtyKey(',')") && html.includes('0,240')
+        && !html.includes('x-model.number="item.qty"'),
       `status=${pagina.status}`);
   } finally {
     server.close();

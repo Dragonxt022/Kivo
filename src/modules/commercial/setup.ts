@@ -2,7 +2,7 @@ import { registerService } from '../../core/services/registry';
 import { registerRecomputeHook } from '../../core/sync/registry';
 import { moveStock, moveStockRaw, listMovements, recomputeStockForProducts } from './stock';
 import { createPurchaseInbound } from './purchaseInbound';
-import { resolvePrice, resolveMany } from './pricing';
+import { resolvePrice, resolveMany, resolveComplementPrice } from './pricing';
 import * as storeCredit from './storeCredit';
 import * as loyalty from './loyalty';
 import * as customers from './customers';
@@ -24,6 +24,7 @@ export interface CommercialPurchaseInboundService {
 export interface CommercialPricingService {
   resolvePrice: typeof resolvePrice;
   resolveMany: typeof resolveMany;
+  resolveComplementPrice: typeof resolveComplementPrice;
 }
 
 /** Crédito de troca (vale por devolução) — funções "Raw" não abrem transação própria. */
@@ -61,7 +62,7 @@ export interface CommercialCustomersService {
 
 export default function setup(): void {
   registerService('commercial.stock', { move: moveStock, moveRaw: moveStockRaw, listMovements } satisfies CommercialStockService);
-  registerService('commercial.pricing', { resolvePrice, resolveMany } satisfies CommercialPricingService);
+  registerService('commercial.pricing', { resolvePrice, resolveMany, resolveComplementPrice } satisfies CommercialPricingService);
   registerService('commercial.purchaseInbound', { createInbound: createPurchaseInbound } satisfies CommercialPurchaseInboundService);
   registerService('commercial.customers', {
     create: customers.createCustomer, update: customers.updateCustomer,
