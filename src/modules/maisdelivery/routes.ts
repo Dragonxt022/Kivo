@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
-import { maisDeliveryOrderStatusSchema, maisDeliverySettingsSchema } from '../../shared/schemas';
+import {
+  maisDeliveryOrderIdsSchema,
+  maisDeliveryOrderStatusSchema,
+  maisDeliverySettingsSchema,
+} from '../../shared/schemas';
 import { maisDeliveryController } from './controllers/MaisDeliveryController';
 
 const router = Router();
@@ -30,6 +34,12 @@ router.get(
   '/orders',
   requirePermission('maisdelivery.orders.view'),
   maisDeliveryController.listOrders,
+);
+router.post(
+  '/orders/details',
+  requirePermission('maisdelivery.orders.view'),
+  validateBody(maisDeliveryOrderIdsSchema),
+  maisDeliveryController.getOrdersDetails,
 );
 router.get(
   '/orders/:id',

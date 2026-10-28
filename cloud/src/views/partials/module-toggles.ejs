@@ -21,6 +21,7 @@
     { id: 'nfe', label: 'Importação de NF-e (XML)' },
     { id: 'labels', label: 'Gerador de Etiquetas (produto em folha A4)' },
     { id: 'odonto', label: 'Kivo Odonto (consultórios e clínicas odontológicas)' },
+    { id: 'maisdelivery', label: 'Mais Delivery (pedidos do marketplace)' },
   ];
 
   var TODOS = KNOWN_MODULES.map(function (m) { return m.id; });
@@ -37,8 +38,8 @@
     { id: 'odontologia', label: 'Odontologia / clínica', modules: ['commercial', 'finance', 'store', 'odonto', 'dre', 'nfe'] },
     { id: 'farmacia', label: 'Farmácia', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },
     { id: 'roupas', label: 'Loja de roupas / calçados', modules: ['commercial', 'finance', 'store', 'fiscal', 'dre', 'labels'] },
-    { id: 'sorveteria', label: 'Sorveteria / açaí', modules: ['commercial', 'finance', 'store', 'dre', 'labels'] },
-    { id: 'restaurante', label: 'Restaurante / lanchonete', modules: ['commercial', 'finance', 'store', 'comandas', 'foodservice', 'fiscal', 'dre', 'labels'] },
+    { id: 'sorveteria', label: 'Sorveteria / açaí', modules: ['commercial', 'finance', 'store', 'dre', 'labels', 'maisdelivery'] },
+    { id: 'restaurante', label: 'Restaurante / lanchonete', modules: ['commercial', 'finance', 'store', 'comandas', 'foodservice', 'fiscal', 'dre', 'labels', 'maisdelivery'] },
     { id: 'padaria', label: 'Padaria / confeitaria', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },
     { id: 'mercado', label: 'Mercado / mercearia', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },
     { id: 'conveniencia', label: 'Conveniência / adega', modules: ['commercial', 'finance', 'store', 'fiscal', 'nfe', 'dre', 'labels'] },

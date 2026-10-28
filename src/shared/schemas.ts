@@ -12,7 +12,21 @@ export const createProductSchema = z.object({
   trackStock: z.boolean().optional(),
   minStock: z.number().int().min(0).optional(),
   controlaLote: z.boolean().optional(),
-  productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura', 'complemento']).optional(),
+  productType: z
+    .enum([
+      'fisico',
+      'variante',
+      'fracionado',
+      'composto',
+      'kit',
+      'combo',
+      'produzido',
+      'servico',
+      'digital',
+      'assinatura',
+      'complemento',
+    ])
+    .optional(),
   initialStock: z.number().int().positive().optional(),
   imageBase64: z.string().optional(),
   imageUrl: z.string().optional(),
@@ -33,7 +47,21 @@ export const updateProductSchema = z.object({
   minStock: z.number().int().min(0).optional(),
   controlaLote: z.boolean().optional(),
   active: z.boolean().optional(),
-  productType: z.enum(['fisico', 'variante', 'fracionado', 'composto', 'kit', 'combo', 'produzido', 'servico', 'digital', 'assinatura', 'complemento']).optional(),
+  productType: z
+    .enum([
+      'fisico',
+      'variante',
+      'fracionado',
+      'composto',
+      'kit',
+      'combo',
+      'produzido',
+      'servico',
+      'digital',
+      'assinatura',
+      'complemento',
+    ])
+    .optional(),
   imageBase64: z.string().optional(),
   imageUrl: z.string().optional(),
   removeImage: z.boolean().optional(),
@@ -42,7 +70,9 @@ export const updateProductSchema = z.object({
 
 export const stockMoveSchema = z.object({
   productId: z.number().int().positive('ID do produto inválido.'),
-  type: z.enum(['entrada', 'saida', 'ajuste'], { error: 'Tipo deve ser entrada, saida ou ajuste.' }),
+  type: z.enum(['entrada', 'saida', 'ajuste'], {
+    error: 'Tipo deve ser entrada, saida ou ajuste.',
+  }),
   qty: z.number().positive('Quantidade deve ser positiva.'),
   reason: z.string().optional(),
   /** Lote (produto com controla_lote). */
@@ -61,38 +91,46 @@ export const saleItemSchema = z.object({
   lineGroupUuid: z.string().optional(),
 });
 
-export const salePaymentSchema = z.object({
-  methodId: z.number().int().positive('ID da forma de pagamento inválido.').optional(),
-  paymentMethodId: z.number().int().positive('ID da forma de pagamento inválido.').optional(),
-  amountCents: z.number().int().positive('Valor do pagamento deve ser positivo.'),
-  receivedCents: z.number().int().optional(),
-  customerId: z.number().int().positive().optional(),
-  dueDate: z.string().optional(),
-  pointsUsed: z.number().int().positive().optional(),
-  installments: z.object({ count: z.number().int().positive(), firstDueDate: z.string().optional() }).optional(),
-}).transform((data) => ({
-  ...data,
-  methodId: data.methodId ?? data.paymentMethodId,
-}));
+export const salePaymentSchema = z
+  .object({
+    methodId: z.number().int().positive('ID da forma de pagamento inválido.').optional(),
+    paymentMethodId: z.number().int().positive('ID da forma de pagamento inválido.').optional(),
+    amountCents: z.number().int().positive('Valor do pagamento deve ser positivo.'),
+    receivedCents: z.number().int().optional(),
+    customerId: z.number().int().positive().optional(),
+    dueDate: z.string().optional(),
+    pointsUsed: z.number().int().positive().optional(),
+    installments: z
+      .object({ count: z.number().int().positive(), firstDueDate: z.string().optional() })
+      .optional(),
+  })
+  .transform((data) => ({
+    ...data,
+    methodId: data.methodId ?? data.paymentMethodId,
+  }));
 
-export const createSaleSchema = z.object({
-  items: z.array(saleItemSchema).min(1, 'Venda sem itens.'),
-  payments: z.array(salePaymentSchema).min(1, 'Venda sem pagamentos.').optional(),
-  paymentMethod: z.enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo']).optional(),
-  paidCents: z.number().int().optional(),
-  customerId: z.number().int().positive().optional(),
-  // Cliente não cadastrado: identifica a venda no histórico sem obrigar o cadastro no
-  // meio do atendimento. Ignorado quando vem customerId — aí o nome sai do cadastro.
-  customerName: z.string().max(120, 'Nome do cliente muito longo.').optional(),
-  dueDate: z.string().optional(),
-  discountCents: z.number().int().min(0).optional().default(0),
-  surchargeCents: z.number().int().min(0).optional().default(0),
-  discountReason: z.string().max(200, 'Motivo do desconto muito longo.').optional(),
-  clientRequestId: z.string().optional(),
-}).refine(
-  (data) => data.payments?.length || data.paymentMethod,
-  { message: 'Informe payments[] ou paymentMethod.', path: ['paymentMethod'] },
-);
+export const createSaleSchema = z
+  .object({
+    items: z.array(saleItemSchema).min(1, 'Venda sem itens.'),
+    payments: z.array(salePaymentSchema).min(1, 'Venda sem pagamentos.').optional(),
+    paymentMethod: z
+      .enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo'])
+      .optional(),
+    paidCents: z.number().int().optional(),
+    customerId: z.number().int().positive().optional(),
+    // Cliente não cadastrado: identifica a venda no histórico sem obrigar o cadastro no
+    // meio do atendimento. Ignorado quando vem customerId — aí o nome sai do cadastro.
+    customerName: z.string().max(120, 'Nome do cliente muito longo.').optional(),
+    dueDate: z.string().optional(),
+    discountCents: z.number().int().min(0).optional().default(0),
+    surchargeCents: z.number().int().min(0).optional().default(0),
+    discountReason: z.string().max(200, 'Motivo do desconto muito longo.').optional(),
+    clientRequestId: z.string().optional(),
+  })
+  .refine((data) => data.payments?.length || data.paymentMethod, {
+    message: 'Informe payments[] ou paymentMethod.',
+    path: ['paymentMethod'],
+  });
 
 // O orçamento é montado no PDV, então o item dele é exatamente o item da venda:
 // complemento (lineGroupUuid), observação e preço cotado (unitPriceCents).
@@ -122,19 +160,23 @@ export const updateQuoteSchema = z.object({
 
 // Conversão em venda: o PDV manda o carrinho atual (o operador pode ter ajustado ao
 // reabrir o orçamento). Sem `items`, valem os itens gravados no orçamento.
-export const convertQuoteSchema = z.object({
-  items: z.array(quoteItemSchema).min(1).optional(),
-  payments: z.array(salePaymentSchema).min(1).optional(),
-  paymentMethod: z.enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo']).optional(),
-  paidCents: z.number().int().optional(),
-  customerId: z.number().int().positive().optional(),
-  customerName: z.string().max(120, 'Nome do cliente muito longo.').optional(),
-  dueDate: z.string().optional(),
-  clientRequestId: z.string().optional(),
-}).refine(
-  (data) => data.payments?.length || data.paymentMethod,
-  { message: 'Informe payments[] ou paymentMethod.', path: ['paymentMethod'] },
-);
+export const convertQuoteSchema = z
+  .object({
+    items: z.array(quoteItemSchema).min(1).optional(),
+    payments: z.array(salePaymentSchema).min(1).optional(),
+    paymentMethod: z
+      .enum(['dinheiro', 'cartao_debito', 'cartao_credito', 'pix', 'prazo'])
+      .optional(),
+    paidCents: z.number().int().optional(),
+    customerId: z.number().int().positive().optional(),
+    customerName: z.string().max(120, 'Nome do cliente muito longo.').optional(),
+    dueDate: z.string().optional(),
+    clientRequestId: z.string().optional(),
+  })
+  .refine((data) => data.payments?.length || data.paymentMethod, {
+    message: 'Informe payments[] ou paymentMethod.',
+    path: ['paymentMethod'],
+  });
 
 export const loginSchema = z.object({
   username: z.string().min(1, 'Informe o usuário.'),
@@ -174,11 +216,17 @@ export const changePasswordSchema = z.object({
 });
 
 export const openRegisterSchema = z.object({
-  openingCents: z.number().int('Valor de abertura deve ser inteiro.').min(0, 'Valor de abertura não pode ser negativo.'),
+  openingCents: z
+    .number()
+    .int('Valor de abertura deve ser inteiro.')
+    .min(0, 'Valor de abertura não pode ser negativo.'),
 });
 
 export const closeRegisterSchema = z.object({
-  countedCents: z.number().int('Valor contado deve ser inteiro.').min(0, 'Valor contado não pode ser negativo.'),
+  countedCents: z
+    .number()
+    .int('Valor contado deve ser inteiro.')
+    .min(0, 'Valor contado não pode ser negativo.'),
   notes: z.string().optional(),
   countBreakdown: z.record(z.string(), z.number()).optional(),
 });
@@ -201,10 +249,12 @@ const purchaseItemSchema = z.object({
   qty: z.number().positive('Quantidade deve ser positiva.'),
   unitCostCents: z.number().int('Custo unitário deve ser inteiro.'),
   /** Lote/validade do item (produto com controle de lote). */
-  lot: z.object({
-    code: z.string().trim().min(1, 'Código do lote é obrigatório.'),
-    expiresAt: z.string().max(10).nullish(),
-  }).nullish(),
+  lot: z
+    .object({
+      code: z.string().trim().min(1, 'Código do lote é obrigatório.'),
+      expiresAt: z.string().max(10).nullish(),
+    })
+    .nullish(),
 });
 
 export const createPurchaseSchema = z.object({
@@ -270,16 +320,29 @@ export const createTableSchema = z.object({
 });
 
 export const updateTableSchema = z.object({
-  label: z.string().min(1, 'Informe o nome da mesa.').max(60, 'Nome de mesa muito longo.').optional(),
+  label: z
+    .string()
+    .min(1, 'Informe o nome da mesa.')
+    .max(60, 'Nome de mesa muito longo.')
+    .optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
 
 // Geração em lote: `start` ausente continua a numeração a partir da maior mesa
 // existente; os números já usados são pulados, então "criar 5" sempre cria 5 novas.
 export const generateTablesSchema = z.object({
-  base: z.string().trim().min(1, 'Informe o nome base.').max(40, 'Nome base muito longo.').optional(),
+  base: z
+    .string()
+    .trim()
+    .min(1, 'Informe o nome base.')
+    .max(40, 'Nome base muito longo.')
+    .optional(),
   start: z.number().int().min(1, 'O primeiro número deve ser 1 ou maior.').max(1000000).optional(),
-  count: z.number().int().min(1, 'Gere ao menos uma mesa.').max(200, 'Máximo de 200 mesas por vez.'),
+  count: z
+    .number()
+    .int()
+    .min(1, 'Gere ao menos uma mesa.')
+    .max(200, 'Máximo de 200 mesas por vez.'),
   pad: z.number().int().min(0).max(6).optional(),
 });
 
@@ -344,7 +407,11 @@ export const closeComandaSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const createUserSchema = z.object({
-  username: z.string().trim().min(1, 'Informe o nome de usuário.').max(60, 'Nome de usuário muito longo.'),
+  username: z
+    .string()
+    .trim()
+    .min(1, 'Informe o nome de usuário.')
+    .max(60, 'Nome de usuário muito longo.'),
   name: z.string().trim().min(1, 'Informe o nome.').max(120, 'Nome muito longo.'),
   // Sem checagem de formato de propósito: o campo é `type="text"` na tela, não é usado
   // para autenticar nem para enviar nada, e recusar o que o lojista digitou ali seria
@@ -367,7 +434,8 @@ export const updateUserSchema = z.object({
 });
 
 export const bulkDeleteUsersSchema = z.object({
-  ids: z.array(z.union([z.number().int().positive(), z.string().min(1)]))
+  ids: z
+    .array(z.union([z.number().int().positive(), z.string().min(1)]))
     .min(1, 'Informe ao menos um id.'),
 });
 
@@ -391,12 +459,24 @@ const kitchenStatusValues = ['pendente', 'preparo', 'pronto', 'entregue'] as con
 export const createKitchenRoutingSchema = z.object({
   productId: z.number().int().positive('ID do produto inválido.'),
   station: z.string().max(60, 'Nome da estação muito longo.').nullable().optional(),
-  estimatedMinutes: z.number().int().min(0).max(600, 'Tempo estimado fora do razoável.').nullable().optional(),
+  estimatedMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(600, 'Tempo estimado fora do razoável.')
+    .nullable()
+    .optional(),
 });
 
 export const updateKitchenRoutingSchema = z.object({
   station: z.string().max(60, 'Nome da estação muito longo.').nullable().optional(),
-  estimatedMinutes: z.number().int().min(0).max(600, 'Tempo estimado fora do razoável.').nullable().optional(),
+  estimatedMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(600, 'Tempo estimado fora do razoável.')
+    .nullable()
+    .optional(),
 });
 
 export const kitchenStatusSchema = z.object({
@@ -426,7 +506,11 @@ export const createBillSchema = z.object({
 
 export const updateBillSchema = z.object({
   description: z.string().trim().min(1).max(200, 'Descrição muito longa.').optional(),
-  amountCents: z.number().int().positive('Valor deve ser inteiro em centavos, maior que zero.').optional(),
+  amountCents: z
+    .number()
+    .int()
+    .positive('Valor deve ser inteiro em centavos, maior que zero.')
+    .optional(),
   dueDate: isoDate.optional(),
   issueDate: isoDate.nullable().optional(),
   partyId: z.number().int().positive().nullable().optional(),
@@ -436,10 +520,14 @@ export const updateBillSchema = z.object({
 });
 
 export const settleBillSchema = z.object({
-  payments: z.array(z.object({
-    paymentMethodId: z.number().int().positive('Forma de pagamento inválida.'),
-    amountCents: z.number().int().positive('Valor inválido em uma das formas de pagamento.'),
-  })).min(1, 'Informe ao menos uma forma de pagamento.'),
+  payments: z
+    .array(
+      z.object({
+        paymentMethodId: z.number().int().positive('Forma de pagamento inválida.'),
+        amountCents: z.number().int().positive('Valor inválido em uma das formas de pagamento.'),
+      }),
+    )
+    .min(1, 'Informe ao menos uma forma de pagamento.'),
   settledAt: isoDate.optional(),
 });
 
@@ -451,18 +539,39 @@ export const settleBillSchema = z.object({
 // ponto-base — ±10000 é ±100%.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DRE_MANUAL_LINES = ['deducoes', 'cmv', 'despesas_operacionais', 'despesas_financeiras'] as const;
+export const DRE_MANUAL_LINES = [
+  'deducoes',
+  'cmv',
+  'despesas_operacionais',
+  'despesas_financeiras',
+] as const;
 
 export const createDreCategorySchema = z.object({
   label: z.string().trim().min(1, 'Informe o nome da categoria.').max(120, 'Nome muito longo.'),
-  dreLine: z.enum(DRE_MANUAL_LINES, { error: `Linha do DRE deve ser uma de: ${DRE_MANUAL_LINES.join(' | ')}.` }),
-  adjustmentBps: z.number().int().min(-10000).max(10000, 'Ajuste deve estar entre -10000 e 10000 bps (-100% a +100%).').optional(),
+  dreLine: z.enum(DRE_MANUAL_LINES, {
+    error: `Linha do DRE deve ser uma de: ${DRE_MANUAL_LINES.join(' | ')}.`,
+  }),
+  adjustmentBps: z
+    .number()
+    .int()
+    .min(-10000)
+    .max(10000, 'Ajuste deve estar entre -10000 e 10000 bps (-100% a +100%).')
+    .optional(),
 });
 
 export const updateDreCategorySchema = z.object({
   label: z.string().trim().min(1).max(120, 'Nome muito longo.').optional(),
-  dreLine: z.enum(DRE_MANUAL_LINES, { error: `Linha do DRE deve ser uma de: ${DRE_MANUAL_LINES.join(' | ')}.` }).optional(),
-  adjustmentBps: z.number().int().min(-10000).max(10000, 'Ajuste deve estar entre -10000 e 10000 bps.').optional(),
+  dreLine: z
+    .enum(DRE_MANUAL_LINES, {
+      error: `Linha do DRE deve ser uma de: ${DRE_MANUAL_LINES.join(' | ')}.`,
+    })
+    .optional(),
+  adjustmentBps: z
+    .number()
+    .int()
+    .min(-10000)
+    .max(10000, 'Ajuste deve estar entre -10000 e 10000 bps.')
+    .optional(),
   active: z.union([z.boolean(), z.number().int()]).optional(),
 });
 
@@ -495,7 +604,9 @@ export const saveFiscalEmpresaSchema = z.object({
 
 export const saveFiscalConfigSchema = z.object({
   serie: z.number().int().min(1).max(999).optional(),
-  crt: z.union([z.literal(1), z.literal(2), z.literal(3)], { error: 'CRT deve ser 1, 2 ou 3.' }).optional(),
+  crt: z
+    .union([z.literal(1), z.literal(2), z.literal(3)], { error: 'CRT deve ser 1, 2 ou 3.' })
+    .optional(),
   cfop: z.string().max(6).optional(),
   csosnPadrao: z.string().max(6).optional(),
   cstPadrao: z.string().max(6).optional(),
@@ -528,7 +639,9 @@ export const uploadCertificateSchema = z.object({
 // um objeto gravava a string "[object Object]" na configuração e só aparecia como
 // comportamento estranho muito depois, sem pista da origem.
 export const setSettingSchema = z.object({
-  value: z.union([z.string().max(20000, 'Valor muito longo.'), z.number(), z.boolean(), z.null()]).optional(),
+  value: z
+    .union([z.string().max(20000, 'Valor muito longo.'), z.number(), z.boolean(), z.null()])
+    .optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -536,7 +649,11 @@ export const setSettingSchema = z.object({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const activateLicenseSchema = z.object({
-  licenseKey: z.string().trim().min(1, 'Informe a chave de licença.').max(120, 'Chave de licença inválida.'),
+  licenseKey: z
+    .string()
+    .trim()
+    .min(1, 'Informe a chave de licença.')
+    .max(120, 'Chave de licença inválida.'),
   // Opcional: sem ele a nuvem descobre a empresa pela própria chave.
   companyUuid: z.string().trim().max(64).nullable().optional(),
 });
@@ -582,4 +699,11 @@ export const maisDeliverySettingsSchema = z
 export const maisDeliveryOrderStatusSchema = z.object({
   statusId: z.number().int().positive('Informe a situação de destino.'),
   reason: z.string().trim().max(300, 'Motivo muito longo.').optional(),
+});
+
+export const maisDeliveryOrderIdsSchema = z.object({
+  ids: z
+    .array(z.number().int().positive('Pedido inválido.'))
+    .min(1, 'Informe ao menos um pedido.')
+    .max(24, 'Máximo de 24 pedidos por lote.'),
 });

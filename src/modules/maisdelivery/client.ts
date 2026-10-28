@@ -108,17 +108,75 @@ function formatPhone(ddd: string, phone: string): string {
 }
 
 function buildAddress(source: unknown): string {
-  const street = text(source, ['dsRua', 'rua', 'logradouro', 'dsEndereco']);
-  const number = text(source, ['nrRua', 'numero', 'nrEndereco']);
-  const complement = text(source, ['dsComplemento', 'complemento']);
-  const district = text(source, ['dsBairro', 'bairro']);
+  // Alguns retornos trazem `dsEndereco` já montado (mais legível) e `arrEndereco` com as
+  // partes. Preferimos o texto pronto quando existe; as partes entram como fallback.
+  const full = text(source, ['dsEndereco', 'enderecoCompleto', 'dsEnderecoCompleto']);
+  const nested = pick(source, ['arrEndereco', 'endereco', 'address']);
+  const base = isRecord(nested) ? nested : source;
+  const street = text(base, ['dsRua', 'rua', 'logradouro']);
+  const number = text(base, ['nrRua', 'numero', 'nrEndereco']);
+  const complement = text(base, ['dsComplemento', 'complemento']);
+  const district = text(base, ['dsBairro', 'bairro']);
+  const city = text(base, ['dsCidade', 'cidade', 'nmCidade']);
   const reference = text(source, ['dsReferencia', 'referencia', 'pontoReferencia']);
   const parts: string[] = [];
-  if (street) parts.push(number ? `${street}, ${number}` : street);
-  if (complement) parts.push(complement);
-  if (district) parts.push(district);
-  if (reference) parts.push(`Ref.: ${reference}`);
+  if (full) {
+    parts.push(full);
+  } else if (street) {
+    parts.push(number ? `${street}, ${number}` : street);
+    if (complement) parts.push(`(${complement})`);
+    if (district) parts.push(district);
+    if (city) parts.push(city);
+  }
+  if (reference && !full.toLowerCase().includes(reference.toLowerCase())) {
+    parts.push(`Ref.: ${reference}`);
+  }
   return parts.join(' — ');
+}
+
+/** "100,00", 100 ou null — soma apenas os valores que existem. */
+function sumMoney(values: unknown[]): number | null {
+  let total = 0;
+  let found = false;
+  for (const value of values) {
+    const cents = parseMoneyToCents(value);
+    if (cents !== null) {
+      total += cents;
+      found = true;
+    }
+  }
+  return found ? total : null;
+}
+
+/**
+ * Converte a data da API para um ISO de relógio de parede (`YYYY-MM-DDTHH:mm:ss`, sem
+ * fuso). A API usa `dd/mm/aaaa hh:mm:ss` no horário local da loja; converter para UTC e
+ * exibir com `fmtDateTimeLocal` somaria o offset outra vez. O ISO local também ordena
+ * corretamente e é entendido por `new Date()` no navegador.
+ */
+function toIsoDate(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  const localIso = (date: Date): string | null => {
+    if (Number.isNaN(date.getTime())) return null;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  };
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(value);
+  if (br) {
+    const [, dd, mm, yyyy, hh = '00', min = '00', ss = '00'] = br;
+    return localIso(
+      new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min), Number(ss)),
+    );
+  }
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(value);
+  if (iso) {
+    const [, yyyy, mm, dd, hh = '00', min = '00', ss = '00'] = iso;
+    return localIso(
+      new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min), Number(ss)),
+    );
+  }
+  return localIso(new Date(value));
 }
 
 /** O pedido pode vir dentro de `pedido`/`order`; o topo tem prioridade. */
@@ -160,6 +218,9 @@ function itemsArray(source: unknown): unknown[] {
     'itensPedido',
     'carrinho',
     'listaItens',
+    'dsDetalhe',
+    'detalhe',
+    'dsItens',
   ]);
   if (Array.isArray(value)) return value;
   if (typeof value === 'string') {
@@ -168,6 +229,13 @@ function itemsArray(source: unknown): unknown[] {
       if (Array.isArray(parsed)) return parsed;
     } catch {
       /* string livre, não é JSON */
+    }
+  }
+  // Alguns formatos embrulham os itens num objeto (`dsDetalhe: { itens: [...] }`).
+  if (isRecord(value)) {
+    for (const key of ['itens', 'items', 'produtos', 'lista', 'detalhe']) {
+      const nested = pick(value, [key]);
+      if (Array.isArray(nested)) return nested;
     }
   }
   return [];
@@ -182,6 +250,56 @@ export interface OrderItemSummary {
   raw: unknown;
 }
 
+export interface OrderHistoryEvent {
+  title: string;
+  time: string;
+  detail: string;
+}
+
+function stripHistoryTags(raw: string): string[] {
+  return raw
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+/**
+ * `dsHistorico` chega como HTML (`<br/>` entre os eventos). Guardamos texto puro para a
+ * tela renderizar com `x-text` — sem `x-html`, sem depender de sanitização.
+ */
+function parseHistory(raw: string): OrderHistoryEvent[] {
+  if (!raw) return [];
+  const events: OrderHistoryEvent[] = [];
+  const seen = new Set<string>();
+  for (const line of stripHistoryTags(raw)) {
+    if (/^tempo total de atendimento/i.test(line)) continue;
+    const match = /^(.*?)\s+às\s+(\d{2}:\d{2})\s*(.*)$/i.exec(line);
+    const title = (match ? match[1] : line).replace(/[.\s]+$/, '').trim();
+    const time = match ? match[2] : '';
+    const detail = match ? match[3].replace(/[.\s]+$/, '').trim() : '';
+    const key = `${title}|${time}|${detail}`;
+    if (!title || seen.has(key)) continue;
+    seen.add(key);
+    events.push({ title, time, detail });
+  }
+  // A API devolve do mais antigo para o mais recente; a linha do tempo fica melhor
+  // com o acontecimento atual no topo.
+  return events.reverse();
+}
+
+function historyNote(raw: string): string {
+  if (!raw) return '';
+  const line = stripHistoryTags(raw).find((part) => /^tempo total de atendimento/i.test(part));
+  return line ? line.replace(/\.$/, '') : '';
+}
+
 export interface OrderSummary {
   id: string;
   customer: string;
@@ -189,12 +307,34 @@ export interface OrderSummary {
   address: string;
   totalCents: number | null;
   totalRaw: string;
+  subtotalCents: number | null;
+  deliveryFeeCents: number | null;
+  discountCents: number | null;
   status: string;
   statusId: string;
   payment: string;
+  paymentId: string;
   createdAt: string;
+  createdAtIso: string | null;
   deliveryType: string;
   notes: string;
+  reference: string;
+  origin: string;
+  restaurant: string;
+  driver: string;
+  driverPickupAt: string;
+  history: string;
+  historyEvents: OrderHistoryEvent[];
+  historyNote: string;
+  cancelReason: string;
+  externalCode: string;
+  coupon: string;
+  table: string;
+  command: string;
+  onlinePayment: string;
+  customerIsNew: boolean;
+  permission: string;
+  permissionMessage: string;
   itemCount: number;
   items: OrderItemSummary[];
   raw: unknown;
@@ -218,15 +358,34 @@ function normalizeItems(source: unknown): OrderItemSummary[] {
 export function normalizeOrder(raw: unknown): OrderSummary {
   const source = mergeOrder(raw);
   const items = normalizeItems(source);
+  // `vlTotal` é o total efetivamente cobrado (inclui entrega); `vlPedido` é o subtotal.
+  // A ordem importa: usar `vlPedido` antes fazia a tela mostrar R$ 18,00 num pedido de
+  // R$ 23,00, como aconteceu no primeiro teste com a API real.
   const totalValue = pick(source, [
-    'vlPedido',
     'vlTotal',
+    'vlTotalPedido',
     'valorTotal',
     'total',
-    'vlTotalPedido',
+    'vlPedido',
     'valor',
   ]);
+  const subtotalValue = pick(source, ['vlPedido', 'subtotal', 'valorSubtotal', 'vlSubtotal']);
+  const deliveryValue = pick(source, ['vlEntrega', 'taxaEntrega', 'vlTaxaEntrega', 'valorEntrega']);
+  const discountValue = sumMoney([
+    pick(source, ['vlDescontoCupom', 'descontoCupom']),
+    pick(source, ['vlDescontoPromocao', 'descontoPromocao']),
+    pick(source, ['vlDescontoEntrega', 'descontoEntrega']),
+  ]);
   const declaredCount = Number(text(source, ['qtItens', 'qtdItens', 'itensCount', 'nrItens']));
+  const createdAt = text(source, [
+    'dtPedido',
+    'dtCriacao',
+    'dataPedido',
+    'created_at',
+    'dtCadastro',
+    'data',
+  ]);
+  const history = text(source, ['dsHistorico', 'historico']);
   return {
     id: text(source, ['idPedido', 'id', 'nrPedido', 'codigo', 'pedidoId']),
     customer: text(source, [
@@ -245,25 +404,45 @@ export function normalizeOrder(raw: unknown): OrderSummary {
     totalCents: parseMoneyToCents(totalValue),
     totalRaw:
       typeof totalValue === 'string' ? totalValue : totalValue != null ? String(totalValue) : '',
+    subtotalCents: parseMoneyToCents(subtotalValue),
+    deliveryFeeCents: parseMoneyToCents(deliveryValue),
+    discountCents: discountValue,
     status: text(source, ['dsSituacao', 'situacao', 'dsStatus', 'status', 'nomeSituacao']),
     statusId: text(source, ['idSituacao', 'situacaoId', 'statusId']),
     payment: text(source, [
+      'dsPagamentoDesc',
       'dsPagamento',
       'formaPagamento',
       'dsFormaPagamento',
       'pagamento',
       'dsTipoPagamento',
     ]),
-    createdAt: text(source, [
-      'dtPedido',
-      'dtCriacao',
-      'dataPedido',
-      'created_at',
-      'dtCadastro',
-      'data',
-    ]),
+    paymentId: text(source, ['idPagamento', 'pagamentoId', 'idFormaPagamento']),
+    createdAt,
+    createdAtIso: toIsoDate(createdAt),
     deliveryType: text(source, ['dsEntrega', 'tipoEntrega', 'dsTipoEntrega', 'idEntrega']),
     notes: text(source, ['dsObservacao', 'observacao', 'obs']),
+    reference: text(source, ['dsReferencia', 'referencia', 'pontoReferencia']),
+    origin: text(source, ['dsOrigem', 'origem']),
+    restaurant: text(source, ['dsRestaurante', 'restaurante', 'nomeRestaurante']),
+    driver: text(source, ['dsEntregador', 'entregador', 'nomeEntregador']),
+    driverPickupAt: text(source, ['dtEntregadorPegou', 'dataEntregadorPegou']),
+    history,
+    historyEvents: parseHistory(history),
+    historyNote: historyNote(history),
+    cancelReason: text(source, ['dsMotivoCancelamento', 'motivoCancelamento']),
+    externalCode: text(source, ['dsExternoCode', 'codigoExterno', 'externalCode']),
+    coupon: text(source, ['dsCupom', 'cupom']),
+    table: text(source, ['dsMesa', 'mesa']),
+    command: text(source, ['dsComanda', 'comanda']),
+    onlinePayment: text(source, [
+      'dsGatewayPagamentoOnline',
+      'gatewayPagamentoOnline',
+      'dsPagamentoOnline',
+    ]),
+    customerIsNew: /^(sim|1|true)$/i.test(text(source, ['flgClienteNovo', 'clienteNovo'])),
+    permission: text(source, ['flgPermissao', 'permissao']),
+    permissionMessage: text(source, ['dsPermissao', 'mensagemPermissao']),
     itemCount: items.length || (Number.isFinite(declaredCount) ? declaredCount : 0),
     items,
     raw,
@@ -549,6 +728,52 @@ export interface OrdersQuery {
   statusIds?: number[];
 }
 
+/**
+ * A listagem da API devolve só os IDs; os dados completos vêm da operação 12. Como a
+ * tela precisa hidratar dezenas de pedidos de uma vez, guardamos o detalhe por 60s e
+ * deduplicamos chamadas simultâneas para o mesmo pedido. O cache é só em memória: nada
+ * de pedido do cliente em disco.
+ */
+const ORDER_CACHE_TTL_MS = 60_000;
+const ORDER_CACHE_MAX = 600;
+
+interface CachedOrder {
+  fetchedAt: number;
+  order: OrderSummary;
+  raw: unknown;
+}
+
+const orderCache = new Map<number, CachedOrder>();
+const orderInflight = new Map<number, Promise<{ order: OrderSummary; raw: unknown }>>();
+
+function cacheOrder(orderId: number, order: OrderSummary, raw: unknown): void {
+  orderCache.set(orderId, { fetchedAt: Date.now(), order, raw });
+  while (orderCache.size > ORDER_CACHE_MAX) {
+    const oldest = orderCache.keys().next().value;
+    if (oldest === undefined) break;
+    orderCache.delete(oldest);
+  }
+}
+
+function cachedOrder(orderId: number): CachedOrder | null {
+  const cached = orderCache.get(orderId);
+  if (!cached) return null;
+  if (Date.now() - cached.fetchedAt >= ORDER_CACHE_TTL_MS) {
+    orderCache.delete(orderId);
+    return null;
+  }
+  // LRU: reinserta no fim para a limpeza tirar primeiro o menos usado.
+  orderCache.delete(orderId);
+  orderCache.set(orderId, cached);
+  return cached;
+}
+
+/** `fresh` ignora o cache (usado pelo botão Atualizar). Sem id, limpa tudo. */
+export function clearOrderCache(orderId?: number): void {
+  if (orderId === undefined) orderCache.clear();
+  else orderCache.delete(orderId);
+}
+
 export async function fetchOrders(
   query: OrdersQuery,
 ): Promise<{ orders: OrderSummary[]; raw: unknown }> {
@@ -580,10 +805,77 @@ export async function fetchOrders(
   return { orders: normalizeOrderCollection(body), raw: body };
 }
 
-export async function fetchOrder(orderId: number): Promise<{ order: OrderSummary; raw: unknown }> {
-  const config = getMaisDeliveryConfig();
-  const { body } = await call(12, { idPedido: orderId, ...restaurantFields(config) });
-  return { order: normalizeOrder(firstOrderRecord(body)), raw: body };
+export async function fetchOrder(
+  orderId: number,
+  options: { fresh?: boolean } = {},
+): Promise<{ order: OrderSummary; raw: unknown }> {
+  if (!options.fresh) {
+    const cached = cachedOrder(orderId);
+    if (cached) return { order: cached.order, raw: cached.raw };
+  }
+
+  const existing = orderInflight.get(orderId);
+  if (existing) return existing;
+
+  const request = (async (): Promise<{ order: OrderSummary; raw: unknown }> => {
+    const config = getMaisDeliveryConfig();
+    const { body } = await call(12, { idPedido: orderId, ...restaurantFields(config) });
+    const order = normalizeOrder(firstOrderRecord(body));
+    cacheOrder(orderId, order, body);
+    return { order, raw: body };
+  })();
+
+  orderInflight.set(orderId, request);
+  try {
+    return await request;
+  } finally {
+    orderInflight.delete(orderId);
+  }
+}
+
+export interface OrdersDetailsResult {
+  orders: OrderSummary[];
+  failed: Array<{ id: number; error: string }>;
+}
+
+/**
+ * Busca vários detalhes com concorrência limitada. A operação 12 é uma chamada por
+ * pedido; sem o limite, um período de 30 dias abriria dezenas de conexões simultâneas
+ * na API do marketplace.
+ */
+export async function fetchOrdersDetails(
+  ids: number[],
+  options: { concurrency?: number; fresh?: boolean } = {},
+): Promise<OrdersDetailsResult> {
+  const unique = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+  if (!unique.length) return { orders: [], failed: [] };
+
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? 4, 8, unique.length));
+  const orders: OrderSummary[] = new Array(unique.length);
+  const failed: Array<{ id: number; error: string }> = [];
+  let cursor = 0;
+
+  async function worker(): Promise<void> {
+    while (cursor < unique.length) {
+      const index = cursor++;
+      const id = unique[index];
+      try {
+        const result = await fetchOrder(id, { fresh: options.fresh });
+        orders[index] = result.order;
+      } catch (error) {
+        failed.push({
+          id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+  return {
+    orders: orders.filter((order): order is OrderSummary => Boolean(order)),
+    failed,
+  };
 }
 
 export async function fetchStatuses(): Promise<{ statuses: StatusOption[]; raw: unknown }> {
@@ -619,5 +911,7 @@ export async function changeOrderStatus(
     dsMotivo: reason,
     ...restaurantFields(config),
   });
+  // A próxima leitura precisa refletir a situação nova, não o cache anterior.
+  clearOrderCache(orderId);
   return { raw: body };
 }

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
 import type {
+  maisDeliveryOrderIdsSchema,
   maisDeliveryOrderStatusSchema,
   maisDeliverySettingsSchema,
 } from '../../../shared/schemas';
@@ -10,6 +11,7 @@ import {
   fetchEstablishment,
   fetchOrder,
   fetchOrders,
+  fetchOrdersDetails,
   fetchPaymentMethods,
   fetchStatuses,
   MaisDeliveryError,
@@ -123,8 +125,26 @@ export const maisDeliveryController = {
       res.status(400).json({ error: 'Pedido inválido.' });
       return;
     }
-    const result = await fetchOrder(orderId);
+    const result = await fetchOrder(orderId, { fresh: req.query.fresh === '1' });
     res.json({ order: result.order, raw: result.raw });
+  }),
+
+  /**
+   * A listagem da API traz apenas os IDs. A tela busca os detalhes em lotes pequenos,
+   * com concorrência limitada no cliente, para preencher os cartões e o resumo sem
+   * disparar dezenas de chamadas simultâneas no marketplace.
+   */
+  getOrdersDetails: wrap(async (req, res) => {
+    const body = req.body as z.infer<typeof maisDeliveryOrderIdsSchema>;
+    const result = await fetchOrdersDetails(body.ids, {
+      concurrency: 4,
+      fresh: req.query.fresh === '1',
+    });
+    res.json({
+      // O detalhe individual é quem expõe `raw`; em lote ele multiplicaria o payload.
+      orders: result.orders.map(({ raw: _raw, ...order }) => order),
+      failed: result.failed,
+    });
   }),
 
   listStatuses: wrap(async (_req, res) => {

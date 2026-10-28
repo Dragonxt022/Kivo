@@ -20,9 +20,11 @@ import { unwrap } from './testUtils';
 import { deleteSecret, getSecret } from '../core/secrets/service';
 import {
   changeOrderStatus,
+  clearOrderCache,
   fetchEstablishment,
   fetchOrder,
   fetchOrders,
+  fetchOrdersDetails,
   fetchPaymentMethods,
   fetchStatuses,
   MaisDeliveryError,
@@ -116,14 +118,27 @@ function orderSample(): unknown {
           dsNome: 'Maria Teste',
           nrDDD: '99',
           nrTelefone: '999999999',
-          dsRua: 'Rua A',
-          nrRua: '100',
-          dsBairro: 'Centro',
+          dsEndereco: 'Rua A, 100 - Centro',
+          dsReferencia: 'Portão azul',
           vlPedido: '100,00',
+          vlEntrega: '15,00',
+          vlTotal: '110,00',
+          vlDescontoCupom: '5,00',
+          vlDescontoPromocao: '0,00',
+          vlDescontoEntrega: '0.00',
           dsSituacao: 'Em preparo',
           idSituacao: 5,
-          dsPagamento: 'Pix',
-          dtPedido: '2026-10-28 12:30:00',
+          dsPagamento: 'Forma antiga',
+          dsPagamentoDesc: 'Pix',
+          dtPedido: '28/10/2026 12:30:00',
+          dsOrigem: 'App',
+          dsRestaurante: 'Loja Teste',
+          dsExternoCode: 'QA-987',
+          flgClienteNovo: '1',
+          dsHistorico:
+            'Tempo total de atendimento: 0 minuto.<br/>' +
+            'Envio do pedido às 12:30 há 0 minuto neste status - Gerencial.<br/>' +
+            'Em andamento às 12:31 há 1 minuto neste status - Cozinha.<br/>',
           itens: [
             { dsNome: 'Pizza', qtde: '1', vlItem: '60,00', vlTotal: '60,00' },
             { dsNome: 'Refrigerante', qtde: '2', vlItem: '20,00', vlTotal: '40,00' },
@@ -282,10 +297,21 @@ async function main(): Promise<void> {
       listResult.orders[0].customer === 'Maria Teste' &&
         listResult.orders[0].phone === '(99) 99999-9999',
     );
-    check('total em centavos', listResult.orders[0].totalCents === 10000);
+    check(
+      'total usa vlTotal, não o subtotal',
+      listResult.orders[0].totalCents === 11000 &&
+        listResult.orders[0].subtotalCents === 10000 &&
+        listResult.orders[0].deliveryFeeCents === 1500 &&
+        listResult.orders[0].discountCents === 500,
+    );
     check(
       'situação e pagamento',
       listResult.orders[0].status === 'Em preparo' && listResult.orders[0].payment === 'Pix',
+    );
+    check(
+      'data da API preserva o relógio local',
+      listResult.orders[0].createdAt === '28/10/2026 12:30:00' &&
+        listResult.orders[0].createdAtIso === '2026-10-28T12:30:00',
     );
     check(
       'itens normalizados',
@@ -296,9 +322,38 @@ async function main(): Promise<void> {
     check(
       'endereço montado',
       listResult.orders[0].address.includes('Rua A, 100') &&
-        listResult.orders[0].address.includes('Centro'),
+        listResult.orders[0].address.includes('Centro') &&
+        listResult.orders[0].address.includes('Portão azul'),
+    );
+    check(
+      'histórico vira linha do tempo',
+      listResult.orders[0].historyEvents.length === 2 &&
+        listResult.orders[0].historyEvents[0].title === 'Em andamento' &&
+        listResult.orders[0].historyEvents[0].time === '12:31' &&
+        listResult.orders[0].historyNote.includes('Tempo total de atendimento'),
+    );
+    check(
+      'metadados do pedido',
+      listResult.orders[0].origin === 'App' &&
+        listResult.orders[0].externalCode === 'QA-987' &&
+        listResult.orders[0].customerIsNew === true,
     );
 
+    mockApi(() => ({
+      json: {
+        success: true,
+        data: { pedidos: [{ idPedido: 501, flgPermissao: '0', dsPermissao: 'Sem permissão' }] },
+      },
+    }));
+    const listOnly = await fetchOrders({ from: '2026-10-22', to: '2026-10-28' });
+    check(
+      'listagem só com IDs continua utilizável',
+      listOnly.orders.length === 1 &&
+        listOnly.orders[0].id === '501' &&
+        listOnly.orders[0].permission === '0',
+    );
+
+    clearOrderCache();
     mockApi(() => ({
       json: {
         success: true,
@@ -306,7 +361,10 @@ async function main(): Promise<void> {
           pedido: {
             idPedido: 987,
             dsNome: 'Maria Teste',
-            vlPedido: '100,00',
+            vlPedido: '60,00',
+            vlEntrega: '10,00',
+            vlTotal: '70,00',
+            dsPagamentoDesc: 'Dinheiro',
             dsSituacao: 'Em preparo',
             idSituacao: 5,
             itens: [{ dsNome: 'Pizza', qtde: '1', vlItem: '60,00', vlTotal: '60,00' }],
@@ -321,7 +379,10 @@ async function main(): Promise<void> {
     );
     check(
       'detalhe normalizado',
-      detailResult.order.id === '987' && detailResult.order.items.length === 1,
+      detailResult.order.id === '987' &&
+        detailResult.order.items.length === 1 &&
+        detailResult.order.totalCents === 7000 &&
+        detailResult.order.payment === 'Dinheiro',
     );
 
     mockApi(() => ({ json: { success: true } }));
@@ -392,6 +453,7 @@ async function main(): Promise<void> {
       invertedBody.error ?? '',
     );
 
+    clearOrderCache();
     mockApi(() => ({
       json: {
         success: true,
@@ -404,6 +466,86 @@ async function main(): Promise<void> {
     const routeDetailBody = await unwrap<{ order: { id: string } }>(routeDetail);
     check('rota de detalhe responde', routeDetail.status === 200);
     check('rota de detalhe normaliza o pedido', routeDetailBody.order.id === '987');
+
+    const batchHandler = (body: Record<string, unknown>) => {
+      const id = Number(body.idPedido);
+      if (id === 999) {
+        return { status: 400, json: { mensagem: 'Pedido não encontrado' } };
+      }
+      return {
+        json: {
+          success: true,
+          data: {
+            pedido: {
+              idPedido: id,
+              dsNome: 'Cliente ' + id,
+              vlTotal: '10,00',
+              dsSituacao: 'Em andamento',
+              idSituacao: 3,
+              dsPagamentoDesc: 'Pix',
+            },
+          },
+        },
+      };
+    };
+
+    clearOrderCache();
+    mockApi(batchHandler);
+    const batchResult = await fetchOrdersDetails([987, 988, 999], { concurrency: 2 });
+    check(
+      'lote busca os detalhes disponíveis',
+      batchResult.orders.length === 2 &&
+        batchResult.orders[0].id === '987' &&
+        batchResult.orders[0].customer === 'Cliente 987',
+    );
+    check(
+      'lote isola o pedido com erro',
+      batchResult.failed.length === 1 &&
+        batchResult.failed[0].id === 999 &&
+        batchResult.failed[0].error === 'Pedido não encontrado',
+    );
+
+    mockApi(batchHandler);
+    const batchRoute = await api('/api/maisdelivery/orders/details', {
+      method: 'POST',
+      body: JSON.stringify({ ids: [987, 988, 999] }),
+    });
+    const batchBody = await unwrap<{
+      orders: Array<{ id: string; raw?: unknown }>;
+      failed: Array<{ id: number }>;
+    }>(batchRoute);
+    check('rota em lote responde', batchRoute.status === 200, `status=${batchRoute.status}`);
+    check(
+      'rota em lote normaliza os pedidos',
+      batchBody.orders.length === 2 &&
+        batchBody.orders
+          .map((order) => order.id)
+          .sort()
+          .join(',') === '987,988',
+    );
+    check(
+      'rota em lote não expõe raw por pedido',
+      batchBody.orders.every((order) => order.raw === undefined),
+    );
+    check(
+      'rota em lote devolve as falhas',
+      batchBody.failed.length === 1 && batchBody.failed[0].id === 999,
+    );
+
+    const emptyBatch = await api('/api/maisdelivery/orders/details', {
+      method: 'POST',
+      body: JSON.stringify({ ids: [] }),
+    });
+    check('lote vazio é recusado', emptyBatch.status === 400, `status=${emptyBatch.status}`);
+    const hugeBatch = await api('/api/maisdelivery/orders/details', {
+      method: 'POST',
+      body: JSON.stringify({ ids: Array.from({ length: 25 }, (_, index) => index + 1) }),
+    });
+    check(
+      'lote acima do limite é recusado',
+      hugeBatch.status === 400,
+      `status=${hugeBatch.status}`,
+    );
 
     mockApi(() => ({ json: { success: true } }));
     const routeStatus = await api('/api/maisdelivery/orders/987/status', {

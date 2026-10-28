@@ -21,12 +21,23 @@
       <div class="md-head-text">
         <h1>Integração Mais Delivery</h1>
         <p class="muted">Conecte o painel do Mais Delivery para acompanhar os pedidos do marketplace dentro do Kivo.</p>
+        <div class="md-config-summary" x-show="isConfigured()" x-cloak>
+          <span class="md-config-chip">Empresa <strong x-text="form.empresaIntegrada || '—'"></strong></span>
+          <span class="md-config-chip">Restaurante <strong x-text="form.restaurante || '—'"></strong></span>
+          <span class="md-config-chip" x-show="form.marketplace">Marketplace <strong x-text="form.marketplace"></strong></span>
+          <span class="md-config-chip" :class="{ sandbox: form.sandbox }" x-text="form.sandbox ? 'Sandbox' : 'Produção'"></span>
+        </div>
       </div>
       <div class="md-head-actions">
         <a class="btn secondary" href="https://maisdeliveryapp.com.br/web/institucional.auth.api.publica.php" target="_blank" rel="noopener">Abrir painel</a>
         <a class="btn" href="/app/maisdelivery/pedidos">Ver pedidos</a>
       </div>
     </header>
+
+    <div class="md-banner" x-show="form.sandbox" x-cloak>
+      <strong>Modo sandbox ligado.</strong>
+      <span>Os pedidos exibidos são do ambiente de teste do Mais Delivery. Desligue somente quando for usar o token de produção.</span>
+    </div>
 
     <div class="md-grid">
       <section class="panel">
@@ -38,17 +49,25 @@
 
         <div class="md-field">
           <label for="md-access-token">Access token</label>
-          <input id="md-access-token" type="password" class="input" x-model="form.accessToken"
-                 autocomplete="new-password" spellcheck="false"
-                 :placeholder="hasAccessToken ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Access token do painel'" />
+          <div class="md-password-wrap">
+            <input id="md-access-token" :type="showToken ? 'text' : 'password'" class="input" x-model="form.accessToken"
+                   autocomplete="new-password" spellcheck="false"
+                   :placeholder="hasAccessToken ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Access token do painel'" />
+            <button type="button" class="md-password-toggle" @click="showToken = !showToken"
+                    x-text="showToken ? 'Ocultar' : 'Mostrar'"></button>
+          </div>
           <span class="hint">Enviado no header <code>Accesstoken</code>.</span>
         </div>
 
         <div class="md-field">
           <label for="md-basic-auth">Basic Auth</label>
-          <input id="md-basic-auth" type="password" class="input" x-model="form.basicAuth"
-                 autocomplete="new-password" spellcheck="false"
-                 :placeholder="hasBasicAuth ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Basic Auth do painel'" />
+          <div class="md-password-wrap">
+            <input id="md-basic-auth" :type="showBasic ? 'text' : 'password'" class="input" x-model="form.basicAuth"
+                   autocomplete="new-password" spellcheck="false"
+                   :placeholder="hasBasicAuth ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Basic Auth do painel'" />
+            <button type="button" class="md-password-toggle" @click="showBasic = !showBasic"
+                    x-text="showBasic ? 'Ocultar' : 'Mostrar'"></button>
+          </div>
           <span class="hint">Pode colar o valor completo (<code>Basic ...</code>) ou só o código. Enviado no header <code>Authorization</code>.</span>
         </div>
 
@@ -121,6 +140,9 @@
           <div class="md-test-card" :class="testResult ? 'ok' : 'err'">
             <h3 x-text="testResult ? (testResult.establishment && testResult.establishment.name ? testResult.establishment.name : 'Conexão validada') : 'Falha no teste'"></h3>
             <p class="muted text-sm" x-text="testResult ? establishmentLine() : testError"></p>
+            <div class="md-actions" x-show="testResult">
+              <a class="btn small" href="/app/maisdelivery/pedidos">Ver pedidos</a>
+            </div>
             <details class="md-raw" x-show="testResult">
               <summary>Resposta original da API</summary>
               <pre x-text="testResult ? JSON.stringify(testResult.raw, null, 2) : ''"></pre>
@@ -128,10 +150,19 @@
           </div>
         </div>
 
+        <div style="margin-top:1.1rem">
+          <h3>Como configurar</h3>
+          <ol class="md-help">
+            <li>Acesse o <a href="https://maisdeliveryapp.com.br/web/institucional.auth.api.publica.php" target="_blank" rel="noopener">painel do Mais Delivery</a> e copie o Access token e o Basic Auth.</li>
+            <li>Informe o ID da empresa integrada e o ID do restaurante usados no painel.</li>
+            <li>Salve e teste a conexão. Quando o estabelecimento aparecer, abra <a href="/app/maisdelivery/pedidos">Pedidos</a>.</li>
+          </ol>
+        </div>
+
         <p class="muted text-xs" style="margin-top:1rem">
           O modo sandbox envia <code>sandBox: true</code> em todas as operações. Para obter as credenciais,
           <a href="https://maisdeliveryapp.com.br/web/institucional.cadastro.api.publica.php" target="_blank" rel="noopener">cadastre a empresa</a>
-          e faça login no painel.
+          e faça login no painel. O token e o Basic Auth ficam no cofre local, fora do backup e da auditoria.
         </p>
       </section>
     </div>
@@ -151,6 +182,8 @@
         },
         hasAccessToken: !!cfg.hasAccessToken,
         hasBasicAuth: !!cfg.hasBasicAuth,
+        showToken: false,
+        showBasic: false,
         saving: false,
         testing: false,
         error: '',
