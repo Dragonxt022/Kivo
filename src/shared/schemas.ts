@@ -274,6 +274,15 @@ export const updateTableSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 
+// Geração em lote: `start` ausente continua a numeração a partir da maior mesa
+// existente; os números já usados são pulados, então "criar 5" sempre cria 5 novas.
+export const generateTablesSchema = z.object({
+  base: z.string().trim().min(1, 'Informe o nome base.').max(40, 'Nome base muito longo.').optional(),
+  start: z.number().int().min(1, 'O primeiro número deve ser 1 ou maior.').max(1000000).optional(),
+  count: z.number().int().min(1, 'Gere ao menos uma mesa.').max(200, 'Máximo de 200 mesas por vez.'),
+  pad: z.number().int().min(0).max(6).optional(),
+});
+
 // `tableId` é opcional: comanda de balcão (sem mesa) é um uso válido.
 export const openComandaSchema = z.object({
   tableId: z.number().int().positive('ID da mesa inválido.').optional(),

@@ -5,6 +5,7 @@ import { validateBody } from '../../shared/validateBody';
 import {
   createTableSchema,
   updateTableSchema,
+  generateTablesSchema,
   openComandaSchema,
   addComandaItemSchema,
   comandaItemNotesSchema,
@@ -21,7 +22,11 @@ const router = Router();
 
 router.get('/tables', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), comandasController.listTables);
 router.get('/tables/status', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.listTableStatus);
+// Histórico de abertura/fechamento e itens vendidos/cancelados por mesa.
+router.get('/tables/history', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.tableHistory);
 router.post('/tables', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), validateBody(createTableSchema), comandasController.createTable);
+// Geração em lote pela engrenagem de configuração da tela de Mesas.
+router.post('/tables/generate', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), validateBody(generateTablesSchema), comandasController.generateTablesAction);
 router.put('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), validateBody(updateTableSchema), comandasController.updateTable);
 router.delete('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), comandasController.deleteTable);
 

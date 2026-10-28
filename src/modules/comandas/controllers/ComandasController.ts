@@ -6,6 +6,7 @@ import type { FoodserviceKitchenService } from '../../foodservice/setup';
 import { openComanda, addItem, updateItemNotes, updateItemQty, sendToKitchen, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
 import { storeTableRepository } from '../repositories/StoreTableRepository';
 import { comandaRepository, comandaItemRepository } from '../repositories/ComandaRepository';
+import { generateTables, listTableHistory } from '../tables';
 
 export const comandasController = {
   listTables(_req: Request, res: Response) {
@@ -63,6 +64,36 @@ export const comandasController = {
     });
     audit(req, 'criar_mesa', 'table', id);
     res.status(201).json({ id });
+  },
+
+  /** Geração em lote pela engrenagem: numera em sequência e pula o que já existe. */
+  generateTablesAction(req: Request, res: Response) {
+    const { base, start, count, pad } = req.body ?? {};
+    const result = generateTables(req, { base, start, count, pad });
+    res.status(201).json(result);
+  },
+
+  /**
+   * Histórico de ocupação: sessões de comanda (inclusive as já fechadas ou
+   * canceladas) com itens vendidos/anulados e a trilha de quem abriu/fechou.
+   */
+  tableHistory(req: Request, res: Response) {
+    const tableId = req.query.tableId != null && req.query.tableId !== ''
+      ? Number(req.query.tableId)
+      : undefined;
+    if (tableId != null && (!Number.isInteger(tableId) || tableId <= 0)) {
+      res.status(400).json({ error: 'tableId invalido.' }); return;
+    }
+    const limit = req.query.limit != null && req.query.limit !== ''
+      ? Number(req.query.limit)
+      : undefined;
+    if (limit != null && (!Number.isInteger(limit) || limit <= 0 || limit > 200)) {
+      res.status(400).json({ error: 'limit deve ficar entre 1 e 200.' }); return;
+    }
+    // Como a grade, o histórico não pode vir de cache: logo depois de fechar uma
+    // mesa o log precisa mostrar o fechamento.
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(listTableHistory({ tableId, limit }));
   },
 
   updateTable(req: Request, res: Response) {
