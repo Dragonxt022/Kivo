@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Pedidos Mais Delivery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/maisdelivery-styles') %>
+  <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/maisdelivery/pedidos' }) %>
+  <main class="md-page"
+        x-data="maisdeliveryOrdersPage(<%= configured ? 'true' : 'false' %>, <%= canManage ? 'true' : 'false' %>, <%= canSettings ? 'true' : 'false' %>)">
+    <header class="md-head">
+      <img src="/img/maisdelivery.png" alt="Mais Delivery" class="md-logo" />
+      <div class="md-head-text">
+        <h1>Pedidos Mais Delivery</h1>
+        <p class="muted">Pedidos recebidos pelo marketplace. O Kivo não altera venda, comanda ou estoque por aqui.</p>
+      </div>
+      <div class="md-head-actions">
+        <a class="btn secondary" href="/app/maisdelivery/configuracoes" x-show="canSettings">Configurações</a>
+        <button type="button" class="btn" @click="load()" :disabled="loading || !configured">
+          <span x-text="loading ? 'Atualizando…' : 'Atualizar'"></span>
+        </button>
+      </div>
+    </header>
+
+    <section class="md-banner" x-show="!configured" x-cloak>
+      <strong>Integração ainda não configurada.</strong>
+      <span>Salve o Access token, o Basic Auth e os IDs para liberar a listagem de pedidos.</span>
+      <a class="btn" href="/app/maisdelivery/configuracoes" x-show="canSettings">Configurar</a>
+      <span x-show="!canSettings">Peça ao administrador para configurar a integração.</span>
+    </section>
+
+    <p class="error" x-text="error" x-show="error" x-cloak></p>
+    <p class="md-note" x-text="notice" x-show="notice" x-cloak></p>
+
+    <div x-show="configured" x-cloak>
+      <section class="panel md-filters">
+        <label class="md-field">
+          <span>De</span>
+          <input type="date" class="input" x-model="from" />
+        </label>
+        <label class="md-field">
+          <span>Até</span>
+          <input type="date" class="input" x-model="to" />
+        </label>
+        <div class="md-field" style="min-width:220px">
+          <span>Situações</span>
+          <div class="md-chips" x-show="statuses.length">
+            <template x-for="status in statuses" :key="status.id">
+              <label class="md-chip" :class="{ active: selectedStatuses.includes(Number(status.id)) }">
+                <input type="checkbox"
+                       :checked="selectedStatuses.includes(Number(status.id))"
+                       @change="toggleStatus(status.id)" />
+                <span x-text="status.name || ('Situação ' + status.id)"></span>
+              </label>
+            </template>
+          </div>
+          <span class="muted text-xs" x-show="!statuses.length" x-text="statusError || 'Todas as situações'"></span>
+        </div>
+        <div class="md-filter-actions">
+          <button type="button" class="btn secondary" @click="resetFilters()">Últimos 7 dias</button>
+          <button type="button" class="btn" @click="load()" :disabled="loading">
+            <span x-text="loading ? 'Carregando…' : 'Aplicar filtros'"></span>
+          </button>
+        </div>
+      </section>
+
+      <div class="md-summary">
+        <div class="md-summary-card">
+          <span>Pedidos no período</span>
+          <strong x-text="orders.length"></strong>
+        </div>
+        <div class="md-summary-card">
+          <span>Total no período</span>
+          <strong x-text="totalLabel()"></strong>
+        </div>
+        <div class="md-summary-card">
+          <span>Em andamento</span>
+          <strong x-text="pendingCount()"></strong>
+        </div>
+      </div>
+
+      <p class="muted" x-show="loading" x-cloak>Carregando pedidos…</p>
+
+      <div class="md-orders" x-show="!loading && orders.length" x-cloak>
+        <template x-for="order in orders" :key="order.id">
+          <article class="md-order">
+            <div class="md-order-main">
+              <div class="md-order-id" x-text="'Pedido #' + (order.id || '—')"></div>
+              <div class="md-order-customer" x-text="order.customer || 'Cliente não informado'"></div>
+              <div class="md-order-meta" x-text="[order.phone, order.address].filter(Boolean).join(' · ') || 'Sem telefone/endereço'"></div>
+            </div>
+            <div class="md-order-side">
+              <span class="badge md-status" :class="statusClass(statusLabel(order))" x-text="statusLabel(order) || 'Sem situação'"></span>
+              <strong class="md-order-total" x-text="money(order)"></strong>
+              <span class="muted text-xs" x-text="when(order.createdAt)"></span>
+            </div>
+            <div class="md-order-actions">
+              <button type="button" class="btn small secondary" @click="openDetail(order)">Detalhes</button>
+            </div>
+          </article>
+        </template>
+      </div>
+
+      <div class="md-empty" x-show="!loading && !orders.length && !error" x-cloak>
+        <strong>Nenhum pedido no período.</strong>
+        <p class="muted text-sm">Ajuste as datas ou atualize. Se a integração acabou de ser configurada, confirme se está no modo sandbox.</p>
+      </div>
+    </div>
+
+    <dialog x-ref="detailDlg" class="md-detail" @close="detail = null">
+      <div class="md-detail-head">
+        <div>
+          <h2 x-text="detail && detail.order ? ('Pedido #' + (detail.order.id || '—')) : 'Pedido'"></h2>
+          <div class="md-detail-sub"
+               x-text="detail && detail.order ? [detail.order.customer, detail.order.phone].filter(Boolean).join(' · ') : ''"></div>
+        </div>
+        <button type="button" class="icon-btn" @click="$refs.detailDlg.close()" aria-label="Fechar">×</button>
+      </div>
+
+      <p class="muted" x-show="detailLoading" x-cloak>Buscando detalhes…</p>
+      <p class="error" x-text="detailError" x-show="detailError" x-cloak></p>
+
+      <template x-if="detail && detail.order">
+        <div>
+        <div class="md-detail-grid">
+          <div>
+            <span class="label">Situação</span>
+            <span class="badge md-status"
+                  :class="statusClass(statusLabel(detail.order))"
+                  x-text="statusLabel(detail.order) || '—'"></span>
+          </div>
+          <div>
+            <span class="label">Total</span>
+            <span class="value" x-text="money(detail.order)"></span>
+          </div>
+          <div>
+            <span class="label">Recebido em</span>
+            <span class="value" x-text="when(detail.order.createdAt)"></span>
+          </div>
+          <div>
+            <span class="label">Pagamento</span>
+            <span class="value" x-text="detail.order.payment || '—'"></span>
+          </div>
+          <div>
+            <span class="label">Entrega</span>
+            <span class="value" x-text="detail.order.deliveryType || '—'"></span>
+          </div>
+          <div>
+            <span class="label">Endereço</span>
+            <span class="value" x-text="detail.order.address || '—'"></span>
+          </div>
+        </div>
+
+        <p class="muted text-sm" x-show="detail.order.notes" x-text="detail.order.notes"></p>
+
+        <template x-if="detail.order.items && detail.order.items.length">
+          <table class="md-items">
+            <thead>
+              <tr><th>Item</th><th class="num">Qtd.</th><th class="num">Unitário</th><th class="num">Total</th></tr>
+            </thead>
+            <tbody>
+              <template x-for="(item, index) in detail.order.items" :key="index">
+                <tr>
+                  <td>
+                    <div x-text="item.name || 'Item'"></div>
+                    <div class="md-detail-sub" x-text="item.notes"></div>
+                  </td>
+                  <td class="num" x-text="item.qty || '—'"></td>
+                  <td class="num" x-text="item.unitCents != null ? brl(item.unitCents) : '—'"></td>
+                  <td class="num" x-text="item.totalCents != null ? brl(item.totalCents) : '—'"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </template>
+        <p class="muted text-sm" x-show="!detail.order.items || !detail.order.items.length">
+          A API não retornou os itens deste pedido. A resposta original abaixo mostra todos os campos recebidos.
+        </p>
+
+        <details class="md-raw" x-show="detail.raw">
+          <summary>Resposta original da API</summary>
+          <pre x-text="detail.raw ? JSON.stringify(detail.raw, null, 2) : ''"></pre>
+        </details>
+
+        <div class="md-detail-actions" x-show="canManage">
+          <label class="md-field">
+            <span>Alterar situação</span>
+            <select class="input" x-model="statusId">
+              <option value="">Escolha…</option>
+              <template x-for="status in statuses" :key="status.id">
+                <option :value="status.id" x-text="status.name || ('Situação ' + status.id)"></option>
+              </template>
+            </select>
+          </label>
+          <label class="md-field" style="flex:1">
+            <span>Motivo (opcional)</span>
+            <input type="text" class="input" maxlength="300" x-model="statusReason"
+                   placeholder="Ex.: cliente solicitou cancelamento" />
+          </label>
+          <button type="button" class="btn" @click="applyStatus()" :disabled="savingStatus || !statusId">
+            <span x-text="savingStatus ? 'Aplicando…' : 'Aplicar no Mais Delivery'"></span>
+          </button>
+        </div>
+        </div>
+      </template>
+    </dialog>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    function maisdeliveryOrdersPage(configured, canManage, canSettings) {
+      return {
+        configured: configured,
+        canManage: canManage,
+        canSettings: canSettings,
+        started: false,
+        loading: false,
+        error: '',
+        notice: '',
+        from: '',
+        to: '',
+        orders: [],
+        statuses: [],
+        statusError: '',
+        selectedStatuses: [],
+        detail: null,
+        detailLoading: false,
+        detailError: '',
+        statusId: '',
+        statusReason: '',
+        savingStatus: false,
+        init() {
+          if (this.started) return;
+          this.started = true;
+          const today = new Date();
+          this.to = this.ymd(today);
+          const start = new Date(today);
+          start.setDate(start.getDate() - 6);
+          this.from = this.ymd(start);
+          if (this.configured) {
+            this.loadStatuses();
+            this.load();
+          }
+        },
+        ymd(date) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return year + '-' + month + '-' + day;
+        },
+        async loadStatuses() {
+          this.statusError = '';
+          try {
+            const response = await fetch('/api/maisdelivery/statuses');
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.statusError = data.error || 'Não foi possível carregar as situações.';
+              return;
+            }
+            this.statuses = Array.isArray(data.statuses) ? data.statuses : [];
+          } catch {
+            this.statusError = 'Erro de conexão ao carregar as situações.';
+          }
+        },
+        async load() {
+          if (!this.configured || this.loading) return;
+          this.loading = true;
+          this.error = '';
+          this.notice = '';
+          try {
+            const params = new URLSearchParams({ from: this.from, to: this.to });
+            if (this.selectedStatuses.length) params.set('status', this.selectedStatuses.join(','));
+            const response = await fetch('/api/maisdelivery/orders?' + params.toString());
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.error = data.error || 'Não foi possível carregar os pedidos.';
+              this.orders = [];
+              return;
+            }
+            this.orders = Array.isArray(data.orders) ? data.orders : [];
+          } catch {
+            this.error = 'Erro de conexão ao carregar os pedidos.';
+            this.orders = [];
+          } finally {
+            this.loading = false;
+          }
+        },
+        resetFilters() {
+          const today = new Date();
+          this.to = this.ymd(today);
+          const start = new Date(today);
+          start.setDate(start.getDate() - 6);
+          this.from = this.ymd(start);
+          this.selectedStatuses = [];
+          this.load();
+        },
+        toggleStatus(rawId) {
+          const id = Number(rawId);
+          if (!Number.isInteger(id) || id <= 0) return;
+          const index = this.selectedStatuses.indexOf(id);
+          if (index >= 0) this.selectedStatuses.splice(index, 1);
+          else this.selectedStatuses.push(id);
+        },
+        statusLabel(order) {
+          if (!order) return '';
+          if (order.status) return order.status;
+          const found = this.statuses.find((status) => String(status.id) === String(order.statusId));
+          return found ? found.name : (order.statusId ? 'Situação ' + order.statusId : '');
+        },
+        statusClass(status) {
+          const text = String(status || '').toLowerCase();
+          if (/cancel|recus/.test(text)) return 'cancelado';
+          if (/entreg|finaliz|conclu|pronto/.test(text)) return 'ok';
+          if (/pend|aguard|prepar|aceit|andamento/.test(text)) return 'pendente';
+          return 'neutral';
+        },
+        money(order) {
+          if (!order) return '—';
+          if (order.totalCents !== null && order.totalCents !== undefined) return brl(order.totalCents);
+          if (order.totalRaw) return /^R\$/.test(order.totalRaw) ? order.totalRaw : 'R$ ' + order.totalRaw;
+          return '—';
+        },
+        when(raw) {
+          if (!raw) return '—';
+          try {
+            return fmtDateTimeLocal(raw);
+          } catch (_error) {
+            return raw;
+          }
+        },
+        totalLabel() {
+          const total = this.orders.reduce((sum, order) => {
+            return sum + (Number.isFinite(order.totalCents) ? order.totalCents : 0);
+          }, 0);
+          return brl(total);
+        },
+        pendingCount() {
+          return this.orders.filter((order) => !/entreg|finaliz|conclu|cancel|recus/i.test(order.status || '')).length;
+        },
+        openDetail(order) {
+          this.detailError = '';
+          this.statusReason = '';
+          this.statusId = order.statusId ? String(order.statusId) : '';
+          this.detail = { order: order, raw: null };
+          this.detailLoading = true;
+          if (this.$refs.detailDlg && !this.$refs.detailDlg.open) this.$refs.detailDlg.showModal();
+          this.fetchDetail(order.id);
+        },
+        async fetchDetail(id) {
+          if (!id) {
+            this.detailLoading = false;
+            return;
+          }
+          try {
+            const response = await fetch('/api/maisdelivery/orders/' + encodeURIComponent(id));
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.detailError = data.error || 'Não foi possível carregar os detalhes.';
+              return;
+            }
+            if (data && data.order) {
+              this.detail = { order: data.order, raw: data.raw };
+              if (data.order.statusId) this.statusId = String(data.order.statusId);
+            }
+          } catch {
+            this.detailError = 'Erro de conexão ao carregar os detalhes.';
+          } finally {
+            this.detailLoading = false;
+          }
+        },
+        async applyStatus() {
+          if (!this.detail || !this.detail.order) return;
+          const orderId = this.detail.order.id;
+          if (!orderId) {
+            this.detailError = 'Este pedido não tem um ID que possa ser alterado.';
+            return;
+          }
+          const statusId = Number(this.statusId);
+          if (!Number.isInteger(statusId) || statusId <= 0) {
+            this.detailError = 'Escolha a situação de destino.';
+            return;
+          }
+          if (window.confirmDlg && !await window.confirmDlg('Alterar a situação do pedido #' + orderId + ' no Mais Delivery?')) {
+            return;
+          }
+          this.savingStatus = true;
+          this.detailError = '';
+          try {
+            const response = await fetch('/api/maisdelivery/orders/' + encodeURIComponent(orderId) + '/status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ statusId: statusId, reason: this.statusReason.trim() }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.detailError = data.error || 'Não foi possível alterar a situação.';
+              return;
+            }
+            this.$refs.detailDlg.close();
+            await this.load();
+            this.notice = 'Situação alterada no Mais Delivery.';
+          } catch {
+            this.detailError = 'Erro de conexão ao alterar a situação.';
+          } finally {
+            this.savingStatus = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Integração Mais Delivery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <%- include('partials/maisdelivery-styles') %>
+  <script nonce="<%= cspNonce %>">
+    window.MAISDELIVERY_CONFIG = <%- JSON.stringify(config) %>;
+  </script>
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/app/maisdelivery/configuracoes' }) %>
+  <main class="md-page" x-data="maisdeliverySettingsPage()">
+    <header class="md-head">
+      <img src="/img/maisdelivery.png" alt="Mais Delivery" class="md-logo" />
+      <div class="md-head-text">
+        <h1>Integração Mais Delivery</h1>
+        <p class="muted">Conecte o painel do Mais Delivery para acompanhar os pedidos do marketplace dentro do Kivo.</p>
+      </div>
+      <div class="md-head-actions">
+        <a class="btn secondary" href="https://maisdeliveryapp.com.br/web/institucional.auth.api.publica.php" target="_blank" rel="noopener">Abrir painel</a>
+        <a class="btn" href="/app/maisdelivery/pedidos">Ver pedidos</a>
+      </div>
+    </header>
+
+    <div class="md-grid">
+      <section class="panel">
+        <h2>Credenciais e identificadores</h2>
+        <p class="muted text-sm">
+          Os valores ficam no cofre local do Kivo. O token e o Basic Auth não são devolvidos para a tela,
+          não entram no backup e não aparecem na auditoria.
+        </p>
+
+        <div class="md-field">
+          <label for="md-access-token">Access token</label>
+          <input id="md-access-token" type="password" class="input" x-model="form.accessToken"
+                 autocomplete="new-password" spellcheck="false"
+                 :placeholder="hasAccessToken ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Access token do painel'" />
+          <span class="hint">Enviado no header <code>Accesstoken</code>.</span>
+        </div>
+
+        <div class="md-field">
+          <label for="md-basic-auth">Basic Auth</label>
+          <input id="md-basic-auth" type="password" class="input" x-model="form.basicAuth"
+                 autocomplete="new-password" spellcheck="false"
+                 :placeholder="hasBasicAuth ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Basic Auth do painel'" />
+          <span class="hint">Pode colar o valor completo (<code>Basic ...</code>) ou só o código. Enviado no header <code>Authorization</code>.</span>
+        </div>
+
+        <div class="md-row">
+          <div class="md-field">
+            <label for="md-empresa">ID da empresa integrada</label>
+            <input id="md-empresa" type="number" min="1" step="1" class="input" x-model="form.empresaIntegrada"
+                   placeholder="Ex.: 12345" />
+            <span class="hint">Campo <code>idEmpresaIntegrada</code> do painel.</span>
+          </div>
+          <div class="md-field">
+            <label for="md-restaurante">ID do restaurante</label>
+            <input id="md-restaurante" type="number" min="1" step="1" class="input" x-model="form.restaurante"
+                   placeholder="Ex.: 50451" />
+            <span class="hint">Usado para listar, detalhar e alterar situação.</span>
+          </div>
+          <div class="md-field">
+            <label for="md-marketplace">ID do marketplace</label>
+            <input id="md-marketplace" type="number" min="1" step="1" class="input" x-model="form.marketplace"
+                   placeholder="Opcional" />
+            <span class="hint">Só para listar sem restaurante (operação 14).</span>
+          </div>
+        </div>
+
+        <label class="md-check">
+          <input type="checkbox" x-model="form.sandbox" />
+          <span>
+            <strong>Modo sandbox</strong><br />
+            <span class="hint">Obrigatório durante o desenvolvimento. Desligue somente quando for usar o token de produção.</span>
+          </span>
+        </label>
+        <p class="error" x-show="!form.sandbox" x-cloak>
+          Em produção, use o token liberado após validar e-mail e telefone no painel do Mais Delivery.
+        </p>
+
+        <div class="md-actions">
+          <button type="button" class="btn" @click="save()" :disabled="saving">
+            <span x-text="saving ? 'Salvando…' : 'Salvar configuração'"></span>
+          </button>
+          <button type="button" class="btn secondary" @click="saveAndTest()" :disabled="saving || testing">
+            <span x-text="testing ? 'Testando…' : 'Salvar e testar conexão'"></span>
+          </button>
+        </div>
+        <p class="error" x-text="error" x-show="error" x-cloak></p>
+        <p class="md-note" x-text="notice" x-show="notice" x-cloak></p>
+      </section>
+
+      <section class="panel">
+        <h2>Status da integração</h2>
+        <div class="md-status-list">
+          <div class="md-status-item">
+            <span class="md-dot" :class="{ on: hasAccessToken }"></span>
+            <span x-text="hasAccessToken ? 'Access token salvo' : 'Access token não configurado'"></span>
+          </div>
+          <div class="md-status-item">
+            <span class="md-dot" :class="{ on: hasBasicAuth }"></span>
+            <span x-text="hasBasicAuth ? 'Basic Auth salvo' : 'Basic Auth não configurado'"></span>
+          </div>
+          <div class="md-status-item">
+            <span class="md-dot" :class="{ on: isConfigured() }"></span>
+            <span x-text="isConfigured() ? 'Pronto para listar pedidos' : 'Faltam dados para listar pedidos'"></span>
+          </div>
+          <div class="md-status-item">
+            <span class="md-dot" :class="{ on: form.sandbox }"></span>
+            <span x-text="form.sandbox ? 'Modo sandbox (teste)' : 'Modo produção'"></span>
+          </div>
+        </div>
+
+        <div class="md-test" x-show="testResult || testError" x-cloak>
+          <div class="md-test-card" :class="testResult ? 'ok' : 'err'">
+            <h3 x-text="testResult ? (testResult.establishment && testResult.establishment.name ? testResult.establishment.name : 'Conexão validada') : 'Falha no teste'"></h3>
+            <p class="muted text-sm" x-text="testResult ? establishmentLine() : testError"></p>
+            <details class="md-raw" x-show="testResult">
+              <summary>Resposta original da API</summary>
+              <pre x-text="testResult ? JSON.stringify(testResult.raw, null, 2) : ''"></pre>
+            </details>
+          </div>
+        </div>
+
+        <p class="muted text-xs" style="margin-top:1rem">
+          O modo sandbox envia <code>sandBox: true</code> em todas as operações. Para obter as credenciais,
+          <a href="https://maisdeliveryapp.com.br/web/institucional.cadastro.api.publica.php" target="_blank" rel="noopener">cadastre a empresa</a>
+          e faça login no painel.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <script nonce="<%= cspNonce %>">
+    function maisdeliverySettingsPage() {
+      const cfg = window.MAISDELIVERY_CONFIG || {};
+      return {
+        form: {
+          empresaIntegrada: cfg.empresaIntegrada ?? '',
+          restaurante: cfg.restaurante ?? '',
+          marketplace: cfg.marketplace ?? '',
+          sandbox: cfg.sandbox !== false,
+          accessToken: '',
+          basicAuth: '',
+        },
+        hasAccessToken: !!cfg.hasAccessToken,
+        hasBasicAuth: !!cfg.hasBasicAuth,
+        saving: false,
+        testing: false,
+        error: '',
+        notice: '',
+        testResult: null,
+        testError: '',
+        isConfigured() {
+          return !!(this.hasAccessToken && this.hasBasicAuth && Number(this.form.empresaIntegrada) > 0
+            && (Number(this.form.restaurante) > 0 || Number(this.form.marketplace) > 0));
+        },
+        establishmentLine() {
+          if (!this.testResult || !this.testResult.establishment) {
+            return 'A API respondeu sem os dados do estabelecimento.';
+          }
+          const e = this.testResult.establishment;
+          return [e.document, e.phone, e.address].filter(Boolean).join(' · ')
+            || 'Estabelecimento consultado com sucesso.';
+        },
+        applyConfig(data) {
+          this.form.empresaIntegrada = data.empresaIntegrada ?? '';
+          this.form.restaurante = data.restaurante ?? '';
+          this.form.marketplace = data.marketplace ?? '';
+          this.form.sandbox = data.sandbox !== false;
+          this.hasAccessToken = !!data.hasAccessToken;
+          this.hasBasicAuth = !!data.hasBasicAuth;
+        },
+        payload() {
+          const num = (value) => {
+            const parsed = Number(value);
+            return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+          };
+          const body = {
+            empresaIntegrada: num(this.form.empresaIntegrada),
+            restaurante: num(this.form.restaurante),
+            marketplace: num(this.form.marketplace),
+            sandbox: !!this.form.sandbox,
+          };
+          const token = this.form.accessToken.trim();
+          const basic = this.form.basicAuth.trim();
+          if (token) body.accessToken = token;
+          if (basic) body.basicAuth = basic;
+          return body;
+        },
+        async save(showNotice = true) {
+          if (this.saving) return false;
+          this.saving = true;
+          this.error = '';
+          this.notice = '';
+          try {
+            const response = await fetch('/api/maisdelivery/settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.payload()),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.error = data.error || 'Não foi possível salvar a configuração.';
+              return false;
+            }
+            this.applyConfig(data);
+            this.form.accessToken = '';
+            this.form.basicAuth = '';
+            if (showNotice) this.notice = 'Configuração salva.';
+            return true;
+          } catch {
+            this.error = 'Erro de conexão ao salvar a configuração.';
+            return false;
+          } finally {
+            this.saving = false;
+          }
+        },
+        async saveAndTest() {
+          this.testResult = null;
+          this.testError = '';
+          if (!await this.save(false)) return;
+          this.testing = true;
+          this.error = '';
+          try {
+            const response = await fetch('/api/maisdelivery/test', { method: 'POST' });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.testError = data.error || 'A API do Mais Delivery recusou a conexão.';
+              return;
+            }
+            this.testResult = data;
+            this.notice = 'Conexão validada com o Mais Delivery.';
+          } catch {
+            this.testError = 'Erro de conexão ao testar a API.';
+          } finally {
+            this.testing = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

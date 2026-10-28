@@ -556,3 +556,30 @@ export const supportMessageSchema = z.object({
   // Mensagem da KIVO IA dentro do ticket: entra como sender 'ia' (o suporte assume depois).
   ai: z.boolean().optional(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mais Delivery (integração de pedidos)
+//
+// Os IDs vêm do painel do Mais Delivery. `null`/ausente limpa o campo; o token e o
+// Basic Auth só são substituídos quando chegam preenchidos (string vazia preserva o
+// segredo atual). O schema não valida o formato do Basic Auth porque o painel pode
+// entregar o valor com ou sem o prefixo "Basic ".
+// ─────────────────────────────────────────────────────────────────────────────
+
+const maisDeliveryId = z.number().int().positive('Informe um ID válido.').nullable().optional();
+
+export const maisDeliverySettingsSchema = z
+  .object({
+    empresaIntegrada: maisDeliveryId,
+    restaurante: maisDeliveryId,
+    marketplace: maisDeliveryId,
+    sandbox: z.boolean().optional(),
+    accessToken: z.string().trim().max(4000, 'Access token muito longo.').optional(),
+    basicAuth: z.string().trim().max(4000, 'Basic Auth muito longo.').optional(),
+  })
+  .strict();
+
+export const maisDeliveryOrderStatusSchema = z.object({
+  statusId: z.number().int().positive('Informe a situação de destino.'),
+  reason: z.string().trim().max(300, 'Motivo muito longo.').optional(),
+});
