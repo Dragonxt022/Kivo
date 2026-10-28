@@ -34,9 +34,14 @@ router.post('/login', async (req, res) => {
     res.status(401).render('afiliado-login', { error: 'Usuário ou senha inválidos.' });
     return;
   }
-  const token = await createAffiliateSession(identity.id);
+  const remember = req.body?.remember === '1' || req.body?.remember === 'on';
+  const session = await createAffiliateSession(identity.id, remember);
   await getPool().query('UPDATE affiliates SET last_login_at = NOW(3) WHERE id = ?', [identity.id]);
-  res.cookie(AFFILIATE_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
+  res.cookie(AFFILIATE_SESSION_COOKIE, session.token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: session.maxAge,
+  });
   res.redirect('/afiliado');
 });
 

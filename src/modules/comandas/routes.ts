@@ -24,6 +24,8 @@ router.get('/tables', requireCapability('comandas.mesas'), requirePermission('co
 router.get('/tables/status', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.listTableStatus);
 // Histórico de abertura/fechamento e itens vendidos/cancelados por mesa.
 router.get('/tables/history', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.tableHistory);
+// SSE: a grade recebe a mudança de mesa/comanda assim que acontece (o poll é reserva).
+router.get('/tables/events', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.tableEvents);
 router.post('/tables', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), validateBody(createTableSchema), comandasController.createTable);
 // Geração em lote pela engrenagem de configuração da tela de Mesas.
 router.post('/tables/generate', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), validateBody(generateTablesSchema), comandasController.generateTablesAction);

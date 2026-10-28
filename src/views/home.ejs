@@ -48,6 +48,25 @@
       outline: none; border-color: var(--primary);
       box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
     }
+    /* O olho fica dentro do próprio campo, alinhado ao centro: um botão ao lado
+       desalinharia os formulários que têm dois campos de senha seguidos. */
+    .login-card .password-field { position: relative; margin-bottom: .85rem; }
+    .login-card .password-field input[type="text"],
+    .login-card .password-field input[type="password"] {
+      margin-bottom: 0; padding-right: 2.75rem;
+    }
+    .login-card .password-toggle {
+      position: absolute; top: 50%; right: .45rem; transform: translateY(-50%);
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
+      background: transparent; color: var(--text-muted); cursor: pointer;
+      transition: color var(--transition), background var(--transition);
+    }
+    .login-card .password-toggle:hover { color: var(--primary); background: var(--surface); }
+    .login-card .password-toggle:focus-visible {
+      outline: 2px solid var(--primary); outline-offset: 1px;
+    }
+    .login-card .password-toggle svg { width: 18px; height: 18px; }
     .login-card .remember {
       display: flex; align-items: center; gap: .5rem;
       margin-bottom: 1rem; font-size: .85rem; color: var(--text-muted); cursor: pointer;
@@ -203,6 +222,12 @@
     }
     .mod-toggle:hover { background: var(--surface-hover); }
     .mod-toggle input { width: 16px; height: 16px; }
+    /* No celular o card é pequeno: o botão de ocultar sobe para o canto e encolhe, senão
+       fica por cima do ícone. Como ele aparece em todos os cards e o toque é impreciso,
+       some de vez — ocultar atalhos continua disponível em "Personalizar". */
+    @media (max-width: 640px) {
+      .card-hide { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -235,9 +260,25 @@
               <input id="setup-user" type="text" x-model="setupUser" autocomplete="username" maxlength="32"
                      placeholder="ex.: maria" />
               <label for="setup-pass">Senha</label>
-              <input id="setup-pass" type="password" x-model="setupPass" autocomplete="new-password" />
+              <div class="password-field">
+                <input id="setup-pass" :type="showSetupPass ? 'text' : 'password'" x-model="setupPass" autocomplete="new-password" />
+                <button type="button" class="password-toggle" @click="showSetupPass = !showSetupPass"
+                        :aria-label="showSetupPass ? 'Ocultar senha' : 'Mostrar senha'"
+                        :title="showSetupPass ? 'Ocultar senha' : 'Mostrar senha'">
+                  <svg x-show="!showSetupPass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg x-show="showSetupPass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.7 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                </button>
+              </div>
               <label for="setup-pass2">Repita a senha</label>
-              <input id="setup-pass2" type="password" x-model="setupPass2" autocomplete="new-password" />
+              <div class="password-field">
+                <input id="setup-pass2" :type="showSetupPass2 ? 'text' : 'password'" x-model="setupPass2" autocomplete="new-password" />
+                <button type="button" class="password-toggle" @click="showSetupPass2 = !showSetupPass2"
+                        :aria-label="showSetupPass2 ? 'Ocultar senha' : 'Mostrar senha'"
+                        :title="showSetupPass2 ? 'Ocultar senha' : 'Mostrar senha'">
+                  <svg x-show="!showSetupPass2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg x-show="showSetupPass2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.7 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                </button>
+              </div>
               <p class="setup-hint">Mínimo de 8 caracteres, com maiúscula, minúscula e número.</p>
               <button type="submit" x-text="setupLoading ? 'Criando…' : 'Criar acesso e entrar'"
                       :disabled="setupLoading"></button>
@@ -275,8 +316,16 @@
               <input id="login-user" type="text" x-model="loginUser" autocomplete="username"
                      x-ref="loginUser" @keydown.escape.prevent="handleLoginEsc()" />
               <label for="login-pass">Senha</label>
-              <input id="login-pass" type="password" x-model="loginPass" autocomplete="current-password"
-                     @keydown.escape.prevent="handleLoginEsc()" />
+              <div class="password-field">
+                <input id="login-pass" :type="showLoginPass ? 'text' : 'password'" x-model="loginPass" autocomplete="current-password"
+                       @keydown.escape.prevent="handleLoginEsc()" />
+                <button type="button" class="password-toggle" @click="showLoginPass = !showLoginPass"
+                        :aria-label="showLoginPass ? 'Ocultar senha' : 'Mostrar senha'"
+                        :title="showLoginPass ? 'Ocultar senha' : 'Mostrar senha'">
+                  <svg x-show="!showLoginPass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg x-show="showLoginPass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.7 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                </button>
+              </div>
               <button type="submit" x-text="loginLoading ? 'Entrando…' : 'Entrar'"
                       :disabled="loginLoading"></button>
               <div class="error" x-text="loginError"></div>
@@ -378,9 +427,25 @@
                        spellcheck="false" />
 
                 <label for="rec-pass">Senha nova</label>
-                <input id="rec-pass" type="password" x-model="recovery.pass" autocomplete="new-password" />
+                <div class="password-field">
+                  <input id="rec-pass" :type="recovery.showPass ? 'text' : 'password'" x-model="recovery.pass" autocomplete="new-password" />
+                  <button type="button" class="password-toggle" @click="recovery.showPass = !recovery.showPass"
+                          :aria-label="recovery.showPass ? 'Ocultar senha' : 'Mostrar senha'"
+                          :title="recovery.showPass ? 'Ocultar senha' : 'Mostrar senha'">
+                    <svg x-show="!recovery.showPass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg x-show="recovery.showPass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.7 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                  </button>
+                </div>
                 <label for="rec-pass2">Repita a senha nova</label>
-                <input id="rec-pass2" type="password" x-model="recovery.pass2" autocomplete="new-password" />
+                <div class="password-field">
+                  <input id="rec-pass2" :type="recovery.showPass2 ? 'text' : 'password'" x-model="recovery.pass2" autocomplete="new-password" />
+                  <button type="button" class="password-toggle" @click="recovery.showPass2 = !recovery.showPass2"
+                          :aria-label="recovery.showPass2 ? 'Ocultar senha' : 'Mostrar senha'"
+                          :title="recovery.showPass2 ? 'Ocultar senha' : 'Mostrar senha'">
+                    <svg x-show="!recovery.showPass2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg x-show="recovery.showPass2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18"/><path d="M10.7 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                  </button>
+                </div>
                 <p class="setup-hint">Mínimo de 8 caracteres, com maiúscula, minúscula e número.</p>
 
                 <button type="submit" :disabled="recovery.loading"
@@ -516,7 +581,7 @@
            x-show="matches(a.label) && !isHidden(a.href)"
            :class="[dragId === a.href ? 'dragging' : '', dropOverId === a.href ? 'drop-target' : '']"
            @pointerdown="podeArrumarCards && onCardPointerDown($event, a)">
-          <a class="card-link" :href="a.href" :aria-label="a.label"></a>
+          <a class="card-link" :href="a.href" :aria-label="a.label" draggable="false"></a>
           <span class="card-icon" x-html="iconSvg(a.icon)"></span>
           <span class="card-title" x-text="a.label"></span>
           <span class="card-desc" x-text="a.description"></span>
@@ -592,7 +657,7 @@
         if (rem > 0) {
           for (var i = 0; i < 6 - rem; i++) {
       %>
-          <div class="app-card" style="visibility:hidden;border-color:transparent;box-shadow:none;cursor:default;pointer-events:none"></div>
+          <div class="app-card app-card-filler" style="visibility:hidden;border-color:transparent;box-shadow:none;cursor:default;pointer-events:none"></div>
       <%
           }
         }
@@ -784,6 +849,7 @@
         showLogin: false,
         loginUser: '',
         loginPass: '',
+        showLoginPass: false,
         loginLoading: false,
         loginError: '',
         firstRun: false,
@@ -791,6 +857,8 @@
         setupUser: '',
         setupPass: '',
         setupPass2: '',
+        showSetupPass: false,
+        showSetupPass2: false,
         setupLoading: false,
         setupError: '',
         // Entrada rápida (balões). Lista vazia = nenhum perfil salvo nesta máquina, ou
@@ -901,9 +969,17 @@
         onCardPointerDown(e, a) {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
           const card = e.currentTarget;
+          /* Um arraste que não gerou clique (comum no toque) deixa o supressor armado;
+             sem desarmá-lo aqui, ele engoliria este novo toque no mesmo card. */
+          if (card._dragClickSuppressor) {
+            card.removeEventListener('click', card._dragClickSuppressor, { capture: true });
+            card._dragClickSuppressor = null;
+          }
           const startX = e.clientX, startY = e.clientY;
           const rect = card.getBoundingClientRect();
           let dragging = false;
+
+          const suppressClick = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
 
           const activate = () => {
             dragging = true;
@@ -913,10 +989,10 @@
             card.style.left = rect.left + 'px';
             card.style.top = rect.top + 'px';
             try { card.setPointerCapture(e.pointerId); } catch {}
+            card._dragClickSuppressor = suppressClick;
             card.addEventListener('click', suppressClick, { capture: true, once: true });
             if (navigator.vibrate) navigator.vibrate(12);
           };
-          const suppressClick = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
 
           const timer = setTimeout(activate, 260);
 
@@ -931,19 +1007,43 @@
             const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.app-card');
             this.dropOverId = under && under !== card && under.dataset.href ? under.dataset.href : null;
           };
+          /* O dedo rola a home normalmente até o toque longo virar arraste. Só então a
+             rolagem é cancelada — daí em diante o card precisa acompanhar o dedo. */
+          const onTouchMove = (ev) => {
+            if (dragging) ev.preventDefault();
+          };
+          /* No toque, o menu de contexto do link (abrir em nova aba etc.) aparece no meio
+             do toque longo e atrapalha o arraste. No mouse continua intacto. */
+          const blockContextMenu = (ev) => { ev.preventDefault(); };
+          if (e.pointerType !== 'mouse') window.addEventListener('contextmenu', blockContextMenu);
           const onUp = () => {
             cleanup();
             if (dragging) this.finishDrag(a, card);
-            else {}
+          };
+          /* O navegador tomou o gesto para rolar a página: não reordena, só devolve o card. */
+          const onCancel = () => {
+            card.removeEventListener('click', suppressClick, { capture: true });
+            card._dragClickSuppressor = null;
+            cleanup();
+            if (dragging) {
+              card.removeAttribute('style');
+              this.dragId = null;
+              this.dropOverId = null;
+            }
           };
           const cleanup = () => {
             clearTimeout(timer);
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onCancel);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('contextmenu', blockContextMenu);
           };
 
           window.addEventListener('pointermove', onMove);
           window.addEventListener('pointerup', onUp);
+          window.addEventListener('pointercancel', onCancel);
+          window.addEventListener('touchmove', onTouchMove, { passive: false });
         },
         finishDrag(a, card) {
           card.removeAttribute('style');
@@ -1240,6 +1340,8 @@
           response: '',
           pass: '',
           pass2: '',
+          showPass: false,
+          showPass2: false,
           loading: false,
           error: '',
           copied: false,
@@ -1272,6 +1374,7 @@
           this.recovery = {
             open: false, step: 'inicio', status: null, username: '', userLabel: '',
             challenge: '', instalacao: '', expiraEm: 30, response: '', pass: '', pass2: '',
+            showPass: false, showPass2: false,
             loading: false, error: '', copied: false,
           };
           if (u) {

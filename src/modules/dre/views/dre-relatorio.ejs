@@ -36,7 +36,8 @@
       <% } %>
     </div>
 
-    <table>
+    <%# Matriz do demonstrativo: no celular continua tabela (com rolagem), não vira cartão. %>
+    <table data-cards="off">
       <thead><tr><th>Categoria</th><th class="right">Real</th><th class="right">Ajuste</th><th class="right">Projetado</th></tr></thead>
       <tbody>
         <template x-for="row in rows" :key="row.key">

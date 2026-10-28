@@ -1145,7 +1145,12 @@ button.app-card {
 }
 .app-card.drag-enabled {
   cursor: grab;
-  touch-action: none;
+  /* O card é também área de rolagem: `touch-action: none` engolia o deslize do dedo
+     sobre a grade e só sobravam as bordas da tela para rolar. `manipulation` libera
+     o pan e o pinch-zoom (sem o zoom de duplo toque); o toque longo continua
+     iniciando o arraste, e aí o JS segura a rolagem em `touchmove`. */
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
 }
 .app-card.drag-enabled:active {
   cursor: grabbing;
@@ -4267,6 +4272,12 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
     padding: 0.5rem 0.5rem 0.5rem 0.85rem;
   }
 }
+/* No celular/tablet a barra inferior já é a navegação principal; os balões de páginas
+   recentes ficam desligados para não cobrir conteúdo nem atalhos. O histórico continua
+   sendo registrado (a preferência e a limpeza seguem em Configurações). */
+@media (max-width: 820px) {
+  .recent-fab { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .recent-fab-pill {
     transition-duration: 0.12s;
@@ -6428,7 +6439,7 @@ button.icon-pack-card:disabled {
 .app-card { position: relative; }
 /* Link de navegação do card: cobre toda a área por cima do conteúdo. O card é um <div> para
    poder conter os botões de hover — botão dentro de <a> é HTML inválido. */
-.app-card .card-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.app-card .card-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; -webkit-user-drag: none; }
 .app-card .card-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .card-more {
   position: absolute;
@@ -6454,4 +6465,677 @@ button.icon-pack-card:disabled {
 /* Toque não tem hover: no aparelho sem mouse o atalho aparece sempre, senão seria inalcançável. */
 @media (hover: none) {
   .card-more { opacity: 0.75; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   CELULAR / REDE LOCAL — casca do app, home compacta, tabelas em cartões e diálogos
+   ══════════════════════════════════════════════════════════════════════════════════════════
+   O Kivo de desktop é aberto pelo celular na rede local. As regras abaixo só valem em telas
+   estreitas; nada aqui muda o desktop. A ordem importa: este bloco fica no fim do arquivo
+   para vencer os breakpoints antigos (540/400) sem precisar reescrevê-los. */
+
+:root {
+  /* Altura da barra inferior. Fora do celular é zero, então quem usa `calc()` com ela
+     (barra de fechar comanda, barra do PDV, FAB de suporte) não precisa de outro breakpoint. */
+  --mobile-nav-height: 0px;
+}
+
+.mobile-bottom-nav { display: none; }
+
+@media (max-width: 820px) {
+  :root { --mobile-nav-height: 58px; }
+
+  /* Reserva o espaço da barra: sem isto o último item da página (e o rodapé do PDV) fica
+     escondido atrás dela. O `env()` cobre o indicador home do iPhone. */
+  body {
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 14px);
+  }
+
+  /* ─── Navegação inferior ─── */
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 95;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    padding: 0 0.3rem env(safe-area-inset-bottom);
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    border-top: 1px solid var(--border-light);
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.08);
+  }
+  .mbn-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    padding: 5px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.66rem;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color var(--transition), background var(--transition);
+  }
+  .mbn-item svg {
+    width: 21px;
+    height: 21px;
+    flex: none;
+  }
+  .mbn-item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mbn-item.active {
+    color: var(--primary);
+    background: var(--primary-bg);
+  }
+  .mbn-item:active {
+    background: var(--surface-hover);
+  }
+
+  /* O botão de aplicações do cabeçalho é substituído pela aba "Mais". */
+  header.nav .apps-toggle-btn { display: none; }
+
+  /* Flutuantes sobem para não brigar com a barra inferior. */
+  .fab {
+    right: 16px;
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 16px);
+  }
+  /* No PDV com itens, a barra fixa de total/finalizar ocupa a faixa logo acima da
+     navegação. O botão de suporte sobe mais um pouco para não cobrir o "Finalizar". */
+  body:has(.pdv-mobile-bar:not([style*='display: none'])) .fab {
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 4.6rem + 14px);
+  }
+  .support-panel {
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 12px);
+  }
+  .recent-fab {
+    right: 12px;
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 14px);
+  }
+}
+
+@media (max-width: 640px) {
+  /* ─── Home: três colunas, sem descrição, KPIs visíveis ─── */
+  .home-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.5rem;
+    margin: 0.9rem 0 1.1rem;
+  }
+  .stat-tile {
+    min-width: 0;
+    gap: 0.15rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 12px;
+  }
+  .stat-tile-label {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .stat-tile-value {
+    overflow: hidden;
+    font-size: clamp(0.95rem, 4vw, 1.25rem);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .stat-tile-status { font-size: 0.7rem; }
+
+  .dashboard-chart-panel {
+    margin: 0.5rem 0 1rem;
+    padding: 0.85rem 0.75rem;
+    border-radius: 14px;
+  }
+  .dashboard-chart-header {
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+  }
+  .dashboard-chart-header h2 { font-size: 0.85rem; }
+  .dashboard-chart-tools { gap: 0.3rem; }
+  .period-toggle button {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.72rem;
+  }
+  .chart-toggle-btn {
+    width: 30px;
+    height: 30px;
+  }
+  .bar-chart {
+    height: 110px;
+    gap: 0.3rem;
+    padding: 0.25rem 0.1rem 0;
+  }
+  .bar-label { font-size: 0.6rem; }
+
+  .home-bar {
+    gap: 0.5rem;
+    margin: 0.9rem 0 1.1rem;
+  }
+  .home-bar .search-wrap { margin: 0; }
+  .home-personalizar {
+    width: 42px;
+    height: 42px;
+  }
+  .app-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.55rem;
+  }
+  .app-card {
+    min-height: 6.8rem;
+    aspect-ratio: auto;
+    gap: 0.35rem;
+    justify-content: center;
+    padding: 0.7rem 0.45rem;
+  }
+  .app-card .card-icon,
+  .app-card .card-icon svg {
+    width: 32px;
+    height: 32px;
+  }
+  .app-card .card-title {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.74rem;
+    line-height: 1.2;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .app-card .card-desc,
+  .app-card .card-more { display: none; }
+  .app-card-filler { display: none !important; }
+
+  /* ─── Tabelas viram cartões (uma linha = um cartão) ─── */
+  .table-cards-wrap { overflow: visible; }
+  table.table-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  table.table-cards > thead { display: none; }
+  /* display:contents achata os vários <tbody> (a auditoria cria um por registro) para que
+     todos os <tr> sejam cartões irmãos, com o mesmo espaçamento. */
+  table.table-cards > tbody { display: contents; }
+  table.table-cards > tbody > tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.7rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-xs);
+  }
+  table.table-cards > tbody > tr:hover { background: var(--surface); }
+  table.table-cards > tbody > tr > td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0.22rem 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 0.9rem;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  /* Rótulo da coluna ao lado do valor, na mesma linha. Empilhar rótulo e valor em toda
+     célula deixava uma listagem de 8–12 campos alta demais no celular. */
+  table.table-cards > tbody > tr > td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.3;
+    text-transform: none;
+  }
+  table.table-cards > tbody > tr > td:not(.table-card-title):not(.table-card-check):not(.table-card-media):not(.table-card-chevron):not(.table-card-actions):not(.table-card-full):not(.table-card-skip) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  table.table-cards > tbody > tr > td:not(.table-card-title):not(.table-card-check):not(.table-card-media):not(.table-card-chevron):not(.table-card-actions):not(.table-card-full):not(.table-card-skip)::before {
+    /* Sem encolher: um valor longo (ex.: "CMV (Custo da Mercadoria Vendida)") espremia
+       o rótulo até quebrar letra por letra ("Categori / a"). */
+    flex: 0 0 auto;
+    max-width: 48%;
+  }
+
+  /* Título: o primeiro campo real da linha (cliente, produto, fornecedor…). */
+  table.table-cards > tbody > tr > td.table-card-title {
+    grid-column: 1 / -1;
+    padding: 0.05rem 1.9rem 0.4rem 0;
+    color: var(--text);
+    font-size: 0.98rem;
+    font-weight: 650;
+    line-height: 1.25;
+  }
+  table.table-cards > tbody > tr > td.table-card-title::before { display: none; }
+  table.table-cards > tbody > tr > td.table-card-title a { color: inherit; }
+  table.table-cards > tbody > tr.table-card-has-check > td.table-card-title,
+  table.table-cards > tbody > tr.table-card-has-chevron > td.table-card-title {
+    padding-right: 2.2rem;
+  }
+
+  /* Checkbox e seta flutuam no canto: não gastam uma linha inteira do cartão. */
+  table.table-cards > tbody > tr > td.table-card-check,
+  table.table-cards > tbody > tr > td.table-card-chevron {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  table.table-cards > tbody > tr > td.table-card-check { top: 0.5rem; right: 0.55rem; }
+  table.table-cards > tbody > tr > td.table-card-chevron {
+    top: 50%;
+    right: 0.4rem;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+  }
+  /* Algumas listagens (produtos, categorias) marcam a célula de ações/miniatura com
+     width:1% inline, o que vale no desktop mas no cartão encolhia a célula para 3px:
+     o rodapé de ações virava um traço e os botões transbordavam por cima da linha. */
+  table.table-cards > tbody > tr > td.table-card-actions,
+  table.table-cards > tbody > tr > td.table-card-check,
+  table.table-cards > tbody > tr > td.table-card-chevron {
+    width: auto !important;
+  }
+  table.table-cards > tbody > tr > td.table-card-check::before,
+  table.table-cards > tbody > tr > td.table-card-chevron::before { display: none; }
+  table.table-cards > tbody > tr > td.table-card-check input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: var(--primary);
+  }
+
+  /* Miniatura do produto: fica ao lado do título, como um avatar da linha. */
+  table.table-cards > tbody > tr.table-card-has-media {
+    grid-template-columns: 52px minmax(0, 1fr);
+    column-gap: 0.7rem;
+  }
+  table.table-cards > tbody > tr > td.table-card-media { padding: 0; }
+  table.table-cards > tbody > tr.table-card-has-media > td.table-card-media {
+    grid-column: 1;
+    grid-row: 1;
+    width: 52px !important;
+    align-self: start;
+  }
+  table.table-cards > tbody > tr.table-card-has-media > td.table-card-media img {
+    display: block;
+    width: 52px;
+    height: 52px;
+    border-radius: 9px;
+    object-fit: cover;
+    background: var(--surface-hover);
+  }
+  table.table-cards > tbody > tr.table-card-has-media > td.table-card-title {
+    grid-column: 2 / -1;
+    grid-row: 1;
+    align-self: center;
+  }
+  /* Sem a miniatura o cartão é uma coluna só; com ela, os detalhes ocupam a largura toda. */
+  table.table-cards > tbody > tr.table-card-has-media > td:not(.table-card-media):not(.table-card-title):not(.table-card-check):not(.table-card-chevron):not(.table-card-actions):not(.table-card-full):not(.table-card-skip) {
+    grid-column: 1 / -1;
+  }
+
+  /* Ações: rodapé do cartão, com os botões quebrando linha em vez de estourar. */
+  table.table-cards > tbody > tr > td.table-card-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border-light);
+  }
+  table.table-cards > tbody > tr > td.table-card-actions::before { display: none; }
+  table.table-cards > tbody > tr > td.table-card-actions .actions-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    width: 100%;
+    justify-content: flex-start;
+    white-space: normal;
+  }
+  table.table-cards > tbody > tr > td.table-card-actions .btn { max-width: 100%; }
+  /* Duas células de ações na mesma linha (produtos: favorito/cardápio + menu) formam um
+     rodapé só: a primeira fica à esquerda e a segunda à direita, sem uma segunda linha
+     divisória no meio. */
+  table.table-cards-dense > tbody > tr > td.table-card-actions:has(+ td.table-card-actions) {
+    grid-column: 1 / 2;
+  }
+  table.table-cards-dense > tbody > tr > td.table-card-actions + td.table-card-actions {
+    grid-column: 2 / 3;
+    justify-content: flex-end;
+    /* Estende a borda para a esquerda até encostar na célula anterior; sem isso o
+       column-gap de 0.85rem abria um vão no meio da linha divisória. */
+    margin-left: -0.85rem;
+    padding-left: 0.85rem;
+  }
+
+  table.table-cards > tbody > tr > td.table-card-skip { display: none; }
+  table.table-cards > tbody > tr > td.table-card-full {
+    grid-column: 1 / -1;
+    display: block;
+    padding: 0.35rem 0;
+  }
+  table.table-cards > tbody > tr > td.table-card-full::before { display: none; }
+  table.table-cards > tbody > tr > td[data-label='']::before,
+  table.table-cards > tbody > tr > td[colspan]::before { display: none; }
+  table.table-cards > tbody > tr > td[colspan] { text-align: center; }
+  table.table-cards > tbody > tr.table-card-empty {
+    display: block;
+    padding: 1.4rem 0.85rem;
+    text-align: center;
+  }
+  table.table-cards > tbody > tr.table-card-empty > td {
+    display: block;
+    padding: 0;
+    border: 0;
+    text-align: center;
+  }
+  table.table-cards > tbody > tr.table-card-empty > td::before { display: none; }
+  table.table-cards > tbody > tr > td > table { width: 100%; }
+
+  /* 8+ colunas: detalhes em duas colunas com o rótulo acima do valor. Uma coluna só
+     deixaria o cartão mais alto que a tabela original. */
+  table.table-cards-dense > tbody > tr {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 0.85rem;
+    row-gap: 0.5rem;
+  }
+  table.table-cards-dense > tbody > tr > td:not(.table-card-actions) { padding: 0; }
+  table.table-cards-dense > tbody > tr > td:not(.table-card-title):not(.table-card-check):not(.table-card-media):not(.table-card-chevron):not(.table-card-actions):not(.table-card-full):not(.table-card-skip) {
+    display: block;
+  }
+  table.table-cards-dense > tbody > tr > td::before {
+    display: block;
+    margin-bottom: 0.1rem;
+    font-size: 0.64rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  table.table-cards-dense > tbody > tr > td.table-card-title {
+    grid-column: 1 / -1;
+    padding: 0 1.9rem 0.15rem 0;
+  }
+  table.table-cards-dense > tbody > tr > td.table-card-actions,
+  table.table-cards-dense > tbody > tr > td.table-card-full { grid-column: 1 / -1; }
+  table.table-cards-dense > tbody > tr.table-card-has-media {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Em 8+ colunas a miniatura não ganha uma coluna própria: ela flutua no canto e o
+     título abre espaço para ela. Reservar 52px de grade espremia os rótulos e o texto
+     quebrava letra por letra ("CATE / GOR / IA"). */
+  table.table-cards-dense > tbody > tr.table-card-has-media > td.table-card-media {
+    position: absolute;
+    top: 0.7rem;
+    left: 0.85rem;
+    grid-column: auto;
+    grid-row: auto;
+  }
+  table.table-cards-dense > tbody > tr.table-card-has-media > td.table-card-title {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    min-height: 52px;
+    padding-left: 4rem;
+    display: flex;
+    align-items: center;
+  }
+  table.table-cards-dense > tbody > tr.table-card-has-media > td:not(.table-card-media):not(.table-card-title):not(.table-card-check):not(.table-card-chevron):not(.table-card-actions):not(.table-card-full):not(.table-card-skip) {
+    grid-column: auto;
+  }
+
+  /* Relatórios matrizes (data-cards="off") continuam tabela: uma largura mínima evita
+     espremer os valores em três linhas; a rolagem horizontal fica no .table-scroll. */
+  .table-scroll > table[data-cards='off'] { min-width: 540px; }
+
+  /* Chave/valor (licença, resumos): empilha e quebra valores longos em vez de rolar de lado. */
+  table.table-kv {
+    display: block;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  table.table-kv tbody { display: block; }
+  table.table-kv tr {
+    display: block;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  table.table-kv tr:last-child { border-bottom: 0; }
+  table.table-kv th,
+  table.table-kv td {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    text-align: left;
+  }
+  table.table-kv th {
+    margin-bottom: 0.15rem;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  table.table-kv td { font-size: 0.9rem; overflow-wrap: anywhere; }
+
+  /* ─── Barra de ferramentas e chips não estouram mais ─── */
+  .toolbar {
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  .toolbar > * { max-width: 100%; }
+  .toolbar input[style*='min-width'],
+  .toolbar select[style*='min-width'] { min-width: 0 !important; }
+  .toolbar select[style*='max-width'] {
+    width: 100%;
+    max-width: none !important;
+  }
+  .toolbar > label.muted {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+  }
+  .toolbar > label.muted .input-search {
+    flex: 1 1 7.5rem;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+  /* Busca solta na barra (categorias, usuários) cresce e ocupa a linha em vez de ficar
+     com a largura do placeholder, que truncava o texto no celular. */
+  .toolbar > .input-search,
+  .toolbar > .input-search-ghost {
+    flex: 1 1 12rem;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+  /* Seleções da barra ocupam a linha inteira no celular: lado a lado, "Todos os
+     vendedores" não cabia nos 153px que sobravam e o texto era cortado. */
+  .toolbar > select {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  /* Selects nativos sem classe (vendas) ganham o mesmo desenho dos inputs da barra. */
+  .toolbar > select:not(.input):not(.input-search) {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+  .toolbar > select:not(.input):not(.input-search):focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  /* No iOS/Chrome um input date com 16px precisa de ~140px para mostrar dd/mm/aaaa
+     inteiro; com 122px o texto virava "dd/mm/y". */
+  .toolbar input[type='date'] {
+    flex: 1 1 9rem;
+    min-width: 9rem;
+    max-width: 100%;
+  }
+  /* "Venc. de [data] até [data]" vira uma grade de duas colunas: o rótulo fica ao lado
+     do campo, um par por linha. Como flex, o primeiro campo crescia e o "até" ficava
+     órfão no fim da primeira linha, longe do segundo campo. */
+  .toolbar > label.muted:has(input[type='date']) {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.4rem 0.5rem !important;
+    width: 100%;
+  }
+  .toolbar > label.muted:has(input[type='date']) input[type='date'] {
+    width: 100%;
+    min-width: 0;
+  }
+  .search-filter {
+    flex: 1 1 12rem;
+    max-width: 100%;
+  }
+  .search-filter input { min-width: 0; }
+  .filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+    border-radius: 12px;
+  }
+  .filter-chips .chip {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .chip + .chip { margin-left: 0; }
+
+  /* ─── Diálogos como folha inferior ─── */
+  dialog {
+    inset: auto 0 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 8px);
+    margin: 0;
+    padding: 1.1rem 1rem calc(1.1rem + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 20px 20px 0 0;
+    animation: dialog-sheet-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Alguns diálogos trazem largura no style inline (avisos de licença); no celular a
+     folha ocupa a tela inteira, então o inline não pode vencer. */
+  dialog[style*='width'] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* O modal de pagamento do PDV traz 880px/96vw em `dialog.pay-modal[open]`, que vence
+     o seletor genérico de `dialog`. No celular a folha ocupa a tela toda. */
+  dialog.pay-modal[open] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  dialog.dialog-fixed {
+    height: auto;
+    max-height: calc(100dvh - 8px);
+  }
+  dialog .actions {
+    bottom: calc(-1.1rem - env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-top: 0.8rem;
+  }
+  dialog .actions .btn {
+    flex: 1 1 8rem;
+    justify-content: center;
+  }
+  dialog input:not([type='checkbox']):not([type='radio']),
+  dialog select,
+  dialog textarea { font-size: 16px; }
+
+  /* 16px evita o zoom automático do iOS ao focar um campo. */
+  main input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+  main select,
+  main textarea { font-size: 16px; }
+
+  /* Campos numéricos estreitos (backup, configurações) usam a linha inteira no celular. */
+  main .field .input-narrow,
+  main .field .input-narrow-sm,
+  main .field .input-narrow-lg {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Alvos de toque mínimos confortáveis. */
+  .btn { min-height: 42px; }
+  .btn.small { min-height: 36px; }
+  .btn-icon { min-width: 38px; min-height: 38px; }
+  .chip { min-height: 36px; }
+}
+
+@keyframes dialog-sheet-in {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 540px) {
+  /* Cabeçalho compacto: relógio e status da nuvem saem; ficam voltar, logo, sino e sair. */
+  header.nav .nav-clock-wrap,
+  header.nav .nav-clock-icon,
+  header.nav .cloud-status { display: none; }
+  header.nav img.logo { width: 112px; }
+}
+
+@media (max-width: 520px) {
+  .support-panel {
+    right: 8px;
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 10px);
+    width: calc(100vw - 16px);
+    height: min(68vh, calc(100dvh - var(--mobile-nav-height) - env(safe-area-inset-bottom) - 20px));
+  }
+}
+
+@media print {
+  .mobile-bottom-nav,
+  .pdv-mobile-bar { display: none !important; }
+  body { padding-bottom: 0; }
 }

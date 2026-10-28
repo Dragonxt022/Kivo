@@ -109,7 +109,8 @@ export interface QuickLoginResult {
   user: AuthUser;
 }
 
-const SESSION_HOURS = 12;
+/** Igual ao login normal: quem salvou o perfil neste computador não deve reentrar a cada 12h. */
+const REMEMBER_DAYS = 30;
 
 /**
  * Troca um perfil por uma sessão. Só o chamador (routes.ts) decide se a origem é confiável —
@@ -128,9 +129,9 @@ export function quickLogin(profileId: number, ip?: string): QuickLoginResult | n
   if (!row) return null;
 
   const token = randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + SESSION_HOURS * 3600e3).toISOString();
+  const expiresAt = new Date(Date.now() + REMEMBER_DAYS * 24 * 3600e3).toISOString();
   db.prepare(
-    `INSERT INTO sessions (token, user_id, remember, expires_at, ip, machine) VALUES (?, ?, 0, ?, ?, ?)`,
+    `INSERT INTO sessions (token, user_id, remember, expires_at, ip, machine) VALUES (?, ?, 1, ?, ?, ?)`,
   ).run(token, row.user_id, expiresAt, ip ?? null, os.hostname());
   db.prepare(`UPDATE quick_login_profiles SET last_used_at = datetime('now') WHERE id = ?`).run(profileId);
   userRepository.updateLastLogin(row.user_id);

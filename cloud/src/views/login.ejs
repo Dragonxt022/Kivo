@@ -17,11 +17,23 @@
       <label>Usuário</label>
       <input type="text" name="username" required autofocus>
       <label>Senha</label>
-      <input type="password" name="password" required>
+      <div class="password-field">
+        <input id="admin-login-password" type="password" name="password" required autocomplete="current-password">
+        <button type="button" class="password-toggle" data-password-toggle
+                aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
+          <svg data-eye-open viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg data-eye-off viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="m3 3 18 18"/><path d="M10.7 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.8 17.8 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
+      <label class="remember">
+        <input type="checkbox" name="remember" value="1" checked>
+        Manter conectado neste dispositivo
+      </label>
       <button type="submit" class="btn">Entrar</button>
     </form>
     <p class="login-help"><a href="/admin/forgot">Esqueci minha senha</a></p>
   </div>
+  <script src="/js/password-toggle.js" defer></script>
   <script>
     if (document.documentElement.getAttribute('data-theme') === 'dark') {
       document.getElementById('brand-logo').src = '/logo_kivo-icon_branco.svg';

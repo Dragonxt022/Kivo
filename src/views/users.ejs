@@ -24,6 +24,27 @@
       flex: none; padding: .15rem; line-height: 0;
     }
     .solo-admin-close:hover { color: var(--text); }
+    /* No celular o texto não divide a linha com o botão: o aviso vira duas fileiras. */
+    @media (max-width: 640px) {
+      .solo-admin-warn {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+        grid-template-areas:
+          'icon text close'
+          'btn btn btn';
+        align-items: start;
+        gap: .5rem .6rem;
+      }
+      .solo-admin-warn > svg { grid-area: icon; margin-top: .1rem; }
+      .solo-admin-warn > div { grid-area: text; }
+      .solo-admin-warn .solo-admin-close { grid-area: close; }
+      .solo-admin-warn .btn {
+        grid-area: btn;
+        width: 100%;
+        justify-self: stretch;
+        justify-content: center;
+      }
+    }
   </style>
 </head>
 <body>

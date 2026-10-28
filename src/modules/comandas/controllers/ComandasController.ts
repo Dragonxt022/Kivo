@@ -6,6 +6,7 @@ import type { FoodserviceKitchenService } from '../../foodservice/setup';
 import { openComanda, addItem, updateItemNotes, updateItemQty, sendToKitchen, voidItem, transfer, split, merge, closeComanda, cancelComanda, setReadyForPayment } from '../comandas';
 import { storeTableRepository } from '../repositories/StoreTableRepository';
 import { comandaRepository, comandaItemRepository } from '../repositories/ComandaRepository';
+import { notifyTableEvents, subscribeTableEvents } from '../tableEvents';
 import { generateTables, listTableHistory } from '../tables';
 
 export const comandasController = {
@@ -24,6 +25,9 @@ export const comandasController = {
    * de `c` da própria linha do máximo — a comanda mais recente.
    */
   listTableStatus(_req: Request, res: Response) {
+    // A grade não pode ser servida de cache: um 304 logo depois do SSE faria a tela
+    // continuar mostrando a mesa livre/ocupada antiga.
+    res.setHeader('Cache-Control', 'no-store');
     const tables = storeTableRepository.raw(
       `SELECT t.*, MAX(c.id) AS comanda_id, c.ready_for_payment_at
          FROM store_tables t
@@ -53,6 +57,14 @@ export const comandasController = {
     }));
   },
 
+  /**
+   * SSE da grade: avisa todas as telas abertas assim que algo muda em mesa/comanda.
+   * O `EventSource` reconecta sozinho se a conexão cair; o poll da tela é a reserva.
+   */
+  tableEvents(_req: Request, res: Response) {
+    subscribeTableEvents(res);
+  },
+
   createTable(req: Request, res: Response) {
     const { label, sortOrder } = req.body ?? {};
     if (!label) { res.status(400).json({ error: 'label obrigatorio.' }); return; }
@@ -63,6 +75,7 @@ export const comandasController = {
       origin_machine: req.headers['x-machine'] ?? null,
     });
     audit(req, 'criar_mesa', 'table', id);
+    notifyTableEvents();
     res.status(201).json({ id });
   },
 
@@ -70,6 +83,7 @@ export const comandasController = {
   generateTablesAction(req: Request, res: Response) {
     const { base, start, count, pad } = req.body ?? {};
     const result = generateTables(req, { base, start, count, pad });
+    notifyTableEvents();
     res.status(201).json(result);
   },
 
@@ -106,6 +120,7 @@ export const comandasController = {
     if (sortOrder !== undefined) data.sort_order = sortOrder;
     if (Object.keys(data).length) storeTableRepository.update(id, data);
     audit(req, 'editar_mesa', 'table', id);
+    notifyTableEvents();
     res.json({ ok: true });
   },
 
@@ -118,6 +133,7 @@ export const comandasController = {
     if (existing.status !== 'livre') { res.status(400).json({ error: 'Mesa ocupada nao pode ser removida.' }); return; }
     storeTableRepository.softDelete(id);
     audit(req, 'remover_mesa', 'table', id);
+    notifyTableEvents();
     res.json({ ok: true });
   },
 
@@ -125,6 +141,7 @@ export const comandasController = {
     const pronta = req.body?.pronta !== false;
     const result = setReadyForPayment(req, Number(req.params.id), pronta);
     if (!result.ok) { res.status(400).json(result); return; }
+    notifyTableEvents();
     res.json({ ok: true, pronta });
   },
 
@@ -169,6 +186,7 @@ export const comandasController = {
     const { tableId, customerId, notes } = req.body ?? {};
     const result = openComanda(req, { tableId, customerId, notes });
     if (!result.ok) { res.status(400).json(result); return; }
+    notifyTableEvents();
     res.status(201).json({ id: result.id });
   },
 
@@ -178,6 +196,8 @@ export const comandasController = {
     if (!productId || !qty) { res.status(400).json({ error: 'productId e qty obrigatorios.' }); return; }
     const result = addItem(req, comandaId, { productId, qty, notes, lineGroupUuid });
     if (!result.ok) { res.status(400).json(result); return; }
+    // Item novo desmarca o "Quer pagar": a grade precisa perder o aviso na hora.
+    notifyTableEvents();
     res.status(201).json({ id: result.id });
   },
 
@@ -186,6 +206,8 @@ export const comandasController = {
     const itemId = Number(req.params.itemId);
     const result = voidItem(req, comandaId, itemId);
     if (!result.ok) { res.status(400).json(result); return; }
+    // Pode ter removido o último item que estava pronto na cozinha (selo da mesa).
+    notifyTableEvents();
     res.json({ ok: true });
   },
 
@@ -200,6 +222,8 @@ export const comandasController = {
     const { qty } = req.body ?? {};
     const result = updateItemQty(req, Number(req.params.id), Number(req.params.itemId), Number(qty));
     if (!result.ok) { res.status(400).json(result); return; }
+    // A alteração de quantidade também desmarca o "Quer pagar".
+    notifyTableEvents();
     res.json({ ok: true });
   },
 
@@ -217,6 +241,7 @@ export const comandasController = {
     if (!tableId) { res.status(400).json({ error: 'tableId obrigatorio.' }); return; }
     const result = transfer(req, comandaId, tableId);
     if (!result.ok) { res.status(400).json(result); return; }
+    notifyTableEvents();
     res.json({ ok: true });
   },
 
@@ -226,6 +251,7 @@ export const comandasController = {
     if (!itemIds?.length) { res.status(400).json({ error: 'itemIds obrigatorio.' }); return; }
     const result = split(req, comandaId, itemIds);
     if (!result.ok) { res.status(400).json(result); return; }
+    notifyTableEvents();
     res.json({ newComandaId: result.newComandaId });
   },
 
@@ -235,6 +261,7 @@ export const comandasController = {
     if (!sourceComandaId) { res.status(400).json({ error: 'sourceComandaId obrigatorio.' }); return; }
     const result = merge(req, comandaId, sourceComandaId);
     if (!result.ok) { res.status(400).json(result); return; }
+    notifyTableEvents();
     res.json({ ok: true });
   },
 
@@ -244,6 +271,8 @@ export const comandasController = {
     if (!payments?.length) { res.status(400).json({ error: 'payments obrigatorio.' }); return; }
     const result = closeComanda(req, comandaId, { payments, discountCents, surchargeCents, customerId, customerName, items, clientRequestId });
     if (!result.ok) { res.status(400).json(result); return; }
+    // A mesa volta a ficar livre: avisa a grade antes mesmo de responder.
+    notifyTableEvents();
     res.json({ saleId: result.saleId });
   },
 
@@ -251,6 +280,7 @@ export const comandasController = {
     const comandaId = Number(req.params.id);
     const result = cancelComanda(req, comandaId);
     if (!result.ok) { res.status(400).json(result); return; }
+    notifyTableEvents();
     res.json({ ok: true });
   },
 };

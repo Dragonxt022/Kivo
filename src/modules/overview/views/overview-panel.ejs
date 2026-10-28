@@ -108,6 +108,9 @@
     var perfil = (typeof businessProfile !== 'undefined' ? businessProfile : 'generico');
     var temVarejo = perfil !== 'odontologia';
     var temOdonto = perfil === 'odontologia' && user.permissions.has('odonto.reports.view');
+    // O módulo de comandas pode estar configurado como "Balcão" — atalho acompanha.
+    var _comandasIcone = typeof comandasLabels !== 'undefined' ? comandasLabels.icon : 'utensils';
+    var _comandasNome = typeof comandasLabels !== 'undefined' ? comandasLabels.plural : 'Mesas';
   %>
   <main x-data="overviewPage()" x-init="init()">
     <div class="ov-head">
@@ -144,7 +147,7 @@
       <a class="btn secondary small" href="/app/commercial/produtos"><%- svgIcon('package', 15, 15) %>Novo produto</a>
       <% } %>
       <% if (temVarejo && user.permissions.has('comandas.view')) { %>
-      <a class="btn secondary small" href="/app/comandas/mesas"><%- svgIcon('utensils', 15, 15) %>Mesas</a>
+      <a class="btn secondary small" href="/app/comandas/mesas"><%- svgIcon(_comandasIcone, 15, 15) %><%= _comandasNome %></a>
       <% } %>
     </div>
 

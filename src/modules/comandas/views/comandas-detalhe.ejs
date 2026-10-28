@@ -505,8 +505,8 @@
     @media (max-width: 720px) {
       .close-bar-spacer { display: block; height: 4.5rem; }
       .close-bar {
-        position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
-        margin: 0; padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom));
+        position: fixed; left: 0; right: 0; bottom: calc(var(--mobile-nav-height, 0px) + env(safe-area-inset-bottom)); z-index: 80;
+        margin: 0; padding: .75rem 1rem;
         background: color-mix(in srgb, var(--surface) 92%, transparent);
         backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
         border-top: 1px solid var(--border-light); box-shadow: 0 -4px 16px rgba(0,0,0,.06);
@@ -774,7 +774,10 @@
             this.complementDlg.selections[g.group_id] = [];
             if (typeof g.items === 'string') { try { g.items = JSON.parse(g.items); } catch { g.items = []; } }
           }
-          this.$refs.complementDlg.showModal();
+          // Espera o x-for desenhar os grupos antes de abrir. O showModal() foca o primeiro
+          // campo disponível; sem os checkboxes, ele focava a observação e abria o teclado
+          // no celular, cobrindo o dialog inteiro.
+          this.$nextTick(() => this.$refs.complementDlg.showModal());
         },
         toggleComplement(groupId, item) {
           const sel = this.complementDlg.selections[groupId];

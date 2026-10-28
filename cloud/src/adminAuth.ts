@@ -5,6 +5,14 @@ import { getPool } from './db';
 
 export const ADMIN_SESSION_COOKIE = 'kivo_admin_session';
 const SESSION_TTL_MS = 12 * 3600e3; // 12h
+/** "Manter conectado": mesmo prazo do login do app desktop (30 dias). */
+const REMEMBER_TTL_MS = 30 * 24 * 3600e3;
+
+export interface AdminSessionToken {
+  token: string;
+  /** Tempo de vida do cookie, igual ao da linha em `admin_sessions`. */
+  maxAge: number;
+}
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -32,14 +40,15 @@ export async function verifyAdminCredentials(username: string, password: string)
   return bcrypt.compareSync(password, row.password_hash);
 }
 
-export async function createAdminSession(username: string): Promise<string> {
+export async function createAdminSession(username: string, remember = false): Promise<AdminSessionToken> {
   const token = randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + SESSION_TTL_MS);
+  const maxAge = remember ? REMEMBER_TTL_MS : SESSION_TTL_MS;
+  const expires = new Date(Date.now() + maxAge);
   await getPool().query(
     'INSERT INTO admin_sessions (token_hash, username, expires_at) VALUES (?, ?, ?)',
     [hashToken(token), username, expires],
   );
-  return token;
+  return { token, maxAge };
 }
 
 export async function destroyAdminSession(token: string | null): Promise<void> {

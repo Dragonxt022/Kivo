@@ -305,6 +305,21 @@
       </div>
     </div>
 
+    <%# Atalho fixo do celular: o resumo fica no fim da página, então sem esta barra o
+        "Finalizar venda" só aparecia depois de rolar o carrinho inteiro. Ela fica acima da
+        navegação inferior (que ocupa a base da tela). %>
+    <div class="pdv-mobile-bar" x-show="cart.length" x-cloak>
+      <div class="pdv-mobile-bar-total">
+        <span>Total</span>
+        <strong x-text="brl(total())"></strong>
+      </div>
+      <button type="button" class="btn-finalize" @click="openPay()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Finalizar
+      </button>
+    </div>
+    <div class="pdv-mobile-bar-spacer" x-show="cart.length" x-cloak></div>
+
     <div class="pdv-footer-bar">
       <div class="pdv-footer-shortcuts" id="tour-pdv-atalhos">
         <span><kbd>F2</kbd>Finalizar venda</span>
@@ -1024,7 +1039,10 @@
               try { g.items = JSON.parse(g.items); } catch { g.items = []; }
             }
           }
-          this.$refs.complementDlg.showModal();
+          // Espera o x-for desenhar os grupos antes de abrir. O showModal() foca o primeiro
+          // campo disponível; sem os checkboxes, ele focava a observação e abria o teclado
+          // no celular, cobrindo o dialog inteiro.
+          this.$nextTick(() => this.$refs.complementDlg.showModal());
         },
         toggleComplement(groupId, item) {
           const sel = this.complementDlg.selections[groupId];

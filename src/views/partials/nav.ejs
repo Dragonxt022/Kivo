@@ -212,6 +212,19 @@
     }
   },
   currentPath: location.pathname,
+  // Aba ativa da navegação inferior do celular. O PDV, as mesas e as vendas têm
+  // subpáginas (comanda aberta, detalhe da venda), então o teste é por prefixo.
+  navTabActive(tab) {
+    var p = this.currentPath || '';
+    if (tab === 'home') return p === '/';
+    if (tab === 'pdv') return p === '/app/store/pdv' || p.indexOf('/app/store/pdv/') === 0;
+    if (tab === 'mesas') return p === '/app/comandas/mesas' || p.indexOf('/app/comandas/') === 0;
+    if (tab === 'vendas') return p === '/app/store/vendas' || p.indexOf('/app/store/vendas/') === 0;
+    return false;
+  },
+  get navMoreActive() {
+    return !this.navTabActive('home') && !this.navTabActive('pdv') && !this.navTabActive('mesas') && !this.navTabActive('vendas');
+  },
   sidebarQuery: '',
   sidebarMatches(label) {
     return !this.sidebarQuery || label.toLowerCase().includes(this.sidebarQuery.toLowerCase());
@@ -281,7 +294,7 @@
   <% if (user) { %>
   <div class="nav-end">
     <span :title="!cloudStatus.configured ? 'Licença não configurada' : (cloudStatus.online ? 'Conectado à nuvem' : 'Sem conexão com a nuvem')"
-          class="flex-center" style="padding:.3rem;color:var(--text-muted)"
+          class="flex-center cloud-status" style="padding:.3rem;color:var(--text-muted)"
           :style="{ color: !cloudStatus.configured ? 'var(--text-muted)' : (cloudStatus.online ? 'var(--primary)' : 'var(--danger)') }">
       <template x-if="cloudStatus.configured && cloudStatus.online">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
@@ -363,6 +376,55 @@
   </div>
   <% } %>
 </header>
+
+<% if (user) { %>
+<%
+  // A barra inferior só oferece atalhos que existem no menu desta empresa/perfil.
+  // `moduleMenu` já vem filtrado por permissão e pelos módulos ligados em Personalizar,
+  // então um consultório não ganha uma aba "Mesas" que não leva a lugar nenhum.
+  var _navHrefs = {};
+  (typeof moduleMenu !== 'undefined' ? moduleMenu : []).forEach(function (item) { _navHrefs[item.href] = true; });
+  var _navPdv = !!_navHrefs['/app/store/pdv'];
+  var _navMesas = !!_navHrefs['/app/comandas/mesas'];
+  var _navVendas = !!_navHrefs['/app/store/vendas'];
+  // No modo balcão o módulo de comandas troca rótulo e ícone; a aba inferior acompanha.
+  var _comandas = typeof comandasLabels !== 'undefined' ? comandasLabels : { icon: 'utensils', plural: 'Mesas' };
+%>
+<%# Navegação inferior do celular (LAN). No desktop ela não aparece: o menu lateral e os
+    cards da tela inicial já dão conta. Aqui os polegares alcançam o que mais se usa. %>
+<nav class="mobile-bottom-nav" aria-label="Navegação principal">
+  <a href="/" class="mbn-item" :class="{ active: navTabActive('home') }">
+    <%- svgIcon('home', 22, 22) %>
+    <span>Início</span>
+  </a>
+  <% if (_navPdv) { %>
+  <a href="/app/store/pdv" class="mbn-item" :class="{ active: navTabActive('pdv') }">
+    <%- svgIcon('cart', 22, 22) %>
+    <span>PDV</span>
+  </a>
+  <% } %>
+  <% if (_navMesas) { %>
+  <a href="/app/comandas/mesas" class="mbn-item" :class="{ active: navTabActive('mesas') }">
+    <%- svgIcon(_comandas.icon, 22, 22) %>
+    <span><%= _comandas.plural %></span>
+  </a>
+  <% } %>
+  <% if (_navVendas) { %>
+  <a href="/app/store/vendas" class="mbn-item" :class="{ active: navTabActive('vendas') }">
+    <%- svgIcon('receipt', 22, 22) %>
+    <span>Vendas</span>
+  </a>
+  <% } %>
+  <button type="button" class="mbn-item" @click="appsOpen = true"
+          :class="{ active: appsOpen || navMoreActive }" aria-label="Mais aplicações">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+      <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+      <rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
+    </svg>
+    <span>Mais</span>
+  </button>
+</nav>
+<% } %>
 
 <% if (user && user.permissions.has('billing.view')) { %>
 <div x-show="billingAlert" x-cloak
@@ -832,6 +894,11 @@
   function fabSuppressed(){
     return location.pathname.indexOf('/app/nfe/importar') === 0;
   }
+  // No celular/tablet os balões ficam desligados: a barra inferior é a navegação
+  // principal e os atalhos flutuantes cobrem conteúdo (o CSS também os esconde).
+  function mobileNav(){
+    try { return window.matchMedia('(max-width: 820px)').matches; } catch(e){ return false; }
+  }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 
   // ─── Mapa de URL → ícone do módulo ───
@@ -861,7 +928,7 @@
     write(list.slice(0, STORE_MAX));
   }
 
-  if (!enabled() || fabSuppressed()) return;
+  if (!enabled() || fabSuppressed() || mobileNav()) return;
 
   // 2) Monta os balões: as páginas mais recentes, exceto a atual.
   var recents = read().filter(function(e){ return e && e.href && e.href !== here(); }).slice(0, SHOW_MAX);
@@ -919,20 +986,150 @@
   // O MutationObserver cobre as tabelas que só existem depois do Alpine: as telas de caixa,
   // por exemplo, montam a tabela dentro de um <template x-if> que aparece quando o fetch
   // responde — embrulhar só no DOMContentLoaded deixaria essas de fora.
+  //
+  // Nas telas estreitas, as tabelas elegíveis viram cartões (uma linha = um cartão), com o
+  // nome da coluna acima de cada valor. A conversão é só visual: o <table> continua no DOM,
+  // com as mesmas linhas e handlers do Alpine. Tabelas de relatório (muitas colunas, tfoot)
+  // e tabelas dentro de dialog ficam de fora e continuam rolando na horizontal.
   (function () {
+    // Listagens largas (clientes, produtos, vendas) também viram cartões. Relatórios de
+    // verdade continuam tabelas: os que têm tfoot já ficam de fora, e os poucos matrices
+    // sem rodapé (DRE) declaram `data-cards="off"` na própria tabela.
+    var MAX_COLUNAS_CARTAO = 12;
+
     function envolver(t) {
-      if (!t || (t.parentElement && t.parentElement.classList.contains('table-scroll'))) return;
+      if (!t) return;
+      var pai = t.parentElement;
+      if (pai && pai.classList.contains('table-scroll')) return;
       var w = document.createElement('div');
       w.className = 'table-scroll';
       t.parentNode.insertBefore(w, t);
       w.appendChild(t);
     }
-    function envolverTodas(raiz) {
-      var lista = (raiz || document).querySelectorAll('main table');
-      for (var i = 0; i < lista.length; i++) envolver(lista[i]);
+
+    function textoCabecalho(th) {
+      if (!th) return '';
+      var copia = th.cloneNode(true);
+      copia.querySelectorAll('.sort-arrow, svg, input, button').forEach(function (n) { n.remove(); });
+      return (copia.textContent || '').replace(/\s+/g, ' ').trim();
     }
+
+    // Célula que só carrega o checkbox de seleção: no cartão ela flutua no canto, em vez
+    // de ocupar uma linha inteira.
+    function soCheckbox(cell) {
+      if (cell.classList.contains('col-checkbox')) return true;
+      var inputs = cell.querySelectorAll('input');
+      if (!inputs.length || cell.textContent.trim()) return false;
+      for (var i = 0; i < inputs.length; i++) {
+        if (inputs[i].type !== 'checkbox') return false;
+      }
+      return true;
+    }
+
+    // Thumbnail/foto da linha (produtos): vira a imagem do cartão, ao lado do título.
+    function soMidia(cell) {
+      if (cell.textContent.trim()) return false;
+      return !!cell.querySelector('img, picture, video, .product-thumb');
+    }
+
+    function soChevron(cell) {
+      return !!cell.querySelector('.chev') && !cell.querySelector('button, a, input, select');
+    }
+
+    function soAcoes(cell) {
+      if (cell.classList.contains('actions-cell')) return true;
+      return !!cell.querySelector('button, select, input:not([type="checkbox"]), .dropdown');
+    }
+
+    function vazia(cell) {
+      if (cell.textContent.trim()) return false;
+      return !cell.querySelector('img, svg, button, a, input, select, .badge');
+    }
+
+    function prepararCartoes(t) {
+      if (!t || t.dataset.cards === 'off') return;
+      // Só a tabela "de fora" vira cartão; tabelas aninhadas (diff da auditoria, resumos)
+      // continuam tabelas de verdade dentro do cartão.
+      if (t.closest('dialog') || t.closest('.diff')) return;
+      if (t.parentElement && t.parentElement.closest('table')) return;
+      var thead = t.tHead;
+      if (!thead || !thead.rows.length) return;
+      var ths = thead.rows[0].cells;
+      if (!ths.length || ths.length > MAX_COLUNAS_CARTAO) return;
+      for (var h = 0; h < ths.length; h++) {
+        if (ths[h].colSpan > 1 || ths[h].rowSpan > 1) return;
+      }
+      // Relatórios com linha de total no rodapé são matrizes, não listagens.
+      if (t.tFoot && t.tFoot.rows.length) return;
+
+      var labels = [];
+      for (var i = 0; i < ths.length; i++) labels.push(textoCabecalho(ths[i]));
+
+      var rows = t.tBodies;
+      for (var b = 0; b < rows.length; b++) {
+        for (var r = 0; r < rows[b].rows.length; r++) {
+          var tr = rows[b].rows[r];
+          var cells = tr.cells;
+          // Linha de "nenhum registro": um único td com colspan. Não ganha rótulos, mas
+          // continua centralizada quando a tabela vira cartão.
+          if (cells.length === 1 && cells[0].colSpan > 1) {
+            if (tr.classList.contains('log-detail') || cells[0].querySelector('table')) {
+              cells[0].classList.add('table-card-full');
+            } else {
+              tr.classList.add('table-card-empty');
+            }
+            continue;
+          }
+          var temTitulo = false, temCheck = false, temMidia = false, temChevron = false;
+          for (var c = 0; c < cells.length; c++) {
+            var cell = cells[c];
+            if (cell.colSpan > 1) { cell.classList.add('table-card-full'); continue; }
+            var label = labels[c] || '';
+            if (cell.getAttribute('data-label') !== label) cell.setAttribute('data-label', label);
+
+            if (soCheckbox(cell)) { cell.classList.add('table-card-check'); temCheck = true; continue; }
+            if (soMidia(cell)) { cell.classList.add('table-card-media'); temMidia = true; continue; }
+            if (soChevron(cell)) { cell.classList.add('table-card-chevron'); temChevron = true; continue; }
+            if (soAcoes(cell)) { cell.classList.add('table-card-actions'); continue; }
+            if (vazia(cell)) { cell.classList.add('table-card-skip'); continue; }
+            // O primeiro campo "de verdade" vira o título do cartão (nome do cliente,
+            // produto, fornecedor…). Os demais ficam como linhas de detalhe.
+            if (!temTitulo) { cell.classList.add('table-card-title'); temTitulo = true; }
+          }
+          if (temCheck) tr.classList.add('table-card-has-check');
+          if (temMidia) tr.classList.add('table-card-has-media');
+          if (temChevron) tr.classList.add('table-card-has-chevron');
+        }
+      }
+      t.classList.add('table-cards');
+      // A partir de 8 colunas o cartão usa duas colunas de detalhe: uma lista de 10 campos
+      // em linha única ficaria mais alta que a própria tabela original.
+      if (labels.length >= 8) t.classList.add('table-cards-dense');
+      var wrap = t.closest('.table-scroll');
+      if (wrap) wrap.classList.add('table-cards-wrap');
+    }
+
+    // Tabelas de chave/valor (sem thead, com <th> no corpo) não são listagens: no celular
+    // elas ganham colunas fixas e quebra de palavras longas (UUID, Machine ID) em vez de
+    // rolar de lado.
+    function prepararChaveValor(t) {
+      if (!t || t.tHead || !t.tBodies.length) return;
+      if (t.closest('dialog') || t.parentElement && t.parentElement.closest('table')) return;
+      if (!t.querySelector('tbody th')) return;
+      t.classList.add('table-kv');
+    }
+
+    function preparar(raiz) {
+      var lista = (raiz || document).querySelectorAll('main table');
+      for (var i = 0; i < lista.length; i++) {
+        envolver(lista[i]);
+        prepararCartoes(lista[i]);
+        prepararChaveValor(lista[i]);
+      }
+    }
+
     function iniciar() {
-      envolverTodas(document);
+      preparar(document);
       var main = document.querySelector('main');
       if (!main || !window.MutationObserver) return;
       new MutationObserver(function (muts) {
@@ -941,8 +1138,19 @@
           for (var j = 0; j < added.length; j++) {
             var n = added[j];
             if (n.nodeType !== 1) continue;
-            if (n.tagName === 'TABLE') envolver(n);
-            else if (n.querySelector && n.querySelector('table')) envolverTodas(n);
+            // Linha/célula nova (Alpine respondeu o fetch): atualiza os rótulos da tabela
+            // dona. Tabela inteira nova: embrulha e prepara.
+            if (n.tagName === 'TABLE') {
+              envolver(n);
+              prepararCartoes(n);
+              continue;
+            }
+            var tabela = n.closest ? n.closest('table') : null;
+            if (tabela) {
+              prepararCartoes(tabela);
+            } else if (n.querySelector && n.querySelector('table')) {
+              preparar(n);
+            }
           }
         }
       }).observe(main, { childList: true, subtree: true });

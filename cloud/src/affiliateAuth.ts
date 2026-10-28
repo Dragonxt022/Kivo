@@ -13,6 +13,14 @@ import { getPool } from './db';
  */
 export const AFFILIATE_SESSION_COOKIE = 'kivo_affiliate_session';
 const SESSION_TTL_MS = 12 * 3600e3; // 12h
+/** "Manter conectado": mesmo prazo do login do app desktop (30 dias). */
+const REMEMBER_TTL_MS = 30 * 24 * 3600e3;
+
+export interface AffiliateSessionToken {
+  token: string;
+  /** Tempo de vida do cookie, igual ao da linha em `affiliate_sessions`. */
+  maxAge: number;
+}
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -42,14 +50,18 @@ export async function verifyAffiliateCredentials(
   return { id: Number(row.id), name: row.name };
 }
 
-export async function createAffiliateSession(affiliateId: number): Promise<string> {
+export async function createAffiliateSession(
+  affiliateId: number,
+  remember = false,
+): Promise<AffiliateSessionToken> {
   const token = randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + SESSION_TTL_MS);
+  const maxAge = remember ? REMEMBER_TTL_MS : SESSION_TTL_MS;
+  const expires = new Date(Date.now() + maxAge);
   await getPool().query(
     'INSERT INTO affiliate_sessions (token_hash, affiliate_id, expires_at) VALUES (?, ?, ?)',
     [hashToken(token), affiliateId, expires],
   );
-  return token;
+  return { token, maxAge };
 }
 
 export async function destroyAffiliateSession(token: string | null): Promise<void> {

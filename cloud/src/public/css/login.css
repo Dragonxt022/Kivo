@@ -22,7 +22,64 @@ body {
   height: 28px;
   border-radius: 8px;
 }
-.login-card button {
+/* O olho fica dentro do campo para não empurrar o botão de entrar nem mudar a
+   altura do formulário quando a senha é revelada. */
+.login-card .password-field {
+  position: relative;
+  margin-bottom: 16px;
+}
+.login-card .password-field input {
+  margin-bottom: 0;
+  padding-right: 42px;
+}
+.login-card .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted, #6b7280);
+  cursor: pointer;
+  line-height: 0;
+}
+.login-card .password-toggle:hover {
+  color: var(--primary, #ff8000);
+  background: var(--surface-hover, #f3f4f6);
+}
+.login-card .password-toggle:focus-visible {
+  outline: 2px solid var(--primary, #ff8000);
+  outline-offset: 1px;
+}
+.login-card .password-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+.login-card .remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 16px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted, #6b7280);
+  cursor: pointer;
+}
+.login-card .remember input {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+.login-card button[type='submit'] {
   width: 100%;
   justify-content: center;
 }

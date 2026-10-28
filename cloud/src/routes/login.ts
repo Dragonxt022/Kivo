@@ -25,6 +25,11 @@ import {
  */
 const router = Router();
 
+/** Checkbox "Manter conectado": aceita o valor cru do formulário e o booleano de testes. */
+function wantsPersistentSession(value: unknown): boolean {
+  return value === true || value === '1' || value === 'on' || value === 'true';
+}
+
 router.get('/login', async (req, res) => {
   // Primeiro acesso: ainda não existe nenhum admin — manda criar o administrador inicial.
   if (!(await hasAnyAdmin())) {
@@ -44,23 +49,32 @@ router.get('/login', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body ?? {};
+  const remember = wantsPersistentSession(req.body?.remember);
   const user = String(username ?? '').trim();
   const pass = String(password ?? '');
 
   if (user && pass) {
     // 1) Equipe Kivo (painel admin).
     if (await verifyAdminCredentials(user, pass)) {
-      const token = await createAdminSession(user);
-      res.cookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
+      const session = await createAdminSession(user, remember);
+      res.cookie(ADMIN_SESSION_COOKIE, session.token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: session.maxAge,
+      });
       res.redirect('/admin');
       return;
     }
     // 2) Representante comercial (portal do afiliado).
     const affiliate = await verifyAffiliateCredentials(user, pass);
     if (affiliate) {
-      const token = await createAffiliateSession(affiliate.id);
+      const session = await createAffiliateSession(affiliate.id, remember);
       await getPool().query('UPDATE affiliates SET last_login_at = NOW(3) WHERE id = ?', [affiliate.id]);
-      res.cookie(AFFILIATE_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
+      res.cookie(AFFILIATE_SESSION_COOKIE, session.token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: session.maxAge,
+      });
       res.redirect('/afiliado');
       return;
     }

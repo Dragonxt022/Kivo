@@ -67,12 +67,17 @@
           <button type="button" class="table-card-body" @click="openTable(t)"
                   :title="t.label + ' — ' + (t.ready_for_payment_at ? 'Quer pagar' : (t.status === 'livre' ? 'Livre' : 'Ocupada'))">
             <div class="table-icon">
+              <% if (comandasLabels.rotulo === 'balcao') { %>
+              <%# No modo balcão não existe mesa: o mesmo ícone de balcão do menu/cards. %>
+              <%- svgIcon('counter', 26, 26) %>
+              <% } else { %>
               <template x-if="t.status === 'livre'">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
               </template>
               <template x-if="t.status === 'ocupada'">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </template>
+              <% } %>
             </div>
             <div class="table-label" x-text="t.label"></div>
             <%# "Pedido pronto" (a cozinha marcou — selo verde) e "Quer pagar" (o garçom
@@ -268,7 +273,7 @@
       box-shadow: var(--shadow-xs);
       transition: border-color var(--transition), box-shadow var(--transition), transform .15s ease;
     }
-    .table-card.drag-enabled { cursor: grab; touch-action: none; }
+    .table-card.drag-enabled { cursor: grab; touch-action: manipulation; }
     .table-card.drag-enabled:active { cursor: grabbing; }
     .table-card.dragging {
       position: fixed; top: 0; left: 0; z-index: 60; margin: 0;
@@ -422,7 +427,6 @@
         genError: '',
         generating: false,
         history: { loading: false, tableId: '', sessions: [], error: '' },
-
         pollTimer: null,
         canManage: !!canManage,
         dragId: null,
@@ -434,9 +438,50 @@
         audioPronto: null,
         knownReady: null,
         flashIds: [],
+        eventSource: null,
+        reloadTimer: null,
+        onVisible: null,
+        started: false,
         async init() {
+          // `init()` pode ser chamado pelo Alpine e pelo x-init: sem a guarda, cada
+          // chamada abriria um EventSource e um timer de poll extras.
+          if (this.started) return;
+          this.started = true;
+          this.connectEvents();
+          // Reserva do SSE: se a conexão cair, a grade ainda se atualiza sozinha.
+          // Em aba oculta o navegador estrangula timers; ao voltar, o listener abaixo
+          // recarrega na hora em vez de esperar o próximo ciclo.
+          this.pollTimer = setInterval(() => { if (!document.hidden) this.load(); }, 5000);
+          this.onVisible = () => { if (!document.hidden) this.load(); };
+          document.addEventListener('visibilitychange', this.onVisible);
+          window.addEventListener('focus', this.onVisible);
           await this.load();
-          this.pollTimer = setInterval(() => this.load(), 10000);
+        },
+        connectEvents() {
+          if (this.eventSource || typeof EventSource === 'undefined') return;
+          try {
+            this.eventSource = new EventSource('/api/comandas/tables/events');
+            this.eventSource.addEventListener('tables', () => this.scheduleReload());
+            // Sem tratamento no `onerror`: o EventSource reconecta sozinho e o poll cobre.
+          } catch { /* navegador sem SSE: fica só o poll */ }
+        },
+        scheduleReload() {
+          // Várias mutações seguidas (ex.: salvar a ordem gera um PUT por mesa)
+          // viram uma única recarga.
+          if (this.reloadTimer) return;
+          this.reloadTimer = setTimeout(() => {
+            this.reloadTimer = null;
+            if (!document.hidden) this.load();
+          }, 150);
+        },
+        destroy() {
+          clearInterval(this.pollTimer);
+          clearTimeout(this.reloadTimer);
+          if (this.eventSource) this.eventSource.close();
+          if (this.onVisible) {
+            document.removeEventListener('visibilitychange', this.onVisible);
+            window.removeEventListener('focus', this.onVisible);
+          }
         },
         async load() {
           if (this.dragId !== null) return;
@@ -487,9 +532,17 @@
         onCardPointerDown(e, t) {
           if (!this.canManage || e.pointerType === 'mouse' && e.button !== 0) return;
           const card = e.currentTarget;
+          /* Um arraste que não gerou clique deixa o supressor armado; sem desarmá-lo
+             aqui, ele engoliria este novo toque no mesmo card. */
+          if (card._dragClickSuppressor) {
+            card.removeEventListener('click', card._dragClickSuppressor, { capture: true });
+            card._dragClickSuppressor = null;
+          }
           const startX = e.clientX, startY = e.clientY;
           const rect = card.getBoundingClientRect();
           let dragging = false;
+
+          const suppressClick = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
 
           const activate = () => {
             dragging = true;
@@ -499,10 +552,10 @@
             card.style.left = rect.left + 'px';
             card.style.top = rect.top + 'px';
             try { card.setPointerCapture(e.pointerId); } catch {}
+            card._dragClickSuppressor = suppressClick;
             card.addEventListener('click', suppressClick, { capture: true, once: true });
             if (navigator.vibrate) navigator.vibrate(12);
           };
-          const suppressClick = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
 
           const timer = setTimeout(activate, 260);
 
@@ -517,18 +570,43 @@
             const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.table-card');
             this.dropOverId = under && under !== card ? Number(under.dataset.id) : null;
           };
+          /* O dedo rola a grade normalmente até o toque longo virar arraste. Só então
+             a rolagem é cancelada — daí em diante o card precisa acompanhar o dedo. */
+          const onTouchMove = (ev) => {
+            if (dragging) ev.preventDefault();
+          };
+          /* No toque, o menu de contexto (abrir em nova aba etc.) aparece no meio do
+             toque longo e atrapalha o arraste. No mouse continua intacto. */
+          const blockContextMenu = (ev) => { ev.preventDefault(); };
+          if (e.pointerType !== 'mouse') window.addEventListener('contextmenu', blockContextMenu);
           const onUp = () => {
             cleanup();
             if (dragging) this.finishDrag(t, card);
+          };
+          /* O navegador tomou o gesto para rolar a página: não reordena, só devolve o card. */
+          const onCancel = () => {
+            card.removeEventListener('click', suppressClick, { capture: true });
+            card._dragClickSuppressor = null;
+            cleanup();
+            if (dragging) {
+              card.removeAttribute('style');
+              this.dragId = null;
+              this.dropOverId = null;
+            }
           };
           const cleanup = () => {
             clearTimeout(timer);
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onCancel);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('contextmenu', blockContextMenu);
           };
 
           window.addEventListener('pointermove', onMove);
           window.addEventListener('pointerup', onUp);
+          window.addEventListener('pointercancel', onCancel);
+          window.addEventListener('touchmove', onTouchMove, { passive: false });
         },
         finishDrag(t, card) {
           card.removeAttribute('style');

@@ -171,8 +171,9 @@ router.post('/login', async (req, res) => {
     res.status(401).render('login', { error: 'Usuário ou senha inválidos.' });
     return;
   }
-  const token = await createAdminSession(String(username));
-  res.cookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
+  const remember = req.body?.remember === '1' || req.body?.remember === 'on';
+  const session = await createAdminSession(String(username), remember);
+  res.cookie(ADMIN_SESSION_COOKIE, session.token, { httpOnly: true, sameSite: 'lax', maxAge: session.maxAge });
   res.redirect('/admin');
 });
 
@@ -206,8 +207,12 @@ router.post('/setup', async (req, res) => {
     'INSERT INTO admin_users (username, password_hash) VALUES (?, ?)',
     [String(username), hashPassword(String(password))],
   );
-  const token = await createAdminSession(String(username));
-  res.cookie(ADMIN_SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax' });
+  const session = await createAdminSession(String(username));
+  res.cookie(ADMIN_SESSION_COOKIE, session.token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: session.maxAge,
+  });
   res.redirect('/admin');
 });
 

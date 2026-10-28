@@ -678,6 +678,65 @@
   z-index: 100;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   Compras no celular — busca inteira e lista em duas fileiras
+   ══════════════════════════════════════════════════════════════════════════════════════════
+   A lista é uma linha flex de cinco colunas (foto, nome, preço, favorito, adicionar). Em
+   390px o nome ficava com uma palavra por linha e o preço passava por cima do texto.
+   Vira um grid de duas fileiras: nome em cima, preço e "Adicionar" embaixo. */
+
+@media (max-width: 640px) {
+  .ps-toolbar { gap: 0.5rem; }
+  .ps-search { flex: 1 1 100%; max-width: none; }
+  .ps-toolbar select {
+    flex: 1 1 9rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .ps-toolbar > .muted { flex: 1 1 auto; }
+  .ps-view-toggle { flex: none; margin-left: auto; }
+
+  .ps-list-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'img info fav'
+      'img price add';
+    align-items: center;
+    gap: 0.35rem 0.65rem;
+    padding: 0.6rem 0.7rem;
+  }
+  .ps-list-img {
+    grid-area: img;
+    width: 40px;
+    height: 40px;
+    align-self: start;
+  }
+  .ps-list-info { grid-area: info; min-width: 0; }
+  .ps-list-name {
+    line-height: 1.25;
+    white-space: normal;
+  }
+  .ps-list-meta { gap: 0.25rem 0.6rem; }
+  .ps-list-price {
+    grid-area: price;
+    justify-self: start;
+    align-self: center;
+    font-size: 0.95rem;
+  }
+  .ps-list-fav-btn {
+    grid-area: fav;
+    justify-self: end;
+    align-self: start;
+  }
+  .ps-list-add {
+    grid-area: add;
+    justify-self: end;
+    align-self: center;
+    min-height: 36px;
+  }
+}
+
 /* ─── Radio label (à vista / a prazo) ─── */
 .radio-label {
   display: flex;
