@@ -3688,6 +3688,11 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
     grid-template-columns: repeat(3, 1fr);
     gap: 0.85rem;
   }
+  /* No próprio celular/tablet o atalho "Abrir no celular" não faz sentido e a barra
+     já está cheia; a tela inicial continua com o botão ao lado da busca. */
+  header.nav .nav-celular-btn {
+    display: none;
+  }
 }
 
 @media (max-width: 540px) {
