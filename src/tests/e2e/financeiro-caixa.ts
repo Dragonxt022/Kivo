@@ -70,9 +70,12 @@ async function main(): Promise<void> {
     await page.locator('dialog[x-ref="openDlg"] button:has-text("Abrir")').click();
     await page.waitForSelector('.badge.ok:has-text("aberto")', { state: 'visible', timeout: 8000 });
     reporter.check('caixa aberto com o fundo de troco', true);
+    // O primeiro .toolbar da tela é o de período/exportação; o valor esperado fica no
+    // toolbar do caixa aberto.
+    const toolbarCaixa = page.locator('.toolbar').filter({ hasText: 'Esperado na gaveta' }).first();
     reporter.check(
       'esperado inicial = fundo informado',
-      (await page.locator('.toolbar').first().innerText()).includes('R$ 100,00'),
+      (await toolbarCaixa.innerText()).includes('R$ 100,00'),
     );
     await snap(page, SHOTS, 'caixa-aberto');
 
@@ -85,7 +88,7 @@ async function main(): Promise<void> {
     await wait(page, 700);
     reporter.check(
       'suprimento eleva o esperado para R$ 150,00',
-      (await page.locator('.toolbar').first().innerText()).includes('R$ 150,00'),
+      (await toolbarCaixa.innerText()).includes('R$ 150,00'),
     );
     const tabelaAposSuprimento = await page.locator('table').first().innerText();
     reporter.check('suprimento aparece na lista de movimentos', tabelaAposSuprimento.includes('suprimento'));
@@ -100,7 +103,7 @@ async function main(): Promise<void> {
     await wait(page, 700);
     reporter.check(
       'sangria reduz o esperado para R$ 120,00',
-      (await page.locator('.toolbar').first().innerText()).includes('R$ 120,00'),
+      (await toolbarCaixa.innerText()).includes('R$ 120,00'),
     );
     reporter.check(
       'sangria aparece na lista de movimentos',
@@ -112,7 +115,7 @@ async function main(): Promise<void> {
     await page.locator('main .toolbar button:has-text("Fechar caixa")').first().click();
     await page.waitForSelector('dialog[x-ref="close"][open]', { state: 'visible', timeout: 8000 });
     await page.fill('dialog[x-ref="close"] input[x-model="counted"]', '120,00');
-    await page.locator('dialog[x-ref="close"] .actions button:has-text("Fechar")').click();
+    await page.locator('dialog[x-ref="close"] .actions button:has-text("Confirmar fechamento")').click();
     await page.waitForSelector('dialog[x-ref="closeResultDlg"][open]', { state: 'visible', timeout: 8000 });
     const resultado = await page.locator('dialog[x-ref="closeResultDlg"]').innerText();
     reporter.check('resultado do fechamento aparece', resultado.includes('Caixa fechado'));
