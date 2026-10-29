@@ -216,8 +216,13 @@ async function main(): Promise<void> {
     // ── Instalação do cliente (mesma licença), apontando para este cloud ─────
     // Banco descartável preparado ANTES do boot: o gate de ativação barra o login até a
     // ativação existir no banco (mesmo padrão da Fase 6d).
-    dbPath = path.join(os.tmpdir(), `kivo-billing-app-pix-${process.pid}.db`);
-    for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) fs.rmSync(f, { force: true });    execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', dbPath], { cwd: ROOT, stdio: 'pipe' });
+    // O banco fica em `<raiz>/database/kivo.db`: imagens e outros dados derivam dessa raiz
+    // (ver productImagesDir). Um arquivo solto em /tmp faria a raiz virar `/` no Linux.
+    const dataRoot = path.join(os.tmpdir(), `kivo-billing-app-pix-${process.pid}`);
+    dbPath = path.join(dataRoot, 'database', 'kivo.db');
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) fs.rmSync(f, { force: true });
+    execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', dbPath], { cwd: ROOT, stdio: 'pipe' });
 
     appProc = subir('app', 'src/dev.ts', {
       KIVO_SYNC_SERVER_URL: CLOUD_URL,
