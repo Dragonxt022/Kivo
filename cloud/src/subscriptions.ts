@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getPool } from './db';
 import { settleCharge } from './charges';
+import { affiliateDiscountFor } from './affiliates';
 import { commercialPlan } from './plans';
 import {
   createSubscription as createMpSubscription,
@@ -162,6 +163,12 @@ export async function createCompanySubscription(input: CreateSubscriptionInput):
     }
   }
 
+  // Indicação: o valor cheio do plano recebe o desconto do afiliado antes de virar a
+  // cobrança recorrente. A comissão depois é calculada sobre esse valor líquido, igual à
+  // cobrança avulsa — assim o lucro do afiliado e o desconto do cliente não divergem.
+  const { pct: discountPct, discountCents } = await affiliateDiscountFor(input.companyUuid, input.amountCents);
+  const netAmountCents = Math.max(1, Math.round(input.amountCents) - discountCents);
+
   const token = randomUUID();
   const [res] = await pool.query(
     `INSERT INTO company_subscriptions
@@ -171,7 +178,7 @@ export async function createCompanySubscription(input: CreateSubscriptionInput):
       input.companyUuid,
       input.planKey,
       input.reason.slice(0, 160),
-      Math.max(1, Math.round(input.amountCents)),
+      netAmountCents,
       Math.max(1, Math.round(input.extendsDays)),
       Math.max(1, Math.round(input.frequency)),
       input.frequencyType,
@@ -185,8 +192,8 @@ export async function createCompanySubscription(input: CreateSubscriptionInput):
     const mp = await createMpSubscription(
       {
         subscriptionId: id,
-        reason: input.reason,
-        amountCents: input.amountCents,
+        reason: discountPct > 0 ? `${input.reason} (indicação −${discountPct}%)` : input.reason,
+        amountCents: netAmountCents,
         payerEmail,
         frequency: input.frequency,
         frequencyType: input.frequencyType,
