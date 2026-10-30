@@ -1,0 +1,222 @@
+<%#
+  Aviso de atualização obrigatória — canto inferior direito, no estilo do Windows.
+
+  Aparece em qualquer tela do Kivo (é incluído por partials/nav.ejs) assim que o
+  electron-updater termina de baixar uma versão nova. "Atualizar agora" fecha, instala e
+  reabre; "Adiar por 15 minutos" esconde o cartão apenas por 15 minutos e ele volta
+  sozinho. Não existe "dispensar para sempre" — é o que mantém a loja em dia com as
+  correções de segurança.
+
+  O estado real vem de /api/updates/status (core/updater), a cada 5 segundos. O adiamento fica
+  no localStorage por versão: recarregar a página não engana o aviso, mas uma versão nova
+  começa o ciclo do zero.
+%>
+<% if (user && user.permissions.has('settings.edit')) { %>
+<div x-data="kivoUpdatePrompt()" x-init="init()" x-cloak>
+  <section class="update-prompt update-downloading" x-show="baixando" aria-live="polite"
+           aria-label="Baixando atualização do Kivo">
+    <div class="update-prompt-head">
+      <span class="update-prompt-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </span>
+      <div class="update-prompt-title">
+        <strong>Baixando atualização do Kivo</strong>
+        <p>Versão <span x-text="estado && estado.versaoDisponivel"></span> — pode continuar usando o sistema.</p>
+      </div>
+    </div>
+
+    <div class="update-progress-bar" role="progressbar" :aria-valuenow="Math.round(progressoPct)"
+         aria-valuemin="0" aria-valuemax="100">
+      <div class="update-progress-fill" :style="'width:' + progressoPct + '%'"></div>
+    </div>
+    <div class="update-progress-meta">
+      <span x-text="Math.round(progressoPct) + '%'"></span>
+      <span x-text="progressoTexto()"></span>
+    </div>
+    <p class="update-prompt-text update-prompt-text--small">
+      O download acontece em segundo plano. Quando terminar, você poderá escolher
+      <strong>Atualizar agora</strong> ou <strong>Adiar por 15 minutos</strong>.
+    </p>
+  </section>
+
+  <section class="update-prompt" x-show="visivel" role="alertdialog" aria-live="assertive"
+           aria-label="Atualização obrigatória do Kivo">
+    <div class="update-prompt-head">
+      <span class="update-prompt-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
+        </svg>
+      </span>
+      <div class="update-prompt-title">
+        <strong>Atualização obrigatória do Kivo</strong>
+        <p>Versão <span x-text="estado && estado.versaoDisponivel"></span> pronta para instalar.</p>
+      </div>
+    </div>
+
+    <p class="update-prompt-text">
+      São correções e melhorias de segurança. O Kivo fecha, instala sozinho e abre de novo
+      em menos de um minuto. <strong>Feche a venda em aberto antes.</strong>
+    </p>
+
+    <div class="update-prompt-actions">
+      <button type="button" class="btn" @click="atualizarAgora()" :disabled="instalando">
+        <span x-text="instalando ? 'Reiniciando…' : 'Atualizar agora'"></span>
+      </button>
+      <button type="button" class="btn secondary" @click="adiar()" :disabled="instalando">
+        Adiar por 15 minutos
+      </button>
+    </div>
+
+    <p class="update-prompt-error" x-show="erro" x-text="erro" role="alert"></p>
+  </section>
+
+  <div class="update-install-overlay" x-show="instalando" role="alertdialog" aria-live="assertive"
+       aria-label="Instalando atualização do Kivo">
+    <div class="update-install-card">
+      <div class="update-install-spinner" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-6.22-8.56"/>
+        </svg>
+      </div>
+      <h2>Instalando atualização</h2>
+      <p>O Kivo está fechando, aplicando a nova versão e vai abrir de novo sozinho.</p>
+      <p class="update-install-warning">Não desligue o computador nem feche esta janela.</p>
+      <div class="update-install-bar"><i></i></div>
+    </div>
+  </div>
+</div>
+<script nonce="<%= cspNonce %>">
+  function kivoUpdatePrompt() {
+    return {
+      estado: null,
+      instalando: false,
+      erro: '',
+      agora: Date.now(),
+      adiadaAte: 0,
+      versaoAdiada: '',
+
+      get visivel() {
+        return !!(
+          this.estado
+          && this.estado.suportado
+          && this.estado.status === 'baixado'
+          && this.estado.versaoDisponivel
+          && this.adiadaAte <= this.agora
+        );
+      },
+
+      get baixando() {
+        return !!(
+          this.estado
+          && this.estado.suportado
+          && this.estado.status === 'baixando'
+          && this.estado.versaoDisponivel
+        );
+      },
+
+      get progressoPct() {
+        const p = this.estado && this.estado.progresso;
+        return p ? Math.max(0, Math.min(100, Number(p.percent) || 0)) : 0;
+      },
+
+      progressoTexto() {
+        const p = this.estado && this.estado.progresso;
+        if (!p) return 'preparando download…';
+        const partes = [];
+        if (p.transferido && p.total) {
+          partes.push(this.formatarBytes(p.transferido) + ' de ' + this.formatarBytes(p.total));
+        }
+        if (p.bytesPorSegundo) partes.push(this.formatarBytes(p.bytesPorSegundo) + '/s');
+        return partes.join(' · ') || 'baixando…';
+      },
+
+      formatarBytes(bytes) {
+        const n = Number(bytes) || 0;
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+        return (n / (1024 * 1024)).toFixed(1) + ' MB';
+      },
+
+      chaveAdiamento() {
+        const versao = this.estado && this.estado.versaoDisponivel;
+        return versao ? 'kivo-update-adiado:' + versao : '';
+      },
+
+      lerAdiamento() {
+        try {
+          const chave = this.chaveAdiamento();
+          if (!chave) return 0;
+          const valor = Number(localStorage.getItem(chave) || 0);
+          return Number.isFinite(valor) ? valor : 0;
+        } catch (e) {
+          return 0;
+        }
+      },
+
+      async sincronizar() {
+        try {
+          const r = await fetch('/api/updates/status');
+          if (!r.ok) return;
+          this.estado = await r.json();
+          // Só relê o adiamento quando a versão muda. Se relesse a cada minuto, um
+          // localStorage bloqueado apagaria o adiamento em memória e o cartão voltaria antes
+          // dos 15 minutos.
+          const versao = this.estado.versaoDisponivel || '';
+          if (versao !== this.versaoAdiada) {
+            this.versaoAdiada = versao;
+            this.adiadaAte = this.lerAdiamento();
+          }
+          this.agora = Date.now();
+        } catch (e) {
+          // Sem servidor local/internet instável: mantém o último estado conhecido.
+        }
+      },
+
+      adiar() {
+        this.adiadaAte = Date.now() + 15 * 60 * 1000;
+        this.agora = Date.now();
+        try {
+          const chave = this.chaveAdiamento();
+          if (chave) localStorage.setItem(chave, String(this.adiadaAte));
+        } catch (e) {
+          // localStorage bloqueado: o adiamento vale só nesta página.
+        }
+      },
+
+      async atualizarAgora() {
+        if (this.instalando) return;
+        this.instalando = true;
+        this.erro = '';
+        try {
+          const r = await fetch('/api/updates/install', { method: 'POST' });
+          const body = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            this.erro = (body && body.error) || 'Não foi possível instalar agora. Tente de novo.';
+            this.instalando = false;
+            return;
+          }
+          // O processo principal fecha o Kivo logo depois de responder. Se algo travar do
+          // outro lado, o botão não fica "Reiniciando…" para sempre.
+          setTimeout(() => { this.instalando = false; }, 30000);
+        } catch (e) {
+          this.erro = 'Sem conexão com o Kivo local. Tente de novo em instantes.';
+          this.instalando = false;
+        }
+      },
+
+      init() {
+        void this.sincronizar();
+        // 5s: o download pode levar minutos e a barra precisa andar. A rota é memória do
+        // processo principal, então o custo é desprezível.
+        setInterval(() => void this.sincronizar(), 5000);
+        // O getter `visivel` compara com `agora`; atualizar esse relógio é o que faz o
+        // cartão voltar sozinho quando os 15 minutos de adiamento acabam.
+        setInterval(() => { this.agora = Date.now(); }, 15000);
+      },
+    };
+  }
+</script>
+<% } %>

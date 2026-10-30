@@ -85,7 +85,7 @@ router.post('/install', requirePermission('settings.edit'), (req, res) => {
   setTimeout(() => {
     const r = instalarAtualizacao();
     if (!r.ok) log.error('falha ao instalar', r.error);
-  }, 500);
+  }, 1800);
 });
 
 export default router;

@@ -15,6 +15,10 @@
      continua em ícones, links, bordas e realces — a identidade não muda, só o botão clicável. */
   --primary-btn: color-mix(in srgb, var(--primary) 68%, #000);
   --primary-btn-hover: color-mix(in srgb, var(--primary) 58%, #000);
+  /* Texto sobre botões de ação. Branco funciona com o `--primary-btn` (que é sempre
+     escurecido), inclusive no tema escuro e nas cores personalizadas. Tokenizado para
+     a tela de pagamento não precisar fixar #fff. */
+  --on-primary: #ffffff;
   --accent-blue: #3b82f6;
   --primary-bg: color-mix(in srgb, #ff8000 8%, transparent);
   --danger: #ef4444;
@@ -1579,8 +1583,9 @@ code.truncate {
   font-size: 0.9rem;
   cursor: pointer;
   background: var(--primary-btn);
-  color: #fff;
+  color: var(--on-primary);
   font-weight: 600;
+  text-decoration: none;
   transition:
     background var(--transition),
     transform var(--transition),
@@ -1627,7 +1632,7 @@ code.truncate {
 }
 .btn.secondary.active {
   background: var(--primary-btn);
-  color: #fff;
+  color: var(--on-primary);
   border-color: var(--primary-btn);
 }
 .btn.danger:hover {
@@ -1961,6 +1966,96 @@ dialog.dialog-fixed > .actions {
   /* border-top: 1px solid var(--border-light);  */
   margin-top: 1rem;
   /* padding-top: 1rem; */
+}
+/* ─── Modal de quantidade (PDV + comandas) ───
+   Números grandes e alvos de toque; o teclado físico também funciona via keydown. */
+.qty-dlg-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 4.6rem;
+  margin: 0.35rem 0 0.25rem;
+  padding: 0.55rem 1rem;
+  border: 2px solid var(--border-light);
+  border-radius: 14px;
+  background: var(--surface-hover);
+  color: var(--text);
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.qty-dlg-display.has-error {
+  border-color: var(--danger);
+}
+.qty-dlg-unit {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.qty-dlg-hint {
+  text-align: center;
+  margin: 0.3rem 0 0.35rem;
+}
+.qty-dlg-error {
+  min-height: 1.15rem;
+  text-align: center;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.qty-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.qty-keypad button {
+  height: 3.4rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    color var(--transition);
+}
+.qty-keypad button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.qty-keypad button:active {
+  background: var(--primary-bg);
+}
+.qty-dlg-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+.qty-dlg-steps button {
+  height: 2.8rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.qty-dlg-steps button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.qty-keypad button:disabled,
+.qty-dlg-steps button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 /* Dialog em 2 colunas (ex.: cadastro de produto — formulário + painel de imagem) */
 dialog.product-modal {
@@ -4107,6 +4202,30 @@ dialog input[type='color'].color-swatch.color-swatch-custom {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+}
+/* Abas e ações secundárias (Cardápio online, imagens, tour) na mesma faixa.
+   Antes essas ações ficavam na toolbar e, quando a barra enchia, quebravam para
+   uma segunda linha solta — o "Cardápio online" aparecia sublinhado e desalinhado. */
+.products-tabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.products-tabs-row .product-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.products-tabs-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  padding-bottom: 0.35rem;
 }
 .tab-count {
   display: inline-flex;
@@ -6290,6 +6409,193 @@ dialog.import-dialog > .dialog-body {
   background: var(--primary);
   border-radius: 99px;
   transition: width 0.3s ease;
+}
+
+/* ─── Aviso de atualização obrigatória (canto inferior direito) ───
+   Fica acima do botão de ajuda (que usa bottom: 24px / ~56px de altura), para os dois
+   conviverem sem sobreposição. O z-index alto o mantém acima do conteúdo e abaixo apenas
+   do toast global. */
+.update-prompt {
+  position: fixed;
+  right: 24px;
+  bottom: 92px;
+  z-index: 2147483000;
+  width: min(390px, calc(100vw - 32px));
+  padding: 1rem 1.1rem 1.05rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  animation: update-prompt-in 0.25s ease both;
+}
+.update-prompt-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+.update-prompt-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.update-prompt-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.update-prompt-title {
+  min-width: 0;
+}
+.update-prompt-title strong {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+.update-prompt-title p {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.update-prompt-text {
+  margin: 0.7rem 0 0.85rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.update-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.update-prompt-actions .btn {
+  font-size: 0.84rem;
+}
+.update-prompt-error {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: var(--danger-text);
+}
+.update-prompt-text--small {
+  margin: 0.55rem 0 0;
+  font-size: 0.76rem;
+}
+.update-progress-bar {
+  height: 8px;
+  margin-top: 0.85rem;
+  background: var(--border-light);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.update-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 99px;
+  transition: width 0.35s ease;
+}
+.update-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.update-install-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: color-mix(in srgb, #0f1117 78%, transparent);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+.update-install-card {
+  width: min(430px, 100%);
+  padding: 2rem 1.6rem 1.7rem;
+  text-align: center;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+}
+.update-install-spinner {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.update-install-spinner svg {
+  width: 30px;
+  height: 30px;
+  animation: update-spin 1s linear infinite;
+}
+.update-install-card h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.2rem;
+}
+.update-install-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.update-install-card .update-install-warning {
+  margin-top: 0.7rem;
+  color: var(--warning-text);
+  font-weight: 700;
+}
+.update-install-bar {
+  height: 7px;
+  margin-top: 1.2rem;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--border-light);
+}
+.update-install-bar i {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--primary);
+  animation: update-indeterminate 1.1s ease-in-out infinite;
+}
+@keyframes update-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes update-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+@keyframes update-prompt-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (max-width: 560px) {
+  .update-prompt {
+    right: 12px;
+    bottom: 84px;
+    width: calc(100vw - 24px);
+  }
 }
 
 /* ═══ Tour guiado (spotlight) ═══════════════════════════════════════════════════

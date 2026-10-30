@@ -29,7 +29,9 @@
 ; respondendo, e um fechamento educado nunca funcionaria nesse caso.
 !macro customCheckAppRunning
   DetailPrint `Encerrando instancias do ${PRODUCT_NAME} em execucao...`
-  Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
+  ; nsExec roda o taskkill com console oculto; um `Exec` normal podia piscar uma janela
+  ; preta durante a atualização. taskkill sempre retorna, então não há risco de travar.
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
   Sleep 2500
 !macroend
 
@@ -58,10 +60,10 @@
 !macro customInit
   ; Mata em duas rodadas: a primeira derruba o Kivo; a segunda pega qualquer filho
   ; que tenha reaberto e garante que os handles dos arquivos sejam liberados antes
-  ; da extracao comecar.
-  Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
+  ; da extracao comecar. `nsExec` mantém o processo oculto (sem janela de CMD piscando).
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
   Sleep 2000
-  Exec `"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T`
+  nsExec::ExecToLog '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
   Sleep 2000
 
   ; Pasta padrao (`$INSTDIR`, ja definido por `initMultiUser`) — exista ou nao registro.
