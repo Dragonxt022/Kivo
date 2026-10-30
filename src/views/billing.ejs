@@ -187,6 +187,110 @@
       display: flex; justify-content: flex-end; gap: .6rem;
       padding-top: 1rem; border-top: 1px solid var(--border-light);
     }
+
+    /* Modal de pagamento: altura pelo conteúdo, sem o vazio gigante do dialog-fixed. */
+    dialog.pay-dialog {
+      width: min(700px, calc(100vw - 2rem));
+      max-height: calc(100vh - 2rem);
+      padding: 0;
+      overflow: hidden;
+      border-radius: 18px;
+    }
+    dialog.pay-dialog[open] { display: flex; flex-direction: column; }
+    .pay-sheet-head {
+      display: flex; align-items: center; gap: .75rem;
+      padding: 1.2rem 1.35rem .9rem; border-bottom: 1px solid var(--border-light);
+      background: color-mix(in srgb, var(--surface-hover) 55%, var(--surface));
+      flex: none;
+    }
+    .pay-sheet-icon {
+      width: 40px; height: 40px; border-radius: 12px; flex: none;
+      display: grid; place-items: center; color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 13%, transparent);
+    }
+    .pay-sheet-icon svg { width: 21px; height: 21px; }
+    .pay-sheet-title { flex: 1; min-width: 0; }
+    .pay-sheet-title h1 { margin: 0; font-size: 1.15rem; line-height: 1.3; letter-spacing: -.02em; }
+    .pay-sheet-title p { margin: .15rem 0 0; color: var(--text-muted); font-size: .78rem; }
+    .pay-sheet-close {
+      flex: none; border: 0; background: none; color: var(--text-muted);
+      cursor: pointer; padding: .25rem; display: grid; place-items: center;
+      border-radius: 8px;
+    }
+    .pay-sheet-close svg { width: 18px; height: 18px; }
+    .pay-sheet-close:hover { color: var(--text); background: var(--surface-hover); }
+    .pay-sheet-summary {
+      display: grid; grid-template-columns: 1fr 1fr; gap: .6rem;
+      padding: .9rem 1.35rem .2rem; flex: none;
+    }
+    .pay-sheet-summary > div {
+      padding: .7rem .85rem; border-radius: 11px;
+      border: 1px solid var(--border-light); background: var(--surface-hover);
+    }
+    .pay-sheet-summary span { display: block; font-size: .64rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 800; }
+    .pay-sheet-summary strong { display: block; margin-top: .2rem; font-size: 1.02rem; }
+    .pay-method-grid {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem;
+      padding: .9rem 1.35rem; flex: none;
+    }
+    .pay-method {
+      display: flex; align-items: center; gap: .55rem; text-align: left;
+      padding: .65rem .7rem; border-radius: 11px;
+      border: 1.5px solid var(--border); background: var(--surface); color: var(--text);
+      font-family: inherit; cursor: pointer; min-width: 0;
+    }
+    .pay-method:hover:not(:disabled) { border-color: var(--primary); }
+    .pay-method.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); box-shadow: 0 0 0 2px var(--primary-soft); }
+    .pay-method:disabled { opacity: .55; cursor: wait; }
+    .pay-method-icon {
+      width: 30px; height: 30px; border-radius: 9px; flex: none;
+      display: grid; place-items: center; color: #fff;
+    }
+    .pay-method-icon svg { width: 16px; height: 16px; }
+    .pay-method-icon.pix { background: #0ea5a4; }
+    .pay-method-icon.boleto { background: #3b82f6; }
+    .pay-method-icon.card { background: #8b5cf6; }
+    .pay-method span:last-child { min-width: 0; }
+    .pay-method strong { display: block; font-size: .82rem; }
+    .pay-method small { display: block; font-size: .65rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pay-sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: .1rem 1.35rem 1rem; }
+    .pay-sheet-footer {
+      display: flex; justify-content: flex-end; gap: .6rem;
+      padding: .85rem 1.35rem; border-top: 1px solid var(--border-light);
+      background: var(--surface); flex: none;
+    }
+    .pay-loading { display: flex; align-items: center; gap: .5rem; padding: .75rem 0; color: var(--text-muted); font-size: .82rem; }
+    .pay-spinner { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--primary); animation: pay-spin .8s linear infinite; }
+    @keyframes pay-spin { to { transform: rotate(360deg); } }
+    .pay-alert {
+      display: flex; align-items: flex-start; gap: .55rem; margin: .65rem 0;
+      padding: .7rem .8rem; border-radius: 10px;
+      border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+      background: var(--danger-bg); color: var(--danger-text);
+      font-size: .8rem; line-height: 1.45;
+    }
+    .pay-alert svg { width: 17px; height: 17px; flex: none; margin-top: 1px; }
+    .pay-qr-block { margin-top: .7rem; padding: .85rem; border: 1px solid var(--border-light); border-radius: 13px; background: var(--surface-hover); }
+    .pay-qr-copy strong { display: block; font-size: .84rem; }
+    .pay-qr-copy small { display: block; margin-top: .15rem; font-size: .72rem; color: var(--text-muted); }
+    .pay-qr-image { text-align: center; margin: .7rem 0; }
+    .pay-qr-image img { width: 180px; height: 180px; background: #fff; padding: 6px; border-radius: 12px; border: 1px solid var(--border-light); }
+    .pay-copy-row { display: flex; gap: .45rem; align-items: center; }
+    .pay-copy-row input { flex: 1; min-width: 0; margin: 0; }
+    .pay-verify-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .7rem; }
+    .pay-polling { margin: .35rem 0 0; font-size: .72rem; color: var(--text-muted); }
+    .pay-link-card { margin-top: .75rem; padding: .75rem .8rem; border: 1px solid var(--border-light); border-radius: 11px; background: var(--surface); }
+    .pay-link-card label { margin-top: 0; }
+    .pay-link-card .pay-copy-row { margin-top: .35rem; }
+    .pay-empty { text-align: center; padding: 1.2rem .5rem 1.4rem; color: var(--text-muted); }
+    .pay-empty-art { width: 70px; height: 70px; margin: 0 auto .6rem; display: grid; place-items: center; color: var(--primary); border-radius: 18px; background: color-mix(in srgb, var(--primary) 9%, transparent); }
+    .pay-empty-art svg { width: 42px; height: 42px; opacity: .8; }
+    .pay-empty strong { display: block; color: var(--text); font-size: .9rem; }
+    .pay-empty p { margin: .3rem auto 0; max-width: 360px; font-size: .78rem; line-height: 1.5; }
+    @media (max-width: 560px) {
+      .pay-method-grid { grid-template-columns: 1fr; }
+      .pay-sheet-summary { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -419,58 +523,89 @@
     </section>
     <span class="error" x-text="error"></span>
 
-    <dialog x-ref="payDlg" class="dialog-fixed" @close="stopPoll()">
-      <h1 x-text="charge ? ('Pagar: ' + charge.description) : 'Pagar cobrança'"></h1>
-      <div class="dialog-body">
-        <p class="muted" style="margin-top:0">
-          Valor <strong x-text="charge ? brl(charge.amount_cents) : ''"></strong>
-          · vence <strong x-text="charge ? fmtDate(charge.due_date) : ''"></strong>
-        </p>
+    <dialog x-ref="payDlg" class="pay-dialog" @close="stopPoll()">
+      <header class="pay-sheet-head">
+        <span class="pay-sheet-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 15h3"/><path d="M16 15h1"/></svg>
+        </span>
+        <div class="pay-sheet-title">
+          <h1 x-text="charge ? ('Pagar: ' + charge.description) : 'Pagar cobrança'"></h1>
+          <p>Escolha a forma de pagamento</p>
+        </div>
+        <button type="button" class="pay-sheet-close" @click="closePay()" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </header>
 
-        <div class="pm-grid" style="margin-bottom:.6rem">
-          <div class="pm-field"><button class="btn secondary" :class="{ 'active': method === 'pix' }" @click="generate('pix')" :disabled="loading">Pix (QR na hora)</button></div>
-          <div class="pm-field"><button class="btn secondary" :class="{ 'active': method === 'boleto' }" @click="generate('boleto')" :disabled="loading">Boleto</button></div>
-          <div class="pm-field"><button class="btn secondary" :class="{ 'active': method === 'card' }" @click="generate('card')" :disabled="loading">Cartão</button></div>
+      <div class="pay-sheet-summary">
+        <div><span>Valor</span><strong x-text="charge ? brl(charge.amount_cents) : '—'"></strong></div>
+        <div><span>Vencimento</span><strong x-text="charge ? fmtDate(charge.due_date) : '—'"></strong></div>
+      </div>
+
+      <div class="pay-method-grid">
+        <button type="button" class="pay-method" :class="{ active: method === 'pix' }" @click="generate('pix')" :disabled="loading">
+          <span class="pay-method-icon pix">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v3"/><path d="M14 20h3"/><path d="M20 20h.01"/></svg>
+          </span>
+          <span><strong>Pix</strong><small>QR Code na hora</small></span>
+        </button>
+        <button type="button" class="pay-method" :class="{ active: method === 'boleto' }" @click="generate('boleto')" :disabled="loading">
+          <span class="pay-method-icon boleto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="5" x2="4" y2="19"/><line x1="7" y1="5" x2="7" y2="19"/><line x1="11" y1="5" x2="11" y2="19"/><line x1="14" y1="5" x2="14" y2="19"/><line x1="18" y1="5" x2="18" y2="19"/><line x1="21" y1="5" x2="21" y2="19"/></svg>
+          </span>
+          <span><strong>Boleto</strong><small>Link para pagar</small></span>
+        </button>
+        <button type="button" class="pay-method" :class="{ active: method === 'card' }" @click="generate('card')" :disabled="loading">
+          <span class="pay-method-icon card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M6 15h4"/></svg>
+          </span>
+          <span><strong>Cartão</strong><small>Checkout Mercado Pago</small></span>
+        </button>
+      </div>
+
+      <div class="pay-sheet-body">
+        <div class="pay-loading" x-show="loading">
+          <span class="pay-spinner"></span>
+          <span>Falando com a nuvem…</span>
         </div>
 
-        <p class="muted text-xs" x-show="loading">Falando com a nuvem…</p>
+        <div class="pay-alert" x-show="payError && !loading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span x-text="payError"></span>
+        </div>
 
         <template x-if="payment">
           <div>
-            <p class="error" x-text="payError"></p>
-
             <!-- Pix: QR Code + copia e cola -->
             <template x-if="payment.mp_qr_code_base64 || payment.mp_qr_code">
-              <div>
-                <div x-show="payment.mp_qr_code_base64" style="text-align:center;margin:.4rem 0">
-                  <img :src="'data:image/png;base64,' + payment.mp_qr_code_base64" alt="QR code do Pix"
-                       style="width:180px;height:180px;background:#fff;padding:6px;border-radius:12px;border:1px solid var(--border-light)" />
+              <div class="pay-qr-block">
+                <div class="pay-qr-copy">
+                  <strong>Escaneie o QR Code</strong>
+                  <small>Use o aplicativo do seu banco em Pix › Pagar com QR Code.</small>
+                </div>
+                <div x-show="payment.mp_qr_code_base64" class="pay-qr-image">
+                  <img :src="'data:image/png;base64,' + payment.mp_qr_code_base64" alt="QR code do Pix" />
                 </div>
                 <label>Pix copia e cola</label>
-                <div style="display:flex;gap:8px;align-items:center">
+                <div class="pay-copy-row">
                   <input type="text" readonly :value="payment.mp_qr_code || ''" />
                   <button class="btn secondary" @click="copy(payment.mp_qr_code)">Copiar</button>
                 </div>
-                <p class="muted text-xs">Abra o aplicativo do banco, escolha Pix › Pagar com QR Code (ou Pix copia e cola) e confirme.</p>
               </div>
             </template>
 
-            <!-- Ação principal logo abaixo do QR: quem pagou não deve precisar rolar o modal. -->
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:.5rem">
-              <button class="btn secondary small" @click="verify(false)" :disabled="loading">
-                Já paguei — verificar agora
-              </button>
-              <p class="muted text-xs" x-show="statusMsg" x-text="statusMsg" style="margin:0"></p>
+            <div class="pay-verify-row">
+              <button class="btn secondary small" @click="verify(false)" :disabled="loading">Já paguei — verificar agora</button>
+              <span class="muted text-xs" x-show="statusMsg" x-text="statusMsg"></span>
             </div>
-            <p class="muted text-xs" x-show="polling">Conferindo o pagamento automaticamente a cada 5 segundos…</p>
+            <p class="pay-polling" x-show="polling">Conferindo o pagamento automaticamente a cada 5 segundos…</p>
 
-            <!-- Boleto, cartão e o comprovante do Pix: link -->
             <template x-if="payment.mp_ticket_url || payment.mp_init_point">
-              <div style="margin-top:.6rem">
+              <div class="pay-link-card">
                 <label x-text="method === 'card'
                   ? 'Link do pagamento no cartão'
                   : (method === 'boleto' ? 'Link do boleto' : 'Link do Pix no Mercado Pago')"></label>
-                <div style="display:flex;gap:8px;align-items:center">
+                <div class="pay-copy-row">
                   <input type="text" readonly :value="payment.mp_init_point || payment.mp_ticket_url || ''" />
                   <button class="btn secondary" @click="copy(payment.mp_init_point || payment.mp_ticket_url)">Copiar</button>
                   <a class="btn secondary" :href="payment.mp_init_point || payment.mp_ticket_url" target="_blank" rel="noopener">Abrir</a>
@@ -478,11 +613,10 @@
               </div>
             </template>
 
-            <!-- Link público: o cliente paga pelo celular dele -->
             <template x-if="payment.public_url">
-              <div style="margin-top:.6rem">
+              <div class="pay-link-card">
                 <label>Link para o cliente pagar no celular</label>
-                <div style="display:flex;gap:8px;align-items:center">
+                <div class="pay-copy-row">
                   <input type="text" readonly :value="payment.public_url" />
                   <button class="btn secondary" @click="copy(payment.public_url)">Copiar</button>
                 </div>
@@ -492,11 +626,20 @@
           </div>
         </template>
 
-        <p class="error" x-text="payError" x-show="!payment"></p>
+        <template x-if="!payment && !loading && !payError">
+          <div class="pay-empty">
+            <div class="pay-empty-art">
+              <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="20" width="48" height="32" rx="5"/><path d="M8 29h48"/><path d="M18 40h10"/><circle cx="45" cy="40" r="3"/></svg>
+            </div>
+            <strong>Pronto para receber</strong>
+            <p>Escolha Pix, boleto ou cartão para gerar o QR Code ou link de pagamento.</p>
+          </div>
+        </template>
       </div>
-      <div class="actions">
+
+      <footer class="pay-sheet-footer">
         <button class="btn secondary" @click="closePay()">Fechar</button>
-      </div>
+      </footer>
     </dialog>
   </main>
   <script nonce="<%= cspNonce %>">

@@ -5,6 +5,7 @@ import { affiliateDiscountFor } from './affiliates';
 import { commercialPlan } from './plans';
 import {
   createSubscription as createMpSubscription,
+  friendlyGatewayMessage,
   getAuthorizedPayment,
   getGatewayAccount,
   getSubscription as getMpSubscription,
@@ -208,9 +209,9 @@ export async function createCompanySubscription(input: CreateSubscriptionInput):
       [mp.preapprovalId, mapSubscriptionStatus(mp.status), mp.initPoint, mp.nextPaymentDate, id],
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = friendlyGatewayMessage(e);
     await pool.query("UPDATE company_subscriptions SET status = 'erro', last_error = ? WHERE id = ?", [msg.slice(0, 500), id]);
-    throw e;
+    throw new Error(msg);
   }
 
   return (await getSubscriptionById(id))!;

@@ -3,8 +3,8 @@ import { getPool } from '../db';
 import { requireAdminAuth } from '../adminAuth';
 import {
   GatewayError, createBoletoPayment, createCardPreference, createPixPayment,
-  getPayment, isConfigured, loadSettings, loadSettingsForView, mapPaymentStatus,
-  publicPayUrl, saveSettings,
+  friendlyGatewayMessage, getPayment, isConfigured, loadSettings, loadSettingsForView,
+  mapPaymentStatus, publicPayUrl, saveSettings,
 } from '../gateway';
 import {
   ensurePublicToken, getCharge, saveGatewayResult, savePaymentSnapshot, settleCharge,
@@ -128,7 +128,7 @@ router.post('/companies/:uuid/charges/:id/gateway', requireAdminAuth, async (req
     await saveGatewayResult(charge.id, { ...r, method: 'pix' });
     redirectCompanyCharges(res, uuid, 'ok', 'Pix gerado. O QR e o copia e cola estão na cobrança.');
   } catch (e) {
-    const msg = e instanceof GatewayError ? e.message : `Falha ao falar com o Mercado Pago: ${(e as Error).message}`;
+    const msg = e instanceof GatewayError ? friendlyGatewayMessage(e) : `Falha ao falar com o Mercado Pago: ${(e as Error).message}`;
     console.error('[payments] erro ao gerar pagamento', { cobranca: charge.id, method, msg });
     redirectCompanyCharges(res, uuid, 'error', msg);
   }

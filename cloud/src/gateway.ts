@@ -60,6 +60,22 @@ export class GatewayError extends Error {
   }
 }
 
+/**
+ * Traduz os erros mais comuns do Mercado Pago para uma instrução que o lojista consegue
+ * seguir. Sem isso ele vê "HTTP 401: Unauthorized use of live credentials" e não entende
+ * que o problema é credencial de teste tentando gerar Pix.
+ */
+export function friendlyGatewayMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (/Unauthorized use of live credentials/i.test(msg) || /live credentials/i.test(msg)) {
+    return 'O Mercado Pago recusou o Pix com as credenciais atuais. Para cobrar Pix, use credenciais de produção de uma conta Mercado Pago real que tenha uma chave Pix cadastrada. No ambiente de teste, use cartão ou boleto.';
+  }
+  if (/Both payer and collector must be real or test users/i.test(msg)) {
+    return 'Pagador e recebedor precisam estar no mesmo ambiente. Com credencial de teste, use o e-mail de um usuário de teste (test_user_...@testuser.com); em produção, use uma conta Mercado Pago real.';
+  }
+  return msg;
+}
+
 async function readSettings(): Promise<Record<string, string>> {
   const [rows] = await getPool().query(
     `SELECT setting_key, setting_value FROM app_settings

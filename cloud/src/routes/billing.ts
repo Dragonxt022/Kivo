@@ -4,7 +4,7 @@ import { getPool } from '../db';
 import { requireCompanyAuth, type AuthedRequest } from '../auth';
 import {
   GatewayError, createBoletoPayment, createCardPreference, createPixPayment,
-  getPayment, isConfigured, loadSettings, mapPaymentStatus, publicPayUrl,
+  friendlyGatewayMessage, getPayment, isConfigured, loadSettings, mapPaymentStatus, publicPayUrl,
 } from '../gateway';
 import {
   companyPayerData, ensurePublicToken, extendLicense, getCharge, saveGatewayResult,
@@ -400,7 +400,7 @@ router.post('/charges/:id/gateway', requireCompanyAuth, async (req: AuthedReques
       mp_status: r.status,
     });
   } catch (e) {
-    const msg = e instanceof GatewayError ? e.message : `Falha ao falar com o Mercado Pago: ${(e as Error).message}`;
+    const msg = e instanceof GatewayError ? friendlyGatewayMessage(e) : `Falha ao falar com o Mercado Pago: ${(e as Error).message}`;
     console.error('[billing] erro ao gerar pagamento', { cobranca: id, method, msg });
     res.status(502).json({ error: msg });
   }
