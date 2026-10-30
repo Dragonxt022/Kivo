@@ -10,6 +10,17 @@ export class KitchenRoutingRepository extends BaseRepository {
       'SELECT product_id, station, estimated_minutes FROM kitchen_routing WHERE deleted_at IS NULL',
     );
   }
+
+  /** Quais destes produtos estão roteados — a vitrine sinaliza "Cozinha" antes de vender. */
+  findRoutedProductIds(productIds: number[]): number[] {
+    const ids = [...new Set(productIds.filter((id) => Number.isInteger(id) && id > 0))];
+    if (!ids.length) return [];
+    const ph = ids.map(() => '?').join(',');
+    return (this.raw(
+      `SELECT DISTINCT product_id FROM kitchen_routing WHERE product_id IN (${ph}) AND deleted_at IS NULL`,
+      ...ids,
+    ) as { product_id: number }[]).map((r) => r.product_id);
+  }
 }
 
 export const kitchenRoutingRepository = new KitchenRoutingRepository();
@@ -75,14 +86,42 @@ export class KitchenTicketItemRepository extends BaseRepository {
   /**
    * Quais itens de comanda JÁ foram enviados para a cozinha — "Enviar p/ cozinha" usa
    * isso para mandar só o que é novo (o garçom pode apertar várias vezes sem duplicar).
+   * Ticket cancelado não conta: o item volta para a lista do que falta enviar.
    */
   findSentComandaItemIds(comandaItemIds: number[]): number[] {
     if (!comandaItemIds.length) return [];
     const ph = comandaItemIds.map(() => '?').join(',');
     return (this.raw(
-      `SELECT DISTINCT comanda_item_id FROM kitchen_ticket_items WHERE comanda_item_id IN (${ph}) AND deleted_at IS NULL`,
+      `SELECT DISTINCT kti.comanda_item_id
+         FROM kitchen_ticket_items kti
+         JOIN kitchen_tickets kt ON kt.id = kti.ticket_id
+        WHERE kti.comanda_item_id IN (${ph})
+          AND kti.deleted_at IS NULL
+          AND kt.deleted_at IS NULL
+          AND kt.status != 'cancelado'`,
       ...comandaItemIds,
     ) as { comanda_item_id: number }[]).map((r) => r.comanda_item_id);
+  }
+
+  /**
+   * Status de produção de cada item da comanda, ignorando tickets cancelados (o item
+   * volta a contar como "a enviar"). A ordenação por id DESC deixa o vínculo mais
+   * recente por primeiro — é o status que o garçom vê depois de um reenvio.
+   */
+  findStatusByComandaItemIds(comandaItemIds: number[]): { comanda_item_id: number; status: string }[] {
+    if (!comandaItemIds.length) return [];
+    const ph = comandaItemIds.map(() => '?').join(',');
+    return this.raw(
+      `SELECT kti.comanda_item_id, kti.status
+         FROM kitchen_ticket_items kti
+         JOIN kitchen_tickets kt ON kt.id = kti.ticket_id
+        WHERE kti.comanda_item_id IN (${ph})
+          AND kti.deleted_at IS NULL
+          AND kt.deleted_at IS NULL
+          AND kt.status != 'cancelado'
+        ORDER BY kti.id DESC`,
+      ...comandaItemIds,
+    ) as { comanda_item_id: number; status: string }[];
   }
 
   /** Itens de vários tickets numa query só — o painel mapeia N tickets sem N+1. */

@@ -27,6 +27,8 @@ import { recipeItemRepository } from './repositories/RecipeRepository';
 import { productAttributeRepository, productAttributeValueRepository, productVariantValueRepository } from './repositories/AttributeRepository';
 import { priceListRepository, priceListItemRepository } from './repositories/PriceListRepository';
 import { settingsRepository } from '../../core/repositories/SettingsRepository';
+import { getService, hasService } from '../../core/services/registry';
+import type { FoodserviceKitchenService } from '../foodservice/setup';
 import { typeControlsStock, typeIsActive } from './productTypes';
 import { createLogger } from '../../core/logger';
 
@@ -34,6 +36,24 @@ const log = createLogger('submit');
 const logCardapio = createLogger('cardapio-online');
 
 const router = Router();
+
+/**
+ * Sinaliza na vitrine quais produtos geram pedido na cozinha. Vem pelo serviço do
+ * foodservice (regra de cross-module): o módulo pode não estar instalado e a tabela
+ * `kitchen_routing` nem existir — nesse caso todo produto fica com `false`.
+ */
+function withKitchenFlags(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const semCozinha = () => rows.map((row) => ({ ...row, goes_to_kitchen: false }));
+  if (!rows.length || !hasService('foodservice.kitchen')) return semCozinha();
+  try {
+    const kitchen = getService<FoodserviceKitchenService>('foodservice.kitchen');
+    const ids = rows.map((row) => Number(row.id)).filter((id) => Number.isInteger(id) && id > 0);
+    const routed = new Set(kitchen.findRoutedProductIds(ids));
+    return rows.map((row) => ({ ...row, goes_to_kitchen: routed.has(Number(row.id)) }));
+  } catch {
+    return semCozinha();
+  }
+}
 
 // Havia aqui uma cópia morta de PRODUCT_COLS (zero usos): as listagens usam a de
 // `repositories/ProductRepository.ts`. Removida porque é uma armadilha — quem precisa
@@ -160,25 +180,25 @@ router.get('/products', requireAnyPermission('commercial.products.view', 'commer
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 200) : undefined;
   // scope=sellable: lista sem busca que INCLUI as variantes filhas (listTopLevel as exclui).
   if (!q && req.query.scope === 'sellable') {
-    res.json(productRepository.listSellable());
+    res.json(withKitchenFlags(productRepository.listSellable()));
     return;
   }
   // scope=favorites: grade de acesso rápido do PDV (produtos marcados como favoritos).
   if (!q && req.query.scope === 'favorites') {
-    res.json(productRepository.listFavorites(limit ?? 40));
+    res.json(withKitchenFlags(productRepository.listFavorites(limit ?? 40)));
     return;
   }
   if (includeParents) {
     if (q) {
-      res.json(productRepository.searchAll(q, limit));
+      res.json(withKitchenFlags(productRepository.searchAll(q, limit)));
     } else {
-      res.json(productRepository.listAll());
+      res.json(withKitchenFlags(productRepository.listAll()));
     }
   } else {
     if (q) {
-      res.json(productRepository.search(q, limit));
+      res.json(withKitchenFlags(productRepository.search(q, limit)));
     } else {
-      res.json(productRepository.listTopLevel());
+      res.json(withKitchenFlags(productRepository.listTopLevel()));
     }
   }
 });
@@ -841,7 +861,7 @@ router.get('/products/by-barcode/:code', requireAnyPermission('commercial.produc
     res.status(404).json({ error: 'Nenhum produto com este código.' });
     return;
   }
-  res.json(row);
+  res.json(withKitchenFlags([row])[0]);
 });
 
 /** Códigos de barras secundários (caixa/lastro) do produto — gravados pelo importador de

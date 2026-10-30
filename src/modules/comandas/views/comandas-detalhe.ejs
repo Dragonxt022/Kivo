@@ -24,9 +24,13 @@
       <div class="toolbar header-actions" x-show="isOpen" x-cloak>
         <%# Envio explícito: enquanto monta o pedido o cliente pode desistir/trocar —
             a cozinha só vê o que o garçom confirmar aqui. %>
-        <button type="button" class="btn secondary" @click="enviarCozinha()" :disabled="enviandoCozinha || !items.length" title="Enviar itens para o painel da cozinha">
+        <%# Só os itens ainda não enviados contam: depois do primeiro envio o botão fica
+            desabilitado em vez de reenviar a comanda inteira para a cozinha. %>
+        <button type="button" class="btn secondary" @click="enviarCozinha()"
+                :disabled="enviandoCozinha || kitchenPendingCount() === 0"
+                :title="kitchenPendingCount() ? 'Enviar ' + kitchenPendingCount() + ' item(ns) novo(s) para o painel da cozinha' : 'Nenhum item novo da cozinha para enviar'">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
-          <span class="btn-label" x-text="enviandoCozinha ? 'Enviando…' : 'Enviar p/ cozinha'"></span>
+          <span class="btn-label" x-text="kitchenButtonLabel()"></span>
         </button>
         <button type="button" class="btn secondary" @click="openTransferDlg()" title="Transferir">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
@@ -78,6 +82,9 @@
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
               </button>
+              <div class="comanda-item-tags" x-show="item.goes_to_kitchen" x-cloak>
+                <span class="kitchen-tag" :class="{ sent: item.kitchen_sent }" x-text="kitchenStatusLabel(item)"></span>
+              </div>
               <div class="comanda-item-meta" x-show="item.notes" x-text="'Obs.: ' + item.notes"></div>
             </div>
             <div class="comanda-item-price" x-text="brl(item.unit_price_cents * item.qty)"></div>
@@ -97,7 +104,7 @@
       </div>
     </div>
 
-    <div class="panel" x-show="isOpen" x-cloak>
+    <div class="panel comanda-add-panel" x-show="isOpen" x-cloak>
       <h2>Adicionar item</h2>
       <div class="combo-wrap">
         <%# `min-width:0` no input: item flex não encolhe abaixo do tamanho intrínseco
@@ -122,7 +129,10 @@
                 </template>
               </span>
               <span style="flex:1;min-width:0;text-align:left">
-                <span x-text="p.name" style="display:block;font-weight:600;font-size:.92rem"></span>
+                <span style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;font-weight:600;font-size:.92rem">
+                  <span x-text="p.name"></span>
+                  <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
+                </span>
                 <span class="muted text-sm" x-text="(p.category ? p.category + ' · ' : '') + (p.sku || '')"></span>
               </span>
               <strong style="color:var(--primary);white-space:nowrap" x-text="brl(p.price_cents)"></strong>
@@ -367,7 +377,21 @@
                   x-text="c.name"></button>
         </template>
       </div>
-      <div class="prod-grid">
+      <div class="prod-toolbar">
+        <span class="muted text-sm" x-text="browseFiltered().length + (browseFiltered().length === 1 ? ' produto' : ' produtos')"></span>
+        <div class="prod-view-toggle" role="group" aria-label="Modo de visualização">
+          <button type="button" class="prod-view-btn" :class="{ active: browseView === 'grid' }"
+                  @click="browseView = 'grid'" title="Ver em grade" aria-label="Ver em grade">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          </button>
+          <button type="button" class="prod-view-btn" :class="{ active: browseView === 'list' }"
+                  @click="browseView = 'list'" title="Ver em lista" aria-label="Ver em lista">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="prod-grid" x-show="browseView === 'grid'">
         <template x-for="p in browseFiltered()" :key="p.id">
           <button type="button" class="prod-card" @click="addItem(p); $refs.browseDlg.close()">
             <span class="prod-thumb">
@@ -377,6 +401,7 @@
               </template>
             </span>
             <span class="prod-name" x-text="p.name"></span>
+            <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak style="align-self:flex-start">Cozinha</span>
             <span class="prod-meta">
               <span class="muted text-sm" x-show="p.category" x-text="p.category"></span>
               <span class="prod-stock"
@@ -385,6 +410,37 @@
                     x-text="'Est: ' + p.stock_qty"></span>
             </span>
             <span class="prod-price" x-text="brl(p.price_cents)"></span>
+          </button>
+        </template>
+        <p class="browse-empty" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
+      </div>
+
+      <div class="prod-list" x-show="browseView === 'list'" x-cloak>
+        <template x-for="p in browseFiltered()" :key="p.id">
+          <button type="button" class="prod-list-item" @click="addItem(p); $refs.browseDlg.close()">
+            <span class="prod-list-thumb">
+              <img x-show="p.image_url" :src="p.image_url" alt="" loading="lazy" />
+              <template x-if="!p.image_url">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </template>
+            </span>
+            <span class="prod-list-info">
+              <span class="prod-list-name">
+                <span x-text="p.name"></span>
+                <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
+              </span>
+              <span class="prod-list-meta">
+                <span x-show="p.category" x-text="p.category"></span>
+                <span x-show="p.category && p.track_stock">·</span>
+                <span class="prod-stock"
+                      :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
+                      x-show="p.track_stock"
+                      x-text="'Est: ' + p.stock_qty"></span>
+              </span>
+            </span>
+            <span class="prod-list-right">
+              <span class="prod-price" x-text="brl(p.price_cents)"></span>
+            </span>
           </button>
         </template>
         <p class="browse-empty" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
@@ -539,41 +595,18 @@
     .browse-cat-chip:hover { border-color: var(--primary); color: var(--primary); }
     .browse-cat-chip.active { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
 
-    /* ─── Grade de produtos com foto (modal "Adicionar produtos") ─── */
-    .prod-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem;
-      max-height: min(62vh, 640px); overflow-y: auto; margin-top: .75rem; padding: 2px;
+    /* ─── Grade/lista de produtos: estilos compartilhados em app.css ─── */
+    .browse-empty { grid-column: 1 / -1; padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; list-style: none; }
+
+    /* O `.panel` tem `overflow: hidden` e o dropdown da busca é absoluto: ele nascia
+       embaixo do cartão e ficava invisível. Dentro deste painel o resultado entra no
+       fluxo, empurrando quantidade/observação para baixo. */
+    .comanda-add-panel .combo-results {
+      position: static;
+      margin-top: .4rem;
+      max-height: 260px;
     }
-    .prod-card {
-      display: flex; flex-direction: column; align-items: stretch; gap: .3rem;
-      border: 1.5px solid var(--border-light); border-radius: var(--radius);
-      background: var(--surface); padding: .55rem; cursor: pointer; text-align: left;
-      transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
-    }
-    .prod-card:hover {
-      border-color: var(--primary); transform: translateY(-2px);
-      box-shadow: var(--shadow-sm, 0 4px 12px rgba(0,0,0,.08));
-    }
-    .prod-thumb {
-      aspect-ratio: 1 / 1; width: 100%; border-radius: calc(var(--radius) - 4px);
-      overflow: hidden; background: var(--surface-hover); border: 1px solid var(--border-light);
-      display: grid; place-items: center; color: var(--text-muted);
-    }
-    .prod-thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .prod-name {
-      font-weight: 600; font-size: .9rem; line-height: 1.25; color: var(--text);
-      min-width: 0; overflow-wrap: anywhere;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .prod-meta { display: flex; justify-content: space-between; gap: .35rem; min-width: 0; }
-    .prod-meta .text-sm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .prod-stock { font-size: .76rem; color: var(--text-muted); white-space: nowrap; }
-    .prod-stock.low, .prod-stock.negative { color: var(--danger); font-weight: 700; }
-    .prod-price { font-weight: 700; font-size: .95rem; color: var(--primary); }
-    .browse-empty { grid-column: 1 / -1; padding: .9rem; text-align: center; color: var(--text-muted); font-size: .9rem; }
-    @media (max-width: 560px) {
-      .prod-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .55rem; }
-    }
+    .comanda-item-tags { margin-top: .2rem; }
 
     /* Miniatura nos resultados da busca rápida (fora do modal) */
     .combo-result { align-items: center; }
@@ -617,6 +650,7 @@
         browseResults: [],
         browseCategories: [],
         browseCategoryId: '',
+        browseView: 'grid',
         pendingQty: 1,
         pendingQtyRaw: '1',
         qtyDlg: { item: null, name: '', unit: 'un', fractional: false, raw: '', error: '', saving: false },
@@ -636,6 +670,23 @@
         },
         brl(c) { return window.brl(c); },
         total() { return this.items.reduce((a, i) => a + i.unit_price_cents * i.qty, 0); },
+        // Itens de cozinha que ainda não têm ticket ativo. O botão só reenvia o que falta —
+        // reenviar a comanda inteira duplicaria pratos no KDS.
+        kitchenPendingCount() {
+          return this.items.filter((i) => i.goes_to_kitchen && !i.kitchen_sent).length;
+        },
+        kitchenStatusLabel(item) {
+          if (!item.goes_to_kitchen) return '';
+          if (!item.kitchen_sent) return 'Cozinha · a enviar';
+          const labels = { pendente: 'na fila', preparo: 'em preparo', pronto: 'pronto', entregue: 'entregue' };
+          return 'Cozinha · ' + (labels[item.kitchen_status] || 'enviado');
+        },
+        kitchenButtonLabel() {
+          if (this.enviandoCozinha) return 'Enviando…';
+          const pending = this.kitchenPendingCount();
+          if (pending > 0) return 'Enviar p/ cozinha (' + pending + ')';
+          return this.items.some((i) => i.goes_to_kitchen) ? 'Cozinha em dia' : 'Enviar p/ cozinha';
+        },
         async searchProducts() {
           if (!this.searchQ.trim()) { this.searchResults = []; return; }
           const r = await fetch('/api/commercial/products?q=' + encodeURIComponent(this.searchQ.trim()));
@@ -899,6 +950,8 @@
             } else {
               showToast('Nada novo para a cozinha — itens já enviados ou que não são da cozinha.', 'info');
             }
+            // Sem recarregar, os selos continuariam "a enviar" até o próximo poll.
+            await this.load().catch(() => {});
           } catch {
             showToast('Sem conexão com o Kivo. Tente de novo.', 'error');
           } finally {

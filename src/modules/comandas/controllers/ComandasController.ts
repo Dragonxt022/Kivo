@@ -178,8 +178,41 @@ export const comandasController = {
         WHERE ci.comanda_id = ? AND ci.deleted_at IS NULL AND ci.voided_at IS NULL
         ORDER BY ci.id`,
       id,
-    );
-    res.json({ ...comanda, items });
+    ) as Record<string, unknown>[];
+
+    // A tela precisa distinguir três estados por item: não é de cozinha, ainda falta
+    // enviar e já foi enviado. O vínculo real mora em kitchen_ticket_items; consultamos
+    // pelo serviço do foodservice para o módulo continuar opcional.
+    const routedProducts = new Set<number>();
+    const kitchenStatusByItem = new Map<number, string>();
+    if (hasService('foodservice.kitchen')) {
+      try {
+        const kitchen = getService<FoodserviceKitchenService>('foodservice.kitchen');
+        const productIds = items
+          .map((item) => Number(item.product_id))
+          .filter((productId) => Number.isInteger(productId) && productId > 0);
+        const comandaItemIds = items
+          .map((item) => Number(item.id))
+          .filter((itemId) => Number.isInteger(itemId) && itemId > 0);
+        for (const productId of kitchen.findRoutedProductIds(productIds)) routedProducts.add(productId);
+        for (const row of kitchen.findStatusByComandaItemIds(comandaItemIds)) {
+          if (!kitchenStatusByItem.has(row.comandaItemId)) kitchenStatusByItem.set(row.comandaItemId, row.status);
+        }
+      } catch { /* sem a cozinha, a comanda continua abrindo normalmente */ }
+    }
+
+    const kitchenItems = items.map((item) => {
+      const kitchenStatus = kitchenStatusByItem.get(Number(item.id)) ?? null;
+      return {
+        ...item,
+        // Produto fora do roteamento atual mas já enviado continua sinalizado como cozinha:
+        // o ticket é a prova de que a produção existe.
+        goes_to_kitchen: routedProducts.has(Number(item.product_id)) || kitchenStatus != null,
+        kitchen_sent: kitchenStatus != null,
+        kitchen_status: kitchenStatus,
+      };
+    });
+    res.json({ ...comanda, items: kitchenItems });
   },
 
   openComandaAction(req: Request, res: Response) {

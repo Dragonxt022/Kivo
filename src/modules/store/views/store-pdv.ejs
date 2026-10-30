@@ -90,7 +90,7 @@
                    @keydown.up.prevent="highlightPrev()"
                    @keydown.escape="results = []"
                    placeholder="Código de barras, SKU ou nome do produto…" autofocus />
-            <button type="button" class="pdv-search-scan-btn" @click="openBrowse()" title="Consultar todos os produtos">
+            <button type="button" class="pdv-search-scan-btn" @click="openBrowse()" title="Adicionar produtos do catálogo">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="5" x2="7" y2="19"/><line x1="11" y1="5" x2="11" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/>
               </svg>
@@ -105,7 +105,10 @@
                   <img x-show="p.image_url" :src="p.image_url" alt="" />
                   <template x-if="!p.image_url"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></template>
                 </span>
-                <span class="name" x-text="p.name"></span>
+                <span class="name">
+                  <span x-text="p.name"></span>
+                  <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
+                </span>
                 <span class="price" x-text="brl(p.price_cents)"></span>
                 <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
                       x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
@@ -157,6 +160,7 @@
               <button type="button" class="pdv-fav" @click="add(f)">
                 <img x-show="f.image_url" :src="f.image_url" alt="" />
                 <span x-text="f.name"></span>
+                <span class="kitchen-tag" x-show="f.goes_to_kitchen" x-cloak>Cozinha</span>
                 <span class="muted" x-text="brl(f.price_cents)"></span>
               </button>
             </template>
@@ -173,7 +177,11 @@
                 </template>
               </div>
               <div>
-                <div class="prod-name" x-text="i.name"></div>
+                <div class="prod-name" style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+                  <span x-text="i.name"></span>
+                  <span class="kitchen-tag" :class="{ sent: i.kitchenSent === true }"
+                        x-show="i.goesToKitchen" x-cloak x-text="kitchenStatusLabel(i)"></span>
+                </div>
                 <div class="prod-unit" x-text="(i.sku ? ('SKU: ' + i.sku + ' · ') : '') + brl(i.price_cents) + ' un.'"></div>
                 <div class="prod-notes" x-show="i.notes" x-text="i.notes"></div>
                 <button type="button" class="prod-note-btn"
@@ -348,9 +356,9 @@
       </div>
     </div>
 
-    <!-- ─── MODAL: Consultar produtos (sem adicionar ao carrinho) ─── -->
+    <!-- ─── MODAL: Adicionar/consultar produtos ─── -->
     <dialog x-ref="browse" style="width:min(1100px, 94vw)">
-      <h1>Consultar produtos</h1>
+      <h1>Adicionar produtos</h1>
       <input type="text" x-ref="browseInput" x-model="browseQ" @input.debounce.250ms="searchBrowse()"
              placeholder="Buscar por nome, código de barras ou SKU…" />
 
@@ -383,14 +391,54 @@
         </template>
       </div>
 
-      <div class="pdv-browse-list">
+      <div class="prod-toolbar">
+        <span class="muted text-sm" x-text="browseFiltered().length + (browseFiltered().length === 1 ? ' produto' : ' produtos')"></span>
+        <div class="prod-view-toggle" role="group" aria-label="Modo de visualização">
+          <button type="button" class="prod-view-btn" :class="{ active: productView === 'grid' }"
+                  @click="productView = 'grid'" title="Ver em grade" aria-label="Ver em grade">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          </button>
+          <button type="button" class="prod-view-btn" :class="{ active: productView === 'list' }"
+                  @click="productView = 'list'" title="Ver em lista" aria-label="Ver em lista">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="prod-grid" x-show="productView === 'grid'">
+        <template x-for="p in browseFiltered()" :key="p.id">
+          <button type="button" class="prod-card" @click="add(p).then(() => $refs.browse.close())">
+            <span class="prod-thumb">
+              <img x-show="p.image_url" :src="p.image_url" alt="" loading="lazy" />
+              <template x-if="!p.image_url">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </template>
+            </span>
+            <span class="prod-name" x-text="p.name"></span>
+            <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak style="align-self:flex-start">Cozinha</span>
+            <span class="prod-meta">
+              <span class="muted text-sm" x-show="p.category" x-text="p.category"></span>
+              <span class="prod-stock"
+                    :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
+                    x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
+            </span>
+            <span class="prod-price" x-text="brl(p.price_cents)"></span>
+          </button>
+        </template>
+        <p class="pdv-empty" style="grid-column:1/-1" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
+      </div>
+
+      <div class="pdv-browse-list" x-show="productView === 'list'" x-cloak>
         <template x-for="p in browseFiltered()" :key="p.id">
           <div class="pdv-result" @click="add(p).then(() => $refs.browse.close())">
             <span class="pdv-result-thumb">
               <img x-show="p.image_url" :src="p.image_url" alt="" />
               <template x-if="!p.image_url"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></template>
             </span>
-            <span class="name" x-text="p.name"></span>
+            <span class="name">
+              <span x-text="p.name"></span>
+              <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
+            </span>
             <span class="price" x-text="brl(p.price_cents)"></span>
             <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
                   x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
@@ -1015,7 +1063,7 @@
         showSplit: false, showCashReceived: false,
         error: '', payError: '', saving: false, appSettings: [],
         pinInput: '', pinError: '', pendingRemoveIdx: null,
-        browseQ: '', browseResults: [], browseCategories: [], browseCategoryId: '',
+        browseQ: '', browseResults: [], browseCategories: [], browseCategoryId: '', productView: 'grid',
         openRegisterForm: { opening: '', error: '' },
         customerBalances: {}, lastSaleHasCarne: false,
         prazoForm: { customerId: '', mode: 'avista', installments: 3, firstDueDate: '', amountCents: 0 }, prazoError: '',
@@ -1108,6 +1156,16 @@
 
         // ─── Utilitários ───
         brl(c) { return window.brl(c); },
+        kitchenStatusLabel(i) {
+          if (!i?.goesToKitchen) return '';
+          if (i.kitchenSent === true) {
+            const labels = { pendente: 'na fila', preparo: 'em preparo', pronto: 'pronto', entregue: 'entregue' };
+            return 'Cozinha · ' + (labels[i.kitchenStatus] || 'enviado');
+          }
+          // Venda direta ainda não tem ticket (null) — o selo só informa que o item
+          // passa pela cozinha. Comanda carregada manda false e mostra o que falta.
+          return i.kitchenSent === false ? 'Cozinha · a enviar' : 'Cozinha';
+        },
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); },
         focusSearch() { this.$nextTick(() => { this.$refs.search?.focus(); }); },
         methodIcon: paymentMethodIcon,
@@ -1238,9 +1296,21 @@
           if (p.ok) {
             // Carrinho persistido em localStorage pode referenciar produto excluído/inativado
             // desde a última sessão — sem essa limpeza, o item fica "fantasma" no carrinho e
-            // quebra o checkout (o backend rejeita productId inexistente).
-            const validIds = new Set((await p.json()).map((prod) => prod.id));
-            this.slots.forEach((slot) => { slot.cart = slot.cart.filter((i) => validIds.has(i.productId)); });
+            // quebra o checkout (o backend rejeita productId inexistente). A mesma lista
+            // atualiza o selo de cozinha de carrinhos salvos antes desse campo existir.
+            const products = await p.json();
+            const byProductId = new Map(products.map((prod) => [prod.id, prod]));
+            this.slots.forEach((slot) => {
+              slot.cart = slot.cart.filter((i) => byProductId.has(i.productId));
+              for (const item of slot.cart) {
+                const prod = byProductId.get(item.productId);
+                // Linha de comanda já enviada carrega o status real; venda direta usa o
+                // roteamento atual do produto.
+                if (item.kitchenSent == null) item.goesToKitchen = !!prod.goes_to_kitchen;
+                if (item.kitchenSent === undefined) item.kitchenSent = null;
+                if (item.kitchenStatus === undefined) item.kitchenStatus = null;
+              }
+            });
             this.persistSlots();
           }
           const params = new URLSearchParams(location.search);
@@ -1304,6 +1374,9 @@
             productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
             sku: i.sku || null, image_url: i.image_url || null,
             lineGroupUuid: i.line_group_uuid || null, notes: i.notes || null,
+            goesToKitchen: !!i.goes_to_kitchen,
+            kitchenSent: i.kitchen_sent === true,
+            kitchenStatus: i.kitchen_status || null,
           }));
           const needsNewSlot = this.slots[this.activeSlot].cart.length > 0 || this.slots[this.activeSlot].comandaId;
           if (needsNewSlot) {
@@ -1334,6 +1407,7 @@
             productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
             sku: i.sku || null, image_url: i.image_url || null,
             lineGroupUuid: i.line_group_uuid || null, notes: i.notes || null,
+            goesToKitchen: !!i.goes_to_kitchen, kitchenSent: null, kitchenStatus: null,
           }));
           const slot = this.slots[this.activeSlot];
           if (slot.cart.length || slot.comandaId || slot.quoteId) {
@@ -1522,10 +1596,17 @@
           this.addToCart(p, qty, null, null);
         },
         addToCart(p, qty, lineGroupUuid, notes, priceLocked = false) {
+          // Linha nova numa comanda ainda não tem ticket: o selo precisa dizer "a enviar"
+          // para o operador não fechar a conta achando que a cozinha já recebeu. Na venda
+          // direta (sem comanda) o selo é só informativo.
+          const emComanda = !!this.slots[this.activeSlot].comandaId;
           this.cart.push({
             productId: p.id, name: p.name, price_cents: p.price_cents, qty,
             sku: p.sku ?? null, image_url: p.image_url ?? null,
             lineGroupUuid, notes, ...(priceLocked ? { priceLocked: true } : {}),
+            goesToKitchen: !!p.goes_to_kitchen,
+            kitchenSent: emComanda ? false : null,
+            kitchenStatus: null,
           });
           this.q = ''; this.results = []; this.highlightIdx = -1;
           this.focusSearch();

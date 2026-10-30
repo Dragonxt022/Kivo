@@ -54,16 +54,18 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         Interface
       </button>
+      <%# Perto da Interface e antes das abas exclusivas de settings.edit: é uma informação
+          de leitura que qualquer pessoa com acesso às configurações pode querer consultar. %>
+      <% if (user.permissions.has('settings.view')) { %>
+      <button :class="{ active: tab === 'cardapio' }" @click="setTab('cardapio')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Cardápio online
+      </button>
+      <% } %>
       <% if (user.permissions.has('settings.edit')) { %>
       <button :class="{ active: tab === 'rede' }" @click="setTab('rede')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="18" x2="10.01" y2="18"/><path d="M6 14V7a6 6 0 0 1 12 0v7"/></svg>
         Rede local
-      </button>
-      <% } %>
-      <% if (user.permissions.has('settings.edit')) { %>
-      <button :class="{ active: tab === 'cardapio' }" @click="setTab('cardapio')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        Cardápio online
       </button>
       <% } %>
       <% if (user.permissions.has('settings.edit') || user.permissions.has('security.pin.manage')) { %>
@@ -965,7 +967,7 @@
     <% } %>
 
     <!-- ═══════ ABA: CARDÁPIO ONLINE ═══════ -->
-    <% if (user.permissions.has('settings.edit')) { %>
+    <% if (user.permissions.has('settings.view')) { %>
     <div x-show="tab === 'cardapio'" x-cloak>
       <section class="panel">
         <h2>Cardápio online</h2>
@@ -1637,15 +1639,19 @@
           const p = await fetch('/api/security/pin/status');
           if (p.ok) this.pinConfigured = (await p.json()).configured;
           <% } %>
+          <% if (user.permissions.has('settings.view')) { %>
+          // A aba Cardápio online é somente leitura e abre para settings.view; a rota
+          // também exige só essa permissão.
+          const c = await fetch('/api/settings/cardapio-info');
+          if (c.ok) this.cardapio = { ...(await c.json()), loading: false, copied: false };
+          else this.cardapio.loading = false;
+          <% } %>
           <% if (user.permissions.has('settings.edit')) { %>
           // Fora do `await` da fila: o selo de novidade na aba não deve atrasar o
           // desenho do resto da tela.
           this.lerAtualizacao();
           const n = await fetch('/api/settings/network-info');
           if (n.ok) this.networkInfo = await n.json();
-          const c = await fetch('/api/settings/cardapio-info');
-          if (c.ok) this.cardapio = { ...(await c.json()), loading: false, copied: false };
-          else this.cardapio.loading = false;
           await this.loadImageSearchConfig();
           <% } %>
           <% if (user.permissions.has('commercial.products.view')) { %>

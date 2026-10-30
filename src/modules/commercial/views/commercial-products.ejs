@@ -38,6 +38,14 @@
           Importar / Exportar
         </button>
       <% } %>
+      <%# Atalho para o link/QR do cardápio: é nesta tela que o lojista publica os produtos
+          (globo na linha), então a informação de como divulgar fica ao lado do trabalho. %>
+      <% if (user.permissions.has('settings.view')) { %>
+        <a class="btn secondary" href="/admin/configuracoes#cardapio" title="Link público, QR code e como publicar produtos no cardápio online">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+          Cardápio online
+        </a>
+      <% } %>
       <% if (user.permissions.has('commercial.products.edit')) { %>
         <%# Preenchimento em lote de imagens: discreto, só ícone ao lado do importar/exportar.
             Age sobre a aba ativa (Produtos ou Complementos) — o tooltip diz qual. %>

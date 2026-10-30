@@ -338,6 +338,11 @@ body:has(.pdv) {
   object-fit: cover;
 }
 .pdv-result .name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  min-width: 0;
   font-weight: 600;
   font-size: 0.95rem;
   color: var(--text);
