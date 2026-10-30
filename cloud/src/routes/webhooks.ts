@@ -1,15 +1,20 @@
 import { Router } from 'express';
 import { getPayment, loadSettings, mapPaymentStatus, verifyWebhookSignature } from '../gateway';
 import { getCharge, getChargeByPaymentId, savePaymentSnapshot, settleCharge } from '../charges';
+import {
+  getSubscriptionByPreapprovalId,
+  recordAuthorizedPayment,
+  syncSubscription,
+} from '../subscriptions';
 
 /**
  * Webhook do Mercado Pago (`POST /api/webhooks/mercadopago`).
  *
  * Regras que este arquivo segue, na ordem em que importam:
  *
- *  1. **A notificação não é a fonte da verdade.** Ela só diz "olhe o pagamento X"; o status
- *     é reconferido em `GET /v1/payments/{id}` com o nosso Access Token. Sem isso, uma
- *     notificação forjada marcaria cobrança como paga.
+ *  1. **A notificação não é a fonte da verdade.** Ela só diz "olhe o pagamento/assinatura X";
+ *     o status é reconferido na API deles com o nosso Access Token. Sem isso, uma notificação
+ *     forjada marcaria cobrança como paga.
  *  2. **Responde 200 no que não é acionável** (evento de outro tipo, pagamento sem cobrança
  *     nossa, gateway desligado). O Mercado Pago reenvia a cada 15 minutos até receber 200/201
  *     — não queremos fila de retry por evento que decidimos ignorar.
@@ -17,8 +22,9 @@ import { getCharge, getChargeByPaymentId, savePaymentSnapshot, settleCharge } fr
  *  4. A baixa é idempotente (`settleCharge` só mexe em cobrança pendente), então notificação
  *     repetida — que acontece — não paga duas vezes nem estende a validade duas vezes.
  *
- * A URL pública é configurada no painel do Mercado Pago (Webhooks › Configurar notificações,
- * evento "Pagamentos") e também vai no corpo de cada pagamento criado (`notification_url`).
+ * Eventos de Assinaturas são aceitos aqui também. Como a documentação não permite configurar
+ * webhook de Assinaturas pelo painel, a URL vai no `notification_url` criado em cada
+ * preapproval (`subscriptions.ts`).
  */
 
 const router = Router();
@@ -44,8 +50,9 @@ router.post('/mercadopago', async (req, res) => {
     res.sendStatus(200);
     return;
   }
-  if (tipo && tipo !== 'payment') {
-    log(`evento "${tipo}" não é de pagamento — ignorado`, { dataId });
+  const tiposAceitos = new Set(['payment', 'subscription_preapproval', 'subscription_authorized_payment']);
+  if (tipo && !tiposAceitos.has(tipo)) {
+    log(`evento "${tipo}" não é tratado pelo Kivo — ignorado`, { dataId });
     res.sendStatus(200);
     return;
   }
@@ -73,6 +80,31 @@ router.post('/mercadopago', async (req, res) => {
   }
 
   try {
+    // Autorização/atualização da assinatura (o dinheiro ainda não caiu aqui).
+    if (tipo === 'subscription_preapproval') {
+      const sub = await getSubscriptionByPreapprovalId(dataId);
+      if (!sub) {
+        log('assinatura sem cadastro correspondente no Kivo — ignorada', { preapproval: dataId });
+        res.sendStatus(200);
+        return;
+      }
+      const after = await syncSubscription(sub.id);
+      log('assinatura sincronizada', { preapproval: dataId, status: after?.status });
+      res.sendStatus(200);
+      return;
+    }
+
+    // Parcela recorrente: é AQUI que a licença é estendida quando o pagamento está aprovado.
+    if (tipo === 'subscription_authorized_payment') {
+      const r = await recordAuthorizedPayment(dataId);
+      log(r.processed ? 'cobrança recorrente baixada' : 'cobrança recorrente ignorada', {
+        parcela: dataId, motivo: r.reason, cobranca: r.chargeId,
+        diasEstendidos: r.extendedDays, validade: r.validUntil,
+      });
+      res.sendStatus(200);
+      return;
+    }
+
     const snapshot = await getPayment(dataId, settings);
 
     const porPagamento = await getChargeByPaymentId(snapshot.paymentId);

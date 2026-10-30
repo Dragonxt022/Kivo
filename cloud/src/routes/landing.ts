@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { getPool } from '../db';
 
 /**
@@ -64,9 +64,73 @@ async function getReleaseInfo(): Promise<ReleaseInfo> {
 
 const router = Router();
 
-router.get('/', async (_req, res) => {
+/**
+ * Registro de downloads do instalador. Serve para o painel saber que alguém baixou o Kivo
+ * mesmo antes de ativar qualquer licença/teste — a instalação em si só aparece em
+ * company_devices depois que o app valida.
+ *
+ * Best-effort: se o banco estiver fora, o download continua. Também há um freio simples
+ * por IP para um bot não inflar a contagem com centenas de cliques.
+ */
+const downloadHits = new Map<string, { count: number; resetAt: number }>();
+const DOWNLOAD_WINDOW_MS = 60_000;
+const DOWNLOAD_MAX_PER_WINDOW = 20;
+
+function downloadThrottled(ip: string): boolean {
+  const now = Date.now();
+  const hit = downloadHits.get(ip);
+  if (!hit || now > hit.resetAt) {
+    downloadHits.set(ip, { count: 1, resetAt: now + DOWNLOAD_WINDOW_MS });
+    // Limpeza ocasional para a lista não crescer sem limite.
+    if (downloadHits.size > 5000) {
+      for (const [k, v] of downloadHits) if (now > v.resetAt) downloadHits.delete(k);
+    }
+    return false;
+  }
+  hit.count += 1;
+  return hit.count > DOWNLOAD_MAX_PER_WINDOW;
+}
+
+function clip(value: unknown, max: number): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  return s ? s.slice(0, max) : null;
+}
+
+async function recordDownload(req: Request, version: string): Promise<void> {
+  const ip = clip(req.ip, 64);
+  if (ip && downloadThrottled(ip)) return;
+  try {
+    await getPool().query(
+      'INSERT INTO installer_downloads (ip, user_agent, referer, origem, version) VALUES (?, ?, ?, ?, ?)',
+      [
+        ip,
+        clip(req.get('user-agent'), 400),
+        clip(req.get('referer'), 500),
+        clip(req.query.origem, 80),
+        clip(version, 24),
+      ],
+    );
+  } catch (e) {
+    console.error('[downloads] falha ao registrar download (segue para o instalador):', e);
+  }
+}
+
+/**
+ * Link público do botão "Baixar". Em vez de mandar o navegador direto ao GitHub, passa por
+ * aqui para registrar o clique e só então redireciona para o asset da release.
+ */
+router.get('/baixar', async (req, res) => {
   const { downloadUrl, version } = await getReleaseInfo();
-  res.render('landing', { downloadUrl, appVersion: version });
+  await recordDownload(req, version);
+  res.redirect(302, downloadUrl);
+});
+
+router.get('/', async (_req, res) => {
+  const { version } = await getReleaseInfo();
+  // `/baixar` registra o clique antes de redirecionar; o link exibido nas páginas é este,
+  // nunca a URL direta do GitHub, senão os downloads feitos pelo site não aparecem no painel.
+  res.render('landing', { downloadUrl: '/baixar', appVersion: version });
 });
 
 /**
@@ -95,8 +159,8 @@ const SITE_PAGES: Record<string, string> = {
 
 for (const [path, view] of Object.entries(SITE_PAGES)) {
   router.get(path, async (_req, res) => {
-    const { downloadUrl, version } = await getReleaseInfo();
-    res.render(view, { downloadUrl, appVersion: version });
+    const { version } = await getReleaseInfo();
+    res.render(view, { downloadUrl: '/baixar', appVersion: version });
   });
 }
 

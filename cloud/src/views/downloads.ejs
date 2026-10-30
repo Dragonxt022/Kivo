@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Downloads e testes</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'downloads' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'downloads' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Sistema</div>
+            <h1>Downloads e testes</h1>
+          </div>
+          <a href="/admin/versions" class="btn secondary">Ver versões instaladas</a>
+        </div>
+
+        <p class="field-hint" style="margin-top:0">
+          Todo clique em “Baixar” no site passa por <strong>/baixar</strong> e fica registrado
+          aqui, mesmo que a pessoa nunca ative uma licença. Quando o instalador é aberto e o
+          teste de 15 dias é solicitado, a empresa e a máquina aparecem na segunda tabela.
+        </p>
+
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= stats.total %></div>
+            <div class="dash-kpi-label">Downloads registrados</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= stats.last_24h %></div>
+            <div class="dash-kpi-label">Últimas 24 horas</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= stats.last_7d %></div>
+            <div class="dash-kpi-label">Últimos 7 dias</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= totalTrials %></div>
+            <div class="dash-kpi-label">Testes em andamento</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base"><%= stats.unique_ips %> IP(s) único(s) nos downloads</span></div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 style="margin:0; font-size:1.05rem;">Downloads recentes</h2>
+            <div class="table-count">até 500 registros</div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Quando</th><th>Versão</th><th>Origem</th><th>IP</th><th>Navegador</th></tr></thead>
+              <tbody>
+                <% downloads.forEach(function(d) { %>
+                <tr>
+                  <td><%= fmtDateTimeBr(d.created_at) %></td>
+                  <td><span class="badge paga"><%= d.version || '—' %></span></td>
+                  <td class="cell-muted" title="<%= d.referer || '' %>"><%= d.origem || d.referer || 'direto' %></td>
+                  <td class="cell-muted"><%= d.ip || '—' %></td>
+                  <td class="cell-muted" title="<%= d.user_agent || '' %>"><%= d.user_agent ? String(d.user_agent).slice(0, 60) + (String(d.user_agent).length > 60 ? '…' : '') : '—' %></td>
+                </tr>
+                <% }) %>
+                <% if (!downloads.length) { %><tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum download registrado ainda. Os cliques em “Baixar” no site aparecem aqui.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 style="margin:0; font-size:1.05rem;">Testes de 15 dias</h2>
+            <div class="table-count"><%= totalTrials %> teste<%= totalTrials === 1 ? '' : 's' %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Empresa</th><th>Validade</th><th>Máquina</th><th>Versão</th><th>Primeiro acesso</th><th>Último acesso</th></tr></thead>
+              <tbody>
+                <% trials.forEach(function(t) { %>
+                <tr>
+                  <td>
+                    <a href="/admin/companies/<%= t.company_uuid %>"><%= t.name || t.company_uuid %></a>
+                    <div class="cell-sub"><%= String(t.company_uuid).slice(0, 8) %></div>
+                  </td>
+                  <td class="cell-muted"><%= t.valid_until ? fmtDateBr(t.valid_until) : '—' %></td>
+                  <td class="cell-muted" title="<%= t.machine_id || '' %>"><%= t.machine_id ? String(t.machine_id).slice(0, 16) + '…' : 'ainda não ativou' %></td>
+                  <td><%= t.app_version || '—' %></td>
+                  <td class="cell-muted"><%= t.first_seen_at ? fmtDateTimeBr(t.first_seen_at) : '—' %></td>
+                  <td class="cell-muted"><%= t.last_seen_at ? fmtDateTimeBr(t.last_seen_at) : '—' %></td>
+                </tr>
+                <% }) %>
+                <% if (!trials.length) { %><tr><td colspan="6"><%- include('partials/empty-state', { message: 'Nenhum teste de 15 dias em andamento.' }) %></td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

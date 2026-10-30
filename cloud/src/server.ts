@@ -27,6 +27,7 @@ import webhookRoutes from './routes/webhooks';
 import publicPayRoutes from './routes/payPublic';
 import paymentRoutes from './routes/payments';
 import contractRoutes from './routes/contracts';
+import { adminSubscriptionsRouter, publicSubscriptionsRouter } from './routes/subscriptions';
 import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAuth';
 import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
@@ -49,6 +50,8 @@ function startDataRetention(): NodeJS.Timeout {
       if (removidos > 0) console.log(`[retention] ${removidos} comando(s) antigo(s) removido(s).`);
       // Cache da busca de imagens vencido: não precisa ficar ocupando espaço.
       await getPool().query('DELETE FROM catalog_search_cache WHERE expires_at < NOW()');
+      // Downloads do instalador: guarda 180 dias para o painel enxergar a origem, depois some.
+      await getPool().query('DELETE FROM installer_downloads WHERE created_at < (NOW(3) - INTERVAL 180 DAY)');
     } catch (e) {
       console.error('[retention] falha ao limpar comandos antigos:', e);
     }
@@ -103,6 +106,8 @@ export function createCloudServer() {
   // Página pública de pagamento da assinatura: é o link que o lojista manda ao cliente
   // (WhatsApp/e-mail). Fica antes da landing porque `/pagar/<token>` não é página do site.
   app.use('/pagar', publicPayRoutes);
+  // Página pública da assinatura recorrente (link enviado ao cliente para autorizar o cartão).
+  app.use('/', publicSubscriptionsRouter);
   // Tela única de login (admin x afiliado): o controller decide o destino pelo usuário/senha.
   app.use('/', loginRoutes);
   app.use('/', landingRoutes);
@@ -141,6 +146,8 @@ export function createCloudServer() {
   app.use('/afiliado', affiliateRoutes);
   app.use('/admin/messages', adminMessagesRoutes);
   app.use('/admin', adminRoutes);
+  // Assinaturas recorrentes (Mercado Pago Assinaturas): painel e criação por empresa.
+  app.use('/admin', adminSubscriptionsRouter);
   // Credenciais do gateway de pagamento e geração de Pix/boleto/cartão por cobrança.
   app.use('/admin', paymentRoutes);
   // Contratos: número, prazo, PDF assinado e o bloco de parcelas que sai de uma vez.

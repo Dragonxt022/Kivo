@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Assinatura</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <link rel="stylesheet" href="/css/app.css?v=20261030-2">
+</head>
+<body class="subscription-public">
+  <main class="subscription-public-card">
+    <div class="subscription-public-brand">
+      <img src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" class="logo-light">
+      <img src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" class="logo-dark">
+    </div>
+
+    <% if (notFound) { %>
+      <span class="badge cancelada">Link inválido</span>
+      <h1>Não encontramos esta assinatura.</h1>
+      <p class="muted">Confirme o link com o suporte do Kivo. Se você já pagou, nenhuma cobrança será feita por esta página.</p>
+    <% } else { %>
+      <%
+        var statusLabel = {
+          pendente: 'Aguardando autorização',
+          autorizada: 'Assinatura ativa',
+          pausada: 'Assinatura pausada',
+          cancelada: 'Assinatura cancelada',
+          encerrada: 'Assinatura encerrada',
+          erro: 'Precisa de atenção'
+        }[sub.status] || sub.status;
+        var statusClass = sub.status === 'autorizada' ? 'paga' : (sub.status === 'pendente' ? 'pendente' : (sub.status === 'erro' ? 'money-pending' : 'cancelada'));
+      %>
+      <span class="badge <%= statusClass %>"><%= statusLabel %></span>
+      <h1>Assinatura Kivo</h1>
+      <p class="subscription-public-company"><%= companyName || 'Sua empresa' %></p>
+
+      <div class="subscription-public-summary">
+        <div>
+          <span class="muted text-xs">Valor</span>
+          <strong><%= (Number(sub.amount_cents) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) %></strong>
+        </div>
+        <div>
+          <span class="muted text-xs">Cobrança</span>
+          <strong>a cada <%= sub.frequency %> <%= sub.frequency_type === 'days' ? 'dia(s)' : 'mês(es)' %></strong>
+        </div>
+        <div>
+          <span class="muted text-xs">Próxima cobrança</span>
+          <strong><%= sub.next_payment_date ? fmtDateTimeBr(sub.next_payment_date) : '—' %></strong>
+        </div>
+      </div>
+
+      <% if (sub.status === 'pendente' && sub.init_point) { %>
+        <p class="subscription-public-text">
+          Autorize o cartão no Mercado Pago para ativar a cobrança automática. A primeira
+          parcela é processada logo após a autorização.
+        </p>
+        <a class="btn subscription-public-btn" href="<%= sub.init_point %>" rel="noopener">
+          Autorizar assinatura no Mercado Pago
+        </a>
+        <p class="muted text-xs" style="margin-top:10px">
+          Você será levado ao ambiente seguro do Mercado Pago. O Kivo não armazena os dados do cartão.
+        </p>
+      <% } else if (sub.status === 'autorizada') { %>
+        <p class="subscription-public-text">
+          Tudo certo. O cartão está autorizado e o Mercado Pago fará as próximas cobranças
+          automaticamente. Cada pagamento aprovado renova a licença do Kivo.
+        </p>
+      <% } else if (sub.status === 'pausada') { %>
+        <p class="subscription-public-text">A assinatura está pausada. Fale com o suporte do Kivo para retomar as cobranças.</p>
+      <% } else if (sub.status === 'cancelada' || sub.status === 'encerrada') { %>
+        <p class="subscription-public-text">Esta assinatura não está mais ativa. Os meses já pagos continuam valendo até a data de validade da licença.</p>
+      <% } else { %>
+        <p class="subscription-public-text">
+          Não foi possível gerar o link de autorização. Fale com o suporte do Kivo para concluir a assinatura.
+        </p>
+      <% } %>
+
+      <% if (sub.last_payment_at) { %>
+        <p class="muted text-xs" style="margin-top:14px">Último pagamento processado: <%= fmtDateTimeBr(sub.last_payment_at) %></p>
+      <% } %>
+    <% } %>
+
+    <footer class="subscription-public-footer">
+      <span>Pagamento processado pelo Mercado Pago</span>
+      <span>Kivo</span>
+    </footer>
+  </main>
+</body>
+</html>

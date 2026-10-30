@@ -28,6 +28,8 @@ const DATA_TABLES = [
   'company_mobile_grants',
   'theme_grants',
   'company_devices',
+  'installer_downloads',
+  'company_subscriptions',
   'menu_items',
   'catalog_images',
   'catalog_web_images',

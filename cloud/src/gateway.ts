@@ -301,6 +301,184 @@ export async function createCardPreference(
   return { preferenceId: String(r.id), initPoint };
 }
 
+// ─────────────────────────── Assinaturas (preapproval) ───────────────────────────
+
+export interface SubscriptionCreationInput {
+  /** id local de `company_subscriptions`; viaja no external_reference. */
+  subscriptionId: number;
+  reason: string;
+  amountCents: number;
+  payerEmail: string;
+  frequency: number;
+  frequencyType: 'days' | 'months';
+  /** Página pública do Kivo para onde o Mercado Pago volta depois da autorização. */
+  backUrl: string;
+}
+
+export interface CreatedSubscription {
+  preapprovalId: string;
+  status: string;
+  initPoint: string | null;
+  nextPaymentDate: string | null;
+}
+
+interface MpPreapprovalResponse {
+  id?: string | number;
+  status?: string;
+  init_point?: string;
+  sandbox_init_point?: string;
+  next_payment_date?: string;
+  external_reference?: string;
+  payer_email?: string;
+  auto_recurring?: {
+    frequency?: number;
+    frequency_type?: string;
+    transaction_amount?: number;
+    currency_id?: string;
+  };
+}
+
+/**
+ * Cria a assinatura no Mercado Pago com status `pending`: o cliente recebe o link, autoriza
+ * o cartão e o Mercado Pago passa a cobrar sozinho. É o fluxo "sem plano associado" — o
+ * valor/frequência ficam gravados na própria assinatura, sem precisar de preapproval_plan.
+ *
+ * `notification_url` é obrigatório AQUI: a documentação de Assinaturas não permite configurar
+ * webhook só pelo painel do Mercado Pago para esse produto. Sem ele, os pagamentos recorrentes
+ * não chegariam ao Kivo.
+ */
+export async function createSubscription(
+  input: SubscriptionCreationInput,
+  settings: GatewaySettings,
+): Promise<CreatedSubscription> {
+  const r = await mpRequest<MpPreapprovalResponse>('/preapproval', {
+    method: 'POST',
+    settings,
+    body: {
+      reason: input.reason.slice(0, 160),
+      external_reference: `subscription:${input.subscriptionId}`,
+      payer_email: input.payerEmail,
+      back_url: input.backUrl,
+      notification_url: notificationUrl(),
+      status: 'pending',
+      auto_recurring: {
+        frequency: Math.max(1, Math.round(input.frequency)),
+        frequency_type: input.frequencyType,
+        transaction_amount: amountFromCents(input.amountCents),
+        currency_id: 'BRL',
+      },
+    },
+  });
+  const initPoint = r.sandbox_init_point ?? r.init_point ?? null;
+  if (!r.id) {
+    throw new GatewayError('Mercado Pago não devolveu o id da assinatura.', 0, JSON.stringify(r).slice(0, 500));
+  }
+  return {
+    preapprovalId: String(r.id),
+    status: String(r.status ?? 'pending'),
+    initPoint,
+    nextPaymentDate: r.next_payment_date ?? null,
+  };
+}
+
+export interface SubscriptionSnapshot {
+  preapprovalId: string;
+  status: string;
+  initPoint: string | null;
+  nextPaymentDate: string | null;
+  externalReference: string | null;
+  payerEmail: string | null;
+  amountCents: number | null;
+  frequency: number | null;
+  frequencyType: string | null;
+}
+
+/** Releitura da assinatura — mesma regra do pagamento: webhook não é fonte da verdade. */
+export async function getSubscription(preapprovalId: string, settings: GatewaySettings): Promise<SubscriptionSnapshot> {
+  const r = await mpRequest<MpPreapprovalResponse>(`/preapproval/${encodeURIComponent(preapprovalId)}`, { settings });
+  const recorrencia = r.auto_recurring ?? {};
+  return {
+    preapprovalId: String(r.id ?? preapprovalId),
+    status: String(r.status ?? 'unknown'),
+    initPoint: r.sandbox_init_point ?? r.init_point ?? null,
+    nextPaymentDate: r.next_payment_date ?? null,
+    externalReference: r.external_reference ?? null,
+    payerEmail: r.payer_email ?? null,
+    amountCents: typeof recorrencia.transaction_amount === 'number' ? Math.round(recorrencia.transaction_amount * 100) : null,
+    frequency: typeof recorrencia.frequency === 'number' ? recorrencia.frequency : null,
+    frequencyType: recorrencia.frequency_type ?? null,
+  };
+}
+
+/** Pausa/retoma/cancela no Mercado Pago. Usado pelo botão do painel. */
+export async function updateSubscriptionStatus(
+  preapprovalId: string,
+  status: 'paused' | 'authorized' | 'cancelled',
+  settings: GatewaySettings,
+): Promise<void> {
+  await mpRequest(`/preapproval/${encodeURIComponent(preapprovalId)}`, {
+    method: 'PUT',
+    settings,
+    body: { status },
+  });
+}
+
+export interface AuthorizedPaymentSnapshot {
+  authorizedPaymentId: string;
+  preapprovalId: string | null;
+  status: string;
+  statusDetail: string | null;
+  paymentId: string | null;
+  paymentStatus: string | null;
+  paymentStatusDetail: string | null;
+  amountCents: number | null;
+  debitDate: string | null;
+  nextPaymentDate: string | null;
+}
+
+interface MpAuthorizedPaymentResponse {
+  id?: string | number;
+  preapproval_id?: string;
+  status?: string;
+  status_detail?: string;
+  transaction_amount?: number;
+  debit_date?: string;
+  next_payment_date?: string;
+  payment?: {
+    id?: string | number;
+    status?: string;
+    status_detail?: string;
+    transaction_amount?: number;
+  };
+}
+
+/** Leitura da parcela recorrente; `payment.status = approved` é o que libera a licença. */
+export async function getAuthorizedPayment(
+  authorizedPaymentId: string,
+  settings: GatewaySettings,
+): Promise<AuthorizedPaymentSnapshot> {
+  const r = await mpRequest<MpAuthorizedPaymentResponse>(
+    `/authorized_payments/${encodeURIComponent(authorizedPaymentId)}`,
+    { settings },
+  );
+  const pagamento = r.payment ?? {};
+  const valor = typeof pagamento.transaction_amount === 'number'
+    ? pagamento.transaction_amount
+    : (typeof r.transaction_amount === 'number' ? r.transaction_amount : null);
+  return {
+    authorizedPaymentId: String(r.id ?? authorizedPaymentId),
+    preapprovalId: r.preapproval_id ?? null,
+    status: String(r.status ?? 'unknown'),
+    statusDetail: r.status_detail ?? null,
+    paymentId: pagamento.id != null ? String(pagamento.id) : null,
+    paymentStatus: pagamento.status ?? null,
+    paymentStatusDetail: pagamento.status_detail ?? null,
+    amountCents: valor != null ? Math.round(valor * 100) : null,
+    debitDate: r.debit_date ?? null,
+    nextPaymentDate: r.next_payment_date ?? null,
+  };
+}
+
 export interface PaymentSnapshot {
   paymentId: string;
   status: string;

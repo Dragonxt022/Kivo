@@ -1012,6 +1012,57 @@ function cmpVersao(a: string, b: string): number {
 }
 
 /**
+ * Downloads do instalador + testes em andamento. O download é registrado em `/baixar`
+ * (routes/landing.ts) antes de o navegador ir ao GitHub; o teste só aparece aqui depois
+ * que a máquina ativa a licença e entra em company_devices.
+ *
+ * Serve para responder "quantas pessoas baixaram?" e "quantos estão usando o teste?" sem
+ * depender de cruzar manualmente GitHub, empresas e dispositivos.
+ */
+router.get('/downloads', requireAdminAuth, async (_req, res) => {
+  const pool = getPool();
+  const [downloadRows] = await pool.query(
+    `SELECT id, ip, user_agent, referer, origem, version, created_at
+       FROM installer_downloads ORDER BY created_at DESC LIMIT 500`,
+  );
+  const [statsRows] = await pool.query(
+    `SELECT COUNT(*) AS total,
+            COUNT(DISTINCT ip) AS unique_ips,
+            SUM(created_at >= (NOW(3) - INTERVAL 24 HOUR)) AS last_24h,
+            SUM(created_at >= (NOW(3) - INTERVAL 7 DAY)) AS last_7d
+       FROM installer_downloads`,
+  );
+  const rawStats = (statsRows as Record<string, unknown>[])[0] ?? {};
+  const stats = {
+    total: Number(rawStats.total || 0),
+    unique_ips: Number(rawStats.unique_ips || 0),
+    last_24h: Number(rawStats.last_24h || 0),
+    last_7d: Number(rawStats.last_7d || 0),
+  };
+
+  // Trial por empresa, com a máquina que ativou. LEFT JOIN de propósito: um teste criado
+  // pelo painel pode ainda não ter aberto o app, e mesmo assim precisa aparecer.
+  const [trialRows] = await pool.query(
+    `SELECT c.company_uuid, c.name, c.valid_until, c.created_at,
+            cd.machine_id, cd.first_seen_at, cd.last_seen_at, cd.app_version
+       FROM companies c
+       LEFT JOIN company_devices cd
+         ON cd.company_uuid = c.company_uuid AND cd.removed_at IS NULL
+      WHERE c.plan = 'trial'
+      ORDER BY c.created_at DESC
+      LIMIT 300`,
+  );
+
+  const trials = trialRows as Record<string, unknown>[];
+  res.render('downloads', {
+    downloads: downloadRows as Record<string, unknown>[],
+    stats,
+    trials,
+    totalTrials: new Set(trials.map((t) => String(t.company_uuid))).size,
+  });
+});
+
+/**
  * Versões: distribuição de versões do app e, por instalação, a versão que está rodando
  * contra a versão exigida pelo suporte (`companies.licensed_version`). Alimenta o painel
  * para ver quem está desatualizado.

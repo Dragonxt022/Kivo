@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Assinaturas</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'subscriptions' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'subscriptions' }) %>
+
+      <div class="page page-wide">
+        <% if (ok) { %><p class="success-banner"><%= ok %></p><% } %>
+        <% if (error) { %><p class="error-banner"><%= error %></p><% } %>
+
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Comercial</div>
+            <h1>Assinaturas</h1>
+            <p class="page-subtitle">
+              Cobrança recorrente no Mercado Pago. O cliente autoriza o cartão uma vez; a cada
+              parcela aprovada o Kivo registra a cobrança e <strong>estende a licença</strong>.
+            </p>
+          </div>
+          <div class="header-actions">
+            <% if (companyFilter) { %>
+              <a class="btn secondary" href="/admin/subscriptions">Ver todas</a>
+            <% } %>
+            <button type="button" class="btn" onclick="document.getElementById('modal-new-subscription').showModal()">
+              + Nova assinatura
+            </button>
+          </div>
+        </div>
+
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= stats.ativas %></div>
+            <div class="dash-kpi-label">Assinaturas ativas</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= stats.pendentes %></div>
+            <div class="dash-kpi-label">Aguardando autorização</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base"><%= stats.proximas %> cobrança(s) nos próximos 7 dias</span></div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= (stats.mrr_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) %></div>
+            <div class="dash-kpi-label">Receita recorrente mensal</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base">soma das assinaturas ativas</span></div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon red">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="dash-kpi-value"><%= stats.erros %></div>
+            <div class="dash-kpi-label">Com erro</div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <h2 class="table-title">Assinaturas cadastradas</h2>
+            <div class="table-count"><%= subscriptions.length %> registro<%= subscriptions.length === 1 ? '' : 's' %></div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Empresa</th>
+                  <th>Plano</th>
+                  <th class="text-right">Valor</th>
+                  <th>Frequência</th>
+                  <th>Status</th>
+                  <th>Próxima cobrança</th>
+                  <th>Link do cliente</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% subscriptions.forEach(function (s) { %>
+                  <tr>
+                    <td>
+                      <a href="/admin/companies/<%= s.company_uuid %>" class="cell-name"><%= s.company_name || s.company_uuid %></a>
+                      <div class="cell-sub"><%= s.reason %></div>
+                    </td>
+                    <td><span class="badge plan"><%= s.plan_key || 'personalizada' %></span></td>
+                    <td class="text-right tabular"><%= (Number(s.amount_cents) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) %></td>
+                    <td class="cell-muted">a cada <%= s.frequency %> <%= s.frequency_type === 'days' ? 'dia(s)' : 'mês(es)' %></td>
+                    <td>
+                      <span class="badge <%= s.status === 'autorizada' ? 'paga' : (s.status === 'pendente' ? 'pendente' : (s.status === 'erro' ? 'money-pending' : 'cancelada')) %>">
+                        <%= s.status %>
+                      </span>
+                      <% if (s.last_error) { %><div class="cell-sub" title="<%= s.last_error %>"><%= String(s.last_error).slice(0, 60) %></div><% } %>
+                    </td>
+                    <td class="cell-muted"><%= s.next_payment_date ? fmtDateTimeBr(s.next_payment_date) : '—' %></td>
+                    <td>
+                      <% if (s.public_url) { %>
+                        <button type="button" class="btn secondary small" data-copy="<%= s.public_url %>">Copiar link</button>
+                      <% } else { %>
+                        <span class="cell-muted">—</span>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="row-actions">
+                        <% if (s.preapproval_id) { %>
+                          <form method="post" action="/admin/subscriptions/<%= s.id %>/sync">
+                            <button type="submit" class="btn secondary small">Sincronizar</button>
+                          </form>
+                        <% } %>
+                        <% if (s.status === 'autorizada' || s.status === 'pausada' || s.status === 'pendente') { %>
+                          <form method="post" action="/admin/subscriptions/<%= s.id %>/cancel"
+                                onsubmit="return confirm('Cancelar esta assinatura no Mercado Pago? Os meses já pagos continuam valendo.');">
+                            <button type="submit" class="btn danger small">Cancelar</button>
+                          </form>
+                        <% } %>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+                <% if (!subscriptions.length) { %>
+                  <tr><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhuma assinatura ainda. Crie a primeira e envie o link para o cliente autorizar.' }) %></td></tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="modal-new-subscription">
+    <form method="post" action="/admin/companies/__uuid__/subscriptions" id="form-new-subscription">
+      <div class="modal-header">
+        <h2>Nova assinatura recorrente</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-subscription').close()">×</button>
+      </div>
+      <div class="modal-body">
+        <label>Empresa</label>
+        <select name="companyUuid" id="sub-company" required>
+          <option value="">Selecione…</option>
+          <% companies.forEach(function (c) { %>
+            <option value="<%= c.company_uuid %>" <%= companyFilter === c.company_uuid ? 'selected' : '' %>>
+              <%= c.name || c.company_uuid %> <%= c.plan ? '(' + c.plan + ')' : '' %>
+            </option>
+          <% }) %>
+        </select>
+
+        <div class="form-grid" style="row-gap:0">
+          <div class="field col-6">
+            <label>Plano</label>
+            <select name="planKey">
+              <option value="prata">Prata</option>
+              <option value="ouro" selected>Ouro</option>
+              <option value="diamante">Diamante</option>
+              <option value="personalizada">Personalizada</option>
+            </select>
+          </div>
+          <div class="field col-6">
+            <label>Valor por cobrança (R$)</label>
+            <input type="text" name="amount" inputmode="decimal" placeholder="149,90" required>
+          </div>
+          <div class="field col-6">
+            <label>Frequência</label>
+            <div style="display:flex;gap:6px">
+              <input type="number" name="frequency" min="1" value="1" style="margin-bottom:0" required>
+              <select name="frequencyType" style="margin-bottom:0">
+                <option value="months" selected>mês(es)</option>
+                <option value="days">dia(s)</option>
+              </select>
+            </div>
+          </div>
+          <div class="field col-6">
+            <label>Estende a licença em (dias)</label>
+            <input type="number" name="extendsDays" min="1" value="30" required>
+          </div>
+          <div class="field col-12">
+            <label>Descrição</label>
+            <input type="text" name="reason" maxlength="160" placeholder="Assinatura Kivo — Plano Ouro">
+          </div>
+          <div class="field col-12">
+            <label>E-mail do pagador</label>
+            <input type="email" name="payerEmail" placeholder="financeiro@cliente.com.br">
+            <p class="field-hint">Usado pelo Mercado Pago para o cliente autorizar a assinatura.</p>
+          </div>
+        </div>
+        <p class="hint">
+          Depois de salvar, copie o link do cliente e envie por WhatsApp ou e-mail. O cartão
+          só é cobrado quando ele autorizar no Mercado Pago.
+        </p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-subscription').close()">Cancelar</button>
+        <button type="submit" class="btn">Criar assinatura</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    (function () {
+      var form = document.getElementById('form-new-subscription');
+      var company = document.getElementById('sub-company');
+      form.addEventListener('submit', function (e) {
+        if (!company.value) { e.preventDefault(); return; }
+        form.action = '/admin/companies/' + encodeURIComponent(company.value) + '/subscriptions';
+      });
+      document.querySelectorAll('[data-copy]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var value = btn.getAttribute('data-copy');
+          var done = function () {
+            var old = btn.textContent;
+            btn.textContent = 'Copiado!';
+            setTimeout(function () { btn.textContent = old; }, 1500);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(value).then(done).catch(done);
+          } else {
+            var input = document.createElement('input');
+            input.value = value;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            input.remove();
+            done();
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
