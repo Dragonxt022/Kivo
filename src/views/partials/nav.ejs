@@ -901,11 +901,12 @@
   }
   // Telas densas/transacionais onde os balões de "páginas recentes" cobrem conteúdo (a
   // conferência da NF-e tem tabela larga + rodapé fixo; o PDV tem a faixa de ações e o
-  // CTA de pagamento no canto inferior direito). Nelas o histórico continua sendo
-  // registrado, mas os balões não são montados.
+  // CTA de pagamento no canto inferior direito; Cobranças tem os cards de assinatura).
+  // Nelas o histórico continua sendo registrado, mas os balões não são montados.
   function fabSuppressed(){
     return location.pathname.indexOf('/app/nfe/importar') === 0
-      || location.pathname.indexOf('/app/store/pdv') === 0;
+      || location.pathname.indexOf('/app/store/pdv') === 0
+      || location.pathname.indexOf('/admin/cobrancas') === 0;
   }
   // No celular/tablet os balões ficam desligados: a barra inferior é a navegação
   // principal e os atalhos flutuantes cobrem conteúdo (o CSS também os esconde).

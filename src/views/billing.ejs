@@ -10,12 +10,84 @@
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <style>
+    .billing-page {
+      width: min(1120px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 2rem 0 3rem;
+    }
+    .billing-hero {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.35rem;
+    }
+    .billing-hero-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      flex: none;
+      color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 13%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border-light));
+    }
+    .billing-hero-icon svg { width: 27px; height: 27px; }
+    .billing-hero-copy { flex: 1 1 320px; min-width: 0; }
+    .billing-eyebrow {
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: .25rem;
+    }
+    .billing-hero h1 {
+      margin: 0;
+      font-size: 1.7rem;
+      letter-spacing: -.035em;
+      line-height: 1.15;
+    }
+    .billing-hero p {
+      margin: .4rem 0 0;
+      max-width: 650px;
+      color: var(--text-muted);
+      font-size: .88rem;
+      line-height: 1.55;
+    }
+    .billing-hero-status { margin-left: auto; align-self: flex-start; }
+    .billing-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .045em;
+      text-transform: uppercase;
+      background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+      color: var(--warning);
+      border: 1px solid color-mix(in srgb, var(--warning) 26%, transparent);
+      white-space: nowrap;
+    }
+    .billing-status.ok {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: color-mix(in srgb, var(--success) 28%, transparent);
+    }
+    .billing-status.off {
+      background: var(--surface-hover);
+      color: var(--text-muted);
+      border-color: var(--border-light);
+    }
     .sub-card {
       border: 1px solid var(--border-light);
       border-radius: var(--radius-lg);
       background: var(--surface);
-      padding: 1.1rem 1.25rem;
+      padding: 1.35rem 1.5rem;
       margin-bottom: 1.1rem;
+      box-shadow: var(--shadow-sm);
     }
     .sub-head {
       display: flex;
@@ -23,24 +95,37 @@
       justify-content: space-between;
       gap: 1rem;
       flex-wrap: wrap;
-      margin-bottom: .9rem;
+      margin-bottom: 1rem;
     }
-    .sub-head h2 { margin: 0; font-size: 1.05rem; }
-    .sub-head p { margin: .25rem 0 0; font-size: .82rem; color: var(--text-muted); line-height: 1.5; }
+    .sub-head h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.02em; }
+    .sub-head p { margin: .35rem 0 0; font-size: .82rem; color: var(--text-muted); line-height: 1.55; max-width: 720px; }
     .sub-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
       gap: .7rem;
-      margin-bottom: .9rem;
+      margin-bottom: 1rem;
     }
     .sub-grid > div {
       background: var(--surface-hover);
       border: 1px solid var(--border-light);
-      border-radius: 10px;
-      padding: .65rem .8rem;
+      border-radius: 12px;
+      padding: .8rem .95rem;
     }
-    .sub-grid span { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 700; }
-    .sub-grid strong { display: block; margin-top: .15rem; font-size: .9rem; }
+    .sub-grid span { display: block; font-size: .64rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); font-weight: 800; }
+    .sub-grid strong { display: block; margin-top: .25rem; font-size: .92rem; }
+    .sub-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: .7rem;
+      padding: .8rem .9rem;
+      margin-bottom: .9rem;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--warning) 22%, transparent);
+    }
+    .sub-alert svg { flex: none; color: var(--warning); width: 18px; height: 18px; margin-top: 1px; }
+    .sub-alert strong { display: block; font-size: .84rem; }
+    .sub-alert p { margin: .2rem 0 0; color: var(--text-muted); font-size: .79rem; line-height: 1.5; }
     .sub-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
     .plan-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin: .6rem 0 .9rem; }
     .plan-option {
@@ -61,6 +146,29 @@
     .subscribe-box h3 { margin: 0 0 .3rem; font-size: .95rem; }
     .subscribe-box > p { margin: 0 0 .7rem; font-size: .82rem; color: var(--text-muted); line-height: 1.5; }
     .sub-note { font-size: .78rem; color: var(--text-muted); line-height: 1.5; margin: .45rem 0 0; }
+    .billing-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: .35rem;
+      padding: 3rem 1.5rem;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
+      margin-bottom: 1rem;
+    }
+    .billing-empty-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: grid; place-items: center; margin-bottom: .4rem;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+    }
+    .billing-empty-icon svg { width: 23px; height: 23px; }
+    .billing-empty h3 { margin: 0; font-size: 1rem; }
+    .billing-empty p { margin: 0 0 .65rem; max-width: 430px; color: var(--text-muted); font-size: .83rem; line-height: 1.5; }
     dialog .modal-header {
       display: flex;
       align-items: center;
@@ -83,13 +191,20 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'billing' }) %>
-  <main x-data="billingPage()" x-init="load()">
-    <h1>Cobranças</h1>
-    <p class="muted muted-block">
-      As cobranças da sua assinatura vêm da nuvem do Kivo. Pagando por aqui (Pix, boleto ou
-      cartão), a baixa acontece sozinha assim que o Mercado Pago confirma — e a validade da
-      licença é atualizada na hora.
-    </p>
+  <main class="billing-page" x-data="billingPage()" x-init="load()">
+    <header class="billing-hero">
+      <div class="billing-hero-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 15h3"/><path d="M16 15h1"/></svg>
+      </div>
+      <div class="billing-hero-copy">
+        <div class="billing-eyebrow">Financeiro</div>
+        <h1>Assinatura e cobranças</h1>
+        <p>Gerencie seu plano, autorize pagamentos e acompanhe o histórico da licença em um só lugar.</p>
+      </div>
+      <div class="billing-hero-status" x-show="subReady" x-cloak>
+        <span class="billing-status" :class="subStatusClass()" x-text="subStatusLabel()"></span>
+      </div>
+    </header>
 
     <section class="sub-card" x-show="subReady" x-cloak>
       <div class="sub-head">
@@ -97,7 +212,6 @@
           <h2>Minha assinatura</h2>
           <p>Assine ou cancele direto por aqui. O cancelamento não devolve o valor já pago e não encurta o acesso: a licença continua até a data de validade abaixo.</p>
         </div>
-        <span class="badge" :class="subStatusClass()" x-text="subStatusLabel()"></span>
       </div>
 
       <template x-if="!subscription && hasUpfrontPlan()">
@@ -120,9 +234,13 @@
             <div><span>Acesso até</span><strong x-text="subCompany && subCompany.validUntil ? fmtDate(subCompany.validUntil) : '—'"></strong></div>
           </div>
 
-          <p class="sub-note" x-show="subscription.status === 'pendente'">
-            Falta autorizar o cartão no Mercado Pago. Abra o link, autorize e depois clique em <strong>Verificar autorização</strong>.
-          </p>
+          <div class="sub-alert" x-show="subscription.status === 'pendente'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div>
+              <strong>Falta autorizar o cartão</strong>
+              <p>Abra o link do Mercado Pago, autorize a assinatura e depois clique em <strong>Verificar autorização</strong>.</p>
+            </div>
+          </div>
           <p class="sub-note" x-show="subscription.status === 'cancelada' || subscription.status === 'encerrada'">
             Assinatura cancelada. Não haverá novas cobranças. Você mantém o acesso até a data de validade.
           </p>
@@ -266,7 +384,7 @@
       </template>
     </div>
 
-    <table>
+    <table x-show="charges.length" x-cloak>
       <thead>
         <tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th><th></th></tr>
       </thead>
@@ -288,9 +406,17 @@
             </td>
           </tr>
         </template>
-        <tr x-show="!charges.length"><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma cobrança encontrada.' }) %></td></tr>
       </tbody>
     </table>
+
+    <section class="billing-empty" x-show="!charges.length" x-cloak>
+      <div class="billing-empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+      </div>
+      <h3>Nenhuma cobrança por aqui</h3>
+      <p>Quando você assinar ou pagar um plano à vista, as cobranças e os comprovantes aparecem nesta lista.</p>
+      <button type="button" class="btn secondary" @click="openPlans()">Ver planos</button>
+    </section>
     <span class="error" x-text="error"></span>
 
     <dialog x-ref="payDlg" class="dialog-fixed" @close="stopPoll()">
