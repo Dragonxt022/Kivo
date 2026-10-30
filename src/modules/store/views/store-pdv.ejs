@@ -23,9 +23,6 @@
       border: 1px solid var(--border-light); border-radius: var(--radius); box-shadow: var(--shadow-xs); max-height: 240px; overflow: auto; }
     .pdv-customer-list button { display: flex; justify-content: space-between; width: 100%; padding: .4rem .6rem; background: none; border: 0; cursor: pointer; text-align: left; }
     .pdv-customer-list button:hover { background: var(--border-light); }
-    .pay-quick-cash { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
-    .pay-quick-cash button { padding: .25rem .6rem; border-radius: 6px; border: 1px solid var(--border-light); background: var(--surface); cursor: pointer; font-size: .8rem; }
-    .pay-quick-cash button:hover { border-color: var(--primary); }
   </style>
 </head>
 <body>
@@ -182,7 +179,7 @@
                   <span class="kitchen-tag" :class="{ sent: i.kitchenSent === true }"
                         x-show="i.goesToKitchen" x-cloak x-text="kitchenStatusLabel(i)"></span>
                 </div>
-                <div class="prod-unit" x-text="(i.sku ? ('SKU: ' + i.sku + ' · ') : '') + brl(i.price_cents) + ' un.'"></div>
+                <div class="prod-unit" x-text="(i.sku ? ('SKU: ' + i.sku + ' · ') : '') + brl(i.price_cents) + ((i.unit || 'un') === 'un' ? ' un.' : ' / ' + i.unit)"></div>
                 <div class="prod-notes" x-show="i.notes" x-text="i.notes"></div>
                 <button type="button" class="prod-note-btn"
                         x-show="!slots[activeSlot].comandaId && !(i.lineGroupUuid && idx > 0 && cart[idx-1]?.lineGroupUuid === i.lineGroupUuid)"
@@ -197,10 +194,12 @@
                 </button>
               </div>
               <div class="qty-wrap" x-show="!slots[activeSlot].comandaId">
-                <button @click="qtyMinus(idx)" :disabled="i.qty <= 0.001">−</button>
-                <input type="number" step="any" min="0.001" x-model.number="i.qty"
-                       @focus="$event.target.select()" @change="repriceCart()" />
-                <button @click="qtyPlus(idx)">+</button>
+                <button type="button" @click="qtyMinus(idx)" :disabled="i.qty <= 0.001" title="Diminuir quantidade">−</button>
+                <button type="button" class="qty-open-btn" @click="openQtyDlg(idx)"
+                        :title="'Alterar quantidade de ' + i.name"
+                        :aria-label="'Alterar quantidade de ' + i.name"
+                        x-text="fmtQty(i.qty)"></button>
+                <button type="button" @click="qtyPlus(idx)" title="Aumentar quantidade">+</button>
               </div>
               <span class="qty-wrap" x-show="slots[activeSlot].comandaId" x-text="i.qty"></span>
               <span class="prod-total" x-text="brl(Math.round(i.price_cents * i.qty))"></span>
@@ -234,6 +233,7 @@
         <div class="pdv-card">
           <h2>Resumo da venda</h2>
 
+          <div class="pdv-scroll-body">
           <div class="pdv-totals">
             <div class="pdv-total-row">
               <span class="label">Subtotal</span>
@@ -251,70 +251,121 @@
               <span class="label">Total</span>
               <span class="value" x-text="brl(total())"></span>
             </div>
+            <div class="pdv-total-row remaining" x-show="cart.length" x-cloak>
+              <span class="label">Restante</span>
+              <span class="value" x-text="brl(total())"></span>
+            </div>
           </div>
 
+          <div class="pdv-sale-info">
+            <div class="pdv-sale-info-head">
+              <span>Detalhes da venda</span>
+              <span class="pdv-sale-chip" x-text="slots[activeSlot].label || ('Venda ' + String(activeSlot + 1).padStart(2, '0'))"></span>
+            </div>
+            <div class="pdv-meta-grid">
+              <div class="pdv-meta">
+                <span class="pdv-meta-icon" style="--meta-color:#3DA5F4">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                </span>
+                <div><small>Itens</small><strong x-text="cart.length"></strong></div>
+              </div>
+              <div class="pdv-meta">
+                <span class="pdv-meta-icon" style="--meta-color:#8B7CF6">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <div><small>Cliente</small><strong x-text="customerName || 'Consumidor'"></strong></div>
+              </div>
+              <div class="pdv-meta">
+                <span class="pdv-meta-icon" style="--meta-color:#F5A623">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <div><small>Operador</small><strong><%= user.username %></strong></div>
+              </div>
+              <div class="pdv-meta">
+                <span class="pdv-meta-icon" style="--meta-color:#34D399">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </span>
+                <div><small>Pagamento</small><strong x-text="cart.length ? 'Pendente' : '—'"></strong></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pdv-flow">
+            <div class="pdv-flow-title">Fluxo da venda</div>
+            <div class="pdv-step" :class="{ done: cart.length }">
+              <span class="pdv-step-dot">1</span>
+              <div><strong>Produtos</strong><small x-text="cart.length ? cart.length + (cart.length === 1 ? ' item' : ' itens') : 'Bipe ou busque'"></small></div>
+            </div>
+            <div class="pdv-step" :class="{ done: !!customerName }">
+              <span class="pdv-step-dot">2</span>
+              <div><strong>Cliente</strong><small x-text="customerName || 'Opcional'"></small></div>
+            </div>
+            <div class="pdv-step" :class="{ active: cart.length && !error }">
+              <span class="pdv-step-dot">3</span>
+              <div><strong>Pagamento</strong><small>Use F2 para finalizar</small></div>
+            </div>
+          </div>
+
+          <div class="pdv-tip">
+            <span class="pdv-tip-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>
+            </span>
+            <p x-show="!cart.length">Bipe um produto ou use a busca para começar a venda.</p>
+            <p x-show="cart.length && !customerName">Venda em andamento. Selecione o cliente se quiser pontos, convênio ou crediário.</p>
+            <p x-show="cart.length && customerName">Tudo pronto. Toque em <strong>Adicionar pagamento</strong> ou use <strong>F2</strong>.</p>
+          </div>
+          </div>
+
+          <div class="pdv-checkout-footer">
+          <button type="button" class="pdv-kitchen-btn" x-show="hasKitchenItems()" x-cloak
+                  :disabled="!hasKitchenPending() || sendingKitchen"
+                  @click="sendToKitchen()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            <span x-text="sendingKitchen ? 'Enviando…' : kitchenSendLabel()"></span>
+          </button>
           <div class="pdv-actions" id="tour-pdv-acoes">
             <button type="button" class="pdv-action" style="--action-color:#3DA5F4" @click="printLast()"
-                    :disabled="!lastSaleId" title="Imprimir última venda (F11)">
+                    :disabled="!lastSaleId" title="Imprimir última venda (F11)" aria-label="Imprimir última venda">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
-              <span class="pdv-action-label">Imprimir</span>
-              <span class="shortcut">F11</span>
             </button>
             <%# Calculadora: F3 estava livre entre os atalhos do PDV, e conferir troco ou
                 somar algo à parte é conta que o operador hoje faz no papel ou no celular. %>
             <button type="button" class="pdv-action" style="--action-color:#94A3B8" @click="abrirCalculadora()"
-                    title="Calculadora (F3)">
+                    title="Calculadora (F3)" aria-label="Abrir calculadora">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8" y2="11"/><line x1="12" y1="11" x2="12" y2="11"/><line x1="16" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="8" y2="15"/><line x1="12" y1="15" x2="12" y2="15"/><line x1="16" y1="15" x2="16" y2="19"/><line x1="8" y1="19" x2="12" y2="19"/></svg></span>
-              <span class="pdv-action-label">Calculadora</span>
-              <span class="shortcut">F3</span>
             </button>
-            <button type="button" class="pdv-action" style="--action-color:#F2542D" @click="clearCart()" title="Limpar carrinho (F9)">
+            <button type="button" class="pdv-action" style="--action-color:#F2542D" @click="clearCart()" title="Limpar carrinho (F9)" aria-label="Limpar carrinho">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
-              <span class="pdv-action-label">Limpar</span>
-              <span class="shortcut">F9</span>
             </button>
             <% if (user.permissions.has('store.quotes.create')) { %>
             <button type="button" class="pdv-action" style="--action-color:#8B7CF6" @click="openQuoteDlg()"
-                    :disabled="!cart.length" title="Salvar como orçamento (F6)">
+                    :disabled="!cart.length" title="Salvar como orçamento (F6)" aria-label="Salvar como orçamento">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></span>
-              <span class="pdv-action-label">Orçamento</span>
-              <span class="shortcut">F6</span>
             </button>
             <% } %>
             <% if (user.permissions.has('store.sales.discount')) { %>
-            <button type="button" class="pdv-action" style="--action-color:#F5C344" @click="openValue('acrescimo')" title="Acréscimo (F7)">
+            <button type="button" class="pdv-action" style="--action-color:#F5C344" @click="openValue('acrescimo')" title="Acréscimo (F7)" aria-label="Aplicar acréscimo">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-              <span class="pdv-action-label">Acréscimo</span>
-              <span class="shortcut">F7</span>
             </button>
-            <button type="button" class="pdv-action" style="--action-color:#34D399" @click="openValue('desconto')" title="Desconto (F4)">
+            <button type="button" class="pdv-action" style="--action-color:#34D399" @click="openValue('desconto')" title="Desconto (F4)" aria-label="Aplicar desconto">
               <span class="pdv-action-icon"><svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
-              <span class="pdv-action-label">Desconto</span>
-              <span class="shortcut">F4</span>
             </button>
             <% } %>
           </div>
 
-          <div class="pdv-summary-pill" x-show="cart.length" x-cloak>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            <span x-text="cart.length + (cart.length === 1 ? ' item' : ' itens')"></span>
-            <span class="sep">·</span>
-            <span>Subtotal itens: <strong x-text="brl(subtotal())"></strong></span>
-          </div>
-
-          <div class="pdv-error" x-text="error"></div>
+          <div class="pdv-error" x-show="error" x-text="error"></div>
 
           <button class="btn-finalize" id="tour-pdv-finalizar" :disabled="!cart.length" @click="openPay()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            Finalizar venda
-            <span class="sub">F2</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            Adicionar pagamento
           </button>
+          </div>
         </div>
       </div>
     </div>
 
     <%# Atalho fixo do celular: o resumo fica no fim da página, então sem esta barra o
-        "Finalizar venda" só aparecia depois de rolar o carrinho inteiro. Ela fica acima da
+        pagamento só aparecia depois de rolar o carrinho inteiro. Ela fica acima da
         navegação inferior (que ocupa a base da tela). %>
     <div class="pdv-mobile-bar" x-show="cart.length" x-cloak>
       <div class="pdv-mobile-bar-total">
@@ -322,15 +373,15 @@
         <strong x-text="brl(total())"></strong>
       </div>
       <button type="button" class="btn-finalize" @click="openPay()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        Finalizar
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Pagamento
       </button>
     </div>
     <div class="pdv-mobile-bar-spacer" x-show="cart.length" x-cloak></div>
 
     <div class="pdv-footer-bar">
       <div class="pdv-footer-shortcuts" id="tour-pdv-atalhos">
-        <span><kbd>F2</kbd>Finalizar venda</span>
+        <span><kbd>F2</kbd>Pagamento</span>
         <span><kbd>F3</kbd>Calculadora</span>
         <% if (user.permissions.has('store.sales.discount')) { %>
         <span><kbd>F4</kbd>Desconto</span>
@@ -508,6 +559,44 @@
       </div>
     </dialog>
 
+    <!-- ─── MODAL: Quantidade (teclado grande + teclado físico) ─── -->
+    <dialog x-ref="qtyDlg" style="width:min(430px,94vw)" @close="qtyDlg.idx = null"
+            @keydown="qtyKeyboard($event)">
+      <h1>Quantidade</h1>
+      <p class="muted" style="margin:-.25rem 0 .5rem" x-text="qtyDlg.name"></p>
+      <div class="qty-dlg-display" :class="{ 'has-error': !!qtyDlg.error }">
+        <span x-text="qtyDlg.raw || '0'"></span>
+        <span class="qty-dlg-unit" x-text="qtyDlg.unit || 'un'"></span>
+      </div>
+      <p class="muted text-xs qty-dlg-hint"
+         x-text="(qtyDlg.fractional ? 'Aceita vírgula ou ponto — ex.: 0,240' : 'Esta unidade só aceita quantidade inteira.') + ' · Enter salva'"></p>
+      <div class="qty-dlg-error" x-text="qtyDlg.error"></div>
+      <div class="qty-keypad">
+        <button type="button" @click="qtyKey('7')">7</button>
+        <button type="button" @click="qtyKey('8')">8</button>
+        <button type="button" @click="qtyKey('9')">9</button>
+        <button type="button" @click="qtyKey('4')">4</button>
+        <button type="button" @click="qtyKey('5')">5</button>
+        <button type="button" @click="qtyKey('6')">6</button>
+        <button type="button" @click="qtyKey('1')">1</button>
+        <button type="button" @click="qtyKey('2')">2</button>
+        <button type="button" @click="qtyKey('3')">3</button>
+        <button type="button" @click="qtyKey(',')" :disabled="!qtyDlg.fractional" title="Vírgula decimal">,</button>
+        <button type="button" @click="qtyKey('0')">0</button>
+        <button type="button" @click="qtyBackspace()" title="Apagar último dígito">⌫</button>
+      </div>
+      <div class="qty-dlg-steps">
+        <button type="button" @click="qtyStep(-1)">−1</button>
+        <button type="button" @click="qtyStep(-0.1)" :disabled="!qtyDlg.fractional">−0,1</button>
+        <button type="button" @click="qtyStep(0.1)" :disabled="!qtyDlg.fractional">+0,1</button>
+        <button type="button" @click="qtyStep(1)">+1</button>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn secondary" @click="$refs.qtyDlg.close()">Cancelar</button>
+        <button type="button" class="btn" @click="saveQtyDlg()">Salvar quantidade</button>
+      </div>
+    </dialog>
+
     <!-- ─── MODAL: Alterar preço do item ─── -->
     <dialog x-ref="priceDlg">
       <h1>Alterar preço do item</h1>
@@ -609,110 +698,195 @@
     <!-- ─── MODAL: Pagamento ─── -->
     <dialog x-ref="pay" class="pay-modal">
       <div class="pay-left">
-        <h1>Pagamento</h1>
-        <div class="subtitle">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-          <span x-text="cart.length + (cart.length === 1 ? ' item' : ' itens')"></span>
+        <header class="pay-header">
+          <div class="pay-total-block">
+            <span class="pay-total-label">Total da venda</span>
+            <div class="pay-total-value" x-text="brl(total())"></div>
+            <span class="pay-total-items" x-text="cart.length + (cart.length === 1 ? ' item' : ' itens')"></span>
+          </div>
+          <button type="button" class="pay-close-btn" @click="$refs.pay.close()" aria-label="Fechar pagamento" title="Fechar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </header>
+
+        <section class="pay-step">
+          <span class="pay-step-label">Forma de pagamento</span>
+          <%# Um único seletor: os cartões abaixo. O <select> e o botão "Adicionar" que
+              ficavam ao lado foram removidos — eram o mesmo controle duas vezes. %>
+          <div class="pay-quick-methods">
+            <template x-for="(m, idx) in visibleQuickMethods()" :key="'q' + m.id">
+              <button type="button" class="pay-quick-method"
+                      :class="{ selected: pay.methodId === m.id, blocked: !!quickMethodBlock(m) }"
+                      :disabled="!!quickMethodBlock(m)"
+                      :title="quickMethodBlock(m) ? m.name + ' — ' + quickMethodBlock(m) : m.name"
+                      @click="selectQuickMethod(m)">
+                <span class="pay-method-icon" x-html="methodIcon(m.type)"></span>
+                <span class="pay-method-name" x-text="m.name"></span>
+                <span class="shortcut" x-show="idx < 9 && !quickMethodBlock(m)" x-text="'F' + (idx + 1)"></span>
+                <span class="pay-method-block" x-show="!!quickMethodBlock(m)" x-text="quickMethodBlock(m)"></span>
+                <span class="pay-method-check" x-show="pay.methodId === m.id" aria-hidden="true">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              </button>
+            </template>
+          </div>
+        </section>
+
+        <%# Os campos mudam com a modalidade, mas o valor recebido em dinheiro é o único
+            que pede um campo próprio: nele o operador digita o que o cliente entregou,
+            não a parcela. O troco/restante fica logo abaixo, atualizando a cada tecla. %>
+        <div class="pay-method-panel" x-show="selectedType() === 'dinheiro'" x-cloak>
+          <label class="pay-field-label" for="pay-received">Valor recebido</label>
+          <div class="pay-money-box pay-money-box--cash">
+            <span class="prefix">R$</span>
+            <input id="pay-received" type="text" inputmode="decimal" x-model="pay.received"
+                   @input="onCashInput()"
+                   @keydown.enter.prevent="remaining() === 0 ? finish() : addPayment()"
+                   placeholder="0,00" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="pay-cash-chips">
+            <template x-for="(v, i) in cashSuggestions()" :key="'cash' + v">
+              <button type="button" class="pay-cash-chip" :class="{ exact: i === 0 }"
+                      @click="setCashSuggestion(v)"
+                      x-text="i === 0 ? 'Exato · ' + brl(v) : brl(v)"></button>
+            </template>
+            <button type="button" class="pay-cash-chip pay-cash-chip--clear" x-show="pay.received" x-cloak
+                    @click="pay.received = ''">Limpar</button>
+          </div>
+          <div class="pay-cash-feedback" :class="'is-' + cashFeedbackKind()" aria-live="polite">
+            <span x-text="cashFeedbackLabel()"></span>
+            <strong x-show="cashFeedbackValue() > 0" x-text="brl(cashFeedbackValue())"></strong>
+            <span class="pay-cash-check" x-show="cashFeedbackKind() === 'exact'">✓</span>
+          </div>
         </div>
+
+        <%# PIX, cartões, convênio e crédito de loja compartilham o mesmo campo de valor.
+            Só o rótulo, a dica e o texto do botão mudam com a modalidade selecionada. %>
+        <div class="pay-method-panel" x-show="showsAmountField()" x-cloak>
+          <label class="pay-field-label" for="pay-amount" x-text="amountFieldLabel()"></label>
+          <div class="pay-money-box">
+            <span class="prefix">R$</span>
+            <input id="pay-amount" type="text" inputmode="decimal" x-model="pay.amount"
+                   @input="onAmountInput()"
+                   @keydown.enter.prevent="remaining() === 0 ? finish() : addPayment()"
+                   placeholder="0,00" autocomplete="off" spellcheck="false" />
+          </div>
+          <p class="pay-field-hint" x-show="selectedType() === 'pix'">Confirme o recebimento no aplicativo e registre aqui.</p>
+          <p class="pay-field-hint" x-show="selectedType() === 'credito_loja'"
+             x-text="'Disponível: ' + brl(customerBalances.storeCreditCents || 0)"></p>
+          <p class="pay-field-hint" x-show="selectedType() === 'convenio' && !customerId">Selecione um cliente com convênio ativo.</p>
+          <p class="pay-field-hint" x-show="selectedFee() > 0" x-text="selectedFeeLabel()"></p>
+        </div>
+
+        <div class="pay-method-panel" x-show="selectedType() === 'prazo'" x-cloak>
+          <template x-if="prazoPayment()">
+            <div class="pay-registered-note">
+              <div class="pay-registered-main">
+                <strong x-text="prazoCustomerName()"></strong>
+                <span x-text="prazoSummary()"></span>
+              </div>
+              <strong class="pay-registered-value" x-text="brl(prazoPayment().amountCents)"></strong>
+              <button type="button" class="pay-action-btn pay-action-btn--compact" @click="openPrazoDlg()">Editar</button>
+            </div>
+          </template>
+          <template x-if="!prazoPayment()">
+            <div>
+              <p class="pay-field-hint">Informe o cliente e o parcelamento para lançar a venda a prazo.</p>
+              <button type="button" class="pay-action-btn" @click="openPrazoDlg()">Identificar cliente e parcelar</button>
+            </div>
+          </template>
+        </div>
+
+        <div class="pay-method-panel" x-show="selectedType() === 'fidelidade'" x-cloak>
+          <template x-if="fidelidadePayment()">
+            <div class="pay-registered-note">
+              <div class="pay-registered-main">
+                <strong x-text="(fidelidadePayment().pointsUsed || 0) + ' pontos'"></strong>
+                <span x-text="'Saldo: ' + (customerBalances.loyaltyPoints || 0) + ' pontos'"></span>
+              </div>
+              <strong class="pay-registered-value" x-text="brl(fidelidadePayment().amountCents)"></strong>
+              <button type="button" class="pay-action-btn pay-action-btn--compact" @click="openFidelidadeDlg()">Editar</button>
+            </div>
+          </template>
+          <template x-if="!fidelidadePayment()">
+            <div>
+              <p class="pay-field-hint" x-text="(customerBalances.loyaltyPoints || 0) + ' pontos disponíveis'"></p>
+              <button type="button" class="pay-action-btn" :disabled="!!quickMethodBlock(selectedMethod())"
+                      @click="openFidelidadeDlg()">Usar pontos</button>
+            </div>
+          </template>
+        </div>
+
+        <%# A ação de lançar o pagamento fica FORA dos painéis para existir uma só, com o
+            rótulo da modalidade. Em "a prazo" e fidelidade quem conduz é o diálogo próprio. %>
+        <button type="button" class="pay-add-btn" x-show="showsAddButton()" x-cloak
+                :disabled="!canAddPayment()" @click="addPayment()" x-text="addLabel()"></button>
 
         <%# O campo de cliente do carrinho fica atrás deste modal: quem já chegou ao pagamento
             não conseguia mais vincular ninguém, e só a venda a prazo — que tem diálogo próprio
             com seletor — acabava saindo com cliente. Sem vínculo não há pontos de fidelidade,
             convênio nem crédito de loja, mesmo à vista. É o mesmo estado do carrinho, não uma
-            cópia: mexer aqui reprecifica e recarrega saldos exatamente como lá. %>
-        <span class="pay-label">Cliente (opcional)</span>
-        <div class="pdv-customer-suggest" @click.outside="customerSuggestions = []">
-          <div class="cart-customer pay-customer" :class="customerId ? 'linked' : ''">
-            <span class="cart-customer-icon">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </span>
-            <input type="text" list="pay-customer-list" x-model="customerName" @input.debounce.250ms="onCustomerInput()"
-                   @keydown.escape="customerSuggestions = []"
-                   maxlength="120" autocomplete="off" spellcheck="false"
-                   placeholder="Buscar cliente ou digitar um nome"
-                   title="Escolha um cliente cadastrado para usar pontos, convênio e crédito de loja" />
-            <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
-                    @click="customerName = ''; onCustomerNameInput(); customerSuggestions = []" title="Limpar cliente">×</button>
-            <%# Datalist próprio, dentro do <dialog>: o do carrinho fica na parte inerte da
-                página enquanto o modal está aberto, e não dá para depender de o navegador
-                resolver a lista a partir de lá. %>
-            <datalist id="pay-customer-list">
-              <template x-for="c in customers" :key="'pc' + c.id"><option :value="c.name"></option></template>
-            </datalist>
-          </div>
-          <div class="pdv-customer-list" x-show="customerSuggestions.length" x-cloak>
-            <template x-for="c in customerSuggestions" :key="'pcs' + c.id">
-              <button type="button" @click="pickCustomer(c)">
-                <span x-text="c.name"></span>
-                <span class="muted text-xs" x-text="c.document || c.phone || ''"></span>
-              </button>
-            </template>
-          </div>
-        </div>
-        <p class="pay-customer-hint" x-show="customerId" x-cloak>
-          <span x-show="(customerBalances.loyaltyPoints || 0) > 0" x-text="customerBalances.loyaltyPoints + ' pontos'"></span>
-          <span x-show="(customerBalances.storeCreditCents || 0) > 0" x-text="'crédito ' + brl(customerBalances.storeCreditCents)"></span>
-          <span x-show="customerBalances.hasAgreement">convênio ativo</span>
-          <span x-show="!(customerBalances.loyaltyPoints || 0) && !(customerBalances.storeCreditCents || 0) && !customerBalances.hasAgreement">
-            cliente vinculado — esta venda vai acumular pontos
+            cópia: mexer aqui reprecifica e recarrega saldos exatamente como lá. Fica depois dos
+            campos de pagamento para não competir com o valor. %>
+        <section class="pay-customer-section">
+          <span class="pay-label pay-customer-label">
+            Cliente
+            <span class="pay-required-badge" x-show="customerRequired()" x-cloak>obrigatório</span>
+            <span class="pay-optional-badge" x-show="!customerRequired()">opcional</span>
           </span>
-        </p>
-        <p class="pay-customer-hint muted" x-show="!customerId && customerName.trim()" x-cloak>
-          Nome livre: identifica a venda, mas não usa pontos nem convênio. Escolha um cliente da lista para isso.
-        </p>
+          <div class="pdv-customer-suggest" @click.outside="customerSuggestions = []">
+            <div class="cart-customer pay-customer" :class="customerId ? 'linked' : ''">
+              <span class="cart-customer-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <input type="text" list="pay-customer-list" x-model="customerName" @input.debounce.250ms="onCustomerInput()"
+                     @keydown.escape="customerSuggestions = []"
+                     maxlength="120" autocomplete="off" spellcheck="false"
+                     placeholder="Buscar cliente ou digitar um nome"
+                     title="Escolha um cliente cadastrado para usar pontos, convênio e crédito de loja" />
+              <button type="button" class="cart-customer-clear" x-show="customerName" x-cloak
+                      @click="customerName = ''; onCustomerNameInput(); customerSuggestions = []" title="Limpar cliente">×</button>
+              <%# Datalist próprio, dentro do <dialog>: o do carrinho fica na parte inerte da
+                  página enquanto o modal está aberto, e não dá para depender de o navegador
+                  resolver a lista a partir de lá. %>
+              <datalist id="pay-customer-list">
+                <template x-for="c in customers" :key="'pc' + c.id"><option :value="c.name"></option></template>
+              </datalist>
+            </div>
+            <div class="pdv-customer-list" x-show="customerSuggestions.length" x-cloak>
+              <template x-for="c in customerSuggestions" :key="'pcs' + c.id">
+                <button type="button" @click="pickCustomer(c)">
+                  <span x-text="c.name"></span>
+                  <span class="muted text-xs" x-text="c.document || c.phone || ''"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+          <p class="pay-customer-required-hint" x-show="customerRequired() && !customerId" x-cloak>
+            Selecione um cliente para esta forma de pagamento.
+          </p>
+          <p class="pay-customer-hint" x-show="customerId" x-cloak>
+            <span x-show="(customerBalances.loyaltyPoints || 0) > 0" x-text="customerBalances.loyaltyPoints + ' pontos'"></span>
+            <span x-show="(customerBalances.storeCreditCents || 0) > 0" x-text="'crédito ' + brl(customerBalances.storeCreditCents)"></span>
+            <span x-show="customerBalances.hasAgreement">convênio ativo</span>
+            <span x-show="!(customerBalances.loyaltyPoints || 0) && !(customerBalances.storeCreditCents || 0) && !customerBalances.hasAgreement">
+              cliente vinculado — esta venda vai acumular pontos
+            </span>
+          </p>
+          <p class="pay-customer-hint muted" x-show="!customerId && customerName.trim()" x-cloak>
+            Nome livre: identifica a venda, mas não usa pontos nem convênio. Escolha um cliente da lista para isso.
+          </p>
+        </section>
 
-        <span class="pay-label pay-label--sep">Valor do pagamento</span>
-        <div class="pay-value-box">
-          <span class="prefix">R$</span>
-          <input type="text" x-model="pay.amount" placeholder="0,00"
-                 @input="pay.amount = maskMoney(pay.amount)"
-                 @keydown.enter.prevent="remaining() === 0 ? finish() : addPayment()" />
-        </div>
-
-        <span class="pay-label pay-label--sep">Forma de pagamento</span>
-        <div class="pay-method-row">
-          <%# Mesma regra dos botões: sem cliente vinculado (ou sem saldo), a opção fica
-              desabilitada em vez de ser oferecida e falhar no servidor ao confirmar. %>
-          <select x-model.number="pay.methodId">
-            <template x-for="m in methods" :key="m.id">
-              <option :value="m.id" :disabled="!!quickMethodBlock(m)"
-                      x-text="m.name + (quickMethodBlock(m) ? ` — ${quickMethodBlock(m)}` : '') + (m.fee_bps ? ` (taxa ${(m.fee_bps/100).toFixed(2).replace('.', ',')}%)` : '')"></option>
-            </template>
-          </select>
-          <button class="btn secondary" @click="addPayment()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-right:.3rem;vertical-align:-2px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar
-          </button>
-        </div>
-
-        <div class="pay-quick-methods">
-          <template x-for="(m, idx) in visibleQuickMethods()" :key="'q' + m.id">
-            <button type="button" class="pay-quick-method"
-                    :class="{ selected: pay.methodId === m.id, blocked: !!quickMethodBlock(m) }"
-                    :disabled="!!quickMethodBlock(m)"
-                    :title="quickMethodBlock(m) ? m.name + ' — ' + quickMethodBlock(m) : m.name"
-                    @click="selectQuickMethod(m)">
-              <span x-html="methodIcon(m.type)"></span>
-              <span x-text="m.name"></span>
-              <span class="shortcut" x-show="idx < 9 && !quickMethodBlock(m)" x-text="'F' + (idx + 1)"></span>
-              <span class="shortcut" x-show="!!quickMethodBlock(m)" x-text="quickMethodBlock(m)"></span>
-            </button>
-          </template>
-        </div>
-
-        <!-- Atalhos DEPOIS da forma de pagamento, porque os dois dependem dela:
-             splitEqual() cria os pagamentos com o método selecionado, e o troco só
-             existe em dinheiro. Ficam recolhidos: quem não usa não vê ruído. -->
-        <div class="pay-helpers">
+        <div class="pay-secondary">
           <button type="button" class="pay-helper-chip" :class="{ active: showSplit }"
                   @click="showSplit = !showSplit; if (showSplit) $nextTick(() => $refs.splitInput?.focus())">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M21 3 3 21"/><path d="M16 21h5v-5"/></svg>
             Dividir conta
           </button>
-          <button type="button" class="pay-helper-chip" :class="{ active: showCashReceived }"
-                  x-show="needsCashReceived()"
-                  @click="showCashReceived = !showCashReceived">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
-            Calcular troco
+          <button type="button" class="pay-helper-chip" @click="$refs.pay.close()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Voltar
           </button>
         </div>
 
@@ -731,75 +905,71 @@
           <p class="pay-helper-hint" x-show="pay.split >= 2"
              x-text="'Cria ' + pay.split + ' pagamentos de ~' + brl(Math.floor(total() / (pay.split || 1))) + ' em ' + methodName(pay.methodId) + ', substituindo os já lançados.'"></p>
         </div>
-
-        <div class="pay-helper-panel" x-show="showCashReceived && needsCashReceived()" x-cloak>
-          <div class="pay-helper-row">
-            <span class="pay-helper-label">Recebido</span>
-            <div class="pay-helper-input">
-              <span>R$</span>
-              <input type="text" x-model="pay.received" placeholder="0,00" @input="pay.received = maskMoney(pay.received); calcChange()" />
-            </div>
-            <span class="pay-helper-troco">Troco <strong x-text="brl(pay.changeCents)"></strong></span>
-          </div>
-          <div class="pay-quick-cash">
-            <button type="button" @click="setCashExact()">Exato</button>
-            <button type="button" @click="addCash(1000)">R$10</button>
-            <button type="button" @click="addCash(2000)">R$20</button>
-            <button type="button" @click="addCash(5000)">R$50</button>
-            <button type="button" @click="addCash(10000)">R$100</button>
-            <button type="button" @click="pay.received = ''; calcChange()">Limpar</button>
-          </div>
-        </div>
-
-        <button class="btn secondary pay-back-btn" @click="$refs.pay.close()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:.3rem;vertical-align:-2px"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Voltar
-        </button>
       </div>
 
       <div class="pay-right">
         <div class="pay-summary-card">
-          <div class="title">Resumo do recebimento</div>
-          <div class="pay-total-row"><span>Total da venda</span><strong x-text="brl(total())"></strong></div>
+          <div class="pay-summary-title">Resumo</div>
+
+          <%# Total, pago e restante: o restante é o único que muda de cor e cresce quando
+              ainda há saldo. O total já é o número grande da esquerda; aqui ele é só a
+              referência do fechamento. %>
+          <div class="pay-summary-totals">
+            <div class="pay-summary-row"><span>Total</span><span x-text="brl(total())"></span></div>
+            <div class="pay-summary-row"><span>Pago</span><span x-text="brl(paidSum())"></span></div>
+            <div class="pay-summary-row pay-remaining" :class="{ pending: remaining() > 0 }">
+              <span x-text="remaining() >= 0 ? 'Restante' : 'Excedente'"></span>
+              <strong x-text="brl(Math.abs(remaining()))"></strong>
+            </div>
+          </div>
 
           <div class="pay-items-list">
             <template x-for="(p, idx) in pay.list" :key="idx">
               <div class="pay-item-card">
-                <span x-html="methodIcon(methodType(p.methodId))"></span>
+                <span class="pay-item-icon" x-html="methodIcon(methodType(p.methodId))"></span>
                 <div class="info">
                   <div class="name" x-text="methodName(p.methodId)"></div>
-                  <div class="amount" x-text="brl(p.amountCents)"></div>
+                  <%# Com um único pagamento o valor já aparece em "Pago"; repetir aqui só
+                      duplicaria a mesma informação. %>
+                  <div class="amount" x-show="pay.list.length > 1" x-text="brl(p.amountCents)"></div>
+                  <div class="meta" x-show="paymentMeta(p)" x-text="paymentMeta(p)"></div>
                 </div>
-                <button @click="removePayment(idx)" title="Remover">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
+                <div class="pay-item-actions">
+                  <button type="button" class="pay-item-edit" @click="editPayment(idx)" title="Editar pagamento" aria-label="Editar pagamento">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  <button type="button" class="pay-item-remove" @click="removePayment(idx)" title="Remover pagamento" aria-label="Remover pagamento">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
               </div>
             </template>
-            <p class="muted" style="font-size:.82rem;text-align:center" x-show="!pay.list.length">Nenhum pagamento adicionado ainda.</p>
+            <p class="pay-empty" x-show="!pay.list.length">Nenhum pagamento registrado.</p>
           </div>
 
-          <hr class="hr-sep" />
-          <div class="pay-recap-row"><span>Pago</span><span x-text="brl(paidSum())"></span></div>
-          <div class="pay-recap-row remaining" :style="remaining() > 0 ? 'color:var(--danger)' : 'color:var(--primary)'">
-            <span x-text="remaining() >= 0 ? 'Restante' : 'Excedente'"></span>
-            <span x-text="brl(Math.abs(remaining()))"></span>
+          <%# Troco em destaque e sempre à vista: é dinheiro que precisa voltar para o
+              cliente. O x-show é reativo ao campo "Valor recebido" acima. %>
+          <div class="pay-change-panel" x-show="changeDue() > 0" x-cloak aria-live="polite">
+            <span>Troco</span>
+            <strong x-text="brl(changeDue())"></strong>
           </div>
-          <div class="pay-recap-row" x-show="paidFees() > 0">
-            <span>Taxas</span><span x-text="'- ' + brl(paidFees())"></span>
-          </div>
-          <div class="pay-recap-row" x-show="paidFees() > 0">
-            <span>Líquido</span><span x-text="brl(paidSum() - paidFees())"></span>
+
+          <div class="pay-fees" x-show="paidFees() > 0" x-cloak>
+            <span>Taxas <strong x-text="'- ' + brl(paidFees())"></strong></span>
+            <span>Líquido <strong x-text="brl(paidSum() - paidFees())"></strong></span>
           </div>
 
           <div class="pay-ready-banner" x-show="remaining() === 0">Venda pronta para finalizar</div>
-          <div class="pay-pending-banner" x-show="remaining() !== 0" x-text="remaining() > 0 ? 'Falta ' + brl(remaining()) : 'Excedente de ' + brl(Math.abs(remaining()))"></div>
 
           <div class="error" x-text="payError"<% if (user.permissions.has('finance.cash.open')) { %> x-show="!payError.includes('Abra o caixa')"<% } %>></div>
 
-          <button class="pay-confirm-btn" :disabled="remaining() !== 0 || saving" @click="finish()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span x-text="saving ? 'Registrando…' : 'Confirmar venda'"></span>
-          </button>
-          <p class="pay-confirm-hint">Pressione <strong>ENTER</strong> para confirmar</p>
+          <div class="pay-confirm-dock">
+            <button type="button" class="pay-confirm-btn" :disabled="!canConfirm()" @click="finish()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span x-text="saving ? 'Registrando…' : 'Confirmar venda'"></span>
+            </button>
+            <p class="pay-confirm-hint">Pressione <strong>ENTER</strong> para confirmar</p>
+          </div>
         </div>
       </div>
     </dialog>
@@ -1059,9 +1229,9 @@
         get customerName() { return this.slots[this.activeSlot].customerName ?? ''; },
         set customerName(v) { this.slots[this.activeSlot].customerName = v; },
         valueDlg: { kind: 'desconto', amount: '', mode: 'valor', reason: '', pin: '', needPin: false, error: '' },
-        pay: { methodId: null, amount: '', list: [], split: 2, received: '', changeCents: 0, clientRequestId: '' },
-        showSplit: false, showCashReceived: false,
-        error: '', payError: '', saving: false, appSettings: [],
+        pay: { methodId: null, amount: '', list: [], split: 2, received: '', clientRequestId: '' },
+        showSplit: false,
+        error: '', payError: '', saving: false, sendingKitchen: false, appSettings: [],
         pinInput: '', pinError: '', pendingRemoveIdx: null,
         browseQ: '', browseResults: [], browseCategories: [], browseCategoryId: '', productView: 'grid',
         openRegisterForm: { opening: '', error: '' },
@@ -1071,6 +1241,7 @@
         cloudOnline: false,
         complementDlg: { product: null, groups: [], selections: {}, mainNotes: '', errors: {} },
         noteDlg: { idx: null, text: '' },
+        qtyDlg: { idx: null, name: '', unit: 'un', fractional: false, raw: '', error: '' },
         quoteForm: { validUntil: '', notes: '', error: '', saving: false },
 
         // ─── Complementos ───
@@ -1309,6 +1480,9 @@
                 if (item.kitchenSent == null) item.goesToKitchen = !!prod.goes_to_kitchen;
                 if (item.kitchenSent === undefined) item.kitchenSent = null;
                 if (item.kitchenStatus === undefined) item.kitchenStatus = null;
+                // Carrinhos antigos não têm `unit`: recupera do catálogo para a linha
+                // mostrar "/kg" em vez de "un." e a modal usar a precisão certa.
+                if (!item.unit) item.unit = prod.unit || 'un';
               }
             });
             this.persistSlots();
@@ -1372,6 +1546,7 @@
           if (c.status !== 'aberta') { showToast('Esta comanda não está mais aberta.', 'error'); return; }
           const cart = (c.items || []).map((i) => ({
             productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
+            unit: i.unit || 'un',
             sku: i.sku || null, image_url: i.image_url || null,
             lineGroupUuid: i.line_group_uuid || null, notes: i.notes || null,
             goesToKitchen: !!i.goes_to_kitchen,
@@ -1405,6 +1580,7 @@
           if (q.status !== 'aberto') { showToast(`Este orçamento já está "${q.status}".`, 'error'); return; }
           const cart = (q.items || []).map((i) => ({
             productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
+            unit: i.unit || 'un',
             sku: i.sku || null, image_url: i.image_url || null,
             lineGroupUuid: i.line_group_uuid || null, notes: i.notes || null,
             goesToKitchen: !!i.goes_to_kitchen, kitchenSent: null, kitchenStatus: null,
@@ -1602,6 +1778,7 @@
           const emComanda = !!this.slots[this.activeSlot].comandaId;
           this.cart.push({
             productId: p.id, name: p.name, price_cents: p.price_cents, qty,
+            unit: p.unit ?? 'un',
             sku: p.sku ?? null, image_url: p.image_url ?? null,
             lineGroupUuid, notes, ...(priceLocked ? { priceLocked: true } : {}),
             goesToKitchen: !!p.goes_to_kitchen,
@@ -1653,20 +1830,187 @@
         },
 
         // ─── Carrinho ───
+        qtyUnitStep(unit) {
+          const u = String(unit || '').trim();
+          if (u === 'g' || u === 'ml') return 1;
+          if (this.isFractionalUnit(u)) return 0.1;
+          return 1;
+        },
         qtyPlus(idx) {
           const i = this.cart[idx];
-          if (i) i.qty = Math.round((i.qty + 0.5) * 2) / 2;
+          if (!i) return;
+          const step = this.qtyUnitStep(i.unit);
+          i.qty = Math.round((Number(i.qty) + step) * 1000) / 1000;
           this.persistSlots();
           this.repriceCart();
         },
         qtyMinus(idx) {
           const i = this.cart[idx];
-          if (i && i.qty > 0.001) {
-            const dec = i.qty <= 1 ? 0.5 : 1;
-            i.qty = Math.max(0.001, Math.round((i.qty - dec) * 2) / 2);
-          }
+          if (!i) return;
+          const step = this.qtyUnitStep(i.unit);
+          const min = this.isFractionalUnit(i.unit) ? 0.001 : 1;
+          i.qty = Math.max(min, Math.round((Number(i.qty) - step) * 1000) / 1000);
           this.persistSlots();
           this.repriceCart();
+        },
+        isFractionalUnit(unit) { return ['kg', 'g', 'L', 'ml'].includes(String(unit || '').trim()); },
+        parseQty(v) {
+          const raw = String(v ?? '').trim().replace(',', '.');
+          const n = Number(raw);
+          return raw === '' || isNaN(n) ? NaN : n;
+        },
+        fmtQty(q) {
+          const n = Number(q);
+          if (!Number.isFinite(n)) return String(q ?? '');
+          if (n % 1 === 0) return String(n);
+          return n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',');
+        },
+        openQtyDlg(idx) {
+          const item = this.cart[idx];
+          if (!item) return;
+          this.qtyDlg = {
+            idx,
+            name: item.name,
+            unit: item.unit || 'un',
+            fractional: this.isFractionalUnit(item.unit),
+            raw: '',
+            error: '',
+          };
+          this.$refs.qtyDlg.showModal();
+        },
+        qtyKey(ch) {
+          let raw = this.qtyDlg.raw || '';
+          if (ch === ',') {
+            if (!this.qtyDlg.fractional || raw.includes(',') || raw.includes('.')) return;
+            raw = (raw || '0') + ',';
+          } else {
+            if (raw.replace(/[,.]/g, '').length >= 9) return;
+            // Mesma precisão que o visor e o total usam: 3 casas (gramas no kg).
+            const sep = raw.search(/[,.]/);
+            if (sep >= 0 && raw.length - sep - 1 >= 3) return;
+            raw += ch;
+          }
+          this.qtyDlg.raw = raw;
+          this.qtyDlg.error = '';
+        },
+        qtyBackspace() {
+          this.qtyDlg.raw = (this.qtyDlg.raw || '').slice(0, -1);
+          this.qtyDlg.error = '';
+        },
+        qtyStep(delta) {
+          const current = this.parseQty(this.qtyDlg.raw);
+          let next = (Number.isFinite(current) ? current : 0) + delta;
+          if (!this.qtyDlg.fractional) next = Math.round(next);
+          next = Math.max(this.qtyDlg.fractional ? 0.001 : 1, Math.round(next * 1000) / 1000);
+          this.qtyDlg.raw = this.fmtQty(next);
+          this.qtyDlg.error = '';
+        },
+        // Mesmo atalho do modal de comandas: dígitos, vírgula/ponto e Backspace.
+        qtyKeyboard(ev) {
+          if (!this.$refs.qtyDlg?.open) return;
+          if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+          if (/^[0-9]$/.test(ev.key)) {
+            ev.preventDefault();
+            this.qtyKey(ev.key);
+            return;
+          }
+          if (ev.key === ',' || ev.key === '.') {
+            ev.preventDefault();
+            this.qtyKey(',');
+            return;
+          }
+          if (ev.key === 'Backspace') {
+            ev.preventDefault();
+            this.qtyBackspace();
+            return;
+          }
+          if (ev.key === 'Enter' && !ev.shiftKey && !ev.target?.closest?.('.actions')) {
+            ev.preventDefault();
+            this.saveQtyDlg();
+          }
+        },
+        saveQtyDlg() {
+          const item = this.cart[this.qtyDlg.idx];
+          if (!item) { this.$refs.qtyDlg.close(); return; }
+          const qty = this.parseQty(this.qtyDlg.raw);
+          if (!Number.isFinite(qty) || !(qty > 0)) {
+            this.qtyDlg.error = 'Digite uma quantidade maior que zero.';
+            return;
+          }
+          if (!this.qtyDlg.fractional && !Number.isInteger(qty)) {
+            this.qtyDlg.error = 'Esta unidade só aceita quantidade inteira.';
+            return;
+          }
+          // Arredonda o PESO para a mesma precisão que aparece no visor (3 casas).
+          // Antes o total usava 0,2345 kg enquanto a tela mostrava 0,235 kg, e o
+          // valor saía alguns centavos diferente do que o operador via.
+          item.qty = this.qtyDlg.fractional ? Math.round(qty * 1000) / 1000 : qty;
+          this.persistSlots();
+          this.repriceCart();
+          this.$refs.qtyDlg.close();
+        },
+        // ─── Enviar para a cozinha (venda direta) ───
+        // A venda ainda não existe, então o ticket usa um id negativo de rascunho;
+        // ao concluir, o servidor adota os tickets para o id real da venda.
+        hasKitchenItems() {
+          const slot = this.slots[this.activeSlot];
+          return !slot.comandaId && !slot.quoteId && this.cart.some((i) => i.goesToKitchen);
+        },
+        hasKitchenPending() {
+          const slot = this.slots[this.activeSlot];
+          return !slot.comandaId && !slot.quoteId
+            && this.cart.some((i) => i.goesToKitchen && i.kitchenSent !== true);
+        },
+        kitchenSendLabel() {
+          return this.hasKitchenPending() ? 'Enviar para cozinha' : 'Cozinha enviada';
+        },
+        ensureKitchenDraftId() {
+          const slot = this.slots[this.activeSlot];
+          if (!slot.kitchenDraftId) {
+            slot.kitchenDraftId = Math.floor(Math.random() * 1000000000) + 1;
+            this.persistSlots();
+          }
+          return slot.kitchenDraftId;
+        },
+        async sendToKitchen(silent = false) {
+          if (!this.hasKitchenPending() || this.sendingKitchen) return true;
+          const items = this.cart.filter((i) => i.goesToKitchen && i.kitchenSent !== true);
+          this.sendingKitchen = true;
+          try {
+            const r = await fetch('/api/store/kitchen/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                draftId: this.ensureKitchenDraftId(),
+                items: items.map((i) => ({
+                  productId: i.productId, name: i.name, qty: i.qty, notes: i.notes || undefined,
+                })),
+              }),
+            });
+            const raw = await r.json().catch(() => ({}));
+            if (!r.ok || raw.success === false) throw new Error(raw.error || 'Não foi possível enviar para a cozinha.');
+            const body = raw.success ? (raw.data || {}) : raw;
+            const sent = Number(body.sent ?? 0);
+            for (const item of items) {
+              item.kitchenSent = true;
+              item.kitchenStatus = 'pendente';
+            }
+            this.persistSlots();
+            if (!silent) {
+              showToast(
+                sent > 0
+                  ? `Enviado para a cozinha (${sent} ${sent === 1 ? 'item' : 'itens'}).`
+                  : 'Nenhum item deste pedido está roteado para a cozinha.',
+                sent > 0 ? 'success' : 'info',
+              );
+            }
+            return true;
+          } catch (e) {
+            if (!silent) showToast(e.message || 'Não foi possível enviar para a cozinha.', 'error');
+            return false;
+          } finally {
+            this.sendingKitchen = false;
+          }
         },
         removeItem(idx) {
           if (this.pinRequiredForRemove()) { this.openPinConfirm(idx); return; }
@@ -1766,6 +2110,7 @@
           // carrinho vazio, não um orçamento sem itens. O orçamento em si continua aberto.
           this.slots[this.activeSlot].quoteId = null;
           this.slots[this.activeSlot].quoteLabel = null;
+          this.slots[this.activeSlot].kitchenDraftId = null;
           this.quoteForm = { validUntil: '', notes: '', error: '', saving: false };
           this.$refs.clearDlg.close();
           this.focusSearch();
@@ -1783,9 +2128,20 @@
         // ─── Pagamento ───
         methodName(id) { const m = this.methods.find((x) => x.id === id); return m ? m.name : '?'; },
         methodType(id) { const m = this.methods.find((x) => x.id === id); return m ? m.type : ''; },
+        selectedMethod() { return this.methods.find((x) => x.id === this.pay.methodId) || null; },
+        selectedType() { return this.methodType(this.pay.methodId); },
+        moneyInput(cents) { return (Math.max(0, Math.round(cents || 0)) / 100).toFixed(2).replace('.', ','); },
         paidSum() { return this.pay.list.reduce((a, p) => a + p.amountCents, 0); },
         remaining() { return this.total() - this.paidSum(); },
-        needsCashReceived() { return this.pay.list.some((p) => this.methodType(p.methodId) === 'dinheiro'); },
+        customerRequiredType(type) {
+          return type === 'prazo' || type === 'convenio' || type === 'credito_loja' || type === 'fidelidade';
+        },
+        customerRequired() {
+          return this.customerRequiredType(this.selectedType())
+            || this.pay.list.some((p) => this.customerRequiredType(this.methodType(p.methodId)));
+        },
+        customerMissing() { return !this.customerId && this.customerRequired(); },
+        canConfirm() { return this.remaining() === 0 && !this.saving && !this.customerMissing(); },
         // Fidelidade, convênio e crédito de loja sumiam da tela quando não havia cliente
         // vinculado. O operador não descobria que existiam e ficava com a impressão de que só a
         // venda a prazo dá benefício — era o pedido. Agora aparecem sempre, desabilitados e
@@ -1796,6 +2152,7 @@
           return this.methods;
         },
         quickMethodBlock(m) {
+          if (!m) return '';
           if (m.type !== 'credito_loja' && m.type !== 'fidelidade' && m.type !== 'convenio') return '';
           if (!this.customerId) return 'Selecione o cliente';
           if (m.type === 'credito_loja') return (this.customerBalances.storeCreditCents || 0) > 0 ? '' : 'Sem crédito';
@@ -1803,11 +2160,175 @@
           return this.customerBalances.hasAgreement ? '' : 'Sem convênio';
         },
         selectQuickMethod(m) {
-          if (this.quickMethodBlock(m)) return;
+          if (!m || this.quickMethodBlock(m)) return;
+          const changed = this.pay.methodId !== m.id;
+          this.pay.methodId = m.id;
+          this.payError = '';
+          this.showSplit = false;
           if (m.type === 'prazo') { this.openPrazoDlg(); return; }
           if (m.type === 'fidelidade') { this.openFidelidadeDlg(); return; }
-          this.pay.methodId = m.id;
+          if (changed) this.syncAmountToRemaining(true);
         },
+        // Preenche o campo da modalidade com o que ainda falta receber. Em dinheiro o
+        // campo é "Valor recebido"; nos demais, o valor da parcela. Depois de lançar um
+        // pagamento em espécie não pré-preenchemos de novo: isso convidaria a um duplo
+        // lançamento por ENTER.
+        syncAmountToRemaining(prefillCash = true) {
+          const rest = Math.max(0, this.remaining());
+          const value = rest > 0 ? this.moneyInput(rest) : '';
+          this.pay.amount = value;
+          if (this.selectedType() === 'dinheiro') {
+            this.pay.received = prefillCash ? value : '';
+          } else {
+            this.pay.received = '';
+          }
+        },
+        showsAmountField() {
+          return !!this.pay.methodId && !['dinheiro', 'prazo', 'fidelidade'].includes(this.selectedType());
+        },
+        showsAddButton() {
+          return this.selectedType() === 'dinheiro' || this.showsAmountField();
+        },
+        amountFieldLabel() {
+          const type = this.selectedType();
+          if (type === 'debito' || type === 'credito') return 'Valor da transação';
+          if (type === 'pix') return 'Valor a receber';
+          if (type === 'credito_loja') return 'Valor a usar';
+          if (type === 'convenio') return 'Valor do convênio';
+          return 'Valor do pagamento';
+        },
+        pendingAmount() {
+          if (!this.pay.methodId || this.remaining() <= 0) return 0;
+          const type = this.selectedType();
+          if (type === 'prazo' || type === 'fidelidade') return 0;
+          const raw = type === 'dinheiro' ? this.cents(this.pay.received) : this.cents(this.pay.amount);
+          return Math.min(Math.max(0, raw), Math.max(0, this.remaining()));
+        },
+        canAddPayment() {
+          const m = this.selectedMethod();
+          if (!m || this.quickMethodBlock(m)) return false;
+          const type = this.selectedType();
+          if (type === 'prazo' || type === 'fidelidade') return false;
+          if (this.customerRequiredType(type) && !this.customerId) return false;
+          const rest = this.remaining();
+          if (rest <= 0) return false;
+          const raw = type === 'dinheiro' ? this.cents(this.pay.received) : this.cents(this.pay.amount);
+          if (raw <= 0) return false;
+          if (type !== 'dinheiro' && raw > rest) return false;
+          if (type === 'credito_loja' && Math.min(raw, rest) > (this.customerBalances.storeCreditCents || 0)) return false;
+          return true;
+        },
+        addLabel() {
+          const type = this.selectedType();
+          if (type === 'dinheiro') {
+            return this.cents(this.pay.received) > this.remaining() ? 'Registrar e calcular troco' : 'Registrar recebimento';
+          }
+          if (type === 'pix') return 'Registrar recebimento';
+          if (type === 'credito_loja') return 'Usar crédito';
+          if (type === 'convenio') return 'Lançar convênio';
+          return 'Adicionar pagamento';
+        },
+        selectedFee() {
+          const m = this.selectedMethod();
+          if (!m || !m.fee_bps) return 0;
+          return Math.round((this.pendingAmount() * m.fee_bps) / 10000);
+        },
+        selectedFeeLabel() {
+          const m = this.selectedMethod();
+          if (!m || !m.fee_bps) return '';
+          return 'Taxa ' + (m.fee_bps / 100).toFixed(2).replace('.', ',') + '% · ' + this.brl(this.selectedFee());
+        },
+        onAmountInput() {
+          this.pay.amount = window.maskMoney(this.pay.amount);
+          const raw = this.cents(this.pay.amount);
+          if (raw > this.remaining()) this.payError = 'Valor maior que o restante.';
+          else if (this.selectedType() === 'credito_loja' && raw > (this.customerBalances.storeCreditCents || 0)) {
+            this.payError = 'Saldo de crédito de loja insuficiente.';
+          } else if (this.payError === 'Valor maior que o restante.' || this.payError === 'Saldo de crédito de loja insuficiente.') {
+            this.payError = '';
+          }
+        },
+        onCashInput() {
+          this.pay.received = window.maskMoney(this.pay.received);
+          this.payError = '';
+        },
+        cashSuggestions() {
+          const rest = this.remaining();
+          if (rest <= 0) return [];
+          const out = [rest];
+          for (const step of [1000, 2000, 5000, 10000]) {
+            const v = Math.ceil(rest / step) * step;
+            if (v > rest && !out.includes(v)) out.push(v);
+          }
+          return out.slice(0, 4);
+        },
+        setCashSuggestion(cents) {
+          this.pay.received = this.moneyInput(cents);
+          this.payError = '';
+        },
+        cashFeedbackKind() {
+          const rest = this.remaining();
+          const received = this.cents(this.pay.received);
+          if (rest <= 0) return 'settled';
+          if (received <= 0 || received < rest) return 'remaining';
+          if (received === rest) return 'exact';
+          return 'change';
+        },
+        cashFeedbackLabel() {
+          const kind = this.cashFeedbackKind();
+          if (kind === 'change') return 'Troco';
+          if (kind === 'exact') return 'Valor exato';
+          if (kind === 'settled') return 'Venda paga';
+          return 'Falta';
+        },
+        cashFeedbackValue() {
+          const rest = this.remaining();
+          const received = this.cents(this.pay.received);
+          if (rest <= 0 || received <= 0 || received === rest) return 0;
+          return received < rest ? rest - received : received - rest;
+        },
+        // Troco de pagamentos em dinheiro já lançados: o valor que o cliente entregou
+        // menos a parcela efetivamente aplicada na venda.
+        registeredChangeCents() {
+          return this.pay.list.reduce((sum, p) => {
+            if (this.methodType(p.methodId) !== 'dinheiro') return sum;
+            return sum + Math.max(0, (p.receivedCents ?? p.amountCents) - p.amountCents);
+          }, 0);
+        },
+        // O painel da direita mostra o troco já lançado e também o que está sendo digitado
+        // agora, antes de adicionar — é o que faz o valor acompanhar a digitação.
+        changeDue() {
+          const preview = this.selectedType() === 'dinheiro' && this.cashFeedbackKind() === 'change'
+            ? this.cashFeedbackValue()
+            : 0;
+          return this.registeredChangeCents() + preview;
+        },
+        paymentMeta(p) {
+          const type = this.methodType(p.methodId);
+          if (type === 'dinheiro' && (p.receivedCents || 0) > p.amountCents) return 'Recebido ' + this.brl(p.receivedCents);
+          if (type === 'prazo') {
+            const n = (p.installments && p.installments.count) || 1;
+            const due = p.dueDate ? window.fmtDate(p.dueDate) : '';
+            return (n > 1 ? n + 'x' : 'À vista') + (due ? ' · ' + due : '');
+          }
+          if (type === 'fidelidade') return (p.pointsUsed || 0) + ' pontos';
+          return '';
+        },
+        prazoPayment() { return this.pay.list.find((p) => this.methodType(p.methodId) === 'prazo'); },
+        prazoCustomerName() {
+          const p = this.prazoPayment();
+          if (!p) return '';
+          const c = this.customers.find((x) => x.id === p.customerId);
+          return c ? c.name : (this.customerName || 'Cliente não identificado');
+        },
+        prazoSummary() {
+          const p = this.prazoPayment();
+          if (!p) return '';
+          const n = (p.installments && p.installments.count) || 1;
+          const due = p.dueDate ? window.fmtDate(p.dueDate) : '';
+          return (n > 1 ? n + ' parcelas' : 'À vista') + (due ? ' · 1º vencimento ' + due : '');
+        },
+        fidelidadePayment() { return this.pay.list.find((p) => this.methodType(p.methodId) === 'fidelidade'); },
         // O campo de cliente é um só: o nome digitado vira vínculo com o cadastro quando
         // bate exatamente com um cliente existente (foi o que a datalist ofereceu), e
         // continua sendo só um nome quando não bate. Reprecificar e recarregar saldos
@@ -1895,10 +2416,18 @@
         },
         async openPay() {
           this.payError = '';
-          this.pay.list = []; this.pay.received = ''; this.pay.changeCents = 0;
-          this.pay.amount = (this.total() / 100).toFixed(2).replace('.', ',');
+          this.pay.list = [];
+          this.pay.received = '';
           this.pay.clientRequestId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : (Date.now() + '-' + Math.random());
-          this.showSplit = false; this.showCashReceived = false;
+          this.showSplit = false;
+          // Reabre na última forma usada, desde que ainda esteja disponível; senão cai na
+          // primeira que não depende de cliente/saldo.
+          const current = this.methods.find((m) => m.id === this.pay.methodId && !this.quickMethodBlock(m));
+          const first = current || this.methods.find((m) => !this.quickMethodBlock(m)) || this.methods[0];
+          if (first) {
+            this.pay.methodId = first.id;
+            this.syncAmountToRemaining(true);
+          }
           if (!this.customers.length) {
             const r = await fetch('/api/commercial/customers');
             if (r.ok) this.customers = await r.json();
@@ -1906,67 +2435,106 @@
           this.$refs.pay.showModal();
         },
         addPayment() {
-          const amount = this.cents(this.pay.amount);
-          if (!this.pay.methodId || amount <= 0) { this.payError = 'Escolha a forma e o valor.'; return; }
-          if (amount > this.remaining()) { this.payError = 'Valor maior que o restante.'; return; }
-          const type = this.methodType(this.pay.methodId);
+          const method = this.selectedMethod();
+          const type = this.selectedType();
+          if (!method) { this.payError = 'Escolha a forma de pagamento.'; return; }
+          if (type === 'prazo') { this.openPrazoDlg(); return; }
+          if (type === 'fidelidade') { this.openFidelidadeDlg(); return; }
+          const block = this.quickMethodBlock(method);
+          if (block) { this.payError = block; return; }
+          const rest = this.remaining();
+          if (rest <= 0) { this.payError = 'Venda já está totalmente paga.'; return; }
+          const raw = type === 'dinheiro' ? this.cents(this.pay.received) : this.cents(this.pay.amount);
+          if (raw <= 0) {
+            this.payError = type === 'dinheiro' ? 'Informe o valor recebido.' : 'Informe o valor do pagamento.';
+            return;
+          }
+          if (type !== 'dinheiro' && raw > rest) { this.payError = 'Valor maior que o restante.'; return; }
+          if (this.customerRequiredType(type) && !this.customerId) {
+            this.payError = 'Selecione o cliente para esta forma de pagamento.'; return;
+          }
+          // Em dinheiro o valor recebido pode passar do restante: a diferença é o troco.
+          const amount = type === 'dinheiro' ? Math.min(raw, rest) : raw;
           if (type === 'credito_loja' && amount > (this.customerBalances.storeCreditCents || 0)) {
             this.payError = 'Saldo de crédito de loja insuficiente.'; return;
           }
           this.payError = '';
           const extra = (type === 'credito_loja' || type === 'convenio') ? { customerId: this.customerId || undefined } : {};
-          this.pay.list.push({ methodId: this.pay.methodId, amountCents: amount, ...extra });
-          const rest = this.remaining();
-          this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
-          this.calcChange();
+          const payment = { methodId: method.id, amountCents: amount, ...extra };
+          if (type === 'dinheiro') payment.receivedCents = Math.max(amount, raw);
+          this.pay.list.push(payment);
+          this.showSplit = false;
+          this.syncAmountToRemaining(type !== 'dinheiro');
+        },
+        editPayment(idx) {
+          const p = this.pay.list[idx];
+          if (!p) return;
+          const type = this.methodType(p.methodId);
+          this.pay.methodId = p.methodId;
+          this.payError = '';
+          this.showSplit = false;
+          if (type === 'prazo') { this.openPrazoDlg(); return; }
+          if (type === 'fidelidade') { this.openFidelidadeDlg(); return; }
+          // Devolve o pagamento para o campo: o operador corrige e lança de novo. Em
+          // dinheiro volta o valor ENTREGUE (não a parcela), para o troco ser recalculado.
+          this.pay.list.splice(idx, 1);
+          if (type === 'dinheiro') {
+            this.pay.amount = this.moneyInput(this.remaining());
+            this.pay.received = this.moneyInput(p.receivedCents ?? p.amountCents);
+          } else {
+            this.pay.amount = this.moneyInput(p.amountCents);
+            this.pay.received = '';
+          }
         },
         removePayment(idx) {
           const removed = this.pay.list[idx];
           if (!removed) return;
           this.pay.list.splice(idx, 1);
-          // Devolve a forma removida como selecionada e joga o restante de volta no campo
-          // "Valor do pagamento", pronto pra reeditar/readicionar.
+          // Devolve a forma removida como selecionada e joga o restante de volta no campo,
+          // pronto pra reeditar/readicionar.
           this.pay.methodId = removed.methodId;
-          const rest = this.remaining();
-          this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
           this.payError = '';
-          this.calcChange();
+          this.showSplit = false;
+          this.syncAmountToRemaining(true);
         },
         splitEqual() {
           const n = this.pay.split;
           if (!n || n < 2) return;
+          const method = this.selectedMethod();
+          const type = this.selectedType();
+          if (!method) { this.payError = 'Escolha a forma de pagamento.'; return; }
+          if (type === 'prazo' || type === 'fidelidade') {
+            this.payError = 'Divida com uma forma de pagamento à vista.'; return;
+          }
+          const block = this.quickMethodBlock(method);
+          if (block) { this.payError = block; return; }
+          if (this.customerRequiredType(type) && !this.customerId) {
+            this.payError = 'Selecione o cliente para esta forma de pagamento.'; return;
+          }
+          if (type === 'credito_loja' && this.total() > (this.customerBalances.storeCreditCents || 0)) {
+            this.payError = 'Saldo de crédito de loja insuficiente.'; return;
+          }
           this.pay.list = [];
           const base = Math.floor(this.total() / n);
           for (let i = 0; i < n; i++) {
             const amount = i === 0 ? this.total() - base * (n - 1) : base;
-            if (amount > 0) this.pay.list.push({ methodId: this.pay.methodId, amountCents: amount });
+            if (amount > 0) {
+              const payment = { methodId: method.id, amountCents: amount };
+              if (type === 'dinheiro') payment.receivedCents = amount;
+              if (type === 'credito_loja' || type === 'convenio') payment.customerId = this.customerId || undefined;
+              this.pay.list.push(payment);
+            }
           }
           this.pay.amount = '';
-          this.calcChange();
-        },
-        calcChange() {
-          const cashDue = this.pay.list.filter((p) => this.methodType(p.methodId) === 'dinheiro')
-            .reduce((a, p) => a + p.amountCents, 0);
-          this.pay.changeCents = Math.max(0, this.cents(this.pay.received) - cashDue);
+          this.pay.received = '';
+          this.showSplit = false;
+          this.payError = '';
         },
         paidFees() {
           return this.pay.list.reduce((s, p) => {
             const m = this.methods.find((x) => x.id === p.methodId);
             return s + (m ? Math.round((p.amountCents * m.fee_bps) / 10000) : 0);
           }, 0);
-        },
-        cashDue() {
-          return this.pay.list.filter((p) => this.methodType(p.methodId) === 'dinheiro')
-            .reduce((a, p) => a + p.amountCents, 0);
-        },
-        setCashExact() {
-          this.pay.received = (this.cashDue() / 100).toFixed(2).replace('.', ',');
-          this.calcChange();
-        },
-        addCash(cents) {
-          const cur = this.cents(this.pay.received);
-          this.pay.received = ((cur + cents) / 100).toFixed(2).replace('.', ',');
-          this.calcChange();
         },
         prazoMax() {
           const n = Number(this.appSettings?.find((s) => s.key === 'pdv.parcelas_max')?.value ?? 12);
@@ -2036,15 +2604,21 @@
             this.customerName = prazoCustomer.name;
             this.loadCustomerBalances();
           }
-          const rest = this.remaining();
-          this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
+          this.syncAmountToRemaining(false);
           this.$refs.prazoDlg.close();
         },
 
         // ─── Pagamento com pontos de fidelidade ───
         openFidelidadeDlg() {
-          const maxByRemaining = this.centsPerPointClient() > 0 ? Math.ceil(this.remaining() / this.centsPerPointClient()) : 0;
-          this.fidelidadeForm = { pointsUsed: Math.max(0, Math.min(this.customerBalances.loyaltyPoints || 0, maxByRemaining)) };
+          // Ao editar, o valor já lançado volta para a base do cálculo; senão o diálogo
+          // limitaria os pontos ao que sobrou DEPOIS do próprio pagamento.
+          const existing = this.fidelidadePayment();
+          const base = this.remaining() + (existing ? existing.amountCents : 0);
+          const maxByRemaining = this.centsPerPointClient() > 0 ? Math.ceil(base / this.centsPerPointClient()) : 0;
+          const available = this.customerBalances.loyaltyPoints || 0;
+          this.fidelidadeForm = {
+            pointsUsed: existing ? (existing.pointsUsed || 0) : Math.max(0, Math.min(available, maxByRemaining)),
+          };
           this.fidelidadeError = '';
           this.$refs.fidelidadeDlg.showModal();
         },
@@ -2052,14 +2626,15 @@
           const pts = Number(this.fidelidadeForm.pointsUsed);
           if (!pts || pts <= 0) { this.fidelidadeError = 'Informe quantos pontos usar.'; return; }
           if (pts > (this.customerBalances.loyaltyPoints || 0)) { this.fidelidadeError = 'Saldo de pontos insuficiente.'; return; }
+          const existing = this.fidelidadePayment();
           const amountCents = Math.round(pts * this.centsPerPointClient());
-          if (amountCents > this.remaining()) { this.fidelidadeError = 'Valor maior que o restante.'; return; }
+          const max = this.remaining() + (existing ? existing.amountCents : 0);
+          if (amountCents > max) { this.fidelidadeError = 'Valor maior que o restante.'; return; }
           const method = this.methods.find((m) => m.type === 'fidelidade');
           if (!method) { this.fidelidadeError = 'Forma de pagamento "Pontos de fidelidade" não está ativa.'; return; }
           this.pay.list = this.pay.list.filter((p) => this.methodType(p.methodId) !== 'fidelidade');
           this.pay.list.push({ methodId: method.id, amountCents, pointsUsed: pts, customerId: this.customerId || undefined });
-          const rest = this.remaining();
-          this.pay.amount = rest > 0 ? (rest / 100).toFixed(2).replace('.', ',') : '';
+          this.syncAmountToRemaining(false);
           this.$refs.fidelidadeDlg.close();
         },
 
@@ -2078,16 +2653,27 @@
           }
         },
         async finish() {
-          if (this.saving || this.remaining() !== 0) return;
+          if (this.saving || !this.canConfirm()) return;
           this.saving = true; this.payError = '';
-          let cashReceived = this.cents(this.pay.received);
+          const directSale = !this.slots[this.activeSlot].comandaId && !this.slots[this.activeSlot].quoteId;
+          // Garante que os itens de cozinha já saíram antes de a venda existir. Se o
+          // envio falhar, não fecha a venda: o operador precisa saber que a cozinha
+          // não recebeu o pedido.
+          if (directSale && this.hasKitchenPending()) {
+            const okKitchen = await this.sendToKitchen(true);
+            if (!okKitchen) {
+              this.saving = false;
+              this.payError = 'Não foi possível enviar para a cozinha. Tente de novo.';
+              return;
+            }
+          }
           const hasCarne = this.pay.list.some((p) => p.installments && p.installments.count > 1);
           const payments = this.pay.list.map((p) => {
             const out = { methodId: p.methodId, amountCents: p.amountCents };
+            // O valor entregue é por pagamento: com dois recebimentos em dinheiro, cada um
+            // carrega o próprio troco. O campo global não existe mais.
             if (this.methodType(p.methodId) === 'dinheiro') {
-              const rec = Math.max(p.amountCents, cashReceived);
-              out.receivedCents = rec;
-              cashReceived = Math.max(0, cashReceived - rec);
+              out.receivedCents = Math.max(p.amountCents, p.receivedCents ?? p.amountCents);
             }
             if (p.customerId) out.customerId = p.customerId;
             if (p.dueDate) out.dueDate = p.dueDate;
@@ -2109,6 +2695,15 @@
             customerName: freeName,
             clientRequestId: this.pay.clientRequestId || undefined,
           };
+          if (directSale) {
+            const kitchenDraftId = this.slots[this.activeSlot].kitchenDraftId;
+            if (kitchenDraftId) {
+              // Os itens já foram enviados pelo rascunho; a venda apenas adota os
+              // tickets, sem criar um segundo pedido na cozinha.
+              commonBody.skipKitchenNotify = true;
+              commonBody.kitchenDraftId = kitchenDraftId;
+            }
+          }
           if (!comandaId) {
             commonBody.items = this.cart.map((i) => ({
               productId: i.productId, qty: i.qty, notes: i.notes || undefined, lineGroupUuid: i.lineGroupUuid || undefined,
@@ -2152,6 +2747,7 @@
               this.slots[this.activeSlot].quoteLabel = null;
               this.quoteForm = { validUntil: '', notes: '', error: '', saving: false };
             }
+            this.slots[this.activeSlot].kitchenDraftId = null;
             this.persistSlots();
             const exibir = this.appSettings?.find(s => s.key === 'vendas.exibir_cupom_fiscal')?.value;
             const autoPrint = this.appSettings?.find(s => s.key === 'pdv.imprimir_automatico')?.value === '1';
@@ -2203,7 +2799,7 @@
           { el: '#tour-pdv-carrinho', title: 'Carrinho', body: 'Os itens entram aqui. Ajuste a quantidade no +/−, remova no ×, ou clique no item para editar. Cliente e observações ficam em cada linha.' },
           { el: '#tour-pdv-cliente', title: 'Cliente (opcional)', body: 'Digite o nome para identificar a venda. Se bater com um cliente cadastrado, o vínculo é feito sozinho e valem pontos, crédito de loja e convênio.' },
           { el: '#tour-pdv-acoes', title: 'Desconto e acréscimo', body: 'Desconto (F4), acréscimo (F7), orçamento (F6), imprimir (F11), calculadora (F3) e limpar (F9). O desconto acima do limite pede o PIN do administrador.' },
-          { el: '#tour-pdv-finalizar', title: 'Finalizar venda (F2)', body: 'Abre o pagamento: escolha a forma, divida a conta, calcule o troco e confirme. O cupom sai na impressora configurada.' },
+          { el: '#tour-pdv-finalizar', title: 'Adicionar pagamento (F2)', body: 'Abre o pagamento: escolha a forma, divida a conta, calcule o troco e confirme. O cupom sai na impressora configurada.' },
           { el: '#tour-pdv-atalhos', title: 'Atalhos do teclado', body: 'Tudo o que se faz o dia inteiro tem atalho. Decorando esses, a venda sai sem tirar a mão do teclado.' },
         ];
       }
