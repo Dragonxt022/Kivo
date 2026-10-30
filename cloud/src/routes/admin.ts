@@ -1133,6 +1133,8 @@ async function deleteCompanyCompletely(uuid: string): Promise<void> {
     await conn.query('DELETE FROM company_mobile_grants WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_commands WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM theme_grants WHERE company_uuid = ?', [uuid]);
+    // Sem FK (collation de companies varia entre instalações antigas): apaga explicitamente.
+    await conn.query('DELETE FROM company_subscriptions WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM company_devices WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM ai_usage WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM client_error_reports WHERE company_uuid = ?', [uuid]);

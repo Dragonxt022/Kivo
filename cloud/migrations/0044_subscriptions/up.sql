@@ -7,6 +7,10 @@
 --
 -- `company_subscriptions` é a configuração/estado local; `preapproval_id` é o id do
 -- Mercado Pago. `public_token` é o link público que o cliente abre para autorizar.
+--
+-- Sem FK para `companies`: a collation de `companies.company_uuid` varia entre instalações
+-- antigas (0017 já precisou alinhar `trial_registry` por causa disso) e a FK derrubaria a
+-- migration inteira em produção. A limpeza é feita explicitamente em `deleteCompanyCompletely`.
 
 CREATE TABLE IF NOT EXISTS company_subscriptions (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -30,8 +34,7 @@ CREATE TABLE IF NOT EXISTS company_subscriptions (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   UNIQUE KEY uq_subscriptions_public_token (public_token),
   UNIQUE KEY uq_subscriptions_preapproval (preapproval_id),
-  KEY idx_subscriptions_company (company_uuid, status),
-  CONSTRAINT fk_subscriptions_company FOREIGN KEY (company_uuid) REFERENCES companies(company_uuid) ON DELETE CASCADE
+  KEY idx_subscriptions_company (company_uuid, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- charges.subscription_id: de qual assinatura veio a cobrança recorrente.
