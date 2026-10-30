@@ -144,3 +144,65 @@ export function createChargePayment(chargeId: number, method: ChargeMethod): Pro
 export function fetchChargeStatus(chargeId: number): Promise<BillingResult<ChargeStatus>> {
   return cloudFetch<ChargeStatus>(`/api/billing/charges/${chargeId}/status`);
 }
+
+// ───────────────────────── Autoatendimento da assinatura ─────────────────────────
+
+export interface CommercialPlan {
+  key: 'prata' | 'ouro' | 'diamante';
+  label: string;
+  priceCents: number;
+  extendsDays: number;
+  maxDevices: number;
+  description: string;
+}
+
+export interface CloudSubscription {
+  id: number;
+  status: 'pendente' | 'autorizada' | 'pausada' | 'cancelada' | 'encerrada' | 'erro';
+  planKey: string | null;
+  amountCents: number;
+  extendsDays: number;
+  frequency: number;
+  frequencyType: 'days' | 'months';
+  payerEmail: string | null;
+  initPoint: string | null;
+  nextPaymentDate: string | null;
+  lastPaymentAt: string | null;
+  lastError: string | null;
+  publicUrl: string | null;
+}
+
+export interface SubscriptionOverview {
+  company: { name: string | null; email: string | null; plan: string | null; validUntil: string | null } | null;
+  plans: CommercialPlan[];
+  subscription: CloudSubscription | null;
+}
+
+/** Lê a assinatura da empresa. `sync` relê no Mercado Pago antes de responder. */
+export function fetchCloudSubscription(sync = false): Promise<BillingResult<SubscriptionOverview>> {
+  return cloudFetch<SubscriptionOverview>(`/api/billing/subscription${sync ? '?sync=1' : ''}`);
+}
+
+export interface CreatedSubscription {
+  subscription: CloudSubscription;
+  initPoint: string | null;
+  publicUrl: string | null;
+}
+
+export function createCloudSubscription(planKey: string, payerEmail: string): Promise<BillingResult<CreatedSubscription>> {
+  return cloudFetch<CreatedSubscription>('/api/billing/subscription', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planKey, payerEmail }),
+  });
+}
+
+export interface CancelSubscriptionResult {
+  ok: boolean;
+  message: string;
+  accessUntil: string | null;
+}
+
+export function cancelCloudSubscription(): Promise<BillingResult<CancelSubscriptionResult>> {
+  return cloudFetch<CancelSubscriptionResult>('/api/billing/subscription/cancel', { method: 'POST' });
+}

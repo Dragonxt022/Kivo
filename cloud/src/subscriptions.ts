@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getPool } from './db';
 import { settleCharge } from './charges';
+import { commercialPlan } from './plans';
 import {
   createSubscription as createMpSubscription,
   getAuthorizedPayment,
@@ -67,6 +68,23 @@ export async function getSubscriptionByPreapprovalId(preapprovalId: string): Pro
   if (!preapprovalId) return null;
   const [rows] = await getPool().query(`SELECT ${COLS} FROM company_subscriptions WHERE preapproval_id = ?`, [preapprovalId]);
   return ((rows as SubscriptionRow[])[0] ?? null) as SubscriptionRow | null;
+}
+
+/** Assinatura mais relevante da empresa: ativa/pendente primeiro, depois a última encerrada. */
+export async function getLatestCompanySubscription(companyUuid: string): Promise<SubscriptionRow | null> {
+  const [rows] = await getPool().query(
+    `SELECT ${COLS} FROM company_subscriptions
+      WHERE company_uuid = ?
+      ORDER BY FIELD(status, 'autorizada','pendente','pausada','erro','cancelada','encerrada'), created_at DESC
+      LIMIT 1`,
+    [companyUuid],
+  );
+  return ((rows as SubscriptionRow[])[0] ?? null) as SubscriptionRow | null;
+}
+
+/** Há assinatura que já cobre o acesso? Evita criar uma segunda cobrança por engano. */
+export function subscriptionIsCurrent(sub: SubscriptionRow | null): boolean {
+  return !!sub && (sub.status === 'autorizada' || sub.status === 'pendente' || sub.status === 'pausada');
 }
 
 /** URL pública que o admin manda ao cliente (a mesma que o Mercado Pago usa como back_url). */
@@ -338,6 +356,18 @@ export async function recordAuthorizedPayment(authorizedPaymentId: string): Prom
   }
 
   const baixa = await settleCharge(chargeId);
+
+  // Pagamento aprovado também ativa o plano contratado. Sem isso a licença venceria mais
+  // tarde, mas a empresa continuaria como trial (sem nuvem/Kivo Web, por exemplo).
+  const plano = commercialPlan(sub.plan_key);
+  if (plano) {
+    await pool.query(
+      `UPDATE companies SET plan = ?, max_devices = GREATEST(COALESCE(max_devices, 1), ?)
+        WHERE company_uuid = ?`,
+      [plano.key, plano.maxDevices, sub.company_uuid],
+    );
+  }
+
   await pool.query(
     `UPDATE company_subscriptions
         SET status = 'autorizada', last_payment_at = NOW(3), last_payment_id = ?,

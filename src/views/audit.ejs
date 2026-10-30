@@ -167,6 +167,7 @@
         senha_trocada: 'Trocou a senha', senha_resgatada: 'Redefiniu a senha',
         conceder_acesso_remoto: 'Concedeu acesso remoto', revogar_acesso_remoto: 'Revogou acesso remoto',
         instalar_atualizacao: 'Instalou atualização', sync: 'Sincronizou',
+        assinar_plano: 'Assinou plano', cancelar_assinatura: 'Cancelou assinatura',
       };
       const ENTIDADES = {
         odonto_appointment: 'Agendamento', odonto_patient: 'Paciente', odonto_document: 'Documento',
@@ -184,13 +185,14 @@
         security_pin: 'PIN de segurança', setting: 'Configuração', interface_cards: 'Cards do início',
         interface_modules: 'Módulos do início', license: 'Licença', backup: 'Backup', app: 'Sistema',
         cash_register: 'Caixa', cash_movement: 'Movimento de caixa', cloud_charge: 'Cobrança da nuvem',
+        subscription: 'Assinatura',
         agreement_company: 'Convênio', dre_category: 'Categoria da DRE', fiscal_document: 'Documento fiscal',
         fiscal_config: 'Configuração fiscal', fiscal_certificado: 'Certificado fiscal',
         'machine-prefs': 'Preferências da máquina', onboarding: 'Configuração inicial',        odonto: 'Odontologia', comanda: 'Comanda', comanda_item: 'Item da comanda',
       };
-      const ACOES_CRIAR = new Set(['criar','criar_mesa','criar_roteamento_cozinha','criar_ticket_cozinha','abrir_comanda','adicionar_item_comanda','gerar_pagamento','gerar_variantes','convenio_fatura_gerar','preencher_imagens_auto','pin_definido','primeiro_acesso','onboarding_concluir','dividir_comanda']);
+      const ACOES_CRIAR = new Set(['criar','criar_mesa','criar_roteamento_cozinha','criar_ticket_cozinha','abrir_comanda','adicionar_item_comanda','gerar_pagamento','gerar_variantes','convenio_fatura_gerar','preencher_imagens_auto','pin_definido','primeiro_acesso','onboarding_concluir','dividir_comanda','assinar_plano']);
       const ACOES_EDITAR = new Set(['editar','editar_mesa','editar_permissoes','editar_obs_item_comanda','editar_obs_item_cozinha','editar_qtd_item_comanda','editar_roteamento_cozinha','caixa_editar','avancar_item_cozinha','avancar_ticket_cozinha','reavaliar_ticket_cozinha','transferir_comanda','unir_comandas','converter','receber','confirmar_pagamento','enviar_cozinha','estoque_baixa_lote','instalar_atualizacao','senha_trocada','backup_baixar_nuvem','exportar','importar','onboarding_pular','conceder_acesso_remoto']);
-      const ACOES_CRITICO = new Set(['excluir','cancelar','cancelar_comanda','cancelar_ticket_cozinha','anular_item_comanda','anular_item_cozinha','excluir_nuvem','reverter_nfe','venda_cancelar','venda_devolver','remover_mesa','remover_roteamento_cozinha','revogar_acesso_remoto','reset_fabrica','acesso_negado','login_falhou','login_rapido_falhou','senha_falhou']);
+      const ACOES_CRITICO = new Set(['excluir','cancelar','cancelar_comanda','cancelar_ticket_cozinha','anular_item_comanda','anular_item_cozinha','excluir_nuvem','reverter_nfe','venda_cancelar','venda_devolver','remover_mesa','remover_roteamento_cozinha','revogar_acesso_remoto','reset_fabrica','acesso_negado','login_falhou','login_rapido_falhou','senha_falhou','cancelar_assinatura']);
       const ACOES_ACESSO = new Set(['login','login_rapido','logout','backup','caixa_abrir','caixa_fechar','fechar_comanda','venda','senha_resgatada','odonto_demo_dados','sync.run']);
       const CAMPOS = { starts_at:'Início', ends_at:'Fim', duration_min:'Duração (min)', status:'Situação', patient_id:'Paciente', professional_id:'Profissional', procedure_id:'Procedimento', room:'Sala/cadeira', is_fit_in:'Encaixe', notes:'Observação', title:'Título', name:'Nome', active:'Ativo', type:'Tipo', amount_cents:'Valor', quantity:'Quantidade', total_cents:'Total', description:'Descrição', phone:'Telefone', email:'E-mail', document:'CPF/CNPJ', birthday:'Nascimento', address:'Endereço', cro:'CRO', cro_state:'UF do CRO', default_price_cents:'Valor padrão', due_date:'Vencimento', date:'Data', reason:'Motivo', valid_until:'Válido até', mime:'Formato', size_bytes:'Tamanho', recorded_at:'Data do exame', phase:'Fase', tooth:'Dente', condition_id:'Situação', kind:'Origem' };
       const MODULO_DE = {

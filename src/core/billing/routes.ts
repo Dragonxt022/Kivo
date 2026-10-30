@@ -2,11 +2,50 @@ import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
 import {
-  createChargePayment, fetchChargeStatus, fetchCloudCharges, fetchUrgentCharges,
+  cancelCloudSubscription, createChargePayment, createCloudSubscription, fetchChargeStatus,
+  fetchCloudCharges, fetchCloudSubscription, fetchUrgentCharges,
   type ChargeMethod,
 } from './service';
 
 const router = Router();
+
+router.get('/subscription', requirePermission('billing.view'), async (req, res) => {
+  const r = await fetchCloudSubscription(req.query.sync === '1');
+  if (!r.ok) {
+    res.status(502).json({ error: r.error });
+    return;
+  }
+  res.json(r.data);
+});
+
+/**
+ * Assinar pelo próprio app. O preço é definido no servidor; aqui só escolhemos o plano e o
+ * e-mail da conta Mercado Pago que vai autorizar.
+ */
+router.post('/subscription', requirePermission('billing.view'), async (req, res) => {
+  const planKey = String((req.body ?? {}).planKey ?? '');
+  const payerEmail = String((req.body ?? {}).payerEmail ?? '').trim();
+  const r = await createCloudSubscription(planKey, payerEmail);
+  if (!r.ok) {
+    res.status(502).json({ error: r.error });
+    return;
+  }
+  audit(req, 'assinar_plano', 'subscription', r.data.subscription.id, null, {
+    planKey: r.data.subscription.planKey, amountCents: r.data.subscription.amountCents,
+  });
+  res.json(r.data);
+});
+
+/** Cancelamento com efeito no fim do período já pago (não encurta a licença). */
+router.post('/subscription/cancel', requirePermission('billing.view'), async (req, res) => {
+  const r = await cancelCloudSubscription();
+  if (!r.ok) {
+    res.status(502).json({ error: r.error });
+    return;
+  }
+  audit(req, 'cancelar_assinatura', 'subscription', undefined, null, { accessUntil: r.data.accessUntil });
+  res.json(r.data);
+});
 
 router.get('/charges', requirePermission('billing.view'), async (_req, res) => {
   res.json(await fetchCloudCharges());

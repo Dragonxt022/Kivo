@@ -8,6 +8,16 @@ import {
 import {
   companyPayerData, ensurePublicToken, getCharge, saveGatewayResult, savePaymentSnapshot, settleCharge,
 } from '../charges';
+import { COMMERCIAL_PLANS, commercialPlan } from '../plans';
+import {
+  cancelCompanySubscription,
+  createCompanySubscription,
+  getLatestCompanySubscription,
+  publicSubscriptionUrl,
+  subscriptionIsCurrent,
+  syncSubscription,
+  syncSubscriptionPayments,
+} from '../subscriptions';
 
 const router = Router();
 
@@ -33,6 +43,134 @@ router.get('/charges', requireCompanyAuth, async (req: AuthedRequest, res) => {
     public_url: c.public_token ? publicPayUrl(String(c.public_token)) : null,
   }));
   res.json(charges);
+});
+
+/**
+ * Assinatura da própria empresa, para o autoatendimento dentro do app.
+ *
+ * `?sync=1` relê a preapproval e as parcelas no Mercado Pago antes de responder — é o que
+ * faz a tela refletir a autorização/primeiro pagamento mesmo quando o webhook atrasa.
+ */
+router.get('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const companyUuid = req.companyUuid!;
+  let sub = await getLatestCompanySubscription(companyUuid);
+
+  if (req.query.sync === '1' && sub) {
+    try {
+      sub = (await syncSubscription(sub.id)) ?? sub;
+      // Reconciliação das parcelas: se o webhook não chegou, este GET ainda estende a licença.
+      await syncSubscriptionPayments(sub.id);
+      sub = (await getLatestCompanySubscription(companyUuid)) ?? sub;
+    } catch (e) {
+      console.error('[billing] falha ao sincronizar assinatura', { companyUuid, erro: (e as Error).message });
+    }
+  }
+
+  const [companyRows] = await getPool().query(
+    'SELECT name, email, plan, valid_until FROM companies WHERE company_uuid = ?',
+    [companyUuid],
+  );
+  const company = (companyRows as { name: string | null; email: string | null; plan: string | null; valid_until: string | null }[])[0] ?? null;
+
+  res.json({
+    company: company ? {
+      name: company.name,
+      email: company.email,
+      plan: company.plan,
+      validUntil: company.valid_until,
+    } : null,
+    plans: COMMERCIAL_PLANS,
+    subscription: sub ? {
+      id: sub.id,
+      status: sub.status,
+      planKey: sub.plan_key,
+      amountCents: sub.amount_cents,
+      extendsDays: sub.extends_days,
+      frequency: sub.frequency,
+      frequencyType: sub.frequency_type,
+      payerEmail: sub.payer_email,
+      initPoint: sub.init_point,
+      nextPaymentDate: sub.next_payment_date,
+      lastPaymentAt: sub.last_payment_at,
+      lastError: sub.last_error,
+      publicUrl: sub.public_token ? publicSubscriptionUrl(sub.public_token) : null,
+    } : null,
+  });
+});
+
+/** Cria a assinatura a partir do app. Preço/frequência vêm do catálogo do servidor. */
+router.post('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const companyUuid = req.companyUuid!;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const plan = commercialPlan(String(body.planKey ?? ''));
+  if (!plan) {
+    res.status(400).json({ error: 'Escolha um plano válido.' });
+    return;
+  }
+  const payerEmail = String(body.payerEmail ?? '').trim();
+  if (!payerEmail || !payerEmail.includes('@')) {
+    res.status(400).json({ error: 'Informe o e-mail da conta Mercado Pago que vai autorizar a assinatura.' });
+    return;
+  }
+
+  const atual = await getLatestCompanySubscription(companyUuid);
+  if (subscriptionIsCurrent(atual)) {
+    res.status(409).json({
+      error: 'Esta empresa já tem uma assinatura ativa ou aguardando autorização.',
+      subscription: atual,
+    });
+    return;
+  }
+
+  try {
+    const sub = await createCompanySubscription({
+      companyUuid,
+      planKey: plan.key,
+      reason: `Kivo — Plano ${plan.label}`,
+      amountCents: plan.priceCents,
+      extendsDays: plan.extendsDays,
+      frequency: 1,
+      frequencyType: 'months',
+      payerEmail,
+    });
+    res.json({
+      subscription: sub,
+      initPoint: sub.init_point,
+      publicUrl: sub.public_token ? publicSubscriptionUrl(sub.public_token) : null,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[billing] erro ao criar assinatura pelo app', { companyUuid, plano: plan.key, msg });
+    res.status(502).json({ error: msg });
+  }
+});
+
+/**
+ * Cancelamento pedido pelo cliente: interrompe as próximas cobranças no Mercado Pago, mas
+ * NÃO encurta a licença. O acesso continua até `valid_until` (fim do período já pago).
+ */
+router.post('/subscription/cancel', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const companyUuid = req.companyUuid!;
+  const sub = await getLatestCompanySubscription(companyUuid);
+  if (!subscriptionIsCurrent(sub)) {
+    res.status(400).json({ error: 'Não há assinatura ativa para cancelar.' });
+    return;
+  }
+  try {
+    await cancelCompanySubscription(sub!.id);
+    const [rows] = await getPool().query('SELECT valid_until FROM companies WHERE company_uuid = ?', [companyUuid]);
+    const validUntil = (rows as { valid_until: string | null }[])[0]?.valid_until ?? null;
+    res.json({
+      ok: true,
+      message: validUntil
+        ? `Assinatura cancelada. O acesso continua até ${validUntil.slice(0, 10)}.`
+        : 'Assinatura cancelada. Não haverá novas cobranças.',
+      accessUntil: validUntil,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    res.status(502).json({ error: msg });
+  }
 });
 
 /** Monta o pedido de pagamento da cobrança da própria empresa. */
