@@ -474,13 +474,21 @@ export async function updateSubscriptionStatus(
  * quando o webhook não chegou (comum em teste) — sem isso, a licença ficaria sem o mês pago.
  */
 export async function listAuthorizedPaymentIds(preapprovalId: string, settings: GatewaySettings): Promise<string[]> {
-  const r = await mpRequest<{ results?: { id?: string | number }[] }>(
-    `/authorized_payments/search?preapproval_id=${encodeURIComponent(preapprovalId)}&limit=50`,
-    { settings },
-  );
-  return (r.results ?? [])
-    .map((p) => (p.id != null ? String(p.id) : ''))
-    .filter(Boolean);
+  // O endpoint de authorized_payments aceita no máximo limit=10. Valores maiores devolvem
+  // "Invalid value for limit" (HTTP 400), então paginamos de 10 em 10 até 50 registros.
+  const ids: string[] = [];
+  for (let offset = 0; offset < 50; offset += 10) {
+    const r = await mpRequest<{ results?: { id?: string | number }[] }>(
+      `/authorized_payments/search?preapproval_id=${encodeURIComponent(preapprovalId)}&limit=10&offset=${offset}`,
+      { settings },
+    );
+    const page = r.results ?? [];
+    for (const p of page) {
+      if (p.id != null) ids.push(String(p.id));
+    }
+    if (page.length < 10) break;
+  }
+  return ids;
 }
 
 export interface AuthorizedPaymentSnapshot {
