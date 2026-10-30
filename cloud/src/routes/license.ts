@@ -70,18 +70,25 @@ router.post('/request-trial', async (req, res) => {
 
   // Identificação mínima de quem está testando. Sem isso o painel só via o machine id e
   // não havia como o time comercial saber com quem falar durante os 15 dias.
-  const contactName = String(req.body?.contactName ?? '').trim();
+  //
+  // Instaladores antigos não mandam esses campos nem o header de versão. Eles continuam
+  // conseguindo pedir teste (senão a base atual ficaria sem ativação), mas qualquer cliente
+  // que já manda `X-Kivo-App-Version` PRECISA informar nome e celular.
+  const versaoCliente = (req.header('X-Kivo-App-Version') ?? '').trim();
+  const exigeIdentificacao = !!versaoCliente;
+  let contactName = String(req.body?.contactName ?? '').trim();
   const phoneRaw = String(req.body?.phone ?? '').trim();
   const phoneDigits = phoneRaw.replace(/\D/g, '');
-  if (contactName.length < 2 || contactName.length > 160) {
+  if (exigeIdentificacao && (contactName.length < 2 || contactName.length > 160)) {
     res.status(400).json({ error: 'Informe o nome do responsável que vai usar o Kivo.' });
     return;
   }
-  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+  if (exigeIdentificacao && (phoneDigits.length < 10 || phoneDigits.length > 15)) {
     res.status(400).json({ error: 'Informe um celular válido com DDD.' });
     return;
   }
-  const phone = phoneRaw.slice(0, 30);
+  if (!contactName) contactName = 'Não informado';
+  const phone = phoneRaw.slice(0, 30) || null;
 
   const pool = getPool();
 

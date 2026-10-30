@@ -455,6 +455,8 @@ export async function requestTrial(contactName: string, phone: string): Promise<
       headers: {
         'Content-Type': 'application/json',
         'X-Kivo-Machine-Id': machineId(),
+        // A nuvem usa este header para saber que o cliente é novo e exigir nome/celular.
+        'X-Kivo-App-Version': versaoInstalada(),
       },
       body: JSON.stringify({ contactName: contactName.trim(), phone: phone.trim() }),
       signal: AbortSignal.timeout(8000),
