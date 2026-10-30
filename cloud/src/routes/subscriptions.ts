@@ -30,10 +30,19 @@ function redirectList(res: Response, kind: 'ok' | 'error', msg: string, companyU
 adminSubscriptionsRouter.get('/subscriptions', requireAdminAuth, async (req, res) => {
   const pool = getPool();
   const companyFilter = typeof req.query.company === 'string' ? req.query.company : '';
+
+  // Nomes cruzados em memória, sem JOIN: `companies.company_uuid` usa collation diferente
+  // em instalações antigas (utf8mb4_general_ci x utf8mb4_0900_ai_ci) e o JOIN derrubava a
+  // página inteira com ER_CANT_AGGREGATE_2COLLATIONS. O volume é pequeno e o mapa sai de graça.
+  const [companyRows] = await pool.query(
+    'SELECT company_uuid, name, plan, email FROM companies ORDER BY name, company_uuid',
+  );
+  const companies = companyRows as { company_uuid: string; name: string | null; plan: string | null; email: string | null }[];
+  const companyNames = new Map(companies.map((c) => [String(c.company_uuid), c.name]));
+
   const [rows] = await pool.query(
-    `SELECT s.*, c.name AS company_name
+    `SELECT s.*
        FROM company_subscriptions s
-       JOIN companies c ON c.company_uuid = s.company_uuid
       ${companyFilter ? 'WHERE s.company_uuid = ?' : ''}
       ORDER BY FIELD(s.status, 'pendente','autorizada','pausada','erro','cancelada','encerrada'), s.created_at DESC
       LIMIT 500`,
@@ -41,12 +50,9 @@ adminSubscriptionsRouter.get('/subscriptions', requireAdminAuth, async (req, res
   );
   const subscriptions = (rows as Record<string, unknown>[]).map((s) => ({
     ...s,
+    company_name: companyNames.get(String(s.company_uuid)) ?? null,
     public_url: s.public_token ? publicSubscriptionUrl(String(s.public_token)) : null,
   }));
-
-  const [companies] = await pool.query(
-    'SELECT company_uuid, name, plan, email FROM companies ORDER BY name, company_uuid',
-  );
 
   const [statsRows] = await pool.query(
     `SELECT
