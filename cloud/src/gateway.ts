@@ -423,6 +423,20 @@ export async function updateSubscriptionStatus(
   });
 }
 
+/**
+ * Lista as parcelas de uma assinatura. Usado pelo botão "Sincronizar" para reconciliar
+ * quando o webhook não chegou (comum em teste) — sem isso, a licença ficaria sem o mês pago.
+ */
+export async function listAuthorizedPaymentIds(preapprovalId: string, settings: GatewaySettings): Promise<string[]> {
+  const r = await mpRequest<{ results?: { id?: string | number }[] }>(
+    `/authorized_payments/search?preapproval_id=${encodeURIComponent(preapprovalId)}&limit=50`,
+    { settings },
+  );
+  return (r.results ?? [])
+    .map((p) => (p.id != null ? String(p.id) : ''))
+    .filter(Boolean);
+}
+
 export interface AuthorizedPaymentSnapshot {
   authorizedPaymentId: string;
   preapprovalId: string | null;

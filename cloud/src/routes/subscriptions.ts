@@ -8,6 +8,7 @@ import {
   getSubscriptionByToken,
   publicSubscriptionUrl,
   syncSubscription,
+  syncSubscriptionPayments,
 } from '../subscriptions';
 
 /**
@@ -117,7 +118,11 @@ adminSubscriptionsRouter.post('/subscriptions/:id/sync', requireAdminAuth, async
   const id = Number(req.params.id);
   try {
     const sub = await syncSubscription(id);
-    redirectList(res, 'ok', `Assinatura sincronizada: ${sub?.status ?? 'sem alteração'}.`, sub?.company_uuid);
+    const pagamentos = await syncSubscriptionPayments(id);
+    const extra = pagamentos.processed
+      ? ` ${pagamentos.processed} cobrança(s) processada(s) e licença estendida.`
+      : (pagamentos.checked ? ' Nenhuma cobrança nova aprovada.' : '');
+    redirectList(res, 'ok', `Assinatura sincronizada: ${sub?.status ?? 'sem alteração'}.${extra}`, sub?.company_uuid);
   } catch (e) {
     redirectList(res, 'error', e instanceof Error ? e.message : String(e));
   }

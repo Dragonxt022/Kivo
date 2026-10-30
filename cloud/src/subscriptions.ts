@@ -5,6 +5,7 @@ import {
   createSubscription as createMpSubscription,
   getAuthorizedPayment,
   getSubscription as getMpSubscription,
+  listAuthorizedPaymentIds,
   loadSettings,
   updateSubscriptionStatus,
   type GatewaySettings,
@@ -191,6 +192,28 @@ export async function syncSubscription(id: number): Promise<SubscriptionRow | nu
     throw e;
   }
   return getSubscriptionById(id);
+}
+
+/**
+ * Reconciliação manual: relê a assinatura, busca as parcelas no Mercado Pago e processa as
+ * que ainda não viraram cobrança no Kivo. É a rede de segurança para webhook perdido/atrasado
+ * (e o único jeito de validar a extensão da licença no ambiente de teste, onde notificações
+ * de pagamento de teste podem não ser enviadas).
+ */
+export async function syncSubscriptionPayments(id: number): Promise<{ processed: number; checked: number }> {
+  const sub = await getSubscriptionById(id);
+  if (!sub?.preapproval_id) return { processed: 0, checked: 0 };
+
+  const settings = await loadSettings();
+  if (!settings.accessToken) throw new Error('Gateway do Mercado Pago não configurado.');
+
+  const ids = await listAuthorizedPaymentIds(sub.preapproval_id, settings);
+  let processed = 0;
+  for (const authorizedPaymentId of ids) {
+    const r = await recordAuthorizedPayment(authorizedPaymentId);
+    if (r.processed) processed++;
+  }
+  return { processed, checked: ids.length };
 }
 
 export interface AuthorizedPaymentResult {
