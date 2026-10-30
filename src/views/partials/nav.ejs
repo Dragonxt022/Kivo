@@ -67,7 +67,7 @@
     if (this.licenseStatus && this.licenseStatus.plan === 'trial' && this.licenseStatus.status !== 'expirada') {
       const d = this.licenseStatus.daysRemaining;
       const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
-      list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
+      list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/cobrancas' });
     }
     // Licença vencida (tolerância) ou perto de vencer: contagem regressiva até o bloqueio.
     // O bloqueio acontece no fim da tolerância (vencimento + dias de tolerância).
@@ -181,7 +181,7 @@
     setInterval(() => this.checkCloudStatus(), leve ? 120000 : 25000);
     <% if (user && user.permissions.has('settings.edit')) { %>
     // Só quem pode instalar recebe o aviso: para o garçom seria um alerta que ele não
-    // tem como resolver. O ciclo longo basta — a checagem em si é de 6 em 6 horas.
+    // tem como resolver. O ciclo longo basta — a checagem em si é de hora em hora.
     const lerAtu = () => fetch('/api/updates/status').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.suportado) this.atualizacao = d; }).catch(() => {});
     jobs.push(lerAtu());
     setInterval(lerAtu, 600000);
@@ -468,7 +468,7 @@
     <template x-if="licenseStatus && licenseStatus.blockAt"><span>(<strong x-text="fmtDueDate(licenseStatus.blockAt)"></strong>)</span></template>.
     Renove para não parar.
   </span>
-  <a href="/admin/configuracoes" style="color:inherit;font-weight:600;text-decoration:underline">renovar</a>
+  <a href="/admin/cobrancas" style="color:inherit;font-weight:600;text-decoration:underline">renovar</a>
 </div>
 <% } %>
 
@@ -483,7 +483,7 @@
       dispositivo). Conecte esta máquina à internet para revalidar. Se o problema continuar, contate o suporte.
     </p>
     <p class="dialog-text" x-show="!licenseStatus || licenseStatus.status !== 'bloqueada'">
-      Entre em contato com o suporte para renovar sua licença e continuar usando o Kivo.
+      Você pode continuar com <strong>mais 1 mês grátis</strong> ou falar com o suporte para renovar.
     </p>
     <p class="dialog-text-sm" x-show="licenseStatus && licenseStatus.supportPhone">
       Telefone: <strong x-text="licenseStatus && licenseStatus.supportPhone"></strong>
@@ -491,6 +491,16 @@
     <p class="dialog-text-md" x-show="licenseStatus && licenseStatus.supportEmail">
       E-mail: <strong x-text="licenseStatus && licenseStatus.supportEmail"></strong>
     </p>
+    <% if (user && user.permissions.has('billing.view')) { %>
+    <button class="btn btn-full" style="margin-bottom:.5rem;justify-content:center"
+            x-show="licenseStatus && licenseStatus.status !== 'bloqueada' && licenseStatus.plan === 'trial'"
+            @click="fetch('/api/billing/retention/accept', { method: 'POST' }).then(r => r.json()).then(b => { if (b.ok) { showToast(b.message || 'Você ganhou mais 1 mês grátis.', 'success'); setTimeout(() => location.reload(), 1200); } else { showToast(b.error || 'Oferta não disponível.', 'error'); } }).catch(() => showToast('Falha de conexão.', 'error'))">
+      Quero mais 1 mês grátis
+    </button>
+    <% } %>
+    <a class="btn secondary btn-full" href="/admin/cobrancas" style="margin-bottom:.5rem;justify-content:center">
+      Ver planos e assinar
+    </a>
     <button class="btn secondary btn-full"
             @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -694,6 +704,7 @@
 <% } %>
 </div>
 <div id="toast-container" popover="manual"></div>
+<%- include('partials/update-prompt') %>
 <script nonce="<%= cspNonce %>">
 (function(){
   // Fechamento animado de dialog: o fecha-de-verdade só acontece depois que a animação
@@ -889,10 +900,12 @@
     return p === '/' || p === '' || p === '/app' || p.indexOf('/login') === 0 || p.indexOf('/ativacao') === 0;
   }
   // Telas densas/transacionais onde os balões de "páginas recentes" cobrem conteúdo (a
-  // conferência da NF-e tem tabela larga + rodapé fixo). Nelas o histórico continua sendo
+  // conferência da NF-e tem tabela larga + rodapé fixo; o PDV tem a faixa de ações e o
+  // CTA de pagamento no canto inferior direito). Nelas o histórico continua sendo
   // registrado, mas os balões não são montados.
   function fabSuppressed(){
-    return location.pathname.indexOf('/app/nfe/importar') === 0;
+    return location.pathname.indexOf('/app/nfe/importar') === 0
+      || location.pathname.indexOf('/app/store/pdv') === 0;
   }
   // No celular/tablet os balões ficam desligados: a barra inferior é a navegação
   // principal e os atalhos flutuantes cobrem conteúdo (o CSS também os esconde).

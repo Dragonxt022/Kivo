@@ -332,7 +332,7 @@
           if (this.licenseStatus && this.licenseStatus.plan === 'trial' && this.licenseStatus.status !== 'expirada') {
             const d = this.licenseStatus.daysRemaining;
             const msg = d != null ? (d > 0 ? `Período de teste — faltam ${d} dia(s)` : 'Período de teste — expira hoje') : 'Período de teste';
-            list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/configuracoes' });
+            list.push({ id: 'trial', type: 'trial', message: msg, link: '/admin/cobrancas' });
           }
           if (this.licenseStatus && this.licenseStatus.status === 'tolerancia') {
             const d = this.licenseStatus.daysUntilBlock;

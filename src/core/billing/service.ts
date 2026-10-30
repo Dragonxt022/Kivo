@@ -174,6 +174,7 @@ export interface CloudSubscription {
 
 export interface SubscriptionOverview {
   company: { name: string | null; email: string | null; plan: string | null; validUntil: string | null } | null;
+  retention: { available: boolean; accepted: boolean; decidedAt: string | null } | null;
   plans: CommercialPlan[];
   subscription: CloudSubscription | null;
 }
@@ -205,4 +206,21 @@ export interface CancelSubscriptionResult {
 
 export function cancelCloudSubscription(): Promise<BillingResult<CancelSubscriptionResult>> {
   return cloudFetch<CancelSubscriptionResult>('/api/billing/subscription/cancel', { method: 'POST' });
+}
+
+export interface RetentionResult {
+  ok: boolean;
+  validUntil?: string | null;
+  accessUntil?: string | null;
+  message?: string;
+}
+
+/** Oferta de retenção: cancela a assinatura (se houver) e estende a licença em 30 dias. */
+export function acceptRetentionOffer(): Promise<BillingResult<RetentionResult>> {
+  return cloudFetch<RetentionResult>('/api/billing/retention/accept', { method: 'POST' });
+}
+
+/** Recusa registrada; não estende nada, mas também cancela cobranças futuras. */
+export function declineRetentionOffer(): Promise<BillingResult<RetentionResult>> {
+  return cloudFetch<RetentionResult>('/api/billing/retention/decline', { method: 'POST' });
 }

@@ -6,7 +6,8 @@ import {
   getPayment, isConfigured, loadSettings, mapPaymentStatus, publicPayUrl,
 } from '../gateway';
 import {
-  companyPayerData, ensurePublicToken, getCharge, saveGatewayResult, savePaymentSnapshot, settleCharge,
+  companyPayerData, ensurePublicToken, extendLicense, getCharge, saveGatewayResult,
+  savePaymentSnapshot, settleCharge,
 } from '../charges';
 import { COMMERCIAL_PLANS, commercialPlan } from '../plans';
 import {
@@ -67,10 +68,14 @@ router.get('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) 
   }
 
   const [companyRows] = await getPool().query(
-    'SELECT name, email, plan, valid_until FROM companies WHERE company_uuid = ?',
+    `SELECT name, email, plan, valid_until, retention_offer_decided_at, retention_offer_accepted
+       FROM companies WHERE company_uuid = ?`,
     [companyUuid],
   );
-  const company = (companyRows as { name: string | null; email: string | null; plan: string | null; valid_until: string | null }[])[0] ?? null;
+  const company = (companyRows as {
+    name: string | null; email: string | null; plan: string | null; valid_until: string | null;
+    retention_offer_decided_at: string | null; retention_offer_accepted: number | null;
+  }[])[0] ?? null;
 
   res.json({
     company: company ? {
@@ -79,6 +84,11 @@ router.get('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) 
       plan: company.plan,
       validUntil: company.valid_until,
     } : null,
+    retention: {
+      available: !!company && company.retention_offer_decided_at == null,
+      accepted: company?.retention_offer_accepted === 1,
+      decidedAt: company?.retention_offer_decided_at ?? null,
+    },
     plans: COMMERCIAL_PLANS,
     subscription: sub ? {
       id: sub.id,
@@ -171,6 +181,75 @@ router.post('/subscription/cancel', requireCompanyAuth, async (req: AuthedReques
     const msg = e instanceof Error ? e.message : String(e);
     res.status(502).json({ error: msg });
   }
+});
+
+/**
+ * Oferta de retenção: 1 mês grátis, uma única vez por empresa.
+ *
+ * Aceitar cancela a assinatura no Mercado Pago (para o mês grátis não ser cobrado) e
+ * estende a licença em 30 dias. Recusar só registra a decisão; a assinatura também é
+ * cancelada para não gerar cobrança futura, mas o acesso continua até `valid_until`.
+ */
+router.post('/retention/accept', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const companyUuid = req.companyUuid!;
+  const [rows] = await getPool().query(
+    'SELECT retention_offer_decided_at, valid_until FROM companies WHERE company_uuid = ?',
+    [companyUuid],
+  );
+  const company = (rows as { retention_offer_decided_at: string | null; valid_until: string | null }[])[0];
+  if (!company) {
+    res.status(404).json({ error: 'Empresa não encontrada.' });
+    return;
+  }
+  if (company.retention_offer_decided_at) {
+    res.status(409).json({ error: 'Esta empresa já utilizou a oferta de retenção.' });
+    return;
+  }
+
+  const sub = await getLatestCompanySubscription(companyUuid);
+  if (subscriptionIsCurrent(sub)) {
+    await cancelCompanySubscription(sub!.id);
+  }
+  const validUntil = await extendLicense(companyUuid, 30);
+  await getPool().query(
+    'UPDATE companies SET retention_offer_decided_at = NOW(3), retention_offer_accepted = 1 WHERE company_uuid = ?',
+    [companyUuid],
+  );
+
+  res.json({
+    ok: true,
+    validUntil,
+    message: validUntil
+      ? `Pronto! Você ganhou mais 1 mês grátis. Acesso até ${validUntil.slice(0, 10)}.`
+      : 'Pronto! Você ganhou mais 1 mês grátis.',
+  });
+});
+
+router.post('/retention/decline', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const companyUuid = req.companyUuid!;
+  const [rows] = await getPool().query(
+    'SELECT retention_offer_decided_at, valid_until FROM companies WHERE company_uuid = ?',
+    [companyUuid],
+  );
+  const company = (rows as { retention_offer_decided_at: string | null; valid_until: string | null }[])[0];
+  if (!company) {
+    res.status(404).json({ error: 'Empresa não encontrada.' });
+    return;
+  }
+  if (company.retention_offer_decided_at) {
+    res.json({ ok: true, accessUntil: company.valid_until });
+    return;
+  }
+
+  const sub = await getLatestCompanySubscription(companyUuid);
+  if (subscriptionIsCurrent(sub)) {
+    await cancelCompanySubscription(sub!.id);
+  }
+  await getPool().query(
+    'UPDATE companies SET retention_offer_decided_at = NOW(3), retention_offer_accepted = 0 WHERE company_uuid = ?',
+    [companyUuid],
+  );
+  res.json({ ok: true, accessUntil: company.valid_until });
 });
 
 /** Monta o pedido de pagamento da cobrança da própria empresa. */

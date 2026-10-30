@@ -61,6 +61,24 @@
     .subscribe-box h3 { margin: 0 0 .3rem; font-size: .95rem; }
     .subscribe-box > p { margin: 0 0 .7rem; font-size: .82rem; color: var(--text-muted); line-height: 1.5; }
     .sub-note { font-size: .78rem; color: var(--text-muted); line-height: 1.5; margin: .45rem 0 0; }
+    dialog .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-bottom: .8rem;
+      border-bottom: 1px solid var(--border-light);
+    }
+    dialog .modal-header h2 { margin: 0; font-size: 1.1rem; }
+    dialog .modal-close {
+      border: 0; background: none; color: var(--text-muted);
+      font-size: 1.35rem; line-height: 1; cursor: pointer; padding: 0 .2rem;
+    }
+    dialog .modal-body { padding: 1rem 0; }
+    dialog .modal-actions {
+      display: flex; justify-content: flex-end; gap: .6rem;
+      padding-top: 1rem; border-top: 1px solid var(--border-light);
+    }
   </style>
 </head>
 <body>
@@ -114,39 +132,109 @@
                 Cancelar assinatura
               </button>
             </template>
+            <button type="button" class="btn secondary" @click="notInterested()" :disabled="subBusy">
+              Não quero continuar
+            </button>
           </div>
         </div>
       </template>
 
       <div class="subscribe-box" x-show="canSubscribe()">
-        <h3 x-text="subscription ? 'Assinar novamente' : 'Assinar agora'"></h3>
+        <h3 x-text="subscription ? 'Assinar novamente' : 'Assine e continue crescendo'"></h3>
         <p>
           A primeira cobrança é imediata. Os dias restantes do teste são somados à licença,
           então você não perde o período de avaliação.
+        </p>
+        <div class="sub-actions">
+          <button type="button" class="btn" @click="openPlans()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h4"/></svg>
+            Ver planos e assinar
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <dialog x-ref="plansDlg" style="max-width:760px;width:92vw">
+      <div class="modal-header">
+        <h2>Escolha seu plano</h2>
+        <button type="button" class="modal-close" @click="$refs.plansDlg.close()">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted" style="margin:0 0 .8rem">
+          O primeiro pagamento é imediato. A licença é estendida por 30 dias e os dias que
+          ainda restam do teste são preservados.
         </p>
         <div class="plan-options">
           <template x-for="p in plans" :key="p.key">
             <button type="button" class="plan-option" :class="{ active: selectedPlan === p.key }" @click="selectedPlan = p.key">
               <strong x-text="p.label"></strong>
-              <span class="price" x-text="brl(p.priceCents)"></span>
+              <span class="price" x-text="brl(p.priceCents) + '/mês'"></span>
               <small x-text="p.description + ' · ' + p.maxDevices + ' dispositivo(s)'"></small>
             </button>
           </template>
         </div>
+        <p class="error" x-show="!plans.length" x-text="subError || 'Não foi possível carregar os planos. Verifique a conexão com a nuvem.'"></p>
         <label>E-mail da conta Mercado Pago</label>
-        <input type="email" x-model="payerEmail" autocomplete="off" placeholder="seu@email.com" />
+        <input type="text" inputmode="email" name="kivo_payer_email" x-model="payerEmail"
+               autocomplete="off" autocapitalize="off" spellcheck="false"
+               data-lpignore="true" data-1p-ignore="true" placeholder="seu@email.com" />
         <p class="sub-note">
           Em teste, use o e-mail da conta compradora de teste (<code>test_user_...</code>).
           Em produção, use uma conta Mercado Pago real.
         </p>
-        <div class="sub-actions" style="margin-top:.7rem">
-          <button type="button" class="btn" @click="subscribe()" :disabled="subBusy || !selectedPlan || !payerEmail.trim()">
-            <span x-text="subBusy ? 'Gerando…' : 'Assinar agora'"></span>
-          </button>
-          <span class="error" x-text="subError"></span>
-        </div>
+        <p class="error" x-text="subError"></p>
       </div>
-    </section>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" @click="$refs.plansDlg.close()">Agora não</button>
+        <button type="button" class="btn" @click="subscribe()" :disabled="subBusy || !selectedPlan || !payerEmail.trim()">
+          <span x-text="subBusy ? 'Gerando…' : 'Assinar agora'"></span>
+        </button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="retentionDlg" style="max-width:520px;width:92vw">
+      <div class="modal-header">
+        <h2>Espere! Temos uma oferta para você</h2>
+        <button type="button" class="modal-close" @click="$refs.retentionDlg.close()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0 0 .7rem;line-height:1.55">
+          Que tal ficar mais um pouco? Liberamos <strong>mais 1 mês grátis</strong> para você
+          continuar usando o Kivo e conhecer tudo com calma.
+        </p>
+        <p class="muted" style="margin:0 0 .8rem;font-size:.84rem;line-height:1.5">
+          Se aceitar, a assinatura é interrompida para não gerar cobrança durante o período
+          grátis. A licença é estendida em 30 dias a partir da validade atual.
+        </p>
+        <p class="error" x-text="retentionError"></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" @click="declineRetention()" :disabled="retentionBusy">Não, obrigado</button>
+        <button type="button" class="btn" @click="acceptRetention()" :disabled="retentionBusy">
+          <span x-text="retentionBusy ? 'Aplicando…' : 'Quero mais 1 mês grátis'"></span>
+        </button>
+      </div>
+    </dialog>
+
+    <dialog x-ref="sorryDlg" style="max-width:520px;width:92vw">
+      <div class="modal-header">
+        <h2>Sentimos muito por isso</h2>
+        <button type="button" class="modal-close" @click="$refs.sorryDlg.close()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0 0 .7rem;line-height:1.6">
+          Tudo bem, entendemos. Vamos encerrar a assinatura sem novas cobranças e você mantém
+          o acesso até o fim do período já pago.
+        </p>
+        <p style="margin:0;line-height:1.6">
+          Foi um prazer ter você com a gente. Estaremos por aqui aguardando uma nova
+          oportunidade de trabalharmos juntos novamente. 💛
+        </p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" @click="finishDecline()" :disabled="retentionBusy">Entendi</button>
+      </div>
+    </dialog>
 
     <div class="panel" x-show="urgent.length" x-cloak>
       <h2 style="color:var(--danger)">⚠ Vencimento próximo</h2>
@@ -274,9 +362,15 @@
         loading: false, payError: '', statusMsg: '', polling: false, pollTimer: null,
         subscription: null, plans: [], subCompany: null, subReady: false, subBusy: false,
         subError: '', selectedPlan: '', payerEmail: '',
+        retentionAvailable: false, retentionBusy: false, retentionMode: '', retentionError: '',
+        retentionShown: false, licenseStatus: null,
 
         async load() {
           void this.loadSubscription(true);
+          fetch('/api/license/status')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => { this.licenseStatus = d; this.maybeOfferRetention(); })
+            .catch(() => {});
           const r = await fetch('/api/billing/charges');
           if (r.ok) {
             this.charges = await r.json();
@@ -300,15 +394,18 @@
             this.subscription = body.subscription || null;
             this.plans = body.plans || [];
             this.subCompany = body.company || null;
+            this.retentionAvailable = !!(body.retention && body.retention.available);
             if (!this.selectedPlan && this.plans.length) {
               const preferido = this.plans.find((p) => p.key === this.subCompany?.plan) || this.plans[1] || this.plans[0];
               this.selectedPlan = preferido.key;
             }
             if (!this.payerEmail) {
-              this.payerEmail = this.subscription?.payerEmail || this.subCompany?.email || '';
+              const sugerido = this.subscription?.payerEmail || this.subCompany?.email || '';
+              this.payerEmail = sugerido.includes('@') ? sugerido : '';
             }
             this.subError = '';
             this.subReady = true;
+            this.maybeOfferRetention();
           } catch (e) {
             this.subError = 'Sem conexão com a nuvem para carregar a assinatura.';
             this.subReady = true;
@@ -347,6 +444,67 @@
             window.open(this.subscription.initPoint, '_blank', 'noopener');
           }
         },
+        openPlans() {
+          this.subError = '';
+          // Alguns navegadores preenchem o campo com o usuário do login ("admin") mesmo com
+          // autocomplete=off. Limpa isso antes de abrir, para não confundir o pagador.
+          if (this.payerEmail && !this.payerEmail.includes('@')) this.payerEmail = '';
+          if (this.$refs.plansDlg) this.$refs.plansDlg.showModal();
+        },
+        maybeOfferRetention() {
+          if (this.retentionShown || !this.retentionAvailable) return;
+          const s = this.licenseStatus;
+          if (s && s.plan === 'trial' && (s.status === 'tolerancia' || s.status === 'expirada')) {
+            this.retentionShown = true;
+            this.showRetention('trial');
+          }
+        },
+        showRetention(mode) {
+          this.retentionMode = mode || 'cancel';
+          this.retentionError = '';
+          if (this.$refs.retentionDlg) this.$refs.retentionDlg.showModal();
+        },
+        async acceptRetention() {
+          this.retentionBusy = true; this.retentionError = '';
+          try {
+            const r = await fetch('/api/billing/retention/accept', { method: 'POST' });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              this.retentionError = body.error || 'Não foi possível aplicar o mês grátis.';
+              return;
+            }
+            if (this.$refs.retentionDlg) this.$refs.retentionDlg.close();
+            showToast(body.message || 'Você ganhou mais 1 mês grátis.', 'success');
+            setTimeout(() => window.location.reload(), 1200);
+          } catch (e) {
+            this.retentionError = 'Falha de conexão ao aplicar o mês grátis.';
+          } finally {
+            this.retentionBusy = false;
+          }
+        },
+        declineRetention() {
+          if (this.$refs.retentionDlg) this.$refs.retentionDlg.close();
+          if (this.$refs.sorryDlg) this.$refs.sorryDlg.showModal();
+        },
+        async finishDecline() {
+          this.retentionBusy = true;
+          try {
+            await fetch('/api/billing/retention/decline', { method: 'POST' });
+          } catch (e) {
+            // O registro é best-effort; a tela de despedida não deve travar por isso.
+          } finally {
+            this.retentionBusy = false;
+            if (this.$refs.sorryDlg) this.$refs.sorryDlg.close();
+            setTimeout(() => window.location.reload(), 800);
+          }
+        },
+        notInterested() {
+          if (this.retentionAvailable) {
+            this.showRetention('exit');
+            return;
+          }
+          this.finishDecline();
+        },
         async subscribe() {
           if (!this.selectedPlan || !this.payerEmail.trim()) return;
           this.subBusy = true; this.subError = '';
@@ -362,6 +520,7 @@
               return;
             }
             await this.loadSubscription(false);
+            if (this.$refs.plansDlg) this.$refs.plansDlg.close();
             if (body.initPoint) window.open(body.initPoint, '_blank', 'noopener');
             showToast('Assinatura criada. Autorize o cartão no Mercado Pago.', 'info');
           } catch (e) {
@@ -380,6 +539,10 @@
           }
         },
         async cancelSubscription() {
+          if (this.retentionAvailable) {
+            this.showRetention('cancel');
+            return;
+          }
           if (!confirm('Cancelar a assinatura? Não haverá novas cobranças, mas o acesso continua até o fim do período já pago.')) return;
           this.subBusy = true; this.subError = '';
           try {

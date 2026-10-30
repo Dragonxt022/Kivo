@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
 import {
-  cancelCloudSubscription, createChargePayment, createCloudSubscription, fetchChargeStatus,
-  fetchCloudCharges, fetchCloudSubscription, fetchUrgentCharges,
-  type ChargeMethod,
+  acceptRetentionOffer, cancelCloudSubscription, createChargePayment, createCloudSubscription,
+  declineRetentionOffer, fetchChargeStatus, fetchCloudCharges, fetchCloudSubscription,
+  fetchUrgentCharges, type ChargeMethod,
 } from './service';
 
 const router = Router();
@@ -44,6 +44,26 @@ router.post('/subscription/cancel', requirePermission('billing.view'), async (re
     return;
   }
   audit(req, 'cancelar_assinatura', 'subscription', undefined, null, { accessUntil: r.data.accessUntil });
+  res.json(r.data);
+});
+
+router.post('/retention/accept', requirePermission('billing.view'), async (req, res) => {
+  const r = await acceptRetentionOffer();
+  if (!r.ok) {
+    res.status(502).json({ error: r.error });
+    return;
+  }
+  audit(req, 'aceitar_retencao', 'subscription', undefined, null, { validUntil: r.data.validUntil });
+  res.json(r.data);
+});
+
+router.post('/retention/decline', requirePermission('billing.view'), async (req, res) => {
+  const r = await declineRetentionOffer();
+  if (!r.ok) {
+    res.status(502).json({ error: r.error });
+    return;
+  }
+  audit(req, 'recusar_retencao', 'subscription', undefined, null, { accessUntil: r.data.accessUntil });
   res.json(r.data);
 });
 
