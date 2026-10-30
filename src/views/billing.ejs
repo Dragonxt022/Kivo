@@ -100,6 +100,17 @@
         <span class="badge" :class="subStatusClass()" x-text="subStatusLabel()"></span>
       </div>
 
+      <template x-if="!subscription && hasUpfrontPlan()">
+        <div>
+          <div class="sub-grid">
+            <div><span>Plano</span><strong x-text="subPlanLabel(subCompany.plan)"></strong></div>
+            <div><span>Modalidade</span><strong>Pagamento à vista</strong></div>
+            <div><span>Acesso até</span><strong x-text="subCompany.validUntil ? fmtDate(subCompany.validUntil) : '—'"></strong></div>
+          </div>
+          <p class="sub-note">Seu plano está ativo por pagamento à vista. Para renovar, escolha um plano abaixo.</p>
+        </div>
+      </template>
+
       <template x-if="subscription">
         <div>
           <div class="sub-grid">
@@ -182,10 +193,18 @@
           Em teste, use o e-mail da conta compradora de teste (<code>test_user_...</code>).
           Em produção, use uma conta Mercado Pago real.
         </p>
+        <p class="sub-note">
+          <strong>Pix é pagamento único de 30 dias</strong>, sem débito automático. Para cobrança
+          recorrente no cartão, use <strong>Assinar agora</strong>.
+        </p>
         <p class="error" x-text="subError"></p>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn secondary" @click="$refs.plansDlg.close()">Agora não</button>
+        <button type="button" class="btn secondary" @click="buyUpfront()" :disabled="subBusy || !selectedPlan || !payerEmail.trim()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>
+          <span x-text="subBusy ? 'Gerando Pix…' : 'Pagar à vista com Pix'"></span>
+        </button>
         <button type="button" class="btn" @click="subscribe()" :disabled="subBusy || !selectedPlan || !payerEmail.trim()">
           <span x-text="subBusy ? 'Gerando…' : 'Assinar agora'"></span>
         </button>
@@ -416,9 +435,14 @@
           const p = this.plans.find((x) => x.key === key);
           return p ? p.label : (key || '—');
         },
+        hasUpfrontPlan() {
+          const c = this.subCompany;
+          if (!c || !c.plan || c.plan === 'trial' || !c.validUntil) return false;
+          return new Date(c.validUntil).getTime() > Date.now();
+        },
         subStatusLabel() {
           const s = this.subscription;
-          if (!s) return 'Sem assinatura';
+          if (!s) return this.hasUpfrontPlan() ? 'Plano ativo (à vista)' : 'Sem assinatura';
           return ({
             pendente: 'Aguardando autorização',
             autorizada: 'Ativa',
@@ -430,7 +454,7 @@
         },
         subStatusClass() {
           const s = this.subscription;
-          if (!s) return 'off';
+          if (!s) return this.hasUpfrontPlan() ? 'ok' : 'off';
           if (s.status === 'autorizada') return 'ok';
           if (s.status === 'pendente' || s.status === 'pausada') return 'off';
           return '';
@@ -525,6 +549,31 @@
             showToast('Assinatura criada. Autorize o cartão no Mercado Pago.', 'info');
           } catch (e) {
             this.subError = 'Falha de conexão ao criar a assinatura.';
+          } finally {
+            this.subBusy = false;
+          }
+        },
+        async buyUpfront() {
+          if (!this.selectedPlan || !this.payerEmail.trim()) return;
+          this.subBusy = true; this.subError = '';
+          try {
+            const r = await fetch('/api/billing/upfront', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ planKey: this.selectedPlan, payerEmail: this.payerEmail.trim() }),
+            });
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              this.subError = body.error || 'Não foi possível gerar a cobrança à vista.';
+              return;
+            }
+            if (this.$refs.plansDlg) this.$refs.plansDlg.close();
+            if (body.charge) {
+              this.charges = [body.charge, ...this.charges.filter((c) => c.id !== body.charge.id)];
+              this.openPay(body.charge);
+            }
+          } catch (e) {
+            this.subError = 'Falha de conexão ao gerar a cobrança à vista.';
           } finally {
             this.subBusy = false;
           }

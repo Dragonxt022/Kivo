@@ -198,6 +198,24 @@ export function createCloudSubscription(planKey: string, payerEmail: string): Pr
   });
 }
 
+export interface UpfrontPurchase {
+  charge: CloudCharge | null;
+  plan: string;
+  originalAmountCents: number;
+  amountCents: number;
+  discountPct: number;
+  discountCents: number;
+}
+
+/** Compra à vista do plano: cria a cobrança e deixa o app gerar Pix/boleto/cartão. */
+export function createUpfrontPlan(planKey: string, payerEmail: string): Promise<BillingResult<UpfrontPurchase>> {
+  return cloudFetch<UpfrontPurchase>('/api/billing/upfront', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planKey, payerEmail }),
+  });
+}
+
 export interface CancelSubscriptionResult {
   ok: boolean;
   message: string;

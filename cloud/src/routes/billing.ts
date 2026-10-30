@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { getPool } from '../db';
 import { requireCompanyAuth, type AuthedRequest } from '../auth';
@@ -9,6 +10,7 @@ import {
   companyPayerData, ensurePublicToken, extendLicense, getCharge, saveGatewayResult,
   savePaymentSnapshot, settleCharge,
 } from '../charges';
+import { affiliateDiscountFor } from '../affiliates';
 import { COMMERCIAL_PLANS, commercialPlan } from '../plans';
 import {
   cancelCompanySubscription,
@@ -153,6 +155,66 @@ router.post('/subscription', requireCompanyAuth, async (req: AuthedRequest, res)
     console.error('[billing] erro ao criar assinatura pelo app', { companyUuid, plano: plan.key, msg });
     res.status(502).json({ error: msg });
   }
+});
+
+/**
+ * Compra à vista de um plano (Pix, boleto ou cartão avulso). Cria a cobrança já vinculada
+ * ao plano; quando o pagamento for aprovado, `settleCharge` estende a licença e ativa o
+ * plano/dispositivos. O app usa o fluxo de pagamento que já existe em `/charges/:id/gateway`.
+ */
+router.post('/upfront', requireCompanyAuth, async (req: AuthedRequest, res) => {
+  const companyUuid = req.companyUuid!;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const plan = commercialPlan(String(body.planKey ?? ''));
+  if (!plan) {
+    res.status(400).json({ error: 'Escolha um plano válido.' });
+    return;
+  }
+  const payerEmail = String(body.payerEmail ?? '').trim();
+  if (!payerEmail || !payerEmail.includes('@')) {
+    res.status(400).json({ error: 'Informe o e-mail do pagador (o Pix exige e-mail).' });
+    return;
+  }
+
+  const atual = await getLatestCompanySubscription(companyUuid);
+  if (subscriptionIsCurrent(atual)) {
+    res.status(409).json({ error: 'Esta empresa já tem uma assinatura ativa ou aguardando autorização. Cancele a assinatura antes de comprar à vista.' });
+    return;
+  }
+
+  const { pct, discountCents } = await affiliateDiscountFor(companyUuid, plan.priceCents);
+  const netAmountCents = Math.max(1, plan.priceCents - discountCents);
+  const publicToken = randomUUID();
+  const [ins] = await getPool().query(
+    `INSERT INTO charges
+       (company_uuid, description, instructions, amount_cents, original_amount_cents,
+        discount_pct, discount_cents, due_date, status, payer_email, extends_days,
+        plan_key, public_token)
+     VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE(), 'pendente', ?, ?, ?, ?)`,
+    [
+      companyUuid,
+      `Kivo — Plano ${plan.label} (à vista)`,
+      `Pagamento à vista referente a ${plan.extendsDays} dias de licença.`,
+      netAmountCents,
+      plan.priceCents,
+      pct,
+      discountCents,
+      payerEmail,
+      plan.extendsDays,
+      plan.key,
+      publicToken,
+    ],
+  );
+  const id = (ins as { insertId: number }).insertId;
+  const charge = await getCharge(id, companyUuid);
+  res.json({
+    charge: charge ? { ...charge, public_url: publicPayUrl(publicToken) } : null,
+    plan: plan.key,
+    originalAmountCents: plan.priceCents,
+    amountCents: netAmountCents,
+    discountPct: pct,
+    discountCents,
+  });
 });
 
 /**

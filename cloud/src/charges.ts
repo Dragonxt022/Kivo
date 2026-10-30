@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getPool } from './db';
 import { accrueCommissionForCharge } from './affiliates';
+import { commercialPlan } from './plans';
 import type { PaymentSnapshot } from './gateway';
 
 /**
@@ -28,6 +29,8 @@ export interface ChargeRow {
   public_token: string | null;
   payer_email: string | null;
   extends_days: number | null;
+  /** Plano ativado quando esta cobrança à vista for paga (NULL = cobrança comum). */
+  plan_key: string | null;
   mp_payment_id: string | null;
   mp_method: string | null;
   mp_status: string | null;
@@ -40,7 +43,7 @@ export interface ChargeRow {
 }
 
 const CHARGE_COLS = `id, company_uuid, description, instructions, amount_cents, original_amount_cents,
-  discount_cents, due_date, status, paid_at, created_at, public_token, payer_email, extends_days,
+  discount_cents, due_date, status, paid_at, created_at, public_token, payer_email, extends_days, plan_key,
   mp_payment_id, mp_method, mp_status, mp_status_detail, mp_qr_code, mp_qr_code_base64,
   mp_ticket_url, mp_init_point, mp_updated_at`;
 
@@ -145,6 +148,18 @@ export async function settleCharge(id: number): Promise<SettleResult> {
 
   const days = Number(charge.extends_days ?? 0);
   const validUntil = days > 0 ? await extendLicense(charge.company_uuid, days) : null;
+
+  // Cobrança à vista de um plano: ativa o plano e o limite de dispositivos junto com a
+  // validade. Sem isso o cliente pagaria o Ouro, mas continuaria como trial.
+  const plano = commercialPlan(charge.plan_key);
+  if (plano) {
+    await getPool().query(
+      `UPDATE companies SET plan = ?, max_devices = GREATEST(COALESCE(max_devices, 1), ?)
+        WHERE company_uuid = ?`,
+      [plano.key, plano.maxDevices, charge.company_uuid],
+    );
+  }
+
   return { settled: true, extendedDays: days, validUntil, companyUuid: charge.company_uuid };
 }
 
