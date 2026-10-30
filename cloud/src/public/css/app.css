@@ -2880,6 +2880,141 @@ dialog .modal-actions {
 .link-danger:hover {
   text-decoration: underline;
 }
+
+/* Assinaturas: tabela sem rolagem lateral e ações como botões coloridos. */
+.subs-scroll {
+  overflow-x: hidden;
+}
+.subs-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+.subs-table th,
+.subs-table td {
+  white-space: normal;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.subs-table .cell-sub {
+  font-family: inherit;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  white-space: normal;
+}
+.subs-table .cell-error {
+  color: var(--danger);
+  margin-top: 3px;
+}
+.subs-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.subs-actions form {
+  margin: 0;
+}
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
+}
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+.action-btn svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.action-copy {
+  background: color-mix(in srgb, #2563eb 11%, var(--surface));
+  color: #1d4ed8;
+  border-color: color-mix(in srgb, #2563eb 24%, transparent);
+}
+.action-copy:hover {
+  background: color-mix(in srgb, #2563eb 18%, var(--surface));
+}
+.action-sync {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: color-mix(in srgb, var(--primary) 78%, #7a3c00);
+  border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+}
+.action-sync:hover {
+  background: color-mix(in srgb, var(--primary) 20%, var(--surface));
+}
+.action-cancel {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 26%, transparent);
+}
+.action-cancel:hover {
+  background: color-mix(in srgb, var(--danger) 17%, var(--surface));
+}
+
+@media (max-width: 900px) {
+  .subs-scroll {
+    overflow: visible;
+  }
+  .subs-table colgroup,
+  .subs-table thead {
+    display: none;
+  }
+  .subs-table,
+  .subs-table tbody,
+  .subs-table tr,
+  .subs-table td {
+    display: block;
+    width: 100%;
+  }
+  .subs-table tr {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .subs-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    border: 0;
+    padding: 4px 0;
+  }
+  .subs-table td::before {
+    content: attr(data-label);
+    flex: none;
+    color: var(--muted);
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .subs-table td[data-label='Ações'] {
+    display: block;
+    margin-top: 6px;
+  }
+  .subs-table td[data-label='Ações']::before {
+    display: block;
+    margin-bottom: 6px;
+  }
+  .subs-actions {
+    justify-content: flex-start;
+  }
+}
 @media (max-width: 1100px) {
   .tutorial-grid {
     grid-template-columns: 1fr;

@@ -76,55 +76,68 @@
             <h2 class="table-title">Assinaturas cadastradas</h2>
             <div class="table-count"><%= subscriptions.length %> registro<%= subscriptions.length === 1 ? '' : 's' %></div>
           </div>
-          <div class="table-scroll">
-            <table>
+          <div class="table-scroll subs-scroll">
+            <table class="subs-table">
+              <colgroup>
+                <col style="width:27%">
+                <col style="width:21%">
+                <col style="width:15%">
+                <col style="width:15%">
+                <col style="width:22%">
+              </colgroup>
               <thead>
                 <tr>
                   <th>Empresa</th>
                   <th>Plano</th>
-                  <th class="text-right">Valor</th>
-                  <th>Frequência</th>
                   <th>Status</th>
                   <th>Próxima cobrança</th>
-                  <th>Link do cliente</th>
-                  <th></th>
+                  <th class="text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 <% subscriptions.forEach(function (s) { %>
                   <tr>
-                    <td>
+                    <td data-label="Empresa">
                       <a href="/admin/companies/<%= s.company_uuid %>" class="cell-name"><%= s.company_name || s.company_uuid %></a>
                       <div class="cell-sub"><%= s.reason %></div>
                     </td>
-                    <td><span class="badge plan"><%= s.plan_key || 'personalizada' %></span></td>
-                    <td class="text-right tabular"><%= (Number(s.amount_cents) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) %></td>
-                    <td class="cell-muted">a cada <%= s.frequency %> <%= s.frequency_type === 'days' ? 'dia(s)' : 'mês(es)' %></td>
-                    <td>
+                    <td data-label="Plano">
+                      <span class="badge plan"><%= s.plan_key || 'personalizada' %></span>
+                      <div class="cell-sub">
+                        <%= (Number(s.amount_cents) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) %>
+                        · a cada <%= s.frequency %> <%= s.frequency_type === 'days' ? 'dia(s)' : 'mês(es)' %>
+                      </div>
+                    </td>
+                    <td data-label="Status">
                       <span class="badge <%= s.status === 'autorizada' ? 'paga' : (s.status === 'pendente' ? 'pendente' : (s.status === 'erro' ? 'money-pending' : 'cancelada')) %>">
                         <%= s.status %>
                       </span>
-                      <% if (s.last_error) { %><div class="cell-sub" title="<%= s.last_error %>"><%= String(s.last_error).slice(0, 60) %></div><% } %>
+                      <% if (s.last_error) { %><div class="cell-sub cell-error" title="<%= s.last_error %>"><%= s.last_error %></div><% } %>
                     </td>
-                    <td class="cell-muted"><%= s.next_payment_date ? fmtDateTimeBr(s.next_payment_date) : '—' %></td>
-                    <td>
-                      <% if (s.public_url) { %>
-                        <button type="button" class="btn secondary small" data-copy="<%= s.public_url %>">Copiar link</button>
-                      <% } else { %>
-                        <span class="cell-muted">—</span>
-                      <% } %>
-                    </td>
-                    <td>
-                      <div class="row-actions">
+                    <td data-label="Próxima cobrança" class="cell-muted"><%= s.next_payment_date ? fmtDateTimeBr(s.next_payment_date) : '—' %></td>
+                    <td data-label="Ações">
+                      <div class="subs-actions">
+                        <% if (s.public_url) { %>
+                          <button type="button" class="action-btn action-copy" data-copy="<%= s.public_url %>">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            Copiar link
+                          </button>
+                        <% } %>
                         <% if (s.preapproval_id) { %>
                           <form method="post" action="/admin/subscriptions/<%= s.id %>/sync">
-                            <button type="submit" class="btn secondary small">Sincronizar</button>
+                            <button type="submit" class="action-btn action-sync">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                              Sincronizar
+                            </button>
                           </form>
                         <% } %>
                         <% if (s.status === 'autorizada' || s.status === 'pausada' || s.status === 'pendente') { %>
                           <form method="post" action="/admin/subscriptions/<%= s.id %>/cancel"
                                 onsubmit="return confirm('Cancelar esta assinatura no Mercado Pago? Os meses já pagos continuam valendo.');">
-                            <button type="submit" class="btn danger small">Cancelar</button>
+                            <button type="submit" class="action-btn action-cancel">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                              Cancelar
+                            </button>
                           </form>
                         <% } %>
                       </div>
@@ -132,7 +145,7 @@
                   </tr>
                 <% }) %>
                 <% if (!subscriptions.length) { %>
-                  <tr><td colspan="8"><%- include('partials/empty-state', { message: 'Nenhuma assinatura ainda. Crie a primeira e envie o link para o cliente autorizar.' }) %></td></tr>
+                  <tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhuma assinatura ainda. Crie a primeira e envie o link para o cliente autorizar.' }) %></td></tr>
                 <% } %>
               </tbody>
             </table>
