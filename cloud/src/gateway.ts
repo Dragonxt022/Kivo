@@ -41,6 +41,8 @@ export interface GatewaySettingsView {
   webhookSecretSet: boolean;
   payerEmail: string;
   environment: 'teste' | 'producao' | 'desconhecido';
+  accountEmail: string | null;
+  accountNickname: string | null;
   apiBase: string;
   notificationUrl: string;
 }
@@ -90,13 +92,18 @@ export function tokenEnvironment(token: string): 'teste' | 'producao' | 'desconh
 
 export async function loadSettingsForView(): Promise<GatewaySettingsView> {
   const s = await loadSettings();
+  // O prefixo do token não distingue teste de produção em Assinaturas (token de teste pode
+  // começar com APP_USR). O `/users/me` diz a verdade; se a consulta falhar, cai no prefixo.
+  const account = s.accessToken ? await getGatewayAccount(s) : null;
   return {
     enabled: s.enabled,
     accessTokenSet: Boolean(s.accessToken),
     accessTokenPreview: s.accessToken ? `${s.accessToken.slice(0, 8)}…${s.accessToken.slice(-4)}` : '',
     webhookSecretSet: Boolean(s.webhookSecret),
     payerEmail: s.payerEmail,
-    environment: tokenEnvironment(s.accessToken),
+    environment: account ? (account.isTest ? 'teste' : 'producao') : tokenEnvironment(s.accessToken),
+    accountEmail: account?.email ?? null,
+    accountNickname: account?.nickname ?? null,
     apiBase: MP_API_BASE,
     notificationUrl: notificationUrl(),
   };
@@ -302,6 +309,45 @@ export async function createCardPreference(
 }
 
 // ─────────────────────────── Assinaturas (preapproval) ───────────────────────────
+
+export interface GatewayAccountInfo {
+  id: string;
+  nickname: string | null;
+  email: string | null;
+  /** true quando o token pertence a um usuário de teste do Mercado Pago. */
+  isTest: boolean;
+}
+
+const accountCache = new Map<string, { info: GatewayAccountInfo; at: number }>();
+
+/**
+ * Descobre de quem é o Access Token. O prefixo sozinho não basta: aplicações de Assinaturas
+ * podem ter token de teste começando com APP_USR. O `/users/me` traz `tags: ["test_user"]`;
+ * é o que permite dizer ao admin, com precisão, se o pagador precisa ser real ou de teste.
+ */
+export async function getGatewayAccount(settings: GatewaySettings): Promise<GatewayAccountInfo | null> {
+  if (!settings.accessToken) return null;
+  const cached = accountCache.get(settings.accessToken);
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.info;
+  try {
+    const r = await mpRequest<{
+      id?: string | number;
+      nickname?: string;
+      email?: string;
+      tags?: string[];
+    }>('/users/me', { settings });
+    const info: GatewayAccountInfo = {
+      id: String(r.id ?? ''),
+      nickname: r.nickname ?? null,
+      email: r.email ?? null,
+      isTest: (r.tags ?? []).includes('test_user') || String(r.nickname ?? '').startsWith('TESTUSER'),
+    };
+    accountCache.set(settings.accessToken, { info, at: Date.now() });
+    return info;
+  } catch {
+    return null;
+  }
+}
 
 export interface SubscriptionCreationInput {
   /** id local de `company_subscriptions`; viaja no external_reference. */

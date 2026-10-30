@@ -47,6 +47,22 @@ router.post('/payments', requireAdminAuth, async (req, res) => {
   res.redirect('/admin/payments?ok=' + encodeURIComponent('Configurações de pagamento salvas.'));
 });
 
+/**
+ * Liga/desliga o pagamento online sem tocar nas credenciais. Existe porque salvar o token
+ * e a chave do webhook com a caixa desmarcada deixava o admin achando que nada tinha sido
+ * salvo — as credenciais estavam lá, mas o gateway seguia desligado.
+ */
+router.post('/payments/enable', requireAdminAuth, async (req, res) => {
+  const enabled = String((req.body ?? {}).enabled) === '1' ? '1' : '0';
+  await getPool().query(
+    `INSERT INTO app_settings (setting_key, setting_value) VALUES ('mp_enabled', ?)
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+    [enabled],
+  );
+  const msg = enabled === '1' ? 'Pagamento online ativado.' : 'Pagamento online desligado.';
+  res.redirect('/admin/payments?ok=' + encodeURIComponent(msg));
+});
+
 // ─────────────────────── Pagamento de uma cobrança ───────────────────────
 
 /** Dados da empresa que o gateway precisa (nome para o boleto, e-mail como pagador padrão). */

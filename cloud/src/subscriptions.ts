@@ -4,6 +4,7 @@ import { settleCharge } from './charges';
 import {
   createSubscription as createMpSubscription,
   getAuthorizedPayment,
+  getGatewayAccount,
   getSubscription as getMpSubscription,
   listAuthorizedPaymentIds,
   loadSettings,
@@ -112,6 +113,37 @@ export interface CreateSubscriptionInput {
  */
 export async function createCompanySubscription(input: CreateSubscriptionInput): Promise<SubscriptionRow> {
   const pool = getPool();
+  const settings = await loadSettings();
+  if (!settings.accessToken) {
+    throw new Error('Configure o Access Token do Mercado Pago em Pagamento online antes de criar a assinatura.');
+  }
+
+  const payerEmail = (input.payerEmail?.trim() || settings.payerEmail || '').trim();
+  if (!payerEmail) {
+    throw new Error('Informe o e-mail do pagador. No teste, use o e-mail de um usuário de teste; em produção, o e-mail de uma conta Mercado Pago real.');
+  }
+
+  // O Mercado Pago recusa "Both payer and collector must be real or test users" quando o
+  // token é de teste e o e-mail do pagador é real (ou o contrário). Detectamos antes de
+  // chamar a API para o admin receber uma instrução clara, e não um erro cru do gateway.
+  const conta = await getGatewayAccount(settings);
+  if (conta) {
+    const ehTeste = payerEmail.toLowerCase().endsWith('@testuser.com');
+    if (conta.isTest && !ehTeste) {
+      throw new Error(
+        `A credencial do Mercado Pago é de usuário de TESTE (${conta.nickname ?? conta.id}). ` +
+        'No campo "E-mail do pagador", use o e-mail de um usuário de teste — por exemplo ' +
+        'test_user_7923436665712574587@testuser.com (conta compradora de teste).',
+      );
+    }
+    if (!conta.isTest && ehTeste) {
+      throw new Error(
+        'A credencial do Mercado Pago é de PRODUÇÃO. No campo "E-mail do pagador", use o e-mail ' +
+        'de uma conta Mercado Pago real (o e-mail de teste @testuser.com não é aceito em produção).',
+      );
+    }
+  }
+
   const token = randomUUID();
   const [res] = await pool.query(
     `INSERT INTO company_subscriptions
@@ -125,20 +157,11 @@ export async function createCompanySubscription(input: CreateSubscriptionInput):
       Math.max(1, Math.round(input.extendsDays)),
       Math.max(1, Math.round(input.frequency)),
       input.frequencyType,
-      input.payerEmail?.trim() || null,
+      payerEmail,
       token,
     ],
   );
   const id = (res as { insertId: number }).insertId;
-
-  const settings = await loadSettings();
-  if (!settings.accessToken) {
-    await pool.query("UPDATE company_subscriptions SET status = 'erro', last_error = ? WHERE id = ?", [
-      'Configure o Access Token do Mercado Pago em Pagamento online.',
-      id,
-    ]);
-    throw new Error('Configure o Access Token do Mercado Pago em Pagamento online antes de criar a assinatura.');
-  }
 
   try {
     const mp = await createMpSubscription(
@@ -146,7 +169,7 @@ export async function createCompanySubscription(input: CreateSubscriptionInput):
         subscriptionId: id,
         reason: input.reason,
         amountCents: input.amountCents,
-        payerEmail: input.payerEmail || settings.payerEmail,
+        payerEmail,
         frequency: input.frequency,
         frequencyType: input.frequencyType,
         backUrl: publicSubscriptionUrl(token),

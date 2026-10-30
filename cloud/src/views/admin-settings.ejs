@@ -40,7 +40,7 @@
           <h1>Configurações</h1>
         </div>
 
-        <form method="post" action="/admin/settings" id="smtp-form">
+        <form method="post" action="/admin/settings" id="smtp-form" autocomplete="off" data-form-type="other">
           <div class="settings-layout">
             <nav class="settings-nav" aria-label="Seções de configuração">
               <button type="button" class="settings-nav-item" data-settings-tab="contato">Contato de suporte</button>
@@ -88,6 +88,7 @@
 
                 <label>Senha / senha de app</label>
                 <input type="password" name="smtpPassword" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
                        placeholder="<%= smtpPasswordSet ? '•••••••• (deixe em branco para manter a atual)' : 'senha de app de 16 dígitos' %>">
                 <p class="field-hint">
                   <% if (smtpPasswordSet) { %>Já existe uma senha salva. Preencha apenas se quiser trocá-la.<% } else { %>A senha fica guardada no banco e nunca é exibida de volta.<% } %>
@@ -128,7 +129,8 @@
                   Ativar busca externa de imagens
                 </label>
                 <label>API Key (Pexels)</label>
-                <input type="password" name="imageApiKey" value="" autocomplete="off"
+                <input type="password" name="imageApiKey" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
                        placeholder="<%= imageApiKeySet ? '•••••••• (deixe em branco para manter a atual)' : 'sua API Key da Pexels' %>">
                 <p class="field-hint">
                   <% if (settings.image_api_remaining) { %>Cota informada pela API: <strong><%= settings.image_api_remaining %></strong> de <%= settings.image_api_limit || '—' %> restantes.<% } else { %>A cota é consultada após a primeira busca bem-sucedida.<% } %>
@@ -176,13 +178,16 @@
                 </p>
 
                 <label>OpenAI (ChatGPT) — API Key</label>
-                <input type="password" name="aiOpenaiKey" value="" autocomplete="off"
+                <input type="password" name="aiOpenaiKey" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
                        placeholder="<%= ai.hasKey.openai ? '•••••••• (deixe em branco para manter a atual)' : 'sk-...' %>">
                 <label>DeepSeek — API Key</label>
-                <input type="password" name="aiDeepseekKey" value="" autocomplete="off"
+                <input type="password" name="aiDeepseekKey" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
                        placeholder="<%= ai.hasKey.deepseek ? '•••••••• (deixe em branco para manter a atual)' : 'sk-...' %>">
                 <label>Anthropic (Claude) — API Key</label>
-                <input type="password" name="aiAnthropicKey" value="" autocomplete="off"
+                <input type="password" name="aiAnthropicKey" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
                        placeholder="<%= ai.hasKey.anthropic ? '•••••••• (deixe em branco para manter a atual)' : 'sk-ant-...' %>">
 
                 <hr style="border:none;border-top:1px solid var(--border-light);margin:1.25rem 0">

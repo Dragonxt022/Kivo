@@ -193,8 +193,11 @@
           </div>
           <div class="field col-12">
             <label>E-mail do pagador</label>
-            <input type="email" name="payerEmail" placeholder="financeiro@cliente.com.br">
-            <p class="field-hint">Usado pelo Mercado Pago para o cliente autorizar a assinatura.</p>
+            <input type="email" name="payerEmail" autocomplete="off" placeholder="financeiro@cliente.com.br">
+            <p class="field-hint">
+              Em produção, use o e-mail de uma conta Mercado Pago real. Em teste, use o e-mail
+              de um usuário de teste — por exemplo <code>test_user_7923436665712574587@testuser.com</code>.
+            </p>
           </div>
         </div>
         <p class="hint">

@@ -57,7 +57,7 @@
   </div>
 
   <dialog id="modal-new-admin">
-    <form method="post" action="/admin/admins">
+    <form method="post" action="/admin/admins" autocomplete="off" data-form-type="other">
       <div class="modal-header">
         <h2>Novo administrador</h2>
         <button type="button" class="modal-close" onclick="document.getElementById('modal-new-admin').close()">&times;</button>
@@ -66,7 +66,8 @@
         <label>Usuário</label>
         <input type="text" name="username" required autofocus>
         <label>Senha</label>
-        <input type="password" name="password" required minlength="8">
+        <input type="password" name="password" required minlength="8" autocomplete="new-password"
+               autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
         <p class="field-hint">Pelo menos 8 caracteres.</p>
         <div class="modal-actions">
           <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-admin').close()">Cancelar</button>

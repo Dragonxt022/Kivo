@@ -51,15 +51,38 @@
             <span class="pill <%= gateway.environment === 'producao' ? 'on' : 'off' %>">
               Credencial de <%= gateway.environment === 'producao' ? 'PRODUÇÃO (dinheiro real)' : (gateway.environment === 'teste' ? 'TESTE (sandbox)' : 'origem desconhecida') %>
             </span>
+            <% if (gateway.accountEmail) { %>
+              <span class="pill off" title="Conta dona do Access Token">Conta: <%= gateway.accountEmail %></span>
+            <% } %>
           <% } %>
           <span class="pill off">API: <%= gateway.apiBase %></span>
         </div>
+
+        <% if (gateway.accessTokenSet && !gateway.enabled) { %>
+          <div class="gateway-alert">
+            <div>
+              <strong>Credenciais salvas, mas o pagamento online está desligado.</strong>
+              <p>O token e a chave do webhook já estão no servidor. Falta apenas ativar o gateway para o Kivo gerar cobranças.</p>
+            </div>
+            <form method="post" action="/admin/payments/enable">
+              <input type="hidden" name="enabled" value="1">
+              <button type="submit" class="btn">Ativar pagamento online</button>
+            </form>
+          </div>
+        <% } else if (gateway.enabled && gateway.accessTokenSet) { %>
+          <div class="gateway-alert ok">
+            <div>
+              <strong>Pagamento online ativo.</strong>
+              <p>Token salvo e webhook <%= gateway.webhookSecretSet ? 'com assinatura secreta configurada' : 'sem assinatura secreta (a origem não será validada)' %>.</p>
+            </div>
+          </div>
+        <% } %>
 
         <div class="tutorial-grid">
           <!-- ───────────── Configuração ───────────── -->
           <div class="card">
             <h2>Credenciais do Mercado Pago</h2>
-            <form method="post" action="/admin/payments">
+            <form method="post" action="/admin/payments" autocomplete="off" data-form-type="other">
               <label class="label-checkbox-sm" style="display:flex; align-items:center; gap:8px; margin-top:0">
                 <input type="checkbox" name="enabled" value="1" <%= gateway.enabled ? 'checked' : '' %>>
                 <span>Aceitar pagamento online nas cobranças</span>
@@ -67,24 +90,26 @@
               <p class="field-hint">Desligado, o painel não gera Pix/boleto e a tela de Cobranças do cliente não oferece o pagamento.</p>
 
               <label>Access Token</label>
-              <input type="password" name="accessToken" autocomplete="off"
+              <input type="password" name="accessToken" autocomplete="new-password"
+                     autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
                      placeholder="<%= gateway.accessTokenSet ? 'Deixe em branco para manter a credencial salva' : 'APP_USR-00000000-0000-0000-0000-000000000000-000000000' %>">
               <% if (gateway.accessTokenSet) { %>
-                <p class="field-hint">Já configurado: <code><%= gateway.accessTokenPreview %></code> — em branco mantém esta.</p>
+                <p class="field-hint"><strong>Salvo no servidor:</strong> <code><%= gateway.accessTokenPreview %></code> — em branco mantém esta credencial.</p>
               <% } else { %>
                 <p class="field-hint">Começa com <code>APP_USR-</code> em produção e <code>TEST-</code> no sandbox. Só o servidor do Kivo usa esta chave; ela nunca é enviada ao programa do cliente.</p>
               <% } %>
 
               <label>Assinatura secreta do webhook</label>
-              <input type="password" name="webhookSecret" autocomplete="off"
+              <input type="password" name="webhookSecret" autocomplete="new-password"
+                     autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
                      placeholder="<%= gateway.webhookSecretSet ? 'Deixe em branco para manter a assinatura salva' : 'Chave gerada pelo Mercado Pago ao salvar os webhooks' %>">
               <p class="field-hint">
-                <% if (gateway.webhookSecretSet) { %>Assinatura salva. <% } %>
+                <% if (gateway.webhookSecretSet) { %><strong>Assinatura secreta salva no servidor.</strong> <% } %>
                 Sem ela o Kivo ainda confirma o pagamento (reconsulta na API), mas não consegue provar que a notificação veio do Mercado Pago.
               </p>
 
               <label>E-mail do pagador (padrão)</label>
-              <input type="text" name="payerEmail" value="<%= gateway.payerEmail %>" placeholder="financeiro@suaempresa.com.br">
+              <input type="text" name="payerEmail" value="<%= gateway.payerEmail %>" autocomplete="off" placeholder="financeiro@suaempresa.com.br">
               <p class="field-hint">O Pix exige e-mail do pagador. Usado quando a cobrança e o cadastro da empresa não têm um.</p>
 
               <div class="form-actions-bar">
