@@ -444,7 +444,7 @@ type TrialResult =
  * já utilizou o teste (via `trial_registry`) e, se não, cria uma empresa trial e retorna
  * as credenciais. O usuário não precisa digitar nada — a ativação é automática.
  */
-export async function requestTrial(): Promise<TrialResult> {
+export async function requestTrial(contactName: string, phone: string): Promise<TrialResult> {
   const url = getCloudServerUrl();
   if (!url) return { ok: false, error: 'Servidor de licenciamento não configurado.', reason: 'not_configured' };
 
@@ -452,7 +452,11 @@ export async function requestTrial(): Promise<TrialResult> {
   try {
     res = await fetch(`${url.replace(/\/$/, '')}/api/license/request-trial`, {
       method: 'POST',
-      headers: { 'X-Kivo-Machine-Id': machineId() },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Kivo-Machine-Id': machineId(),
+      },
+      body: JSON.stringify({ contactName: contactName.trim(), phone: phone.trim() }),
       signal: AbortSignal.timeout(8000),
     });
   } catch {

@@ -57,6 +57,8 @@
               <% } else if (daysLeft !== null && daysLeft <= 7) { %>
                 <span class="badge pendente">Vence em <%= daysLeft %> dia<%= daysLeft === 1 ? '' : 's' %></span>
               <% } %>
+              <% if (company.contact_name) { %><span class="entity-uuid">Responsável: <%= company.contact_name %></span><% } %>
+              <% if (company.phone) { %><span class="entity-uuid"><%= company.phone %></span><% } %>
             </div>
           </div>
           <div class="header-actions">
@@ -474,6 +476,14 @@
                             <template x-if="ch.status === 'cancelada'">
                               <div>
                                 <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/reopen'"><button type="submit">Reabrir cobrança</button></form>
+                              </div>
+                            </template>
+                            <template x-if="ch.status !== 'paga'">
+                              <div>
+                                <form method="post" :action="'/admin/companies/<%= company.company_uuid %>/charges/' + ch.id + '/delete'"
+                                      @submit.prevent="if (confirm('Excluir esta cobrança? Não dá para desfazer.')) $el.submit()">
+                                  <button type="submit" class="danger">Excluir</button>
+                                </form>
                               </div>
                             </template>
                           </div>

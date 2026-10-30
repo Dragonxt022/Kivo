@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validateBody } from '../../shared/validateBody';
-import { activateLicenseSchema } from '../../shared/schemas';
+import { activateLicenseSchema, requestTrialSchema } from '../../shared/schemas';
 import { activateLicense, requestTrial, isActivated } from './service';
 
 /**
@@ -32,8 +32,9 @@ router.post('/api/activation/activate', validateBody(activateLicenseSchema), asy
   res.json({ ok: true });
 });
 
-router.post('/api/activation/request-trial', async (_req, res) => {
-  const result = await requestTrial();
+router.post('/api/activation/request-trial', validateBody(requestTrialSchema), async (req, res) => {
+  const { contactName, phone } = req.body as { contactName: string; phone: string };
+  const result = await requestTrial(contactName, phone);
   if (!result.ok) {
     const statusCode = result.reason === 'offline' ? 503 : 409;
     res.status(statusCode).json({ error: result.error, reason: result.reason });

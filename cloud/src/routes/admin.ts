@@ -324,7 +324,7 @@ router.post('/reset-password', async (req, res) => {
 /** Lista completa de empresas com métricas agregadas — usada pela página /admin/companies. */
 async function loadCompaniesList() {
   const [companies] = await getPool().query(
-    `SELECT c.company_uuid, c.name, c.plan, c.modules, c.valid_until,
+    `SELECT c.company_uuid, c.name, c.contact_name, c.phone, c.plan, c.modules, c.valid_until,
             (SELECT COUNT(*) FROM sync_records sr WHERE sr.company_uuid = c.company_uuid) AS sync_count,
             (SELECT MAX(server_received_at) FROM sync_records sr WHERE sr.company_uuid = c.company_uuid) AS last_activity,
             (SELECT COALESCE(SUM(amount_cents),0) FROM charges ch WHERE ch.company_uuid = c.company_uuid AND ch.status = 'pendente') AS pending_cents
@@ -345,7 +345,7 @@ router.get('/companies', requireAdminAuth, async (req, res) => {
 /** Exporta a lista de empresas em CSV (o Excel brasileiro abre com `;` e BOM). */
 router.get('/companies/export.csv', requireAdminAuth, async (_req, res) => {
   const rows = (await loadCompaniesList()) as Record<string, unknown>[];
-  const columns = ['company_uuid', 'name', 'plan', 'valid_until', 'sync_count', 'last_activity', 'pending_cents'];
+  const columns = ['company_uuid', 'name', 'contact_name', 'phone', 'plan', 'valid_until', 'sync_count', 'last_activity', 'pending_cents'];
   const cell = (v: unknown): string => {
     const s = v == null ? '' : String(v);
     return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -1402,6 +1402,28 @@ router.post('/companies/:uuid/charges/:id/reopen', requireAdminAuth, async (req,
   redirectCompanyCharges(res, uuid, 'error', 'Só é possível reabrir uma cobrança cancelada.');
 });
 
+/**
+ * Exclui uma cobrança pendente ou cancelada. Cobrança paga precisa ser estornada antes —
+ * apagar direto deixaria a licença estendida e a comissão paga sem lastro financeiro.
+ */
+router.post('/companies/:uuid/charges/:id/delete', requireAdminAuth, async (req, res) => {
+  const uuid = String(req.params.uuid);
+  const [result] = await getPool().query(
+    "DELETE FROM charges WHERE id = ? AND company_uuid = ? AND status <> 'paga'",
+    [req.params.id, uuid],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    redirectCompanyCharges(res, uuid, 'ok', 'Cobrança excluída.');
+    return;
+  }
+  redirectCompanyCharges(
+    res,
+    uuid,
+    'error',
+    'Só é possível excluir cobranças pendentes ou canceladas. Estorne uma cobrança paga antes de excluí-la.',
+  );
+});
+
 // --- Cobranças (visão global) + Afiliados (programa de indicação) ---
 
 /**
@@ -1568,6 +1590,23 @@ router.post('/charges/:id/reopen', requireAdminAuth, async (req, res) => {
     return;
   }
   redirectCharges(res, 'error', 'Só é possível reabrir uma cobrança cancelada.');
+});
+
+/** Exclusão de cobrança pendente/cancelada (a paga precisa passar pelo estorno antes). */
+router.post('/charges/:id/delete', requireAdminAuth, async (req, res) => {
+  const [result] = await getPool().query(
+    "DELETE FROM charges WHERE id = ? AND status <> 'paga'",
+    [req.params.id],
+  );
+  if ((result as { affectedRows: number }).affectedRows > 0) {
+    redirectCharges(res, 'ok', 'Cobrança excluída.');
+    return;
+  }
+  redirectCharges(
+    res,
+    'error',
+    'Só é possível excluir cobranças pendentes ou canceladas. Estorne uma cobrança paga antes de excluí-la.',
+  );
 });
 
 /** Percentual inteiro de 0 a 100, tolerante a vazio/valor inválido. */

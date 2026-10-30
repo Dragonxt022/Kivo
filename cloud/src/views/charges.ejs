@@ -129,6 +129,12 @@
                       <% } else { %>
                       <form method="post" action="/admin/charges/<%= ch.id %>/reopen"><button type="submit">Reabrir</button></form>
                       <% } %>
+                      <% if (ch.status !== 'paga') { %>
+                      <form method="post" action="/admin/charges/<%= ch.id %>/delete"
+                            onsubmit="return confirm('Excluir esta cobrança? Não dá para desfazer.');">
+                        <button type="submit" class="danger">Excluir</button>
+                      </form>
+                      <% } %>
                     </div>
                   </td>
                 </tr>

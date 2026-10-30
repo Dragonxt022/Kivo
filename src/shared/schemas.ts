@@ -126,11 +126,30 @@ export const createSaleSchema = z
     surchargeCents: z.number().int().min(0).optional().default(0),
     discountReason: z.string().max(200, 'Motivo do desconto muito longo.').optional(),
     clientRequestId: z.string().optional(),
+    // PDV direto: itens já enviados por um rascunho de cozinha (id positivo do cliente).
+    // O servidor usa o negativo como source_id e adota os tickets quando a venda fecha.
+    kitchenDraftId: z.number().int().positive().optional(),
+    skipKitchenNotify: z.boolean().optional(),
   })
   .refine((data) => data.payments?.length || data.paymentMethod, {
     message: 'Informe payments[] ou paymentMethod.',
     path: ['paymentMethod'],
   });
+
+/** Envio antecipado do PDV direto: a venda ainda não existe, então vai um rascunho. */
+export const kitchenSendSchema = z.object({
+  draftId: z.number().int().positive(),
+  items: z
+    .array(
+      z.object({
+        productId: z.number().int().positive(),
+        name: z.string().min(1).max(200),
+        qty: z.number().positive(),
+        notes: z.string().max(500).optional(),
+      }),
+    )
+    .min(1, 'Nenhum item para enviar.'),
+});
 
 // O orçamento é montado no PDV, então o item dele é exatamente o item da venda:
 // complemento (lineGroupUuid), observação e preço cotado (unitPriceCents).
@@ -656,6 +675,23 @@ export const activateLicenseSchema = z.object({
     .max(120, 'Chave de licença inválida.'),
   // Opcional: sem ele a nuvem descobre a empresa pela própria chave.
   companyUuid: z.string().trim().max(64).nullable().optional(),
+});
+
+/**
+ * Teste grátis: o time comercial precisa saber quem está usando o produto. Nome e celular
+ * são obrigatórios na primeira solicitação e ficam no cadastro da empresa trial.
+ */
+export const requestTrialSchema = z.object({
+  contactName: z
+    .string()
+    .trim()
+    .min(2, 'Informe o nome do responsável.')
+    .max(160, 'Nome muito longo.'),
+  phone: z
+    .string()
+    .trim()
+    .min(8, 'Informe um celular com DDD.')
+    .max(30, 'Telefone muito longo.'),
 });
 
 // O corpo destas duas é repassado à nuvem. Os limites existem para o Kivo não virar o

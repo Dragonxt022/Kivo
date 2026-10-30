@@ -2780,3 +2780,108 @@ dialog .modal-actions {
   border-color: color-mix(in srgb, var(--success) 32%, transparent);
   background: var(--success-soft);
 }
+
+/* ─── Grupo Comercial: respiro, tipografia e cartões de resumo ─── */
+.page-header > p {
+  flex: 1 0 100%;
+  max-width: 100%;
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.page-header {
+  row-gap: 4px;
+}
+.card > p:not(.field-hint),
+.card > .card-intro,
+.affiliate-note p {
+  line-height: 1.6;
+}
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.stat {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface-hover);
+}
+.stat .value {
+  font-size: 1.45rem;
+  letter-spacing: -0.035em;
+}
+.stat .label {
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: var(--muted);
+}
+.affiliate-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--border-light));
+}
+.affiliate-note svg {
+  flex: none;
+  color: var(--primary);
+  margin-top: 2px;
+}
+.affiliate-note p {
+  margin: 4px 0 0 !important;
+  font-size: 0.84rem !important;
+}
+.affiliate-note strong {
+  font-size: 0.92rem;
+}
+.filtros {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tutorial-grid {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 24px;
+}
+.pay-status {
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.pay-status .pill {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.charge-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.charge-actions form {
+  margin: 0;
+}
+.link-danger {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.link-danger:hover {
+  text-decoration: underline;
+}
+@media (max-width: 1100px) {
+  .tutorial-grid {
+    grid-template-columns: 1fr;
+  }
+}

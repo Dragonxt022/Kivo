@@ -45,6 +45,15 @@
     .activation-card .trial-features { text-align: left; margin: 1rem 0; font-size: .85rem; color: var(--text-muted); }
     .activation-card .trial-features li { padding: .25rem 0; display: flex; align-items: center; gap: .4rem; }
     .activation-card .trial-features svg { flex-shrink: 0; color: var(--primary); }
+    .activation-card .trial-contact { text-align: left; margin-bottom: .4rem; }
+    .activation-card .trial-contact input[type="tel"] {
+      width: 100%; padding: .6rem .75rem; border-radius: 10px; border: 1.5px solid var(--border-light);
+      background: var(--surface-hover); color: var(--text); font-size: .95rem; margin-bottom: .35rem;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .activation-card .trial-contact-hint {
+      font-size: .72rem; line-height: 1.45; color: var(--text-muted); margin: 0 0 .9rem;
+    }
     .activation-card .success-check { color: var(--primary); margin-bottom: .5rem; }
   </style>
 </head>
@@ -56,6 +65,17 @@
     <template x-if="mode === 'choice'">
       <div>
         <p class="subtitle">Escolha como deseja começar:</p>
+
+        <div class="trial-contact">
+          <label for="trial-name">Seu nome</label>
+          <input id="trial-name" type="text" x-model="contactName" maxlength="160"
+                 autocomplete="name" placeholder="Nome de quem vai usar o Kivo" />
+          <label for="trial-phone">Celular / WhatsApp</label>
+          <input id="trial-phone" type="tel" x-model="phone" maxlength="30"
+                 autocomplete="tel" placeholder="(11) 99999-9999" />
+          <p class="trial-contact-hint">Usamos para identificar seu teste e falar com você durante os 15 dias.</p>
+        </div>
+
         <button class="btn btn-primary" :disabled="loading" @click="startTrial">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           <span x-text="loading ? 'Solicitando…' : 'Testar Grátis por 15 Dias'"></span>
@@ -132,11 +152,23 @@
       return {
         theme: document.documentElement.getAttribute('data-theme') || 'light',
         mode: 'choice',
-        companyUuid: '', licenseKey: '', showUuid: false, loading: false, error: '',
+        companyUuid: '', licenseKey: '', contactName: '', phone: '', showUuid: false, loading: false, error: '',
         async startTrial() {
+          if (!this.contactName.trim()) {
+            this.error = 'Informe seu nome para iniciar o teste.';
+            return;
+          }
+          if (this.phone.replace(/\D/g, '').length < 10) {
+            this.error = 'Informe um celular válido com DDD.';
+            return;
+          }
           this.loading = true; this.error = '';
           try {
-            const r = await fetch('/api/activation/request-trial', { method: 'POST' });
+            const r = await fetch('/api/activation/request-trial', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contactName: this.contactName.trim(), phone: this.phone.trim() }),
+            });
             if (r.ok) { this.mode = 'success'; setTimeout(() => { window.location.href = '/'; }, 1500); return; }
             const data = await r.json();
             this.error = data.error || 'Falha ao solicitar teste.';

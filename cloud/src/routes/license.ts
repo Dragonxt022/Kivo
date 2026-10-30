@@ -68,6 +68,21 @@ router.post('/request-trial', async (req, res) => {
     return;
   }
 
+  // Identificação mínima de quem está testando. Sem isso o painel só via o machine id e
+  // não havia como o time comercial saber com quem falar durante os 15 dias.
+  const contactName = String(req.body?.contactName ?? '').trim();
+  const phoneRaw = String(req.body?.phone ?? '').trim();
+  const phoneDigits = phoneRaw.replace(/\D/g, '');
+  if (contactName.length < 2 || contactName.length > 160) {
+    res.status(400).json({ error: 'Informe o nome do responsável que vai usar o Kivo.' });
+    return;
+  }
+  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+    res.status(400).json({ error: 'Informe um celular válido com DDD.' });
+    return;
+  }
+  const phone = phoneRaw.slice(0, 30);
+
   const pool = getPool();
 
   // Verifica se esta máquina já usou o teste
@@ -91,9 +106,18 @@ router.post('/request-trial', async (req, res) => {
     await conn.beginTransaction();
 
     await conn.query(
-      `INSERT INTO companies (company_uuid, license_key_hash, name, plan, valid_until, max_devices, recovery_secret)
-       VALUES (?, ?, ?, 'trial', ?, 1, ?)`,
-      [companyUuid, hashLicenseKey(licenseKey), `Avaliação — ${machineId.slice(0, 8)}`, validUntil, recoverySecret],
+      `INSERT INTO companies
+         (company_uuid, license_key_hash, name, contact_name, phone, plan, valid_until, max_devices, recovery_secret)
+       VALUES (?, ?, ?, ?, ?, 'trial', ?, 1, ?)`,
+      [
+        companyUuid,
+        hashLicenseKey(licenseKey),
+        contactName,
+        contactName,
+        phone,
+        validUntil,
+        recoverySecret,
+      ],
     );
 
     await conn.query(

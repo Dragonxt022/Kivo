@@ -71,7 +71,14 @@
                   <tr>
                     <td>
                       <a :href="'/admin/companies/' + c.company_uuid" class="cell-name" x-text="c.name || c.company_uuid"></a>
-                      <div class="cell-sub" x-text="c.company_uuid.slice(0, 8)"></div>
+                      <div class="cell-sub" x-show="c.contact_name || c.phone"
+                           x-text="[c.contact_name, c.phone].filter(Boolean).join(' · ')"></div>
+                      <div class="cell-sub" x-show="!c.contact_name && !c.phone" x-text="c.company_uuid.slice(0, 8)"></div>
+                      <form method="post" :action="'/admin/companies/' + c.company_uuid + '/delete'"
+                            style="margin-top:4px"
+                            @submit.prevent="if (confirm('Excluir ' + (c.plan === 'trial' ? 'o teste' : 'a licença') + ' de ' + (c.name || c.company_uuid) + '? Todos os dados dessa empresa serão apagados. Não dá para desfazer.')) $el.submit()">
+                        <button type="submit" class="link-danger" x-text="c.plan === 'trial' ? 'Excluir teste' : 'Excluir empresa'"></button>
+                      </form>
                     </td>
                     <td>
                       <span class="plan-seal" :class="'plan-seal--' + sealKey(c.plan)">
