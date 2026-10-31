@@ -1,8 +1,9 @@
 import type { Request, Response } from 'express';
-import { getService } from '../../../core/services/registry';
+import { getService, hasService } from '../../../core/services/registry';
 import { audit } from '../../../core/audit/service';
 import { todayLocalIso } from '../../../shared/datetime';
 import type { FinancePayMethodsService } from '../../finance/setup';
+import type { FoodserviceKitchenService } from '../../foodservice/setup';
 import { createSale, cancelSale, returnSale, soldLines, returnedQtyByProduct } from '../sales';
 import { createQuote, convertQuote, cancelQuote, updateQuote } from '../quotes';
 import { cashRegisterReport, revenueTrend, type RevenueTrendPeriod } from '../reports';
@@ -63,10 +64,46 @@ export const storeController = {
     res.json(getService<FinancePayMethodsService>('finance.paymethods').listActive());
   },
 
+  /** PDV direto: manda a produção antes de a venda existir (source_id negativo no KDS). */
+  sendKitchenAction(req: Request, res: Response) {
+    const draftId = Number(req.body.draftId);
+    if (!hasService('foodservice.kitchen')) {
+      res.json({ ok: true, sent: 0, estimatedMinutes: null });
+      return;
+    }
+    const sourceId = -Math.abs(Math.trunc(draftId));
+    try {
+      const result = getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
+        sourceType: 'sale',
+        sourceId,
+        tableLabel: 'PDV',
+        items: req.body.items,
+      });
+      audit(req, 'enviar_cozinha_pdv', 'kitchen_ticket', sourceId, null, {
+        itensNoPedido: req.body.items.length, itensEnviados: result.items,
+      });
+      res.json({ ok: true, sent: result.items, estimatedMinutes: result.maxEstimatedMinutes });
+    } catch {
+      res.status(500).json({ ok: false, error: 'Não foi possível enviar para a cozinha.' });
+    }
+  },
+
   createSaleAction(req: Request, res: Response) {
     // Quem pode dar desconto também pode ajustar o preço de uma linha (desconto por item).
-    const result = createSale(req, req.body, { allowPriceOverride: canOverridePrice(req) });
+    const kitchenDraftId = Number(req.body.kitchenDraftId);
+    const hasDraft = Number.isInteger(kitchenDraftId) && kitchenDraftId > 0;
+    const result = createSale(req, req.body, {
+      allowPriceOverride: canOverridePrice(req),
+      // Só pula o aviso automático quando o PDV enviou os itens por um rascunho — assim
+      // a cozinha não recebe o mesmo pedido duas vezes.
+      skipKitchenNotify: req.body.skipKitchenNotify === true && hasDraft,
+    });
     if (!result.ok) { res.status(400).json(result); return; }
+    if (hasDraft && hasService('foodservice.kitchen')) {
+      try {
+        getService<FoodserviceKitchenService>('foodservice.kitchen').adoptSaleDraft(kitchenDraftId, result.id);
+      } catch { /* a venda já está fechada; a cozinha não pode desfazê-la */ }
+    }
     res.status(201).json(result);
   },
 

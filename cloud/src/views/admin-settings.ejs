@@ -142,6 +142,34 @@
                   <button type="button" class="btn secondary" id="image-api-test-btn" onclick="testImageApi()">Testar busca</button>
                 </div>
                 <p id="image-api-test-result" class="field-hint" style="margin-top:10px"></p>
+
+                <hr style="border:none;border-top:1px solid var(--border-light);margin:1.25rem 0">
+                <h3 style="margin:0 0 .35rem">Google Imagens (Creative Commons)</h3>
+                <p class="field-hint" style="margin-top:0">
+                  Opcional. Usa a API oficial do Google Programmable Search com o filtro
+                  <strong>Licenças Creative Commons</strong> e uso comercial — o mesmo filtro
+                  da tela do Google Imagens, sem scraping. Precisa de uma API Key e do ID do
+                  mecanismo (<strong>cx</strong>) com “Pesquisar toda a web” e “Pesquisa de
+                  imagens” ativados.
+                </p>
+                <p class="field-hint" style="margin-top:0">
+                  <strong>Observação:</strong> o Google encerrou novas adesões ao Custom Search
+                  JSON API. Se a sua conta ainda tiver acesso, funciona aqui; se não, o modal
+                  de demandas oferece o link “Abrir no Google Imagens (CC)” para conferência
+                  manual, e o Pexels continua como alternativa.
+                </p>
+                <label>API Key (Google Custom Search)</label>
+                <input type="password" name="imageGoogleApiKey" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
+                       placeholder="<%= imageGoogleKeySet ? '•••••••• (deixe em branco para manter a atual)' : 'sua API Key do Google Custom Search' %>">
+                <label>ID do mecanismo (cx)</label>
+                <input type="text" name="imageGoogleCx" value="<%= settings.image_google_cx || '' %>"
+                       placeholder="ex.: 012345678901234567890:abcdefghijk"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
+                <div class="modal-actions" style="justify-content: flex-start;">
+                  <button type="button" class="btn secondary" id="google-image-test-btn" onclick="testGoogleImages()">Testar Google</button>
+                </div>
+                <p id="google-image-test-result" class="field-hint" style="margin-top:10px"></p>
               </div>
 
               <div class="card settings-panel" data-settings-panel="ia" hidden>
@@ -324,6 +352,36 @@
       out.textContent = 'Consultando a API…';
       try {
         var r = await fetch('/admin/settings/image-api/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString(),
+          credentials: 'same-origin',
+        });
+        var j = await r.json();
+        out.textContent = j.message;
+        out.className = j.ok ? 'success-banner' : 'error-banner';
+      } catch (e) {
+        out.textContent = 'Erro inesperado: ' + e;
+        out.className = 'error-banner';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function testGoogleImages() {
+      var out = document.getElementById('google-image-test-result');
+      var btn = document.getElementById('google-image-test-btn');
+      var keyInput = document.querySelector('input[name="imageGoogleApiKey"]');
+      var cxInput = document.querySelector('input[name="imageGoogleCx"]');
+      var data = new URLSearchParams();
+      data.set('imageApiQuery', document.getElementById('image-api-query').value.trim());
+      data.set('imageGoogleApiKey', keyInput ? keyInput.value : '');
+      data.set('imageGoogleCx', cxInput ? cxInput.value : '');
+      btn.disabled = true;
+      out.className = 'field-hint';
+      out.textContent = 'Consultando o Google…';
+      try {
+        var r = await fetch('/admin/settings/image-api/google/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: data.toString(),

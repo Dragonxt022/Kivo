@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { audit } from '../../core/audit/service';
+import { broadcastReadyAlert } from '../../core/ready-alerts/events';
+import { findReadyAlert } from '../../core/ready-alerts/service';
 import { kitchenRoutingRepository, kitchenTicketRepository, kitchenTicketItemRepository } from './repositories/KitchenRepository';
 
 /**
@@ -16,6 +18,16 @@ export type KitchenTicketStatus = (typeof KITCHEN_TICKET_STATUSES)[number];
 /** Status avançável pela UI/API da cozinha — 'cancelado' não é setado por ela. */
 export const KITCHEN_ACTIONABLE_STATUSES = ['pendente', 'preparo', 'pronto', 'entregue'] as const;
 export type KitchenActionableStatus = (typeof KITCHEN_ACTIONABLE_STATUSES)[number];
+
+/**
+ * Anuncia no canal global que o ticket está pronto. Só emite se o status ATUAL no banco
+ * já for 'pronto' — assim um recalc que não mudou nada não duplica o alerta.
+ */
+function announceReady(ticketId: number, req: Request): void {
+  const alert = findReadyAlert(ticketId);
+  if (!alert) return;
+  broadcastReadyAlert({ ...alert, actorUserId: req.user?.id ?? null });
+}
 
 export interface NotifyOrderItem {
   productId: number;
@@ -126,6 +138,8 @@ export function advanceTicketStatus(req: Request, ticketId: number, newStatus: K
   // como "em preparo".
   kitchenTicketItemRepository.advanceOpenItems(ticketId, newStatus);
   audit(req, 'avancar_ticket_cozinha', 'kitchen_ticket', ticketId, { status: ticket.status }, { status: newStatus });
+  // O garçom/PDV precisa saber na hora — inclusive se estiver em outra página.
+  if (newStatus === 'pronto' && ticket.status !== 'pronto') announceReady(ticketId, req);
   return { ok: true };
 }
 
@@ -145,6 +159,22 @@ export function cancelTicketsForSource(req: Request, sourceType: 'sale' | 'coman
     kitchenTicketRepository.updateStatus(t.id, 'cancelado');
     audit(req, 'cancelar_ticket_cozinha', 'kitchen_ticket', t.id, { status: t.status }, { motivo: `${sourceType === 'sale' ? 'venda' : 'comanda'} #${sourceId} cancelada` });
   }
+}
+
+/**
+ * O PDV pode mandar itens para a cozinha ANTES de a venda existir, usando um id
+ * negativo de rascunho. Quando a venda é concluída, os tickets desse rascunho passam
+ * a apontar para o id real — é o que faz o cancelamento da venda cancelar a produção.
+ */
+export function adoptSaleDraft(draftId: number, saleId: number): number {
+  const from = -Math.abs(Math.trunc(draftId));
+  if (!Number.isInteger(from) || from >= 0 || !Number.isInteger(saleId) || saleId <= 0) return 0;
+  const result = kitchenTicketRepository.rawRun(
+    `UPDATE kitchen_tickets SET source_id = ?, updated_at = datetime('now')
+      WHERE source_type = 'sale' AND source_id = ? AND deleted_at IS NULL`,
+    saleId, from,
+  );
+  return Number(result.changes ?? 0);
 }
 
 /**
@@ -203,5 +233,7 @@ function recalcTicketStatus(req: Request, ticketId: number): void {
   if (ticket.status !== ticketStatus) {
     kitchenTicketRepository.updateStatus(ticketId, ticketStatus);
     audit(req, 'reavaliar_ticket_cozinha', 'kitchen_ticket', ticketId, { status: ticket.status }, { status: ticketStatus });
+    // Avançar item por item também pode fechar o ticket como pronto.
+    if (ticketStatus === 'pronto' && ticket.status !== 'pronto') announceReady(ticketId, req);
   }
 }

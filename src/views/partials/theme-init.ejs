@@ -1,3 +1,15 @@
+<%# Instalável na tela inicial: o manifest deixa o Kivo abrir em tela cheia, sem a
+    barra do navegador. Os metadados da Apple cobrem o iPhone/iPad, que não lê o
+    manifest para o modo standalone. O service worker é registrado no fim deste
+    partial, e só em contexto seguro (HTTPS/localhost) — no acesso por http:// da
+    rede local ele simplesmente não é registrado, sem quebrar nada. %>
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Kivo" />
+<meta name="theme-color" content="#ff8000" />
 <script nonce="<%= cspNonce %>">
 (function () {
   try {
@@ -78,6 +90,38 @@
     } else {
       document.documentElement.setAttribute('data-color-theme', colorTheme);
     }
+
+    // A cor da barra de status do celular acompanha a cor de destaque da empresa.
+    var presets = { blue: '#2563eb', green: '#16a34a', orange: '#ff8000', pink: '#ec4899', black: '#18181b' };
+    var themeHex = colorTheme === 'custom' ? customHex : (presets[colorTheme] || '#ff8000');
+    var metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', themeHex);
+
+    // Marca o modo "aplicativo instalado" para o CSS/JS esconder dicas de instalação.
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      document.documentElement.classList.add('kivo-standalone');
+    }
   } catch (e) {}
 })();
+</script>
+<script nonce="<%= cspNonce %>">
+// O prompt nativo de instalação do Chrome só pode ser chamado no mesmo gesto em que
+// foi capturado; guardamos o evento e o diálogo "Kivo no celular" usa depois.
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  window.__kivoInstallPrompt = e;
+  window.dispatchEvent(new Event('kivo-install-available'));
+});
+window.addEventListener('appinstalled', function () {
+  window.__kivoInstallPrompt = null;
+  window.dispatchEvent(new Event('kivo-app-installed'));
+});
+
+// PWA: apenas em contexto seguro. Em http:// na rede local o Chrome/Android não
+// registra service worker — e é exatamente por isso que o diálogo oferece "tela cheia".
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+  });
+}
 </script>

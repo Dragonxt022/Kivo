@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { requirePermission } from '../../core/permissions/middleware';
 import { validateBody } from '../../shared/validateBody';
-import { createSaleSchema, createQuoteSchema, updateQuoteSchema, convertQuoteSchema } from '../../shared/schemas';
+import { createSaleSchema, createQuoteSchema, updateQuoteSchema, convertQuoteSchema, kitchenSendSchema } from '../../shared/schemas';
 import { storeController } from './controllers/StoreController';
 
 const router = Router();
 
 router.get('/payment-methods', requirePermission('store.sales.create'), storeController.listPaymentMethods);
+router.post('/kitchen/send', requirePermission('store.sales.create'), validateBody(kitchenSendSchema), storeController.sendKitchenAction);
 router.post('/sales', requirePermission('store.sales.create'), validateBody(createSaleSchema), storeController.createSaleAction);
 router.get('/sales', requirePermission('store.sales.view'), storeController.listSales);
 // export.csv e sellers antes de /sales/:id, senão ":id" capturaria os nomes.

@@ -1,11 +1,13 @@
 import { registerService } from '../../core/services/registry';
-import { cancelTicketsForSource, notifyOrder, readyTicketCountByComanda, syncItemNotes, voidComandaItem } from './kitchen';
+import { adoptSaleDraft, cancelTicketsForSource, notifyOrder, readyTicketCountByComanda, syncItemNotes, voidComandaItem } from './kitchen';
 import { kitchenRoutingRepository, kitchenTicketItemRepository } from './repositories/KitchenRepository';
 
 export interface FoodserviceKitchenService {
   notifyOrder: typeof notifyOrder;
   /** Venda/comanda foi cancelada: tickets em aberto viram 'cancelado' no KDS. */
   cancelTicketsForSource: typeof cancelTicketsForSource;
+  /** Tickets enviados antes de a venda existir passam a apontar para a venda final. */
+  adoptSaleDraft: typeof adoptSaleDraft;
   /** Item da comanda foi anulado: remove o item do ticket se ainda não foi pra produção. */
   voidComandaItem: typeof voidComandaItem;
   /** IDs de itens de comanda que JÁ têm item de cozinha ativo (controle do "Enviar p/ cozinha"). */
@@ -22,7 +24,7 @@ export interface FoodserviceKitchenService {
 
 export default function setup(): void {
   registerService('foodservice.kitchen', {
-    notifyOrder, cancelTicketsForSource, voidComandaItem, syncItemNotes, readyTicketCountByComanda,
+    notifyOrder, cancelTicketsForSource, adoptSaleDraft, voidComandaItem, syncItemNotes, readyTicketCountByComanda,
     findSentComandaItemIds: (ids) => kitchenTicketItemRepository.findSentComandaItemIds(ids),
     findRoutedProductIds: (ids) => kitchenRoutingRepository.findRoutedProductIds(ids),
     findStatusByComandaItemIds: (ids) => kitchenTicketItemRepository

@@ -113,9 +113,9 @@ function resolveSaleItems(
   const fifo = fifoCostEnabled();
   for (const item of input.items) {
     const p = productRepository.rawOne(
-      'SELECT id, name, price_cents, cost_cents, product_type, parent_product_id, active FROM products WHERE id = ? AND deleted_at IS NULL',
+      'SELECT id, name, unit, price_cents, cost_cents, product_type, parent_product_id, active FROM products WHERE id = ? AND deleted_at IS NULL',
       item.productId,
-    ) as { id: number; name: string; price_cents: number; cost_cents: number; product_type: string; parent_product_id: number | null; active: number } | undefined;
+    ) as { id: number; name: string; unit: string | null; price_cents: number; cost_cents: number; product_type: string; parent_product_id: number | null; active: number } | undefined;
     if (!p || !p.active) return { error: `Produto ${item.productId} não encontrado ou inativo.` };
     // Variante mestre (tipo 'variante' sem pai) é linha de estrutura, não mercadoria: ela
     // agrupa as filhas e não tem grade, preço nem estoque próprios que façam sentido numa
@@ -126,6 +126,12 @@ function resolveSaleItems(
       return { error: `"${p.name}" é um produto com variações — escolha a variação (tamanho, cor etc.) que será vendida.` };
     }
     if (!(item.qty > 0)) return { error: `Quantidade inválida para "${p.name}".` };
+    // Peso vendido por kg/g/L/ml tem a mesma precisão do visor do PDV (3 casas).
+    // Sem isso, "0,2345 kg" aparecia como "0,235 kg" mas o total usava 0,2345 —
+    // diferença de centavos que o cliente percebia na balança.
+    if (['kg', 'g', 'L', 'ml'].includes(String(p.unit ?? '').trim())) {
+      item.qty = Math.round(item.qty * 1000) / 1000;
+    }
     const baseProductId = item.lineGroupUuid ? lineBase.get(item.lineGroupUuid) : undefined;
     const complementCents =
       baseProductId != null && baseProductId !== p.id

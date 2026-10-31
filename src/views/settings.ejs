@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
   <title>Kivo — Configurações</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
@@ -1060,15 +1060,20 @@
     <!-- ═══════ ABA: AVANÇADO ═══════ -->
     <% if (user.permissions.has('settings.edit')) { %>
     <%# ═══════ ABA: ATUALIZAÇÃO ═══════
-        Cada etapa é um clique do lojista (verificar → baixar → instalar) em vez de o app
-        baixar sozinho: numa loja, ~100 MB no meio do movimento disputam a mesma internet
-        do TEF e da nuvem, e o reinício que vem depois cairia no pior momento possível.
+        Atualização obrigatória: o Kivo verifica de hora em hora, baixa sozinho e mostra o
+        aviso no canto inferior direito ("Atualizar agora" / "Adiar 15 min"). Os controles
+        abaixo continuam servindo para conferir o estado e forçar uma verificação manual.
         O estado real vem de /api/updates/status — ver core/updater. %>
     <div x-show="tab === 'atualizacao'" x-cloak>
       <section class="panel">
         <h2>Atualização do Kivo</h2>
         <p class="hint mt-0">
           Versão instalada nesta máquina: <strong x-text="atualizacao.versaoAtual"></strong>
+        </p>
+        <p class="hint">
+          As atualizações são obrigatórias: o Kivo verifica a cada hora, baixa em segundo
+          plano e pede para instalar no canto da tela. Elas incluem correções e melhorias
+          de segurança.
         </p>
 
         <div class="hint" x-show="atualizacao.versaoExigida" x-cloak
@@ -1614,7 +1619,7 @@
         setTab(v) {
           this.tab = v;
           // O estado do updater vive na memória do processo principal e muda sozinho
-          // (checagem de 6h, download em andamento): reler ao abrir a aba evita mostrar
+          // (checagem de 1h, download em andamento): reler ao abrir a aba evita mostrar
           // uma foto velha de quando a página carregou.
           if (v === 'atualizacao') this.lerAtualizacao();
           if (v === 'ia') { this.loadIaStatus(); this.loadIaTools(); }

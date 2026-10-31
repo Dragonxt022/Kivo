@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
   <title>Kivo — Cozinha</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
@@ -36,25 +36,37 @@
       </div>
     </div>
 
+    <p class="kds-touch-hint" x-show="hasVisibleTickets()" x-cloak>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+      Toque em <strong>Iniciar</strong>/<strong>Pronto</strong> ou deslize o cartão para a direita para avançar o pedido.
+    </p>
+
     <%# Kanban: uma coluna por etapa; o ticket anda de coluna quando os itens avançam.
         Cancelados não aparecem — pedido que deixou de existir não ocupa tela. %>
-    <div class="kds-board" :class="{ 'kds-4col': showEntregues }" x-show="tickets.length">
+    <div class="kds-board" :class="{ 'kds-4col': showEntregues }" x-show="hasVisibleTickets()">
       <template x-for="col in visibleColumns()" :key="col.status">
         <section class="kds-col" :class="'kds-col-' + col.status">
           <header class="kds-col-head">
-            <span x-text="col.label"></span>
+            <span class="kds-col-title"><span class="kds-dot"></span><span x-text="col.label"></span></span>
             <span class="kds-count" x-text="byStatus(col.status).length"></span>
           </header>
           <div class="kds-col-body">
             <template x-for="ticket in byStatus(col.status)" :key="ticket.id">
-              <div class="kds-card" :class="'kds-' + ticket.status">
+              <div class="kds-card" :class="'kds-' + ticket.status + (swipeId === ticket.id ? ' kds-swiping' : '')"
+                   :style="swipeStyle(ticket)"
+                   @pointerdown="swipeStart($event, ticket)"
+                   @pointermove="swipeMove($event, ticket)"
+                   @pointerup="swipeEnd($event, ticket)"
+                   @pointercancel="swipeCancel()">
                 <div class="kds-card-header">
                   <span class="kds-source">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path x-show="ticket.source_type === 'comanda'" d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
                       <g x-show="ticket.source_type !== 'comanda'"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></g>
                     </svg>
-                    <span x-text="ticket.source_type === 'comanda' ? (ticket.table_label || ('Comanda #' + ticket.source_id)) : 'PDV #' + ticket.source_id"></span>
+                    <span x-text="ticket.source_type === 'comanda'
+                      ? (ticket.table_label || ('Comanda #' + ticket.source_id))
+                      : (ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id)"></span>
                   </span>
                   <span class="kds-time" :class="{ 'kds-late': isLate(ticket) }" x-text="ticketAge(ticket)"></span>
                 </div>
@@ -69,8 +81,11 @@
                         <div class="kds-item-notes" x-show="item.notes" x-text="'⚠ Obs.: ' + item.notes"></div>
                         <span class="badge badge-info" x-show="item.station" x-text="item.station"></span>
                       </div>
-                      <button type="button" class="btn small" :disabled="item.status === 'entregue'" @click="advanceItem(ticket.id, item.id, item.status)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <button type="button" class="btn small kds-item-action"
+                              :disabled="item.status === 'entregue'"
+                              :aria-label="nextStatus(item.status) + ' — ' + item.product_name"
+                              @click="advanceItem(ticket.id, item.id, item.status)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <polygon x-show="item.status === 'pendente'" points="6 3 20 12 6 21 6 3"/>
                           <path x-show="item.status !== 'pendente'" d="M20 6 9 17l-5-5"/>
                         </svg>
@@ -82,8 +97,9 @@
                 <%# Avanço do pedido inteiro (propaga pros itens no servidor) — atalho
                     pra tirar o card da coluna sem tocar item por item. %>
                 <div class="kds-card-footer" x-show="nextTicketStatus(ticket.status)">
-                  <button type="button" class="btn small secondary" @click="advanceTicket(ticket)">
-                    <span x-text="'Marcar pedido: ' + nextTicketStatus(ticket.status)"></span>
+                  <button type="button" class="btn small secondary kds-advance-ticket" @click="advanceTicket(ticket)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                    <span x-text="nextTicketAction(ticket.status)"></span>
                   </button>
                 </div>
               </div>
@@ -94,7 +110,7 @@
       </template>
     </div>
 
-    <div x-show="!tickets.length" x-cloak>
+    <div x-show="!hasVisibleTickets()" x-cloak>
       <%- include('partials/empty-state', { message: 'Nenhum pedido nesta etapa.' }) %>
       <%# Painel sempre vazio é quase sempre isto: nenhum produto foi marcado como "vai
           para a cozinha", então lançar item na comanda nunca gera ticket (a checagem
@@ -141,6 +157,11 @@
     .kds-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
     .kds-head h1 { margin-bottom: 0; }
     .kds-dica { max-width: 62ch; margin: .75rem auto 0; text-align: center; }
+    .kds-touch-hint {
+      display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
+      margin: .15rem 0 1rem; color: var(--text-muted); font-size: .78rem;
+    }
+    .kds-touch-hint svg { flex-shrink: 0; color: var(--primary); }
 
     /* ─── Kanban: colunas lado a lado; no celular viram pilha (uma abaixo da outra) ─── */
     .kds-board { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 1rem; align-items: start; }
@@ -148,31 +169,56 @@
     @media (max-width: 1100px) {
       .kds-board, .kds-board.kds-4col { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
     }
-    .kds-col { min-width: 0; }
+    .kds-col {
+      min-width: 0; min-height: 180px; padding: .75rem;
+      border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
+    }
+    .kds-col-pendente { background: color-mix(in srgb, var(--warning-bg) 38%, transparent); }
+    .kds-col-preparo { background: color-mix(in srgb, var(--kds-preparo) 6%, transparent); }
+    .kds-col-pronto { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+    .kds-col-entregue { background: color-mix(in srgb, var(--surface-hover) 55%, transparent); }
     .kds-col-head {
       display: flex; justify-content: space-between; align-items: center;
-      font-weight: 700; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em;
-      color: var(--text-muted); padding: .45rem .25rem; margin-bottom: .75rem;
-      border-bottom: 2.5px solid var(--border-light);
+      font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-secondary); padding: .2rem .3rem .65rem; margin-bottom: .6rem;
+      border-bottom: 2px solid var(--border-light);
     }
+    .kds-col-title { display: flex; align-items: center; gap: .45rem; }
+    .kds-dot {
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+      background: var(--border); color: var(--border);
+      box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
+    }
+    .kds-col-pendente .kds-dot { background: var(--warning-text); color: var(--warning-text); }
+    .kds-col-preparo .kds-dot { background: var(--kds-preparo); color: var(--kds-preparo); }
+    .kds-col-pronto .kds-dot { background: var(--primary); color: var(--primary); }
+    .kds-col-entregue .kds-dot { background: var(--text-muted); color: var(--text-muted); }
     .kds-col-pendente .kds-col-head { border-bottom-color: var(--warning-text); }
     .kds-col-preparo .kds-col-head { border-bottom-color: var(--kds-preparo); }
     .kds-col-pronto .kds-col-head { border-bottom-color: var(--primary); }
     .kds-col-entregue .kds-col-head { border-bottom-color: var(--text-muted); opacity: .75; }
     .kds-count {
-      background: var(--surface-hover); border: 1px solid var(--border-light); border-radius: 999px;
-      min-width: 1.6rem; text-align: center; padding: .05rem .45rem; font-size: .78rem;
+      background: var(--surface); border: 1px solid var(--border-light); border-radius: 999px;
+      min-width: 1.8rem; text-align: center; padding: .12rem .5rem; font-size: .76rem;
+      color: var(--text-secondary); font-variant-numeric: tabular-nums;
     }
-    .kds-col-body { display: flex; flex-direction: column; gap: .75rem; }
+    .kds-col-body { display: flex; flex-direction: column; gap: .7rem; }
     .kds-empty {
+      display: grid; place-items: center; min-height: 120px;
       color: var(--text-muted); font-size: .8rem; text-align: center;
-      padding: 1.25rem 0; border: 1px dashed var(--border-light); border-radius: var(--radius);
+      padding: 1.25rem .75rem; border: 1px dashed var(--border); border-radius: 12px;
+      background: color-mix(in srgb, var(--surface) 55%, transparent);
     }
 
     .kds-card {
-      background: var(--surface); border: 1.5px solid var(--border-light); border-radius: var(--radius);
-      box-shadow: var(--shadow-xs); overflow: hidden; border-left: 4px solid var(--border);
+      position: relative; background: var(--surface); border: 1px solid var(--border-light);
+      border-left: 4px solid var(--border); border-radius: 14px;
+      box-shadow: var(--shadow-xs); overflow: hidden; touch-action: pan-y;
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
     }
+    .kds-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+    .kds-card.kds-swiping { transition: none; box-shadow: var(--shadow); }
     .kds-card.kds-pendente { border-left-color: var(--warning-text); }
     .kds-card.kds-preparo { border-left-color: var(--kds-preparo); }
     .kds-card.kds-pronto { border-left-color: var(--primary); }
@@ -182,33 +228,47 @@
       padding: .75rem 1rem; font-weight: 600; font-size: .9rem;
       background: var(--surface-hover); border-bottom: 1px solid var(--border-light);
     }
-    .kds-source { display: flex; align-items: center; gap: .4rem; color: var(--text); }
-    .kds-time { color: var(--text-muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+    .kds-card.kds-pendente .kds-card-header { background: color-mix(in srgb, var(--warning-bg) 55%, var(--surface)); }
+    .kds-card.kds-preparo .kds-card-header { background: color-mix(in srgb, var(--kds-preparo) 9%, var(--surface)); }
+    .kds-card.kds-pronto .kds-card-header { background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
+    .kds-source { display: flex; align-items: center; gap: .45rem; color: var(--text); font-size: .92rem; }
+    .kds-source svg { color: var(--text-muted); flex-shrink: 0; }
+    .kds-time { color: var(--text-muted); font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .kds-time.kds-late { color: var(--warning-text); font-weight: 700; }
     .kds-items { display: flex; flex-direction: column; }
     .kds-item {
-      display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem;
+      display: flex; align-items: center; gap: .75rem; padding: .7rem 1rem;
       border-top: 1px solid var(--border-light);
     }
     .kds-item:first-child { border-top: none; }
     .kds-item-preparo { background: color-mix(in srgb, var(--kds-preparo) 8%, transparent); }
     .kds-item-entregue { opacity: .55; }
     .kds-item-qty {
-      font-weight: 700; font-size: 1rem; min-width: 2.1rem; text-align: center;
-      color: var(--primary); background: var(--primary-bg); border-radius: 7px; padding: .15rem 0;
+      font-weight: 700; font-size: 1.02rem; min-width: 2.35rem; text-align: center;
+      color: var(--primary); background: var(--primary-bg); border-radius: 8px; padding: .25rem 0;
     }
     .kds-item-info { flex: 1; min-width: 0; }
-    .kds-item-name { font-weight: 500; font-size: .92rem; }
+    .kds-item-name { font-weight: 600; font-size: .95rem; }
     /* Observação do garçom: destaque máximo — vermelho e negrito, com fundo leve. */
     .kds-item-notes {
-      display: inline-block; margin-top: .15rem; padding: .08rem .45rem; border-radius: 6px;
+      display: inline-block; margin-top: .2rem; padding: .1rem .45rem; border-radius: 6px;
       background: var(--danger-bg); color: var(--danger-text);
       font-weight: 700; font-size: .82rem;
     }
-    .kds-card-footer {
-      display: flex; justify-content: flex-end;
-      padding: .5rem 1rem; border-top: 1px solid var(--border-light); background: var(--surface-hover);
+    .kds-item-action {
+      min-height: 44px; padding: .55rem .85rem; font-size: .82rem; border-radius: 10px;
+      white-space: nowrap; flex-shrink: 0;
     }
+    .kds-card-footer {
+      display: flex; padding: .6rem .85rem; border-top: 1px solid var(--border-light);
+      background: var(--surface-hover);
+    }
+    .kds-advance-ticket {
+      width: 100%; min-height: 46px; justify-content: center; gap: .4rem;
+      font-size: .86rem; border-radius: 10px;
+    }
+    .kds-advance-ticket.btn.secondary { background: var(--surface); border-color: var(--border); }
+    .kds-advance-ticket.btn.secondary:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
 
     /* ─── Diálogo de som ─── */
     .som-list { display: flex; flex-direction: column; gap: .4rem; margin: .75rem 0 1rem; min-width: min(420px, 80vw); }
@@ -224,10 +284,14 @@
     .som-preview { flex-shrink: 0; }
     .som-dialog-actions { justify-content: flex-end; gap: .5rem; margin-top: .25rem; }
 
-    /* ─── Toque/mobile: alvo do botão de avançar maior, colunas empilham num celular ─── */
+    /* ─── Toque/mobile: alvos maiores, colunas empilham num celular ─── */
     @media (hover: none), (max-width: 540px) {
       .kds-board, .kds-board.kds-4col { grid-template-columns: 1fr; }
-      .kds-item .btn.small { padding: .55rem .8rem; font-size: .82rem; }
+      .kds-card:hover { transform: none; }
+      .kds-col { padding: .85rem; }
+      .kds-item { padding: .85rem 1rem; }
+      .kds-item .btn.small { min-height: 48px; font-size: .88rem; }
+      .kds-advance-ticket { min-height: 52px; font-size: .92rem; }
     }
   </style>
   <style>
@@ -240,6 +304,7 @@
         tickets: [],
         pollTimer: null,
         showEntregues: false,
+        swipeId: null, swipeStartX: 0, swipeStartY: 0, swipeDx: 0,
         // Som de novo pedido: preferência fica no aparelho (localStorage) — cada tela
         // de cozinha decide sozinha. `knownIds` é o baseline: carregar a página não toca
         // sirene para pedidos que já estavam lá.
@@ -271,6 +336,9 @@
         },
         byStatus(status) {
           return this.tickets.filter((t) => t.status === status);
+        },
+        hasVisibleTickets() {
+          return this.visibleColumns().some((c) => this.byStatus(c.status).length > 0);
         },
         async load() {
           const r = await fetch('/api/foodservice/kitchen/tickets');
@@ -357,6 +425,49 @@
           if (s === 'preparo') return 'pronto';
           if (s === 'pronto') return 'entregue';
           return '';
+        },
+        nextTicketAction(s) {
+          if (s === 'pendente') return 'Iniciar preparo';
+          if (s === 'preparo') return 'Marcar pronto';
+          if (s === 'pronto') return 'Entregar pedido';
+          return '';
+        },
+        // Deslizar o cartão para a direita avança o pedido inteiro. O gesto usa
+        // pointer events (mouse + toque) e ignora toques que começam em botões,
+        // para não disparar junto com "Iniciar/Pronto".
+        swipeStart(ev, ticket) {
+          if (ev.target.closest('button, a, input, textarea, select')) return;
+          if (!this.nextTicketStatus(ticket.status)) return;
+          this.swipeId = ticket.id;
+          this.swipeStartX = ev.clientX;
+          this.swipeStartY = ev.clientY;
+          this.swipeDx = 0;
+          ev.currentTarget.setPointerCapture?.(ev.pointerId);
+        },
+        swipeMove(ev, ticket) {
+          if (this.swipeId !== ticket.id) return;
+          const dx = ev.clientX - this.swipeStartX;
+          const dy = ev.clientY - this.swipeStartY;
+          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 6) {
+            this.swipeDx = Math.max(-120, Math.min(120, dx));
+          }
+        },
+        async swipeEnd(ev, ticket) {
+          if (this.swipeId !== ticket.id) return;
+          const dx = this.swipeDx;
+          this.swipeId = null;
+          this.swipeDx = 0;
+          ev.currentTarget.releasePointerCapture?.(ev.pointerId);
+          if (dx > 70) await this.advanceTicket(ticket);
+        },
+        swipeCancel() {
+          this.swipeId = null;
+          this.swipeDx = 0;
+        },
+        swipeStyle(ticket) {
+          if (this.swipeId !== ticket.id || !this.swipeDx) return '';
+          const opacity = Math.max(0.55, 1 - Math.abs(this.swipeDx) / 400);
+          return `transform: translateX(${this.swipeDx}px); opacity: ${opacity};`;
         },
         async advanceItem(ticketId, itemId, currentStatus) {
           const next = this.nextStatus(currentStatus);

@@ -20,7 +20,8 @@ import { sendTestEmail, sendPasswordResetEmail, smtpConfigFromBody } from '../ma
 import { publicPayUrl } from '../gateway';
 import { parseAmountCents } from '../format';
 import { listContracts } from '../contracts';
-import { searchPexels } from '../imageApi';
+import { searchPexels, searchExternalCached, downloadExternalImage, contentHash, loadImageApiConfig } from '../imageApi';
+import { searchGoogleImages, searchGoogleImagesCached } from '../googleImages';
 import { createRateLimiter } from '../rateLimit';
 import { hashAffiliatePassword } from '../affiliateAuth';
 import { validateCatalogImage, normalizeKeywords } from '../catalogValidation';
@@ -1924,6 +1925,8 @@ router.get('/settings', requireAdminAuth, async (req, res) => {
   settings.smtp_password = '';
   const imageApiKeySet = Boolean(settings.image_api_key);
   settings.image_api_key = '';
+  const imageGoogleKeySet = Boolean(settings.image_google_api_key);
+  settings.image_google_api_key = '';
   // KIVO IA: provedores e chaves ficam aqui (o cliente não configura nada). As chaves não
   // voltam para a tela — só o sinalizador de "já configurada".
   const ai = await loadAiSettingsForView();
@@ -1931,6 +1934,7 @@ router.get('/settings', requireAdminAuth, async (req, res) => {
     settings,
     smtpPasswordSet,
     imageApiKeySet,
+    imageGoogleKeySet,
     ai,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
@@ -1956,6 +1960,7 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
     // Checkbox: ausente = desligado. Guardamos '1'/'0' explícito para o load saber diferenciar.
     upsert('image_api_enabled', b.imageApiEnabled ? '1' : '0'),
     upsert('image_api_provider', 'pexels'),
+    upsert('image_google_cx', String(b.imageGoogleCx ?? '').trim() || null),
     // KIVO IA: provedor padrão e endpoint do Ollama.
     upsert('ai_enabled', b.aiEnabled ? '1' : '0'),
     upsert('ai_default_provider', isProviderId(b.aiDefaultProvider) ? b.aiDefaultProvider : 'ollama'),
@@ -1968,6 +1973,9 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
   // Chave da API de imagens: em branco mantém a salva.
   const imageApiKey = String(b.imageApiKey ?? '').trim();
   if (imageApiKey) await upsert('image_api_key', imageApiKey);
+  // Chave do Google Custom Search: em branco mantém a salva.
+  const imageGoogleKey = String(b.imageGoogleApiKey ?? '').trim();
+  if (imageGoogleKey) await upsert('image_google_api_key', imageGoogleKey);
   // Chaves dos provedores de IA: em branco mantém a salva.
   const openaiKey = String(b.aiOpenaiKey ?? '').trim();
   if (openaiKey) await upsert('ai_openai_key', openaiKey);
@@ -2020,6 +2028,34 @@ router.post('/settings/image-api/test', requireAdminAuth, async (req, res) => {
     res.json({
       ok: true,
       message: `Busca OK: ${results.length} resultado(s) para "${query}".`,
+      count: results.length,
+    });
+  } catch (err) {
+    res.status(502).json({ ok: false, message: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+/** Botão "Testar Google": valida a chave/cx do formulário (ou os salvos) contra o CSE. */
+router.post('/settings/image-api/google/test', requireAdminAuth, async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const query = String(b.imageApiQuery ?? '').trim() || 'produto';
+  const [rows] = await getPool().query(
+    "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('image_google_api_key','image_google_cx')",
+  );
+  const map = Object.fromEntries(
+    (rows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
+  );
+  const apiKey = String(b.imageGoogleApiKey ?? '').trim() || String(map.image_google_api_key ?? '').trim();
+  const cx = String(b.imageGoogleCx ?? '').trim() || String(map.image_google_cx ?? '').trim();
+  if (!apiKey || !cx) {
+    res.status(400).json({ ok: false, message: 'Informe a API Key e o ID do mecanismo (cx) do Google.' });
+    return;
+  }
+  try {
+    const results = await searchGoogleImages(query, 3, { apiKey, cx });
+    res.json({
+      ok: true,
+      message: `Google OK: ${results.length} resultado(s) com licença Creative Commons para "${query}".`,
       count: results.length,
     });
   } catch (err) {
@@ -2224,6 +2260,100 @@ function parseCatalogIds(raw: unknown): number[] {
   return [...new Set(list.map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0))];
 }
 
+/**
+ * Ferramenta de curadoria da aba "Demandas": busca imagens para um termo que as empresas
+ * procuraram e não acharam. Usa a MESMA API externa (Pexels) já configurada para o
+ * sugestor do app — com cache e teto diário. Não faz scraping: além de instável, raspar
+ * Google/Bing quebra os termos de uso do provedor. O admin escolhe uma miniatura e ela
+ * entra direto como aprovada (ele é o curador), com o termo como nome do produto.
+ */
+interface CatalogDemandRow {
+  id: number;
+  term: string;
+  barcode: string | null;
+}
+
+const demandSearchLimiter = createRateLimiter({ windowMs: 60e3, max: 12, keyPrefix: 'catalog-demand-search:' });
+const demandUseLimiter = createRateLimiter({ windowMs: 60e3, max: 12, keyPrefix: 'catalog-demand-use:' });
+
+async function loadCatalogDemand(id: number): Promise<CatalogDemandRow | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const [rows] = await getPool().query('SELECT id, term, barcode FROM catalog_demand WHERE id = ?', [id]);
+  return (rows as CatalogDemandRow[])[0] ?? null;
+}
+
+type SaveExternalResult =
+  | { ok: true; id: number; reused: boolean }
+  | { ok: false; error: string };
+
+/** Baixa, valida e grava no catálogo uma imagem escolhida pelo admin. */
+async function saveExternalImageToCatalog(
+  url: string,
+  productName: string,
+  barcode: string | null,
+  admin: string,
+): Promise<SaveExternalResult> {
+  const img = await downloadExternalImage(url);
+  if (!img) {
+    return { ok: false, error: 'Não foi possível baixar ou validar a imagem escolhida (formato/tamanho/endereço).' };
+  }
+  const hash = contentHash(img.buf);
+  const pool = getPool();
+  const [existingRows] = await pool.query('SELECT id, status FROM catalog_images WHERE sha256 = ?', [hash]);
+  const existing = (existingRows as { id: number; status: 'pendente' | 'aprovada' | 'rejeitada' }[])[0];
+
+  if (existing) {
+    if (existing.status === 'rejeitada') {
+      return { ok: false, error: 'Essa imagem já foi rejeitada anteriormente e não pode voltar ao catálogo.' };
+    }
+    // Já estava pendente: a escolha do admin vale como aprovação e o termo vira o nome.
+    if (existing.status === 'pendente') {
+      await pool.query(
+        `UPDATE catalog_images
+            SET status = 'aprovada', product_name = ?, keywords = ?, barcode = COALESCE(?, barcode),
+                reviewed_by = ?, reviewed_at = NOW(3)
+          WHERE id = ?`,
+        [productName, normalizeKeywords(productName), barcode, admin, existing.id],
+      );
+    } else {
+      // Já aprovada com outro nome: cria o alias do termo procurado, senão a busca que gerou
+      // esta demanda continuaria sem achar a imagem e o termo voltaria para a lista.
+      const alias = normalizeKeywords(productName).slice(0, 255);
+      if (alias.length >= 3) {
+        await pool.query(
+          `INSERT INTO catalog_image_aliases (catalog_image_id, alias) VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE occurrences = occurrences + 1, updated_at = CURRENT_TIMESTAMP(3)`,
+          [existing.id, alias],
+        );
+      }
+    }
+    return { ok: true, id: existing.id, reused: true };
+  }
+
+  fs.mkdirSync(CATALOG_STORAGE_DIR, { recursive: true });
+  const filename = `${hash}.${CATALOG_EXT_BY_FORMAT[img.format]}`;
+  fs.writeFileSync(path.join(CATALOG_STORAGE_DIR, filename), img.buf);
+  const [info] = await pool.query(
+    `INSERT INTO catalog_images
+       (company_uuid, product_name, keywords, barcode, image_path, sha256, width, height, format, size_bytes,
+        status, source, reviewed_by, reviewed_at)
+     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aprovada', 'api', ?, NOW(3))`,
+    [
+      productName,
+      normalizeKeywords(productName),
+      barcode,
+      filename,
+      hash,
+      img.width,
+      img.height,
+      img.format,
+      img.buf.length,
+      admin,
+    ],
+  );
+  return { ok: true, id: (info as { insertId: number }).insertId, reused: false };
+}
+
 router.get('/catalog', requireAdminAuth, async (req, res) => {
   const pool = getPool();
   const activeTab = req.query.tab === 'demanda' ? 'demanda' : 'imagens';
@@ -2351,6 +2481,150 @@ router.get('/catalog', requireAdminAuth, async (req, res) => {
 router.post('/catalog/demand/:id/delete', requireAdminAuth, async (req, res) => {
   await getPool().query('DELETE FROM catalog_demand WHERE id = ?', [req.params.id]);
   res.redirect('/admin/catalog?tab=demanda');
+});
+
+/**
+ * Busca sugestões externas para um termo da demanda. Devolve JSON para o modal de
+ * curadoria; o admin pode refinar o termo com `?q=` antes de escolher.
+ */
+router.get('/catalog/demand/:id/search', requireAdminAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const demand = await loadCatalogDemand(id);
+  if (!demand) {
+    res.status(404).json({ error: 'Demanda não encontrada (pode já ter sido resolvida).' });
+    return;
+  }
+  if (demandSearchLimiter(req.ip ?? 'admin')) {
+    res.status(429).json({ error: 'Muitas buscas de imagem em pouco tempo. Aguarde alguns instantes.' });
+    return;
+  }
+
+  const override = String(req.query.q ?? '').trim().slice(0, 191);
+  const query = override.length >= 3 ? override : demand.term;
+  const norm = normalizeKeywords(query);
+
+  // 1) Imagens da web que alguma loja JÁ escolheu para um termo parecido. São as melhores
+  //    sugestões para produto real (marca/embalagem), então vêm antes das fotos de banco.
+  const [webRows] = await getPool().query(
+    `SELECT url, thumb, title FROM catalog_web_images
+      WHERE term = ? OR term LIKE ?
+      ORDER BY pick_count DESC, updated_at DESC LIMIT 12`,
+    [norm, `%${norm}%`],
+  );
+  const webResults = (webRows as { url: string; thumb: string | null; title: string | null }[]).map((r) => ({
+    url: r.url,
+    thumb: r.thumb || r.url,
+    title: r.title,
+    origin: 'web' as const,
+  }));
+  const seen = new Set(webResults.map((r) => r.url));
+
+  // 2) Google Imagens pela API oficial, com o filtro "Licenças Creative Commons" e uso
+  //    comercial. É o mesmo filtro da tela do Google que o admin mostrou — sem scraping.
+  let googleResults: { url: string; thumb: string; title: string; origin: 'google' }[] = [];
+  let googleConfigured = false;
+  let cached = false;
+  let externalError: string | null = null;
+  if (webResults.length < 12) {
+    try {
+      const google = await searchGoogleImagesCached(query, 10);
+      googleConfigured = google.configured;
+      cached = cached || google.cached;
+      googleResults = google.results
+        .filter((r) => !seen.has(r.url))
+        .map((r) => {
+          seen.add(r.url);
+          return { url: r.url, thumb: r.thumb, title: r.title, origin: 'google' as const };
+        });
+    } catch (err) {
+      externalError = err instanceof Error ? err.message : 'Falha na busca no Google.';
+    }
+  }
+
+  // 3) Se o Google não está configurado, falhou ou não achou imagem com licença CC,
+  //    completa com o Pexels (mesma API/cache do sugestor do app).
+  let pexelsResults: { url: string; thumb: string; title: string; origin: 'pexels' }[] = [];
+  let pexelsConfigured = false;
+  if (webResults.length + googleResults.length < 12 && !googleResults.length) {
+    try {
+      const pexels = await searchExternalCached(query);
+      cached = cached || pexels.cached;
+      pexelsConfigured = pexels.results.length > 0;
+      pexelsResults = pexels.results
+        .filter((r) => !seen.has(r.url))
+        .map((r) => ({ url: r.url, thumb: r.thumb, title: r.title, origin: 'pexels' as const }));
+    } catch (err) {
+      externalError = externalError ?? (err instanceof Error ? err.message : 'Falha na busca externa.');
+    }
+  }
+  if (!googleResults.length) {
+    // `searchExternalCached` devolve vazio quando não configurado; confirma pelo settings.
+    pexelsConfigured = pexelsConfigured || !!(await loadImageApiConfig());
+  }
+
+  const results = [...webResults, ...googleResults, ...pexelsResults].slice(0, 12);
+  // Só é "não configurado" quando não há NADA para mostrar e nenhum dos provedores existe.
+  if (!results.length && !cached && !googleConfigured && !pexelsConfigured) {
+    res.status(503).json({
+      error: 'Nenhum provedor de imagens está configurado. Configure o Google Custom Search ou a API Key da Pexels em Configurações.',
+    });
+    return;
+  }
+  if (!results.length && externalError) {
+    res.status(502).json({ error: externalError });
+    return;
+  }
+
+  const parts: string[] = [];
+  if (webResults.length) parts.push('imagens já escolhidas por lojas do Kivo');
+  if (googleResults.length) parts.push('Google Imagens (Creative Commons)');
+  if (pexelsResults.length) parts.push('fotos fornecidas por Pexels');
+
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    term: demand.term,
+    query,
+    results,
+    cached,
+    externalError,
+    attribution: parts.length ? 'Sugestões: ' + parts.join(' + ') + '.' : null,
+    attributionUrl: googleResults.length
+      ? `https://www.google.com/search?tbm=isch&tbs=il:cl&q=${encodeURIComponent(query)}`
+      : pexelsResults.length
+        ? 'https://www.pexels.com'
+        : null,
+  });
+});
+
+/**
+ * Usa a imagem escolhida no modal: baixa, valida, grava como aprovada e retira o termo
+ * da demanda. Se o mesmo conteúdo já existir (inclusive pendente), reaproveita a linha.
+ */
+router.post('/catalog/demand/:id/use', requireAdminAuth, async (req: AdminRequest, res) => {
+  const id = Number(req.params.id);
+  const demand = await loadCatalogDemand(id);
+  if (!demand) {
+    res.status(404).json({ error: 'Demanda não encontrada (pode já ter sido resolvida).' });
+    return;
+  }
+  if (demandUseLimiter(req.ip ?? 'admin')) {
+    res.status(429).json({ error: 'Muitas imagens em pouco tempo. Aguarde alguns instantes.' });
+    return;
+  }
+
+  const url = String((req.body as { url?: unknown })?.url ?? '').trim().slice(0, 1000);
+  if (!/^https?:\/\//i.test(url)) {
+    res.status(400).json({ error: 'URL de imagem inválida.' });
+    return;
+  }
+
+  const saved = await saveExternalImageToCatalog(url, demand.term, demand.barcode, req.adminUsername ?? 'admin');
+  if (!saved.ok) {
+    res.status(400).json({ error: saved.error });
+    return;
+  }
+  await getPool().query('DELETE FROM catalog_demand WHERE id = ?', [id]);
+  res.json({ ok: true, catalogImageId: saved.id, reused: saved.reused, term: demand.term });
 });
 
 /** Miniatura no painel de curadoria — serve qualquer status (a pública em /api/catalog/image só serve aprovada). */

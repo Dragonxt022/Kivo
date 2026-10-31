@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
   <title>Kivo</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
@@ -524,31 +524,37 @@
       </div>
 
       <% if (showDashSales) { %>
-      <div class="dashboard-chart-panel">
-        <div class="dashboard-chart-header">
-          <h2>Evolução do negócio</h2>
-          <div class="dashboard-chart-tools">
-            <div class="period-toggle" x-show="!chartHidden" x-cloak>
-              <button type="button" :class="{ active: period === 'week' }" @click="setPeriod('week')">Semana</button>
-              <button type="button" :class="{ active: period === 'month' }" @click="setPeriod('month')">Mês</button>
-              <button type="button" :class="{ active: period === 'year' }" @click="setPeriod('year')">Ano</button>
+      <%# O card inteiro é recolhido (altura + margem + opacidade) e o olho que o reabre
+          reaparece na barra de busca, ao lado da engrenagem. O wrapper existe para a
+          animação de altura funcionar: display:none mataria a transição. %>
+      <div class="dashboard-chart-slot" :class="{ 'is-hidden': chartHidden }"
+           :inert="chartHidden" x-bind:aria-hidden="chartHidden ? 'true' : 'false'" x-cloak>
+        <div class="dashboard-chart-slot-inner">
+          <div class="dashboard-chart-panel">
+            <div class="dashboard-chart-header">
+              <h2>Evolução do negócio</h2>
+              <div class="dashboard-chart-tools">
+                <div class="period-toggle">
+                  <button type="button" :class="{ active: period === 'week' }" @click="setPeriod('week')">Semana</button>
+                  <button type="button" :class="{ active: period === 'month' }" @click="setPeriod('month')">Mês</button>
+                  <button type="button" :class="{ active: period === 'year' }" @click="setPeriod('year')">Ano</button>
+                </div>
+                <button type="button" class="chart-toggle-btn" @click="toggleChart()"
+                        title="Ocultar gráfico" aria-label="Ocultar gráfico">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
             </div>
-            <button type="button" class="chart-toggle-btn" @click="toggleChart()"
-                    :title="chartHidden ? 'Mostrar gráfico' : 'Ocultar gráfico'"
-                    :aria-label="chartHidden ? 'Mostrar gráfico' : 'Ocultar gráfico'">
-              <svg x-show="!chartHidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-              <svg x-show="chartHidden" x-cloak width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-            </button>
+            <div class="bar-chart">
+              <template x-for="(b, idx) in trend" :key="period + '-' + b.key">
+                <div class="bar-col" @mouseenter="hoverBar = idx" @mouseleave="hoverBar = null">
+                  <div class="bar-tooltip" x-show="hoverBar === idx" x-text="b.label + ': ' + brl(b.totalCents)"></div>
+                  <div class="bar-fill" :style="{ height: (maxTrend ? (b.totalCents / maxTrend * 100) : 0) + '%' }"></div>
+                  <span class="bar-label" x-text="b.label"></span>
+                </div>
+              </template>
+            </div>
           </div>
-        </div>
-        <div class="bar-chart" x-show="!chartHidden" x-cloak>
-          <template x-for="(b, idx) in trend" :key="period + '-' + b.key">
-            <div class="bar-col" @mouseenter="hoverBar = idx" @mouseleave="hoverBar = null">
-              <div class="bar-tooltip" x-show="hoverBar === idx" x-text="b.label + ': ' + brl(b.totalCents)"></div>
-              <div class="bar-fill" :style="{ height: (maxTrend ? (b.totalCents / maxTrend * 100) : 0) + '%' }"></div>
-              <span class="bar-label" x-text="b.label"></span>
-            </div>
-          </template>
         </div>
       </div>
       <% } %>
@@ -566,6 +572,22 @@
           <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
         </svg>
         <span>Abrir no celular</span>
+      </button>
+      <% } %>
+      <% if (showDashSales) { %>
+      <%# O mesmo olho do card, agora na barra: reaparece aqui quando o card é recolhido.
+          O transition do Alpine anima a entrada vinda de cima, como se o botão tivesse
+          descido junto com o card. %>
+      <button type="button" class="home-personalizar home-chart-restore"
+              title="Mostrar gráfico" aria-label="Mostrar gráfico"
+              @click="toggleChart()" x-show="chartHidden" x-cloak
+              x-transition:enter="chart-eye-enter"
+              x-transition:enter-start="chart-eye-enter-start"
+              x-transition:enter-end="chart-eye-enter-end"
+              x-transition:leave="chart-eye-leave"
+              x-transition:leave-start="chart-eye-leave-start"
+              x-transition:leave-end="chart-eye-leave-end">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
       <% } %>
       <% if (user && user.permissions.has('settings.edit')) { %>
@@ -878,6 +900,14 @@
         modulosOcultos: MODULOS_OCULTOS.slice(),
         moduleSel: {},
         salvandoModulos: false,
+        // O card de "Evolução do negócio" some inteiro; o olho que o reabre vive na barra
+        // da home, ao lado do botão de personalizar. Fica no escopo da home (e não no
+        // homeDashboard) para os dois lados lerem o mesmo estado.
+        chartHidden: (function () { try { return localStorage.getItem('kivo-dash-chart-hidden') === '1'; } catch { return false; } })(),
+        toggleChart() {
+          this.chartHidden = !this.chartHidden;
+          try { localStorage.setItem('kivo-dash-chart-hidden', this.chartHidden ? '1' : '0'); } catch {}
+        },
         iconSvg(name) { return SVG_ICONS[name] || ''; },
 
         isHidden(href) { return this.hiddenHrefs.indexOf(href) !== -1; },
@@ -1474,13 +1504,6 @@
         period: 'week',
         trend: [],
         hoverBar: null,
-        // O gráfico pode ser ocultado (preferência desta máquina). Oculto, o painel fica só
-        // com o título e o botão de mostrar de novo.
-        chartHidden: (function () { try { return localStorage.getItem('kivo-dash-chart-hidden') === '1'; } catch { return false; } })(),
-        toggleChart() {
-          this.chartHidden = !this.chartHidden;
-          try { localStorage.setItem('kivo-dash-chart-hidden', this.chartHidden ? '1' : '0'); } catch {}
-        },
         brl(c) { return window.brl(c); },
         get maxTrend() { return Math.max(1, ...this.trend.map((b) => b.totalCents)); },
         async loadTrend() {

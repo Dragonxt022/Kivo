@@ -246,9 +246,19 @@ async function main() {
   check('cozinha marca o pedido pronto',
     (await api(`/api/foodservice/kitchen/tickets/${ticketMesa.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'pronto' }) }, admin!)).status === 200);
   check('grade sinaliza a mesa com pedido pronto', (await gridReadyCount(mesa.id)) > 0);
+  const readyFeed = await unwrap<{ alerts: { id: number; label: string }[] }>(
+    await api('/api/ready-alerts/pending', {}, admin!),
+  );
+  check('aviso global lista a mesa com pedido pronto',
+    readyFeed.alerts.some((a) => a.id === ticketMesa.id && a.label === 'Mesa Grade'));
   check('garçom marca como entregue',
     (await api(`/api/foodservice/kitchen/tickets/${ticketMesa.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'entregue' }) }, admin!)).status === 200);
   check('entregue tira o sinal de pedido pronto da mesa', (await gridReadyCount(mesa.id)) === 0);
+  const readyFeedAfter = await unwrap<{ alerts: { id: number }[] }>(
+    await api('/api/ready-alerts/pending', {}, admin!),
+  );
+  check('aviso global some quando o pedido é entregue',
+    !readyFeedAfter.alerts.some((a) => a.id === ticketMesa.id));
 
   // Desliga a capability de novo -> volta a bloquear
   check('desliga capability foodservice.cozinha',

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
   <title>Kivo — <%= comandasLabels.plural %></title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
@@ -431,11 +431,12 @@
         canManage: !!canManage,
         dragId: null,
         dropOverId: null,
-        // Som de "pedido pronto": preferência no aparelho (localStorage). `knownReady`
-        // é o baseline das mesas já com pedido pronto — carregar a página não dispara
-        // sirene para o que já estava lá; só para a virada (novo pedido pronto).
-        somProntoAtivo: localStorage.getItem('mesas-som-pronto') === '1',
-        audioPronto: null,
+        // Som de "pedido pronto": a preferência é do APARELHO e vive no canal global
+        // (partials/ready-alerts), que avisa em qualquer tela. O botão daqui só reflete e
+        // alterna essa mesma chave — antes o som só existia enquanto a grade estava aberta.
+        // `knownReady` continua sendo o baseline das mesas já prontas, exclusivo para
+        // piscar o card (o aviso sonoro/toast agora é global).
+        somProntoAtivo: localStorage.getItem('mesas-som-pronto') !== '0',
         knownReady: null,
         flashIds: [],
         eventSource: null,
@@ -447,6 +448,8 @@
           // chamada abriria um EventSource e um timer de poll extras.
           if (this.started) return;
           this.started = true;
+          // O canal global pode ter uma preferência mais nova (menu "Mais" de outra tela).
+          if (window.KivoReadyAlerts) this.somProntoAtivo = window.KivoReadyAlerts.isSoundOn();
           this.connectEvents();
           // Reserva do SSE: se a conexão cair, a grade ainda se atualiza sozinha.
           // Em aba oculta o navegador estrangula timers; ao voltar, o listener abaixo
@@ -488,23 +491,16 @@
           const r = await fetch('/api/comandas/tables/status');
           if (!r.ok) { window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar ' + this.labels.plural.toLowerCase() + '.'); return; }
           const next = await r.json();
-          // Detecta mesas que ACABARAM de ficar com pedido pronto: pisca o card sempre;
-          // o som e o toast só quando a página estava aberta (knownReady já setado) —
-          // abrir a tela com pedido pronto não toca sirene.
+          // Detecta mesas que ACABARAM de ficar com pedido pronto para piscar o card. O
+          // som/toast fica no canal global; aqui é só o destaque visual da grade.
           const agora = new Set(next.filter((t) => this.kitchenReady(t)).map((t) => t.id));
-          const tinhaBaseline = this.knownReady !== null;
-          const novos = tinhaBaseline ? [...agora].filter((id) => !this.knownReady.has(id)) : [...agora];
+          const novos = this.knownReady !== null ? [...agora].filter((id) => !this.knownReady.has(id)) : [...agora];
           this.knownReady = agora;
           if (novos.length) {
-            // Pisca o card sempre (inclusive ao abrir a tela já com pedido pronto).
+            // Pisca o card sempre (inclusive ao abrir a tela já com pedido pronto). O som
+            // e o toast da virada são do canal global, que também alcança as outras telas
+            // e a aba em segundo plano — aqui só fica o destaque visual da grade.
             this.flashTables(novos);
-            // Som e toast só para a virada com a página aberta — abrir a tela com
-            // pedido pronto não toca sirene.
-            if (tinhaBaseline) {
-              const labels = next.filter((t) => novos.includes(t.id)).map((t) => t.label);
-              if (labels.length) showToast('Pedido pronto: ' + labels.join(', ') + '.', 'success');
-              if (this.somProntoAtivo) this.playPronto();
-            }
           }
           this.tables = next;
         },
@@ -517,17 +513,15 @@
           });
         },
         toggleSomPronto() {
+          if (window.KivoReadyAlerts) {
+            this.somProntoAtivo = window.KivoReadyAlerts.toggleSound();
+            return;
+          }
+          // Reserva se o partial global não tiver carregado (não deveria acontecer).
           this.somProntoAtivo = !this.somProntoAtivo;
           localStorage.setItem('mesas-som-pronto', this.somProntoAtivo ? '1' : '0');
-          if (this.somProntoAtivo) { showToast('Som de pedido pronto ativado.', 'success'); this.playPronto(); }
+          if (this.somProntoAtivo) showToast('Som de pedido pronto ativado.', 'success');
           else showToast('Som de pedido pronto desligado.', 'info');
-        },
-        playPronto() {
-          try {
-            if (!this.audioPronto) this.audioPronto = new Audio('/sons/pedido.mp3');
-            this.audioPronto.currentTime = 0;
-            this.audioPronto.play().catch(() => { /* autoplay bloqueado — nada que fazer */ });
-          } catch { /* áudio indisponível não pode travar a grade */ }
         },
         onCardPointerDown(e, t) {
           if (!this.canManage || e.pointerType === 'mouse' && e.button !== 0) return;

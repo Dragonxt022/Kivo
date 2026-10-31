@@ -49,4 +49,12 @@ export default tseslint.config(
       globals: { ...globals.browser, Alpine: 'readonly' },
     },
   },
+  {
+    // Service worker é outro escopo global (self/clients/caches), não a janela.
+    files: ['src/public/sw.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: { ...globals.serviceworker },
+    },
+  },
 );

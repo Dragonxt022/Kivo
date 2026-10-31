@@ -27,6 +27,47 @@
     .pager-num { min-width: 32px; }
     .pager-num.ellipsis { border: 0; background: transparent; cursor: default; }
     .cat-toolbar-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+
+    /* Curadoria por demanda: grade de sugestões externas no modal. */
+    .demand-search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .demand-search-row .input-search { flex: 1; min-width: 220px; margin: 0; }
+    .demand-suggest-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+      max-height: 58vh;
+      overflow-y: auto;
+      padding: 2px;
+    }
+    .demand-suggest-card {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .demand-suggest-card img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      background: var(--surface-hover);
+    }
+    .demand-suggest-body { display: flex; flex-direction: column; gap: 6px; padding: 8px; flex: 1; }
+    .demand-suggest-title {
+      display: -webkit-box;
+      overflow: hidden;
+      min-height: 2.2em;
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.3;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .demand-suggest-card .btn { width: 100%; justify-content: center; }
+    .demand-origin-badge { color: var(--primary); font-size: 0.63rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+    .demand-suggest-loading { padding: 28px 8px; text-align: center; color: var(--muted); font-size: 0.9rem; }
   </style>
 </head>
 <body>
@@ -103,7 +144,7 @@
         <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
           <a href="/admin/catalog?tab=imagens&status=<%= activeStatus %>" class="btn secondary <%= activeTab === 'imagens' ? 'active' : '' %>">Imagens</a>
           <a href="/admin/catalog?tab=demanda" class="btn secondary <%= activeTab === 'demanda' ? 'active' : '' %>">
-            Demanda<% if (demandTotal) { %> (<%= demandTotal %>)<% } %>
+            Demanda<% if (demandTotal) { %> (<span id="demand-tab-count"><%= demandTotal %></span>)<% } %>
           </a>
         </div>
 
@@ -116,7 +157,10 @@
             </span>
           </div>
           <p class="field-hint" style="margin-top:0;">
-            Nomes que as empresas procuraram e não acharam (anônimo). Adicione uma imagem para o termo e marque "Resolvido".
+            Nomes que as empresas procuraram e não acharam (anônimo). Use <strong>Buscar imagens</strong> para
+            receber sugestões e clique na que quiser — ela entra direto no catálogo aprovado e o termo
+            sai desta lista. A busca prioriza imagens já escolhidas por lojas e, se configurado, consulta
+            o Google Imagens (Creative Commons) e o Pexels.
           </p>
 
           <form method="get" action="/admin/catalog" class="toolbar cat-filters" style="margin-top:10px;">
@@ -130,11 +174,13 @@
             <thead><tr><th>Termo buscado</th><th class="text-right">Buscas</th><th>Última vez</th><th></th></tr></thead>
             <tbody>
               <% demand.forEach(function(d) { %>
-              <tr>
+              <tr id="demand-row-<%= d.id %>">
                 <td><strong><%= d.term %></strong></td>
                 <td class="text-right tabular"><%= d.misses %></td>
                 <td class="cell-muted"><%= fmtDateTimeBr(d.last_seen_at) %></td>
                 <td class="text-right">
+                  <button type="button" class="btn small demand-search-btn"
+                          data-demand-id="<%= d.id %>" data-term="<%= d.term %>">Buscar imagens</button>
                   <a class="btn small secondary" href="/admin/catalog?tab=imagens&status=aprovada&q=<%= encodeURIComponent(d.term) %>">Buscar no catálogo</a>
                   <form method="post" action="/admin/catalog/demand/<%= d.id %>/delete" style="display:inline;"
                         onsubmit="return confirm('Remover este termo da lista de demanda?');">
@@ -150,7 +196,7 @@
           </table>
 
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px;">
-            <span class="cell-muted" style="font-size:0.82rem;"><%= demandTotal %> termo(s) · página <%= demandPage %> de <%= demandTotalPages %></span>
+            <span class="cell-muted" style="font-size:0.82rem;"><span id="demand-total-count"><%= demandTotal %></span> termo(s) · página <%= demandPage %> de <%= demandTotalPages %></span>
             <% renderPager(demandPage, demandTotalPages, demandPageWindow); %>
           </div>
         </div>
@@ -338,7 +384,239 @@
     </div>
   </dialog>
 
+  <%# Busca externa da aba Demanda: miniaturas clicáveis, sem scraping (usa a API já
+      configurada para o sugestor do app). %>
+  <dialog id="modal-demand-images" style="width:min(1040px, calc(100vw - 2rem)); max-width:min(1040px, calc(100vw - 2rem));">
+    <div class="modal-header">
+      <div>
+        <h2>Imagens para “<span id="demand-term-label"></span>”</h2>
+        <p class="field-hint" style="margin:4px 0 0;">
+          Clique em <strong>Usar esta imagem</strong> para adicioná-la ao catálogo aprovado.
+          Ao escolher uma imagem da web, confirme que ela pode ser usada comercialmente.
+        </p>
+      </div>
+      <button type="button" class="modal-close" onclick="closeDemandImages()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="demand-search-row">
+        <input type="search" class="input-search" id="demand-search-query"
+               placeholder="Refine o termo (ex.: marca + tamanho)…"
+               onkeydown="if (event.key === 'Enter') { event.preventDefault(); searchDemandImages(demandSearch.id, demandSearch.term, this.value); }">
+        <button type="button" class="btn small" onclick="searchDemandImages(demandSearch.id, demandSearch.term, document.getElementById('demand-search-query').value)">Buscar de novo</button>
+        <a class="btn secondary small" id="demand-google-link"
+           href="https://www.google.com/search?tbm=isch&tbs=il:cl" target="_blank" rel="noopener">
+          Abrir no Google Imagens (CC)
+        </a>
+      </div>
+
+      <div class="demand-suggest-loading" id="demand-images-loading" style="display:none;">Buscando imagens…</div>
+      <div class="error-banner" id="demand-images-error" style="display:none;"></div>
+      <div class="demand-suggest-grid" id="demand-images-grid"></div>
+      <p class="field-hint" id="demand-images-hint" style="display:none; margin:8px 0 0;"></p>
+      <p class="field-hint" id="demand-images-attribution" style="display:none; margin:8px 0 0;"></p>
+    </div>
+  </dialog>
+
   <script>
+    var demandSearch = { id: null, term: '' };
+
+    function googleCcUrl(query) {
+      return 'https://www.google.com/search?tbm=isch&tbs=il:cl&q=' + encodeURIComponent(query || '');
+    }
+
+    function openDemandImages(id, term) {
+      demandSearch = { id: id, term: term };
+      document.getElementById('demand-term-label').textContent = term;
+      document.getElementById('demand-search-query').value = term;
+      document.getElementById('demand-google-link').href = googleCcUrl(term);
+      document.getElementById('demand-images-grid').innerHTML = '';
+      document.getElementById('demand-images-error').style.display = 'none';
+      document.getElementById('demand-images-hint').style.display = 'none';
+      document.getElementById('demand-images-attribution').style.display = 'none';
+      document.getElementById('modal-demand-images').showModal();
+    }
+
+    function closeDemandImages() {
+      document.getElementById('modal-demand-images').close();
+    }
+
+    async function searchDemandImages(id, term, query) {
+      if (!id) return;
+      var dlg = document.getElementById('modal-demand-images');
+      if (!dlg.open || demandSearch.id !== id) {
+        openDemandImages(id, term);
+      } else {
+        demandSearch.term = term;
+        document.getElementById('demand-term-label').textContent = term;
+      }
+      var grid = document.getElementById('demand-images-grid');
+      var loading = document.getElementById('demand-images-loading');
+      var errorEl = document.getElementById('demand-images-error');
+      var hint = document.getElementById('demand-images-hint');
+      var attr = document.getElementById('demand-images-attribution');
+      var input = document.getElementById('demand-search-query');
+
+      grid.innerHTML = '';
+      errorEl.style.display = 'none';
+      hint.style.display = 'none';
+      attr.style.display = 'none';
+      loading.style.display = 'block';
+
+      var q = String(query || '').trim() || term;
+      input.value = q;
+      document.getElementById('demand-google-link').href = googleCcUrl(q);
+      try {
+        var r = await fetch('/admin/catalog/demand/' + id + '/search?q=' + encodeURIComponent(q), {
+          headers: { Accept: 'application/json' },
+        });
+        var data = await r.json().catch(function () { return {}; });
+        if (!r.ok) throw new Error(data.error || 'Falha na busca de imagens.');
+        if (data.query) input.value = data.query;
+        renderDemandImages(data.results || []);
+        setDemandAttribution(data);
+        if (data.externalError && (data.results || []).length) {
+          hint.textContent = 'O banco externo não respondeu agora; mostrando imagens já escolhidas por lojas.';
+          hint.style.display = 'block';
+        }
+      } catch (e) {
+        errorEl.textContent = e.message || 'Falha na busca de imagens.';
+        errorEl.style.display = 'block';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    function setDemandAttribution(data) {
+      var el = document.getElementById('demand-images-attribution');
+      el.textContent = '';
+      var results = (data && data.results) || [];
+      if (!results.length || !data.attribution) {
+        el.style.display = 'none';
+        return;
+      }
+      el.appendChild(document.createTextNode(data.attribution));
+      if (data.attributionUrl) {
+        el.appendChild(document.createTextNode(' '));
+        var a = document.createElement('a');
+        a.href = data.attributionUrl;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = 'Ver fonte';
+        el.appendChild(a);
+      }
+      el.style.display = 'block';
+    }
+
+    function renderDemandImages(results) {
+      var grid = document.getElementById('demand-images-grid');
+      var hint = document.getElementById('demand-images-hint');
+      grid.innerHTML = '';
+      if (!results.length) {
+        hint.textContent = 'Nenhuma imagem encontrada para este termo. Tente refinar a busca ou cadastre manualmente.';
+        hint.style.display = 'block';
+        return;
+      }
+      results.forEach(function (img, i) {
+        var card = document.createElement('div');
+        card.className = 'demand-suggest-card';
+
+        var thumb = document.createElement('img');
+        thumb.src = img.thumb || img.url;
+        thumb.alt = img.title || ('Sugestão ' + (i + 1));
+        thumb.loading = 'lazy';
+        thumb.referrerPolicy = 'no-referrer';
+
+        var body = document.createElement('div');
+        body.className = 'demand-suggest-body';
+
+        var title = document.createElement('div');
+        title.className = 'demand-suggest-title';
+        title.textContent = img.title || (img.photographer ? 'Foto de ' + img.photographer : 'Sugestão ' + (i + 1));
+
+        if (img.origin === 'web' || img.origin === 'google') {
+          var badge = document.createElement('span');
+          badge.className = 'demand-origin-badge';
+          badge.textContent = img.origin === 'google' ? 'Google · Creative Commons' : 'Já escolhida por loja';
+          body.appendChild(badge);
+        }
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn small';
+        btn.textContent = 'Usar esta imagem';
+        btn.addEventListener('click', function () { useDemandImage(img.url, btn); });
+
+        body.appendChild(title);
+        body.appendChild(btn);
+        card.appendChild(thumb);
+        card.appendChild(body);
+        grid.appendChild(card);
+      });
+    }
+
+    async function useDemandImage(url, btn) {
+      if (!demandSearch.id || !url) return;
+      var original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Adicionando…';
+      try {
+        var r = await fetch('/admin/catalog/demand/' + demandSearch.id + '/use', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: url }),
+        });
+        var data = await r.json().catch(function () { return {}; });
+        if (!r.ok) throw new Error(data.error || 'Não foi possível adicionar a imagem.');
+        var resolvedTerm = demandSearch.term;
+        removeDemandRow(demandSearch.id);
+        closeDemandImages();
+        showCatalogNotice('Imagem adicionada ao catálogo aprovado.', resolvedTerm);
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = original;
+        var errorEl = document.getElementById('demand-images-error');
+        errorEl.textContent = e.message || 'Não foi possível adicionar a imagem.';
+        errorEl.style.display = 'block';
+      }
+    }
+
+    function removeDemandRow(id) {
+      var row = document.getElementById('demand-row-' + id);
+      if (!row) return;
+      var tbody = row.parentElement;
+      row.remove();
+      var total = document.getElementById('demand-total-count');
+      if (total) total.textContent = String(Math.max(0, Number(total.textContent) - 1));
+      var tab = document.getElementById('demand-tab-count');
+      if (tab) tab.textContent = String(Math.max(0, Number(tab.textContent) - 1));
+      if (tbody && !tbody.querySelector('tr')) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">Nenhuma demanda registrada ainda.</td></tr>';
+      }
+    }
+
+    function showCatalogNotice(message, term) {
+      var page = document.querySelector('.page');
+      if (!page) return;
+      var el = document.createElement('div');
+      el.className = 'success-banner';
+      el.appendChild(document.createTextNode(message + ' '));
+      if (term) {
+        var a = document.createElement('a');
+        a.href = '/admin/catalog?tab=imagens&status=aprovada&q=' + encodeURIComponent(term);
+        a.textContent = 'Ver no catálogo';
+        el.appendChild(a);
+      }
+      var before = page.querySelector('.card');
+      page.insertBefore(el, before || page.firstChild);
+      setTimeout(function () { el.remove(); }, 8000);
+    }
+
+    document.addEventListener('click', function (ev) {
+      var btn = ev.target.closest('.demand-search-btn');
+      if (!btn) return;
+      searchDemandImages(Number(btn.dataset.demandId), btn.dataset.term, btn.dataset.term);
+    });
+
     function catalogSelection() {
       return {
         selectedIds: [],

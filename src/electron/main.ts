@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, nativeTheme, screen } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeTheme, net, screen } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -7,11 +7,9 @@ import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
 import { createServer } from '../core/server';
 import { getSqlite } from '../core/database/connection';
-import { refreshLicenseFromCloud, validateLicense } from '../core/license/service';
-import { canAutoUpdate } from '../core/license/plans';
+import { refreshLicenseFromCloud } from '../core/license/service';
 import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/machinePrefs';
-import { patchUpdateState, getUpdateState, registrarUpdaterDriver, BAIXAR_AUTOMATICO_KEY } from '../core/updater';
-import { settingsRepository } from '../core/repositories/SettingsRepository';
+import { patchUpdateState, getUpdateState, registrarUpdaterDriver } from '../core/updater';
 import { createLogger } from '../core/logger';
 import { bootLog } from './bootLog';
 import { installTelemetry, registerInventoryProvider, recordError } from '../core/telemetry/service';
@@ -136,10 +134,12 @@ function reportFatalBootError(err: unknown): void {
  * não há app-update.yml e o electron-updater erraria à toa. Sem console visível num app
  * empacotado, os eventos vão para um log em userData.
  *
- * Quem manda no ritmo é o lojista, não o app: `autoDownload` fica DESLIGADO e cada etapa
- * (verificar → baixar → instalar) sai de um clique em Configurações › Atualização. Numa
- * loja, um download de ~100 MB disparado sozinho no meio do movimento disputa a mesma
- * internet do TEF e da nuvem — e o reinício que vem depois cai no pior momento possível.
+ * A regra desde esta versão é a do pedido do dono: atualização é OBRIGATÓRIA, para todo
+ * plano (inclusive teste e Prata), porque o pacote carrega correções de segurança. O app
+ * verifica de hora em hora enquanto houver internet, baixa sozinho e avisa no canto
+ * inferior direito com "Atualizar agora" ou "Adiar por 15 minutos" — o adiamento volta a
+ * cobrar a cada 15 minutos, nunca dispensa em definitivo. Fechar o Kivo também instala o
+ * que já foi baixado (`autoInstallOnAppQuit`), então a máquina não fica semanas atrasada.
  *
  * O estado de cada etapa vive em core/updater (ver o porquê lá) e chega à tela pela API
  * HTTP local, porque a interface do Kivo é uma página servida pelo Express, não uma
@@ -152,13 +152,6 @@ function setupAutoUpdater(win: BrowserWindow): void {
     patchUpdateState({
       suportado: false,
       motivo: 'A atualização automática só funciona no Kivo instalado (aqui você está rodando em modo de desenvolvimento).',
-    });
-    return;
-  }
-  if (!canAutoUpdate(validateLicense().plan)) {
-    patchUpdateState({
-      suportado: false,
-      motivo: 'Seu plano atual não inclui atualização automática. Fale com o suporte para atualizar o Kivo.',
     });
     return;
   }
@@ -183,10 +176,8 @@ function setupAutoUpdater(win: BrowserWindow): void {
   };
 
   // O Kivo BAIXA a versão nova sozinho e instala quando o programa fecha (ver
-  // `autoInstallOnAppQuit` logo abaixo). O pedido do dono é literal: "mesmo que o cliente tenha
-  // um instalador antigo, quem está online usa sempre a versão mais nova" — sem depender de
-  // ninguém clicar em "Baixar". Quem quiser controlar o ritmo desliga em
-  // Configurações › Atualização (`update.baixar_automatico`), e aí volta ao fluxo manual.
+  // `autoInstallOnAppQuit` logo abaixo). Atualização é obrigatória: não há mais o caminho
+  // "só avisar e esperar o lojista clicar em Baixar".
   autoUpdater.autoDownload = false;
   // Depois de baixada, a atualização entra sozinha quando o Kivo fecha (isSilent, sem
   // reabrir) — é o "instalar ao fechar" do comando de atualização forçada do suporte.
@@ -199,34 +190,34 @@ function setupAutoUpdater(win: BrowserWindow): void {
   });
   autoUpdater.on('update-available', (info) => {
     logUpdate(`atualização disponível: ${info.version}`);
-    const primeiraVez = getUpdateState().versaoDisponivel !== info.version;
+    const anterior = getUpdateState();
+    // A checagem de 1h pode reencontrar a mesma versão. Nesse caso não reinicia o download
+    // nem reexibe o aviso — só confirma o estado que já está na tela.
+    const jaBaixada = anterior.status === 'baixado' && anterior.versaoDisponivel === info.version;
+    const jaBaixando = anterior.status === 'baixando' && anterior.versaoDisponivel === info.version;
+    const primeiraVez = anterior.versaoDisponivel !== info.version;
+
     patchUpdateState({
-      status: 'disponivel',
+      status: jaBaixada ? 'baixado' : jaBaixando ? 'baixando' : 'disponivel',
       versaoDisponivel: info.version,
       notas: typeof info.releaseNotes === 'string' ? info.releaseNotes : null,
       verificadoEm: new Date().toISOString(),
       erro: null,
     });
-    // Só na primeira vez que ESTA versão aparece: a checagem se repete a cada 6h e o
-    // lojista não precisa do mesmo aviso três vezes por dia.
+    if (jaBaixada || jaBaixando) return;
+
+    // Baixa sozinho em segundo plano. O lojista continua usando o PDV normalmente; quando
+    // terminar, o cartão no canto inferior direito pede "Atualizar agora" ou "Adiar 15 min".
     if (primeiraVez) {
-      // Baixa SOZINHO em segundo plano (o cliente não precisa fazer nada) e avisa que já está
-      // cuidando disso. Antes o aviso mandava o lojista ir em Configurações › Atualização e
-      // clicar em "Baixar" — e o que se via era máquina velha por semanas.
-      const automatico = settingsRepository.getBool(BAIXAR_AUTOMATICO_KEY, true);
       avisarNaTela(
-        automatico
-          ? `Nova versão do Kivo (${info.version}) sendo baixada. A instalação acontece quando você fechar o Kivo.`
-          : `Nova versão do Kivo disponível (${info.version}). Baixe em Configurações › Atualização.`,
+        `Nova versão do Kivo (${info.version}) sendo baixada. A instalação acontece quando você fechar o Kivo.`,
         'info',
       );
-      if (automatico) {
-        void autoUpdater.downloadUpdate().catch((e: Error) => {
-          logUpdate(`falha ao baixar automaticamente: ${e.message}`);
-          patchUpdateState({ status: 'erro', erro: e.message, progresso: null });
-        });
-      }
     }
+    void autoUpdater.downloadUpdate().catch((e: Error) => {
+      logUpdate(`falha ao baixar automaticamente: ${e.message}`);
+      patchUpdateState({ status: 'erro', erro: e.message, progresso: null });
+    });
   });
   autoUpdater.on('update-not-available', () => {
     logUpdate('nenhuma atualização disponível.');
@@ -259,7 +250,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
       erro: null,
     });
     avisarNaTela(
-      `Kivo ${info.version} baixado. Ele será instalado quando você fechar o Kivo — ou clique em Atualizar para reiniciar agora.`,
+      `Kivo ${info.version} baixado. Atualize agora ou adie por 15 minutos no aviso do canto da tela — o Kivo também instala ao fechar.`,
       'success',
     );
   });
@@ -291,16 +282,24 @@ function setupAutoUpdater(win: BrowserWindow): void {
     },
   });
 
-  const checar = () =>
+  const checar = () => {
+    // Sem internet não adianta acordar o electron-updater: ele falharia, deixaria a tela
+    // em "erro" e voltaria a tentar na próxima hora. A checagem volta sozinha quando a
+    // conexão retornar.
+    if (!net.isOnline()) {
+      logUpdate('sem internet — checagem adiada para o próximo ciclo.');
+      return;
+    }
     autoUpdater.checkForUpdates().catch((err: Error) => {
       logUpdate(`falha ao checar: ${err.message}`);
       patchUpdateState({ status: 'erro', erro: err.message });
     });
+  };
 
   void checar();
   // PDV fica dias aberto sem reiniciar: sem o ciclo, a única chance de descobrir uma
-  // versão nova seria o boot.
-  setInterval(() => void checar(), 6 * 3600e3).unref?.();
+  // versão nova seria o boot. Uma vez por hora é o ritmo pedido para correções de segurança.
+  setInterval(checar, 3600e3).unref?.();
 }
 
 /**

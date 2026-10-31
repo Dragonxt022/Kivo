@@ -319,6 +319,16 @@
     </a>
     <% } %>
 
+    <%# Instalar no celular / tela cheia. Só aparece no layout estreito: no desktop o Kivo
+        já é o aplicativo Electron, e um ícone a mais no cabeçalho só polui. %>
+    <button type="button" class="btn-icon nav-install-btn" id="kivo-mobile-app-btn-header"
+            title="Instalar o Kivo no celular" aria-label="Instalar o Kivo no celular">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+        <path d="M12 6v5"/><path d="m9.5 8.5 2.5 2.5 2.5-2.5"/>
+      </svg>
+    </button>
+
     <div class="dropdown" style="position:relative">
       <button class="btn-icon" @click="notifOpen = !notifOpen" title="Notificações" aria-label="Notificações">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
@@ -557,6 +567,13 @@
       </svg>
       Trocar senha
     </button>
+    <button type="button" id="kivo-mobile-app-btn-user" @click="userOpen = false" class="menu-item"
+            @mouseenter="$el.style.background='var(--surface-hover)'" @mouseleave="$el.style.background='transparent'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+      </svg>
+      Instalar no celular / tela cheia
+    </button>
     <button @click="fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/?login=1')" class="menu-item"
             @mouseenter="$el.style.background='var(--surface-hover)'" @mouseleave="$el.style.background='transparent'">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
@@ -601,6 +618,23 @@
     </button>
   </div>
   <nav class="apps-drawer-list">
+    <%# Instalação no celular e aviso sonoro de pedido pronto ficam no topo do menu "Mais":
+        são configurações do aparelho, não destinos de navegação. %>
+    <button type="button" class="apps-drawer-item" id="kivo-mobile-app-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+      </svg>
+      Instalar no celular / tela cheia
+    </button>
+    <% if (user.permissions.has('comandas.view') || user.permissions.has('store.sales.view') || user.permissions.has('foodservice.kitchen.view')) { %>
+    <button type="button" class="apps-drawer-item" id="kivo-ready-sound-btn" aria-pressed="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      </svg>
+      Avisos de pedido pronto: <strong id="kivo-ready-sound-state">ligados</strong>
+    </button>
+    <% } %>
+    <div class="apps-drawer-divider"></div>
     <a href="/" class="apps-drawer-item <%= page === 'home' ? 'active' : '' %>" @click="appsOpen = false">
       <%- svgIcon('home', 18, 18) %>
       Início
@@ -989,6 +1023,11 @@
     Não injeta nada na página até alguém chamar window.abrirCalculadora(). %>
 <script nonce="<%= cspNonce %>" defer src="/js/calculadora.js"></script>
 <% } %>
+
+<%# Diálogo de instalação/tela cheia e o canal global de "pedido pronto". O ready-alerts
+    só emite script para quem tem permissão de ver mesas, vendas ou cozinha. %>
+<%- include('mobile-app') %>
+<%- include('ready-alerts', { user }) %>
 
 <script nonce="<%= cspNonce %>">
   // Tabelas largas no celular: embrulha cada <table> de `main` num contêiner com rolagem

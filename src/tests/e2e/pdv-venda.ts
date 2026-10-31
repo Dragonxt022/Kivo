@@ -116,7 +116,7 @@ async function main(): Promise<void> {
     // Dinheiro (e não PIX): só pagamento em espécie mexe na gaveta e gera movimento de
     // caixa — é o que permite conferir o efeito da venda no caixa no fim.
     await page.locator('.pay-quick-method:has-text("Dinheiro")').first().click();
-    await page.locator('.pay-method-row button:has-text("Adicionar")').click();
+    await page.locator('.pay-add-btn').click();
     await wait(page, 400);
 
     const resumo = await page.locator('.pay-items-list').innerText();

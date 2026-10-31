@@ -45,6 +45,7 @@ import { listDevDocs, renderDevDoc } from './devdocs/service';
 import aiRoutes from './ai/routes';
 import updaterRoutes from './updater/routes';
 import messagesRoutes from './messages/routes';
+import readyAlertRoutes from './ready-alerts/routes';
 import { fetchInbox } from './messages/service';
 import recoveryRoutes from './recovery/routes';
 import { defaultIconHelpers, getIconHelpers } from './icons/service';
@@ -379,6 +380,9 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/api/updates', requireAuth, updaterRoutes);
   // Central de mensagens (suporte -> loja): qualquer usuário lê; o estado é por usuário.
   app.use('/api/messages', requireAuth, messagesRoutes);
+  // Avisos de "pedido pronto" para quem está fora da tela da cozinha/mesas. O SSE fica
+  // disponível em todas as páginas (partial ready-alerts, incluído pelo nav).
+  app.use('/api/ready-alerts', requireAuth, readyAlertRoutes);
 
   // Páginas do Core
   app.get('/', page('home'));

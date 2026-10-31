@@ -1,7 +1,8 @@
 /**
- * Planos comerciais do Kivo. Trial e Prata não incluem atualização automática nem
- * salvamento em nuvem (sync/backup); Ouro e Diamante incluem os dois. O Kivo Web (celular)
- * é só do Diamante — ver `canUseWebApp`.
+ * Planos comerciais do Kivo. Atualização automática passou a valer para TODOS os planos —
+ * inclusive trial e Prata — porque ela carrega correções de segurança e é obrigatória.
+ * Salvamento em nuvem (sync/backup) continua exclusivo de Ouro/Diamante. O Kivo Web
+ * (celular) é só do Diamante — ver `canUseWebApp`.
  *
  * A capability `app.online`, antes reservada para isto, não chegou a ser usada: capabilities
  * nascem desligadas (loader.ts), então ela seria um terceiro interruptor que faria o recurso
@@ -25,8 +26,13 @@ export const PLAN_LABELS: Record<PlanTier, string> = {
 
 const RESTRICTED_PLANS = new Set<string>(['trial', 'prata']);
 
-export function canAutoUpdate(plan: string | null): boolean {
-  return !plan || !RESTRICTED_PLANS.has(plan.toLowerCase());
+/**
+ * Atualização obrigatória em qualquer plano: o pacote traz correções de segurança e não
+ * faz sentido um cliente em teste ficar preso numa versão vulnerável. Mantido como função
+ * porque a tela de licença e os testes ainda consultam `canAutoUpdate`.
+ */
+export function canAutoUpdate(_plan?: string | null): boolean {
+  return true;
 }
 
 export function canSaveToCloud(plan: string | null): boolean {

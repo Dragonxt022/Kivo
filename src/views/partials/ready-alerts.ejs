@@ -1,0 +1,355 @@
+<%#
+  Avisos globais de "pedido pronto".
+
+  Incluído pelo partials/nav.ejs em TODAS as telas autenticadas. O objetivo é resolver o
+  buraco de quem está no PDV, no financeiro ou em qualquer outra página quando a cozinha
+  marca um ticket como pronto — antes só a grade de mesas e o próprio KDS avisavam, e
+  apenas enquanto estavam abertos.
+
+  Funciona em três camadas:
+  1) SSE (/api/ready-alerts/events): chega na hora, inclusive com a aba em segundo plano;
+  2) poll de 60 s: rede de segurança se o SSE cair ou o navegador não tiver EventSource;
+  3) Notification API (quando o navegador permite): aviso do sistema mesmo fora da aba.
+     Em acesso http:// pela rede local o navegador não libera notificação de sistema
+     (contexto inseguro) — aí ficam o som, a vibração e o título da aba.
+-%>
+<% if (user && (user.permissions.has('comandas.view') || user.permissions.has('store.sales.view') || user.permissions.has('foodservice.kitchen.view'))) { %>
+<script nonce="<%= cspNonce %>">
+(function () {
+  'use strict';
+  if (window.KivoReadyAlerts) return;
+
+  var USER_KEY = <%- JSON.stringify(user.username) %>;
+  var USER_ID = <%- JSON.stringify(user.id) %>;
+  var SEEN_KEY = 'kivo-ready-seen:' + USER_KEY;
+  var SOM_KEY = 'kivo-ready-som:' + USER_KEY;
+  var TITLE_BASE = document.title || 'Kivo';
+  var STALE_MS = 24 * 60 * 60 * 1000;
+
+  var seen = null;
+  var soundOn = true;
+  var audio = null;
+  var audioUnlocked = false;
+  var pendingTitleCount = 0;
+  var source = null;
+  var pollTimer = null;
+
+  function readSeen() {
+    try {
+      var raw = localStorage.getItem(SEEN_KEY);
+      if (!raw) return null;
+      var obj = JSON.parse(raw);
+      return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : null;
+    } catch (e) { return null; }
+  }
+
+  function saveSeen(obj) {
+    var now = Date.now();
+    var next = {};
+    Object.keys(obj || {}).forEach(function (key) {
+      // 24 h é mais que suficiente: um ticket 'pronto' não fica pendente tanto tempo, e
+      // sem a poda a chave cresceria para sempre no localStorage.
+      if (now - Number(obj[key] || 0) < STALE_MS) next[key] = obj[key];
+    });
+    seen = next;
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(next)); } catch (e) {}
+  }
+
+  function keyOf(alert) {
+    return alert && alert.id != null ? String(alert.id) : '';
+  }
+
+  function readSound() {
+    try {
+      var raw = localStorage.getItem(SOM_KEY);
+      if (raw !== null) return raw !== '0';
+      // Migração da preferência antiga da grade de mesas: quem já tinha desligado lá não
+      // ganha sirene agora sem pedir.
+      var legacy = localStorage.getItem('mesas-som-pronto');
+      return legacy !== '0';
+    } catch (e) { return true; }
+  }
+
+  function writeSound() {
+    try { localStorage.setItem(SOM_KEY, soundOn ? '1' : '0'); } catch (e) {}
+    // Mantém a chave antiga em sincronia para a tela de mesas continuar coerente.
+    try { localStorage.setItem('mesas-som-pronto', soundOn ? '1' : '0'); } catch (e) {}
+  }
+
+  function updateSoundUi() {
+    var state = document.getElementById('kivo-ready-sound-state');
+    if (state) state.textContent = soundOn ? 'ligados' : 'desligados';
+    var btn = document.getElementById('kivo-ready-sound-btn');
+    if (btn) btn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+  }
+
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    try {
+      if (!audio) audio = new Audio('/sons/pedido.mp3');
+      // Um play mudo no primeiro toque satisfaz a política de autoplay; os avisos
+      // seguintes já podem tocar com som.
+      audio.muted = true;
+      audio.play().then(function () {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = false;
+      }).catch(function () { audio.muted = false; });
+    } catch (e) {}
+  }
+
+  function playSound() {
+    if (!soundOn) return;
+    try {
+      if (!audio) audio = new Audio('/sons/pedido.mp3');
+      audio.muted = false;
+      audio.currentTime = 0;
+      audio.play().catch(function () { /* autoplay bloqueado — o toast e o título ficam */ });
+    } catch (e) {}
+  }
+
+  function vibrate() {
+    try {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    } catch (e) {}
+  }
+
+  function canSystemNotify() {
+    return 'Notification' in window && window.isSecureContext && Notification.permission === 'granted';
+  }
+
+  function notificationPermission() {
+    if (!('Notification' in window)) return 'unsupported';
+    if (!window.isSecureContext) return 'insecure';
+    return Notification.permission;
+  }
+
+  function showSystemNotification(alert) {
+    if (!canSystemNotify()) return;
+    var title = 'Pedido pronto';
+    var target = alert && alert.sourceType === 'sale' ? '/app/store/vendas' : '/app/comandas/mesas';
+    var options = {
+      body: (alert && alert.label ? alert.label : 'Pedido') + ' — toque para abrir.',
+      icon: '/img/icon-192.png',
+      badge: '/img/icon-192.png',
+      tag: 'kivo-ready-' + (alert && alert.id != null ? alert.id : Date.now()),
+      data: { url: target },
+      vibrate: [200, 100, 200],
+    };
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready
+          .then(function (reg) { return reg.showNotification(title, options); })
+          .catch(fallback);
+        return;
+      }
+    } catch (e) {}
+    fallback();
+
+    function fallback() {
+      try {
+        var n = new Notification(title, options);
+        n.onclick = function () { window.focus(); location.href = target; n.close(); };
+      } catch (e) {}
+    }
+  }
+
+  function flashTitle(label) {
+    if (!document.hidden) return;
+    pendingTitleCount += 1;
+    document.title = '(' + pendingTitleCount + ') Pedido pronto — ' + TITLE_BASE;
+  }
+
+  function restoreTitle() {
+    pendingTitleCount = 0;
+    if (document.title !== TITLE_BASE) document.title = TITLE_BASE;
+  }
+
+  function toast(message, type) {
+    if (typeof window.showToast === 'function') window.showToast(message, type);
+  }
+
+  function handleAlert(alert) {
+    var key = keyOf(alert);
+    if (!key || (seen && seen[key])) return;
+    if (seen === null) seen = {};
+    seen[key] = Date.now();
+
+    // Quem marcou como pronto não precisa ser avisado da própria ação (o KDS já atualiza
+    // o card na frente dele).
+    if (alert.actorUserId != null && Number(alert.actorUserId) === Number(USER_ID)) return;
+
+    var label = alert.label || 'Pedido';
+    toast('Pedido pronto: ' + label + '.', 'success');
+    playSound();
+    vibrate();
+    flashTitle(label);
+
+    // Fora da aba (ou com a janela sem foco): além do som, usa o aviso do sistema quando
+    // o navegador permite. Em http:// local o Notification nem existe.
+    if ((document.hidden || !document.hasFocus()) && canSystemNotify()) {
+      showSystemNotification(alert);
+    }
+  }
+
+  function processList(list, isSnapshot) {
+    if (!Array.isArray(list) || !list.length) {
+      if (isSnapshot && seen === null) saveSeen({});
+      return;
+    }
+    // Primeira carga do aparelho: registra o que JÁ estava pronto como linha de base, sem
+    // sirene. Só a virada para pronto depois disso vira aviso.
+    if (isSnapshot && seen === null) {
+      var baseline = {};
+      list.forEach(function (alert) {
+        var key = keyOf(alert);
+        if (key) baseline[key] = Date.now();
+      });
+      saveSeen(baseline);
+      return;
+    }
+    list.forEach(handleAlert);
+    saveSeen(seen || {});
+  }
+
+  function fetchPending() {
+    fetch('/api/ready-alerts/pending', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (body) {
+        if (body && Array.isArray(body.alerts)) processList(body.alerts, seen === null);
+      })
+      .catch(function () {});
+  }
+
+  function connect() {
+    if (source || typeof EventSource === 'undefined') {
+      if (!source) fetchPending();
+      return;
+    }
+    try {
+      source = new EventSource('/api/ready-alerts/events');
+    } catch (e) {
+      source = null;
+      fetchPending();
+      return;
+    }
+    source.addEventListener('snapshot', function (ev) {
+      try { processList(JSON.parse(ev.data), true); } catch (e) {}
+    });
+    source.addEventListener('ready', function (ev) {
+      try {
+        var alert = JSON.parse(ev.data);
+        processList([alert], false);
+      } catch (e) {}
+    });
+    // Sem onerror explícito: o EventSource reconecta sozinho e o poll é a rede de segurança.
+  }
+
+  function disconnect() {
+    if (source) {
+      try { source.close(); } catch (e) {}
+      source = null;
+    }
+  }
+
+  function requestPermission() {
+    var status = notificationPermission();
+    if (status === 'unsupported') {
+      toast('Este navegador não oferece notificações do sistema.', 'error');
+      return Promise.resolve(status);
+    }
+    if (status === 'insecure') {
+      toast('Para aviso do sistema fora do app é preciso abrir o Kivo por HTTPS. Neste acesso local, o som e o título da aba continuam avisando.', 'info');
+      return Promise.resolve(status);
+    }
+    if (status === 'denied') {
+      toast('As notificações estão bloqueadas. Libere nas configurações do navegador.', 'info');
+      return Promise.resolve(status);
+    }
+    if (status === 'granted') {
+      showSystemNotification({ id: 'teste', label: 'Teste de aviso' });
+      return Promise.resolve(status);
+    }
+    return Notification.requestPermission().then(function (permission) {
+      window.dispatchEvent(new Event('kivo-ready-notify-changed'));
+      if (permission === 'granted') {
+        toast('Notificações ativadas.', 'success');
+        showSystemNotification({ id: 'teste', label: 'Teste de aviso' });
+      } else {
+        toast('As notificações não foram liberadas.', 'info');
+      }
+      return permission;
+    }).catch(function () { return Notification.permission; });
+  }
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    writeSound();
+    updateSoundUi();
+    if (soundOn) {
+      unlockAudio();
+      playSound();
+      toast('Avisos sonoros de pedido pronto ligados.', 'success');
+    } else {
+      toast('Avisos sonoros de pedido pronto desligados.', 'info');
+    }
+    return soundOn;
+  }
+
+  window.KivoReadyAlerts = {
+    isSoundOn: function () { return soundOn; },
+    toggleSound: toggleSound,
+    requestPermission: requestPermission,
+    notificationPermission: notificationPermission,
+    refreshSound: function () { soundOn = readSound(); updateSoundUi(); },
+  };
+
+  function init() {
+    seen = readSeen();
+    soundOn = readSound();
+    updateSoundUi();
+    var btn = document.getElementById('kivo-ready-sound-btn');
+    if (btn) btn.addEventListener('click', toggleSound);
+    connect();
+    pollTimer = setInterval(fetchPending, 60000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) {
+        restoreTitle();
+        fetchPending();
+      }
+    });
+    window.addEventListener('focus', function () {
+      restoreTitle();
+      fetchPending();
+    });
+    window.addEventListener('pageshow', function () {
+      connect();
+      fetchPending();
+    });
+    window.addEventListener('pagehide', disconnect);
+
+    // O primeiro toque/tecla destrava o áudio para os avisos seguintes.
+    ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+      document.addEventListener(ev, unlockAudio, { once: true, capture: true, passive: true });
+    });
+
+    // Uma dica única no celular: o botão de instalar fica no topo e no menu "Mais".
+    if (!document.documentElement.classList.contains('kivo-standalone') && window.matchMedia && window.matchMedia('(max-width: 820px)').matches) {
+      try {
+        var lastTip = Number(localStorage.getItem('kivo-app-tip-at') || 0);
+        if (Date.now() - lastTip > 7 * 24 * 60 * 60 * 1000) {
+          setTimeout(function () {
+            toast('Dica: instale o Kivo na tela inicial para usar sem a barra do navegador. Toque no ícone de celular no topo.', 'info');
+            try { localStorage.setItem('kivo-app-tip-at', String(Date.now())); } catch (e) {}
+          }, 3500);
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+<% } %>
