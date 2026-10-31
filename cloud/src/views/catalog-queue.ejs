@@ -68,6 +68,40 @@
     .demand-suggest-card .btn { width: 100%; justify-content: center; }
     .demand-origin-badge { color: var(--primary); font-size: 0.63rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
     .demand-suggest-loading { padding: 28px 8px; text-align: center; color: var(--muted); font-size: 0.9rem; }
+
+    /* Preenchimento em lote da demanda. */
+    .demand-batch-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 14px 0 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      background: var(--surface-hover);
+    }
+    .demand-batch-bar strong { font-size: 0.88rem; }
+    .demand-batch-bar .field-hint { margin: 2px 0 0; }
+    .demand-batch-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .demand-batch-controls select { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--surface); color: var(--text); }
+    .batch-demand-progress { margin: 8px 0 12px; }
+    .batch-demand-progress-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 5px; font-size: 0.8rem; color: var(--muted); }
+    .batch-demand-bar { height: 6px; overflow: hidden; border-radius: 999px; background: var(--surface-hover); }
+    #batch-demand-bar-fill { height: 100%; width: 0; background: var(--primary); transition: width 0.25s; }
+    .batch-demand-mark {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: var(--surface-hover);
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
@@ -169,6 +203,35 @@
             <button type="submit" class="btn small">Buscar</button>
             <% if (q) { %><a class="btn secondary small" href="/admin/catalog?tab=demanda">Limpar</a><% } %>
           </form>
+
+          <div class="demand-batch-bar">
+            <div>
+              <strong>Preencher em lote</strong>
+              <p class="field-hint">
+                Baixa a primeira sugestão de cada termo como <strong>pendente</strong>. Você revisa e
+                aprova depois em Imagens → Pendentes; ao aprovar, a demanda correspondente sai sozinha.
+                Comece com 25 para não gastar a cota dos provedores de uma vez.
+              </p>
+            </div>
+            <div class="demand-batch-controls">
+              <label for="batch-demand-limit" style="font-size:0.8rem;color:var(--muted)">Quantos termos</label>
+              <select id="batch-demand-limit">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <button type="button" class="btn small" id="batch-demand-btn" onclick="startDemandBatch()">Preencher em lote</button>
+              <button type="button" class="btn secondary small" id="batch-demand-cancel" onclick="cancelDemandBatch()" style="display:none">Parar</button>
+            </div>
+          </div>
+          <div class="batch-demand-progress" id="batch-demand-progress" style="display:none;">
+            <div class="batch-demand-progress-row">
+              <span id="batch-demand-status"></span>
+              <span id="batch-demand-count"></span>
+            </div>
+            <div class="batch-demand-bar"><div id="batch-demand-bar-fill"></div></div>
+          </div>
 
           <table>
             <thead><tr><th>Termo buscado</th><th class="text-right">Buscas</th><th>Última vez</th><th></th></tr></thead>
@@ -609,6 +672,125 @@
       var before = page.querySelector('.card');
       page.insertBefore(el, before || page.firstChild);
       setTimeout(function () { el.remove(); }, 8000);
+    }
+
+    var batchRunning = false;
+    var batchCancelled = false;
+
+    function setBatchProgress(done, total, text) {
+      document.getElementById('batch-demand-progress').style.display = 'block';
+      document.getElementById('batch-demand-status').textContent = text || ('Processando ' + done + ' de ' + total + '…');
+      document.getElementById('batch-demand-count').textContent = done + '/' + total;
+      var pct = total ? Math.round((done / total) * 100) : 0;
+      document.getElementById('batch-demand-bar-fill').style.width = pct + '%';
+    }
+
+    function markDemandPending(id) {
+      var row = document.getElementById('demand-row-' + id);
+      if (!row) return;
+      var cell = row.querySelector('td');
+      if (!cell || cell.querySelector('.batch-demand-mark')) return;
+      var mark = document.createElement('span');
+      mark.className = 'batch-demand-mark';
+      mark.textContent = 'pendente';
+      cell.appendChild(document.createTextNode(' '));
+      cell.appendChild(mark);
+    }
+
+    function cancelDemandBatch() {
+      if (!batchRunning) return;
+      batchCancelled = true;
+      document.getElementById('batch-demand-cancel').disabled = true;
+      document.getElementById('batch-demand-status').textContent = 'Parando após o bloco atual…';
+    }
+
+    async function startDemandBatch() {
+      if (batchRunning) return;
+      var total = Number(document.getElementById('batch-demand-limit').value) || 25;
+      var filter = new URLSearchParams(location.search).get('q') || '';
+      var btn = document.getElementById('batch-demand-btn');
+      var cancel = document.getElementById('batch-demand-cancel');
+      var progress = document.getElementById('batch-demand-progress');
+      var status = document.getElementById('batch-demand-status');
+      var count = document.getElementById('batch-demand-count');
+      var bar = document.getElementById('batch-demand-bar-fill');
+      batchRunning = true;
+      batchCancelled = false;
+      btn.disabled = true;
+      cancel.disabled = false;
+      cancel.style.display = 'inline-flex';
+      progress.style.display = 'block';
+      bar.style.width = '0%';
+      status.textContent = 'Preparando lote…';
+      count.textContent = '0/' + total;
+      progress.querySelectorAll('.error-banner').forEach(function (n) { n.remove(); });
+
+      var processed = 0;
+      var filled = 0, resolved = 0, skipped = 0, noResult = 0, errors = 0;
+      var lastError = '';
+      var seenIds = [];
+
+      try {
+        while (processed < total && !batchCancelled) {
+          var chunk = Math.min(5, total - processed);
+          var r = await fetch('/admin/catalog/demand/batch-fill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ limit: chunk, q: filter, exclude: seenIds }),
+          });
+          var data = await r.json().catch(function () { return {}; });
+          if (!r.ok) throw new Error(data.error || 'Falha no lote.');
+          if (!data.processed) break;
+          processed += data.processed;
+          filled += data.filled || 0;
+          resolved += data.resolved || 0;
+          skipped += data.skipped || 0;
+          noResult += data.noResult || 0;
+          errors += data.errors || 0;
+          (data.items || []).forEach(function (item) {
+            if (seenIds.indexOf(item.id) === -1) seenIds.push(item.id);
+            if (item.status === 'preenchido' || item.status === 'ja_pendente') markDemandPending(item.id);
+            else if (item.status === 'ja_aprovada') removeDemandRow(item.id);
+            if (item.error) lastError = item.error;
+          });
+          setBatchProgress(processed, total);
+          if (data.remaining === 0) break;
+          await new Promise(function (resolve) { setTimeout(resolve, 250); });
+        }
+      } catch (e) {
+        lastError = e.message || 'Falha no lote.';
+      } finally {
+        batchRunning = false;
+        btn.disabled = false;
+        cancel.style.display = 'none';
+        cancel.disabled = false;
+        var summary = 'Concluído: ' + filled + ' imagem(ns) pendente(s)';
+        if (resolved) summary += ', ' + resolved + ' demanda(s) já resolvida(s)';
+        if (skipped) summary += ', ' + skipped + ' já pendente(s)';
+        if (noResult) summary += ', ' + noResult + ' sem resultado';
+        if (errors) summary += ', ' + errors + ' com erro';
+        if (batchCancelled) summary = 'Lote interrompido. ' + summary;
+        status.textContent = summary + '.';
+        bar.style.width = '100%';
+        if (processed) count.textContent = processed + (processed < total ? ' termo(s)' : '/' + total);
+        if (lastError) {
+          var err = document.createElement('div');
+          err.className = 'error-banner';
+          err.style.marginTop = '8px';
+          err.textContent = lastError;
+          progress.appendChild(err);
+          setTimeout(function () { err.remove(); }, 8000);
+        }
+        if (filled > 0) {
+          var link = document.createElement('a');
+          link.href = '/admin/catalog?tab=imagens&status=pendente';
+          link.className = 'btn small';
+          link.textContent = 'Revisar pendentes';
+          link.style.marginLeft = '8px';
+          status.appendChild(document.createTextNode(' '));
+          status.appendChild(link);
+        }
+      }
     }
 
     document.addEventListener('click', function (ev) {

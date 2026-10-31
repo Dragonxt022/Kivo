@@ -2275,6 +2275,7 @@ interface CatalogDemandRow {
 
 const demandSearchLimiter = createRateLimiter({ windowMs: 60e3, max: 12, keyPrefix: 'catalog-demand-search:' });
 const demandUseLimiter = createRateLimiter({ windowMs: 60e3, max: 12, keyPrefix: 'catalog-demand-use:' });
+const demandBatchLimiter = createRateLimiter({ windowMs: 60e3, max: 30, keyPrefix: 'catalog-demand-batch:' });
 
 async function loadCatalogDemand(id: number): Promise<CatalogDemandRow | null> {
   if (!Number.isInteger(id) || id <= 0) return null;
@@ -2283,15 +2284,20 @@ async function loadCatalogDemand(id: number): Promise<CatalogDemandRow | null> {
 }
 
 type SaveExternalResult =
-  | { ok: true; id: number; reused: boolean }
+  | { ok: true; id: number; reused: boolean; status: 'pendente' | 'aprovada' }
   | { ok: false; error: string };
 
-/** Baixa, valida e grava no catálogo uma imagem escolhida pelo admin. */
+/**
+ * Baixa, valida e grava no catálogo uma imagem escolhida pelo admin.
+ * `status='pendente'` é usado pelo preenchimento em lote: a imagem entra na fila de
+ * curadoria e só resolve a demanda quando for aprovada.
+ */
 async function saveExternalImageToCatalog(
   url: string,
   productName: string,
   barcode: string | null,
   admin: string,
+  status: 'pendente' | 'aprovada' = 'aprovada',
 ): Promise<SaveExternalResult> {
   const img = await downloadExternalImage(url);
   if (!img) {
@@ -2306,28 +2312,32 @@ async function saveExternalImageToCatalog(
     if (existing.status === 'rejeitada') {
       return { ok: false, error: 'Essa imagem já foi rejeitada anteriormente e não pode voltar ao catálogo.' };
     }
-    // Já estava pendente: a escolha do admin vale como aprovação e o termo vira o nome.
     if (existing.status === 'pendente') {
-      await pool.query(
-        `UPDATE catalog_images
-            SET status = 'aprovada', product_name = ?, keywords = ?, barcode = COALESCE(?, barcode),
-                reviewed_by = ?, reviewed_at = NOW(3)
-          WHERE id = ?`,
-        [productName, normalizeKeywords(productName), barcode, admin, existing.id],
-      );
-    } else {
-      // Já aprovada com outro nome: cria o alias do termo procurado, senão a busca que gerou
-      // esta demanda continuaria sem achar a imagem e o termo voltaria para a lista.
-      const alias = normalizeKeywords(productName).slice(0, 255);
-      if (alias.length >= 3) {
+      if (status === 'aprovada') {
+        // A escolha explícita do admin vale como aprovação e o termo vira o nome.
         await pool.query(
-          `INSERT INTO catalog_image_aliases (catalog_image_id, alias) VALUES (?, ?)
-           ON DUPLICATE KEY UPDATE occurrences = occurrences + 1, updated_at = CURRENT_TIMESTAMP(3)`,
-          [existing.id, alias],
+          `UPDATE catalog_images
+              SET status = 'aprovada', product_name = ?, keywords = ?, barcode = COALESCE(?, barcode),
+                  reviewed_by = ?, reviewed_at = NOW(3)
+            WHERE id = ?`,
+          [productName, normalizeKeywords(productName), barcode, admin, existing.id],
         );
+        return { ok: true, id: existing.id, reused: true, status: 'aprovada' };
       }
+      // Lote: já existe uma pendente com o mesmo conteúdo; não duplica.
+      return { ok: true, id: existing.id, reused: true, status: 'pendente' };
     }
-    return { ok: true, id: existing.id, reused: true };
+    // Já aprovada com outro nome: cria o alias do termo procurado, senão a busca que gerou
+    // esta demanda continuaria sem achar a imagem e o termo voltaria para a lista.
+    const alias = normalizeKeywords(productName).slice(0, 255);
+    if (alias.length >= 3) {
+      await pool.query(
+        `INSERT INTO catalog_image_aliases (catalog_image_id, alias) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE occurrences = occurrences + 1, updated_at = CURRENT_TIMESTAMP(3)`,
+        [existing.id, alias],
+      );
+    }
+    return { ok: true, id: existing.id, reused: true, status: 'aprovada' };
   }
 
   fs.mkdirSync(CATALOG_STORAGE_DIR, { recursive: true });
@@ -2337,7 +2347,7 @@ async function saveExternalImageToCatalog(
     `INSERT INTO catalog_images
        (company_uuid, product_name, keywords, barcode, image_path, sha256, width, height, format, size_bytes,
         status, source, reviewed_by, reviewed_at)
-     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'aprovada', 'api', ?, NOW(3))`,
+     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'api', ?, ${status === 'aprovada' ? 'NOW(3)' : 'NULL'})`,
     [
       productName,
       normalizeKeywords(productName),
@@ -2348,10 +2358,11 @@ async function saveExternalImageToCatalog(
       img.height,
       img.format,
       img.buf.length,
-      admin,
+      status,
+      status === 'aprovada' ? admin : null,
     ],
   );
-  return { ok: true, id: (info as { insertId: number }).insertId, reused: false };
+  return { ok: true, id: (info as { insertId: number }).insertId, reused: false, status };
 }
 
 router.get('/catalog', requireAdminAuth, async (req, res) => {
@@ -2483,6 +2494,108 @@ router.post('/catalog/demand/:id/delete', requireAdminAuth, async (req, res) => 
   res.redirect('/admin/catalog?tab=demanda');
 });
 
+interface DemandSuggestion {
+  url: string;
+  thumb: string;
+  title: string | null;
+  origin: 'web' | 'google' | 'pexels';
+}
+
+interface DemandSuggestions {
+  results: DemandSuggestion[];
+  cached: boolean;
+  externalError: string | null;
+  attribution: string | null;
+  attributionUrl: string | null;
+  googleConfigured: boolean;
+  pexelsConfigured: boolean;
+  counts: { web: number; google: number; pexels: number };
+}
+
+/**
+ * Reúne as sugestões para um termo: escolhas anteriores das lojas → Google CC → Pexels.
+ * Usado tanto pelo modal de um termo quanto pelo preenchimento em lote.
+ */
+async function findDemandImageSuggestions(query: string, limit = 12): Promise<DemandSuggestions> {
+  const norm = normalizeKeywords(query);
+  const [webRows] = await getPool().query(
+    `SELECT url, thumb, title FROM catalog_web_images
+      WHERE term = ? OR term LIKE ?
+      ORDER BY pick_count DESC, updated_at DESC LIMIT ?`,
+    [norm, `%${norm}%`, limit],
+  );
+  const webResults: DemandSuggestion[] = (webRows as { url: string; thumb: string | null; title: string | null }[])
+    .map((r) => ({
+      url: r.url,
+      thumb: r.thumb || r.url,
+      title: r.title,
+      origin: 'web' as const,
+    }));
+  const seen = new Set(webResults.map((r) => r.url));
+
+  // Google Imagens pela API oficial, com "Licenças Creative Commons" e uso comercial.
+  // É o mesmo filtro da tela do Google — sem scraping.
+  let googleResults: DemandSuggestion[] = [];
+  let googleConfigured = false;
+  let cached = false;
+  let externalError: string | null = null;
+  if (webResults.length < limit) {
+    try {
+      const google = await searchGoogleImagesCached(query, Math.min(10, limit));
+      googleConfigured = google.configured;
+      cached = cached || google.cached;
+      googleResults = google.results
+        .filter((r) => !seen.has(r.url))
+        .map((r) => {
+          seen.add(r.url);
+          return { url: r.url, thumb: r.thumb, title: r.title, origin: 'google' as const };
+        });
+    } catch (err) {
+      externalError = err instanceof Error ? err.message : 'Falha na busca no Google.';
+    }
+  }
+
+  // Se o Google não está configurado, falhou ou não achou CC, completa com Pexels.
+  let pexelsResults: DemandSuggestion[] = [];
+  let pexelsConfigured = false;
+  if (webResults.length + googleResults.length < limit && !googleResults.length) {
+    try {
+      const pexels = await searchExternalCached(query, limit);
+      cached = cached || pexels.cached;
+      pexelsConfigured = pexels.results.length > 0;
+      pexelsResults = pexels.results
+        .filter((r) => !seen.has(r.url))
+        .map((r) => ({ url: r.url, thumb: r.thumb, title: r.title, origin: 'pexels' as const }));
+    } catch (err) {
+      externalError = externalError ?? (err instanceof Error ? err.message : 'Falha na busca externa.');
+    }
+  }
+  if (!googleResults.length) {
+    // `searchExternalCached` devolve vazio quando não configurado; confirma pelo settings.
+    pexelsConfigured = pexelsConfigured || !!(await loadImageApiConfig());
+  }
+
+  const parts: string[] = [];
+  if (webResults.length) parts.push('imagens já escolhidas por lojas do Kivo');
+  if (googleResults.length) parts.push('Google Imagens (Creative Commons)');
+  if (pexelsResults.length) parts.push('fotos fornecidas por Pexels');
+
+  return {
+    results: [...webResults, ...googleResults, ...pexelsResults].slice(0, limit),
+    cached,
+    externalError,
+    attribution: parts.length ? 'Sugestões: ' + parts.join(' + ') + '.' : null,
+    attributionUrl: googleResults.length
+      ? `https://www.google.com/search?tbm=isch&tbs=il:cl&q=${encodeURIComponent(query)}`
+      : pexelsResults.length
+        ? 'https://www.pexels.com'
+        : null,
+    googleConfigured,
+    pexelsConfigured,
+    counts: { web: webResults.length, google: googleResults.length, pexels: pexelsResults.length },
+  };
+}
+
 /**
  * Busca sugestões externas para um termo da demanda. Devolve JSON para o modal de
  * curadoria; o admin pode refinar o termo com `?q=` antes de escolher.
@@ -2501,99 +2614,20 @@ router.get('/catalog/demand/:id/search', requireAdminAuth, async (req, res) => {
 
   const override = String(req.query.q ?? '').trim().slice(0, 191);
   const query = override.length >= 3 ? override : demand.term;
-  const norm = normalizeKeywords(query);
-
-  // 1) Imagens da web que alguma loja JÁ escolheu para um termo parecido. São as melhores
-  //    sugestões para produto real (marca/embalagem), então vêm antes das fotos de banco.
-  const [webRows] = await getPool().query(
-    `SELECT url, thumb, title FROM catalog_web_images
-      WHERE term = ? OR term LIKE ?
-      ORDER BY pick_count DESC, updated_at DESC LIMIT 12`,
-    [norm, `%${norm}%`],
-  );
-  const webResults = (webRows as { url: string; thumb: string | null; title: string | null }[]).map((r) => ({
-    url: r.url,
-    thumb: r.thumb || r.url,
-    title: r.title,
-    origin: 'web' as const,
-  }));
-  const seen = new Set(webResults.map((r) => r.url));
-
-  // 2) Google Imagens pela API oficial, com o filtro "Licenças Creative Commons" e uso
-  //    comercial. É o mesmo filtro da tela do Google que o admin mostrou — sem scraping.
-  let googleResults: { url: string; thumb: string; title: string; origin: 'google' }[] = [];
-  let googleConfigured = false;
-  let cached = false;
-  let externalError: string | null = null;
-  if (webResults.length < 12) {
-    try {
-      const google = await searchGoogleImagesCached(query, 10);
-      googleConfigured = google.configured;
-      cached = cached || google.cached;
-      googleResults = google.results
-        .filter((r) => !seen.has(r.url))
-        .map((r) => {
-          seen.add(r.url);
-          return { url: r.url, thumb: r.thumb, title: r.title, origin: 'google' as const };
-        });
-    } catch (err) {
-      externalError = err instanceof Error ? err.message : 'Falha na busca no Google.';
-    }
-  }
-
-  // 3) Se o Google não está configurado, falhou ou não achou imagem com licença CC,
-  //    completa com o Pexels (mesma API/cache do sugestor do app).
-  let pexelsResults: { url: string; thumb: string; title: string; origin: 'pexels' }[] = [];
-  let pexelsConfigured = false;
-  if (webResults.length + googleResults.length < 12 && !googleResults.length) {
-    try {
-      const pexels = await searchExternalCached(query);
-      cached = cached || pexels.cached;
-      pexelsConfigured = pexels.results.length > 0;
-      pexelsResults = pexels.results
-        .filter((r) => !seen.has(r.url))
-        .map((r) => ({ url: r.url, thumb: r.thumb, title: r.title, origin: 'pexels' as const }));
-    } catch (err) {
-      externalError = externalError ?? (err instanceof Error ? err.message : 'Falha na busca externa.');
-    }
-  }
-  if (!googleResults.length) {
-    // `searchExternalCached` devolve vazio quando não configurado; confirma pelo settings.
-    pexelsConfigured = pexelsConfigured || !!(await loadImageApiConfig());
-  }
-
-  const results = [...webResults, ...googleResults, ...pexelsResults].slice(0, 12);
-  // Só é "não configurado" quando não há NADA para mostrar e nenhum dos provedores existe.
-  if (!results.length && !cached && !googleConfigured && !pexelsConfigured) {
+  const suggestions = await findDemandImageSuggestions(query, 12);
+  if (!suggestions.results.length && !suggestions.cached && !suggestions.googleConfigured && !suggestions.pexelsConfigured) {
     res.status(503).json({
       error: 'Nenhum provedor de imagens está configurado. Configure o Google Custom Search ou a API Key da Pexels em Configurações.',
     });
     return;
   }
-  if (!results.length && externalError) {
-    res.status(502).json({ error: externalError });
+  if (!suggestions.results.length && suggestions.externalError) {
+    res.status(502).json({ error: suggestions.externalError });
     return;
   }
 
-  const parts: string[] = [];
-  if (webResults.length) parts.push('imagens já escolhidas por lojas do Kivo');
-  if (googleResults.length) parts.push('Google Imagens (Creative Commons)');
-  if (pexelsResults.length) parts.push('fotos fornecidas por Pexels');
-
   res.setHeader('Cache-Control', 'no-store');
-  res.json({
-    term: demand.term,
-    query,
-    results,
-    cached,
-    externalError,
-    attribution: parts.length ? 'Sugestões: ' + parts.join(' + ') + '.' : null,
-    attributionUrl: googleResults.length
-      ? `https://www.google.com/search?tbm=isch&tbs=il:cl&q=${encodeURIComponent(query)}`
-      : pexelsResults.length
-        ? 'https://www.pexels.com'
-        : null,
-  });
+  res.json({ term: demand.term, query, ...suggestions });
 });
 
 /**
@@ -2627,6 +2661,145 @@ router.post('/catalog/demand/:id/use', requireAdminAuth, async (req: AdminReques
   res.json({ ok: true, catalogImageId: saved.id, reused: saved.reused, term: demand.term });
 });
 
+/**
+ * Preenchimento em lote: resolve vários termos de uma vez baixando a primeira sugestão
+ * de cada um para a fila de PENDENTES. O admin revisa/aprova depois — aprovar remove a
+ * demanda; rejeitar mantém o termo para uma próxima tentativa.
+ *
+ * Um lote por vez (o cliente chama em blocos de 5) para não estourar timeout nem cota das
+ * APIs; o termo que já tem pendente é pulado para não duplicar imagem.
+ */
+router.post('/catalog/demand/batch-fill', requireAdminAuth, async (req: AdminRequest, res) => {
+  if (demandBatchLimiter(req.ip ?? 'admin')) {
+    res.status(429).json({ error: 'Muitos lotes em pouco tempo. Aguarde alguns instantes.' });
+    return;
+  }
+  const body = (req.body ?? {}) as { limit?: unknown; q?: unknown; exclude?: unknown };
+  const limit = Math.max(1, Math.min(25, Number(body.limit) || 5));
+  const filter = String(body.q ?? '').trim().slice(0, 80);
+  const exclude = Array.isArray(body.exclude)
+    ? [...new Set(body.exclude.map((x) => Number(x)).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 1000)
+    : [];
+  const pool = getPool();
+  const admin = req.adminUsername ?? 'admin';
+
+  // Termos já resolvidos nesta rodada (inclusive "sem resultado"/erro) não voltam no
+  // próximo bloco; e termo que já tem imagem pendente nem é selecionado de novo.
+  const conditions: string[] = [];
+  const filterParams: unknown[] = [];
+  if (filter) {
+    conditions.push('d.term LIKE ?');
+    filterParams.push(`%${filter}%`);
+  }
+  if (exclude.length) {
+    conditions.push(`d.id NOT IN (${exclude.map(() => '?').join(',')})`);
+    filterParams.push(...exclude);
+  }
+  conditions.push(
+    "NOT EXISTS (SELECT 1 FROM catalog_images ci WHERE ci.status = 'pendente' AND ci.product_name = d.term)",
+  );
+  const where = 'WHERE ' + conditions.join(' AND ');
+  const [rows] = await pool.query(
+    `SELECT d.id, d.term, d.barcode FROM catalog_demand d ${where}
+      ORDER BY d.misses DESC, d.last_seen_at DESC LIMIT ?`,
+    [...filterParams, limit],
+  );
+  const demands = rows as CatalogDemandRow[];
+
+  // Nomes já existentes: evita baixar de novo a mesma imagem para um termo que já está
+  // pendente e resolve na hora o que já foi aprovado.
+  const [pendingRows] = await pool.query("SELECT product_name FROM catalog_images WHERE status = 'pendente'");
+  const pendingNames = new Set(
+    (pendingRows as { product_name: string }[]).map((r) => normalizeKeywords(r.product_name)),
+  );
+  const [approvedRows] = await pool.query("SELECT product_name FROM catalog_images WHERE status = 'aprovada'");
+  const approvedNames = new Set(
+    (approvedRows as { product_name: string }[]).map((r) => normalizeKeywords(r.product_name)),
+  );
+
+  let filled = 0;
+  let resolved = 0;
+  let skipped = 0;
+  let noResult = 0;
+  let errors = 0;
+  const items: { id: number; term: string; status: string; imageId?: number; error?: string }[] = [];
+
+  for (const demand of demands) {
+    const norm = normalizeKeywords(demand.term);
+
+    if (approvedNames.has(norm)) {
+      await pool.query('DELETE FROM catalog_demand WHERE id = ?', [demand.id]);
+      resolved += 1;
+      items.push({ id: demand.id, term: demand.term, status: 'ja_aprovada' });
+      continue;
+    }
+    if (pendingNames.has(norm)) {
+      skipped += 1;
+      items.push({ id: demand.id, term: demand.term, status: 'ja_pendente' });
+      continue;
+    }
+
+    const suggestions = await findDemandImageSuggestions(demand.term, 6);
+    if (!suggestions.results.length) {
+      noResult += 1;
+      items.push({ id: demand.id, term: demand.term, status: 'sem_resultado' });
+      continue;
+    }
+
+    let done = false;
+    let lastError = '';
+    for (const suggestion of suggestions.results.slice(0, 3)) {
+      const saved = await saveExternalImageToCatalog(
+        suggestion.url,
+        demand.term,
+        demand.barcode,
+        admin,
+        'pendente',
+      );
+      if (!saved.ok) {
+        lastError = saved.error;
+        continue;
+      }
+      if (saved.status === 'aprovada') {
+        await pool.query('DELETE FROM catalog_demand WHERE id = ?', [demand.id]);
+        resolved += 1;
+        items.push({ id: demand.id, term: demand.term, status: 'ja_aprovada', imageId: saved.id });
+      } else if (saved.reused) {
+        pendingNames.add(norm);
+        skipped += 1;
+        items.push({ id: demand.id, term: demand.term, status: 'ja_pendente', imageId: saved.id });
+      } else {
+        pendingNames.add(norm);
+        filled += 1;
+        items.push({ id: demand.id, term: demand.term, status: 'preenchido', imageId: saved.id });
+      }
+      done = true;
+      break;
+    }
+    if (!done) {
+      errors += 1;
+      items.push({ id: demand.id, term: demand.term, status: 'erro', error: lastError || 'Nenhuma imagem pôde ser baixada.' });
+    }
+  }
+
+  const [remainingRows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM catalog_demand d ${where}`,
+    filterParams,
+  );
+
+  res.json({
+    ok: true,
+    processed: demands.length,
+    filled,
+    resolved,
+    skipped,
+    noResult,
+    errors,
+    remaining: Number((remainingRows as { total: number }[])[0]?.total ?? 0),
+    items,
+  });
+});
+
 /** Miniatura no painel de curadoria — serve qualquer status (a pública em /api/catalog/image só serve aprovada). */
 router.get('/catalog/:id/image', requireAdminAuth, async (req, res) => {
   const [rows] = await getPool().query('SELECT image_path, format FROM catalog_images WHERE id = ?', [req.params.id]);
@@ -2640,11 +2813,26 @@ router.get('/catalog/:id/image', requireAdminAuth, async (req, res) => {
   res.send(fs.readFileSync(filePath));
 });
 
+/** Aprovar uma imagem resolve a demanda de mesmo nome (o termo some da lista sozinho). */
+async function deleteResolvedDemands(productNames: string[]): Promise<void> {
+  const terms = [...new Set(
+    productNames.map((name) => normalizeKeywords(name)).filter((term) => term.length >= 3),
+  )];
+  if (!terms.length) return;
+  await getPool().query(
+    `DELETE FROM catalog_demand WHERE term IN (${terms.map(() => '?').join(',')})`,
+    terms,
+  );
+}
+
 router.post('/catalog/:id/approve', requireAdminAuth, async (req: AdminRequest, res) => {
+  const [rows] = await getPool().query('SELECT product_name FROM catalog_images WHERE id = ?', [req.params.id]);
+  const productName = (rows as { product_name: string }[])[0]?.product_name;
   await getPool().query(
     "UPDATE catalog_images SET status = 'aprovada', reviewed_by = ?, reviewed_at = NOW(3) WHERE id = ? AND status = 'pendente'",
     [req.adminUsername, req.params.id],
   );
+  if (productName) await deleteResolvedDemands([productName]);
   res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
 });
 
@@ -2679,10 +2867,15 @@ router.post('/catalog/batch-approve', requireAdminAuth, async (req: AdminRequest
     return;
   }
   const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await getPool().query(
+    `SELECT product_name FROM catalog_images WHERE id IN (${placeholders})`,
+    ids,
+  );
   await getPool().query(
     `UPDATE catalog_images SET status = 'aprovada', reviewed_by = ?, reviewed_at = NOW(3) WHERE id IN (${placeholders}) AND status = 'pendente'`,
     [req.adminUsername, ...ids],
   );
+  await deleteResolvedDemands((rows as { product_name: string }[]).map((r) => r.product_name));
   res.redirect('/admin/catalog' + (req.body?.redirectStatus === 'aprovada' ? '?status=aprovada' : ''));
 });
 
