@@ -393,6 +393,21 @@ export async function createServer(): Promise<KivoServer> {
   app.get('/admin/backup', requireAuth, page('backup', 'backup.view'));
   app.get('/admin/configuracoes', requireAuth, page('settings', 'settings.view'));
   app.get('/admin/cobrancas', requireAuth, page('billing', 'billing.view'));
+  app.get('/admin/integracoes', requireAuth, (req: Request, res: Response) => {
+    assertAuth(req);
+    const canManageMd = req.user.permissions.has('maisdelivery.settings.manage');
+    const canOrders = req.user.permissions.has('maisdelivery.orders.view');
+    if (!canManageMd && !canOrders && !req.user.permissions.has('settings.view')) {
+      res.redirect('/');
+      return;
+    }
+    res.render('integrations', {
+      user: req.user,
+      canManageMd,
+      canCheckMd: canManageMd,
+      canOrders,
+    });
+  });
   app.get('/admin/recursos', requireAuth, page('recursos', 'settings.capabilities.edit'));
 
   // Documentação técnica (regras de negócio por módulo). Só quem tem `dev.docs.view` —

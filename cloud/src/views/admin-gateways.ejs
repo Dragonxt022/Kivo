@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Gateways de pagamento</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .gateway-list { display: flex; flex-direction: column; gap: 12px; }
+    .gateway-card {
+      display: flex; align-items: center; gap: 16px;
+      padding: 18px 20px; border-radius: var(--radius);
+      background: var(--surface); border: 1px solid var(--border);
+      box-shadow: var(--shadow-xs);
+    }
+    .gateway-logo {
+      width: 46px; height: 46px; flex: none; border-radius: 13px;
+      display: grid; place-items: center;
+      background: color-mix(in srgb, #00b1ea 12%, var(--surface));
+      color: #00a3d9; font-weight: 900; font-size: .7rem; letter-spacing: -.03em;
+    }
+    .gateway-body { flex: 1; min-width: 0; }
+    .gateway-body h2 { margin: 0; font-size: 1rem; }
+    .gateway-body p { margin: 4px 0 0; font-size: .8rem; color: var(--muted); line-height: 1.45; }
+    .gateway-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .gateway-meta .pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: .68rem; font-weight: 700; }
+    .gateway-meta .pill.on { background: var(--primary-soft); color: var(--primary); }
+    .gateway-meta .pill.off { background: var(--surface-hover); color: var(--muted); }
+    .gateway-meta .pill.warn { background: #fff4e5; color: #b45309; }
+    .gateway-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .gateway-placeholder {
+      border-style: dashed; background: transparent; box-shadow: none;
+      color: var(--muted);
+    }
+    .gateway-placeholder .gateway-logo { background: var(--surface-hover); color: var(--muted); }
+    .gateway-note { margin-top: 14px; font-size: .8rem; color: var(--muted); line-height: 1.5; }
+    @media (max-width: 640px) {
+      .gateway-card { align-items: flex-start; flex-wrap: wrap; }
+      .gateway-actions { width: 100%; }
+      .gateway-actions .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'gateways' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'gateways' }) %>
+      <div class="page">
+        <div class="page-header">
+          <h1>Gateways de pagamento</h1>
+          <p class="field-hint" style="margin-top:0">
+            Provedores que podem receber a assinatura do Kivo. O Mercado Pago é o gateway ativo
+            hoje; a lista abaixo já está preparada para receber outros provedores no futuro.
+          </p>
+        </div>
+
+        <div class="gateway-list">
+          <section class="gateway-card">
+            <span class="gateway-logo">MP</span>
+            <div class="gateway-body">
+              <h2>Mercado Pago</h2>
+              <p>Pix, boleto e cartão. Também é o gateway das assinaturas recorrentes (preapproval).</p>
+              <div class="gateway-meta">
+                <% if (gateway.enabled && gateway.accessTokenSet) { %>
+                  <span class="pill on">Ativo</span>
+                <% } else if (gateway.accessTokenSet) { %>
+                  <span class="pill warn">Credencial salva, gateway desligado</span>
+                <% } else { %>
+                  <span class="pill off">Não configurado</span>
+                <% } %>
+                <% if (gateway.accessTokenSet) { %>
+                  <span class="pill <%= gateway.environment === 'producao' ? 'on' : 'off' %>">
+                    <%= gateway.environment === 'producao' ? 'Produção' : (gateway.environment === 'teste' ? 'Teste' : 'Ambiente desconhecido') %>
+                  </span>
+                  <% if (gateway.accountEmail) { %><span class="pill off"><%= gateway.accountEmail %></span><% } %>
+                <% } %>
+              </div>
+            </div>
+            <div class="gateway-actions">
+              <a class="btn" href="/admin/payments"><%= gateway.accessTokenSet ? 'Configurar' : 'Configurar gateway' %></a>
+            </div>
+          </section>
+
+          <section class="gateway-card gateway-placeholder">
+            <span class="gateway-logo">+</span>
+            <div class="gateway-body">
+              <h2>Outro gateway</h2>
+              <p>Estrutura pronta para adicionar novos provedores de pagamento quando fizer sentido.</p>
+            </div>
+            <div class="gateway-actions">
+              <button type="button" class="btn secondary" disabled>Em breve</button>
+            </div>
+          </section>
+        </div>
+
+        <p class="gateway-note">
+          Cada gateway tem credenciais próprias e aparece como uma linha nesta lista. O app do
+          cliente não vê essas chaves: ele só recebe o resultado do pagamento pelo cloud.
+        </p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

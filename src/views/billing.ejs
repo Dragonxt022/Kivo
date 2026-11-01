@@ -140,7 +140,21 @@
     }
     .plan-option.active { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); box-shadow: 0 0 0 2px var(--primary-soft); }
     .plan-option strong { display: block; font-size: .9rem; }
-    .plan-option .price { display: block; margin: .15rem 0; font-size: 1.05rem; font-weight: 800; }
+    .plan-option .price { display: flex; align-items: baseline; gap: .35rem; margin: .15rem 0; font-size: 1.05rem; font-weight: 800; }
+    .plan-option .price del { color: var(--text-muted); font-size: .8rem; font-weight: 500; }
+    .plan-option .plan-promo {
+      display: flex;
+      width: fit-content;
+      align-items: center;
+      gap: .3rem;
+      margin: .15rem 0 .3rem;
+      padding: .1rem .45rem;
+      border-radius: 999px;
+      background: var(--primary-bg);
+      color: var(--primary);
+      font-size: .64rem;
+      font-weight: 800;
+    }
     .plan-option small { color: var(--text-muted); font-size: .72rem; line-height: 1.35; }
     .subscribe-box { border-top: 1px solid var(--border-light); padding-top: .9rem; margin-top: .9rem; }
     .subscribe-box h3 { margin: 0 0 .3rem; font-size: .95rem; }
@@ -624,11 +638,11 @@
     .sub-actions {
       display: flex;
       align-items: center;
-      gap: .55rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
       padding-top: .15rem;
     }
-    .sub-actions .btn { display: inline-flex; align-items: center; gap: .4rem; }
+    .sub-actions .btn { display: inline-flex; align-items: center; gap: .4rem; margin: 0; }
     .sub-actions-spacer { flex: 1 1 auto; }
     .sub-link-danger {
       border: 0;
@@ -876,7 +890,10 @@
               <span class="sub-kicker">Seu plano</span>
               <strong class="sub-plan-name" x-text="subPlanLabel(subscription.planKey)"></strong>
               <div class="sub-plan-price"><span x-text="brl(subscription.amountCents)"></span><small>/mês</small></div>
-              <span class="sub-plan-tag">Renovação automática</span>
+              <span class="sub-plan-tag"
+                    x-text="(subscription.status === 'cancelada' || subscription.status === 'encerrada')
+                      ? 'Sem renovação automática'
+                      : (subscription.status === 'pendente' ? 'Aguardando autorização' : 'Renovação automática')"></span>
             </div>
             <div class="sub-stat">
               <span class="sub-stat-icon">
@@ -884,7 +901,9 @@
               </span>
               <div>
                 <small>Próxima cobrança</small>
-                <strong x-text="subscription.nextPaymentDate ? fmtDate(subscription.nextPaymentDate) : '—'"></strong>
+                <strong x-text="(subscription.status === 'cancelada' || subscription.status === 'encerrada')
+                  ? '—'
+                  : (subscription.nextPaymentDate ? fmtDate(subscription.nextPaymentDate) : '—')"></strong>
               </div>
             </div>
             <div class="sub-stat" :class="{ 'is-danger': accessExpired() }">
@@ -899,7 +918,8 @@
             </div>
           </div>
 
-          <div class="sub-banner is-error" x-show="payerMismatch()">
+          <div class="sub-banner is-error"
+               x-show="payerMismatch() && (subscription.status === 'pendente' || subscription.status === 'erro')">
             <span class="sub-banner-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </span>
@@ -951,7 +971,7 @@
             </div>
           </div>
 
-          <div class="sub-actions">
+          <div class="sub-actions" x-show="subscription.status !== 'cancelada' && subscription.status !== 'encerrada'">
             <template x-if="subscription.status === 'pendente' && subscription.initPoint && !payerMismatch()">
               <button type="button" class="btn" @click="openSubscriptionCheckout()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
@@ -965,7 +985,7 @@
             <template x-if="subscription.status === 'autorizada' || subscription.status === 'pausada'">
               <button type="button" class="btn danger" @click="cancelSubscription()" :disabled="subBusy">Cancelar assinatura</button>
             </template>
-            <template x-if="payerMismatch()">
+            <template x-if="payerMismatch() && (subscription.status === 'pendente' || subscription.status === 'erro')">
               <button type="button" class="btn danger" @click="cancelSubscription(true)" :disabled="subBusy">Cancelar e corrigir e-mail</button>
             </template>
             <span class="sub-actions-spacer"></span>
@@ -1064,7 +1084,14 @@
           <template x-for="p in plans" :key="p.key">
             <button type="button" class="plan-option" :class="{ active: selectedPlan === p.key }" @click="selectedPlan = p.key">
               <strong x-text="p.label"></strong>
-              <span class="price" x-text="brl(p.priceCents) + '/mês'"></span>
+              <span class="price plan-price">
+                <del x-show="p.promoted && p.originalPriceCents" x-text="brl(p.originalPriceCents)"></del>
+                <span x-text="brl(p.priceCents) + '/mês'"></span>
+              </span>
+              <span class="plan-promo" x-show="p.promoted">
+                <span x-text="p.promoLabel || 'Promoção'"></span>
+                <span x-show="p.promoUntil" x-text="'até ' + fmtDate(p.promoUntil)"></span>
+              </span>
               <small x-text="p.description + ' · ' + p.maxDevices + ' dispositivo(s)'"></small>
             </button>
           </template>

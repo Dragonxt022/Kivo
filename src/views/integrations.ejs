@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <%- include('partials/theme-init') %>
+  <title>Kivo — Integrações</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .integration-list { display: flex; flex-direction: column; gap: 12px; max-width: 920px; }
+    .integration-card {
+      display: flex; align-items: center; gap: 16px;
+      padding: 18px 20px; border-radius: 16px;
+      background: var(--surface); border: 1px solid var(--border-light);
+      box-shadow: var(--shadow-sm);
+    }
+    .integration-logo {
+      width: 52px; height: 52px; flex: none; border-radius: 14px;
+      display: grid; place-items: center; overflow: hidden;
+      background: var(--surface-hover); border: 1px solid var(--border-light);
+    }
+    .integration-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .integration-body { flex: 1; min-width: 0; }
+    .integration-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .integration-title h2 { margin: 0; font-size: 1rem; }
+    .integration-body p { margin: 4px 0 0; font-size: .82rem; color: var(--text-muted); line-height: 1.45; }
+    .integration-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .integration-meta .chip { font-size: .68rem; padding: 2px 8px; }
+    .integration-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .integration-card.placeholder {
+      border-style: dashed; background: transparent; box-shadow: none; color: var(--text-muted);
+    }
+    .integration-card.placeholder .integration-logo { font-size: 1.4rem; color: var(--text-muted); }
+    @media (max-width: 640px) {
+      .integration-card { align-items: flex-start; flex-wrap: wrap; }
+      .integration-actions { width: 100%; }
+      .integration-actions .btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/nav', { user, page: '/admin/integracoes' }) %>
+  <main x-data="integrationsPage(<%= canCheckMd ? 'true' : 'false' %>)" x-init="load()">
+    <h1>Integrações</h1>
+    <p class="muted muted-block">
+      Conecte o Kivo a outros serviços. Cada integração fica em uma linha própria, com
+      status e acesso rápido à configuração — novas conexões entram nesta mesma lista.
+    </p>
+
+    <div class="integration-list">
+      <section class="integration-card">
+        <span class="integration-logo"><img src="/img/maisdelivery.png" alt="Mais Delivery" /></span>
+        <div class="integration-body">
+          <div class="integration-title">
+            <h2>Mais Delivery</h2>
+            <span class="badge" :class="mdConfigured() ? 'ok' : 'off'" x-text="mdStatusLabel()"></span>
+          </div>
+          <p>Acompanhe e movimente os pedidos do marketplace dentro do Kivo.</p>
+          <div class="integration-meta" x-show="md" x-cloak>
+            <span class="chip" x-show="md && md.sandbox">Sandbox</span>
+            <span class="chip" x-show="md && md.empresaIntegrada" x-text="'Empresa ' + (md ? md.empresaIntegrada : '')"></span>
+            <span class="chip" x-show="md && md.restaurante" x-text="'Restaurante ' + (md ? md.restaurante : '')"></span>
+            <span class="chip" x-show="md && md.marketplace" x-text="'Marketplace ' + (md ? md.marketplace : '')"></span>
+          </div>
+        </div>
+        <div class="integration-actions">
+          <% if (user.permissions.has('maisdelivery.orders.view')) { %>
+          <a class="btn secondary" href="/app/maisdelivery/pedidos">Ver pedidos</a>
+          <% } %>
+          <% if (canManageMd) { %>
+          <a class="btn" href="/app/maisdelivery/configuracoes">Configurar</a>
+          <% } %>
+        </div>
+      </section>
+
+      <section class="integration-card placeholder">
+        <span class="integration-logo">+</span>
+        <div class="integration-body">
+          <div class="integration-title"><h2>Novas integrações</h2></div>
+          <p>Espaço reservado para WhatsApp, outros marketplaces e serviços de pagamento.</p>
+        </div>
+        <div class="integration-actions">
+          <button type="button" class="btn secondary" disabled>Em breve</button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script nonce="<%= cspNonce %>">
+    function integrationsPage(canCheck) {
+      return {
+        canCheck,
+        md: null,
+        async load() {
+          if (!this.canCheck) return;
+          try {
+            const r = await fetch('/api/maisdelivery/settings');
+            if (r.ok) this.md = await r.json();
+          } catch (e) { /* status best-effort: a tela de configuração mostra o detalhe */ }
+        },
+        mdConfigured() {
+          const c = this.md;
+          return !!(c && c.hasAccessToken && c.hasBasicAuth && c.empresaIntegrada && (c.restaurante || c.marketplace));
+        },
+        mdStatusLabel() {
+          if (!this.canCheck) return 'Configuração restrita';
+          if (!this.md) return 'Consultando…';
+          return this.mdConfigured() ? 'Configurado' : 'Não configurado';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -32,10 +32,20 @@ function redirectCompanyCharges(res: import('express').Response, uuid: string, k
 
 // ─────────────────────────── Credenciais e tutorial ───────────────────────────
 
+/** Lista de gateways: hoje só Mercado Pago; a estrutura já comporta outros. */
+router.get('/gateways', requireAdminAuth, async (_req, res) => {
+  const view = await loadSettingsForView();
+  res.render('admin-gateways', {
+    gateway: view,
+    gatewayConfigured: view.enabled && view.accessTokenSet,
+  });
+});
+
 router.get('/payments', requireAdminAuth, async (req, res) => {
   const view = await loadSettingsForView();
   res.render('payments', {
     gateway: view,
+    gatewayConfigured: view.enabled && view.accessTokenSet,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
   });

@@ -5,6 +5,17 @@
     title: 'Planos do Kivo — comece grátis por 15 dias, sem cartão',
     description: 'Compare os planos do Kivo: Teste, Prata, Ouro e Diamante. Todos com migração de dados, treinamento e suporte humano inclusos. Veja o que vem em cada um, recurso por recurso.'
   }) %>
+  <style>
+    .plan .price { display: flex; align-items: baseline; justify-content: center; gap: 6px; flex-wrap: wrap; }
+    .plan .price del.old-price { font-size: .52em; color: var(--muted); font-weight: 500; }
+    .plan-promo {
+      display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      margin: 4px auto 0; padding: 2px 8px; border-radius: 999px;
+      background: rgba(255,128,0,.1); color: #b45309;
+      font-size: .68rem; font-weight: 800;
+    }
+    .plan.featured .plan-promo { background: rgba(255,128,0,.16); }
+  </style>
 </head>
 <body>
   <%- include('partials/site/topbar', { page: 'planos', downloadUrl: downloadUrl }) %>
@@ -19,6 +30,18 @@
       </p>
     </div>
   </section>
+
+  <%
+    var planByKey = {};
+    (plans || []).forEach(function (p) { planByKey[p.key] = p; });
+    function reais(cents) {
+      var v = Number(cents || 0) / 100;
+      return v % 1 === 0 ? String(v) : v.toFixed(2).replace('.', ',');
+    }
+    function promoDate(iso) {
+      return iso ? iso.split('-').reverse().join('/') : '';
+    }
+  %>
 
   <section class="sec-tight">
     <div class="wrap">
@@ -37,7 +60,13 @@
         </div>
         <div class="plan">
           <h3>Prata</h3>
-          <div class="price"><span class="cur">R$</span>150<span class="per">/mês</span></div>
+          <div class="price">
+            <% if (planByKey.prata && planByKey.prata.promoted) { %><del class="old-price">R$ <%= reais(planByKey.prata.originalPriceCents) %></del><% } %>
+            <span class="cur">R$</span><%= planByKey.prata ? reais(planByKey.prata.priceCents) : '150' %><span class="per">/mês</span>
+          </div>
+          <% if (planByKey.prata && planByKey.prata.promoted) { %>
+            <div class="plan-promo"><%= planByKey.prata.promoLabel || 'Promoção' %><% if (planByKey.prata.promoUntil) { %> · até <%= promoDate(planByKey.prata.promoUntil) %><% } %></div>
+          <% } %>
           <div class="tag">Para começar a operar</div>
           <ul>
             <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV, estoque e financeiro completos</li>
@@ -49,7 +78,13 @@
         </div>
         <div class="plan featured">
           <h3>Ouro</h3>
-          <div class="price"><span class="cur">R$</span>200<span class="per">/mês</span></div>
+          <div class="price">
+            <% if (planByKey.ouro && planByKey.ouro.promoted) { %><del class="old-price">R$ <%= reais(planByKey.ouro.originalPriceCents) %></del><% } %>
+            <span class="cur">R$</span><%= planByKey.ouro ? reais(planByKey.ouro.priceCents) : '200' %><span class="per">/mês</span>
+          </div>
+          <% if (planByKey.ouro && planByKey.ouro.promoted) { %>
+            <div class="plan-promo"><%= planByKey.ouro.promoLabel || 'Promoção' %><% if (planByKey.ouro.promoUntil) { %> · até <%= promoDate(planByKey.ouro.promoUntil) %><% } %></div>
+          <% } %>
           <div class="tag">O equilíbrio ideal</div>
           <ul>
             <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Prata</li>
@@ -61,7 +96,13 @@
         </div>
         <div class="plan">
           <h3>Diamante</h3>
-          <div class="price"><span class="cur">R$</span>250<span class="per">/mês</span></div>
+          <div class="price">
+            <% if (planByKey.diamante && planByKey.diamante.promoted) { %><del class="old-price">R$ <%= reais(planByKey.diamante.originalPriceCents) %></del><% } %>
+            <span class="cur">R$</span><%= planByKey.diamante ? reais(planByKey.diamante.priceCents) : '250' %><span class="per">/mês</span>
+          </div>
+          <% if (planByKey.diamante && planByKey.diamante.promoted) { %>
+            <div class="plan-promo"><%= planByKey.diamante.promoLabel || 'Promoção' %><% if (planByKey.diamante.promoUntil) { %> · até <%= promoDate(planByKey.diamante.promoUntil) %><% } %></div>
+          <% } %>
           <div class="tag">Operação completa</div>
           <ul>
             <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Ouro</li>
@@ -89,9 +130,9 @@
             <tr>
               <th>Recurso</th>
               <th class="c">Teste<span class="cmp-price">Grátis</span></th>
-              <th class="c">Prata<span class="cmp-price">R$ 150/mês</span></th>
-              <th class="c hi">Ouro<span class="cmp-price">R$ 200/mês</span></th>
-              <th class="c">Diamante<span class="cmp-price">R$ 250/mês</span></th>
+              <th class="c">Prata<span class="cmp-price">R$ <%= planByKey.prata ? reais(planByKey.prata.priceCents) : '150' %>/mês</span></th>
+              <th class="c hi">Ouro<span class="cmp-price">R$ <%= planByKey.ouro ? reais(planByKey.ouro.priceCents) : '200' %>/mês</span></th>
+              <th class="c">Diamante<span class="cmp-price">R$ <%= planByKey.diamante ? reais(planByKey.diamante.priceCents) : '250' %>/mês</span></th>
             </tr>
           </thead>
           <tbody>

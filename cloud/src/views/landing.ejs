@@ -373,6 +373,25 @@
         <h2>Comece grátis e escolha o plano quando fizer sentido</h2>
         <p>Todos os planos incluem migração de dados, treinamento e suporte humano (resposta em até 8h úteis).</p>
       </div>
+      <%
+        var homePlans = {};
+        (plans || []).forEach(function (p) { homePlans[p.key] = p; });
+        function homeReais(cents) {
+          var v = Number(cents || 0) / 100;
+          return v % 1 === 0 ? String(v) : v.toFixed(2).replace('.', ',');
+        }
+      %>
+      <style>
+        .plan .price { display: flex; align-items: baseline; justify-content: center; gap: 6px; flex-wrap: wrap; }
+        .plan .price del.old-price { font-size: .52em; color: var(--muted); font-weight: 500; }
+        .plan-promo {
+          display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+          margin: 4px auto 0; padding: 2px 8px; border-radius: 999px;
+          background: rgba(255,128,0,.1); color: #b45309;
+          font-size: .68rem; font-weight: 800;
+        }
+        .plan.featured .plan-promo { background: rgba(255,128,0,.16); }
+      </style>
       <div class="plans" data-reveal-children>
         <div class="plan">
           <h3>Teste</h3>
@@ -387,7 +406,11 @@
         </div>
         <div class="plan">
           <h3>Prata</h3>
-          <div class="price"><span class="cur">R$</span>150<span class="per">/mês</span></div>
+          <div class="price">
+            <% if (homePlans.prata && homePlans.prata.promoted) { %><del class="old-price">R$ <%= homeReais(homePlans.prata.originalPriceCents) %></del><% } %>
+            <span class="cur">R$</span><%= homePlans.prata ? homeReais(homePlans.prata.priceCents) : '150' %><span class="per">/mês</span>
+          </div>
+          <% if (homePlans.prata && homePlans.prata.promoted) { %><div class="plan-promo"><%= homePlans.prata.promoLabel || 'Promoção' %></div><% } %>
           <div class="tag">Para começar a operar</div>
           <ul>
             <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV, estoque e financeiro completos</li>
@@ -398,7 +421,11 @@
         </div>
         <div class="plan featured">
           <h3>Ouro</h3>
-          <div class="price"><span class="cur">R$</span>200<span class="per">/mês</span></div>
+          <div class="price">
+            <% if (homePlans.ouro && homePlans.ouro.promoted) { %><del class="old-price">R$ <%= homeReais(homePlans.ouro.originalPriceCents) %></del><% } %>
+            <span class="cur">R$</span><%= homePlans.ouro ? homeReais(homePlans.ouro.priceCents) : '200' %><span class="per">/mês</span>
+          </div>
+          <% if (homePlans.ouro && homePlans.ouro.promoted) { %><div class="plan-promo"><%= homePlans.ouro.promoLabel || 'Promoção' %></div><% } %>
           <div class="tag">O equilíbrio ideal</div>
           <ul>
             <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Prata</li>
@@ -409,7 +436,11 @@
         </div>
         <div class="plan">
           <h3>Diamante</h3>
-          <div class="price"><span class="cur">R$</span>250<span class="per">/mês</span></div>
+          <div class="price">
+            <% if (homePlans.diamante && homePlans.diamante.promoted) { %><del class="old-price">R$ <%= homeReais(homePlans.diamante.originalPriceCents) %></del><% } %>
+            <span class="cur">R$</span><%= homePlans.diamante ? homeReais(homePlans.diamante.priceCents) : '250' %><span class="per">/mês</span>
+          </div>
+          <% if (homePlans.diamante && homePlans.diamante.promoted) { %><div class="plan-promo"><%= homePlans.diamante.promoLabel || 'Promoção' %></div><% } %>
           <div class="tag">Operação completa</div>
           <ul>
             <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Ouro</li>

@@ -38,13 +38,6 @@ const manifest: ModuleManifest = {
       description: 'Pedidos recebidos pelo Mais Delivery.',
       icon: 'truck',
     },
-    {
-      label: 'Integração',
-      href: '/app/maisdelivery/configuracoes',
-      permission: 'maisdelivery.settings.manage',
-      description: 'Credenciais e teste de conexão com o Mais Delivery.',
-      icon: 'settings',
-    },
   ],
 };
 

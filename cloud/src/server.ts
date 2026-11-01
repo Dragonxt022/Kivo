@@ -26,12 +26,14 @@ import affiliateRoutes from './routes/affiliate';
 import webhookRoutes from './routes/webhooks';
 import publicPayRoutes from './routes/payPublic';
 import paymentRoutes from './routes/payments';
+import planRoutes from './routes/plans';
 import contractRoutes from './routes/contracts';
 import { adminSubscriptionsRouter, publicSubscriptionsRouter } from './routes/subscriptions';
 import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAuth';
 import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
 import { MAX_CONTRACT_PDF_BYTES } from './contracts';
+import { loadPlanPricing } from './plans';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -89,6 +91,9 @@ function startSupportAutoClose(): NodeJS.Timeout {
 
 export function createCloudServer() {
   const app = express();
+  // Preços configuráveis pelo painel: carrega em segundo plano; o catálogo tem os
+  // valores de tabela até a primeira leitura terminar.
+  void loadPlanPricing();
   app.set('view engine', 'ejs');
   app.set('views', path.resolve(__dirname, 'views'));
   app.use(express.static(path.resolve(__dirname, 'public')));
@@ -146,6 +151,8 @@ export function createCloudServer() {
   app.use('/afiliado', affiliateRoutes);
   app.use('/admin/messages', adminMessagesRoutes);
   app.use('/admin', adminRoutes);
+  // Preços e promoções dos planos (catálogo consumido pelo app e pela landing).
+  app.use('/admin', planRoutes);
   // Assinaturas recorrentes (Mercado Pago Assinaturas): painel e criação por empresa.
   app.use('/admin', adminSubscriptionsRouter);
   // Credenciais do gateway de pagamento e geração de Pix/boleto/cartão por cobrança.

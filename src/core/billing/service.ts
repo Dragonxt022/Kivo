@@ -151,6 +151,13 @@ export interface CommercialPlan {
   key: 'prata' | 'ouro' | 'diamante';
   label: string;
   priceCents: number;
+  /** Preço de tabela (sem promoção). */
+  basePriceCents?: number;
+  originalPriceCents?: number;
+  promoPriceCents?: number | null;
+  promoLabel?: string | null;
+  promoUntil?: string | null;
+  promoted?: boolean;
   extendsDays: number;
   maxDevices: number;
   description: string;

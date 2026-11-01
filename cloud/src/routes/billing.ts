@@ -11,7 +11,7 @@ import {
   savePaymentSnapshot, settleCharge,
 } from '../charges';
 import { affiliateDiscountFor } from '../affiliates';
-import { COMMERCIAL_PLANS, commercialPlan } from '../plans';
+import { commercialPlan, getCommercialPlans } from '../plans';
 import {
   cancelCompanySubscription,
   createCompanySubscription,
@@ -102,7 +102,7 @@ router.get('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) 
       accepted: company?.retention_offer_accepted === 1,
       decidedAt: company?.retention_offer_decided_at ?? null,
     },
-    plans: COMMERCIAL_PLANS,
+    plans: getCommercialPlans(),
     subscription: sub ? {
       id: sub.id,
       status: sub.status,

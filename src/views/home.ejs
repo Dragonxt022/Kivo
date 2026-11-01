@@ -653,6 +653,7 @@
         // a tela inicial como ponto de partida.
         if (user.permissions.has('billing.view')) adminItems.push({ label: 'Cobrança', href: '/admin/cobrancas', icon: 'credit-card', description: 'Assinatura, faturas e pagamento.' });
         if (user.permissions.has('settings.capabilities.edit')) adminItems.push({ label: 'Recursos', href: '/admin/recursos', icon: 'trophy', description: 'O que a licença libera e o que dá para ligar.' });
+        if (user.permissions.has('settings.view') || user.permissions.has('maisdelivery.settings.manage')) adminItems.push({ label: 'Integrações', href: '/admin/integracoes', icon: 'refresh-cw', description: 'Mais Delivery e futuras conexões.' });
         if (user.permissions.has('settings.view')) adminItems.push({ label: 'Configurações', href: '/admin/configuracoes', icon: 'settings', description: 'Parâmetros do sistema e licença.' });
         if (user.permissions.has('dev.docs.view')) adminItems.push({ label: 'Documentação técnica', href: '/admin/documentacao', icon: 'file-text', description: 'Regras de negócio por módulo (suporte).' });
         visibleItems = visibleItems.concat(adminItems);

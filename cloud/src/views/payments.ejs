@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Kivo Cloud — Pagamento online</title>
+  <title>Kivo Cloud — Mercado Pago</title>
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <style>
@@ -32,7 +32,8 @@
         <% if (typeof error !== 'undefined' && error) { %><p class="error-banner"><%= error %></p><% } %>
 
         <div class="page-header">
-          <h1>Pagamento online</h1>
+          <p class="field-hint" style="margin:0 0 4px"><a href="/admin/gateways">← Gateways de pagamento</a></p>
+          <h1>Mercado Pago</h1>
           <p class="field-hint" style="margin-top:0">
             Como o cliente paga a assinatura: Pix, boleto ou cartão pelo Mercado Pago. O valor
             cobrado vem sempre da cobrança registrada na empresa — nada aqui muda preço.

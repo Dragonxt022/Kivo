@@ -1,5 +1,6 @@
 import { Router, type Request } from 'express';
 import { getPool } from '../db';
+import { getCommercialPlans } from '../plans';
 
 /**
  * Landing page pública de venda do Kivo (rota "/").
@@ -130,7 +131,7 @@ router.get('/', async (_req, res) => {
   const { version } = await getReleaseInfo();
   // `/baixar` registra o clique antes de redirecionar; o link exibido nas páginas é este,
   // nunca a URL direta do GitHub, senão os downloads feitos pelo site não aparecem no painel.
-  res.render('landing', { downloadUrl: '/baixar', appVersion: version });
+  res.render('landing', { downloadUrl: '/baixar', appVersion: version, plans: getCommercialPlans() });
 });
 
 /**
@@ -160,7 +161,7 @@ const SITE_PAGES: Record<string, string> = {
 for (const [path, view] of Object.entries(SITE_PAGES)) {
   router.get(path, async (_req, res) => {
     const { version } = await getReleaseInfo();
-    res.render(view, { downloadUrl: '/baixar', appVersion: version });
+    res.render(view, { downloadUrl: '/baixar', appVersion: version, plans: getCommercialPlans() });
   });
 }
 
