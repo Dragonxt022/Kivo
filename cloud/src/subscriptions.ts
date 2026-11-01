@@ -11,6 +11,7 @@ import {
   getSubscription as getMpSubscription,
   listAuthorizedPaymentIds,
   loadSettings,
+  tokenEnvironment,
   updateSubscriptionStatus,
   type GatewaySettings,
 } from './gateway';
@@ -146,17 +147,21 @@ export async function createCompanySubscription(input: CreateSubscriptionInput):
   // O Mercado Pago recusa "Both payer and collector must be real or test users" quando o
   // token é de teste e o e-mail do pagador é real (ou o contrário). Detectamos antes de
   // chamar a API para o admin receber uma instrução clara, e não um erro cru do gateway.
+  // Se o /users/me falhar, o prefixo TEST- ainda permite bloquear o caso mais comum:
+  // credencial de teste com e-mail real.
   const conta = await getGatewayAccount(settings);
-  if (conta) {
-    const ehTeste = payerEmail.toLowerCase().endsWith('@testuser.com');
-    if (conta.isTest && !ehTeste) {
+  const envByToken = tokenEnvironment(settings.accessToken);
+  const credencialDeTeste = conta ? conta.isTest : envByToken === 'teste';
+  if (conta || envByToken === 'teste') {
+    const emailDeTeste = payerEmail.toLowerCase().endsWith('@testuser.com');
+    if (credencialDeTeste && !emailDeTeste) {
       throw new Error(
-        `A credencial do Mercado Pago é de usuário de TESTE (${conta.nickname ?? conta.id}). ` +
-        'No campo "E-mail do pagador", use o e-mail de um usuário de teste — por exemplo ' +
-        'test_user_7923436665712574587@testuser.com (conta compradora de teste).',
+        `A credencial do Mercado Pago é de usuário de TESTE${conta ? ` (${conta.nickname ?? conta.id})` : ''}. ` +
+        'No campo "E-mail do pagador", use o e-mail de um comprador de teste criado na SUA conta ' +
+        'de teste (Suas integrações → Contas de teste). Não use o e-mail de teste de outra conta.',
       );
     }
-    if (!conta.isTest && ehTeste) {
+    if (conta && !credencialDeTeste && emailDeTeste) {
       throw new Error(
         'A credencial do Mercado Pago é de PRODUÇÃO. No campo "E-mail do pagador", use o e-mail ' +
         'de uma conta Mercado Pago real (o e-mail de teste @testuser.com não é aceito em produção).',

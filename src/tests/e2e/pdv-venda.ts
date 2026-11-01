@@ -107,7 +107,7 @@ async function main(): Promise<void> {
     await snap(page, SHOTS, 'carrinho-com-item');
 
     reporter.section('Pagamento em dinheiro');
-    const finalizar = page.locator('#tour-pdv-finalizar');
+    const finalizar = page.locator('#tour-pdv-finalizar .btn-finalize:has-text("Adicionar pagamento")');
     reporter.check('botão finalizar habilita com o carrinho cheio', await finalizar.isEnabled());
     await finalizar.click();
     await page.waitForSelector('dialog[x-ref="pay"][open]', { state: 'visible', timeout: 8000 });
@@ -116,14 +116,31 @@ async function main(): Promise<void> {
     // Dinheiro (e não PIX): só pagamento em espécie mexe na gaveta e gera movimento de
     // caixa — é o que permite conferir o efeito da venda no caixa no fim.
     await page.locator('.pay-quick-method:has-text("Dinheiro")').first().click();
+    // Primeiro lançamento parcial: a modal precisa continuar aberta para a segunda forma.
+    await page.locator('#pay-received').fill('3,00');
+    await page.locator('.pay-add-btn').click();
+    await wait(page, 400);
+    reporter.check(
+      'pagamento parcial mantém a modal aberta',
+      (await page.locator('dialog[x-ref="pay"]').getAttribute('open')) !== null,
+    );
+    const falta = (await page.locator('.pay-partial-hint').innerText()).trim();
+    reporter.check('modal mostra o valor que falta', falta.includes('4,00'), falta);
+    await snap(page, SHOTS, 'pagamento-parcial');
+
+    // O campo já vem preenchido com o restante; lançar de novo completa a venda.
     await page.locator('.pay-add-btn').click();
     await wait(page, 400);
 
-    const resumo = await page.locator('.pay-items-list').innerText();
+    // Com o total fechado, volta ao PDV: resumo na coluna da direita e CTA Editar + Finalizar.
+    reporter.check('modal fecha ao completar o pagamento', !(await page.locator('dialog[x-ref="pay"]').getAttribute('open')));
+    const resumo = await page.locator('.pdv-pay-list').innerText();
     reporter.check('pagamento em dinheiro lançado no resumo', resumo.toLowerCase().includes('dinheiro'), resumo.trim());
-    reporter.check('banner "pronta para finalizar" aparece', await page.locator('.pay-ready-banner').isVisible());
-    const confirmar = page.locator('.pay-confirm-btn');
-    reporter.check('botão confirmar venda habilita', await confirmar.isEnabled());
+    reporter.check('duas formas lançadas no resumo', (resumo.match(/R\$/g) || []).length === 2, resumo.trim());
+    const restante = (await page.locator('.pdv-total-row.remaining .value').innerText()).trim();
+    reporter.check('restante zerado após o pagamento', restante === 'R$ 0,00', restante);
+    const confirmar = page.locator('.pdv-checkout-actions .btn-finalize:has-text("Finalizar venda")');
+    reporter.check('botão finalizar venda habilita', await confirmar.isEnabled());
     await snap(page, SHOTS, 'pagamento-dinheiro');
 
     await confirmar.click();

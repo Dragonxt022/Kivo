@@ -174,6 +174,14 @@ export interface CloudSubscription {
 
 export interface SubscriptionOverview {
   company: { name: string | null; email: string | null; plan: string | null; validUntil: string | null } | null;
+  /** Ambiente do Mercado Pago configurado na nuvem e e-mail padrão do pagador. */
+  gateway: {
+    configured: boolean;
+    environment: 'teste' | 'producao' | 'desconhecido';
+    accountEmail: string | null;
+    accountNickname: string | null;
+    payerEmail: string;
+  } | null;
   retention: { available: boolean; accepted: boolean; decidedAt: string | null } | null;
   plans: CommercialPlan[];
   subscription: CloudSubscription | null;

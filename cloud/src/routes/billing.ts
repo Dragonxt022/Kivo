@@ -4,7 +4,7 @@ import { getPool } from '../db';
 import { requireCompanyAuth, type AuthedRequest } from '../auth';
 import {
   GatewayError, createBoletoPayment, createCardPreference, createPixPayment,
-  friendlyGatewayMessage, getPayment, isConfigured, loadSettings, mapPaymentStatus, publicPayUrl,
+  friendlyGatewayMessage, getPayment, isConfigured, loadSettings, loadSettingsForView, mapPaymentStatus, publicPayUrl,
 } from '../gateway';
 import {
   companyPayerData, ensurePublicToken, extendLicense, getCharge, saveGatewayResult,
@@ -79,6 +79,10 @@ router.get('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) 
     retention_offer_decided_at: string | null; retention_offer_accepted: number | null;
   }[])[0] ?? null;
 
+  // Ambiente do gateway para a tela do app orientar o e-mail do pagador antes de o
+  // Mercado Pago recusar com "uma das partes é de teste". O /users/me é cacheado.
+  const gateway = await loadSettingsForView();
+
   res.json({
     company: company ? {
       name: company.name,
@@ -86,6 +90,13 @@ router.get('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) 
       plan: company.plan,
       validUntil: company.valid_until,
     } : null,
+    gateway: {
+      configured: gateway.accessTokenSet,
+      environment: gateway.environment,
+      accountEmail: gateway.accountEmail,
+      accountNickname: gateway.accountNickname,
+      payerEmail: gateway.payerEmail,
+    },
     retention: {
       available: !!company && company.retention_offer_decided_at == null,
       accepted: company?.retention_offer_accepted === 1,

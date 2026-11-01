@@ -70,8 +70,13 @@ export function friendlyGatewayMessage(error: unknown): string {
   if (/Unauthorized use of live credentials/i.test(msg) || /live credentials/i.test(msg)) {
     return 'O Mercado Pago recusou o Pix com as credenciais atuais. Para cobrar Pix, use credenciais de produção de uma conta Mercado Pago real que tenha uma chave Pix cadastrada. No ambiente de teste, use cartão ou boleto.';
   }
-  if (/Both payer and collector must be real or test users/i.test(msg)) {
-    return 'Pagador e recebedor precisam estar no mesmo ambiente. Com credencial de teste, use o e-mail de um usuário de teste (test_user_...@testuser.com); em produção, use uma conta Mercado Pago real.';
+  if (
+    /Both payer and collector must be real or test users/i.test(msg)
+    || /payer and collector/i.test(msg)
+    || /Uma das partes[^.]*é de teste/i.test(msg)
+    || /Uma das partes[^.]*e de teste/i.test(msg)
+  ) {
+    return 'Pagador e recebedor precisam estar no mesmo ambiente do Mercado Pago. Se a credencial é de teste, use o e-mail de um usuário de teste (test_user_...@testuser.com); se é de produção, use uma conta Mercado Pago real.';
   }
   return msg;
 }
@@ -159,7 +164,7 @@ export function isConfigured(s: GatewaySettings): boolean {
 }
 
 /** Chamada crua à API do Mercado Pago, com o erro traduzido para uma mensagem útil. */
-async function mpRequest<T>(path: string, init: { method?: string; body?: unknown; settings: GatewaySettings }): Promise<T> {
+async function mpRequest<T>(path: string, init: { method?: string; body?: unknown; settings: GatewaySettings; timeoutMs?: number }): Promise<T> {
   const url = `${MP_API_BASE}${path}`;
   let res: Response;
   try {
@@ -172,6 +177,7 @@ async function mpRequest<T>(path: string, init: { method?: string; body?: unknow
         'X-Idempotency-Key': randomUUID(),
       },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: init.timeoutMs ? AbortSignal.timeout(init.timeoutMs) : undefined,
     });
   } catch (e) {
     throw new GatewayError(`Não foi possível falar com o Mercado Pago: ${(e as Error).message}`, 0);
@@ -351,7 +357,7 @@ export async function getGatewayAccount(settings: GatewaySettings): Promise<Gate
       nickname?: string;
       email?: string;
       tags?: string[];
-    }>('/users/me', { settings });
+    }>('/users/me', { settings, timeoutMs: 4000 });
     const info: GatewayAccountInfo = {
       id: String(r.id ?? ''),
       nickname: r.nickname ?? null,

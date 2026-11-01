@@ -292,6 +292,536 @@
       .pay-sheet-summary { grid-template-columns: 1fr; }
     }
   </style>
+  <style>
+    /* ══════════════════════════════════════════════════════════════════════════
+       Redesign da assinatura — cartões de vidro, hierarquia clara e status legível.
+       As regras abaixo vêm depois das antigas de propósito: os diálogos e a folha de
+       pagamento continuam usando o CSS original.
+       ══════════════════════════════════════════════════════════════════════════ */
+    .billing-page {
+      width: min(1080px, calc(100% - 2rem));
+      padding: 1.6rem 0 3rem;
+    }
+    .billing-hero {
+      align-items: center;
+      gap: .9rem;
+      margin-bottom: 1.15rem;
+    }
+    .billing-hero-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 15px;
+    }
+    .billing-hero h1 { font-size: 1.75rem; }
+    .billing-hero p { margin-top: .3rem; }
+
+    /* ─── Cartão principal ─── */
+    .sub-card {
+      position: relative;
+      overflow: hidden;
+      padding: 1.4rem 1.5rem;
+      border-radius: 20px;
+      background: var(--glass-strong);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+      backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .4);
+      margin-bottom: 1.6rem;
+    }
+    :root[data-theme='dark'] .sub-card {
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .04);
+    }
+    .sub-head {
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.15rem;
+    }
+    .sub-head-copy { flex: 1 1 auto; min-width: 0; }
+    .sub-head h2 { font-size: 1.2rem; }
+    .sub-head p { max-width: 690px; font-size: .82rem; }
+    .sub-state { display: flex; flex-direction: column; gap: .85rem; }
+
+    /* ─── Status ─── */
+    .billing-status {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      padding: .4rem .72rem;
+      border-radius: 999px;
+      background: var(--surface-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--border-light);
+      font-size: .66rem;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .billing-status::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      flex: none;
+    }
+    .billing-status.is-pending {
+      background: color-mix(in srgb, var(--warning-text) 11%, var(--surface));
+      color: var(--warning-text);
+      border-color: color-mix(in srgb, var(--warning-text) 26%, transparent);
+    }
+    .billing-status.is-ok {
+      background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+      color: var(--primary);
+      border-color: color-mix(in srgb, var(--primary) 24%, transparent);
+    }
+    .billing-status.is-off {
+      background: var(--surface-hover);
+      color: var(--text-muted);
+      border-color: var(--border-light);
+    }
+    .billing-status.is-error {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border-color: color-mix(in srgb, var(--danger) 25%, transparent);
+    }
+
+    /* ─── Visão geral do plano ─── */
+    .sub-overview {
+      display: grid;
+      grid-template-columns: 1.25fr .9fr .9fr;
+      gap: .7rem;
+    }
+    .sub-plan-card {
+      position: relative;
+      overflow: hidden;
+      padding: 1rem 1.1rem;
+      border-radius: 16px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--primary) 13%, var(--surface)), var(--surface) 72%);
+      border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-light));
+    }
+    .sub-plan-card::after {
+      content: '';
+      position: absolute;
+      right: -28px;
+      bottom: -38px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--primary) 11%, transparent);
+      pointer-events: none;
+    }
+    .sub-kicker {
+      display: block;
+      font-size: .64rem;
+      font-weight: 800;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    .sub-plan-name {
+      display: block;
+      margin-top: .15rem;
+      font-size: 1.45rem;
+      line-height: 1.2;
+      letter-spacing: -.03em;
+    }
+    .sub-plan-price {
+      display: flex;
+      align-items: baseline;
+      gap: .2rem;
+      margin-top: .25rem;
+      color: var(--primary);
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .sub-plan-price small {
+      font-size: .76rem;
+      font-weight: 600;
+      letter-spacing: 0;
+      color: var(--text-muted);
+    }
+    .sub-plan-tag,
+    .sub-plan-meta {
+      display: inline-flex;
+      align-items: center;
+      margin-top: .5rem;
+      padding: .18rem .5rem;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      color: var(--text-muted);
+      font-size: .66rem;
+      font-weight: 600;
+    }
+    .sub-stat {
+      display: flex;
+      align-items: flex-start;
+      gap: .65rem;
+      min-width: 0;
+      padding: 1rem;
+      border-radius: 16px;
+      background: var(--surface-hover);
+      border: 1px solid var(--border-light);
+    }
+    .sub-stat-icon {
+      width: 34px;
+      height: 34px;
+      flex: none;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      color: var(--primary);
+    }
+    .sub-stat-icon svg { width: 17px; height: 17px; }
+    .sub-stat > div { min-width: 0; }
+    .sub-stat small {
+      display: block;
+      font-size: .63rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .sub-stat strong {
+      display: block;
+      margin-top: .2rem;
+      font-size: .93rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sub-stat-note {
+      display: block;
+      margin-top: .15rem;
+      color: var(--danger-text);
+      font-size: .68rem;
+      font-weight: 700;
+    }
+    .sub-stat.is-danger {
+      background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+      border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+    }
+    .sub-stat.is-danger .sub-stat-icon {
+      color: var(--danger);
+      background: var(--danger-bg);
+      border-color: color-mix(in srgb, var(--danger) 20%, transparent);
+    }
+    .sub-stat.is-danger strong { color: var(--danger-text); }
+
+    /* ─── Avisos de estado ─── */
+    .sub-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      padding: .9rem 1rem;
+      border-radius: 14px;
+      border: 1px solid var(--border-light);
+      background: var(--surface-hover);
+    }
+    .sub-banner.is-pending {
+      background: color-mix(in srgb, var(--warning-text) 8%, var(--surface));
+      border-color: color-mix(in srgb, var(--warning-text) 24%, transparent);
+    }
+    .sub-banner.is-ok {
+      background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+    .sub-banner.is-error {
+      background: var(--danger-bg);
+      border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+    }
+    .sub-banner-icon {
+      width: 36px;
+      height: 36px;
+      flex: none;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      color: var(--warning-text);
+    }
+    .sub-banner.is-ok .sub-banner-icon { color: var(--primary); }
+    .sub-banner.is-error .sub-banner-icon { color: var(--danger-text); }
+    .sub-banner-icon svg { width: 18px; height: 18px; }
+    .sub-banner-body { min-width: 0; }
+    /* Só o título do aviso é bloco. O <strong> dentro do texto (Verificar autorização)
+       continua inline — era o que jogava o ponto final numa linha sozinho. */
+    .sub-banner-body > strong {
+      display: block;
+      font-size: .88rem;
+      line-height: 1.3;
+    }
+    .sub-banner-body p {
+      margin: .2rem 0 0;
+      font-size: .79rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+    .sub-banner-body p strong { display: inline; color: var(--text-secondary); }
+    .sub-banner-link {
+      display: inline-block;
+      margin-top: .55rem;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: .72rem;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+    .sub-banner-link:hover { color: var(--danger); }
+    .sub-banner-link:disabled { opacity: .5; cursor: default; }
+    .sub-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      margin: .6rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .sub-steps li {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .24rem .55rem;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      color: var(--text-secondary);
+      font-size: .69rem;
+      font-weight: 600;
+    }
+    .sub-steps li span {
+      width: 16px;
+      height: 16px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--warning-bg);
+      color: var(--warning-text);
+      font-size: .6rem;
+      font-weight: 800;
+    }
+    .sub-note {
+      margin: 0;
+      font-size: .79rem;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+
+    /* ─── Ações ─── */
+    .sub-actions {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      flex-wrap: wrap;
+      padding-top: .15rem;
+    }
+    .sub-actions .btn { display: inline-flex; align-items: center; gap: .4rem; }
+    .sub-actions-spacer { flex: 1 1 auto; }
+    .sub-link-danger {
+      border: 0;
+      background: transparent;
+      padding: .3rem .1rem;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: .76rem;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+    .sub-link-danger:hover { color: var(--danger); }
+    .sub-link-danger:disabled { opacity: .5; cursor: default; }
+
+    /* ─── Chamada para assinar ─── */
+    .subscribe-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: .1rem;
+      padding: 1.05rem 1.15rem;
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border-light));
+      background:
+        linear-gradient(120deg, color-mix(in srgb, var(--primary) 9%, var(--surface)), var(--surface) 70%);
+    }
+    .subscribe-copy { flex: 1 1 380px; min-width: 0; }
+    .subscribe-kicker {
+      display: block;
+      font-size: .63rem;
+      font-weight: 800;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    .subscribe-box h3 { margin: .15rem 0 0; font-size: 1rem; }
+    .subscribe-box p {
+      margin: .25rem 0 0;
+      color: var(--text-muted);
+      font-size: .8rem;
+      line-height: 1.5;
+    }
+
+    /* ─── Histórico ─── */
+    .billing-history { margin-top: .15rem; }
+    .history-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: .7rem;
+    }
+    .history-head h2 { margin: 0; font-size: 1.08rem; letter-spacing: -.02em; }
+    .history-head p { margin: .2rem 0 0; color: var(--text-muted); font-size: .8rem; }
+    .history-card {
+      border: 1px solid var(--border-light);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .history-scroll { overflow-x: auto; }
+    .history-card table { margin: 0; box-shadow: none; border-radius: 0; }
+    .history-card th,
+    .history-card td { background: transparent; }
+    .history-card thead th {
+      background: var(--surface-hover);
+      font-size: .67rem;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .history-card tbody tr:last-child td { border-bottom: 0; }
+    .history-card tbody tr:hover td {
+      background: color-mix(in srgb, var(--primary) 4%, transparent);
+    }
+    .urgent-panel {
+      display: flex;
+      align-items: flex-start;
+      gap: .7rem;
+      padding: .85rem .95rem;
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--warning-text) 8%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--warning-text) 24%, transparent);
+      margin-bottom: .8rem;
+    }
+    .urgent-icon {
+      width: 32px;
+      height: 32px;
+      flex: none;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: var(--surface);
+      color: var(--warning-text);
+    }
+    .urgent-icon svg { width: 17px; height: 17px; }
+    .urgent-panel strong { display: block; font-size: .84rem; }
+    .urgent-panel p strong { display: inline; font-size: inherit; }
+    .urgent-panel p { margin: .2rem 0 0; font-size: .78rem; color: var(--text-muted); }
+    .billing-empty {
+      padding: 2.3rem 1.5rem;
+      border: 1px solid var(--border-light);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 0;
+    }
+    .billing-empty-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border-light));
+    }
+    .billing-empty h3 { font-size: 1rem; }
+    .billing-empty p { font-size: .82rem; }
+
+    /* ─── Aviso de ambiente no modal de planos ─── */
+    .payer-env {
+      display: flex;
+      align-items: flex-start;
+      gap: .55rem;
+      margin: 0 0 .8rem;
+      padding: .7rem .8rem;
+      border-radius: 11px;
+      background: var(--surface-hover);
+      border: 1px solid var(--border-light);
+      font-size: .78rem;
+      line-height: 1.45;
+    }
+    .payer-env.is-teste {
+      background: color-mix(in srgb, var(--warning-text) 8%, var(--surface));
+      border-color: color-mix(in srgb, var(--warning-text) 24%, transparent);
+    }
+    .payer-env.is-producao {
+      background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+    }
+    .payer-env-icon {
+      width: 30px;
+      height: 30px;
+      flex: none;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--warning-text);
+    }
+    .payer-env.is-producao .payer-env-icon { color: var(--primary); }
+    .payer-env-icon svg { width: 16px; height: 16px; }
+    .payer-env strong { display: block; font-size: .8rem; }
+    .payer-env span { color: var(--text-muted); }
+    .plan-option { position: relative; }
+    .plan-option.active::after {
+      content: '✓';
+      position: absolute;
+      top: .55rem;
+      right: .6rem;
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--on-primary);
+      font-size: .68rem;
+      font-weight: 800;
+    }
+
+    @media (max-width: 860px) {
+      .sub-overview { grid-template-columns: 1fr 1fr; }
+      .sub-plan-card { grid-column: 1 / -1; }
+    }
+    @media (max-width: 560px) {
+      .billing-page { width: calc(100% - 1.25rem); padding-top: 1.1rem; }
+      .sub-card { padding: 1.1rem; border-radius: 16px; }
+      .sub-overview { grid-template-columns: 1fr; }
+      .sub-plan-card { grid-column: auto; }
+      .sub-actions .btn { width: 100%; justify-content: center; }
+      .sub-actions-spacer { display: none; }
+      .sub-link-danger { width: 100%; text-align: center; }
+      .sub-head { flex-direction: column; }
+      .billing-status { align-self: flex-start; }
+      .subscribe-box .btn { width: 100%; justify-content: center; }
+    }
+  </style>
 </head>
 <body>
   <%- include('partials/nav', { user, page: 'billing' }) %>
@@ -305,67 +835,142 @@
         <h1>Assinatura e cobranças</h1>
         <p>Gerencie seu plano, autorize pagamentos e acompanhe o histórico da licença em um só lugar.</p>
       </div>
-      <div class="billing-hero-status" x-show="subReady" x-cloak>
-        <span class="billing-status" :class="subStatusClass()" x-text="subStatusLabel()"></span>
-      </div>
     </header>
 
     <section class="sub-card" x-show="subReady" x-cloak>
       <div class="sub-head">
-        <div>
+        <div class="sub-head-copy">
           <h2>Minha assinatura</h2>
           <p>Assine ou cancele direto por aqui. O cancelamento não devolve o valor já pago e não encurta o acesso: a licença continua até a data de validade abaixo.</p>
         </div>
+        <span class="billing-status" :class="subStatusClass()" x-text="subStatusLabel()"></span>
       </div>
 
       <template x-if="!subscription && hasUpfrontPlan()">
-        <div>
-          <div class="sub-grid">
-            <div><span>Plano</span><strong x-text="subPlanLabel(subCompany.plan)"></strong></div>
-            <div><span>Modalidade</span><strong>Pagamento à vista</strong></div>
-            <div><span>Acesso até</span><strong x-text="subCompany.validUntil ? fmtDate(subCompany.validUntil) : '—'"></strong></div>
+        <div class="sub-state">
+          <div class="sub-overview">
+            <div class="sub-plan-card">
+              <span class="sub-kicker">Plano ativo</span>
+              <strong class="sub-plan-name" x-text="subPlanLabel(subCompany.plan)"></strong>
+              <span class="sub-plan-tag">Pagamento à vista</span>
+            </div>
+            <div class="sub-stat" :class="{ 'is-danger': accessExpired() }">
+              <span class="sub-stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+              </span>
+              <div>
+                <small>Acesso até</small>
+                <strong x-text="subCompany.validUntil ? fmtDate(subCompany.validUntil) : '—'"></strong>
+                <span class="sub-stat-note" x-show="accessExpired()">Acesso vencido</span>
+              </div>
+            </div>
           </div>
           <p class="sub-note">Seu plano está ativo por pagamento à vista. Para renovar, escolha um plano abaixo.</p>
         </div>
       </template>
 
       <template x-if="subscription">
-        <div>
-          <div class="sub-grid">
-            <div><span>Plano</span><strong x-text="subPlanLabel(subscription.planKey)"></strong></div>
-            <div><span>Valor</span><strong x-text="brl(subscription.amountCents) + ' / mês'"></strong></div>
-            <div><span>Próxima cobrança</span><strong x-text="subscription.nextPaymentDate ? fmtDate(subscription.nextPaymentDate) : '—'"></strong></div>
-            <div><span>Acesso até</span><strong x-text="subCompany && subCompany.validUntil ? fmtDate(subCompany.validUntil) : '—'"></strong></div>
-          </div>
-
-          <div class="sub-alert" x-show="subscription.status === 'pendente'">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <div>
-              <strong>Falta autorizar o cartão</strong>
-              <p>Abra o link do Mercado Pago, autorize a assinatura e depois clique em <strong>Verificar autorização</strong>.</p>
+        <div class="sub-state">
+          <div class="sub-overview">
+            <div class="sub-plan-card">
+              <span class="sub-kicker">Seu plano</span>
+              <strong class="sub-plan-name" x-text="subPlanLabel(subscription.planKey)"></strong>
+              <div class="sub-plan-price"><span x-text="brl(subscription.amountCents)"></span><small>/mês</small></div>
+              <span class="sub-plan-tag">Renovação automática</span>
+            </div>
+            <div class="sub-stat">
+              <span class="sub-stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M8 14h8"/><path d="M8 18h5"/></svg>
+              </span>
+              <div>
+                <small>Próxima cobrança</small>
+                <strong x-text="subscription.nextPaymentDate ? fmtDate(subscription.nextPaymentDate) : '—'"></strong>
+              </div>
+            </div>
+            <div class="sub-stat" :class="{ 'is-danger': accessExpired() }">
+              <span class="sub-stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+              </span>
+              <div>
+                <small>Acesso até</small>
+                <strong x-text="subCompany && subCompany.validUntil ? fmtDate(subCompany.validUntil) : '—'"></strong>
+                <span class="sub-stat-note" x-show="accessExpired()">Acesso vencido</span>
+              </div>
             </div>
           </div>
-          <p class="sub-note" x-show="subscription.status === 'cancelada' || subscription.status === 'encerrada'">
-            Assinatura cancelada. Não haverá novas cobranças. Você mantém o acesso até a data de validade.
-          </p>
-          <p class="sub-note" x-show="subscription.status === 'autorizada'">
-            Assinatura ativa. Cada cobrança aprovada estende a licença por 30 dias.
-          </p>
-          <p class="sub-note" x-show="subscription.status === 'erro'" x-text="subscription.lastError || 'A assinatura precisa de atenção.'"></p>
+
+          <div class="sub-banner is-error" x-show="payerMismatch()">
+            <span class="sub-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
+            <div class="sub-banner-body">
+              <strong>E-mail do pagador incompatível com o ambiente</strong>
+              <p x-text="payerEmailProblem()"></p>
+            </div>
+          </div>
+
+          <div class="sub-banner is-pending" x-show="subscription.status === 'pendente'">
+            <span class="sub-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <div class="sub-banner-body">
+              <strong>Falta autorizar o cartão</strong>
+              <p>Abra o link do Mercado Pago, autorize a assinatura e depois clique em <strong>Verificar autorização</strong>.</p>
+              <ol class="sub-steps">
+                <li><span>1</span> Abrir o link</li>
+                <li><span>2</span> Autorizar no Mercado Pago</li>
+                <li><span>3</span> Verificar aqui</li>
+              </ol>
+              <button type="button" class="sub-banner-link" x-show="!payerMismatch()"
+                      @click="cancelSubscription(true)" :disabled="subBusy">
+                Cancelar esta assinatura pendente e usar outro e-mail
+              </button>
+            </div>
+          </div>
+
+          <div class="sub-banner is-ok" x-show="subscription.status === 'autorizada'">
+            <span class="sub-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+            <div class="sub-banner-body">
+              <strong>Assinatura ativa</strong>
+              <p>Cada cobrança aprovada estende a licença por 30 dias. Você pode cancelar quando quiser.</p>
+            </div>
+          </div>
+
+          <p class="sub-note" x-show="subscription.status === 'pausada'">Assinatura pausada pelo Mercado Pago. Verifique a autorização para retomar as cobranças.</p>
+          <p class="sub-note" x-show="subscription.status === 'cancelada' || subscription.status === 'encerrada'">Assinatura cancelada. Não haverá novas cobranças. Você mantém o acesso até a data de validade.</p>
+
+          <div class="sub-banner is-error" x-show="subscription.status === 'erro'">
+            <span class="sub-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
+            <div class="sub-banner-body">
+              <strong>A assinatura precisa de atenção</strong>
+              <p x-text="subscription.lastError || 'Não foi possível concluir a autorização. Tente novamente.'"></p>
+            </div>
+          </div>
 
           <div class="sub-actions">
-            <template x-if="subscription.status === 'pendente' && subscription.initPoint">
-              <button type="button" class="btn" @click="openSubscriptionCheckout()">Abrir autorização no Mercado Pago</button>
+            <template x-if="subscription.status === 'pendente' && subscription.initPoint && !payerMismatch()">
+              <button type="button" class="btn" @click="openSubscriptionCheckout()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+                Abrir autorização no Mercado Pago
+              </button>
             </template>
-            <button type="button" class="btn secondary" @click="verifySubscription()" :disabled="subBusy">
+            <button type="button" class="btn secondary" @click="verifySubscription()" :disabled="subBusy || payerMismatch()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
               <span x-text="subBusy ? 'Consultando…' : 'Verificar autorização'"></span>
             </button>
             <template x-if="subscription.status === 'autorizada' || subscription.status === 'pausada'">
-              <button type="button" class="btn danger" @click="cancelSubscription()" :disabled="subBusy">
-                Cancelar assinatura
-              </button>
+              <button type="button" class="btn danger" @click="cancelSubscription()" :disabled="subBusy">Cancelar assinatura</button>
             </template>
-            <button type="button" class="btn secondary" @click="notInterested()" :disabled="subBusy">
+            <template x-if="payerMismatch()">
+              <button type="button" class="btn danger" @click="cancelSubscription(true)" :disabled="subBusy">Cancelar e corrigir e-mail</button>
+            </template>
+            <span class="sub-actions-spacer"></span>
+            <button type="button" class="sub-link-danger" @click="notInterested()" :disabled="subBusy"
+                    x-show="subscription.status === 'pendente' || subscription.status === 'erro'">
               Não quero continuar
             </button>
           </div>
@@ -373,19 +978,77 @@
       </template>
 
       <div class="subscribe-box" x-show="canSubscribe()">
-        <h3 x-text="subscription ? 'Assinar novamente' : 'Assine e continue crescendo'"></h3>
-        <p>
-          A primeira cobrança é imediata. Os dias restantes do teste são somados à licença,
-          então você não perde o período de avaliação.
-        </p>
-        <div class="sub-actions">
-          <button type="button" class="btn" @click="openPlans()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h4"/></svg>
-            Ver planos e assinar
-          </button>
+        <div class="subscribe-copy">
+          <span class="subscribe-kicker">Próximo passo</span>
+          <h3 x-text="subscription ? 'Assinar novamente' : 'Assine e continue crescendo'"></h3>
+          <p>A primeira cobrança é imediata. Os dias restantes do teste são somados à licença, então você não perde o período de avaliação.</p>
         </div>
+        <button type="button" class="btn" @click="openPlans()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h4"/></svg>
+          Ver planos e assinar
+        </button>
       </div>
     </section>
+
+    <section class="billing-history">
+      <div class="history-head">
+        <div>
+          <h2>Histórico de cobranças</h2>
+          <p>Pagamentos, comprovantes e links de cobrança da sua licença.</p>
+        </div>
+      </div>
+
+      <div class="urgent-panel" x-show="urgent.length" x-cloak>
+        <span class="urgent-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+        <div>
+          <strong>Vencimento próximo</strong>
+          <template x-for="c in urgent" :key="'urgent' + c.id">
+            <p><strong x-text="c.description"></strong> — <span x-text="brl(c.amount_cents)"></span> — vence <span x-text="fmtDate(c.due_date)"></span></p>
+          </template>
+        </div>
+      </div>
+
+      <div class="history-card" x-show="charges.length" x-cloak>
+        <div class="history-scroll">
+          <table>
+            <thead>
+              <tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th><th></th></tr>
+            </thead>
+            <tbody>
+              <template x-for="c in charges" :key="c.id">
+                <tr>
+                  <td x-text="c.description"></td>
+                  <td x-text="brl(c.amount_cents)"></td>
+                  <td x-text="fmtDate(c.due_date)"></td>
+                  <td>
+                    <span class="badge" :class="c.status === 'paga' ? 'ok' : (c.status === 'cancelada' ? '' : 'off')" x-text="c.status"></span>
+                    <span class="muted text-xs" x-show="c.mp_method" x-text="'(' + c.mp_method + ')'"></span>
+                  </td>
+                  <td class="muted" x-text="c.paid_at ? fmtDateTime(c.paid_at) : '—'"></td>
+                  <td class="muted" x-text="c.instructions || '—'" style="max-width:240px;white-space:pre-wrap"></td>
+                  <td class="text-right">
+                    <button class="btn small" x-show="c.status === 'pendente'" @click="openPay(c)">Pagar</button>
+                    <a class="btn secondary small" x-show="c.public_url" :href="c.public_url" target="_blank" rel="noopener">Link</a>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="billing-empty" x-show="!charges.length" x-cloak>
+        <div class="billing-empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+        </div>
+        <h3>Nenhuma cobrança por aqui</h3>
+        <p>Quando você assinar ou pagar um plano à vista, as cobranças e os comprovantes aparecem nesta lista.</p>
+        <button type="button" class="btn secondary" @click="openPlans()">Ver planos</button>
+      </div>
+    </section>
+    <span class="error" x-text="error"></span>
 
     <dialog x-ref="plansDlg" style="max-width:760px;width:92vw">
       <div class="modal-header">
@@ -407,14 +1070,22 @@
           </template>
         </div>
         <p class="error" x-show="!plans.length" x-text="subError || 'Não foi possível carregar os planos. Verifique a conexão com a nuvem.'"></p>
+        <div class="payer-env" x-show="subGateway"
+             :class="subGateway && subGateway.environment === 'teste' ? 'is-teste' : (subGateway && subGateway.environment === 'producao' ? 'is-producao' : '')">
+          <span class="payer-env-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>
+          </span>
+          <div>
+            <strong x-text="subGateway && subGateway.environment === 'teste' ? 'Ambiente de teste do Mercado Pago' : (subGateway && subGateway.environment === 'producao' ? 'Ambiente de produção' : 'Mercado Pago')"></strong>
+            <span x-text="payerEnvHint()"></span>
+          </div>
+        </div>
         <label>E-mail da conta Mercado Pago</label>
         <input type="text" inputmode="email" name="kivo_payer_email" x-model="payerEmail"
                autocomplete="off" autocapitalize="off" spellcheck="false"
-               data-lpignore="true" data-1p-ignore="true" placeholder="seu@email.com" />
-        <p class="sub-note">
-          Em teste, use o e-mail da conta compradora de teste (<code>test_user_...</code>).
-          Em produção, use uma conta Mercado Pago real.
-        </p>
+               data-lpignore="true" data-1p-ignore="true"
+               :placeholder="subGateway && subGateway.environment === 'teste' ? 'test_user_...@testuser.com' : 'seu@email.com'" />
+        <p class="error" x-show="payerEmailError()" x-text="payerEmailError()"></p>
         <p class="sub-note">
           <strong>Pix é pagamento único de 30 dias</strong>, sem débito automático. Para cobrança
           recorrente no cartão, use <strong>Assinar agora</strong>.
@@ -423,11 +1094,11 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="btn secondary" @click="$refs.plansDlg.close()">Agora não</button>
-        <button type="button" class="btn secondary" @click="buyUpfront()" :disabled="subBusy || !selectedPlan || !payerEmail.trim()">
+        <button type="button" class="btn secondary" @click="buyUpfront()" :disabled="subBusy || !canSubmitPlan()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>
           <span x-text="subBusy ? 'Gerando Pix…' : 'Pagar à vista com Pix'"></span>
         </button>
-        <button type="button" class="btn" @click="subscribe()" :disabled="subBusy || !selectedPlan || !payerEmail.trim()">
+        <button type="button" class="btn" @click="subscribe()" :disabled="subBusy || !canSubmitPlan()">
           <span x-text="subBusy ? 'Gerando…' : 'Assinar agora'"></span>
         </button>
       </div>
@@ -476,52 +1147,6 @@
         <button type="button" class="btn" @click="finishDecline()" :disabled="retentionBusy">Entendi</button>
       </div>
     </dialog>
-
-    <div class="panel" x-show="urgent.length" x-cloak>
-      <h2 style="color:var(--danger)">⚠ Vencimento próximo</h2>
-      <template x-for="c in urgent" :key="c.id">
-        <p style="margin-bottom:.4rem">
-          <strong x-text="c.description"></strong> —
-          <span x-text="brl(c.amount_cents)"></span>
-          — vence <span x-text="fmtDate(c.due_date)"></span>
-        </p>
-      </template>
-    </div>
-
-    <table x-show="charges.length" x-cloak>
-      <thead>
-        <tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Pago em</th><th>Instruções</th><th></th></tr>
-      </thead>
-      <tbody>
-        <template x-for="c in charges" :key="c.id">
-          <tr>
-            <td x-text="c.description"></td>
-            <td x-text="brl(c.amount_cents)"></td>
-            <td x-text="fmtDate(c.due_date)"></td>
-            <td>
-              <span class="badge" :class="c.status === 'paga' ? 'ok' : (c.status === 'cancelada' ? '' : 'off')" x-text="c.status"></span>
-              <span class="muted text-xs" x-show="c.mp_method" x-text="'(' + c.mp_method + ')'"></span>
-            </td>
-            <td class="muted" x-text="c.paid_at ? fmtDateTime(c.paid_at) : '—'"></td>
-            <td class="muted" x-text="c.instructions || '—'" style="max-width:240px;white-space:pre-wrap"></td>
-            <td class="text-right">
-              <button class="btn small" x-show="c.status === 'pendente'" @click="openPay(c)">Pagar</button>
-              <a class="btn secondary small" x-show="c.public_url" :href="c.public_url" target="_blank" rel="noopener">Link</a>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-
-    <section class="billing-empty" x-show="!charges.length" x-cloak>
-      <div class="billing-empty-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
-      </div>
-      <h3>Nenhuma cobrança por aqui</h3>
-      <p>Quando você assinar ou pagar um plano à vista, as cobranças e os comprovantes aparecem nesta lista.</p>
-      <button type="button" class="btn secondary" @click="openPlans()">Ver planos</button>
-    </section>
-    <span class="error" x-text="error"></span>
 
     <dialog x-ref="payDlg" class="pay-dialog" @close="stopPoll()">
       <header class="pay-sheet-head">
@@ -649,6 +1274,7 @@
         charge: null, method: 'pix', payment: null,
         loading: false, payError: '', statusMsg: '', polling: false, pollTimer: null,
         subscription: null, plans: [], subCompany: null, subReady: false, subBusy: false,
+        subGateway: null,
         subError: '', selectedPlan: '', payerEmail: '',
         retentionAvailable: false, retentionBusy: false, retentionMode: '', retentionError: '',
         retentionShown: false, licenseStatus: null,
@@ -682,14 +1308,26 @@
             this.subscription = body.subscription || null;
             this.plans = body.plans || [];
             this.subCompany = body.company || null;
+            this.subGateway = body.gateway || null;
             this.retentionAvailable = !!(body.retention && body.retention.available);
             if (!this.selectedPlan && this.plans.length) {
               const preferido = this.plans.find((p) => p.key === this.subCompany?.plan) || this.plans[1] || this.plans[0];
               this.selectedPlan = preferido.key;
             }
             if (!this.payerEmail) {
-              const sugerido = this.subscription?.payerEmail || this.subCompany?.email || '';
-              this.payerEmail = sugerido.includes('@') ? sugerido : '';
+              // Sugere o e-mail da empresa; o e-mail da assinatura antiga só volta quando
+              // ela está ativa. Assinatura pendente/cancelada pode ter sido criada com o
+              // e-mail errado — sugerir de novo perpetuaria o erro.
+              const sugerido = (this.subscription?.status === 'autorizada' && this.subscription.payerEmail)
+                || this.subCompany?.email
+                || '';
+              const email = sugerido.trim().toLowerCase();
+              const ambiente = this.subGateway?.environment;
+              const emailCompativel = email.includes('@')
+                && (ambiente !== 'teste' || email.endsWith('@testuser.com'))
+                && (ambiente !== 'producao' || !email.endsWith('@testuser.com'));
+              // Não sugere um e-mail que o Mercado Pago vai recusar no ambiente atual.
+              this.payerEmail = emailCompativel ? sugerido : '';
             }
             this.subError = '';
             this.subReady = true;
@@ -723,10 +1361,72 @@
         },
         subStatusClass() {
           const s = this.subscription;
-          if (!s) return this.hasUpfrontPlan() ? 'ok' : 'off';
-          if (s.status === 'autorizada') return 'ok';
-          if (s.status === 'pendente' || s.status === 'pausada') return 'off';
+          if (!s) return this.hasUpfrontPlan() ? 'is-ok' : 'is-off';
+          if (s.status === 'autorizada') return 'is-ok';
+          if (s.status === 'pendente' || s.status === 'pausada') return 'is-pending';
+          if (s.status === 'erro') return 'is-error';
+          return 'is-off';
+        },
+        accessExpired() {
+          const validUntil = this.subCompany?.validUntil;
+          if (!validUntil) return false;
+          const d = new Date(validUntil);
+          return Number.isFinite(d.getTime()) && d.getTime() < Date.now();
+        },
+        /** Valida o e-mail do pagador antes de chamar o Mercado Pago. */
+        payerEmailError() {
+          const email = (this.payerEmail || '').trim().toLowerCase();
+          if (!email) return '';
+          if (!email.includes('@')) return 'Informe um e-mail válido.';
+          if (email === 'test_user_7923436665712574587@testuser.com') {
+            return 'Use o e-mail de um comprador de teste criado na sua própria conta, não o exemplo das instruções.';
+          }
+          const ambiente = this.subGateway?.environment;
+          if (ambiente === 'teste' && !email.endsWith('@testuser.com')) {
+            return 'Este ambiente é de teste. Use o e-mail de um usuário de teste, terminado em @testuser.com.';
+          }
+          if (ambiente === 'producao' && email.endsWith('@testuser.com')) {
+            return 'Este ambiente é de produção. Use o e-mail de uma conta Mercado Pago real.';
+          }
           return '';
+        },
+        payerEnvHint() {
+          if (!this.subGateway) return '';
+          if (!this.subGateway.configured) {
+            return 'O Mercado Pago ainda não está configurado na nuvem. Fale com o suporte antes de assinar.';
+          }
+          if (this.subGateway.environment === 'teste') {
+            return 'Use o e-mail de um comprador de teste criado na sua própria conta de teste do Mercado Pago (Suas integrações → Contas de teste). Nenhuma cobrança real será feita.';
+          }
+          if (this.subGateway.environment === 'producao') {
+            return 'Use o e-mail da conta Mercado Pago que vai autorizar a assinatura.';
+          }
+          return 'Use o e-mail da conta Mercado Pago que vai autorizar a assinatura.';
+        },
+        /** A assinatura existente foi criada com um e-mail do ambiente errado. */
+        payerEmailProblem() {
+          // E-mail de exemplo que as instruções antigas mostravam. Quem copiou ficou com
+          // uma assinatura que o Mercado Pago recusa (o usuário de teste é de outra conta).
+          const exemploAntigo = 'test_user_7923436665712574587@testuser.com';
+          const email = (this.subscription?.payerEmail || '').trim().toLowerCase();
+          const ambiente = this.subGateway?.environment;
+          if (email === exemploAntigo) {
+            return 'Esta assinatura foi criada com um e-mail de exemplo das instruções antigas. Ele não pertence à sua conta de teste. Cancele e crie novamente usando um comprador de teste criado por você.';
+          }
+          if (!email || !ambiente || ambiente === 'desconhecido') return '';
+          if (ambiente === 'teste' && !email.endsWith('@testuser.com')) {
+            return 'Esta assinatura foi criada com um e-mail real, mas o Mercado Pago está em teste. Cancele e crie novamente usando um e-mail de comprador de teste da sua conta.';
+          }
+          if (ambiente === 'producao' && email.endsWith('@testuser.com')) {
+            return 'Esta assinatura foi criada com um e-mail de teste, mas o Mercado Pago está em produção. Cancele e crie novamente com uma conta real.';
+          }
+          return '';
+        },
+        payerMismatch() {
+          return !!this.payerEmailProblem();
+        },
+        canSubmitPlan() {
+          return !!this.selectedPlan && !!this.payerEmail.trim() && !this.payerEmailError();
         },
         canSubscribe() {
           const s = this.subscription;
@@ -799,7 +1499,11 @@
           this.finishDecline();
         },
         async subscribe() {
-          if (!this.selectedPlan || !this.payerEmail.trim()) return;
+          const emailError = this.payerEmailError();
+          if (!this.selectedPlan || !this.payerEmail.trim() || emailError) {
+            this.subError = emailError || 'Escolha um plano e informe o e-mail do pagador.';
+            return;
+          }
           this.subBusy = true; this.subError = '';
           try {
             const r = await fetch('/api/billing/subscription', {
@@ -823,7 +1527,11 @@
           }
         },
         async buyUpfront() {
-          if (!this.selectedPlan || !this.payerEmail.trim()) return;
+          const emailError = this.payerEmailError();
+          if (!this.selectedPlan || !this.payerEmail.trim() || emailError) {
+            this.subError = emailError || 'Escolha um plano e informe o e-mail do pagador.';
+            return;
+          }
           this.subBusy = true; this.subError = '';
           try {
             const r = await fetch('/api/billing/upfront', {
@@ -856,12 +1564,15 @@
             this.subBusy = false;
           }
         },
-        async cancelSubscription() {
-          if (this.retentionAvailable) {
+        async cancelSubscription(force = false) {
+          if (!force && this.retentionAvailable) {
             this.showRetention('cancel');
             return;
           }
-          if (!confirm('Cancelar a assinatura? Não haverá novas cobranças, mas o acesso continua até o fim do período já pago.')) return;
+          const pergunta = force
+            ? 'Cancelar esta assinatura pendente? Você poderá criar outra em seguida.'
+            : 'Cancelar a assinatura? Não haverá novas cobranças, mas o acesso continua até o fim do período já pago.';
+          if (!confirm(pergunta)) return;
           this.subBusy = true; this.subError = '';
           try {
             const r = await fetch('/api/billing/subscription/cancel', { method: 'POST' });
