@@ -409,6 +409,28 @@ export async function cancelCompanySubscription(id: number): Promise<void> {
 
   const settings: GatewaySettings = await loadSettings();
   if (!settings.accessToken) throw new Error('Gateway do Mercado Pago não configurado.');
+
+  // Assinatura pendente ainda não tem cobrança autorizada. Se o Mercado Pago recusar o
+  // cancelamento (por exemplo, preapproval criado com credencial/ambiente diferente), o
+  // cancelamento local ainda libera o cliente para criar outra — e o link antigo é
+  // descartado. Isso evita o 502 sem risco de cobrança futura.
+  if (sub.status === 'pendente') {
+    try {
+      await updateSubscriptionStatus(sub.preapproval_id, 'cancelled', settings);
+    } catch (e) {
+      console.error('[subscriptions] falha ao cancelar preapproval pendente; cancelando só localmente', {
+        subscriptionId: id,
+        preapprovalId: sub.preapproval_id,
+        erro: (e as Error).message,
+      });
+    }
+    await getPool().query(
+      "UPDATE company_subscriptions SET status = 'cancelada', last_error = NULL, init_point = NULL WHERE id = ?",
+      [id],
+    );
+    return;
+  }
+
   await updateSubscriptionStatus(sub.preapproval_id, 'cancelled', settings);
   await getPool().query("UPDATE company_subscriptions SET status = 'cancelada', last_error = NULL WHERE id = ?", [id]);
 }

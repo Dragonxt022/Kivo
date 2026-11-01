@@ -1148,6 +1148,24 @@
       </div>
     </dialog>
 
+    <dialog x-ref="cancelDlg" style="max-width:480px;width:92vw">
+      <div class="modal-header">
+        <h2 x-text="cancelDlg.title"></h2>
+        <button type="button" class="modal-close" @click="$refs.cancelDlg.close()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0 0 .6rem;line-height:1.55" x-text="cancelDlg.message"></p>
+        <p class="muted" style="margin:0;line-height:1.5;font-size:.82rem" x-show="cancelDlg.note" x-text="cancelDlg.note"></p>
+        <p class="error" x-text="cancelDlg.error"></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" @click="$refs.cancelDlg.close()" :disabled="subBusy">Voltar</button>
+        <button type="button" class="btn danger" @click="confirmCancelDlg()" :disabled="subBusy">
+          <span x-text="subBusy ? 'Cancelando…' : 'Cancelar assinatura'"></span>
+        </button>
+      </div>
+    </dialog>
+
     <dialog x-ref="payDlg" class="pay-dialog" @close="stopPoll()">
       <header class="pay-sheet-head">
         <span class="pay-sheet-icon" aria-hidden="true">
@@ -1278,6 +1296,7 @@
         subError: '', selectedPlan: '', payerEmail: '',
         retentionAvailable: false, retentionBusy: false, retentionMode: '', retentionError: '',
         retentionShown: false, licenseStatus: null,
+        cancelDlg: { title: '', message: '', note: '', error: '', force: false },
 
         async load() {
           void this.loadSubscription(true);
@@ -1564,27 +1583,37 @@
             this.subBusy = false;
           }
         },
-        async cancelSubscription(force = false) {
+        cancelSubscription(force = false) {
           if (!force && this.retentionAvailable) {
             this.showRetention('cancel');
             return;
           }
-          const pergunta = force
-            ? 'Cancelar esta assinatura pendente? Você poderá criar outra em seguida.'
-            : 'Cancelar a assinatura? Não haverá novas cobranças, mas o acesso continua até o fim do período já pago.';
-          if (!confirm(pergunta)) return;
-          this.subBusy = true; this.subError = '';
+          this.cancelDlg = {
+            force: !!force,
+            title: force ? 'Cancelar assinatura pendente?' : 'Cancelar assinatura?',
+            message: force
+              ? 'Esta assinatura ainda não foi autorizada. Vamos cancelá-la para você criar outra com o e-mail correto.'
+              : 'Não haverá novas cobranças. O acesso continua até o fim do período já pago.',
+            note: force ? 'Nenhuma cobrança foi feita até agora.' : 'O valor já pago não é devolvido.',
+            error: '',
+          };
+          this.$refs.cancelDlg.showModal();
+        },
+        async confirmCancelDlg() {
+          this.subBusy = true;
+          this.cancelDlg.error = '';
           try {
             const r = await fetch('/api/billing/subscription/cancel', { method: 'POST' });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) {
-              this.subError = body.error || 'Não foi possível cancelar a assinatura.';
+              this.cancelDlg.error = body.error || 'Não foi possível cancelar a assinatura.';
               return;
             }
+            this.$refs.cancelDlg.close();
             await this.loadSubscription(true);
             showToast(body.message || 'Assinatura cancelada.', 'success');
           } catch (e) {
-            this.subError = 'Falha de conexão ao cancelar a assinatura.';
+            this.cancelDlg.error = 'Falha de conexão ao cancelar a assinatura.';
           } finally {
             this.subBusy = false;
           }
