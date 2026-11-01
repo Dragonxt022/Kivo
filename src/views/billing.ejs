@@ -1096,7 +1096,14 @@
             </button>
           </template>
         </div>
-        <p class="error" x-show="!plans.length" x-text="subError || 'Não foi possível carregar os planos. Verifique a conexão com a nuvem.'"></p>
+        <div class="pay-loading" x-show="plansLoading" x-cloak>
+          <span class="pay-spinner"></span>
+          <span>Carregando planos da nuvem…</span>
+        </div>
+        <p class="error" x-show="!plansLoading && !plans.length"
+           x-text="subError || 'A nuvem respondeu sem planos. Verifique a conexão e tente novamente.'"></p>
+        <button type="button" class="btn secondary" x-show="!plansLoading && !plans.length"
+                @click="reloadPlans()">Tentar novamente</button>
         <div class="payer-env" x-show="subGateway"
              :class="subGateway && subGateway.environment === 'teste' ? 'is-teste' : (subGateway && subGateway.environment === 'producao' ? 'is-producao' : '')">
           <span class="payer-env-icon">
@@ -1107,12 +1114,18 @@
             <span x-text="payerEnvHint()"></span>
           </div>
         </div>
-        <label>E-mail da conta Mercado Pago</label>
+        <label>E-mail do pagador</label>
         <input type="text" inputmode="email" name="kivo_payer_email" x-model="payerEmail"
                autocomplete="off" autocapitalize="off" spellcheck="false"
                data-lpignore="true" data-1p-ignore="true"
                :placeholder="subGateway && subGateway.environment === 'teste' ? 'test_user_...@testuser.com' : 'seu@email.com'" />
         <p class="error" x-show="payerEmailError()" x-text="payerEmailError()"></p>
+        <p class="sub-note">
+          <strong>Pix:</strong> o cliente não precisa de conta no Mercado Pago — ele paga pelo app de
+          qualquer banco usando o QR Code ou o copia e cola.
+          <strong>Assinatura no cartão:</strong> use o e-mail da conta Mercado Pago que vai autorizar
+          a recorrência.
+        </p>
         <p class="sub-note">
           <strong>Pix é pagamento único de 30 dias</strong>, sem débito automático. Para cobrança
           recorrente no cartão, use <strong>Assinar agora</strong>.
@@ -1324,6 +1337,7 @@
         retentionAvailable: false, retentionBusy: false, retentionMode: '', retentionError: '',
         retentionShown: false, licenseStatus: null,
         cancelDlg: { title: '', message: '', note: '', error: '', force: false },
+        plansLoading: false,
 
         async load() {
           void this.loadSubscription(true);
@@ -1442,12 +1456,12 @@
             return 'O Mercado Pago ainda não está configurado na nuvem. Fale com o suporte antes de assinar.';
           }
           if (this.subGateway.environment === 'teste') {
-            return 'Use o e-mail de um comprador de teste criado na sua própria conta de teste do Mercado Pago (Suas integrações → Contas de teste). Nenhuma cobrança real será feita.';
+            return 'Ambiente de teste: use um comprador de teste da sua conta (test_user_...@testuser.com), inclusive para Pix. Em produção, o Pix aceita o e-mail do cliente sem conta no Mercado Pago.';
           }
           if (this.subGateway.environment === 'producao') {
-            return 'Use o e-mail da conta Mercado Pago que vai autorizar a assinatura.';
+            return 'Para Pix, use o e-mail do cliente — ele não precisa de conta no Mercado Pago. Para a assinatura no cartão, use o e-mail da conta Mercado Pago que vai autorizar.';
           }
-          return 'Use o e-mail da conta Mercado Pago que vai autorizar a assinatura.';
+          return 'Para Pix, use o e-mail do cliente. Para a assinatura no cartão, use o e-mail da conta Mercado Pago que vai autorizar.';
         },
         /** A assinatura existente foi criada com um e-mail do ambiente errado. */
         payerEmailProblem() {
@@ -1484,11 +1498,21 @@
           }
         },
         openPlans() {
-          this.subError = '';
-          // Alguns navegadores preenchem o campo com o usuário do login ("admin") mesmo com
-          // autocomplete=off. Limpa isso antes de abrir, para não confundir o pagador.
+          // Não limpa `subError` aqui: se a carga da assinatura falhou, o modal precisa
+          // mostrar o motivo real, e não a mensagem genérica de "verifique a conexão".
           if (this.payerEmail && !this.payerEmail.includes('@')) this.payerEmail = '';
           if (this.$refs.plansDlg) this.$refs.plansDlg.showModal();
+          if (!this.plans.length && !this.plansLoading) void this.reloadPlans();
+        },
+        async reloadPlans() {
+          if (this.plansLoading) return;
+          this.plansLoading = true;
+          this.subError = '';
+          try {
+            await this.loadSubscription(false);
+          } finally {
+            this.plansLoading = false;
+          }
         },
         maybeOfferRetention() {
           if (this.retentionShown || !this.retentionAvailable) return;
