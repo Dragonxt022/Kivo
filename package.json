@@ -1,6 +1,6 @@
 {
   "name": "Kivo",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "Kivo — plataforma comercial modular desktop-first",
   "author": "Kivo",
   "private": true,
@@ -73,11 +73,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
