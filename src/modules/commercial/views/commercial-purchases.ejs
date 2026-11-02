@@ -12,7 +12,7 @@
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>" src="/js/masks.js"></script>
 </head>
-<body x-data="purchasesStore()" x-init="init()" @apply-filter.window="historyFilter=$event.detail; historyPage=1">
+<body x-data="purchasesStore()" @apply-filter.window="historyFilter=$event.detail; historyPage=1">
   <%- include('partials/nav', { user, page: '/app/commercial/compras' }) %>
   <main>
     <div class="ps-header">

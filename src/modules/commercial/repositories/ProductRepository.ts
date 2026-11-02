@@ -101,6 +101,24 @@ export class ProductRepository extends BaseRepository<ProductRow> {
     );
   }
 
+  /**
+   * Busca só os produtos pedidos. O PDV usa isto para validar o carrinho restaurado do
+   * localStorage — antes ele baixava o catálogo vendável INTEIRO só para conferir 1 ou 2
+   * itens, o que pesa muito no celular pela rede local.
+   */
+  listSellableByIds(ids: number[]): Row[] {
+    const clean = [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
+    if (!clean.length) return [];
+    const placeholders = clean.map(() => '?').join(', ');
+    return this.raw(
+      `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.deleted_at IS NULL AND p.id IN (${placeholders})
+         AND NOT (p.product_type = 'variante' AND p.parent_product_id IS NULL)
+       ORDER BY p.name`,
+      ...clean,
+    );
+  }
+
   /** Vendáveis marcados como favoritos — a grade de acesso rápido do PDV. */
   listFavorites(limit = 40): Row[] {
     return this.raw(

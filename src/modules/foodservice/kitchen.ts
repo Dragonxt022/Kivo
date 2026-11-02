@@ -19,6 +19,15 @@ export type KitchenTicketStatus = (typeof KITCHEN_TICKET_STATUSES)[number];
 export const KITCHEN_ACTIONABLE_STATUSES = ['pendente', 'preparo', 'pronto', 'entregue'] as const;
 export type KitchenActionableStatus = (typeof KITCHEN_ACTIONABLE_STATUSES)[number];
 
+/** Identificador do aparelho que fez a requisição (ver theme-init.ejs). */
+function actorDevice(req: Request): string | null {
+  const raw = req.headers['x-kivo-device'];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== 'string') return null;
+  const clean = value.trim().slice(0, 80);
+  return clean || null;
+}
+
 /**
  * Anuncia no canal global que o ticket está pronto. Só emite se o status ATUAL no banco
  * já for 'pronto' — assim um recalc que não mudou nada não duplica o alerta.
@@ -26,7 +35,11 @@ export type KitchenActionableStatus = (typeof KITCHEN_ACTIONABLE_STATUSES)[numbe
 function announceReady(ticketId: number, req: Request): void {
   const alert = findReadyAlert(ticketId);
   if (!alert) return;
-  broadcastReadyAlert({ ...alert, actorUserId: req.user?.id ?? null });
+  broadcastReadyAlert({
+    ...alert,
+    actorUserId: req.user?.id ?? null,
+    actorDevice: actorDevice(req),
+  });
 }
 
 export interface NotifyOrderItem {

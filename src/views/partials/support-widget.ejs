@@ -9,7 +9,7 @@
    - Atendimento humano: chamado normal, com aviso de prazo (8h úteis).
    - Sugestões.
 %>
-<div x-data="helpChat()" x-init="init()">
+<div x-data="helpChat()">
   <button type="button" class="fab" title="Ajuda e suporte" @click="open()" x-show="!panelOpen" x-cloak>
     <%- svgIcon('chat', 22, 22) %>
     <span class="fab-unread" x-show="unread > 0" x-text="unread > 9 ? '9+' : unread" x-cloak></span>
@@ -412,14 +412,28 @@
       },
 
       async init() {
+        // O x-init foi removido (o Alpine já chama init()); o guard cobre remontagem.
+        if (this._iniciado) return;
+        this._iniciado = true;
         // Badge de não-lidas no botão flutuante; silencioso se offline/sem licença.
-        try { await this.refreshTickets(); } catch (e) {}
-        // Atualiza o badge a cada 30s mesmo com o chat fechado (2min no modo leve: é um
-        // badge, não uma conversa aberta — a resposta do suporte não fica menos visível).
-        const leve = document.documentElement.getAttribute('data-lite') === '1';
-        this.bgTimer = setInterval(() => {
-          this.refreshTickets().catch(() => {});
-        }, leve ? 120000 : 30000);
+        let suporteConfigurado = true;
+        try {
+          await this.refreshTickets();
+        } catch (e) {
+          // Instalação sem licença/nuvem: o 503 nunca vai virar sucesso. Sem esta parada,
+          // cada página refazia a chamada a cada 30 s, para sempre.
+          if (String(e && e.message || '').startsWith('Chat de suporte indisponível')) {
+            suporteConfigurado = false;
+          }
+        }
+        if (suporteConfigurado) {
+          // Atualiza o badge a cada 30s mesmo com o chat fechado (2min no modo leve: é um
+          // badge, não uma conversa aberta — a resposta do suporte não fica menos visível).
+          const leve = document.documentElement.getAttribute('data-lite') === '1';
+          this.bgTimer = setInterval(() => {
+            if (!document.hidden) this.refreshTickets().catch(() => {});
+          }, leve ? 120000 : 30000);
+        }
         // Reabre o painel onde o usuário deixou (para ele seguir usando o sistema).
         try {
           if (localStorage.getItem('kivo:support-open') === '1') {

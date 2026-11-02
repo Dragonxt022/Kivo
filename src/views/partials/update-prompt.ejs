@@ -7,12 +7,13 @@
   sozinho. Não existe "dispensar para sempre" — é o que mantém a loja em dia com as
   correções de segurança.
 
-  O estado real vem de /api/updates/status (core/updater), a cada 5 segundos. O adiamento fica
-  no localStorage por versão: recarregar a página não engana o aviso, mas uma versão nova
+  O estado real vem de /api/updates/status (core/updater): a cada 5 s só enquanto o download
+  está em andamento; fora disso, 60 s (2 min com a aba escondida). O adiamento fica no
+  localStorage por versão: recarregar a página não engana o aviso, mas uma versão nova
   começa o ciclo do zero.
 %>
 <% if (user && user.permissions.has('settings.edit')) { %>
-<div x-data="kivoUpdatePrompt()" x-init="init()" x-cloak>
+<div x-data="kivoUpdatePrompt()" x-cloak>
   <section class="update-prompt update-downloading" x-show="baixando" aria-live="polite"
            aria-label="Baixando atualização do Kivo">
     <div class="update-prompt-head">
@@ -170,6 +171,8 @@
             this.adiadaAte = this.lerAdiamento();
           }
           this.agora = Date.now();
+          // Se o estado mudou (download começou/terminou), o próximo intervalo acompanha.
+          if (this._iniciado) this.agendar();
         } catch (e) {
           // Sem servidor local/internet instável: mantém o último estado conhecido.
         }
@@ -208,13 +211,32 @@
       },
 
       init() {
+        // O x-init foi removido (o Alpine já chama init()); o guard cobre remontagem.
+        if (this._iniciado) return;
+        this._iniciado = true;
         void this.sincronizar();
-        // 5s: o download pode levar minutos e a barra precisa andar. A rota é memória do
-        // processo principal, então o custo é desprezível.
-        setInterval(() => void this.sincronizar(), 5000);
+        this.agendar();
         // O getter `visivel` compara com `agora`; atualizar esse relógio é o que faz o
         // cartão voltar sozinho quando os 15 minutos de adiamento acabam.
         setInterval(() => { this.agora = Date.now(); }, 15000);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) {
+            void this.sincronizar();
+            this.agendar();
+          }
+        });
+      },
+      agendar() {
+        if (this._timer) clearTimeout(this._timer);
+        // 5 s só enquanto o download está em andamento (a barra precisa andar). Fora
+        // disso, 60 s bastam para descobrir uma versão nova — e a aba escondida espera
+        // 2 min, para não acordar o rádio do celular à toa.
+        const baixando = this.baixando;
+        const delay = document.hidden ? 120000 : (baixando ? 5000 : 60000);
+        this._timer = setTimeout(() => {
+          if (!document.hidden) void this.sincronizar();
+          this.agendar();
+        }, delay);
       },
     };
   }

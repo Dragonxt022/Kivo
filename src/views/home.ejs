@@ -233,7 +233,7 @@
 <body>
   <%- include('partials/nav', { user, page: 'home' }) %>
 
-  <main x-data="homePage()" x-init="init()">
+  <main x-data="homePage()">
     <!-- ─── Overlay de login (quando não autenticado ou ?login=1) ─── -->
     <div class="login-overlay" x-show="showLogin" x-cloak>
       <div class="login-card" :class="recovery.open ? 'wide' : ''">
@@ -498,7 +498,7 @@
       var showDashSales = perfilHome !== 'odontologia' && user.permissions.has('store.reports.view');
     %>
     <% if (showDashCash || showDashBills || showDashSales) { %>
-    <div x-data="homeDashboard()" x-init="init()">
+    <div x-data="homeDashboard()">
       <div class="home-dashboard">
         <% if (showDashCash) { %>
         <a href="/app/finance/caixa" class="stat-tile">

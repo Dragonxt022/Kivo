@@ -116,8 +116,8 @@
       if (!window.isSecureContext) {
         note.hidden = false;
         note.textContent = iOS
-          ? 'No iPhone/iPad, use Compartilhar → Adicionar à Tela de Início: o Kivo abre sem a barra do navegador mesmo neste endereço local. As notificações do sistema exigem HTTPS; com o Kivo aberto, o som e o título da aba avisam.'
-          : 'Este acesso é por http:// na rede local. O navegador pode não oferecer instalação nem notificações do sistema. Nesse caso, use "Usar em tela cheia" para esconder a barra e mantenha o Kivo aberto para ouvir os avisos.';
+          ? 'No iPhone/iPad, use Compartilhar → Adicionar à Tela de Início: o Kivo abre sem a barra do navegador mesmo neste endereço local. Notificação do sistema e aviso com a tela apagada exigem HTTPS; com o Kivo aberto, o som e o título da aba avisam.'
+          : 'Este acesso é por http:// na rede local. O navegador não libera notificação do sistema nem aviso com a tela apagada nesse endereço. Use "Usar em tela cheia" e mantenha o Kivo aberto: com a tela ligada, o som/vibração e o aviso na tela funcionam.';
       } else if (iOS && !standalone) {
         note.hidden = false;
         note.textContent = 'No iPhone, a instalação só pode ser feita pelo Safari. Se estiver em outro navegador, abra o endereço no Safari.';

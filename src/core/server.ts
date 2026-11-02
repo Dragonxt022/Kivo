@@ -54,6 +54,7 @@ import { purgeExpiredSessions } from './auth/service';
 import { pruneAuditLogs } from './audit/service';
 import { createLogger } from './logger';
 import { recordError } from './telemetry/service';
+import { compression } from './http/compression';
 
 // Um logger por assunto, e não um genérico "server": é o que faz `[backup]`, `[license]`
 // e `[http]` continuarem separáveis no arquivo de log quando o suporte for procurar.
@@ -312,17 +313,36 @@ export async function createServer(): Promise<KivoServer> {
   // (ver modules/commercial/routes.ts) — servidor local/Electron, não exposto à internet.
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
-  app.use(express.static(path.resolve(__dirname, '..', 'public')));
-  app.use('/uploads/products', express.static(productImagesDir()));
-  app.use('/uploads/categories', express.static(categoryImagesDir()));
-  app.use('/uploads/company', express.static(companyLogoDir()));
-  app.use('/uploads/bills', express.static(billAttachmentsDir()));
+  // Compressão: no acesso pela rede local o corpo do PDV (~170 KB) e o app.css (~220 KB)
+  // viajam comprimidos. Fica ANTES do static para valer também nos arquivos públicos.
+  app.use(compression());
+
+  // Imagens/áudio públicos têm nome fixo e raramente mudam: guardar uma semana evita
+  // rebaixar tudo a cada navegação no celular. CSS/JS ficam com revalidação (ETag), para
+  // uma atualização do Kivo aparecer sem o lojista precisar limpar o cache do navegador.
+  app.use(
+    express.static(path.resolve(__dirname, '..', 'public'), {
+      setHeaders: (res, filePath) => {
+        if (/\.(?:png|jpe?g|webp|avif|gif|svg|ico|mp3|woff2?)$/i.test(filePath)) {
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+      },
+    }),
+  );
+
+  // Uploads usam nome aleatório (UUID) por arquivo: trocar a imagem gera outra URL, então
+  // o cache longo não mostra foto antiga.
+  const uploadCache = { maxAge: '365d', immutable: true } as const;
+  app.use('/uploads/products', express.static(productImagesDir(), uploadCache));
+  app.use('/uploads/categories', express.static(categoryImagesDir(), uploadCache));
+  app.use('/uploads/company', express.static(companyLogoDir(), uploadCache));
+  app.use('/uploads/bills', express.static(billAttachmentsDir(), uploadCache));
   // Exames e imagens do Kivo Odonto (radiografia, tomografia, fotografia clínica).
-  app.use('/uploads/odonto-exams', express.static(examFilesDir()));
+  app.use('/uploads/odonto-exams', express.static(examFilesDir(), uploadCache));
   // Foto de identificação do cliente (o paciente do Odonto lê a mesma foto).
-  app.use('/uploads/customers', express.static(customerImagesDir()));
+  app.use('/uploads/customers', express.static(customerImagesDir(), uploadCache));
   // Fotos legadas gravadas pelo Odonto antes da migração para `customers`.
-  app.use('/uploads/odonto-patients', express.static(legacyPatientPhotosDir()));
+  app.use('/uploads/odonto-patients', express.static(legacyPatientPhotosDir(), uploadCache));
 
   // Cor de destaque da empresa: entra em res.locals já aqui para valer na tela de ativação
   // e no login, antes de qualquer rota autenticada.

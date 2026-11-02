@@ -20,7 +20,9 @@
   if (window.KivoReadyAlerts) return;
 
   var USER_KEY = <%- JSON.stringify(user.username) %>;
-  var USER_ID = <%- JSON.stringify(user.id) %>;
+  // Identidade do aparelho, criada em theme-init. O aviso é ignorado só na tela que
+  // marcou o pedido como pronto — e não mais em todo usuário igual (cozinha + celular).
+  var DEVICE_ID = window.KIVO_DEVICE_ID || '';
   var SEEN_KEY = 'kivo-ready-seen:' + USER_KEY;
   var SOM_KEY = 'kivo-ready-som:' + USER_KEY;
   var TITLE_BASE = document.title || 'Kivo';
@@ -125,15 +127,14 @@
     return Notification.permission;
   }
 
-  function showSystemNotification(alert) {
-    if (!canSystemNotify()) return;
-    var title = 'Pedido pronto';
-    var target = alert && alert.sourceType === 'sale' ? '/app/store/vendas' : '/app/comandas/mesas';
+  /** Aviso do sistema (fora da aba). Só existe em contexto seguro (HTTPS). */
+  function systemNotification(title, body, target, tag) {
+    if (!canSystemNotify()) return false;
     var options = {
-      body: (alert && alert.label ? alert.label : 'Pedido') + ' — toque para abrir.',
+      body: body,
       icon: '/img/icon-192.png',
       badge: '/img/icon-192.png',
-      tag: 'kivo-ready-' + (alert && alert.id != null ? alert.id : Date.now()),
+      tag: tag || ('kivo-' + Date.now()),
       data: { url: target },
       vibrate: [200, 100, 200],
     };
@@ -142,10 +143,11 @@
         navigator.serviceWorker.ready
           .then(function (reg) { return reg.showNotification(title, options); })
           .catch(fallback);
-        return;
+        return true;
       }
     } catch (e) {}
     fallback();
+    return true;
 
     function fallback() {
       try {
@@ -153,6 +155,16 @@
         n.onclick = function () { window.focus(); location.href = target; n.close(); };
       } catch (e) {}
     }
+  }
+
+  function showSystemNotification(alert) {
+    var target = alert && alert.sourceType === 'sale' ? '/app/store/vendas' : '/app/comandas/mesas';
+    systemNotification(
+      'Pedido pronto',
+      (alert && alert.label ? alert.label : 'Pedido') + ' — toque para abrir.',
+      target,
+      'kivo-ready-' + (alert && alert.id != null ? alert.id : Date.now()),
+    );
   }
 
   function flashTitle(label) {
@@ -177,8 +189,9 @@
     seen[key] = Date.now();
 
     // Quem marcou como pronto não precisa ser avisado da própria ação (o KDS já atualiza
-    // o card na frente dele).
-    if (alert.actorUserId != null && Number(alert.actorUserId) === Number(USER_ID)) return;
+    // o card na frente dele). A comparação é por APARELHO: com login compartilhado, o
+    // usuário é o mesmo na cozinha e no celular do garçom.
+    if (alert.actorDevice && DEVICE_ID && String(alert.actorDevice) === DEVICE_ID) return;
 
     var label = alert.label || 'Pedido';
     toast('Pedido pronto: ' + label + '.', 'success');
@@ -223,9 +236,16 @@
   }
 
   function connect() {
-    if (source || typeof EventSource === 'undefined') {
-      if (!source) fetchPending();
+    if (typeof EventSource === 'undefined') {
+      fetchPending();
       return;
+    }
+    // CONNECTING/OPEN: já está de pé. CLOSED (celular suspendeu a aba, servidor reiniciou)
+    // precisa de uma conexão nova — sem isso o aparelho ficava só no poll de segurança.
+    if (source && source.readyState !== EventSource.CLOSED) return;
+    if (source) {
+      try { source.close(); } catch (e) {}
+      source = null;
     }
     try {
       source = new EventSource('/api/ready-alerts/events');
@@ -243,7 +263,13 @@
         processList([alert], false);
       } catch (e) {}
     });
-    // Sem onerror explícito: o EventSource reconecta sozinho e o poll é a rede de segurança.
+    // O EventSource reconecta sozinho na maioria dos casos. Quando o navegador fecha de
+    // vez (voltou de suspensão, sessão trocou), tenta uma conexão nova em 3 s.
+    source.onerror = function () {
+      if (!source || source.readyState !== EventSource.CLOSED) return;
+      source = null;
+      setTimeout(function () { if (!document.hidden) connect(); }, 3000);
+    };
   }
 
   function disconnect() {
@@ -302,6 +328,8 @@
     toggleSound: toggleSound,
     requestPermission: requestPermission,
     notificationPermission: notificationPermission,
+    // Reaproveitado pela cozinha para avisar "novo pedido" com a tela apagada.
+    notify: function (title, body, url, tag) { return systemNotification(title, body, url, tag); },
     refreshSound: function () { soundOn = readSound(); updateSoundUi(); },
   };
 
@@ -312,10 +340,20 @@
     var btn = document.getElementById('kivo-ready-sound-btn');
     if (btn) btn.addEventListener('click', toggleSound);
     connect();
-    pollTimer = setInterval(fetchPending, 60000);
+    // Com a tela ligada, 15 s é o bastante para o poll cobrir uma queda do SSE sem
+    // castigar a rede. Com a tela apagada/aba escondida o navegador já estrangula os
+    // timers; 60 s evita acordar o rádio do celular à toa.
+    function schedulePoll() {
+      pollTimer = setTimeout(function () {
+        fetchPending();
+        schedulePoll();
+      }, document.hidden ? 60000 : 15000);
+    }
+    schedulePoll();
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) {
         restoreTitle();
+        connect();
         fetchPending();
       }
     });

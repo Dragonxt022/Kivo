@@ -11,7 +11,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/nfe/importar' }) %>
-  <main x-data="nfeImportPage(<%- JSON.stringify(user.permissions.has('nfe.import.run')) %>)" x-init="init()">
+  <main x-data="nfeImportPage(<%- JSON.stringify(user.permissions.has('nfe.import.run')) %>)">
     <h1 x-text="editingId ? 'Editar importação de NF-e' : 'Importar NF-e'">Importar NF-e</h1>
     <p class="muted" x-show="!editingId">Envie o XML da nota do fornecedor (NF-e modelo 55, versão 4.00). Nada é alterado antes da sua conferência.</p>
     <p class="muted" x-show="editingId" x-cloak>Altere a conferência e salve. A versão anterior é estornada e a nova é aplicada na mesma nota.</p>

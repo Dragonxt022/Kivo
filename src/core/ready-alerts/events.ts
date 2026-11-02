@@ -13,8 +13,14 @@ import type { ReadyAlert } from './service';
  * perder.
  */
 export interface ReadyAlertEvent extends ReadyAlert {
-  /** Quem marcou como pronto. O próprio aparelho ignora o alerta da sua ação. */
+  /** Quem marcou como pronto (informativo; o filtro é por aparelho). */
   actorUserId: number | null;
+  /**
+   * Aparelho que marcou como pronto (`X-Kivo-Device`). É ESTE que o cliente compara para
+   * ignorar o próprio alerta — comparar por usuário silenciava cozinha e celular quando
+   * os dois estavam logados no mesmo login, que é o padrão numa loja pequena.
+   */
+  actorDevice: string | null;
 }
 
 const clients = new Set<Response>();

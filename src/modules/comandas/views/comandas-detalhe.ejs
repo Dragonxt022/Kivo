@@ -11,7 +11,7 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/comandas/mesas' }) %>
-  <main x-data="comandaDetalhePage()" x-init="init()">
+  <main x-data="comandaDetalhePage()">
     <div class="comanda-header">
       <div>
         <a href="/app/comandas/mesas" class="back-link">
@@ -632,7 +632,12 @@
 
         async init() {
           await this.load();
-          this.pollTimer = setInterval(() => this.load(), 5000);
+          // Com a aba escondida o poll só gastava bateria/rede do celular; ao voltar,
+          // atualiza imediatamente para o garçom ver o que mudou na cozinha.
+          this.pollTimer = setInterval(() => { if (!document.hidden) this.load(); }, 5000);
+          document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) this.load();
+          });
         },
         async load() {
           const r = await fetch('/api/comandas/comandas/' + this.comandaId);

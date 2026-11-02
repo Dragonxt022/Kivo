@@ -178,6 +178,14 @@ router.get('/products', requireAnyPermission('commercial.products.view', 'commer
   // Limite opcional: o PDV pede uma lista curta (busca rápida) sem travar em catálogo grande.
   const rawLimit = Number(req.query.limit);
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 200) : undefined;
+  // ids=1,2,3: o PDV confere o carrinho restaurado sem baixar o catálogo inteiro.
+  const rawIds = String(req.query.ids ?? '').trim();
+  if (rawIds) {
+    const ids = [...new Set(rawIds.split(',').map((v) => Number(v.trim())).filter((v) => Number.isInteger(v) && v > 0))]
+      .slice(0, 200);
+    res.json(withKitchenFlags(productRepository.listSellableByIds(ids)));
+    return;
+  }
   // scope=sellable: lista sem busca que INCLUI as variantes filhas (listTopLevel as exclui).
   if (!q && req.query.scope === 'sellable') {
     res.json(withKitchenFlags(productRepository.listSellable()));

@@ -219,7 +219,9 @@
     // (marcou lida/excluiu) ou quando a página volta do bfcache.
     jobs.push(this.loadMessages());
     window.addEventListener('kivo-messages-changed', () => this.loadMessages());
-    window.addEventListener('pageshow', () => this.loadMessages());
+    // `pageshow` também dispara no carregamento inicial; só interessa quando a página
+    // voltou do bfcache (ev.persisted), senão era um fetch duplicado em toda navegação.
+    window.addEventListener('pageshow', (ev) => { if (ev.persisted) this.loadMessages(); });
     <% if (user && user.permissions.has('billing.view')) { %>
     jobs.push(fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((data) => { if (data && data.count) this.billingAlert = data; }).catch(() => {}));
     <% } %>
@@ -233,7 +235,8 @@
       }
     });
     this.checkCloudStatus();
-    setInterval(() => this.checkCloudStatus(), leve ? 120000 : 25000);
+    // Aba escondida não precisa sondar nuvem; no celular isso acordava o rádio à toa.
+    setInterval(() => { if (!document.hidden) this.checkCloudStatus(); }, leve ? 120000 : 25000);
     <% if (user && user.permissions.has('settings.edit')) { %>
     // Só quem pode instalar recebe o aviso: para o garçom seria um alerta que ele não
     // tem como resolver. O ciclo longo basta — a checagem em si é de hora em hora.
@@ -245,7 +248,7 @@
     jobs.push(this.loadCashAlert());
     // Voltando de outra tela (ex.: depois de fechar o caixa), a página pode vir do bfcache
     // com o estado antigo: revalida para a modal não reaparecer com o caixa já fechado.
-    window.addEventListener('pageshow', () => this.loadCashAlert());
+    window.addEventListener('pageshow', (ev) => { if (ev.persisted) this.loadCashAlert(); });
     <% } %>
     <% if (user && (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view'))) { %>
     jobs.push(fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; }).catch(() => {}));

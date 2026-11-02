@@ -46,6 +46,40 @@
 })();
 </script>
 <script nonce="<%= cspNonce %>">
+// Identidade do APARELHO (não do usuário). O aviso de "pedido pronto" precisa saber se
+// quem marcou foi esta mesma tela; antes ele comparava o usuário, então cozinha e celular
+// logados no mesmo login silenciavam um ao outro. O header acompanha todo fetch local.
+(function () {
+  'use strict';
+  try {
+    var KEY = 'kivo-device-id';
+    var id = localStorage.getItem(KEY);
+    if (!id) {
+      id = (window.crypto && window.crypto.randomUUID)
+        ? window.crypto.randomUUID()
+        : ('dev-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+      localStorage.setItem(KEY, id);
+    }
+    window.KIVO_DEVICE_ID = id;
+    var originalFetch = window.fetch;
+    if (typeof originalFetch !== 'function') return;
+    window.fetch = function (input, init) {
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        var sameOrigin = !/^[a-z]+:/i.test(url) || url.indexOf(location.origin) === 0;
+        if (sameOrigin) {
+          var headers = new Headers(init && init.headers ? init.headers : (input && input.headers));
+          if (!headers.has('X-Kivo-Device')) headers.set('X-Kivo-Device', id);
+          init = init || {};
+          init.headers = headers;
+        }
+      } catch (e) { /* fetch sem init/Headers: segue como estava */ }
+      return originalFetch.call(this, input, init);
+    };
+  } catch (e) {}
+})();
+</script>
+<script nonce="<%= cspNonce %>">
 (function () {
   try {
     var mode = localStorage.getItem('kivo-interface');
