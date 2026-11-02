@@ -140,6 +140,15 @@
                             </button>
                           </form>
                         <% } %>
+                        <% if (s.status === 'erro' || s.status === 'cancelada' || s.status === 'encerrada') { %>
+                          <form method="post" action="/admin/subscriptions/<%= s.id %>/delete"
+                                onsubmit="return confirm('Remover esta assinatura do painel?\n\nAs cobranças já registradas continuam no histórico da empresa. Esta ação não pode ser desfeita.');">
+                            <button type="submit" class="action-btn action-delete">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                              Remover
+                            </button>
+                          </form>
+                        <% } %>
                       </div>
                     </td>
                   </tr>
@@ -210,7 +219,9 @@
             <input type="email" name="payerEmail" autocomplete="off" placeholder="financeiro@cliente.com.br">
             <p class="field-hint">
               Em produção, use o e-mail de uma conta Mercado Pago real. Em teste, use o e-mail
-              de um usuário de teste — por exemplo <code>test_user_7923436665712574587@testuser.com</code>.
+              de uma conta de teste da sua integração: copie o campo <strong>Usuário</strong> em
+              Contas de teste e troque o prefixo, por exemplo <code>TESTUSER123456</code> vira
+              <code>test_user_123456@testuser.com</code>.
             </p>
           </div>
         </div>

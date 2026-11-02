@@ -27,6 +27,7 @@ import webhookRoutes from './routes/webhooks';
 import publicPayRoutes from './routes/payPublic';
 import paymentRoutes from './routes/payments';
 import planRoutes from './routes/plans';
+import usageRoutes from './routes/usage';
 import contractRoutes from './routes/contracts';
 import { adminSubscriptionsRouter, publicSubscriptionsRouter } from './routes/subscriptions';
 import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAuth';
@@ -153,6 +154,8 @@ export function createCloudServer() {
   app.use('/admin', adminRoutes);
   // Preços e promoções dos planos (catálogo consumido pelo app e pela landing).
   app.use('/admin', planRoutes);
+  // Uso real do sistema por empresa (sync, horários, módulos e dispositivos).
+  app.use('/admin', usageRoutes);
   // Assinaturas recorrentes (Mercado Pago Assinaturas): painel e criação por empresa.
   app.use('/admin', adminSubscriptionsRouter);
   // Credenciais do gateway de pagamento e geração de Pix/boleto/cartão por cobrança.

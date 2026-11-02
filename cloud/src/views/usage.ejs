@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Uso das empresas</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .usage-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .usage-search { display: flex; gap: 8px; flex: 1 1 360px; max-width: 560px; }
+    .usage-search input { flex: 1; min-width: 0; }
+    .usage-periods { display: flex; gap: 6px; flex-wrap: wrap; }
+    .usage-period {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); font-size: .78rem; font-weight: 700;
+      text-decoration: none; white-space: nowrap;
+    }
+    .usage-period:hover { border-color: var(--primary); color: var(--primary); }
+    .usage-period.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .usage-table-wrap { overflow-x: auto; }
+    .usage-table { margin: 0; box-shadow: none; border-radius: 0; min-width: 980px; }
+    .usage-table .btn { white-space: nowrap; }
+    .usage-table th,
+    .usage-table td { background: transparent; }
+    .usage-table thead th { background: var(--surface-hover); font-size: .67rem; text-transform: uppercase; letter-spacing: .05em; }
+    .usage-company { display: flex; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; min-width: 180px; }
+    .usage-company strong { color: var(--text); font-size: .9rem; }
+    .usage-company:hover strong { color: var(--primary); }
+    .usage-plan { color: var(--muted); font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .usage-last { font-weight: 700; font-size: .84rem; }
+    .usage-modules { display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px; }
+    .usage-module {
+      display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px;
+      border-radius: 999px; background: var(--surface-hover); border: 1px solid var(--border-light);
+      color: var(--text-secondary); font-size: .68rem; white-space: nowrap;
+    }
+    .usage-module b { color: var(--primary); font-variant-numeric: tabular-nums; }
+    .cell-muted { color: var(--muted); font-size: .76rem; line-height: 1.35; }
+    .usage-empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+    .usage-hint { margin: 0; font-size: .8rem; color: var(--muted); }
+    .usage-filter-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; color: var(--muted); font-size: .78rem; }
+    .usage-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+    .usage-pager { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 0 2px; flex-wrap: wrap; }
+    .usage-pager .disabled { opacity: .45; pointer-events: none; }
+    .usage-pager span { color: var(--muted); font-size: .78rem; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'usage' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'usage' }) %>
+      <div class="page page-wide">
+        <div class="page-header">
+          <div>
+            <h1>Uso das empresas</h1>
+            <p class="field-hint" style="margin-top:0">
+              Quem está usando o Kivo, quando usou pela última vez, com que frequência sincroniza e
+              quais módulos mais movimentam a nuvem.
+            </p>
+          </div>
+        </div>
+
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+            <div class="dash-kpi-value"><%= summary.companies %></div>
+            <div class="dash-kpi-label">Empresas monitoradas</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+            <div class="dash-kpi-value"><%= summary.activeToday %></div>
+            <div class="dash-kpi-label">Ativas nas últimas 24h</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div class="dash-kpi-value"><%= summary.activeWeek %></div>
+            <div class="dash-kpi-label">Ativas na semana</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div>
+            <div class="dash-kpi-value"><%= summary.syncs.toLocaleString('pt-BR') %></div>
+            <div class="dash-kpi-label">Registros sincronizados · <%= period %> dias</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+            <div class="dash-kpi-value"><%= summary.sales.toLocaleString('pt-BR') %></div>
+            <div class="dash-kpi-label">Vendas sincronizadas · <%= period %> dias</div>
+          </div>
+        </div>
+
+        <div class="usage-toolbar">
+          <form method="get" action="/admin/usage" class="usage-search">
+            <input type="search" name="q" value="<%= q %>" placeholder="Buscar por empresa ou e-mail…">
+            <input type="hidden" name="period" value="<%= period %>">
+            <input type="hidden" name="filter" value="<%= filter %>">
+            <button type="submit" class="btn secondary">Buscar</button>
+            <% if (q) { %><a class="btn secondary" href="/admin/usage?period=<%= period %>&filter=<%= filter %>">Limpar</a><% } %>
+          </form>
+          <div class="usage-periods">
+            <% periods.forEach(function (p) { %>
+              <a class="usage-period <%= period === p ? 'active' : '' %>"
+                 href="/admin/usage?period=<%= p %><%= q ? '&q=' + encodeURIComponent(q) : '' %>&filter=<%= filter %>"><%= p %> dias</a>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="usage-filter-line">
+          <span>
+            Exibindo <strong><%= companies.length %></strong> de <strong><%= totalFiltered %></strong>
+            empresa(s) <%= filter === 'active' ? 'com atividade no período' : 'cadastradas' %>.
+            No total: <strong><%= summary.companies %></strong> empresa(s), <%= summary.noActivity %> sem atividade registrada.
+          </span>
+          <div class="usage-filters">
+            <a class="usage-period <%= filter === 'active' ? 'active' : '' %>"
+               href="/admin/usage?period=<%= period %><%= q ? '&q=' + encodeURIComponent(q) : '' %>&filter=active">Só com atividade</a>
+            <a class="usage-period <%= filter === 'all' ? 'active' : '' %>"
+               href="/admin/usage?period=<%= period %><%= q ? '&q=' + encodeURIComponent(q) : '' %>&filter=all">Todas</a>
+          </div>
+        </div>
+
+        <div class="panel">
+          <% if (!companies.length) { %>
+            <div class="usage-empty">Nenhuma empresa encontrada para este filtro.</div>
+          <% } else { %>
+            <div class="usage-table-wrap">
+              <table class="usage-table">
+                <thead>
+                  <tr>
+                    <th>Empresa</th>
+                    <th>Última atividade</th>
+                    <th>Frequência · <%= period %>d</th>
+                    <th>Módulos mais sincronizados</th>
+                    <th>Dispositivos</th>
+                    <th>Acesso até</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% companies.forEach(function (c) { %>
+                    <tr>
+                      <td>
+                        <a class="usage-company" href="/admin/usage/<%= c.company_uuid %>?period=<%= period %>">
+                          <strong><%= c.name || c.company_uuid %></strong>
+                          <span class="usage-plan"><%= c.plan || 'sem plano' %></span>
+                          <% if (c.email) { %><span class="cell-muted"><%= c.email %></span><% } %>
+                        </a>
+                      </td>
+                      <td>
+                        <div class="usage-last"><%= c.last_activity_label %></div>
+                        <div class="cell-muted"><%= c.last_activity ? fmtDateTimeBr(c.last_activity) : '—' %></div>
+                        <span class="badge <%= c.status.tone === 'on' ? 'paga' : (c.status.tone === 'warn' ? 'pendente' : 'cancelada') %>"><%= c.status.label %></span>
+                      </td>
+                      <td>
+                        <strong><%= c.syncs.toLocaleString('pt-BR') %></strong>
+                        <div class="cell-muted"><%= c.sales %> venda(s) · <%= c.active_days %> dia(s) com sync</div>
+                        <div class="cell-muted">Última venda: <%= c.last_sale ? fmtDateTimeBr(c.last_sale) : '—' %></div>
+                        <div class="cell-muted"><%= c.syncs > 0 ? Math.round(c.syncs / period) : 0 %> registro(s)/dia</div>
+                      </td>
+                      <td>
+                        <% if (c.modules.length) { %>
+                          <div class="usage-modules">
+                            <% c.modules.forEach(function (m) { %>
+                              <span class="usage-module" title="<%= m.total %> registro(s) · último em <%= m.last_at ? fmtDateTimeBr(m.last_at) : '—' %>"><%= m.label %> <b><%= m.total %></b></span>
+                            <% }); %>
+                          </div>
+                        <% } else { %>
+                          <span class="cell-muted">Nenhum sync no período</span>
+                        <% } %>
+                      </td>
+                      <td>
+                        <strong><%= c.devices %></strong>
+                        <div class="cell-muted"><%= c.last_device_seen ? fmtDateTimeBr(c.last_device_seen) : '—' %></div>
+                      </td>
+                      <td><%= c.valid_until ? fmtDateBr(c.valid_until) : '—' %></td>
+                      <td class="text-right">
+                        <a class="btn secondary small" href="/admin/usage/<%= c.company_uuid %>?period=<%= period %>">Ver uso</a>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+            <% if (totalPages > 1) { %>
+              <% var baseQuery = '/admin/usage?period=' + period + (q ? '&q=' + encodeURIComponent(q) : '') + '&filter=' + filter + '&page='; %>
+              <div class="usage-pager">
+                <% if (page > 1) { %>
+                  <a class="btn secondary small" href="<%= baseQuery + (page - 1) %>">‹ Anterior</a>
+                <% } else { %>
+                  <span class="btn secondary small disabled">‹ Anterior</span>
+                <% } %>
+                <span>Página <strong><%= page %></strong> de <strong><%= totalPages %></strong></span>
+                <% if (page < totalPages) { %>
+                  <a class="btn secondary small" href="<%= baseQuery + (page + 1) %>">Próxima ›</a>
+                <% } else { %>
+                  <span class="btn secondary small disabled">Próxima ›</span>
+                <% } %>
+              </div>
+            <% } %>
+          <% } %>
+        </div>
+        <p class="usage-hint" style="margin-top:10px">
+          “Registros sincronizados” conta entidades enviadas ao cloud (vendas, produtos, clientes etc.),
+          não a quantidade de vendas. O sync é periódico e por isso um mesmo dia pode ter vários envios.
+        </p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

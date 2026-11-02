@@ -5,6 +5,7 @@ import { parseAmountCents } from '../format';
 import {
   cancelCompanySubscription,
   createCompanySubscription,
+  deleteCompanySubscription,
   getSubscriptionByToken,
   publicSubscriptionUrl,
   syncSubscription,
@@ -139,6 +140,21 @@ adminSubscriptionsRouter.post('/subscriptions/:id/cancel', requireAdminAuth, asy
   try {
     await cancelCompanySubscription(id);
     redirectList(res, 'ok', 'Assinatura cancelada. Os meses já pagos continuam valendo.', undefined);
+  } catch (e) {
+    redirectList(res, 'error', e instanceof Error ? e.message : String(e));
+  }
+});
+
+adminSubscriptionsRouter.post('/subscriptions/:id/delete', requireAdminAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const sub = await deleteCompanySubscription(id);
+    redirectList(
+      res,
+      'ok',
+      'Assinatura removida do painel. As cobranças já registradas continuam no histórico da empresa.',
+      sub.company_uuid,
+    );
   } catch (e) {
     redirectList(res, 'error', e instanceof Error ? e.message : String(e));
   }

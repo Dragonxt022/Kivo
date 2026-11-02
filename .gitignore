@@ -20,3 +20,6 @@ coverage/
 
 # QA visual (scripts/qa-browser.js)
 .qa-screenshots/
+
+# Scripts temporários de diagnóstico (não versionar)
+.tmp-*

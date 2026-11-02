@@ -2966,6 +2966,14 @@ dialog .modal-actions {
 .action-cancel:hover {
   background: color-mix(in srgb, var(--danger) 17%, var(--surface));
 }
+.action-delete {
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 22%, transparent);
+}
+.action-delete:hover {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+}
 
 @media (max-width: 900px) {
   .subs-scroll {

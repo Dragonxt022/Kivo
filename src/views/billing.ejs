@@ -1392,6 +1392,18 @@
             this.subError = '';
             this.subReady = true;
             this.maybeOfferRetention();
+            // Link vindo da modal de licença expirada: abre a configuração de planos já
+            // com o plano escolhido selecionado. Depois limpa o parâmetro da URL.
+            const planParam = new URLSearchParams(location.search).get('plan');
+            if (planParam && this.plans.some((p) => p.key === planParam)) {
+              this.selectedPlan = planParam;
+              this.$nextTick(() => {
+                this.openPlans();
+                const url = new URL(location.href);
+                url.searchParams.delete('plan');
+                try { history.replaceState({}, '', url); } catch (e) { /* Electron pode bloquear; sem problema */ }
+              });
+            }
           } catch (e) {
             this.subError = 'Sem conexão com a nuvem para carregar a assinatura.';
             this.subReady = true;
@@ -1438,9 +1450,6 @@
           const email = (this.payerEmail || '').trim().toLowerCase();
           if (!email) return '';
           if (!email.includes('@')) return 'Informe um e-mail válido.';
-          if (email === 'test_user_7923436665712574587@testuser.com') {
-            return 'Use o e-mail de um comprador de teste criado na sua própria conta, não o exemplo das instruções.';
-          }
           const ambiente = this.subGateway?.environment;
           if (ambiente === 'teste' && !email.endsWith('@testuser.com')) {
             return 'Este ambiente é de teste. Use o e-mail de um usuário de teste, terminado em @testuser.com.';
@@ -1456,7 +1465,7 @@
             return 'O Mercado Pago ainda não está configurado na nuvem. Fale com o suporte antes de assinar.';
           }
           if (this.subGateway.environment === 'teste') {
-            return 'Ambiente de teste: use um comprador de teste da sua conta (test_user_...@testuser.com), inclusive para Pix. Em produção, o Pix aceita o e-mail do cliente sem conta no Mercado Pago.';
+            return 'Ambiente de teste: use um comprador de teste da sua conta. No painel do Mercado Pago (Contas de teste), copie o campo "Usuário" — TESTUSER123456 vira test_user_123456@testuser.com.';
           }
           if (this.subGateway.environment === 'producao') {
             return 'Para Pix, use o e-mail do cliente — ele não precisa de conta no Mercado Pago. Para a assinatura no cartão, use o e-mail da conta Mercado Pago que vai autorizar.';
@@ -1465,14 +1474,8 @@
         },
         /** A assinatura existente foi criada com um e-mail do ambiente errado. */
         payerEmailProblem() {
-          // E-mail de exemplo que as instruções antigas mostravam. Quem copiou ficou com
-          // uma assinatura que o Mercado Pago recusa (o usuário de teste é de outra conta).
-          const exemploAntigo = 'test_user_7923436665712574587@testuser.com';
           const email = (this.subscription?.payerEmail || '').trim().toLowerCase();
           const ambiente = this.subGateway?.environment;
-          if (email === exemploAntigo) {
-            return 'Esta assinatura foi criada com um e-mail de exemplo das instruções antigas. Ele não pertence à sua conta de teste. Cancele e crie novamente usando um comprador de teste criado por você.';
-          }
           if (!email || !ambiente || ambiente === 'desconhecido') return '';
           if (ambiente === 'teste' && !email.endsWith('@testuser.com')) {
             return 'Esta assinatura foi criada com um e-mail real, mas o Mercado Pago está em teste. Cancele e crie novamente usando um e-mail de comprador de teste da sua conta.';

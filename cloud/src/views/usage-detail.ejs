@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Uso de <%= company.name || company.company_uuid %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <style>
+    .usage-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .usage-detail-head h1 { margin-bottom: 4px; }
+    .usage-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: .8rem; }
+    .usage-meta code { font-size: .72rem; }
+    .usage-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .usage-periods { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 18px; }
+    .usage-period {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); font-size: .78rem; font-weight: 700;
+      text-decoration: none; white-space: nowrap;
+    }
+    .usage-period:hover { border-color: var(--primary); color: var(--primary); }
+    .usage-period.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .usage-columns { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 16px; margin-bottom: 16px; }
+    .usage-panel { padding: 18px 20px; }
+    .usage-panel h2 { margin: 0 0 4px; font-size: 1rem; }
+    .usage-panel-sub { margin: 0 0 14px; color: var(--muted); font-size: .76rem; }
+    .usage-bars { display: flex; flex-direction: column; gap: 10px; }
+    .usage-bar-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 58px; gap: 10px; align-items: center; }
+    .usage-bar-label { font-size: .8rem; font-weight: 600; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .usage-bar-track { height: 9px; overflow: hidden; border-radius: 999px; background: var(--border-light); }
+    .usage-bar-fill { height: 100%; border-radius: 999px; background: var(--primary); }
+    .usage-bar-value { text-align: right; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .usage-bar-last { grid-column: 2 / -1; margin-top: -6px; color: var(--muted); font-size: .68rem; }
+    .usage-hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; height: 132px; }
+    .usage-hour { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; min-width: 0; }
+    .usage-hour-bar { width: 100%; min-height: 3px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--primary) 75%, var(--surface)); }
+    .usage-hour-bar.zero { background: var(--border-light); }
+    .usage-hour-label { color: var(--muted); font-size: .55rem; white-space: nowrap; }
+    .usage-days { display: grid; grid-template-columns: repeat(<%= days.length %>, minmax(0, 1fr)); gap: 4px; align-items: end; height: 148px; }
+    .usage-day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; min-width: 0; }
+    .usage-day-bar { width: 100%; min-height: 3px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--primary) 78%, var(--surface)); }
+    .usage-day-bar.zero { background: var(--border-light); }
+    .usage-day-label { color: var(--muted); font-size: .56rem; white-space: nowrap; }
+    .usage-insights { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .usage-insight {
+      display: flex; align-items: center; gap: 9px; padding: 10px 13px; border-radius: 11px;
+      border: 1px solid var(--border-light); background: var(--surface); font-size: .8rem;
+    }
+    .usage-insight strong { font-size: .95rem; }
+    .usage-insight span { color: var(--muted); }
+    .usage-table { margin: 0; box-shadow: none; border-radius: 0; }
+    .usage-table th, .usage-table td { background: transparent; }
+    .usage-table thead th { background: var(--surface-hover); font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; }
+    .usage-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem; color: var(--muted); word-break: break-all; }
+    .usage-empty { padding: 18px 8px; color: var(--muted); font-size: .8rem; text-align: center; }
+    @media (max-width: 980px) { .usage-columns { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) {
+      .usage-bar-row { grid-template-columns: 96px minmax(0, 1fr) 48px; }
+      .usage-hours { height: 110px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('partials/sidebar', { active: 'usage' }) %>
+    <main class="content">
+      <%- include('partials/navbar', { active: 'usage' }) %>
+      <div class="page page-wide">
+        <div class="breadcrumb"><a href="/admin/usage?period=<%= period %>">&larr; Uso das empresas</a></div>
+
+        <div class="usage-detail-head">
+          <div>
+            <h1><%= company.name || company.company_uuid %></h1>
+            <div class="usage-meta">
+              <span class="badge plan"><%= company.plan || 'sem plano' %></span>
+              <span class="badge <%= status.tone === 'on' ? 'paga' : (status.tone === 'warn' ? 'pendente' : 'cancelada') %>"><%= status.label %></span>
+              <span>Última atividade: <strong><%= lastActivityLabel %></strong></span>
+              <% if (lastActivity) { %><span>· <%= fmtDateTimeBr(lastActivity) %></span><% } %>
+              <% if (company.valid_until) { %><span>· acesso até <%= fmtDateBr(company.valid_until) %></span><% } %>
+            </div>
+            <div class="usage-meta" style="margin-top:6px"><code><%= company.company_uuid %></code></div>
+          </div>
+          <div class="usage-head-actions">
+            <a class="btn secondary" href="/admin/companies/<%= company.company_uuid %>">Abrir empresa</a>
+            <a class="btn secondary" href="/admin/subscriptions?company=<%= company.company_uuid %>">Assinatura</a>
+          </div>
+        </div>
+
+        <div class="usage-periods">
+          <% periods.forEach(function (p) { %>
+            <a class="usage-period <%= period === p ? 'active' : '' %>"
+               href="/admin/usage/<%= company.company_uuid %>?period=<%= p %>"><%= p %> dias</a>
+          <% }); %>
+        </div>
+
+        <div class="dash-kpi-grid">
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div class="dash-kpi-value" style="font-size:1.15rem"><%= lastActivityLabel %></div>
+            <div class="dash-kpi-label">Última atividade</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div>
+            <div class="dash-kpi-value"><%= Number(syncSummary.syncs || 0).toLocaleString('pt-BR') %></div>
+            <div class="dash-kpi-label">Registros sincronizados · <%= period %>d</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
+            <div class="dash-kpi-value"><%= Number(syncSummary.sales || 0).toLocaleString('pt-BR') %></div>
+            <div class="dash-kpi-label">Vendas sincronizadas · <%= period %>d</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></div>
+            <div class="dash-kpi-value"><%= Number(syncSummary.active_days || 0) %></div>
+            <div class="dash-kpi-label">Dias com sincronização</div>
+          </div>
+          <div class="dash-kpi">
+            <div class="dash-kpi-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+            <div class="dash-kpi-value"><%= devices.length %></div>
+            <div class="dash-kpi-label">Dispositivo(s) ativo(s)</div>
+          </div>
+        </div>
+
+        <div class="usage-insights">
+          <div class="usage-insight">
+            <strong><%= Number(syncSummary.sales || 0) %></strong>
+            <span>venda(s) sincronizada(s) no período</span>
+            <% if (syncSummary.last_sale) { %><span>· última em <%= fmtDateTimeBr(syncSummary.last_sale) %></span><% } %>
+          </div>
+          <div class="usage-insight">
+            <strong><%= Number(errors.total || 0) %></strong>
+            <span>erro(s) reportado(s) no período</span>
+            <% if (errors.last_at) { %><span>· último em <%= fmtDateTimeBr(errors.last_at) %></span><% } %>
+          </div>
+          <div class="usage-insight">
+            <strong><%= Number(ai.calls || 0) %></strong>
+            <span>chamada(s) de IA</span>
+            <% if (Number(ai.tokens || 0) > 0) { %><span>· <%= Number(ai.tokens).toLocaleString('pt-BR') %> tokens</span><% } %>
+          </div>
+          <div class="usage-insight">
+            <strong><%= syncSummary.syncs > 0 ? Math.round(syncSummary.syncs / period) : 0 %></strong>
+            <span>registro(s) sincronizado(s) por dia, em média</span>
+          </div>
+        </div>
+
+        <div class="usage-columns">
+          <section class="panel usage-panel">
+            <h2>Módulos mais sincronizados</h2>
+            <p class="usage-panel-sub">Entidades enviadas ao cloud no período, agrupadas por módulo.</p>
+            <% if (modules.length) { %>
+              <div class="usage-bars">
+                <% modules.forEach(function (m) { %>
+                  <div class="usage-bar-row">
+                    <span class="usage-bar-label" title="<%= m.key %>"><%= m.label %></span>
+                    <div class="usage-bar-track"><div class="usage-bar-fill" style="width:<%= m.pct %>%"></div></div>
+                    <span class="usage-bar-value"><%= Number(m.total).toLocaleString('pt-BR') %></span>
+                    <span class="usage-bar-last">último envio: <%= m.last_at ? fmtDateTimeBr(m.last_at) : '—' %></span>
+                  </div>
+                <% }); %>
+              </div>
+            <% } else { %>
+              <div class="usage-empty">Nenhum registro sincronizado neste período.</div>
+            <% } %>
+          </section>
+
+          <section class="panel usage-panel">
+            <h2>Horários de uso</h2>
+            <p class="usage-panel-sub">Distribuição de todos os envios no período, por hora (horário do servidor).</p>
+            <div class="usage-hours">
+              <% hours.forEach(function (h, i) { %>
+                <div class="usage-hour" title="<%= h.hour %>h · <%= h.total %> registro(s)">
+                  <div class="usage-hour-bar <%= h.total ? '' : 'zero' %>" style="height:<%= h.total ? Math.max(3, h.pct) : 3 %>%"></div>
+                  <span class="usage-hour-label"><%= i % 3 === 0 ? h.hour + 'h' : '' %></span>
+                </div>
+              <% }); %>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel usage-panel" style="margin-bottom:16px">
+          <h2>Frequência diária</h2>
+          <p class="usage-panel-sub">Registros sincronizados por dia nos últimos <%= days.length %> dias.</p>
+          <% var step = days.length <= 7 ? 1 : 5; %>
+          <div class="usage-days">
+            <% days.forEach(function (d, i) { %>
+              <div class="usage-day" title="<%= fmtDateBr(d.day) %> · <%= d.total %> registro(s)">
+                <div class="usage-day-bar <%= d.total ? '' : 'zero' %>" style="height:<%= d.total ? Math.max(3, d.pct) : 3 %>%"></div>
+                <span class="usage-day-label"><%= (i % step === 0 || i === days.length - 1) ? fmtDateBr(d.day).slice(0, 5) : '' %></span>
+              </div>
+            <% }); %>
+          </div>
+        </section>
+
+        <div class="usage-columns">
+          <section class="panel usage-panel">
+            <h2>Últimos registros sincronizados</h2>
+            <p class="usage-panel-sub">O que chegou ao cloud mais recentemente (sem exibir o conteúdo dos dados).</p>
+            <% if (recent.length) { %>
+              <div style="overflow-x:auto">
+                <table class="usage-table">
+                  <thead><tr><th>Quando</th><th>Módulo</th><th>Entidade</th><th>Máquina</th></tr></thead>
+                  <tbody>
+                    <% recent.forEach(function (r) { %>
+                      <tr>
+                        <td class="cell-muted" style="white-space:nowrap"><%= fmtDateTimeBr(r.server_received_at) %></td>
+                        <td><span class="badge plan"><%= r.module_label %></span></td>
+                        <td><span class="usage-code"><%= r.entity_type %></span></td>
+                        <td class="cell-muted" title="<%= r.origin_machine %>"><%= String(r.origin_machine).slice(0, 18) %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } else { %>
+              <div class="usage-empty">Nenhum registro sincronizado ainda.</div>
+            <% } %>
+          </section>
+
+          <section class="panel usage-panel">
+            <h2>Dispositivos</h2>
+            <p class="usage-panel-sub">Máquinas que validaram a licença desta empresa.</p>
+            <% if (devices.length) { %>
+              <div style="overflow-x:auto">
+                <table class="usage-table">
+                  <thead><tr><th>Máquina</th><th>Versão</th><th>Primeiro acesso</th><th>Último acesso</th></tr></thead>
+                  <tbody>
+                    <% devices.forEach(function (d) { %>
+                      <tr>
+                        <td class="usage-code" title="<%= d.machine_id %>"><%= String(d.machine_id).slice(0, 16) %></td>
+                        <td><%= d.app_version || '—' %></td>
+                        <td class="cell-muted"><%= fmtDateTimeBr(d.first_seen_at) %></td>
+                        <td class="cell-muted"><%= fmtDateTimeBr(d.last_seen_at) %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+              <% if (inventory.length) { %>
+                <p class="usage-panel-sub" style="margin:14px 0 8px">Inventário reportado</p>
+                <table class="usage-table">
+                  <thead><tr><th>Sistema</th><th>CPU</th><th>RAM</th><th>Versão</th><th>Visto</th></tr></thead>
+                  <tbody>
+                    <% inventory.forEach(function (m) { %>
+                      <tr>
+                        <td class="cell-muted"><%= m.os || '—' %></td>
+                        <td class="cell-muted"><%= m.cpu || '—' %></td>
+                        <td class="cell-muted"><%= m.ram_gb ? m.ram_gb + ' GB' : '—' %></td>
+                        <td class="cell-muted"><%= m.app_version || '—' %></td>
+                        <td class="cell-muted"><%= fmtDateTimeBr(m.last_seen_at) %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              <% } %>
+            <% } else { %>
+              <div class="usage-empty">Nenhum dispositivo registrado.</div>
+            <% } %>
+          </section>
+        </div>
+
+        <p class="usage-panel-sub" style="margin-top:6px">
+          “Registros” são entidades de sync (venda, item, produto, cliente etc.), não a quantidade de vendas.
+          O envio é feito em lote pelo app; por isso um mesmo minuto pode concentrar vários registros.
+        </p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -398,6 +398,55 @@ export async function recordAuthorizedPayment(authorizedPaymentId: string): Prom
   };
 }
 
+/** Status em que a assinatura já não cobra nem representa acesso vigente. */
+const REMOVABLE_STATUSES: SubscriptionStatus[] = ['erro', 'cancelada', 'encerrada'];
+
+/**
+ * Remove a assinatura do painel. Só aceita estados terminais: uma assinatura ativa ou
+ * pendente precisa ser cancelada antes, senão o Mercado Pago continuaria cobrando sem que
+ * o Kivo tivesse o vínculo local para reconciliar.
+ *
+ * As cobranças já registradas são preservadas — a FK `charges.subscription_id` é
+ * ON DELETE SET NULL —, então o histórico financeiro da empresa não desaparece.
+ */
+export async function deleteCompanySubscription(id: number): Promise<SubscriptionRow> {
+  const sub = await getSubscriptionById(id);
+  if (!sub) throw new Error('Assinatura não encontrada.');
+  if (!REMOVABLE_STATUSES.includes(sub.status)) {
+    throw new Error('Só é possível remover assinaturas com erro, canceladas ou encerradas. Cancele a assinatura antes de removê-la.');
+  }
+
+  // Rede de segurança: um registro em erro pode ter um preapproval criado antes da falha.
+  // Tenta desativá-lo para não deixar cobrança órfã no Mercado Pago. Se o gateway recusar
+  // (preapproval de outro ambiente/conta), o registro local ainda é removido.
+  if (sub.preapproval_id) {
+    try {
+      const settings = await loadSettings();
+      if (settings.accessToken) {
+        await updateSubscriptionStatus(sub.preapproval_id, 'cancelled', settings);
+      }
+    } catch (e) {
+      console.error('[subscriptions] falha ao cancelar preapproval ao remover assinatura', {
+        subscriptionId: id,
+        preapprovalId: sub.preapproval_id,
+        erro: (e as Error).message,
+      });
+    }
+  }
+
+  // O WHERE repete o status para evitar corrida: se outra aba sincronizou e a assinatura
+  // voltou a autorizada, o DELETE não apaga nada.
+  const [res] = await getPool().query(
+    `DELETE FROM company_subscriptions
+      WHERE id = ? AND status IN (${REMOVABLE_STATUSES.map(() => '?').join(', ')})`,
+    [id, ...REMOVABLE_STATUSES],
+  );
+  if (!(res as { affectedRows: number }).affectedRows) {
+    throw new Error('A assinatura mudou de status enquanto era removida. Atualize a página e tente novamente.');
+  }
+  return sub;
+}
+
 /** Cancela no Mercado Pago e reflete localmente. Cancelamento não desfaz meses já pagos. */
 export async function cancelCompanySubscription(id: number): Promise<void> {
   const sub = await getSubscriptionById(id);

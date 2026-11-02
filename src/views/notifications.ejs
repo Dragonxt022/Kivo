@@ -323,7 +323,11 @@
             for (const p of this.upcomingBills.payables || []) list.push({ id: 'p' + p.id, type: 'payable', message: `A pagar: ${p.description} — vence ${this.fmtDueDate(p.due_date)}`, link: '/app/finance/pagar' });
             for (const r of this.upcomingBills.receivables || []) list.push({ id: 'r' + r.id, type: 'receivable', message: `A receber: ${r.description} — vence ${this.fmtDueDate(r.due_date)}`, link: '/app/finance/receber' });
           }
-          if (this.cashAlert) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
+          // Licença vencida: o foco é renovar. O aviso de caixa aberto competia com a
+          // renovação, então ele some também da central de notificações.
+          const lic = this.licenseStatus;
+          const renovando = lic && ['tolerancia', 'expirada', 'bloqueada'].includes(lic.status);
+          if (this.cashAlert && !renovando) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
           if (this.atualizacao && this.atualizacao.versaoDisponivel) {
             const msgAtu = this.atualizacao.status === 'baixado' ? `Kivo ${this.atualizacao.versaoDisponivel} baixado — clique para instalar` : `Nova versão do Kivo disponível (${this.atualizacao.versaoDisponivel})`;
             list.push({ id: 'atualizacao-' + this.atualizacao.versaoDisponivel, type: 'atualizacao', message: msgAtu, link: '/admin/configuracoes#atualizacao' });

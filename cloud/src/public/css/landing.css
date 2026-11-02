@@ -145,6 +145,20 @@ img {
 .nav a:hover {
   color: var(--text);
 }
+/* O CTA do topo é um <a> dentro de .nav: sem estas regras ele herdava a cor cinza
+   e o tamanho dos links e o texto quebrava em duas linhas, deixando o botão inchado. */
+.topbar .nav a.btn {
+  flex: none;
+  padding: 0.55rem 1.05rem;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.topbar .nav a.btn:hover {
+  color: #fff;
+}
 @media (max-width: 760px) {
   .nav {
     gap: 0.75rem;
