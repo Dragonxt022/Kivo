@@ -3,6 +3,7 @@ import { getPool } from '../db';
 import { requireAdminAuth } from '../adminAuth';
 import { parseAmountCents } from '../format';
 import { commercialPlan } from '../plans';
+import { loadSettingsForView } from '../gateway';
 import {
   cancelCompanySubscription,
   createCompanySubscription,
@@ -76,11 +77,13 @@ adminSubscriptionsRouter.get('/subscriptions', requireAdminAuth, async (req, res
     proximas: Number(r.proximas || 0),
   };
 
+  const gateway = await loadSettingsForView();
   res.render('subscriptions', {
     subscriptions,
     companies: companies as Record<string, unknown>[],
     stats,
     companyFilter,
+    gatewayEnvironment: gateway.environment,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
   });

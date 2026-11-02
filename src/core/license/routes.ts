@@ -51,8 +51,11 @@ router.get('/status', (_req, res) => {
  * validação e devolve a imagem; se o cloud estiver fora do ar, a view cai na imagem
  * padrão local (`/img/plano_<plano>.jpg`).
  */
-router.get('/seal', requirePermission('license.view'), async (_req, res) => {
-  const path = validateLicense().sealPath;
+router.get('/seal', async (req, res) => {
+  // Sem `p`, serve o selo do plano atual (tela de licença). Com `p`, serve o selo de
+  // qualquer plano do catálogo (modal de renovação / tela de planos). O caminho é sempre
+  // validado abaixo, então isso não vira um proxy arbitrário.
+  const path = typeof req.query.p === 'string' ? req.query.p : validateLicense().sealPath;
   const base = getCloudServerUrl();
   // Só aceita os caminhos que o próprio cloud publica — evita virar proxy arbitrário.
   if (!path || !base || !/^\/(planos\/selos|img\/planos)\//.test(path)) {

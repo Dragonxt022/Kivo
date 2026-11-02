@@ -7883,6 +7883,16 @@ dialog.kivo-app-dlg {
 }
 .renew-plan:hover { border-color: var(--primary); transform: translateY(-1px); }
 .renew-plan.current { border-color: var(--primary); background: var(--primary-bg); }
+.renew-plan-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.renew-plan-seal {
+  flex: none;
+  width: 34px;
+  height: 44px;
+  object-fit: cover;
+  border: 1px solid var(--border-light);
+  border-radius: 7px;
+  background: var(--surface-hover);
+}
 .renew-plan-label { font-size: .92rem; font-weight: 800; }
 .renew-plan-price { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
 .renew-plan-price del { color: var(--text-muted); font-size: .68rem; font-weight: 500; }

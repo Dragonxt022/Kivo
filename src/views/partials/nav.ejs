@@ -26,6 +26,25 @@
     return ({ prata: 'Prata', ouro: 'Ouro', diamante: 'Diamante', trial: 'Teste' })[String(plan || '').toLowerCase()]
       || (plan ? String(plan) : '—');
   },
+  /** Selo do plano no modal de renovação; o proxy local evita bloqueio de CSP. */
+  planSealSrc(p) {
+    if (!p || !p.key) return '';
+    // Só o selo personalizado precisa do proxy; o padrão do cloud é a mesma imagem local.
+    if (p.sealPath && String(p.sealPath).startsWith('/planos/selos/')) {
+      return '/api/license/seal?p=' + encodeURIComponent(p.sealPath);
+    }
+    const key = String(p.key).toLowerCase();
+    return ['prata', 'ouro', 'diamante'].includes(key) ? '/img/plano_' + key + '.jpg' : '';
+  },
+  planSealFallback(ev, p) {
+    const key = String((p && p.key) || '').toLowerCase();
+    if (['prata', 'ouro', 'diamante'].includes(key)) {
+      ev.target.src = '/img/plano_' + key + '.jpg';
+      ev.target.onerror = null;
+    } else {
+      ev.target.style.display = 'none';
+    }
+  },
   // Planos para a modal de licença expirada: o usuário já vê as opções e pode ir direto
   // para a tela de cobrança com o plano pré-selecionado (?plan=...).
   loadRenewPlans() {
@@ -571,7 +590,11 @@
       <template x-for="p in renewPlans" :key="p.key">
         <a class="renew-plan" :class="{ current: p.key === licenseStatus?.plan }"
            :href="'/admin/cobrancas?plan=' + p.key">
-          <span class="renew-plan-label" x-text="p.label"></span>
+          <span class="renew-plan-head">
+            <img class="renew-plan-seal" x-show="planSealSrc(p)" :src="planSealSrc(p) || null"
+                 :alt="'Selo do plano ' + p.label" @error="planSealFallback($event, p)">
+            <span class="renew-plan-label" x-text="p.label"></span>
+          </span>
           <span class="renew-plan-price">
             <del x-show="p.promoted" x-text="money(p.originalPriceCents || p.priceCents)"></del>
             <strong x-text="money(p.priceCents)"></strong><small>/mês</small>

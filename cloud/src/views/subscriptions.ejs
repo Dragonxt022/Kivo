@@ -239,10 +239,16 @@
             <label>E-mail do pagador</label>
             <input type="email" name="payerEmail" autocomplete="off" placeholder="financeiro@cliente.com.br">
             <p class="field-hint">
-              Em produção, use o e-mail de uma conta Mercado Pago real. Em teste, use o e-mail
-              de uma conta de teste da sua integração: copie o campo <strong>Usuário</strong> em
-              Contas de teste e troque o prefixo, por exemplo <code>TESTUSER123456</code> vira
-              <code>test_user_123456@testuser.com</code>.
+              <% if (typeof gatewayEnvironment !== 'undefined' && gatewayEnvironment === 'producao') { %>
+                Use o e-mail de uma conta Mercado Pago real que vai autorizar a assinatura.
+              <% } else if (typeof gatewayEnvironment !== 'undefined' && gatewayEnvironment === 'teste') { %>
+                Ambiente de teste: use o e-mail de um comprador de teste da sua integração.
+                Copie o campo <strong>Usuário</strong> em Contas de teste e troque o prefixo:
+                <code>TESTUSER123456</code> vira <code>test_user_123456@testuser.com</code>.
+              <% } else { %>
+                Use o e-mail da conta Mercado Pago que vai autorizar a assinatura. Em ambiente
+                de teste, use um comprador de teste (<code>test_user_...@testuser.com</code>).
+              <% } %>
             </p>
           </div>
         </div>

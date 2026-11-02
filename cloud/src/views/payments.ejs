@@ -153,11 +153,13 @@
                 Ao salvar, o Mercado Pago mostra a <strong>assinatura secreta</strong>. Copie e cole no
                 campo acima — é o que permite ao Kivo provar que a notificação veio deles.
               </li>
+              <% if (gateway.environment !== 'producao') { %>
               <li>
                 Para testar antes de valer: use as <strong>Credenciais de teste</strong> (<code>TEST-</code>).
                 Atenção: <strong>pagamento de teste não dispara webhook</strong> — o teste de notificação é
                 pelo botão <em>Simular recebimento</em> no próprio painel do Mercado Pago.
               </li>
+              <% } %>
             </ol>
           </div>
         </div>
