@@ -4365,6 +4365,32 @@ a.btn-full {
 .settings-panels {
   min-width: 0;
 }
+/* Selo do plano na aba Licença (imagem do cloud com reserva local). */
+.license-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.license-head h2 {
+  margin: 0;
+}
+.license-seal-box {
+  flex: none;
+  width: 64px;
+  height: 82px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-sm);
+}
+.license-seal-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 @media (max-width: 900px) {
   .settings-layout {
     grid-template-columns: 1fr;

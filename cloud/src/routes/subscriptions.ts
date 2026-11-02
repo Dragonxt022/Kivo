@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { getPool } from '../db';
 import { requireAdminAuth } from '../adminAuth';
 import { parseAmountCents } from '../format';
+import { commercialPlan } from '../plans';
 import {
   cancelCompanySubscription,
   createCompanySubscription,
@@ -53,6 +54,8 @@ adminSubscriptionsRouter.get('/subscriptions', requireAdminAuth, async (req, res
     ...s,
     company_name: companyNames.get(String(s.company_uuid)) ?? null,
     public_url: s.public_token ? publicSubscriptionUrl(String(s.public_token)) : null,
+    // Selo do plano contratado (personalizado ou a imagem padrão).
+    seal_path: commercialPlan(String(s.plan_key ?? ''))?.sealPath ?? null,
   }));
 
   const [statsRows] = await pool.query(
@@ -187,6 +190,7 @@ publicSubscriptionsRouter.get('/assinar/:token', async (req: Request, res: Respo
 
   const [companyRows] = await getPool().query('SELECT name FROM companies WHERE company_uuid = ?', [sub.company_uuid]);
   const companyName = (companyRows as { name: string | null }[])[0]?.name ?? null;
+  const sealPath = commercialPlan(sub.plan_key)?.sealPath ?? null;
   res.setHeader('Cache-Control', 'no-store');
-  res.render('subscription-public', { sub, companyName, notFound: false });
+  res.render('subscription-public', { sub, companyName, sealPath, notFound: false });
 });

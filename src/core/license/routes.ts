@@ -4,6 +4,7 @@ import { audit } from '../audit/service';
 import { validateLicense, setLicense, getEntitledModules, type LicenseInfo } from './service';
 import { canAutoUpdate, canSaveToCloud } from './plans';
 import { runSync } from '../sync/engine';
+import { getCloudServerUrl } from '../config/cloud';
 
 const router = Router();
 
@@ -40,7 +41,43 @@ router.get('/status', (_req, res) => {
     supportPhone: info.supportPhone,
     supportEmail: info.supportEmail,
     canSaveToCloud: canSaveToCloud(info.plan),
+    sealPath: info.sealPath,
   });
+});
+
+/**
+ * Proxy do selo do plano: a CSP do app só permite imagens da própria origem, então o
+ * navegador não pode buscar direto no cloud. O servidor local busca o caminho salvo na
+ * validação e devolve a imagem; se o cloud estiver fora do ar, a view cai na imagem
+ * padrão local (`/img/plano_<plano>.jpg`).
+ */
+router.get('/seal', requirePermission('license.view'), async (_req, res) => {
+  const path = validateLicense().sealPath;
+  const base = getCloudServerUrl();
+  // Só aceita os caminhos que o próprio cloud publica — evita virar proxy arbitrário.
+  if (!path || !base || !/^\/(planos\/selos|img\/planos)\//.test(path)) {
+    res.status(404).end();
+    return;
+  }
+  try {
+    const target = new URL(path, base.endsWith('/') ? base : `${base}/`);
+    const r = await fetch(target, { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) {
+      res.status(404).end();
+      return;
+    }
+    const type = r.headers.get('content-type') ?? 'image/jpeg';
+    if (!/^image\//i.test(type)) {
+      res.status(404).end();
+      return;
+    }
+    const bytes = Buffer.from(await r.arrayBuffer());
+    res.setHeader('Content-Type', type);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(bytes);
+  } catch {
+    res.status(404).end();
+  }
 });
 
 /**

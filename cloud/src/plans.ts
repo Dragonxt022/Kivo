@@ -37,6 +37,8 @@ export interface CommercialPlan {
   extendsDays: number;
   maxDevices: number;
   description: string;
+  /** Caminho relativo do selo (personalizado ou a imagem padrão do próprio cloud). */
+  sealPath: string;
 }
 
 interface PlanDefinition {
@@ -59,6 +61,8 @@ export interface PlanPriceConfig {
   promoPriceCents: number | null;
   promoLabel: string | null;
   promoUntil: string | null;
+  /** Nome do arquivo em `storage/plan-seals/`; null = usa a imagem padrão do plano. */
+  sealFile?: string | null;
 }
 
 export type PlanPricingConfig = Record<CommercialPlan['key'], PlanPriceConfig>;
@@ -67,9 +71,9 @@ const SETTING_KEY = 'plan_pricing';
 
 function defaultPricing(): PlanPricingConfig {
   return {
-    prata: { priceCents: 15000, promoPriceCents: null, promoLabel: null, promoUntil: null },
-    ouro: { priceCents: 20000, promoPriceCents: null, promoLabel: null, promoUntil: null },
-    diamante: { priceCents: 25000, promoPriceCents: null, promoLabel: null, promoUntil: null },
+    prata: { priceCents: 15000, promoPriceCents: null, promoLabel: null, promoUntil: null, sealFile: null },
+    ouro: { priceCents: 20000, promoPriceCents: null, promoLabel: null, promoUntil: null, sealFile: null },
+    diamante: { priceCents: 25000, promoPriceCents: null, promoLabel: null, promoUntil: null, sealFile: null },
   };
 }
 
@@ -78,6 +82,13 @@ let catalog: CommercialPlan[] = buildCatalog();
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Selo personalizado quando existe; caso contrário, a imagem padrão servida pelo cloud. */
+function sealPathFor(key: PlanDefinition['key'], file: string | null | undefined): string {
+  return file
+    ? `/planos/selos/${encodeURIComponent(String(file))}`
+    : `/img/planos/plano_${key}.jpg`;
 }
 
 function buildCatalog(): CommercialPlan[] {
@@ -100,6 +111,7 @@ function buildCatalog(): CommercialPlan[] {
       extendsDays: def.extendsDays,
       maxDevices: def.maxDevices,
       description: def.description,
+      sealPath: sealPathFor(def.key, cfg.sealFile),
     };
   });
 }
@@ -141,6 +153,7 @@ export async function loadPlanPricing(): Promise<void> {
           promoPriceCents: p.promoPriceCents != null && Number(p.promoPriceCents) > 0 ? Math.round(Number(p.promoPriceCents)) : null,
           promoLabel: p.promoLabel ? String(p.promoLabel).trim().slice(0, 60) || null : null,
           promoUntil: p.promoUntil ? String(p.promoUntil).slice(0, 10) : null,
+          sealFile: p.sealFile ? String(p.sealFile) : null,
         };
       }
     }
@@ -187,8 +200,25 @@ export async function savePlanPricing(input: PlanPricingConfig): Promise<void> {
       promoPriceCents: promo,
       promoLabel: p?.promoLabel ? String(p.promoLabel).trim().slice(0, 60) || null : null,
       promoUntil,
+      // O formulário de preços não envia o selo; preserva o que já está configurado.
+      sealFile: pricing[def.key]?.sealFile ?? null,
     };
   }
+  await persistPricing(next);
+}
+
+/** Troca só o selo de um plano, sem tocar em preços/promoção. */
+export async function savePlanSeal(key: string, file: string | null): Promise<void> {
+  const def = PLAN_DEFINITIONS.find((p) => p.key === key);
+  if (!def) throw new Error('Plano inválido.');
+  const next: PlanPricingConfig = {
+    ...pricing,
+    [def.key]: { ...pricing[def.key], sealFile: file },
+  };
+  await persistPricing(next);
+}
+
+async function persistPricing(next: PlanPricingConfig): Promise<void> {
   await getPool().query(
     `INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)
      ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,

@@ -2664,6 +2664,17 @@ textarea:focus {
   letter-spacing: -0.04em;
   margin: 14px 0 4px;
 }
+.subscription-public-seal {
+  display: block;
+  width: 76px;
+  height: 96px;
+  margin-bottom: 14px;
+  object-fit: cover;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-sm);
+}
 .subscription-public-company {
   margin: 0 0 22px;
   color: var(--muted);

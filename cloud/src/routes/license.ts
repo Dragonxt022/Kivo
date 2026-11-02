@@ -2,7 +2,7 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import { getPool } from '../db';
 import { requireCompanyAuth, hashLicenseKey, type AuthedRequest } from '../auth';
-import { trialValidUntil } from '../plans';
+import { commercialPlan, trialValidUntil } from '../plans';
 
 const router = Router();
 
@@ -300,9 +300,13 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
     // que funcionar offline, então o segredo precisa já estar no cofre da máquina quando a
     // senha for perdida. Instalação antiga o recebe na próxima revalidação periódica.
     const recoverySecret = await ensureRecoverySecret(req.companyUuid!, company.recovery_secret);
+    const plano = commercialPlan(company.plan);
 
     res.json({
       plan: company.plan,
+      // Caminho relativo do selo no cloud (personalizado ou a imagem padrão). O desktop
+      // resolve contra a URL da nuvem e guarda para exibir na tela de licença.
+      planSealPath: plano?.sealPath ?? null,
       modules,
       validUntil: company.valid_until,
       // Versão mínima exigida pelo suporte (painel). O desktop avisa/força a atualização.

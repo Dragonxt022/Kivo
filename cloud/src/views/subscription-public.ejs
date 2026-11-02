@@ -6,7 +6,7 @@
   <%- include('partials/theme-init') %>
   <title>Kivo — Assinatura</title>
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
-  <link rel="stylesheet" href="/css/app.css?v=20261030-6">
+  <link rel="stylesheet" href="/css/app.css?v=20261102-1">
 </head>
 <body class="subscription-public">
   <main class="subscription-public-card">
@@ -31,6 +31,9 @@
         }[sub.status] || sub.status;
         var statusClass = sub.status === 'autorizada' ? 'paga' : (sub.status === 'pendente' ? 'pendente' : (sub.status === 'erro' ? 'money-pending' : 'cancelada'));
       %>
+      <% if (typeof sealPath !== 'undefined' && sealPath) { %>
+        <img class="subscription-public-seal" src="<%= sealPath %>" alt="Selo do plano">
+      <% } %>
       <span class="badge <%= statusClass %>"><%= statusLabel %></span>
       <h1>Assinatura Kivo</h1>
       <p class="subscription-public-company"><%= companyName || 'Sua empresa' %></p>

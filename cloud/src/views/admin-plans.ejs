@@ -13,7 +13,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
       gap: 14px;
-      align-items: start;
+      align-items: stretch;
     }
     .plan-editor {
       display: flex;
@@ -33,6 +33,27 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
+    }
+    .plan-identity { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+    .plan-seal-thumb {
+      flex: none;
+      width: 48px;
+      height: 62px;
+      object-fit: cover;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      background: var(--surface-hover);
+    }
+    .plan-seal-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .plan-seal-actions form { margin: 0; }
+    .plan-seal-actions .btn { min-height: 30px; padding: 4px 9px; font-size: 0.74rem; }
+    .plan-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: auto;
     }
     .plan-editor-head h2 { margin: 0; font-size: 1.1rem; letter-spacing: -0.02em; }
     .plan-desc { margin: 3px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--muted); }
@@ -61,7 +82,6 @@
       align-items: baseline;
       flex-wrap: wrap;
       gap: 5px 8px;
-      margin-top: auto;
       padding: 9px 11px;
       border: 1px solid var(--border-light);
       border-radius: 10px;
@@ -130,9 +150,17 @@
             %>
             <section class="plan-editor<%= promoAtiva ? ' has-promo' : '' %>">
               <div class="plan-editor-head">
-                <div>
-                  <h2><%= p.label %></h2>
-                  <p class="plan-desc"><%= p.description %></p>
+                <div class="plan-identity">
+                  <%
+                    var sealPath = cfg.sealFile
+                      ? '/planos/selos/' + encodeURIComponent(String(cfg.sealFile))
+                      : '/img/planos/plano_' + p.key + '.jpg';
+                  %>
+                  <img class="plan-seal-thumb" src="<%= sealPath %>" alt="Selo do plano <%= p.label %>">
+                  <div>
+                    <h2><%= p.label %></h2>
+                    <p class="plan-desc"><%= p.description %></p>
+                  </div>
                 </div>
                 <div class="plan-price-now">
                   <span>Hoje o cliente paga</span>
@@ -178,9 +206,22 @@
                 <% } %>
               </div>
 
-              <span class="promo-pill <%= promoAtiva ? 'on' : 'off' %>">
-                <%= promoAtiva ? 'Promoção ativa' : (cfg.promoPriceCents ? 'Promoção programada/expirada' : 'Sem promoção') %>
-              </span>
+              <div class="plan-footer">
+                <span class="promo-pill <%= promoAtiva ? 'on' : 'off' %>">
+                  <%= promoAtiva ? 'Promoção ativa' : (cfg.promoPriceCents ? 'Promoção programada/expirada' : 'Sem promoção') %>
+                </span>
+                <div class="plan-seal-actions">
+                  <input type="file" id="seal-file-<%= p.key %>" accept="image/png,image/jpeg,image/webp"
+                         style="display:none" onchange="enviarSelo('<%= p.key %>', this)">
+                  <button type="button" class="btn secondary small"
+                          onclick="document.getElementById('seal-file-<%= p.key %>').click()">Alterar selo</button>
+                  <% if (cfg.sealFile) { %>
+                  <form method="post" action="/admin/plans/<%= p.key %>/seal/remove">
+                    <button type="submit" class="btn secondary small">Usar padrão</button>
+                  </form>
+                  <% } %>
+                </div>
+              </div>
             </section>
             <% }); %>
           </div>
@@ -196,5 +237,41 @@
       </div>
     </main>
   </div>
+  <script>
+    // O formulário de preços usa POST normal; o selo sobe como data URL porque o cloud
+    // não usa multipart (mesmo padrão do PDF de contrato e do catálogo).
+    async function enviarSelo(key, input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+        alert('Use uma imagem PNG, JPEG ou WEBP.');
+        input.value = '';
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        alert('O selo deve ter no máximo 2 MB.');
+        input.value = '';
+        return;
+      }
+      try {
+        const dataUrl = await new Promise(function (resolve, reject) {
+          const reader = new FileReader();
+          reader.onload = function () { resolve(reader.result); };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const res = await fetch('/admin/plans/' + encodeURIComponent(key) + '/seal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        location.reload();
+      } catch (e) {
+        alert('Não foi possível enviar o selo. Tente novamente.');
+        input.value = '';
+      }
+    }
+  </script>
 </body>
 </html>

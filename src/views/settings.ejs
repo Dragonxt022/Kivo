@@ -6,7 +6,7 @@
   <title>Kivo — Configurações</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
-  <link rel="stylesheet" href="/css/app.css" />
+  <link rel="stylesheet" href="/css/app.css?v=20261102-1" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
@@ -95,7 +95,18 @@
     <div x-show="tab === 'license'">
       <% if (user.permissions.has('license.view')) { %>
       <section class="panel">
-        <h2>Status da licença</h2>
+        <div class="license-head">
+          <div class="license-seal-box" x-show="sealSrc()" x-cloak>
+            <img class="license-seal-img" :src="sealSrc() || null" alt="Selo do plano"
+                 @error="license.sealPath && (sealFalhou = true)">
+          </div>
+          <div>
+            <h2>Status da licença</h2>
+            <p class="hint mt-0" x-show="license.plan" x-cloak>
+              Plano <strong x-text="license.plan"></strong>
+            </p>
+          </div>
+        </div>
         <%# Empresa recusada pela nuvem: explica por que o sync/telemetria pararam. O Kivo
             continua operando até a validade local — ver core/license/service.ts. %>
         <div x-show="license.cloudIssue" x-cloak
@@ -1551,7 +1562,19 @@
         })(),
         settings: [], license: {}, form: {}, error: '',
         licenseForm: { companyUuid: '', licenseKey: '' }, licenseError: '', savingLicense: false, syncing: false,
-        licenseThanks: { sync: null, syncError: null },
+        licenseThanks: { sync: null, syncError: null }, sealFalhou: false,
+        /** Selo local de reserva quando o cloud não tem um configurado ou está fora do ar. */
+        sealFallback(plan) {
+          const key = String(plan || '').toLowerCase();
+          return ['prata', 'ouro', 'diamante'].includes(key) ? '/img/plano_' + key + '.jpg' : '';
+        },
+        sealSrc() {
+          if (!this.sealFalhou && this.license && this.license.sealPath) {
+            // O caminho entra na query para trocar o cache quando o selo muda.
+            return '/api/license/seal?p=' + encodeURIComponent(this.license.sealPath);
+          }
+          return this.sealFallback(this.license && this.license.plan);
+        },
         stock: {
           vendaEstoqueZerado: true, autoSku: false, minStockPadrao: 5,
           loteObrigatorio: false, validadeAlertaDias: 30, validadeAcao: 'sugerir_baixa',
@@ -1638,7 +1661,7 @@
           }
           <% if (user.permissions.has('license.view')) { %>
           const l = await fetch('/api/license');
-          if (l.ok) this.license = await l.json();
+          if (l.ok) { this.license = await l.json(); this.sealFalhou = false; }
           <% } %>
           <% if (user.permissions.has('security.pin.manage')) { %>
           const p = await fetch('/api/security/pin/status');
@@ -1810,6 +1833,7 @@
           if (r.ok) {
             const body = await r.json();
             this.license = body;
+            this.sealFalhou = false;
             this.licenseThanks = { sync: body.sync, syncError: body.syncError };
             this.$refs.licenseDlg.close();
             this.$refs.licenseThanksDlg.showModal();
@@ -1823,7 +1847,7 @@
           this.syncing = false;
           if (r.ok) {
             const l = await fetch('/api/license');
-            if (l.ok) this.license = await l.json();
+            if (l.ok) { this.license = await l.json(); this.sealFalhou = false; }
           } else this.licenseError = (await r.json()).error ?? 'Falha ao sincronizar.';
         },
         <% } %>

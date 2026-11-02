@@ -57,6 +57,8 @@ export interface LicenseInfo {
   message: string;
   cloudIssue: CloudIssue | null;
   cloudIssueSince: string | null;
+  /** Caminho relativo do selo no cloud; null quando a nuvem não informou (usa o padrão local). */
+  sealPath: string | null;
 }
 
 /** Versão atual do algoritmo de machineId — ver `reanchorMachineIdIfNeeded`. */
@@ -329,6 +331,8 @@ export interface CloudCompanyProfile {
 
 interface CloudValidateResponse {
   plan: string | null;
+  /** Caminho relativo do selo no cloud; ausente em cloud antigo. */
+  planSealPath?: string | null;
   modules: string[] | null;
   validUntil: string | null;
   supportPhone: string | null;
@@ -363,6 +367,41 @@ function storeLicensedVersion(v: string | null | undefined): void {
   } catch (e) {
     // Nunca pode derrubar a validação da licença — só deixa a tela sem a versão exigida.
     log.error('não foi possível guardar a versão exigida', e);
+  }
+}
+
+/**
+ * Caminho do selo do plano no cloud (ex.: `/planos/selos/ouro-abc123.jpg`). Fica em
+ * `settings` para a tela de licença funcionar offline com o último selo conhecido; a
+ * imagem em si é servida pelo proxy local `/api/license/seal`.
+ */
+export const PLAN_SEAL_PATH_KEY = 'license.plan_seal_path';
+
+let cachedPlanSealPath: string | null | undefined;
+
+function planSealPath(): string | null {
+  if (cachedPlanSealPath === undefined) {
+    try {
+      cachedPlanSealPath = (settingsRepository.get(PLAN_SEAL_PATH_KEY) ?? '').trim() || null;
+    } catch {
+      cachedPlanSealPath = null;
+    }
+  }
+  return cachedPlanSealPath;
+}
+
+/**
+ * `undefined` = nuvem antiga que não manda o campo: preserva o selo atual em vez de
+ * apagar. `null` = a nuvem respondeu que o plano não tem selo (trial ou removido).
+ */
+function storePlanSealPath(v: string | null | undefined): void {
+  if (v === undefined) return;
+  const next = (v ?? '').trim() || null;
+  cachedPlanSealPath = next;
+  try {
+    settingsRepository.set(PLAN_SEAL_PATH_KEY, next ?? '');
+  } catch (e) {
+    log.error('não foi possível guardar o selo do plano', e);
   }
 }
 
@@ -577,6 +616,7 @@ export async function activateLicense(companyUuid: string | null, licenseKey: st
 
   const body = (await res.json()) as CloudValidateResponse;
   storeLicensedVersion(body.licensedVersion);
+  storePlanSealPath(body.planSealPath);
   clearCloudIssue();
   ensureLicenseRow();
   getSqlite()
@@ -647,6 +687,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
     }
     const body = (await res.json()) as CloudValidateResponse;
     storeLicensedVersion(body.licensedVersion);
+    storePlanSealPath(body.planSealPath);
     clearCloudIssue();
     ensureLicenseRow();
     getSqlite()
@@ -707,6 +748,7 @@ export function validateLicense(): LicenseInfo {
     supportEmail: row.support_email,
     cloudIssue,
     cloudIssueSince,
+    sealPath: planSealPath(),
   };
 
   if (!row.license_key || !row.company_uuid) {

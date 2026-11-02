@@ -26,7 +26,7 @@ import affiliateRoutes from './routes/affiliate';
 import webhookRoutes from './routes/webhooks';
 import publicPayRoutes from './routes/payPublic';
 import paymentRoutes from './routes/payments';
-import planRoutes from './routes/plans';
+import planRoutes, { publicPlanSealsRouter } from './routes/plans';
 import usageRoutes from './routes/usage';
 import contractRoutes from './routes/contracts';
 import { adminSubscriptionsRouter, publicSubscriptionsRouter } from './routes/subscriptions';
@@ -114,6 +114,8 @@ export function createCloudServer() {
   app.use('/pagar', publicPayRoutes);
   // Página pública da assinatura recorrente (link enviado ao cliente para autorizar o cartão).
   app.use('/', publicSubscriptionsRouter);
+  // Selos personalizados dos planos (imagem pública, consumida pelo app e pela assinatura).
+  app.use('/', publicPlanSealsRouter);
   // Tela única de login (admin x afiliado): o controller decide o destino pelo usuário/senha.
   app.use('/', loginRoutes);
   app.use('/', landingRoutes);
