@@ -10,7 +10,7 @@
   <style>
     .contrato-num { font-weight: 700; }
     .contrato-titulo { color: var(--muted); font-size: .82rem; }
-    .contrato-acoes { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+    .contrato-acoes { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
     .contrato-acoes form { margin: 0; }
     .filtros { display: flex; gap: 6px; flex-wrap: wrap; }
   </style>
@@ -75,14 +75,20 @@
                     </td>
                     <td>
                       <div class="contrato-acoes">
-                        <a class="btn secondary small" href="/admin/contracts/<%= c.id %>">Abrir</a>
+                        <a class="icon-btn xs" href="/admin/contracts/<%= c.id %>" title="Abrir contrato" aria-label="Abrir contrato">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </a>
                         <form method="post" action="/admin/contracts/<%= c.id %>/charges">
-                          <button type="submit" class="btn secondary small" title="Gera as parcelas que faltarem">Parcelas</button>
+                          <button type="submit" class="icon-btn xs" title="Gerar as parcelas que faltarem" aria-label="Gerar as parcelas que faltarem">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M9 15h6"/></svg>
+                          </button>
                         </form>
                         <% if (c.status === 'ativo') { %>
                           <form method="post" action="/admin/contracts/<%= c.id %>/cancel"
                                 onsubmit="return confirm('Cancelar o contrato <%= c.contract_number %> e as parcelas em aberto? As já pagas continuam no histórico.');">
-                            <button type="submit" class="btn secondary small danger">Cancelar</button>
+                            <button type="submit" class="icon-btn xs danger" title="Cancelar contrato" aria-label="Cancelar contrato">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            </button>
                           </form>
                         <% } %>
                       </div>
@@ -100,57 +106,82 @@
     </main>
   </div>
 
-  <dialog id="modal-novo-contrato">
+  <dialog id="modal-novo-contrato" class="modal-wide">
     <form id="form-contrato">
       <div class="modal-header">
         <h2>Novo contrato</h2>
         <button type="button" class="modal-close" onclick="document.getElementById('modal-novo-contrato').close()">&times;</button>
       </div>
       <div class="modal-body">
-        <label>Empresa</label>
-        <select name="companyUuid" id="f-empresa" required>
-          <option value="">Escolha a empresa…</option>
-          <% empresas.forEach(function (e) { %>
-            <option value="<%= e.company_uuid %>"><%= e.name %></option>
-          <% }); %>
-        </select>
+        <div class="form-grid">
+          <div class="field col-12">
+            <label for="f-empresa">Empresa</label>
+            <select name="companyUuid" id="f-empresa" required>
+              <option value="">Escolha a empresa…</option>
+              <% empresas.forEach(function (e) { %>
+                <option value="<%= e.company_uuid %>"><%= e.name %></option>
+              <% }); %>
+            </select>
+          </div>
 
-        <label>Descrição do contrato</label>
-        <input type="text" name="title" id="f-titulo" maxlength="160" placeholder="Ex.: Assinatura Kivo — plano Diamante">
-        <p class="field-hint">Aparece na descrição de cada parcela, na tela de Cobranças do cliente.</p>
+          <div class="field col-12">
+            <label for="f-titulo">Descrição do contrato</label>
+            <input type="text" name="title" id="f-titulo" maxlength="160" placeholder="Ex.: Assinatura Kivo — plano Diamante">
+            <p class="field-hint">Aparece na descrição de cada parcela, na tela de Cobranças do cliente.</p>
+          </div>
 
-        <label>Número do contrato</label>
-        <input type="text" name="contractNumber" id="f-numero" maxlength="40" placeholder="deixe em branco para gerar (KIVO-2026-0001)">
-        <p class="field-hint">Pode digitar o número do seu modelo; em branco o Kivo numera sozinho.</p>
+          <div class="field col-6">
+            <label for="f-numero">Número do contrato</label>
+            <input type="text" name="contractNumber" id="f-numero" maxlength="40" placeholder="Em branco = gerar">
+          </div>
 
-        <label>Prazo (meses)</label>
-        <input type="number" name="months" id="f-meses" min="1" max="120" value="12" required oninput="preverContrato()">
+          <div class="field col-6">
+            <label for="f-assinatura">Data de assinatura (opcional)</label>
+            <input type="date" name="signedOn" id="f-assinatura">
+          </div>
 
-        <label>Valor mensal (R$)</label>
-        <input type="text" name="monthlyAmount" id="f-valor" inputmode="decimal" placeholder="199,90" required oninput="preverContrato()">
+          <div class="field col-6">
+            <label for="f-meses">Prazo (meses)</label>
+            <input type="number" name="months" id="f-meses" min="1" max="120" value="12" required oninput="preverContrato()">
+          </div>
 
-        <label>Primeiro vencimento</label>
-        <input type="date" name="firstDueDate" id="f-venc" required oninput="preverContrato()">
-        <p class="field-hint">As outras parcelas caem no mesmo dia dos meses seguintes (dia 31 vira o último dia do mês).</p>
+          <div class="field col-6">
+            <label for="f-valor">Valor mensal (R$)</label>
+            <input type="text" name="monthlyAmount" id="f-valor" inputmode="decimal" placeholder="199,90" required oninput="preverContrato()">
+          </div>
 
-        <label>Estende a licença em (dias por parcela paga)</label>
-        <input type="number" name="extendsDays" id="f-dias" min="0" max="3650" value="30">
+          <div class="field col-6">
+            <label for="f-venc">Primeiro vencimento</label>
+            <input type="date" name="firstDueDate" id="f-venc" required oninput="preverContrato()">
+            <p class="field-hint">As demais caem no mesmo dia dos meses seguintes.</p>
+          </div>
 
-        <label>E-mail do pagador (opcional)</label>
-        <input type="email" name="payerEmail" id="f-email" placeholder="financeiro@cliente.com.br">
-        <p class="field-hint">O Pix exige e-mail. Em branco, o Kivo usa o e-mail do cadastro da empresa.</p>
+          <div class="field col-6">
+            <label for="f-dias">Estende a licença (dias por parcela)</label>
+            <input type="number" name="extendsDays" id="f-dias" min="0" max="3650" value="30">
+          </div>
 
-        <label>Data de assinatura (opcional)</label>
-        <input type="date" name="signedOn" id="f-assinatura">
+          <div class="field col-12">
+            <label for="f-email">E-mail do pagador (opcional)</label>
+            <input type="email" name="payerEmail" id="f-email" placeholder="financeiro@cliente.com.br">
+            <p class="field-hint">O Pix exige e-mail. Em branco, o Kivo usa o e-mail do cadastro da empresa.</p>
+          </div>
 
-        <label>Contrato em PDF (até <%= maxPdfMb %> MB)</label>
-        <input type="file" id="f-pdf" accept="application/pdf">
-        <p class="field-hint">Fica guardado no servidor e disponível para baixar no contrato.</p>
+          <div class="field col-12">
+            <label for="f-pdf">Contrato em PDF (até <%= maxPdfMb %> MB)</label>
+            <input type="file" id="f-pdf" accept="application/pdf">
+            <p class="field-hint">Fica guardado no servidor e disponível para baixar no contrato.</p>
+          </div>
 
-        <label>Observações (opcional)</label>
-        <textarea name="notes" id="f-obs" rows="2" placeholder="Ex.: combinado reajuste anual, contato do financeiro..."></textarea>
+          <div class="field col-12">
+            <label for="f-obs">Observações (opcional)</label>
+            <textarea name="notes" id="f-obs" rows="2" placeholder="Ex.: combinado reajuste anual, contato do financeiro..."></textarea>
+          </div>
 
-        <p class="contrato-previa" id="previsao">Preencha prazo, valor e o primeiro vencimento para ver o que será gerado.</p>
+          <div class="field col-12">
+            <p class="contrato-previa" id="previsao" style="margin-bottom:0">Preencha prazo, valor e o primeiro vencimento para ver o que será gerado.</p>
+          </div>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn secondary" onclick="document.getElementById('modal-novo-contrato').close()">Cancelar</button>

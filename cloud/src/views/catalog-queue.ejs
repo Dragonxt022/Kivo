@@ -9,7 +9,9 @@
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
   <style>
-    .cat-filters { margin-bottom: 14px; }
+    .cat-filters { margin-bottom: 16px; }
+    .cat-filters .input-search { flex: 1 1 280px; margin-bottom: 0; }
+    .cat-filters select { flex: 0 1 180px; margin-bottom: 0; }
     .cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
     .cat-card { border: 1.5px solid var(--border-light, #e5e7eb); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
     .cat-card.selected { border-color: var(--primary, #ff8000); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #ff8000) 25%, transparent); }
@@ -21,7 +23,8 @@
     .cat-meta { font-size: 0.74rem; color: var(--muted, #888); }
     .cat-actions { display: flex; gap: 6px; padding: 0 12px 12px; margin-top: auto; }
     .cat-actions form { margin: 0; display: inline; }
-    .cat-actions .btn { padding: 5px 9px; font-size: 0.8rem; }
+    .cat-actions .btn { min-height: 30px; padding: 4px 9px; font-size: 0.76rem; }
+    .cat-actions .btn[title='Baixar'] { width: 32px; justify-content: center; }
     .pager a { text-decoration: none; }
     .pager a.is-disabled { pointer-events: none; opacity: .45; }
     .pager-num { min-width: 32px; }
@@ -152,15 +155,22 @@
 
       <div class="page">
         <div class="page-header">
-          <h1>Banco de imagens</h1>
-          <div style="display:flex; gap:8px;">
+          <div>
+            <div class="breadcrumb">Catálogo</div>
+            <h1>Banco de imagens</h1>
+            <p class="page-subtitle">
+              Fotos de produtos enviadas pelas empresas e buscas externas. Aprove o que entra
+              no catálogo compartilhado e rejeite o que não serve.
+            </p>
+          </div>
+          <div class="header-actions">
             <button class="btn danger" onclick="openDeleteAllModal()">Apagar todas</button>
             <button class="btn" onclick="openUploadModal()">+ Adicionar imagem(ns)</button>
           </div>
         </div>
 
-        <div class="card">
-          <div class="stat-row">
+        <div class="card" style="padding:14px 16px;">
+          <div class="stat-row compact">
             <div class="stat"><div class="value"><%= stats.pending %></div><div class="label">Pendentes</div></div>
             <div class="stat"><div class="value"><%= stats.approved %></div><div class="label">Aprovadas</div></div>
             <div class="stat"><div class="value"><%= stats.rejected %></div><div class="label">Rejeitadas (histórico)</div></div>
@@ -175,9 +185,9 @@
           <div class="success-banner"><%= deleted %> imagem(ns) removida(s) com sucesso.</div>
         <% } %>
 
-        <div class="catalog-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
-          <a href="/admin/catalog?tab=imagens&status=<%= activeStatus %>" class="btn secondary <%= activeTab === 'imagens' ? 'active' : '' %>">Imagens</a>
-          <a href="/admin/catalog?tab=demanda" class="btn secondary <%= activeTab === 'demanda' ? 'active' : '' %>">
+        <div class="tabs">
+          <a href="/admin/catalog?tab=imagens&status=<%= activeStatus %>" class="tab <%= activeTab === 'imagens' ? 'active' : '' %>">Imagens</a>
+          <a href="/admin/catalog?tab=demanda" class="tab <%= activeTab === 'demanda' ? 'active' : '' %>">
             Demanda<% if (demandTotal) { %> (<span id="demand-tab-count"><%= demandTotal %></span>)<% } %>
           </a>
         </div>
@@ -200,8 +210,8 @@
           <form method="get" action="/admin/catalog" class="toolbar cat-filters" style="margin-top:10px;">
             <input type="hidden" name="tab" value="demanda">
             <input type="search" class="input-search" name="q" value="<%= q %>" placeholder="Buscar termo…">
-            <button type="submit" class="btn small">Buscar</button>
-            <% if (q) { %><a class="btn secondary small" href="/admin/catalog?tab=demanda">Limpar</a><% } %>
+            <button type="submit" class="btn">Buscar</button>
+            <% if (q) { %><a class="btn secondary" href="/admin/catalog?tab=demanda">Limpar</a><% } %>
           </form>
 
           <div class="demand-batch-bar">
@@ -221,8 +231,8 @@
                 <option value="50">50</option>
                 <option value="100">100</option>
               </select>
-              <button type="button" class="btn small" id="batch-demand-btn" onclick="startDemandBatch()">Preencher em lote</button>
-              <button type="button" class="btn secondary small" id="batch-demand-cancel" onclick="cancelDemandBatch()" style="display:none">Parar</button>
+              <button type="button" class="btn" id="batch-demand-btn" onclick="startDemandBatch()">Preencher em lote</button>
+              <button type="button" class="btn secondary" id="batch-demand-cancel" onclick="cancelDemandBatch()" style="display:none">Parar</button>
             </div>
           </div>
           <div class="batch-demand-progress" id="batch-demand-progress" style="display:none;">
@@ -265,9 +275,9 @@
         </div>
         <% } else { %>
         <div class="cat-toolbar-row">
-          <div class="catalog-tabs" style="display: flex; gap: 8px;">
-            <a href="/admin/catalog?tab=imagens&status=pendente" class="btn secondary small <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
-            <a href="/admin/catalog?tab=imagens&status=aprovada" class="btn secondary small <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
+          <div class="tabs" style="margin:0">
+            <a href="/admin/catalog?tab=imagens&status=pendente" class="tab <%= activeStatus === 'pendente' ? 'active' : '' %>">Pendentes (<%= stats.pending %>)</a>
+            <a href="/admin/catalog?tab=imagens&status=aprovada" class="tab <%= activeStatus === 'aprovada' ? 'active' : '' %>">Aprovadas (<%= stats.approved %>)</a>
           </div>
           <span class="cell-muted" style="font-size:0.82rem;"><%= totalImages %> imagem(ns) · página <%= page %> de <%= totalPages %></span>
         </div>
@@ -294,8 +304,8 @@
             <option value="antigas" <%= sort === 'antigas' ? 'selected' : '' %>>Mais antigas</option>
             <option value="nome" <%= sort === 'nome' ? 'selected' : '' %>>Nome (A–Z)</option>
           </select>
-          <button type="submit" class="btn small">Buscar</button>
-          <% if (q || source || format) { %><a class="btn secondary small" href="/admin/catalog?tab=imagens&status=<%= activeStatus %>">Limpar</a><% } %>
+          <button type="submit" class="btn">Buscar</button>
+          <% if (q || source || format) { %><a class="btn secondary" href="/admin/catalog?tab=imagens&status=<%= activeStatus %>">Limpar</a><% } %>
         </form>
 
         <div x-data="catalogSelection()">

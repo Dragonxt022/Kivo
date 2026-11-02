@@ -335,8 +335,29 @@ async function loadCompaniesList() {
 }
 
 router.get('/companies', requireAdminAuth, async (req, res) => {
+  // Os contratos vêm junto com a lista para o atalho de contrato na tabela não
+  // precisar de uma requisição por empresa. O volume do painel é pequeno.
+  const companies = (await loadCompaniesList()) as Record<string, unknown>[];
+  // A lista de empresas é uma tela central: uma falha só nos contratos (migração
+  // antiga, tabela ausente) não pode derrubar a página inteira.
+  let contracts: Awaited<ReturnType<typeof listContracts>> = [];
+  try {
+    contracts = await listContracts();
+  } catch (e) {
+    console.error('[admin] falha ao carregar contratos na lista de empresas', (e as Error).message);
+  }
+  const byCompany = new Map<string, typeof contracts>();
+  for (const contrato of contracts) {
+    const chave = String(contrato.company_uuid);
+    const lista = byCompany.get(chave);
+    if (lista) lista.push(contrato);
+    else byCompany.set(chave, [contrato]);
+  }
+  for (const empresa of companies) {
+    empresa.contracts = byCompany.get(String(empresa.company_uuid)) ?? [];
+  }
   res.render('companies', {
-    companies: await loadCompaniesList(),
+    companies,
     planTiers: PLAN_TIERS,
     planLabels: PLAN_LABELS,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,

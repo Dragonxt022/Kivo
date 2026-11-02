@@ -8,24 +8,124 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <style>
-    .devdocs { display: grid; grid-template-columns: 260px 1fr; gap: 1.25rem; align-items: start; }
-    .devdocs-nav { position: sticky; top: 1rem; }
-    .devdocs-nav a { display: block; padding: .45rem .6rem; border-radius: 8px; color: inherit; text-decoration: none; }
-    .devdocs-nav a:hover { background: rgba(127,127,127,.12); }
-    .devdocs-nav a.active { background: rgba(127,127,127,.18); font-weight: 600; }
-    .devdocs-nav .dd-title { font-size: .95rem; }
-    .devdocs-nav .dd-sum { font-size: .75rem; opacity: .7; margin-top: .15rem; }
-    .devdocs-article { max-width: 900px; }
-    .devdocs-article h1 { margin-top: 0; }
-    .devdocs-article h2 { margin-top: 1.6rem; padding-bottom: .3rem; border-bottom: 1px solid rgba(127,127,127,.25); }
-    .devdocs-article h3 { margin-top: 1.2rem; }
-    .devdocs-article table { width: 100%; border-collapse: collapse; }
-    .devdocs-article th, .devdocs-article td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid rgba(127,127,127,.2); }
-    .devdocs-article code { background: rgba(127,127,127,.15); padding: .1rem .3rem; border-radius: 4px; font-size: .85em; }
-    .devdocs-article pre { background: rgba(127,127,127,.15); padding: .8rem 1rem; border-radius: 8px; overflow-x: auto; }
-    .devdocs-article pre code { background: none; padding: 0; }
-    .devdocs-article blockquote { border-left: 3px solid rgba(127,127,127,.35); margin: .8rem 0; padding: .2rem 1rem; opacity: .85; }
-    @media (max-width: 820px) { .devdocs { grid-template-columns: 1fr; } .devdocs-nav { position: static; } }
+    .devdocs { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .devdocs-nav {
+      position: sticky;
+      top: 84px;
+      max-height: calc(100vh - 108px);
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+    .dd-heading {
+      margin: 2px 6px 8px;
+      color: var(--muted);
+      font-size: .64rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .devdocs-nav a {
+      display: block;
+      padding: 8px 9px;
+      border-left: 2px solid transparent;
+      border-radius: 8px;
+      color: inherit;
+      text-decoration: none;
+    }
+    .devdocs-nav a + a { margin-top: 2px; }
+    .devdocs-nav a:hover { background: var(--surface-hover); }
+    .devdocs-nav a.active { background: var(--primary-soft); border-left-color: var(--primary); }
+    .devdocs-nav .dd-title { font-size: .85rem; font-weight: 600; line-height: 1.35; }
+    .devdocs-nav .dd-sum {
+      display: -webkit-box;
+      overflow: hidden;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: .71rem;
+      line-height: 1.35;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .devdocs-article {
+      min-width: 0;
+      padding: 24px 28px;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      color: var(--text-secondary);
+      font-size: .92rem;
+      line-height: 1.7;
+      overflow-wrap: anywhere;
+    }
+    .devdocs-article > :first-child { margin-top: 0; }
+    .devdocs-article h1 { margin: 0 0 .6rem; color: var(--text); font-size: 1.5rem; line-height: 1.2; letter-spacing: -.03em; }
+    .devdocs-article h2 { margin: 1.7rem 0 .5rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border-light); color: var(--text); font-size: 1.15rem; }
+    .devdocs-article h3 { margin: 1.3rem 0 .4rem; color: var(--text); font-size: 1rem; }
+    .devdocs-article p { margin: .65rem 0; }
+    .devdocs-article ul,
+    .devdocs-article ol { margin: .6rem 0 .9rem; padding-left: 1.35rem; }
+    .devdocs-article li { margin: .25rem 0; }
+    .devdocs-article li::marker { color: var(--primary); }
+    .devdocs-article a { color: var(--primary); font-weight: 600; text-decoration: none; }
+    .devdocs-article a:hover { text-decoration: underline; }
+    .devdocs-article strong { color: var(--text); }
+    .devdocs-article code {
+      padding: .08rem .32rem;
+      border: 1px solid var(--border-light);
+      border-radius: 5px;
+      background: var(--surface-hover);
+      font-size: .84em;
+    }
+    .devdocs-article pre {
+      padding: .9rem 1rem;
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      background: var(--surface-hover);
+      overflow-x: auto;
+    }
+    .devdocs-article pre code { padding: 0; border: 0; background: none; }
+    .devdocs-article table {
+      display: block;
+      width: 100%;
+      margin: .8rem 0 1.2rem;
+      border-collapse: collapse;
+      overflow-x: auto;
+      font-size: .85rem;
+    }
+    .devdocs-article th,
+    .devdocs-article td {
+      padding: .5rem .65rem;
+      border-bottom: 1px solid var(--border-light);
+      text-align: left;
+      vertical-align: top;
+    }
+    .devdocs-article th {
+      background: var(--surface-hover);
+      color: var(--muted);
+      font-size: .7rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .devdocs-article blockquote {
+      margin: .9rem 0;
+      padding: .4rem 1rem;
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      background: var(--primary-soft);
+      color: var(--text-secondary);
+    }
+    .devdocs-article hr { margin: 1.4rem 0; border: 0; border-top: 1px solid var(--border-light); }
+    .devdocs-article img { max-width: 100%; height: auto; }
+    @media (max-width: 900px) {
+      .devdocs { grid-template-columns: 1fr; }
+      .devdocs-nav { position: static; max-height: none; }
+      .devdocs-article { padding: 18px; }
+    }
   </style>
 </head>
 <body>
@@ -39,16 +139,16 @@
           <div>
             <div class="breadcrumb">Sistema</div>
             <h1>Documentação técnica</h1>
+            <p class="page-subtitle">
+              Regras de negócio por módulo, para suporte e treinamento. Mesmo conteúdo do app local
+              (<code>src/docs/dev</code>).
+            </p>
           </div>
         </div>
 
-        <p class="muted" style="margin-top:-.5rem">
-          Regras de negócio por módulo, para suporte e treinamento. Mesmo conteúdo do app local
-          (<code>src/docs/dev</code>).
-        </p>
-
         <div class="devdocs">
           <nav class="devdocs-nav">
+            <div class="dd-heading">Documentos</div>
             <% if (!docs.length) { %>
               <p class="muted">Nenhum documento disponível.</p>
             <% } %>

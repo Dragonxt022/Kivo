@@ -16,24 +16,24 @@
     .usage-periods { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 18px; }
     .usage-period {
       display: inline-flex; align-items: center; justify-content: center;
-      padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border);
+      min-height: 34px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border);
       background: var(--surface); color: var(--muted); font-size: .78rem; font-weight: 700;
       text-decoration: none; white-space: nowrap;
     }
     .usage-period:hover { border-color: var(--primary); color: var(--primary); }
     .usage-period.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .usage-columns { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 16px; margin-bottom: 16px; }
-    .usage-panel { padding: 18px 20px; }
-    .usage-panel h2 { margin: 0 0 4px; font-size: 1rem; }
-    .usage-panel-sub { margin: 0 0 14px; color: var(--muted); font-size: .76rem; }
-    .usage-bars { display: flex; flex-direction: column; gap: 10px; }
-    .usage-bar-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 58px; gap: 10px; align-items: center; }
-    .usage-bar-label { font-size: .8rem; font-weight: 600; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .usage-bar-track { height: 9px; overflow: hidden; border-radius: 999px; background: var(--border-light); }
+    .usage-columns { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 14px; margin-bottom: 14px; }
+    .usage-panel { padding: 16px 18px; }
+    .usage-panel h2 { margin: 0 0 3px; font-size: .98rem; }
+    .usage-panel-sub { margin: 0 0 12px; color: var(--muted); font-size: .74rem; }
+    .usage-bars { display: flex; flex-direction: column; gap: 7px; }
+    .usage-bar-row { display: grid; grid-template-columns: 140px minmax(0, 1fr) 56px 108px; gap: 8px; align-items: center; }
+    .usage-bar-label { font-size: .78rem; font-weight: 600; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .usage-bar-track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--border-light); }
     .usage-bar-fill { height: 100%; border-radius: 999px; background: var(--primary); }
-    .usage-bar-value { text-align: right; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .usage-bar-last { grid-column: 2 / -1; margin-top: -6px; color: var(--muted); font-size: .68rem; }
-    .usage-hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; height: 132px; }
+    .usage-bar-value { text-align: right; font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .usage-bar-last { margin: 0; color: var(--muted); font-size: .64rem; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .usage-hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; height: 118px; }
     .usage-hour { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; min-width: 0; }
     .usage-hour-bar { width: 100%; min-height: 3px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--primary) 75%, var(--surface)); }
     .usage-hour-bar.zero { background: var(--border-light); }
@@ -43,21 +43,23 @@
     .usage-day-bar { width: 100%; min-height: 3px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--primary) 78%, var(--surface)); }
     .usage-day-bar.zero { background: var(--border-light); }
     .usage-day-label { color: var(--muted); font-size: .56rem; white-space: nowrap; }
-    .usage-insights { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .usage-insights { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     .usage-insight {
-      display: flex; align-items: center; gap: 9px; padding: 10px 13px; border-radius: 11px;
-      border: 1px solid var(--border-light); background: var(--surface); font-size: .8rem;
+      display: flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 10px;
+      border: 1px solid var(--border-light); background: var(--surface); font-size: .76rem;
     }
-    .usage-insight strong { font-size: .95rem; }
+    .usage-insight strong { font-size: .9rem; }
     .usage-insight span { color: var(--muted); }
     .usage-table { margin: 0; box-shadow: none; border-radius: 0; }
-    .usage-table th, .usage-table td { background: transparent; }
-    .usage-table thead th { background: var(--surface-hover); font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; }
+    .usage-table th, .usage-table td { background: transparent; padding: 8px 10px; }
+    .usage-table td { font-size: .8rem; }
+    .usage-table thead th { background: var(--surface-hover); font-size: .64rem; text-transform: uppercase; letter-spacing: .05em; }
     .usage-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem; color: var(--muted); word-break: break-all; }
     .usage-empty { padding: 18px 8px; color: var(--muted); font-size: .8rem; text-align: center; }
     @media (max-width: 980px) { .usage-columns { grid-template-columns: 1fr; } }
     @media (max-width: 720px) {
       .usage-bar-row { grid-template-columns: 96px minmax(0, 1fr) 48px; }
+      .usage-bar-last { display: none; }
       .usage-hours { height: 110px; }
     }
   </style>
@@ -95,7 +97,7 @@
           <% }); %>
         </div>
 
-        <div class="dash-kpi-grid">
+        <div class="dash-kpi-grid kpi-compact">
           <div class="dash-kpi">
             <div class="dash-kpi-icon amber"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
             <div class="dash-kpi-value" style="font-size:1.15rem"><%= lastActivityLabel %></div>
@@ -156,7 +158,7 @@
                     <span class="usage-bar-label" title="<%= m.key %>"><%= m.label %></span>
                     <div class="usage-bar-track"><div class="usage-bar-fill" style="width:<%= m.pct %>%"></div></div>
                     <span class="usage-bar-value"><%= Number(m.total).toLocaleString('pt-BR') %></span>
-                    <span class="usage-bar-last">último envio: <%= m.last_at ? fmtDateTimeBr(m.last_at) : '—' %></span>
+                    <span class="usage-bar-last" title="Último envio: <%= m.last_at ? fmtDateTimeBr(m.last_at) : '—' %>">envio <%= m.last_at ? fmtDateTimeBr(m.last_at) : '—' %></span>
                   </div>
                 <% }); %>
               </div>

@@ -8,6 +8,10 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .subs-table .badge,
+    .subs-table .badge.plan { text-transform: capitalize; }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -38,7 +42,7 @@
           </div>
         </div>
 
-        <div class="dash-kpi-grid">
+        <div class="dash-kpi-grid kpi-compact">
           <div class="dash-kpi">
             <div class="dash-kpi-icon green">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -79,11 +83,11 @@
           <div class="table-scroll subs-scroll">
             <table class="subs-table">
               <colgroup>
-                <col style="width:27%">
-                <col style="width:21%">
+                <col style="width:29%">
+                <col style="width:20%">
                 <col style="width:15%">
-                <col style="width:15%">
-                <col style="width:22%">
+                <col style="width:16%">
+                <col style="width:20%">
               </colgroup>
               <thead>
                 <tr>
@@ -118,34 +122,34 @@
                     <td data-label="Ações">
                       <div class="subs-actions">
                         <% if (s.public_url) { %>
-                          <button type="button" class="action-btn action-copy" data-copy="<%= s.public_url %>">
+                          <button type="button" class="action-btn action-copy is-icon" data-copy="<%= s.public_url %>"
+                                  title="Copiar link de autorização" aria-label="Copiar link de autorização">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                            Copiar link
                           </button>
                         <% } %>
                         <% if (s.preapproval_id) { %>
                           <form method="post" action="/admin/subscriptions/<%= s.id %>/sync">
-                            <button type="submit" class="action-btn action-sync">
+                            <button type="submit" class="action-btn action-sync is-icon"
+                                    title="Sincronizar com o Mercado Pago" aria-label="Sincronizar com o Mercado Pago">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-                              Sincronizar
                             </button>
                           </form>
                         <% } %>
                         <% if (s.status === 'autorizada' || s.status === 'pausada' || s.status === 'pendente') { %>
                           <form method="post" action="/admin/subscriptions/<%= s.id %>/cancel"
                                 onsubmit="return confirm('Cancelar esta assinatura no Mercado Pago? Os meses já pagos continuam valendo.');">
-                            <button type="submit" class="action-btn action-cancel">
+                            <button type="submit" class="action-btn action-cancel is-icon"
+                                    title="Cancelar assinatura" aria-label="Cancelar assinatura">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                              Cancelar
                             </button>
                           </form>
                         <% } %>
                         <% if (s.status === 'erro' || s.status === 'cancelada' || s.status === 'encerrada') { %>
                           <form method="post" action="/admin/subscriptions/<%= s.id %>/delete"
                                 onsubmit="return confirm('Remover esta assinatura do painel?\n\nAs cobranças já registradas continuam no histórico da empresa. Esta ação não pode ser desfeita.');">
-                            <button type="submit" class="action-btn action-delete">
+                            <button type="submit" class="action-btn action-delete is-icon"
+                                    title="Remover assinatura do painel" aria-label="Remover assinatura do painel">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                              Remover
                             </button>
                           </form>
                         <% } %>

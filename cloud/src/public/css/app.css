@@ -3028,3 +3028,234 @@ dialog .modal-actions {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Densidade e alinhamento do painel ───────────────────────────────────────
+   `.panel` é usada por Uso das empresas / Planos e preços mas nunca existiu no CSS:
+   as seções ficavam soltas, sem cartão. E os KPIs/atalhos abaixo reduzem o espaço
+   vertical das telas de acompanhamento sem mexer no dashboard. */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 22px;
+}
+
+/* KPI compacto: ícone à esquerda, número e rótulo empilhados. */
+.kpi-compact {
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.kpi-compact .dash-kpi {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 1px;
+  padding: 11px 14px;
+  border-radius: var(--radius);
+}
+.kpi-compact .dash-kpi::before {
+  display: none;
+}
+.kpi-compact .dash-kpi-icon {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  align-self: center;
+  margin: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+.kpi-compact .dash-kpi-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.kpi-compact .dash-kpi-value,
+.kpi-compact .dash-kpi-label,
+.kpi-compact .dash-kpi-delta {
+  grid-column: 2;
+}
+.kpi-compact .dash-kpi-value {
+  font-size: 1.28rem;
+  line-height: 1.2;
+}
+.kpi-compact .dash-kpi-label {
+  font-size: 0.67rem;
+  line-height: 1.25;
+  letter-spacing: 0.045em;
+}
+.kpi-compact .dash-kpi-delta {
+  margin-top: 1px;
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+/* Faixa de métricas compacta (Banco de imagens). */
+.stat-row.compact {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.stat-row.compact .stat {
+  padding: 10px 12px;
+}
+.stat-row.compact .stat .value {
+  font-size: 1.2rem;
+}
+.stat-row.compact .stat .label {
+  font-size: 0.64rem;
+}
+
+/* Controles de barra de filtros com a mesma altura (input x botão x select). */
+.toolbar {
+  align-items: center;
+}
+.toolbar input,
+.toolbar select {
+  margin-bottom: 0;
+}
+.toolbar .btn {
+  min-height: 40px;
+}
+
+/* Ações em ícone: ocupam menos largura e ficam sempre lado a lado. */
+.action-btn.is-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+  flex: none;
+}
+.action-btn.is-icon svg {
+  width: 14px;
+  height: 14px;
+}
+.subs-actions {
+  flex-wrap: nowrap;
+}
+
+/* Empresas: nome + atalho de contrato na mesma linha; excluir vira ação de ícone. */
+.company-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.company-line .cell-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.icon-btn.xs {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+.icon-btn.xs svg {
+  width: 13px;
+  height: 13px;
+}
+.icon-btn.danger {
+  color: var(--danger);
+}
+.icon-btn.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+.companies-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.companies-actions form {
+  display: inline-flex;
+  margin: 0;
+}
+
+/* Modal largo (contratos) e lista de contratos vinculados à empresa. */
+dialog.modal-wide {
+  max-width: 680px;
+}
+.contract-list {
+  display: grid;
+  gap: 10px;
+}
+.contract-item {
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--surface-hover);
+  padding: 12px 14px;
+}
+.contract-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.contract-item-head strong {
+  font-size: 0.92rem;
+}
+.contract-item-title {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.contract-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.contract-item-meta strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.contract-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* Campo de arquivo: o botão nativo não herdava espaçamento e encostava no hint. */
+input[type='file'] {
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.84rem;
+}
+input[type='file']::file-selector-button {
+  margin-right: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-hover);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+input[type='file']::file-selector-button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+@media (max-width: 640px) {
+  .kpi-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi-compact .dash-kpi {
+    padding: 10px 12px;
+  }
+  .contract-item-head {
+    align-items: flex-start;
+  }
+}

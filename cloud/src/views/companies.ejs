@@ -8,6 +8,24 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
+  <style>
+    .module-pills { display: flex; flex-wrap: wrap; gap: 3px; max-width: 220px; }
+    .module-pill {
+      padding: 2px 7px;
+      border: 1px solid var(--border-light);
+      border-radius: 999px;
+      background: var(--surface-hover);
+      color: var(--text-secondary);
+      font-size: 0.66rem;
+      white-space: nowrap;
+    }
+    .module-more { color: var(--muted); font-size: 0.68rem; line-height: 1.6; }
+    .contract-link {
+      color: var(--primary);
+      border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+      background: var(--primary-soft);
+    }
+  </style>
 </head>
 <body>
   <%- include('partials/plan-icons') %>
@@ -23,7 +41,7 @@
             <div class="breadcrumb">Geral</div>
             <h1>Empresas</h1>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div class="header-actions">
             <a href="/admin/companies/export.csv" class="btn secondary">Exportar CSV</a>
             <button type="button" class="btn danger" x-show="expiredTrials.length" x-cloak
                     @click="document.getElementById('modal-purge-trials').showModal()">
@@ -64,21 +82,25 @@
                   <th class="sortable text-right" @click="sortCycle('sync_count')">Sincronizações<span class="sort-arrow" x-text="sortArrow('sync_count')"></span></th>
                   <th class="sortable" @click="sortCycle('last_activity')">Última atividade<span class="sort-arrow" x-text="sortArrow('last_activity')"></span></th>
                   <th class="sortable text-right" @click="sortCycle('pending_cents')">Pendente<span class="sort-arrow" x-text="sortArrow('pending_cents')"></span></th>
+                  <th class="text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 <template x-for="c in displayRows" :key="c.company_uuid">
                   <tr>
                     <td>
-                      <a :href="'/admin/companies/' + c.company_uuid" class="cell-name" x-text="c.name || c.company_uuid"></a>
+                      <div class="company-line">
+                        <a :href="'/admin/companies/' + c.company_uuid" class="cell-name" x-text="c.name || c.company_uuid"></a>
+                        <button type="button" class="icon-btn xs contract-link" x-show="c.contracts && c.contracts.length" x-cloak
+                                @click="openContracts(c)"
+                                :title="(c.contracts || []).length + ' contrato(s) vinculado(s)'"
+                                aria-label="Ver contratos vinculados">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+                        </button>
+                      </div>
                       <div class="cell-sub" x-show="c.contact_name || c.phone"
                            x-text="[c.contact_name, c.phone].filter(Boolean).join(' · ')"></div>
                       <div class="cell-sub" x-show="!c.contact_name && !c.phone" x-text="c.company_uuid.slice(0, 8)"></div>
-                      <form method="post" :action="'/admin/companies/' + c.company_uuid + '/delete'"
-                            style="margin-top:4px"
-                            @submit.prevent="if (confirm('Excluir ' + (c.plan === 'trial' ? 'o teste' : 'a licença') + ' de ' + (c.name || c.company_uuid) + '? Todos os dados dessa empresa serão apagados. Não dá para desfazer.')) $el.submit()">
-                        <button type="submit" class="link-danger" x-text="c.plan === 'trial' ? 'Excluir teste' : 'Excluir empresa'"></button>
-                      </form>
                     </td>
                     <td>
                       <span class="plan-seal" :class="'plan-seal--' + sealKey(c.plan)">
@@ -86,7 +108,17 @@
                         <span x-text="c.plan ? (planLabels[c.plan] || c.plan) : 'Sem plano'"></span>
                       </span>
                     </td>
-                    <td class="cell-modules" x-text="c.modules ? c.modules.join(', ') : 'sem restrição'"></td>
+                    <td class="cell-modules">
+                      <template x-if="c.modules && c.modules.length">
+                        <div class="module-pills">
+                          <template x-for="mod in c.modules.slice(0, 2)" :key="mod">
+                            <span class="module-pill" x-text="mod"></span>
+                          </template>
+                          <span class="module-more" x-show="c.modules.length > 2" x-text="'+' + (c.modules.length - 2)"></span>
+                        </div>
+                      </template>
+                      <span class="cell-muted" x-show="!c.modules || !c.modules.length">sem restrição</span>
+                    </td>
                     <td>
                       <span :class="expiryClass(c.valid_until)" x-text="c.valid_until ? fmtDate(c.valid_until) : '—'"></span>
                     </td>
@@ -96,10 +128,22 @@
                       <span class="badge money-pending" x-show="c.pending_cents > 0" x-text="brl(c.pending_cents)"></span>
                       <span class="cell-muted" x-show="!(c.pending_cents > 0)">—</span>
                     </td>
+                    <td class="text-right">
+                      <div class="companies-actions">
+                        <form method="post" :action="'/admin/companies/' + c.company_uuid + '/delete'"
+                              @submit.prevent="if (confirm('Excluir ' + (c.plan === 'trial' ? 'o teste' : 'a licença') + ' de ' + (c.name || c.company_uuid) + '? Todos os dados dessa empresa serão apagados. Não dá para desfazer.')) $el.submit()">
+                          <button type="submit" class="icon-btn xs danger"
+                                  :title="c.plan === 'trial' ? 'Excluir teste' : 'Excluir empresa'"
+                                  :aria-label="c.plan === 'trial' ? 'Excluir teste' : 'Excluir empresa'">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
                   </tr>
                 </template>
                 <tr x-show="!displayRows.length">
-                  <td colspan="7">
+                  <td colspan="8">
                     <div class="empty-state-box">
                       <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                       <p x-text="rows.length ? 'Nenhuma empresa corresponde ao filtro.' : 'Nenhuma empresa cadastrada ainda.'"></p>
@@ -138,6 +182,46 @@
             </div>
           </form>
         </dialog>
+
+        <dialog id="modal-company-contracts" class="modal-wide">
+          <div class="modal-header">
+            <h2>Contratos vinculados</h2>
+            <button type="button" class="modal-close" @click="closeContracts()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="field-hint" style="margin-top:0" x-show="contractsFor">
+              Empresa: <strong x-text="contractsFor ? (contractsFor.name || contractsFor.company_uuid) : ''"></strong>
+            </p>
+            <div class="contract-list">
+              <template x-for="ct in (contractsFor ? contractsFor.contracts : [])" :key="ct.id">
+                <div class="contract-item">
+                  <div class="contract-item-head">
+                    <strong x-text="ct.contract_number"></strong>
+                    <span class="badge" :class="ct.status" x-text="ct.status"></span>
+                  </div>
+                  <div class="contract-item-title" x-text="ct.title || 'Sem descrição'"></div>
+                  <div class="contract-item-meta">
+                    <span>Prazo: <strong x-text="ct.months + ' meses'"></strong></span>
+                    <span>Mensal: <strong x-text="brl(ct.monthly_amount_cents)"></strong></span>
+                    <span>Parcelas: <strong x-text="Number(ct.pagas) + '/' + Number(ct.parcelas)"></strong></span>
+                    <span>Próximo venc.: <strong x-text="ct.proximo_vencimento ? fmtDate(ct.proximo_vencimento) : '—'"></strong></span>
+                  </div>
+                  <div class="contract-item-actions">
+                    <a class="btn secondary small" :href="'/admin/contracts/' + ct.id">Abrir contrato</a>
+                    <a class="btn secondary small" x-show="ct.document_file" x-cloak
+                       :href="'/admin/contracts/' + ct.id + '/document'" target="_blank" rel="noopener">PDF assinado</a>
+                  </div>
+                </div>
+              </template>
+              <p class="field-hint" style="margin:0" x-show="contractsFor && (!contractsFor.contracts || !contractsFor.contracts.length)">
+                Nenhum contrato vinculado a esta empresa.
+              </p>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn secondary" @click="closeContracts()">Fechar</button>
+          </div>
+        </dialog>
       </div>
     </main>
   </div>
@@ -170,11 +254,21 @@
     function companiesTable() {
       return {
         ...tableToolkit(),
-        rows: <%- JSON.stringify(companies) %>,
+        rows: <%- JSON.stringify(companies).replace(/</g, '\\u003c') %>,
         planLabels: <%- JSON.stringify(planLabels) %>,
         planTiers: <%- JSON.stringify(planTiers) %>,
         q: '',
         planFilter: '',
+        contractsFor: null,
+        openContracts(company) {
+          this.contractsFor = company;
+          document.getElementById('modal-company-contracts').showModal();
+        },
+        closeContracts() {
+          const dialog = document.getElementById('modal-company-contracts');
+          if (dialog.open) dialog.close();
+          this.contractsFor = null;
+        },
         /** Plano legado (fora dos tiers) não tem selo próprio — cai no neutro. */
         sealKey(plan) {
           return plan && this.planTiers.includes(plan) ? plan : 'none';
