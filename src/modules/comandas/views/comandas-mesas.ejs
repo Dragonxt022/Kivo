@@ -114,13 +114,18 @@
       <p class="hint mt-0">Criadas pela divisão. Abra para transferir para uma mesa ou fechar.</p>
       <div class="sem-mesa-list">
         <template x-for="c in avulsas" :key="c.id">
-          <a class="sem-mesa-card" :href="'/app/comandas/mesas/' + c.id">
-            <span class="sem-mesa-title"
-                  x-text="'#' + c.id + (c.customer_name ? ' — ' + c.customer_name : '')"></span>
-            <span class="badge off" x-text="c.items_count + (c.items_count === 1 ? ' item' : ' itens')"></span>
-            <span class="badge quer-pagar" x-show="c.ready_for_payment_at">Quer pagar</span>
-            <span class="sem-mesa-total" x-text="brl(c.total_cents)"></span>
-          </a>
+          <div class="sem-mesa-card">
+            <a class="sem-mesa-main" :href="'/app/comandas/mesas/' + c.id">
+              <span class="sem-mesa-title"
+                    x-text="'#' + c.id + (c.customer_name ? ' — ' + c.customer_name : '')"></span>
+              <span class="badge off" x-text="c.items_count + (c.items_count === 1 ? ' item' : ' itens')"></span>
+              <span class="badge quer-pagar" x-show="c.ready_for_payment_at">Quer pagar</span>
+              <span class="sem-mesa-total" x-text="brl(c.total_cents)"></span>
+            </a>
+            <a class="btn secondary small sem-mesa-action"
+               :href="'/app/comandas/mesas/' + c.id + '?transferir=1'"
+               title="Vincular esta comanda a uma mesa">Mesa</a>
+          </div>
         </template>
       </div>
     </section>
@@ -502,8 +507,10 @@
       background: var(--surface); color: inherit; text-decoration: none;
     }
     .sem-mesa-card:hover { background: var(--surface-hover); }
-    .sem-mesa-title { flex: 1; font-weight: 600; }
+    .sem-mesa-main { display: flex; align-items: center; gap: .6rem; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+    .sem-mesa-title { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sem-mesa-total { font-variant-numeric: tabular-nums; }
+    .sem-mesa-action { white-space: nowrap; }
   </style>
   <script nonce="<%= cspNonce %>">
     function mesasPage(canManage, labels) {

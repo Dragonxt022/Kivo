@@ -219,6 +219,22 @@ async function main() {
   // Limpa a comanda nova sem mesa para não interferir no restante da fase.
   await api(`/api/comandas/comandas/${splitAll.newComandaId}/cancel`, { method: 'POST' }, admin!);
 
+  // ─── Comanda sem mesa pode ser vinculada a uma mesa livre ───
+  const semMesaComanda = await unwrap<{ id: number }>(
+    await api('/api/comandas/comandas', { method: 'POST', body: JSON.stringify({}) }, admin!),
+  );
+  const vincularR = await api(`/api/comandas/comandas/${semMesaComanda.id}/transfer`, {
+    method: 'POST', body: JSON.stringify({ tableId: tableC.id }),
+  }, admin!);
+  check('comanda sem mesa pode ser vinculada a uma mesa livre', vincularR.status === 200);
+  const semMesaVinculada = await unwrap<{ table_id: number | null }>(
+    await api(`/api/comandas/comandas/${semMesaComanda.id}`, {}, admin!),
+  );
+  check('comanda passa a apontar para a mesa escolhida', semMesaVinculada.table_id === tableC.id);
+  const statusAfterVincular = await unwrap<{ id: number; status: string }[]>(await api('/api/comandas/tables/status', {}, admin!));
+  check('mesa fica ocupada ao receber a comanda sem mesa', statusAfterVincular.find((t) => t.id === tableC.id)?.status === 'ocupada');
+  await api(`/api/comandas/comandas/${semMesaComanda.id}/cancel`, { method: 'POST' }, admin!);
+
   // ─── Gating: desliga a capability de novo ───
   check('desliga comandas.mesas', (await api('/api/core/capabilities/comandas.mesas', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, admin!)).status === 200);
   check('capability desligada: tables -> 403 de novo', (await api('/api/comandas/tables', {}, admin!)).status === 403);

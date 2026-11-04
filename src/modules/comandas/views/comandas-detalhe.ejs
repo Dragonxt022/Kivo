@@ -47,9 +47,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
           <span class="btn-label" x-text="kitchenButtonLabel()"></span>
         </button>
-        <button type="button" class="btn secondary" @click="openTransferDlg()" title="Transferir">
+        <button type="button" class="btn secondary" @click="openTransferDlg()"
+                :title="comanda && !comanda.table_id ? 'Vincular esta comanda a uma mesa' : 'Transferir'">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
-          <span class="btn-label">Transferir</span>
+          <span class="btn-label" x-text="comanda && !comanda.table_id ? 'Vincular mesa' : 'Transferir'"></span>
         </button>
         <button type="button" class="btn secondary" @click="openSplitDlg()" :disabled="items.length < 2" title="Dividir">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
@@ -190,14 +191,22 @@
     <dialog x-ref="transferDlg">
       <h1><%= comandasLabels.transferirTitulo %></h1>
       <p class="dialog-text"><%= comandasLabels.transferirTexto %></p>
+      <p class="hint mt-0" x-show="comanda && !comanda.table_id">
+        Esta comanda está sem mesa. Escolha uma mesa livre para vinculá-la.
+      </p>
       <div class="tables-mini-grid">
-        <template x-for="t in availableTables" :key="t.id">
-          <button type="button" class="mini-table" :class="{ selected: transferTarget === t.id }" @click="transferTarget = t.id">
+        <template x-for="t in transferTables" :key="t.id">
+          <button type="button" class="mini-table"
+                  :class="{ selected: transferTarget === t.id, atual: isCurrentTable(t), ocupada: !isTableFree(t) && !isCurrentTable(t) }"
+                  :disabled="!isTableFree(t)"
+                  @click="transferTarget = t.id">
             <span x-text="t.label"></span>
+            <span class="mini-table-tag" x-show="isCurrentTable(t)">atual</span>
+            <span class="mini-table-tag" x-show="!isTableFree(t) && !isCurrentTable(t)">ocupada</span>
           </button>
         </template>
-        <p class="muted text-sm" x-show="!availableTables.length"><%= comandasLabels.nenhumaLivre %></p>
       </div>
+      <p class="muted text-sm" x-show="!hasFreeTable()"><%= comandasLabels.nenhumaLivre %></p>
       <div class="error" x-text="dlgError"></div>
       <div class="actions">
         <button type="button" class="btn secondary" @click="$refs.transferDlg.close()">
@@ -558,6 +567,14 @@
     }
     .mini-table:hover { border-color: var(--primary); }
     .mini-table.selected { border-color: var(--primary); background: var(--primary); color: #fff; }
+    .mini-table:disabled { cursor: not-allowed; }
+    .mini-table.ocupada {
+      border-color: var(--danger); color: var(--danger);
+      background: rgba(220, 38, 38, .07);
+    }
+    .mini-table.ocupada:hover { border-color: var(--danger); }
+    .mini-table.atual { opacity: .55; }
+    .mini-table-tag { display: block; font-size: .64rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; opacity: .85; }
 
     .split-item {
       display: flex; align-items: center; gap: .6rem; padding: .6rem .5rem; border-radius: 8px; cursor: pointer;
@@ -677,7 +694,7 @@
         searchResults: [],
         isOpen: false,
         error: '', dlgError: '',
-        availableTables: [],
+        transferTables: [],
         transferTarget: null,
         splitItemIds: [],
         otherComandas: [],
@@ -707,6 +724,13 @@
                 : `Itens movidos da comanda #${origem}.`,
               'success',
             );
+          }
+          // Atalho da lista "Comandas sem mesa": abre direto o seletor de mesa.
+          if (params.get('transferir') === '1' && this.isOpen) {
+            void this.openTransferDlg();
+          }
+          if (origem || params.has('transferir')) {
+            window.history.replaceState({}, '', window.location.pathname);
           }
           // Com a aba escondida o poll só gastava bateria/rede do celular; ao voltar,
           // atualiza imediatamente para o garçom ver o que mudou na cozinha.
@@ -1093,12 +1117,25 @@
         },
         async openTransferDlg() {
           this.transferTarget = null; this.dlgError = '';
-          const r = await fetch('/api/comandas/tables/status');
-          if (r.ok) this.availableTables = (await r.json()).filter((t) => t.status === 'livre');
+          this.transferTables = [];
+          try {
+            const r = await fetch('/api/comandas/tables/status');
+            if (r.ok) this.transferTables = await r.json();
+            else this.dlgError = 'Não foi possível carregar as mesas.';
+          } catch {
+            this.dlgError = 'Sem conexão com o Kivo. Tente de novo.';
+          }
           this.$refs.transferDlg.showModal();
         },
+        // A mesa atual da própria comanda não é destino válido; as demais ocupadas
+        // aparecem em vermelho e desabilitadas (o servidor também recusa).
+        isCurrentTable(t) { return !!this.comanda && this.comanda.table_id === t.id; },
+        isTableFree(t) { return t.status === 'livre' && !this.isCurrentTable(t); },
+        hasFreeTable() { return this.transferTables.some((t) => this.isTableFree(t)); },
         async confirmTransfer() {
           if (!this.transferTarget) return;
+          const mesa = this.transferTables.find((t) => t.id === this.transferTarget)?.label;
+          const eraSemMesa = !this.comanda?.table_id;
           const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/transfer', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tableId: this.transferTarget }),
@@ -1106,6 +1143,9 @@
           if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao transferir.'; showToast(this.dlgError, 'error'); return; }
           this.$refs.transferDlg.close();
           await this.load();
+          if (mesa) {
+            showToast(eraSemMesa ? `Comanda vinculada à mesa ${mesa}.` : `Comanda transferida para a mesa ${mesa}.`, 'success');
+          }
         },
         openSplitDlg() {
           this.splitItemIds = []; this.dlgError = '';
