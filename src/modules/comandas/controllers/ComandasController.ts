@@ -261,7 +261,8 @@ export const comandasController = {
   },
 
   enviarCozinhaAction(req: Request, res: Response) {
-    const result = sendToKitchen(req, Number(req.params.id));
+    const serviceType = req.body?.serviceType === 'entrega' ? 'entrega' : 'local';
+    const result = sendToKitchen(req, Number(req.params.id), serviceType);
     if (!result.ok) { res.status(400).json(result); return; }
     // Sem a chave 'ok': o envelope de resposta colapsaria {ok,...} num escalar
     // solto; assim chega como data.{sent,estimatedMinutes}, forma estável.

@@ -13,6 +13,10 @@
   <%- include('partials/nav', { user, page: '/app/commercial/produtos' }) %>
   <main x-data="productsPage()" x-init="load()">
     <h1>Produtos</h1>
+    <p class="hint" x-show="!KIVO_ESTOQUE_ATIVO" x-cloak>
+      O controle de quantidade está <strong>desligado</strong> em Configurações › Estoque.
+      Nenhum produto baixa ou entra saldo até você religar a chave geral.
+    </p>
     <div class="toolbar">
       <% if (user.permissions.has('commercial.products.create')) { %>
         <button class="btn" id="tour-novo-produto" @click="openNew()">
@@ -136,13 +140,13 @@
                 <span x-text="p.name"></span>
               </span>
               <div class="muted text-xs" x-show="p.barcode" :title="p.barcode" style="font-family:var(--font-mono,monospace)" x-text="p.barcode"></div>
-              <span class="badge off" x-show="p.track_stock && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
-              <span class="badge off" x-show="p.track_stock && p.stock_qty >= 0 && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
+              <span class="badge off" x-show="p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
+              <span class="badge off" x-show="p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty >= 0 && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
             </td>
             <td class="muted" x-text="p.category ?? '—'"></td>
             <td x-text="brl(p.price_cents)"></td>
             <td class="muted" x-text="brl(p.cost_cents)"></td>
-            <td :style="p.track_stock && p.stock_qty < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="p.track_stock ? p.stock_qty : '—'"></td>
+            <td :style="p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="p.track_stock && KIVO_ESTOQUE_ATIVO ? p.stock_qty : '—'"></td>
             <td class="muted" x-text="p.unit"></td>
             <td @click.stop style="width:1%">
               <% if (user.permissions.has('commercial.products.edit')) { %>
@@ -171,7 +175,7 @@
                 </button>
                 <div class="dropdown-menu" x-show="openMenu === p.id" x-cloak @click.outside="openMenu = null">
                   <% if (user.permissions.has('commercial.stock.move')) { %>
-                    <button x-show="p.track_stock" @click="openMenu = null; openMove(p)">
+                    <button x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" @click="openMenu = null; openMove(p)">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                       Estoque
                     </button>
@@ -354,7 +358,11 @@
                      clicável evita prometer um controle de estoque que nunca vai existir. -->
                 <span class="muted text-xs" x-show="stockLocked" x-text="stockLockedReason"></span>
                 <span class="muted text-xs" x-show="!stockLocked && form.noStockControl">
-                  Vende sem baixar saldo — use para digitais e para kits cujo estoque está nos componentes.
+                  Vende sem baixar saldo - use para digitais e para kits cujo estoque está nos componentes.
+                </span>
+                <span class="muted text-xs" x-show="!KIVO_ESTOQUE_ATIVO">
+                  A chave geral de estoque está desligada em Configurações › Estoque; este produto não
+                  movimenta saldo enquanto isso, independentemente da opção acima.
                 </span>
               </div>
               <div class="pm-grid" x-show="!form.noStockControl">
@@ -589,7 +597,7 @@
                       <td><input type="text" inputmode="numeric" x-model="v.priceDisplay" class="inline-edit"
                                  @input="v.priceDisplay = maskMoney(v.priceDisplay)"
                                  @change="updateVariantPrice(v)" style="width:76px" /></td>
-                      <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock" /></td>
+                      <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock || !KIVO_ESTOQUE_ATIVO" /></td>
                       <td @click.stop>
                         <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -1675,7 +1683,7 @@
         sortGetters: {
           name: (p) => p.name, category: (p) => p.category ?? '',
           price: (p) => p.price_cents, cost: (p) => p.cost_cents,
-          stock: (p) => (p.track_stock ? p.stock_qty : -Infinity), unit: (p) => p.unit,
+          stock: (p) => (p.track_stock && KIVO_ESTOQUE_ATIVO ? p.stock_qty : -Infinity), unit: (p) => p.unit,
         },
         // Aba "Complementos" mostra só produtos usados como adicional (is_complement);
         // "Produtos" mostra o restante (o que se vende avulso/montado), sem misturar.

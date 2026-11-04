@@ -266,8 +266,8 @@
         <button type="button" :class="{ active: period.preset === 'mes_passado' }" @click="setPreset('mes_passado')">Mês passado</button>
         <button type="button" :class="{ active: period.preset === 'ano' }" @click="setPreset('ano')">Este ano</button>
       </div>
-      <div class="field"><label>De</label><input type="date" class="input" x-model="period.from" @change="period.preset = 'custom'"></div>
-      <div class="field"><label>Até</label><input type="date" class="input" x-model="period.to" @change="period.preset = 'custom'"></div>
+      <div class="field"><label>De</label><input type="date" data-picker class="input" x-model="period.from" @change="period.preset = 'custom'"></div>
+      <div class="field"><label>Até</label><input type="date" data-picker class="input" x-model="period.to" @change="period.preset = 'custom'"></div>
       <button type="button" class="btn secondary" @click="reloadPeriod()">Aplicar</button>
     </div>
 

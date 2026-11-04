@@ -80,7 +80,11 @@
     if (status) {
       status.textContent = standalone
         ? 'Você já está usando o Kivo como aplicativo.'
-        : (mobile ? 'No celular, instale o Kivo para abrir em tela cheia.' : 'Abra o Kivo no celular para instalar como aplicativo.');
+        : (mobile
+          ? (window.isSecureContext
+            ? 'No celular, instale o Kivo para abrir em tela cheia.'
+            : 'No celular, crie um atalho do Kivo. Instalação como aplicativo e notificação com a tela apagada exigem HTTPS.')
+          : 'Abra o Kivo no celular para instalar como aplicativo.');
     }
 
     if (install) {
@@ -105,8 +109,13 @@
         help.innerHTML = '<p><strong>iPhone / iPad (Safari):</strong> toque em <strong>Compartilhar</strong> '
           + '(quadrado com a seta para cima) e escolha <strong>Adicionar à Tela de Início</strong>.</p>';
       } else if (android) {
-        help.innerHTML = '<p><strong>Android (Chrome):</strong> toque no menu <strong>⋮</strong> no canto do '
-          + 'navegador e escolha <strong>Instalar aplicativo</strong> (ou <strong>Adicionar à tela inicial</strong>).</p>';
+        help.innerHTML = window.isSecureContext
+          ? '<p><strong>Android (Chrome):</strong> toque no menu <strong>⋮</strong> no canto do '
+            + 'navegador e escolha <strong>Instalar aplicativo</strong> (ou <strong>Adicionar à tela inicial</strong>).</p>'
+          : '<p><strong>Android (Chrome):</strong> toque no menu <strong>⋮</strong> e escolha '
+            + '<strong>Criar atalho</strong> (ou <strong>Adicionar à tela inicial</strong>): o Kivo abre em tela cheia. '
+            + 'A opção <strong>Instalar aplicativo</strong> e a notificação com a tela desligada só aparecem quando o '
+            + 'Kivo é acessado por <strong>HTTPS</strong>.</p>';
       } else {
         help.innerHTML = '<p>No computador o Kivo já roda como aplicativo. Este guia serve para o celular ou tablet.</p>';
       }
@@ -116,8 +125,8 @@
       if (!window.isSecureContext) {
         note.hidden = false;
         note.textContent = iOS
-          ? 'No iPhone/iPad, use Compartilhar → Adicionar à Tela de Início: o Kivo abre sem a barra do navegador mesmo neste endereço local. Notificação do sistema e aviso com a tela apagada exigem HTTPS; com o Kivo aberto, o som e o título da aba avisam.'
-          : 'Este acesso é por http:// na rede local. O navegador não libera notificação do sistema nem aviso com a tela apagada nesse endereço. Use "Usar em tela cheia" e mantenha o Kivo aberto: com a tela ligada, o som/vibração e o aviso na tela funcionam.';
+          ? 'No iPhone/iPad, use Compartilhar → Adicionar à Tela de Início: o Kivo abre sem a barra do navegador mesmo neste endereço local. Notificação do sistema exige HTTPS. Nos painéis de Cozinha e Mesas o Kivo mantém a tela acesa para o som não parar; se você desligar a tela no botão do aparelho, o aviso só volta ao reabrir.'
+          : 'Este acesso é por http:// na rede local: use "Criar atalho" no menu do Chrome para abrir sem a barra do navegador. Instalação como aplicativo e notificação com a tela apagada exigem HTTPS. Nos painéis de Cozinha e Mesas o botão "Tela acesa" mantém a tela ligada para o som continuar tocando; se você desligar no botão do aparelho, o aviso só volta ao reabrir.';
       } else if (iOS && !standalone) {
         note.hidden = false;
         note.textContent = 'No iPhone, a instalação só pode ser feita pelo Safari. Se estiver em outro navegador, abra o endereço no Safari.';

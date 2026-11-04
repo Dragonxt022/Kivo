@@ -162,6 +162,25 @@ export function runSeeds(): void {
   );
   for (const [key, value, comment] of pdvSettings) insertSetting.run(key, value, randomUUID(), comment);
 
+  // Chave geral do estoque: ligada de fábrica. Desligá-la faz o Kivo tratar todos os
+  // produtos como "sem controle de quantidade" sem alterar o cadastro de cada um.
+  insertSetting.run(
+    'estoque.controlar_quantidade',
+    '1',
+    randomUUID(),
+    'Controla a quantidade de estoque de todos os produtos. "1" = ligado (padrão); "0" = desligado para todos, sem mexer no cadastro individual.',
+  );
+
+  // Acesso pela rede local: ligado de fábrica para o celular/tablet já abrir o Kivo.
+  // Se a máquina não conseguir escutar em 0.0.0.0, o boot cai para localhost sozinho
+  // (ver electron/main.ts).
+  insertSetting.run(
+    'rede.acesso_local',
+    '1',
+    randomUUID(),
+    'Permite abrir o Kivo pelo celular/tablet na mesma rede. "1" = ligado (padrão); "0" = somente este computador.',
+  );
+
   // Padrões do cadastro de produtos. Ficam explícitos aqui (e não só no código) para a
   // tela de Configurações mostrar a escolha real e o cadastro preencher igual.
   insertSetting.run(

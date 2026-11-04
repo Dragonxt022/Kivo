@@ -16,14 +16,57 @@ import path from 'node:path';
  * O caminho deriva de `KIVO_DB_PATH` pelo mesmo motivo — e do mesmo jeito — que
  * `machine-id.local` em core/license/service.ts: acompanha a instalação, não o processo.
  */
+export interface ScalePrefs {
+  /** Liga a leitura pela porta serial no PDV. Desligado por padrão: máquina sem balança. */
+  enabled: boolean;
+  /** Porta do Windows/Linux, ex.: COM3 ou /dev/ttyUSB0. */
+  path: string;
+  baudRate: number;
+  /** Protocolo do visor. `generic` espera uma linha de texto com o peso em kg. */
+  protocol: 'toledo' | 'generic';
+}
+
+export interface PrinterPrefs {
+  /** Liga a impressão ESC/POS direta (sem diálogo do Windows). */
+  enabled: boolean;
+  type: 'epson' | 'daruma' | 'star' | 'generic';
+  /** `printer:NOME`, `tcp://192.168.0.10` ou `usb`. Ver node-thermal-printer. */
+  interface: string;
+  /** Colunas por linha: 48 para 80mm, 32 para 58mm. */
+  width: 58 | 80;
+}
+
 export interface MachinePrefs {
   /** Interface sem blur/sombra/animação + GPU desligada. Ver `:root[data-lite]` em app.css. */
   modoLeve: boolean;
   /** Já rodou a detecção automática de hardware fraco — não roda de novo, para nunca desfazer a escolha manual. */
   modoLeveDetectado: boolean;
+  /** Balança de checkout. Por máquina: o PDV do balcão tem, o notebook do dono não. */
+  balanca: ScalePrefs;
+  /** Impressora térmica não fiscal (cupom do PDV). */
+  impressora: PrinterPrefs;
 }
 
-const DEFAULTS: MachinePrefs = { modoLeve: false, modoLeveDetectado: false };
+export const SCALE_DEFAULTS: ScalePrefs = {
+  enabled: false,
+  path: 'COM1',
+  baudRate: 9600,
+  protocol: 'generic',
+};
+
+export const PRINTER_DEFAULTS: PrinterPrefs = {
+  enabled: false,
+  type: 'epson',
+  interface: 'printer:',
+  width: 80,
+};
+
+const DEFAULTS: MachinePrefs = {
+  modoLeve: false,
+  modoLeveDetectado: false,
+  balanca: { ...SCALE_DEFAULTS },
+  impressora: { ...PRINTER_DEFAULTS },
+};
 
 let cache: MachinePrefs | null = null;
 
@@ -40,6 +83,10 @@ export function getMachinePrefs(): MachinePrefs {
     cache = {
       modoLeve: parsed.modoLeve === true,
       modoLeveDetectado: parsed.modoLeveDetectado === true,
+      // Arquivo de uma versão anterior não tem estas chaves: o spread garante que a
+      // máquina que já existia caia nos padrões sem perder modoLeve.
+      balanca: { ...SCALE_DEFAULTS, ...(parsed.balanca ?? {}) },
+      impressora: { ...PRINTER_DEFAULTS, ...(parsed.impressora ?? {}) },
     };
   } catch {
     // Arquivo ausente na primeira execução, ou ilegível: os padrões valem e o boot segue.
@@ -49,7 +96,14 @@ export function getMachinePrefs(): MachinePrefs {
 }
 
 export function setMachinePrefs(patch: Partial<MachinePrefs>): MachinePrefs {
-  const next = { ...getMachinePrefs(), ...patch };
+  const atual = getMachinePrefs();
+  const next = {
+    ...atual,
+    ...patch,
+    // Merge raso perderia `baudRate`/`protocol` quando a tela mandasse só o caminho.
+    balanca: { ...atual.balanca, ...(patch.balanca ?? {}) },
+    impressora: { ...atual.impressora, ...(patch.impressora ?? {}) },
+  };
   cache = next;
   try {
     const file = prefsPath();

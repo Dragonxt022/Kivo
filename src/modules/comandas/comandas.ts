@@ -7,6 +7,7 @@ import type { FoodserviceKitchenService } from '../foodservice/setup';
 import type { StoreSalesService } from '../store/setup';
 import type { SaleInput, SalePaymentInput } from '../store/sales';
 import { assertAuth } from '../../shared/auth';
+import { attachComplements } from '../../shared/lineGroupComplements';
 import { comandaRepository, comandaItemRepository } from './repositories/ComandaRepository';
 import { storeTableRepository } from './repositories/StoreTableRepository';
 import { saleRepository } from '../store/repositories/SaleRepository';
@@ -138,7 +139,11 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
  * geraram produção. Produtos fora do roteamento (refrigerante de geladeira) contam
  * como enviados mas não aparecem no KDS.
  */
-export function sendToKitchen(req: Request, comandaId: number): { ok: true; sent: number; estimatedMinutes: number | null } | { ok: false; error: string } {
+export function sendToKitchen(
+  req: Request,
+  comandaId: number,
+  serviceType: 'local' | 'entrega' = 'local',
+): { ok: true; sent: number; estimatedMinutes: number | null } | { ok: false; error: string } {
   assertAuth(req);
   const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
@@ -148,7 +153,10 @@ export function sendToKitchen(req: Request, comandaId: number): { ok: true; sent
   if (!hasService('foodservice.kitchen')) return { ok: true, sent: 0, estimatedMinutes: null };
   const kitchen = getService<FoodserviceKitchenService>('foodservice.kitchen');
   const alreadySent = new Set(kitchen.findSentComandaItemIds(items.map((i) => i.id)));
-  const pending = items.filter((i) => !alreadySent.has(i.id));
+  // O principal leva os complementos do grupo no ticket — Granola/Leite não são produtos
+  // roteados e, sem isso, a cozinha só via o Açaí.
+  const enriched = attachComplements(items, (i) => i.productName ?? String(i.productId));
+  const pending = enriched.filter((i) => !alreadySent.has(i.id));
   if (!pending.length) return { ok: true, sent: 0, estimatedMinutes: null };
   const tableLabel = comanda.table_id
     ? (storeTableRepository.findByComandaTableId(comanda.table_id) as { label: string } | undefined)?.label
@@ -158,7 +166,17 @@ export function sendToKitchen(req: Request, comandaId: number): { ok: true; sent
     result = kitchen.notifyOrder(req, {
       sourceType: 'comanda', sourceId: comandaId,
       tableLabel,
-      items: pending.map((i) => ({ productId: i.productId, name: i.productName ?? String(i.productId), qty: i.qty, notes: i.notes ?? undefined, comandaItemId: i.id })),
+      // Padrão da comanda é consumo no local; o garçom pode marcar Entrega na própria
+      // tela quando o pedido for para viagem.
+      serviceType: serviceType === 'entrega' ? 'entrega' : 'local',
+      items: pending.map((i) => ({
+        productId: i.productId,
+        name: i.productName ?? String(i.productId),
+        qty: i.qty,
+        notes: i.notes ?? undefined,
+        complements: i.complements,
+        comandaItemId: i.id,
+      })),
     });
   } catch {
     // Aqui falha NÃO é silenciosa: o garçom precisa saber que a cozinha não recebeu.

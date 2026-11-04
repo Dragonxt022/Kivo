@@ -81,8 +81,8 @@
               <div class="ps-card-cat" x-text="p.category || 'Sem categoria'"></div>
               <div class="ps-card-info">
                 <span class="ps-card-unit">Un: <strong x-text="p.unit"></strong></span>
-                <span class="ps-card-stock" :class="{ 'ps-stock-low': p.track_stock && p.stock_qty <= (p.min_stock || 0) }">
-                  Est: <strong x-text="p.track_stock ? p.stock_qty : '—'"></strong>
+                <span class="ps-card-stock" :class="{ 'ps-stock-low': p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= (p.min_stock || 0) }">
+                  Est: <strong x-text="p.track_stock && KIVO_ESTOQUE_ATIVO ? p.stock_qty : '—'"></strong>
                 </span>
               </div>
               <div class="ps-card-price" x-text="brl(p.price_cents)"></div>
@@ -113,8 +113,8 @@
               <div class="ps-list-meta">
                 <span class="ps-list-cat" x-text="p.category || 'Sem categoria'"></span>
                 <span class="ps-list-unit">Un: <strong x-text="p.unit"></strong></span>
-                <span class="ps-list-stock" :class="{ 'ps-stock-low': p.track_stock && p.stock_qty <= (p.min_stock || 0) }">
-                  Est: <strong x-text="p.track_stock ? p.stock_qty : '—'"></strong>
+                <span class="ps-list-stock" :class="{ 'ps-stock-low': p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= (p.min_stock || 0) }">
+                  Est: <strong x-text="p.track_stock && KIVO_ESTOQUE_ATIVO ? p.stock_qty : '—'"></strong>
                 </span>
               </div>
             </div>
@@ -271,7 +271,7 @@
         </div>
         <div class="ps-cart-field">
           <label>Fornecedor</label>
-          <select class="select" x-model.number="checkoutSupplierId">
+          <select class="select" data-search x-model.number="checkoutSupplierId">
             <option value="">Selecione…</option>
             <template x-for="s in suppliers" :key="s.id">
               <option :value="s.id" x-text="s.name"></option>
@@ -406,7 +406,7 @@
       <div class="dialog-body">
         <div class="field">
           <label>Fornecedor</label>
-          <select x-model.number="historyForm.supplierId">
+          <select data-search x-model.number="historyForm.supplierId">
             <option value="">Selecione…</option>
             <template x-for="s in suppliers" :key="s.id"><option :value="s.id" x-text="s.name"></option></template>
           </select>

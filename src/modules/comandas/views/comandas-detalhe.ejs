@@ -22,6 +22,21 @@
         <p class="muted" x-show="comanda?.notes" x-text="'Obs.: ' + (comanda?.notes ?? '')"></p>
       </div>
       <div class="toolbar header-actions" x-show="isOpen" x-cloak>
+        <%# Tipo do pedido: a comanda nasce como consumo no local; o garçom troca para
+            Entrega quando o pedido for para viagem. %>
+        <div class="comanda-service-type" x-show="kitchenPendingCount() > 0" x-cloak
+             role="group" aria-label="Tipo do pedido">
+          <button type="button" class="btn secondary" :class="{ active: serviceType === 'local' }"
+                  @click="serviceType = 'local'" title="Consumir no local">
+            <%- svgIcon('plate-utensils', 15, 15) %>
+            <span class="btn-label">Local</span>
+          </button>
+          <button type="button" class="btn secondary entrega" :class="{ active: serviceType === 'entrega' }"
+                  @click="serviceType = 'entrega'" title="Pedido para entrega">
+            <%- svgIcon('motorcycle', 15, 15) %>
+            <span class="btn-label">Entrega</span>
+          </button>
+        </div>
         <%# Envio explícito: enquanto monta o pedido o cliente pode desistir/trocar —
             a cozinha só vê o que o garçom confirmar aqui. %>
         <%# Só os itens ainda não enviados contam: depois do primeiro envio o botão fica
@@ -55,7 +70,7 @@
     <div class="panel comanda-panel">
       <div class="comanda-items" x-show="items.length">
         <template x-for="(item, idx) in items" :key="item.id">
-          <div class="comanda-item" :class="{ 'is-complement': isComplement(idx) }">
+          <div class="comanda-item" :class="{ 'is-open': isOpen, 'is-complement': isComplement(idx) }">
             <div class="comanda-item-qty" x-show="!isOpen" x-text="fmtQty(item.qty) + 'x'"></div>
             <button type="button" class="comanda-item-qty qty-badge-btn" x-show="isOpen && isComplement(idx)"
                     @click="openQtyDlg(item)" :title="'Alterar quantidade de ' + item.product_name"
@@ -70,7 +85,7 @@
                       x-text="fmtQty(item.qty)"></button>
               <button type="button" class="qty-btn" @click="changeItemQty(item, 1)" title="Aumentar">+</button>
             </div>
-            <div x-show="isComplement(idx)" style="color:var(--text-muted)">↳</div>
+            <div class="comanda-item-mark" x-show="isComplement(idx)" style="color:var(--text-muted)">↳</div>
             <div class="comanda-item-info">
               <%# Clicar no nome abre o editor de observação (como no PDF): clicou de novo,
                   editou de novo — enquanto a comanda estiver aberta. %>
@@ -113,10 +128,10 @@
         <div style="display:flex;gap:.5rem;min-width:0">
           <input type="text" class="input" style="flex:1;min-width:0" x-model="searchQ"
                  @input.debounce.300ms="searchProducts" @keydown.enter.prevent="quickAdd"
-                 placeholder="Buscar produto por nome, SKU ou código de barras…" x-ref="searchInput" />
+                 placeholder="Buscar produto…" x-ref="searchInput" />
           <button type="button" class="btn secondary" @click="openBrowse()" title="Procurar produtos">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-            Procurar
+            <span class="btn-label">Procurar</span>
           </button>
         </div>
         <div class="combo-results" x-show="searchResults.length" x-cloak>
@@ -139,10 +154,10 @@
             </button>
           </template>
         </div>
-        <div style="display:flex;gap:.5rem;margin-top:.5rem">
-          <input type="text" class="input" style="width:110px" x-model="pendingQtyRaw" @input="pendingQty = parseQty(pendingQtyRaw)" min="0.001" step="0.001" placeholder="Qtd" title="Quantidade (ex: 0,350 kg)" />
-          <input type="text" class="input" style="flex:1;min-width:0" x-model="itemNotes"
-                 maxlength="500" placeholder="Obs. próximo item (ex.: sem cebola) — opcional" />
+        <div class="comanda-qty-notes">
+          <input type="text" class="input comanda-qty-input" x-model="pendingQtyRaw" @input="pendingQty = parseQty(pendingQtyRaw)" min="0.001" step="0.001" placeholder="Qtd" title="Quantidade (ex: 0,350 kg)" />
+          <input type="text" class="input comanda-notes-input" x-model="itemNotes"
+                 maxlength="500" placeholder="Observação" title="Observação do próximo item (opcional)" />
         </div>
         <p class="muted text-sm" style="margin:.35rem 0 0" x-show="pendingQty !== 1">Qtd para o próximo lançamento: <strong x-text="pendingQty"></strong></p>
       </div>
@@ -406,8 +421,8 @@
             <span class="prod-meta">
               <span class="muted text-sm" x-show="p.category" x-text="p.category"></span>
               <span class="prod-stock"
-                    :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
-                    x-show="p.track_stock"
+                    :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                    x-show="p.track_stock && KIVO_ESTOQUE_ATIVO"
                     x-text="'Est: ' + p.stock_qty"></span>
             </span>
             <span class="prod-price" x-text="brl(p.price_cents)"></span>
@@ -432,10 +447,10 @@
               </span>
               <span class="prod-list-meta">
                 <span x-show="p.category" x-text="p.category"></span>
-                <span x-show="p.category && p.track_stock">·</span>
+                <span x-show="p.category && p.track_stock && KIVO_ESTOQUE_ATIVO">·</span>
                 <span class="prod-stock"
-                      :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
-                      x-show="p.track_stock"
+                      :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                      x-show="p.track_stock && KIVO_ESTOQUE_ATIVO"
                       x-text="'Est: ' + p.stock_qty"></span>
               </span>
             </span>
@@ -514,6 +529,26 @@
     }
     .comanda-total strong { color: var(--primary); font-size: 1.25rem; }
 
+    /* Linha Quantidade + Observação do próximo item. */
+    .comanda-service-type { display: inline-flex; align-items: center; gap: .25rem; }
+    .comanda-service-type .btn.active {
+      border-color: var(--primary); background: var(--primary-bg); color: var(--primary);
+    }
+    .comanda-service-type .btn.entrega.active {
+      border-color: var(--warning-text); background: var(--warning-bg); color: var(--warning-text);
+    }
+    .comanda-qty-notes { display: flex; gap: .5rem; margin-top: .5rem; }
+    .comanda-qty-input { width: 96px; flex: none; }
+    .comanda-notes-input { flex: 1; min-width: 0; }
+    @media (max-width: 400px) {
+      /* Na busca, o rótulo "Procurar" come metade do campo. Fica só a grade (com title). */
+      .comanda-add-panel .btn-label { display: none; }
+      .comanda-add-panel .combo-wrap > div:first-child .btn {
+        width: 44px; padding: 0; flex: none; justify-content: center;
+      }
+      .comanda-qty-input { width: 80px; }
+    }
+
     .tables-mini-grid { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0 1rem; }
     .mini-table {
       padding: .55rem 1.1rem; border-radius: 10px; border: 1.5px solid var(--border-light);
@@ -558,6 +593,30 @@
       .comanda-item .icon-btn { width: 40px; height: 40px; }
       .qty-btn { width: 40px; height: 40px; font-size: 1.05rem; }
       .qty-open-btn { min-width: 72px; height: 44px; font-size: 1.05rem; }
+
+      /* Comanda aberta no celular: o stepper (− qtd +) + nome + preço + lixeira não cabem
+         numa linha só e o preço acabava por cima do nome (print do garçom). Aqui o item
+         vira duas linhas: nome/lixeira em cima, stepper/preço embaixo. A comanda fechada
+         (só o selo "2x") continua numa linha — é leitura, não operação. */
+      .comanda-item.is-open { flex-wrap: wrap; row-gap: .55rem; column-gap: .6rem; }
+      .comanda-item.is-open .comanda-item-info { order: 1; flex: 1 1 60%; }
+      .comanda-item.is-open > .icon-btn { order: 2; }
+      .comanda-item.is-open .qty-wrap,
+      .comanda-item.is-open .comanda-item-qty,
+      .comanda-item.is-open .comanda-item-mark { order: 3; }
+      .comanda-item.is-open .comanda-item-price { order: 4; margin-left: auto; }
+
+      /* Nome de produto comprido quebra dentro do cartão em vez de empurrar o preço. */
+      .comanda-item-name { overflow-wrap: anywhere; }
+      .comanda-item-info { min-width: 0; }
+    }
+
+    /* O botão flutuante de suporte fica na mesma faixa da barra fixa "Fechar comanda".
+       Sobe enquanto a barra estiver visível, como já acontece no PDV. */
+    @media (max-width: 720px) {
+      body:has(.close-bar:not([style*='display: none'])) .fab {
+        bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 4.5rem + 14px);
+      }
     }
 
     .browse-cats { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .7rem; }
@@ -604,6 +663,8 @@
         comanda: null,
         chamandoCaixa: false,
         enviandoCozinha: false,
+        // Padrão sempre consumo no local; entrega é escolha explícita do garçom.
+        serviceType: 'local',
         items: [],
         searchQ: '',
         itemNotes: '',
@@ -644,7 +705,7 @@
           if (!r.ok) { window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar comanda.'); return; }
           const data = await r.json();
           this.comanda = data;
-          this.items = data.items || [];
+          this.items = this.groupItems(data.items || []);
           this.isOpen = data.status === 'aberta';
         },
         brl(c) { return window.brl(c); },
@@ -705,6 +766,38 @@
           const raw = String(v ?? '').trim().replace(',', '.');
           const n = Number(raw);
           return raw === '' || isNaN(n) ? NaN : n;
+        },
+        // O banco pode devolver os grupos intercalados quando duas confirmações do
+        // diálogo de complementos se cruzam (A principal, B principal, A adicional...).
+        // Agrupa pelo line_group_uuid para o adicional ficar sempre logo abaixo do
+        // principal — é o que faz a Granola parecer parte do Açaí.
+        groupItems(items) {
+          const groups = new Map();
+          const out = [];
+          for (const item of items) {
+            const key = item.line_group_uuid;
+            if (!key) {
+              out.push(item);
+              continue;
+            }
+            let group = groups.get(key);
+            if (!group) {
+              group = [];
+              groups.set(key, group);
+              out.push(group);
+            }
+            group.push(item);
+          }
+          const flat = [];
+          for (const entry of out) {
+            if (Array.isArray(entry)) {
+              entry.sort((a, b) => Number(a.id) - Number(b.id));
+              flat.push(...entry);
+            } else {
+              flat.push(entry);
+            }
+          }
+          return flat;
         },
         isComplement(idx) {
           const item = this.items[idx];
@@ -949,7 +1042,11 @@
         async enviarCozinha() {
           this.enviandoCozinha = true;
           try {
-            const r = await fetch(`/api/comandas/comandas/${this.comandaId}/enviar-cozinha`, { method: 'POST' });
+            const r = await fetch(`/api/comandas/comandas/${this.comandaId}/enviar-cozinha`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ serviceType: this.serviceType }),
+            });
             if (!r.ok) {
               const b = await r.json().catch(() => null);
               showToast((b && b.error) || 'Não foi possível enviar para a cozinha.', 'error');

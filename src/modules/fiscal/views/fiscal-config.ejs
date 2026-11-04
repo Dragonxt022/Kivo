@@ -247,7 +247,7 @@
             </div>
             <div class="field">
               <label>Município</label>
-              <select class="select" x-model="empresa.municipioIbge" :disabled="!municipios.length || municipiosCarregando">
+              <select class="select" data-search data-placeholder="Buscar município…" x-model="empresa.municipioIbge" :disabled="!municipios.length || municipiosCarregando">
                 <option value="" x-text="municipiosCarregando ? 'Buscando municípios…' : (empresa.uf ? 'Selecione o município…' : 'Selecione a UF primeiro…')"></option>
                 <template x-for="m in municipios" :key="m.code">
                   <option :value="m.code" x-text="m.name"></option>

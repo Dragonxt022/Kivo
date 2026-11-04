@@ -31,8 +31,8 @@
       <% } %>
       <%- include('partials/search-filter', { statusOptions: _billStatusOpts, placeholder: _billPlaceholder }) %>
       <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
-        Venc. de <input type="date" x-model="fromDate" @change="load()" class="input-search" />
-        até <input type="date" x-model="toDate" @change="load()" class="input-search" />
+        Venc. de <input type="date" data-picker x-model="fromDate" @change="load()" class="input-search" />
+        até <input type="date" data-picker x-model="toDate" @change="load()" class="input-search" />
       </label>
       <a class="btn secondary small" :href="exportUrl()" title="Exportar as contas filtradas (com dias em atraso)">Exportar CSV</a>
       <span class="muted" x-text="pageTotal + ' registro(s)'"></span>

@@ -20,8 +20,8 @@
       <a href="/app/dre/categorias">Categorias do DRE</a>.
     </p>
     <div class="toolbar">
-      <input type="date" x-model="from" @change="load()" class="input-search" />
-      <input type="date" x-model="to" @change="load()" class="input-search" />
+      <input type="date" data-picker x-model="from" @change="load()" class="input-search" />
+      <input type="date" data-picker x-model="to" @change="load()" class="input-search" />
       <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
         Base
         <select x-model="basis" @change="load()" class="input-search">

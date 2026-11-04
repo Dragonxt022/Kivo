@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Request } from 'express';
 import { audit } from '../../core/audit/service';
 import { settingsRepository } from '../../core/repositories/SettingsRepository';
+import { stockControlEnabled } from '../../core/config/stockControl';
 import { productRepository } from './repositories/ProductRepository';
 import { stockMovementRepository } from './repositories/StockMovementRepository';
 import { lotRepository, type LotConsumption, type ProductLotRow } from './repositories/LotRepository';
@@ -55,6 +56,14 @@ export function moveStockRaw(
   const product = productRepository.findByIdWithColumns(productId, 'id, name, track_stock, stock_qty, cost_cents, controla_lote') as
     | { id: number; name: string; track_stock: number; stock_qty: number; cost_cents: number; controla_lote: number } | undefined;
   if (!product) return { ok: false, error: 'Produto não encontrado.' };
+
+  // Chave geral desligada: todo produto se comporta como "não controla estoque".
+  // Movimentações automáticas (venda, compra, estorno) seguem sem mexer no saldo para
+  // não quebrar o fluxo; ajuste manual é recusado, como no produto sem controle.
+  if (!stockControlEnabled()) {
+    if (refEntity) return { ok: true, balance: product.stock_qty };
+    return { ok: false, error: 'O controle de quantidade está desativado em Configurações › Estoque.' };
+  }
 
   // Produtos sem controle de estoque: ignorar silenciosamente movimentações automáticas
   // (venda, cancelamento, compra — identificadas por refEntity) e rejeitar ajustes manuais.
@@ -187,7 +196,7 @@ export function restoreLotsForSale(
   refEntity: string,
   refId: string | number,
 ): number {
-  if (!(qty > 0)) return 0;
+  if (!(qty > 0) || !stockControlEnabled()) return 0;
   const consumos = lotRepository.raw(
     `SELECT lc.id, lc.qty, lc.unit_cost_cents, pl.code, pl.expires_at
        FROM lot_consumptions lc
@@ -253,6 +262,9 @@ export function fifoUnitCostCents(productId: number, qty: number, fallbackCents:
 
 /** Lotes vencendo dentro do prazo configurado (ou já vencidos). */
 export function listExpiringLots(days?: number): (ProductLotRow & { product_name: string })[] {
+  // Sem controle de quantidade não há alerta de validade: o saldo e os lotes não são
+  // movimentados, então o aviso só geraria ruído.
+  if (!stockControlEnabled()) return [];
   const d = days ?? Number(settingsRepository.get('estoque.validade_alerta_dias') ?? 30);
   return lotRepository.listExpiring(Number.isFinite(d) && d >= 0 ? d : 30);
 }
@@ -267,6 +279,9 @@ export function writeOffLot(
   lotId: number,
   reason?: string,
 ): { ok: true; qty: number } | { ok: false; error: string } {
+  if (!stockControlEnabled()) {
+    return { ok: false, error: 'O controle de quantidade está desativado em Configurações › Estoque.' };
+  }
   const lot = lotRepository.findById(lotId) as ProductLotRow | undefined;
   if (!lot) return { ok: false, error: 'Lote não encontrado.' };
   const qty = Number(lot.qty);
@@ -298,6 +313,7 @@ function yieldTick(): Promise<void> {
 }
 
 export async function recomputeStockForProducts(productIds: number[]): Promise<void> {
+  if (!stockControlEnabled()) return;
   for (const productId of new Set(productIds)) {
     await yieldTick();
     // Produtos sem controle de estoque não precisam ter o saldo recalculado.

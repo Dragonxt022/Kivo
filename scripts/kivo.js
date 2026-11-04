@@ -56,7 +56,7 @@ function listCommands() {
       'dist:win',
       'release:win',
     ],
-    Qualidade: ['lint', 'format'],
+    Qualidade: ['lint', 'format', 'typecheck:e2e'],
     Banco: ['db:migrate', 'db:rollback', 'db:reset', 'db:seed:demo', 'db:status'],
     Testes: [
       'test',
@@ -125,9 +125,15 @@ function listCommands() {
       'test:e2e:compras',
       'test:e2e:kivo-web-mobile',
       'test:e2e:mobile',
+      'test:e2e:tela',
+      'test:e2e:tipo-pedido',
+      'test:e2e:responsivo',
+      'test:e2e:sons',
+      'test:e2e:complementos',
+      'test:https',
     ],
     Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
-    Utilitário: ['smoke', 'postinstall'],
+    Utilitário: ['smoke', 'postinstall', 'https:mkcert'],
   };
 
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8'));

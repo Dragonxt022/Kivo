@@ -1028,7 +1028,8 @@
   // Registra a página atual e mostra balões no canto inferior direito com as últimas
   // páginas visitadas (exceto a home/lançador e a própria página atual). Máx. 3.
   var STORAGE = 'kivo:recent', ENABLED = 'kivo:recent-enabled', SHOW_MAX = 3, STORE_MAX = 12, APPEAR_DELAY = 3000, STAGGER = 220;
-  function enabled(){ try { return (localStorage.getItem(ENABLED) ?? '1') !== '0'; } catch(e){ return true; } }
+  // Desativado por padrão: o balão flutuante é um extra, não parte da navegação.
+  function enabled(){ try { return localStorage.getItem(ENABLED) === '1'; } catch(e){ return false; } }
   function read(){ try { return JSON.parse(localStorage.getItem(STORAGE) || '[]'); } catch(e){ return []; } }
   function write(l){ try { localStorage.setItem(STORAGE, JSON.stringify(l)); } catch(e){} }
   function here(){ return location.pathname + location.search; }
@@ -1136,6 +1137,13 @@
     só emite script para quem tem permissão de ver mesas, vendas ou cozinha. %>
 <%- include('mobile-app') %>
 <%- include('ready-alerts', { user }) %>
+
+<%# Painéis que ficam abertos no tablet/celular: mantêm a tela acesa para o som e o
+    aviso do pedido novo não pararem quando o aparelho apaga sozinho. O script usa
+    Wake Lock onde existe e cai para um vídeo mudo em loop no http:// da rede local. %>
+<% if (typeof page !== 'undefined' && (page === '/app/foodservice/cozinha' || page === '/app/comandas/mesas')) { %>
+<script nonce="<%= cspNonce %>" src="/js/keep-awake.js"></script>
+<% } %>
 
 <script nonce="<%= cspNonce %>">
   // Tabelas largas no celular: embrulha cada <table> de `main` num contêiner com rolagem

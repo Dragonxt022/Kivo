@@ -1,6 +1,6 @@
 {
   "name": "Kivo",
-  "version": "2.1.6",
+  "version": "2.1.11",
   "description": "Kivo — plataforma comercial modular desktop-first",
   "author": "Kivo",
   "private": true,
@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
+    "@floating-ui/dom": "^1.8.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.1",
     "@types/express-rate-limit": "^5.1.3",
@@ -50,16 +51,21 @@
     "electron-builder": "^25.1.8",
     "eslint": "^9.27.0",
     "eslint-config-prettier": "^10.1.0",
+    "flatpickr": "^4.6.13",
     "playwright": "^1.61.1",
     "prettier": "^3.5.0",
+    "sortablejs": "^1.15.7",
+    "tom-select": "^2.6.2",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
-    "typescript-eslint": "^8.32.0"
+    "typescript-eslint": "^8.32.0",
+    "uplot": "^1.6.32"
   },
   "build": {
     "appId": "com.kivo.desktop",
     "productName": "Kivo",
     "asar": true,
+    "npmRebuild": false,
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**",
       "**/*.node"
@@ -107,5 +113,9 @@
       "output": "dist-installer",
       "buildResources": "build"
     }
+  },
+  "optionalDependencies": {
+    "node-thermal-printer": "^4.6.1",
+    "serialport": "^13.0.0"
   }
 }

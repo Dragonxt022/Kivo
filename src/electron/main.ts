@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog, Menu, nativeTheme, net, screen } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeTheme, net, screen, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import fs from 'node:fs';
 import path from 'node:path';
+import https from 'node:https';
 import type { Server } from 'node:http';
 import { migrateUp } from '../core/database/migrator';
 import { runSeeds } from '../core/database/seeds';
@@ -9,9 +10,11 @@ import { createServer } from '../core/server';
 import { getSqlite } from '../core/database/connection';
 import { refreshLicenseFromCloud } from '../core/license/service';
 import { getMachinePrefs, setMachinePrefs, hardwareFraco } from '../core/config/machinePrefs';
+import { ensureHttpsDir, findHttpsFiles, tlsOptions } from '../core/config/httpsCert';
 import { patchUpdateState, getUpdateState, registrarUpdaterDriver } from '../core/updater';
 import { createLogger } from '../core/logger';
 import { bootLog } from './bootLog';
+import { registerHardwareIpc } from './hardware';
 import { installTelemetry, registerInventoryProvider, recordError } from '../core/telemetry/service';
 
 const log = createLogger('electron');
@@ -419,6 +422,10 @@ async function boot() {
 
   Menu.setApplicationMenu(null);
 
+  // Balança e impressora térmica: registra os canais antes de abrir a janela, para a
+  // primeira tela do PDV já encontrar a ponte pronta. As bibliotecas são opcionais.
+  registerHardwareIpc();
+
   // Splash primeiro: dá feedback imediato enquanto migrations/seeds/licença (trabalho
   // pesado e, em parte, síncrono) seguram o boot. A folga de 50 ms é para o renderer
   // pintar antes de o loop principal ficar ocupado.
@@ -465,20 +472,23 @@ async function boot() {
   await refreshLicenseFromCloud();
   const { app: api } = await createServer();
   bootLog('boot: servidor Express criado');
-  // Desligado por padrão: só passa a escutar em todas as interfaces (alcançável pelo
-  // celular do garçom / tablet da cozinha na mesma rede Wi-Fi/cabo) se o admin ligar
-  // "Acesso pela rede local" em Configurações. A troca vale na hora, sem reiniciar —
-  // ver `rebindLan` abaixo.
+  // Ligado por padrão: escuta em todas as interfaces (alcançável pelo celular do garçom /
+  // tablet da cozinha na mesma rede) e o admin pode desligar em Configurações. A troca
+  // vale na hora, sem reiniciar — ver `rebindLan` abaixo.
   const lanRow = getSqlite()
     .prepare("SELECT value FROM settings WHERE key = 'rede.acesso_local' AND deleted_at IS NULL")
     .get() as { value: string } | undefined;
-  let lanAtivo = lanRow?.value === '1';
+  // Ligado por padrão: a chave só desliga quando gravada explicitamente como '0'.
+  // Instalações antigas (sem a chave) passam a abrir para o celular/tablet da rede.
+  let lanAtivo = lanRow?.value !== '0';
   // A tela de Configurações compara isto com a chave salva para dizer se o acesso pela
   // rede JÁ está valendo. Sem esse retorno, quem ligava a chave não tinha como saber por
   // que o celular continuava sem abrir.
   api.locals.lanAtivo = lanAtivo;
 
   let servidor: Server;
+  let httpsServidor: Server | null = null;
+  ensureHttpsDir();
 
   /**
    * Sobe o servidor no host correspondente ao estado do "Acesso pela rede local".
@@ -508,7 +518,44 @@ async function boot() {
     return s;
   }
 
+  /**
+   * HTTPS opcional com certificado próprio. Só existe se houver `https.pfx` ou
+   * `https.crt` + `https.key` na pasta de certificados (ver core/config/httpsCert.ts).
+   * É o endereço que o tablet usa para instalar como aplicativo e liberar Wake Lock.
+   * Uma falha aqui NÃO derruba o HTTP/PDV: o app continua no ar e a tela mostra o erro.
+   */
+  function escutarHttps(ligado: boolean): Server | null {
+    const files = findHttpsFiles();
+    if (!files) {
+      api.locals.httpsAtivo = false;
+      return null;
+    }
+    const host = ligado ? '0.0.0.0' : '127.0.0.1';
+    try {
+      const s = https.createServer(tlsOptions(files), api);
+      api.locals.httpsPort = files.port;
+      s.once('listening', () => {
+        api.locals.httpsAtivo = true;
+        api.locals.httpsErro = null;
+        bootLog(`boot: HTTPS em ${host}:${files.port} (${path.basename(files.pfxPath ?? files.certPath ?? '')})`);
+      });
+      s.once('error', (err: NodeJS.ErrnoException) => {
+        api.locals.httpsAtivo = false;
+        api.locals.httpsErro = err.message;
+        appendErrorLog(`[https] falha em ${host}:${files.port} — ${err.message}`);
+      });
+      s.listen(files.port, host);
+      return s;
+    } catch (err) {
+      api.locals.httpsAtivo = false;
+      api.locals.httpsErro = err instanceof Error ? err.message : String(err);
+      appendErrorLog(`[https] não foi possível criar o servidor — ${api.locals.httpsErro}`);
+      return null;
+    }
+  }
+
   servidor = escutar(lanAtivo, true);
+  httpsServidor = escutarHttps(lanAtivo);
   bootLog(`boot: escutando em ${lanAtivo ? '0.0.0.0' : '127.0.0.1'}:${PORT}`);
 
   /**
@@ -520,11 +567,17 @@ async function boot() {
   api.locals.rebindLan = (ligado: boolean): Promise<boolean> => {
     if (ligado === lanAtivo) return Promise.resolve(true);
     return new Promise((resolve) => {
-      const antigo = servidor;
-      const subir = () => {
+      const antigoHttp = servidor;
+      const antigoHttps = httpsServidor;
+      let pendentes = 1 + (antigoHttps ? 1 : 0);
+      const liberar = () => {
+        if (--pendentes > 0) return;
         const novo = escutar(ligado);
         novo.once('listening', () => {
           servidor = novo;
+          // Sobe o HTTPS depois do HTTP; se o certificado estiver inválido, o app segue
+          // no HTTP e a tela mostra o erro em `httpsErro`.
+          httpsServidor = escutarHttps(ligado);
           lanAtivo = ligado;
           api.locals.lanAtivo = ligado;
           resolve(true);
@@ -533,9 +586,13 @@ async function boot() {
         // (a tela relê o estado real logo depois).
         novo.once('error', () => resolve(false));
       };
-      antigo.close(() => subir());
-      // Sem isto, um keep-alive do navegador segura o `close` por segundos.
-      (antigo as Server & { closeAllConnections?: () => void }).closeAllConnections?.();
+      const fechar = (s: Server) => {
+        s.close(liberar);
+        // Sem isto, um keep-alive do navegador segura o `close` por segundos.
+        (s as Server & { closeAllConnections?: () => void }).closeAllConnections?.();
+      };
+      fechar(antigoHttp);
+      if (antigoHttps) fechar(antigoHttps);
     });
   };
 
@@ -554,6 +611,50 @@ async function boot() {
     },
   });
   win.maximize();
+
+  /**
+   * Janelas abertas por `window.open` (cupom, orçamento, relatório de caixa).
+   *
+   * O padrão do Electron NÃO herda o preload na janela filha. Sem isto, o cupom abria
+   * sem `window.kivo` — a impressora térmica caía no diálogo do Windows e a balança
+   * desaparecia justamente na tela de impressão. Links externos (billing, planos)
+   * passam a abrir no navegador do sistema, com a sessão do Kivo intacta.
+   */
+  win.webContents.setWindowOpenHandler(({ url, features }) => {
+    let destino: URL;
+    try {
+      destino = new URL(url);
+    } catch {
+      return { action: 'deny' };
+    }
+    const interno = destino.origin === `http://localhost:${PORT}` || destino.origin === `http://127.0.0.1:${PORT}`;
+    if (!interno) {
+      if (destino.protocol === 'https:' || destino.protocol === 'http:') {
+        shell.openExternal(url).catch(() => {});
+      }
+      return { action: 'deny' };
+    }
+    // `window.open(url, '_blank', 'width=380,height=600')` — respeita o tamanho pedido
+    // pela tela (cupom estreito, relatório largo) em vez do padrão do Electron.
+    const medidas = new URLSearchParams(features.replace(/,/g, '&'));
+    const largura = Number(medidas.get('width')) || 900;
+    const altura = Number(medidas.get('height')) || 800;
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        width: largura,
+        height: altura,
+        autoHideMenuBar: true,
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.js'),
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+        },
+      },
+    };
+  });
+
   // A janela principal só aparece quando a primeira página já pintou — nada de tela branca
   // no meio do caminho. A splash sai junto, com um tempo mínimo para não piscar em máquinas
   // rápidas (e para o usuário perceber a abertura, que era o pedido).

@@ -64,8 +64,8 @@
           <option :value="f.phase" x-text="f.label"></option>
         </template>
       </select>
-      <input class="input" type="date" x-model="filtro.from" @change="load()" title="A partir de" />
-      <input class="input" type="date" x-model="filtro.to" @change="load()" title="Até" />
+      <input class="input" type="date" data-picker x-model="filtro.from" @change="load()" title="A partir de" />
+      <input class="input" type="date" data-picker x-model="filtro.to" @change="load()" title="Até" />
       <span class="muted text-xs" x-text="resumo.total + ' arquivo(s)' + (resumo.ultimo_em ? ' · mais recente ' + fmtDate(resumo.ultimo_em) : '')"></span>
       <span class="error" x-text="error"></span>
     </div>

@@ -54,7 +54,9 @@ console.log(`[ensure-native-abi] better-sqlite3 incompatível com ${target} — 
 const rebuild =
   target === 'node'
     ? spawnSync('npm', ['rebuild', 'better-sqlite3'], { stdio: 'inherit', shell: true })
-    : spawnSync('npx', ['electron-rebuild', '-f', '-w', 'better-sqlite3'], { stdio: 'inherit', shell: true });
+    // `-o` (only) e não `-w` (which): com `-w`, o electron-rebuild ainda tentava
+    // compilar o serialport opcional e exigia Visual Studio na máquina de build.
+    : spawnSync('npx', ['electron-rebuild', '-f', '-o', 'better-sqlite3'], { stdio: 'inherit', shell: true });
 
 if (rebuild.status !== 0 || !probe()) {
   console.error(`[ensure-native-abi] Falha ao reconstruir better-sqlite3 para ${target}.`);

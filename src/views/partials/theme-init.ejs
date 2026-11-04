@@ -27,7 +27,12 @@
   o desembrulho do envelope abaixo, e `window.brl`, que as telas usam para formatar
   dinheiro. Script externo (e não inline) para o navegador poder cachear.
 -->
+<link rel="stylesheet" href="/css/kivo-ui.css" />
 <script nonce="<%= cspNonce %>" src="/js/money.js"></script>
+<%# Camada de interface compartilhada: calendário, select com busca, tooltip e gráfico.
+    Carrega as bibliotecas sob demanda (ver /js/kivo-ui.js) — a página que não usa não
+    paga o download. É `defer` para não atrasar a primeira pintura. %>
+<script nonce="<%= cspNonce %>" defer src="/js/kivo-ui.js"></script>
 <script nonce="<%= cspNonce %>">
 // Todo JSON do servidor vem embrulhado em { success, data } ou { success: false, error }
 // (ver src/shared/responseEnvelope.ts), mas as telas foram escritas esperando o corpo "cru"
@@ -92,6 +97,11 @@
     // servidor (app.locals.modoLeve → machine-prefs.json), e não do localStorage, porque o
     // processo principal do Electron precisa do mesmo valor para desligar a GPU no boot.
     document.documentElement.setAttribute('data-lite', '<%= typeof modoLeve !== "undefined" && modoLeve ? "1" : "0" %>');
+
+    // Chave geral do estoque (Configurações › Estoque). As telas checam esta flag junto
+    // com o `track_stock` do produto para não mostrar saldo/alerta quando o controle
+    // de quantidade está desligado para toda a loja.
+    window.KIVO_ESTOQUE_ATIVO = <%= typeof estoqueAtivo !== "undefined" && estoqueAtivo ? "true" : "false" %>;
 
     window.KIVO_COLOR_PRESETS = [
       { id: 'blue', hex: '#2563eb' },

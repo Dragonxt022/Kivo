@@ -15,9 +15,9 @@
   <main x-data="flowPage()" x-init="load()">
     <h1>Fluxo de caixa</h1>
     <div class="toolbar">
-      <input type="date" x-model="from" @change="load()"
+      <input type="date" data-picker x-model="from" @change="load()"
              class="input-search" />
-      <input type="date" x-model="to" @change="load()"
+      <input type="date" data-picker x-model="to" @change="load()"
              class="input-search" />
       <span class="muted">Total: entradas <strong x-text="brl(totals.entradas)"></strong> ·
         saídas <strong x-text="brl(totals.saidas)"></strong> ·

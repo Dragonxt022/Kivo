@@ -130,6 +130,8 @@ export const createSaleSchema = z
     // O servidor usa o negativo como source_id e adota os tickets quando a venda fecha.
     kitchenDraftId: z.number().int().positive().optional(),
     skipKitchenNotify: z.boolean().optional(),
+    // Para onde vai o pedido: o KDS troca o ícone (local x entrega).
+    serviceType: z.enum(['local', 'entrega']).optional(),
   })
   .refine((data) => data.payments?.length || data.paymentMethod, {
     message: 'Informe payments[] ou paymentMethod.',
@@ -139,6 +141,7 @@ export const createSaleSchema = z
 /** Envio antecipado do PDV direto: a venda ainda não existe, então vai um rascunho. */
 export const kitchenSendSchema = z.object({
   draftId: z.number().int().positive(),
+  serviceType: z.enum(['local', 'entrega']).optional(),
   items: z
     .array(
       z.object({
@@ -146,6 +149,7 @@ export const kitchenSendSchema = z.object({
         name: z.string().min(1).max(200),
         qty: z.number().positive(),
         notes: z.string().max(500).optional(),
+        lineGroupUuid: z.string().optional(),
       }),
     )
     .min(1, 'Nenhum item para enviar.'),

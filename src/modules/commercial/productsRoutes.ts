@@ -11,6 +11,7 @@ import { assertAuth } from '../../shared/auth';
 import { validateBody } from '../../shared/validateBody';
 import { createProductSchema, updateProductSchema } from '../../shared/schemas';
 import { moveStock } from './stock';
+import { stockControlEnabled } from '../../core/config/stockControl';
 import { resolveMany } from './pricing';
 import { validateImageBuffer } from '../../core/catalog/imageValidation';
 import { runSync } from '../../core/sync/engine';
@@ -567,7 +568,9 @@ router.post('/products', requirePermission('commercial.products.create'), valida
   if (!b.sku && autoSkuEnabled()) {
     productRepository.generateAutoSku(newId);
   }
-  if (b.initialStock != null && Number(b.initialStock) > 0) {
+  // Com a chave geral desligada não há saldo inicial a lançar: o produto é criado
+  // normalmente e o valor é ignorado (senão o cadastro falharia depois de já gravado).
+  if (b.initialStock != null && Number(b.initialStock) > 0 && stockControlEnabled()) {
     if (!req.user.permissions.has('commercial.stock.move')) {
       res.status(403).json({ error: 'Permissão negada: commercial.stock.move (estoque inicial).' });
       return;
@@ -1006,8 +1009,8 @@ router.post('/products/:id/recipe-items', requirePermission('commercial.products
     res.status(400).json({ error: 'Insumo inativo não pode ser usado na ficha técnica.' });
     return;
   }
-  if (!input.track_stock) {
-    res.status(400).json({ error: 'Insumo não controla estoque — obrigatório para ficha técnica.' });
+  if (!input.track_stock && stockControlEnabled()) {
+    res.status(400).json({ error: 'Insumo não controla estoque - obrigatório para ficha técnica.' });
     return;
   }
   if (input.product_type === 'kit' || input.product_type === 'combo' || input.product_type === 'produzido') {

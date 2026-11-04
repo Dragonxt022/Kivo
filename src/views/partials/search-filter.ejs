@@ -6,7 +6,7 @@
      x-data="searchFilter(<%= JSON.stringify(_statusOpts) %>)"
      @apply-filter.window="onApply($event.detail)">
   <input type="text" :placeholder="<%= JSON.stringify(_placeholder) %>" x-model="q" @input.debounce.300ms="emit()" class="input-search" />
-  <button type="button" class="filter-btn" :class="{ active: hasActive }" @click="$refs.filterDlg.showModal()" title="Filtros avançados">
+  <button type="button" class="filter-btn" :class="{ active: hasActive }" @click="$refs.filterDlg.showModal()" data-tip="Filtros avançados" aria-label="Filtros avançados">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
     </svg>
@@ -30,9 +30,9 @@
       <div>
         <label>Período</label>
         <div style="display:flex;gap:.4rem;align-items:center">
-          <input type="date" x-model="from" @change="quickActive = 0; emit()" style="flex:1" />
+          <input type="date" data-picker x-model="from" @change="quickActive = 0; emit()" style="flex:1" />
           <span class="muted text-xs">até</span>
-          <input type="date" x-model="to" @change="quickActive = 0; emit()" style="flex:1" />
+          <input type="date" data-picker x-model="to" @change="quickActive = 0; emit()" style="flex:1" />
         </div>
         <div class="filter-quick">
           <template x-for="d in [30, 60, 90]" :key="d">

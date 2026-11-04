@@ -19,6 +19,23 @@ export type KitchenTicketStatus = (typeof KITCHEN_TICKET_STATUSES)[number];
 export const KITCHEN_ACTIONABLE_STATUSES = ['pendente', 'preparo', 'pronto', 'entregue'] as const;
 export type KitchenActionableStatus = (typeof KITCHEN_ACTIONABLE_STATUSES)[number];
 
+/** Ordem das etapas — voltar uma etapa é permitido e usa esta régua. */
+const STATUS_RANK: Record<KitchenActionableStatus, number> = {
+  pendente: 0,
+  preparo: 1,
+  pronto: 2,
+  entregue: 3,
+};
+
+function rank(status: string): number {
+  return STATUS_RANK[status as KitchenActionableStatus] ?? -1;
+}
+
+/** Etapas à frente do alvo — só elas descem quando o pedido volta de etapa. */
+function statusesAheadOf(status: KitchenActionableStatus): KitchenActionableStatus[] {
+  return KITCHEN_ACTIONABLE_STATUSES.slice(rank(status) + 1);
+}
+
 /** Identificador do aparelho que fez a requisição (ver theme-init.ejs). */
 function actorDevice(req: Request): string | null {
   const raw = req.headers['x-kivo-device'];
@@ -42,11 +59,20 @@ function announceReady(ticketId: number, req: Request): void {
   });
 }
 
+/**
+ * Onde o pedido vai ser consumido. `local` é o padrão histórico (mesa/balcão) e
+ * `entrega` é o delivery — o KDS troca o ícone (prato/garfo x motinha) sem depender
+ * de adivinhar pelo nome da mesa ou pelo texto do pedido.
+ */
+export type KitchenServiceType = 'local' | 'entrega';
+
 export interface NotifyOrderItem {
   productId: number;
   name: string;
   qty: number;
   notes?: string;
+  /** Complementos do grupo (ex.: "Granola", "1x Leite condensado") para o KDS. */
+  complements?: string[];
   /**
    * Item de origem em `comanda_items` (só quando sourceType='comanda'). Permite ao
    * voidItem da comanda localizar e remover o item correspondente na cozinha.
@@ -62,7 +88,13 @@ export interface NotifyOrderItem {
  */
 export function notifyOrder(
   req: Request,
-  params: { sourceType: 'sale' | 'comanda'; sourceId: number; tableLabel?: string; items: NotifyOrderItem[] },
+  params: {
+    sourceType: 'sale' | 'comanda';
+    sourceId: number;
+    tableLabel?: string;
+    serviceType?: KitchenServiceType;
+    items: NotifyOrderItem[];
+  },
 ): { items: number; maxEstimatedMinutes: number | null } {
   const routingRows = kitchenRoutingRepository.findAllActive() as
     { product_id: number; station: string | null; estimated_minutes: number | null }[];
@@ -78,6 +110,7 @@ export function notifyOrder(
       source_type: params.sourceType,
       source_id: params.sourceId,
       table_label: params.tableLabel ?? null,
+      service_type: params.serviceType === 'entrega' ? 'entrega' : 'local',
       status: 'pendente',
       uuid: ticketUuid,
       updated_at: now,
@@ -92,6 +125,7 @@ export function notifyOrder(
         product_name: item.name,
         qty: item.qty,
         notes: item.notes ?? null,
+        complements: item.complements?.length ? item.complements.join(', ') : null,
         station: route.station,
         estimated_minutes: route.estimated_minutes,
         status: 'pendente',
@@ -134,9 +168,12 @@ export function advanceItemStatus(req: Request, ticketId: number, itemId: number
   if (ticket.status === 'cancelado') return { ok: false, error: 'Ticket cancelado.' };
   const item = kitchenTicketItemRepository.findInTicket(itemId, ticketId) as { id: number; status: string } | undefined;
   if (!item) return { ok: false, error: 'Item nao encontrado.' };
+  // Voltar etapa é uma correção explícita da cozinha ("marquei pronto sem querer"), então
+  // o recalc do ticket pode rebaixar — inclusive um ticket já 'entregue'.
+  const goingBack = rank(newStatus) < rank(item.status);
   kitchenTicketItemRepository.updateItemStatus(itemId, newStatus);
   audit(req, 'avancar_item_cozinha', 'kitchen_ticket_item', itemId, { status: item.status }, { status: newStatus });
-  recalcTicketStatus(req, ticketId);
+  recalcTicketStatus(req, ticketId, { allowDowngrade: goingBack });
   return { ok: true };
 }
 
@@ -144,15 +181,23 @@ export function advanceTicketStatus(req: Request, ticketId: number, newStatus: K
   const ticket = kitchenTicketRepository.findById(ticketId) as { status: string } | undefined;
   if (!ticket) return { ok: false, error: 'Ticket nao encontrado.' };
   if (ticket.status === 'cancelado') return { ok: false, error: 'Ticket cancelado.' };
+  const goingBack = rank(newStatus) < rank(ticket.status);
   kitchenTicketRepository.updateStatus(ticketId, newStatus);
-  // Propaga para os itens que ainda não terminaram: sem isso o recalc (que roda no
-  // próximo avanço de item) recalcula pelos itens antigos e REVERTE o status que a
-  // cozinha acabou de definir no ticket inteiro — ticket "entregue" voltava a aparecer
-  // como "em preparo".
-  kitchenTicketItemRepository.advanceOpenItems(ticketId, newStatus);
+  if (goingBack) {
+    // Pedido inteiro volta uma etapa: os itens que já tinham passado do alvo descem
+    // junto. Itens ainda atrasados ficam onde estão — voltar o pedido não é "reiniciar".
+    kitchenTicketItemRepository.revertItemsAbove(ticketId, newStatus, statusesAheadOf(newStatus));
+  } else {
+    // Propaga para os itens que ainda não terminaram: sem isso o recalc (que roda no
+    // próximo avanço de item) recalcula pelos itens antigos e REVERTE o status que a
+    // cozinha acabou de definir no ticket inteiro — ticket "entregue" voltava a aparecer
+    // como "em preparo".
+    kitchenTicketItemRepository.advanceOpenItems(ticketId, newStatus);
+  }
   audit(req, 'avancar_ticket_cozinha', 'kitchen_ticket', ticketId, { status: ticket.status }, { status: newStatus });
-  // O garçom/PDV precisa saber na hora — inclusive se estiver em outra página.
-  if (newStatus === 'pronto' && ticket.status !== 'pronto') announceReady(ticketId, req);
+  // O garçom/PDV precisa saber na hora — inclusive se estiver em outra página. Voltar de
+  // etapa não reanuncia: o pedido já era conhecido e o aviso viraria ruído.
+  if (!goingBack && newStatus === 'pronto' && ticket.status !== 'pronto') announceReady(ticketId, req);
   return { ok: true };
 }
 
@@ -226,11 +271,17 @@ export function syncItemNotes(req: Request, comandaItemId: number, notes: string
   audit(req, 'editar_obs_item_cozinha', 'kitchen_ticket_item', link.id, null, { comandaItemId, notes });
 }
 
-function recalcTicketStatus(req: Request, ticketId: number): void {
+function recalcTicketStatus(
+  req: Request,
+  ticketId: number,
+  opts: { allowDowngrade?: boolean } = {},
+): void {
   const ticket = kitchenTicketRepository.rawOne('SELECT status FROM kitchen_tickets WHERE id = ?', ticketId) as { status: string } | undefined;
-  // Estados finais não rebaixam: um ticket entregue não volta a "em preparo" porque
-  // alguém avançou um item esquecido depois; e cancelado só sai de lá por decisão explícita.
-  if (!ticket || ticket.status === 'entregue' || ticket.status === 'cancelado') return;
+  // 'cancelado' é definitivo. 'entregue' também não rebaixa por acidente (avançar um item
+  // esquecido depois da entrega não pode "reabrir" a mesa) — mas uma correção explícita da
+  // cozinha, que volta a etapa de um item, manda reavaliar (`allowDowngrade`).
+  if (!ticket || ticket.status === 'cancelado') return;
+  if (ticket.status === 'entregue' && !opts.allowDowngrade) return;
   const rows = kitchenTicketItemRepository.distinctStatusesByTicket(ticketId) as { status: string }[];
   let ticketStatus: KitchenTicketStatus;
   if (!rows.length) {

@@ -42,8 +42,8 @@
       <a class="btn secondary" href="/app/fiscal/produtos">Dados fiscais dos produtos</a>
       <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
         Período
-        <input type="date" x-model="from" @change="load()" class="input-search" />
-        até <input type="date" x-model="to" @change="load()" class="input-search" />
+        <input type="date" data-picker x-model="from" @change="load()" class="input-search" />
+        até <input type="date" data-picker x-model="to" @change="load()" class="input-search" />
       </label>
       <select x-model="status" @change="load()" class="input-search">
         <option value="">Todas as situações</option>

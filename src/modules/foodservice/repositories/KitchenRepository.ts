@@ -135,15 +135,30 @@ export class KitchenTicketItemRepository extends BaseRepository {
   }
 
   /**
-   * Propaga o status do ticket inteiro para os itens que ainda não terminaram
-   * ('entregue' é ponto sem volta — itens já entregues não "voltam" se o status do
-   * ticket for rebaixado manualmente).
+   * Propaga o status do ticket inteiro para os itens que ainda não terminaram. Itens já
+   * entregues ficam como estão no AVANÇO — para rebaixar o pedido existe
+   * `revertItemsAbove`, chamado quando a cozinha volta uma etapa de propósito.
    */
   advanceOpenItems(ticketId: number, status: string): void {
     this.rawRun(
       `UPDATE kitchen_ticket_items SET status = ?, updated_at = datetime('now')
        WHERE ticket_id = ? AND deleted_at IS NULL AND status != 'entregue'`,
       status, ticketId,
+    );
+  }
+
+  /**
+   * O pedido voltou de etapa: rebaixa somente os itens que estavam À FRENTE do alvo.
+   * Item que já estava atrasado (ex.: ainda pendente) não é tocado — voltar o pedido
+   * não pode "avançar" ninguém.
+   */
+  revertItemsAbove(ticketId: number, status: string, ahead: string[]): void {
+    if (!ahead.length) return;
+    const ph = ahead.map(() => '?').join(',');
+    this.rawRun(
+      `UPDATE kitchen_ticket_items SET status = ?, updated_at = datetime('now')
+       WHERE ticket_id = ? AND deleted_at IS NULL AND status IN (${ph})`,
+      status, ticketId, ...ahead,
     );
   }
 

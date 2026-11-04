@@ -27,7 +27,12 @@
     .msg-card { display: flex; gap: .75rem; align-items: flex-start; padding: .8rem .9rem; border: 1.5px solid var(--border-light); border-radius: 12px; margin-bottom: .6rem; background: var(--surface); }
     .msg-card.unread { border-color: var(--primary); }
     .msg-card.dragging { opacity: .5; }
-    .msg-drag { cursor: grab; color: var(--text-muted); flex: none; padding-top: .2rem; }
+    /* SortableJS: o card que fica no lugar vira um espaço tracejado e o que está na
+       mão ganha sombra — no toque é a única pista de que o arraste pegou. */
+    .msg-ghost { opacity: .35; border-style: dashed; background: var(--surface-hover); }
+    .msg-chosen { box-shadow: var(--shadow); border-color: var(--primary); }
+    .msg-drag { cursor: grab; color: var(--text-muted); flex: none; padding-top: .2rem; touch-action: none; }
+    .msg-drag:active { cursor: grabbing; }
     .msg-body { flex: 1; min-width: 0; cursor: pointer; }
     .msg-title { font-weight: 600; margin: 0; }
     .msg-sub { margin: .15rem 0 0; color: var(--text-muted); font-size: .85rem; }
@@ -122,11 +127,13 @@
         </template>
 
         <template x-if="!loading && active !== 'sistema'">
-          <div>
+          <%# SortableJS (carregado sob demanda por /js/kivo-ui.js) no lugar do arraste
+              nativo do HTML5: aquele não funciona no toque, e a maioria dos lojistas
+              abre as notificações pelo celular. %>
+          <div x-ref="msgList" x-init="initSortable()" x-effect="syncSortable()">
             <p class="muted muted-block" x-show="!filtered.length">Nenhuma mensagem nesta categoria.</p>
             <template x-for="m in filtered" :key="m.uuid">
-              <div class="msg-card" :class="{ unread: !m.read, dragging: dragUuid === m.uuid }"
-                   :draggable="active === 'all'" @dragstart="onDragStart($event, m)" @dragover.prevent @drop="onDrop($event, m)">
+              <div class="msg-card" :class="{ unread: !m.read }" :data-uuid="m.uuid">
                 <span class="msg-drag" x-show="active === 'all'" title="Arrastar para reordenar">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>
                 </span>
@@ -189,7 +196,6 @@
         categories: [],
         fixedCategories: [],
         active: 'all',
-        dragUuid: null,
         openMessage: null,
         openCategoryId: null,
         newCategory: '',
@@ -283,18 +289,36 @@
           if (this.active === 'my:' + c.id) this.active = 'all';
           await fetch('/api/messages/categories/' + c.id, { method: 'DELETE' }).catch(() => {});
         },
-        onDragStart(ev, m) { this.dragUuid = m.uuid; },
-        async onDrop(_ev, target) {
-          if (!this.dragUuid || this.dragUuid === target.uuid) { this.dragUuid = null; return; }
-          const from = this.messages.findIndex((m) => m.uuid === this.dragUuid);
-          const to = this.messages.findIndex((m) => m.uuid === target.uuid);
-          this.dragUuid = null;
-          if (from < 0 || to < 0) return;
-          const [item] = this.messages.splice(from, 1);
-          this.messages.splice(to, 0, item);
+        initSortable() {
+          const host = this.$refs.msgList;
+          if (!host || !window.KivoUI) return;
+          window.KivoUI.sortable(host, {
+            handle: '.msg-drag',
+            draggable: '.msg-card',
+            animation: 150,
+            ghostClass: 'msg-ghost',
+            chosenClass: 'msg-chosen',
+            // Só a lista "Todas" tem ordem própria. Nas demais (favoritas, categoria)
+            // a ordem é a que o servidor mandou — arrastar ali não teria onde gravar.
+            onMove: () => this.active === 'all',
+            onEnd: () => this.persistSortableOrder(),
+          });
+        },
+        syncSortable() {
+          const host = this.$refs.msgList;
+          if (host && host._kivoSortable) host._kivoSortable.option('disabled', this.active !== 'all');
+        },
+        async persistSortableOrder() {
+          const host = this.$refs.msgList;
+          if (!host) return;
+          const uuids = Array.from(host.querySelectorAll('.msg-card')).map((el) => el.dataset.uuid).filter(Boolean);
+          if (!uuids.length) return;
+          // Reordena o array do Alpine na mesma ordem que o DOM ficou, senão o próximo
+          // redraw devolveria os cards para a posição antiga.
+          this.messages.sort((a, b) => uuids.indexOf(a.uuid) - uuids.indexOf(b.uuid));
           await fetch('/api/messages/reorder', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uuids: this.messages.map((m) => m.uuid) }),
+            body: JSON.stringify({ uuids }),
           }).catch(() => {});
         },
 

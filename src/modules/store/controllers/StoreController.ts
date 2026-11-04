@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { getService, hasService } from '../../../core/services/registry';
 import { audit } from '../../../core/audit/service';
+import { attachComplements } from '../../../shared/lineGroupComplements';
 import { todayLocalIso } from '../../../shared/datetime';
 import type { FinancePayMethodsService } from '../../finance/setup';
 import type { FoodserviceKitchenService } from '../../foodservice/setup';
@@ -73,14 +74,20 @@ export const storeController = {
     }
     const sourceId = -Math.abs(Math.trunc(draftId));
     try {
+      const items = attachComplements(
+        req.body.items as { productId: number; lineGroupUuid?: string; qty: number; name: string; notes?: string }[],
+        (i) => i.name,
+      );
       const result = getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
         sourceType: 'sale',
         sourceId,
         tableLabel: 'PDV',
-        items: req.body.items,
+        serviceType: req.body.serviceType === 'entrega' ? 'entrega' : 'local',
+        items,
       });
       audit(req, 'enviar_cozinha_pdv', 'kitchen_ticket', sourceId, null, {
         itensNoPedido: req.body.items.length, itensEnviados: result.items,
+        serviceType: req.body.serviceType === 'entrega' ? 'entrega' : 'local',
       });
       res.json({ ok: true, sent: result.items, estimatedMinutes: result.maxEstimatedMinutes });
     } catch {

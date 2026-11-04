@@ -6,7 +6,8 @@
  * tudo atrás da capability 'foodservice.cozinha'.
  *
  * Cenários de correção (bugfix KDS):
- * - avançar o ticket INTEIRO propaga pros itens; recalc por item não rebaixa ticket 'entregue';
+ * - avançar o ticket INTEIRO propaga pros itens; voltar etapa (item ou ticket) reabre o
+ *   pedido e nunca "avança" item que já estava atrasado;
  * - cancelar venda/comanda marca os tickets em aberto como 'cancelado' (não ficam pendentes eternos);
  * - item de comanda NÃO vai automático: só no "Enviar p/ cozinha" explícito do garçom
  *   (reenvio não duplica; anular antes do envio nunca criou ticket; anular depois remove;
@@ -133,15 +134,25 @@ async function main() {
   const t2items = db.prepare('SELECT status FROM kitchen_ticket_items WHERE ticket_id = ?').all(t2.id) as { status: string }[];
   check('avançar ticket propaga pros itens', t2items.length > 0 && t2items.every((i) => i.status === 'pronto'));
 
-  // Guarda: item corrigido manualmente depois do ticket entregue NÃO rebaixa o ticket
-  // (antes o recalc fazia o ticket "entregue" voltar a aparecer como "em preparo").
+  // Correção explícita: voltar a etapa de um item entregue reabre o pedido (o recalc
+  // antes travava tudo em 'entregue' e a cozinha não tinha como desfazer um toque errado).
   check('avança ticket 2 pra entregue',
     (await api(`/api/foodservice/kitchen/tickets/${t2.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'entregue' }) }, admin!)).status === 200);
   const t2itemId = (db.prepare('SELECT id FROM kitchen_ticket_items WHERE ticket_id = ? LIMIT 1').get(t2.id) as { id: number }).id;
-  await api(`/api/foodservice/kitchen/tickets/${t2.id}/items/${t2itemId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'preparo' }) }, admin!);
-  await api(`/api/foodservice/kitchen/tickets/${t2.id}/items/${t2itemId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'pronto' }) }, admin!);
-  const t2final = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(t2.id) as { status: string };
-  check('recalc não rebaixa ticket entregue', t2final.status === 'entregue');
+  check('volta item entregue para preparo',
+    (await api(`/api/foodservice/kitchen/tickets/${t2.id}/items/${t2itemId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'preparo' }) }, admin!)).status === 200);
+  const t2reaberto = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(t2.id) as { status: string };
+  check('item que voltou reabre o ticket para preparo', t2reaberto.status === 'preparo');
+  check('avança item de novo para pronto',
+    (await api(`/api/foodservice/kitchen/tickets/${t2.id}/items/${t2itemId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'pronto' }) }, admin!)).status === 200);
+  const t2pronto = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(t2.id) as { status: string };
+  check('item avançado de novo devolve o ticket para pronto', t2pronto.status === 'pronto');
+
+  // Voltar o PEDIDO inteiro uma etapa puxa junto só os itens que estavam à frente.
+  check('volta ticket inteiro para em preparo',
+    (await api(`/api/foodservice/kitchen/tickets/${t2.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'preparo' }) }, admin!)).status === 200);
+  const t2itensVoltaram = db.prepare('SELECT status FROM kitchen_ticket_items WHERE ticket_id = ?').all(t2.id) as { status: string }[];
+  check('itens do ticket acompanham a volta', t2itensVoltaram.length > 0 && t2itensVoltaram.every((i) => i.status === 'preparo'));
 
   // ── Correção: cancelar a venda cancela os tickets em aberto dela ──
   const saleC = await unwrap<{ id: number }>(await api('/api/store/sales', {

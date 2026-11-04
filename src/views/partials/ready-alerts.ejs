@@ -11,7 +11,9 @@
   2) poll de 60 s: rede de segurança se o SSE cair ou o navegador não tiver EventSource;
   3) Notification API (quando o navegador permite): aviso do sistema mesmo fora da aba.
      Em acesso http:// pela rede local o navegador não libera notificação de sistema
-     (contexto inseguro) — aí ficam o som, a vibração e o título da aba.
+     (contexto inseguro) — aí ficam o som, a vibração e o título da aba. Para a tela não
+     apagar e suspender a página, os painéis de Cozinha e Mesas carregam
+     public/js/keep-awake.js (Wake Lock nativo ou vídeo mudo em loop).
 -%>
 <% if (user && (user.permissions.has('comandas.view') || user.permissions.has('store.sales.view') || user.permissions.has('foodservice.kitchen.view'))) { %>
 <script nonce="<%= cspNonce %>">
@@ -25,11 +27,14 @@
   var DEVICE_ID = window.KIVO_DEVICE_ID || '';
   var SEEN_KEY = 'kivo-ready-seen:' + USER_KEY;
   var SOM_KEY = 'kivo-ready-som:' + USER_KEY;
+  // Arquivo escolhido no diálogo de Mesas (ou no menu). Fica no aparelho, como o som.
+  var SOM_FILE_KEY = 'kivo-ready-som-arquivo';
   var TITLE_BASE = document.title || 'Kivo';
   var STALE_MS = 24 * 60 * 60 * 1000;
 
   var seen = null;
   var soundOn = true;
+  var soundFile = 'pedido.mp3';
   var audio = null;
   var audioUnlocked = false;
   var pendingTitleCount = 0;
@@ -78,6 +83,14 @@
     try { localStorage.setItem('mesas-som-pronto', soundOn ? '1' : '0'); } catch (e) {}
   }
 
+  function readSoundFile() {
+    try { return localStorage.getItem(SOM_FILE_KEY) || 'pedido.mp3'; } catch (e) { return 'pedido.mp3'; }
+  }
+
+  function writeSoundFile(file) {
+    try { localStorage.setItem(SOM_FILE_KEY, file); } catch (e) {}
+  }
+
   function updateSoundUi() {
     var state = document.getElementById('kivo-ready-sound-state');
     if (state) state.textContent = soundOn ? 'ligados' : 'desligados';
@@ -85,11 +98,17 @@
     if (btn) btn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
   }
 
+  function makeAudio(file) {
+    var a = new Audio('/sons/' + file);
+    a.dataset.file = file;
+    return a;
+  }
+
   function unlockAudio() {
     if (audioUnlocked) return;
     audioUnlocked = true;
     try {
-      if (!audio) audio = new Audio('/sons/pedido.mp3');
+      if (!audio || audio.dataset.file !== soundFile) audio = makeAudio(soundFile);
       // Um play mudo no primeiro toque satisfaz a política de autoplay; os avisos
       // seguintes já podem tocar com som.
       audio.muted = true;
@@ -104,11 +123,20 @@
   function playSound() {
     if (!soundOn) return;
     try {
-      if (!audio) audio = new Audio('/sons/pedido.mp3');
+      if (!audio || audio.dataset.file !== soundFile) audio = makeAudio(soundFile);
       audio.muted = false;
       audio.currentTime = 0;
       audio.play().catch(function () { /* autoplay bloqueado — o toast e o título ficam */ });
     } catch (e) {}
+  }
+
+  /** Prévia do diálogo de Mesas; não mexe na escolha até salvar. */
+  function previewSound(file) {
+    try {
+      var a = makeAudio(file || soundFile);
+      a.play().catch(function () {});
+      return a;
+    } catch (e) { return null; }
   }
 
   function vibrate() {
@@ -326,16 +354,36 @@
   window.KivoReadyAlerts = {
     isSoundOn: function () { return soundOn; },
     toggleSound: toggleSound,
+    setSoundEnabled: function (on) {
+      soundOn = !!on;
+      writeSound();
+      updateSoundUi();
+      if (soundOn) {
+        unlockAudio();
+        playSound();
+      }
+      return soundOn;
+    },
+    getSoundFile: function () { return soundFile; },
+    setSoundFile: function (file) {
+      soundFile = file || 'pedido.mp3';
+      writeSoundFile(soundFile);
+      audio = null;
+      if (soundOn) unlockAudio();
+      return soundFile;
+    },
+    previewSound: previewSound,
     requestPermission: requestPermission,
     notificationPermission: notificationPermission,
     // Reaproveitado pela cozinha para avisar "novo pedido" com a tela apagada.
     notify: function (title, body, url, tag) { return systemNotification(title, body, url, tag); },
-    refreshSound: function () { soundOn = readSound(); updateSoundUi(); },
+    refreshSound: function () { soundOn = readSound(); soundFile = readSoundFile(); updateSoundUi(); },
   };
 
   function init() {
     seen = readSeen();
     soundOn = readSound();
+    soundFile = readSoundFile();
     updateSoundUi();
     var btn = document.getElementById('kivo-ready-sound-btn');
     if (btn) btn.addEventListener('click', toggleSound);

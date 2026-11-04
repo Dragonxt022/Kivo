@@ -21,6 +21,7 @@ import { getMachinePrefs } from './config/machinePrefs';
 import { businessLabelsLocals } from './config/businessLabels';
 import { themeColorLocals } from './config/themeColor';
 import { homeCardsLocals } from './config/homeCards';
+import { stockControlLocals } from './config/stockControl';
 import backupRoutes from './backup/routes';
 import licenseRoutes from './license/routes';
 import syncRoutes from './sync/routes';
@@ -297,6 +298,10 @@ export async function createServer(): Promise<KivoServer> {
           // aqui não paga o risco de quebrar layout em telas que ninguém revisaria.
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'blob:'], // fotos em base64 e QR gerados como data:
+          // O fallback de "tela acesa" no http:// da rede local toca um vídeo mudo
+          // embutido como data: (ver public/js/keep-awake.js). Sem esta diretiva o
+          // default-src 'self' bloquearia a mídia e o tablet apagaria a tela.
+          mediaSrc: ["'self'", 'data:', 'blob:'],
           fontSrc: ["'self'", 'data:'],
           connectSrc: ["'self'"],
           objectSrc: ["'none'"],
@@ -350,6 +355,9 @@ export async function createServer(): Promise<KivoServer> {
   // Ordem/visibilidade dos cards da tela inicial: preferência da empresa em `settings`, pelo
   // mesmo motivo da cor — precisa valer também no navegador (outro aparelho), não só nesta máquina.
   app.use(homeCardsLocals);
+  // Chave geral do controle de quantidade (Configurações › Estoque). As telas usam
+  // `window.KIVO_ESTOQUE_ATIVO` para esconder saldo/alerta quando ela está desligada.
+  app.use(stockControlLocals);
 
   // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
   app.use(responseEnvelope);

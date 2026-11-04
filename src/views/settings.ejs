@@ -260,6 +260,18 @@
         <h2>Operação do estoque</h2>
         <div class="field">
           <label class="label-checkbox">
+            <input type="checkbox" x-model="stock.controlarQuantidade" />
+            Controlar a quantidade de estoque dos produtos
+          </label>
+          <p class="hint">
+            <strong>Chave geral:</strong> desligada, nenhum produto baixa ou entra saldo, e os
+            alertas de estoque mínimo/validade deixam de aparecer — sem precisar desmarcar
+            produto por produto no cadastro. A configuração individual de cada produto fica
+            guardada e volta a valer quando você religar esta opção.
+          </p>
+        </div>
+        <div class="field">
+          <label class="label-checkbox">
             <input type="checkbox" x-model="stock.vendaEstoqueZerado" />
             Permitir vender com estoque zerado
           </label>
@@ -557,8 +569,120 @@
         <p class="error" x-show="erro" x-cloak x-text="erro"></p>
       </section>
 
+      <%# Balança e impressora térmica: hardware do PDV, configuração POR MÁQUINA.
+          A ponte só existe no app desktop (window.kivo.hardware); no navegador a
+          seção explica isso em vez de mostrar campos que não fariam nada. %>
+      <section class="panel" x-data="perifericosPanel()" x-init="init()">
+        <h2>Periféricos do PDV</h2>
+        <p class="hint mt-0">
+          Balança de checkout e impressora térmica não fiscal. Vale só neste computador:
+          o PDV do balcão pode ter os equipamentos e o notebook do escritório não.
+        </p>
+        <p class="hint" x-show="!desktop" x-cloak>
+          Esta configuração só funciona no <strong>Kivo instalado</strong> (aplicativo desktop).
+          No acesso pelo navegador ou pelo celular, continue usando a impressão normal e
+          digite o peso manualmente.
+        </p>
+
+        <template x-if="desktop">
+          <div>
+            <div x-show="loading" class="muted">Carregando…</div>
+
+            <template x-if="!loading">
+              <div>
+                <h3>Balança</h3>
+                <div class="field">
+                  <label class="label-checkbox">
+                    <input type="checkbox" x-model="balanca.enabled" />
+                    Tenho balança ligada neste computador
+                  </label>
+                </div>
+                <div class="toolbar" x-show="balanca.enabled" x-cloak style="align-items:flex-end;flex-wrap:wrap">
+                  <div class="field" style="margin:0">
+                    <label>Porta serial</label>
+                    <input class="input input-narrow-lg" x-model="balanca.path" list="kivo-serial-ports" placeholder="COM3" />
+                    <datalist id="kivo-serial-ports">
+                      <template x-for="p in ports" :key="p.path">
+                        <option :value="p.path" x-text="p.label"></option>
+                      </template>
+                    </datalist>
+                  </div>
+                  <div class="field" style="margin:0">
+                    <label>Velocidade</label>
+                    <select class="select" x-model.number="balanca.baudRate">
+                      <option value="4800">4800</option>
+                      <option value="9600">9600</option>
+                      <option value="19200">19200</option>
+                      <option value="38400">38400</option>
+                    </select>
+                  </div>
+                  <div class="field" style="margin:0">
+                    <label>Protocolo</label>
+                    <select class="select" x-model="balanca.protocol">
+                      <option value="generic">Genérico (linha de texto)</option>
+                      <option value="toledo">Toledo / Filizola</option>
+                    </select>
+                  </div>
+                  <button type="button" class="btn secondary" :disabled="testingScale" @click="testScale()"
+                          x-text="testingScale ? 'Lendo…' : 'Testar leitura'"></button>
+                </div>
+                <p class="hint" x-show="scaleMsg" x-cloak x-text="scaleMsg"></p>
+
+                <h3 style="margin-top:1.25rem">Impressora térmica</h3>
+                <div class="field">
+                  <label class="label-checkbox">
+                    <input type="checkbox" x-model="impressora.enabled" />
+                    Imprimir cupom direto na térmica (ESC/POS)
+                  </label>
+                </div>
+                <div x-show="impressora.enabled" x-cloak>
+                  <div class="toolbar" style="align-items:flex-end;flex-wrap:wrap">
+                    <div class="field" style="margin:0">
+                      <label>Modelo</label>
+                      <select class="select" x-model="impressora.type">
+                        <option value="epson">Epson / genérica</option>
+                        <option value="daruma">Daruma</option>
+                        <option value="star">Star</option>
+                        <option value="generic">Outra (ESC/POS)</option>
+                      </select>
+                    </div>
+                    <div class="field" style="margin:0;flex:1;min-width:220px">
+                      <label>Conexão</label>
+                      <input class="input" x-model="impressora.interface"
+                             placeholder="printer:Nome da impressora ou tcp://192.168.0.10:9100" />
+                    </div>
+                    <div class="field" style="margin:0">
+                      <label>Papel</label>
+                      <select class="select" x-model.number="impressora.width">
+                        <option value="58">58 mm</option>
+                        <option value="80">80 mm</option>
+                      </select>
+                    </div>
+                    <button type="button" class="btn secondary" :disabled="testPrinting" @click="testPrint()"
+                            x-text="testPrinting ? 'Imprimindo…' : 'Imprimir teste'"></button>
+                  </div>
+                  <p class="hint" x-show="printerMsg" x-cloak x-text="printerMsg"></p>
+                  <p class="hint">
+                    No Windows, use o nome exato da impressora instalada precedido de
+                    <code>printer:</code>. Para impressora de rede, use
+                    <code>tcp://IP:9100</code>.
+                  </p>
+                </div>
+
+                <div class="toolbar" style="margin-top:1rem">
+                  <button type="button" class="btn" :disabled="saving" @click="save()"
+                          x-text="saving ? 'Salvando…' : 'Salvar periféricos'"></button>
+                  <span class="muted" x-show="ok" x-cloak x-text="ok"></span>
+                  <span class="error" x-show="erro" x-cloak x-text="erro"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
+
       <section class="panel" x-data="{
-        enabled: (function(){ try { return (localStorage.getItem('kivo:recent-enabled') ?? '1') !== '0'; } catch(e){ return true; } })(),
+        enabled: (function(){ try { return localStorage.getItem('kivo:recent-enabled') === '1'; } catch(e){ return false; } })(),
         cleared: false,
         toggle() {
           this.enabled = !this.enabled;
@@ -574,7 +698,8 @@
         <h2>Atalhos de páginas recentes</h2>
         <p class="hint mt-0">
           Mostra balões flutuantes no canto inferior direito com atalhos para as últimas páginas que você abriu
-          (até 3), facilitando voltar rapidamente. Esta preferência vale só neste computador.
+          (até 3), facilitando voltar rapidamente. <strong>Desativado por padrão</strong> — ative se quiser os
+          balões. Esta preferência vale só neste computador.
         </p>
         <div class="field">
           <label class="label-checkbox">
@@ -871,8 +996,9 @@
             Permitir acesso pela rede local
           </label>
           <p class="hint">
-            Desligado por padrão. <strong>Não precisa salvar</strong> — a chave grava sozinha
-            ao marcar e passa a valer na hora, <strong>sem reiniciar o Kivo</strong>.
+            <strong>Ligado por padrão</strong> para o celular/tablet da loja já conseguir abrir o Kivo.
+            <strong>Não precisa salvar</strong> - a chave grava sozinha ao marcar e passa a valer na
+            hora, <strong>sem reiniciar o Kivo</strong>.
           </p>
           <p class="hint" x-show="redeSaved" x-cloak x-text="redeSaved"></p>
         </div>
@@ -906,6 +1032,55 @@
             </div>
           </template>
         </div>
+
+        <%# HTTPS com certificado próprio: é o caminho para instalar como aplicativo e
+            liberar o Wake Lock nativo no tablet. O certificado tem que ser válido para o
+            hostname que o tablet abre. %>
+        <div class="field" x-show="networkInfo.https" x-cloak style="margin-top:1.25rem">
+          <template x-if="networkInfo.https?.ativo">
+            <div>
+              <p class="hint mt-0">
+                <span class="badge ok">HTTPS ativo</span>
+                Abra este endereço no tablet para instalar o Kivo como aplicativo:
+              </p>
+              <div class="flex-row" style="align-items:center;gap:.5rem;margin-bottom:.5rem">
+                <code x-text="networkInfo.https.url" style="font-size:1rem;padding:.3rem .6rem;background:var(--surface-hover);border-radius:6px"></code>
+                <button type="button" class="btn secondary small" @click="copyUrl(networkInfo.https.url)"
+                        x-text="copiedUrl === networkInfo.https.url ? 'Copiado!' : 'Copiar'"></button>
+              </div>
+              <p class="hint">
+                O certificado precisa ser válido para <strong x-text="networkInfo.https.host || 'este endereço'"></strong>.
+                Se o tablet ainda mostrar aviso de certificado, o certificado não é confiável para ele.
+              </p>
+            </div>
+          </template>
+          <template x-if="networkInfo.https?.configurado && !networkInfo.https?.ativo">
+            <p class="hint mt-0">
+              <span class="badge off">HTTPS não subiu</span>
+              <span x-text="networkInfo.https.erro || 'Confira o certificado e reinicie o Kivo.'"></span>
+            </p>
+          </template>
+          <template x-if="networkInfo.https && !networkInfo.https.configurado">
+            <div>
+              <p class="hint mt-0">
+                Para <strong>instalar como aplicativo</strong> e liberar o aviso com a tela acesa no tablet,
+                coloque um certificado em:
+              </p>
+              <div class="flex-row" style="align-items:center;gap:.5rem;margin-bottom:.5rem">
+                <code x-text="networkInfo.https.diretorio" style="font-size:.85rem;padding:.3rem .6rem;background:var(--surface-hover);border-radius:6px"></code>
+                <button type="button" class="btn secondary small" @click="copyUrl(networkInfo.https.diretorio)"
+                        x-text="copiedUrl === networkInfo.https.diretorio ? 'Copiado!' : 'Copiar pasta'"></button>
+              </div>
+              <p class="hint">
+                Use <strong>https.pfx</strong> (senha em <code>https.pfx.senha</code>) ou
+                <strong>https.crt</strong> + <strong>https.key</strong>. Depois reinicie o Kivo.
+                O certificado precisa ser de uma CA confiável e valer para o domínio que o tablet abre —
+                IP privado não recebe certificado público.
+              </p>
+            </div>
+          </template>
+        </div>
+
         <p class="hint" x-show="rede.acessoLocal && networkInfo.urls && !networkInfo.urls.length">
           Nenhuma interface de rede local detectada — verifique se o cabo/Wi-Fi está conectado.
         </p>
@@ -925,12 +1100,13 @@
           De quanto em quanto tempo o Kivo envia o movimento desta máquina para a nuvem e busca o
           que veio das outras. É isto que mantém atualizado o acompanhamento pelo celular
           (<strong>Kivo Web</strong>) e o backup do dia. Fechar uma venda também dispara um envio
-          alguns segundos depois, sem esperar o ciclo.
+          alguns segundos depois, sem esperar o ciclo. <strong>Já vem ligado a cada 3 minutos</strong>
+          de fábrica.
         </p>
         <div class="field">
           <label>Intervalo</label>
           <select class="select" x-model.number="rede.syncIntervalo">
-            <option :value="0">Desligado (só manual)</option>
+            <option :value="0">Desligado (só manual — não recomendado)</option>
             <option :value="1">A cada 1 minuto</option>
             <option :value="3">A cada 3 minutos (recomendado)</option>
             <option :value="10">A cada 10 minutos</option>
@@ -1548,6 +1724,108 @@
       };
     }
 
+    /**
+     * Balança + impressora térmica (Configurações › Interface).
+     *
+     * Lê e grava `machine-prefs.json` pelo mesmo endpoint do modo leve. A leitura de
+     * teste e a impressão de teste chamam a ponte do Electron (`window.kivo.hardware`);
+     * sem ela (navegador), a seção mostra o aviso e não renderiza os campos.
+     */
+    function perifericosPanel() {
+      return {
+        desktop: !!(window.kivo && window.kivo.hardware && window.kivo.hardware.listPorts),
+        loading: true,
+        saving: false,
+        erro: '',
+        ok: '',
+        ports: [],
+        balanca: { enabled: false, path: 'COM1', baudRate: 9600, protocol: 'generic' },
+        impressora: { enabled: false, type: 'epson', interface: 'printer:', width: 80 },
+        testingScale: false,
+        scaleMsg: '',
+        testPrinting: false,
+        printerMsg: '',
+        async init() {
+          if (!this.desktop) { this.loading = false; return; }
+          await this.load();
+          try {
+            const r = await window.kivo.hardware.listPorts();
+            if (r && r.ok) this.ports = r.ports || [];
+          } catch (e) { /* sem permissão/porta: o campo continua digitável */ }
+        },
+        async load() {
+          try {
+            const r = await fetch('/api/settings/machine-prefs');
+            if (r.ok) {
+              const d = await r.json();
+              if (d.balanca) Object.assign(this.balanca, d.balanca);
+              if (d.impressora) Object.assign(this.impressora, d.impressora);
+            }
+          } catch (e) {
+            this.erro = 'Não foi possível carregar as preferências desta máquina.';
+          } finally {
+            this.loading = false;
+          }
+        },
+        async save() {
+          this.saving = true; this.erro = ''; this.ok = '';
+          try {
+            const r = await fetch('/api/settings/machine-prefs', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ balanca: this.balanca, impressora: this.impressora }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { this.erro = d.error || 'Não foi possível salvar as preferências.'; return; }
+            this.ok = 'Periféricos salvos.';
+            setTimeout(() => { this.ok = ''; }, 2500);
+          } catch (e) {
+            this.erro = 'Erro de conexão ao salvar.';
+          } finally {
+            this.saving = false;
+          }
+        },
+        async testScale() {
+          this.testingScale = true;
+          this.scaleMsg = '';
+          try {
+            // Testa os valores do formulário, mesmo antes de salvar.
+            const r = await window.kivo.hardware.readScale({
+              path: this.balanca.path,
+              baudRate: this.balanca.baudRate,
+              protocol: this.balanca.protocol,
+            });
+            this.scaleMsg = r && r.ok
+              ? 'Leitura: ' + Number(r.kg).toFixed(3).replace('.', ',') + ' kg'
+              : ((r && r.error) || 'A balança não respondeu.');
+          } catch (e) {
+            this.scaleMsg = 'Erro ao falar com a balança.';
+          } finally {
+            this.testingScale = false;
+          }
+        },
+        async testPrint() {
+          this.testPrinting = true;
+          this.printerMsg = '';
+          try {
+            const r = await window.kivo.hardware.print({
+              text: 'KIVO\nTeste de impressao\n' + new Date().toLocaleString('pt-BR') + '\n\n',
+              config: {
+                type: this.impressora.type,
+                interface: this.impressora.interface,
+                width: this.impressora.width,
+              },
+            });
+            this.printerMsg = r && r.ok ? 'Teste enviado para a impressora.' : ((r && r.error) || 'A impressora não respondeu.');
+          } catch (e) {
+            this.printerMsg = 'Erro ao falar com a impressora.';
+          } finally {
+            this.testPrinting = false;
+          }
+        },
+      };
+    }
+
     function settingsPage() {
       return {
         // A aba fica no #hash porque vários ajustes desta tela (modo leve, tela inicial)
@@ -1580,6 +1858,7 @@
           return this.sealFallback(this.license && this.license.plan);
         },
         stock: {
+          controlarQuantidade: true,
           vendaEstoqueZerado: true, autoSku: false, minStockPadrao: 5,
           loteObrigatorio: false, validadeAlertaDias: 30, validadeAcao: 'sugerir_baixa',
           metodoCusto: 'medio',
@@ -1628,7 +1907,7 @@
         security: { pinRemoverItem: false }, savingSecurity: false, securitySaved: '',
         pinConfigured: false, pinForm: { pin: '', confirm: '' }, savingPin: false, pinError: '', pinSaved: '',
         fidelidade: { ativo: false, pontosPorReal: 1, pontosResgate: 100, valorResgate: '5,00' }, savingFidelidade: false, fidelidadeSaved: '',
-        rede: { acessoLocal: false, syncIntervalo: 3 }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null, lanAtivo: null }, copiedUrl: '',
+        rede: { acessoLocal: true, syncIntervalo: 3 }, savingRede: false, redeSaved: '', networkInfo: { urls: [], port: null, lanAtivo: null, https: null }, copiedUrl: '',
         telemetria: { habilitada: true }, savingTelemetria: false, telemetriaSaved: '',
         atualizacao: {
           suportado: false, motivo: '', status: 'ocioso', versaoAtual: '—', versaoDisponivel: null,
@@ -1710,6 +1989,9 @@
           }
         },
         syncSettings() {
+          // Ausente = padrão de fábrica ligado (mesma regra do core/config/stockControl).
+          this.stock.controlarQuantidade =
+            this.settings.find(s => s.key === 'estoque.controlar_quantidade')?.value !== '0';
           const auto = this.settings.find(s => s.key === 'estoque.auto_sku');
           this.stock.autoSku = auto?.value === '1';
           const minStock = this.settings.find(s => s.key === 'estoque.min_stock_padrao');
@@ -1753,7 +2035,7 @@
           this.empresa.telefone = this.settings.find(s => s.key === 'empresa.telefone')?.value ?? '';
           this.empresa.endereco = this.settings.find(s => s.key === 'empresa.endereco')?.value ?? '';
           this.logo.url = this.settings.find(s => s.key === 'empresa.logo_url')?.value ?? '';
-          this.rede.acessoLocal = this.settings.find(s => s.key === 'rede.acesso_local')?.value === '1';
+          this.rede.acessoLocal = this.settings.find(s => s.key === 'rede.acesso_local')?.value !== '0';
           const iv = this.settings.find(s => s.key === 'sync.intervalo_minutos')?.value;
           this.rede.syncIntervalo = iv == null || iv === '' ? 3 : Number(iv);
           this.telemetria.habilitada = this.settings.find(s => s.key === 'telemetria.habilitada')?.value !== '0';
@@ -1933,6 +2215,7 @@
             body: JSON.stringify({ value }),
           });
           const results = await Promise.all([
+            upsert('estoque.controlar_quantidade', this.stock.controlarQuantidade ? '1' : '0'),
             upsert('estoque.venda_estoque_zerado', this.stock.vendaEstoqueZerado ? '1' : '0'),
             upsert('estoque.auto_sku', this.stock.autoSku ? '1' : '0'),
             upsert('estoque.min_stock_padrao', String(this.stock.minStockPadrao)),
@@ -1943,6 +2226,9 @@
           ]);
           this.savingStock = false;
           this.stockSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
+          // As outras telas leem a flag no carregamento; aqui ela já reflete o novo
+          // estado sem precisar recarregar Configurações.
+          window.KIVO_ESTOQUE_ATIVO = this.stock.controlarQuantidade;
           const r = await fetch('/api/settings');
           if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
         },

@@ -51,8 +51,8 @@
         <button type="button" class="chip" :class="{ active: periodo === 'mes' }" @click="setPeriodo('mes')">Este mês</button>
         <button type="button" class="chip" :class="{ active: periodo === 'custom' }" @click="setPeriodo('custom')">Personalizado</button>
       </div>
-      <input class="input" type="date" x-model="from" x-show="periodo === 'custom'" x-cloak @change="load()" title="De" />
-      <input class="input" type="date" x-model="to" x-show="periodo === 'custom'" x-cloak @change="load()" title="Até" />
+      <input class="input" type="date" data-picker x-model="from" x-show="periodo === 'custom'" x-cloak @change="load()" title="De" />
+      <input class="input" type="date" data-picker x-model="to" x-show="periodo === 'custom'" x-cloak @change="load()" title="Até" />
     </div>
 
     <div class="toolbar">
@@ -76,7 +76,7 @@
         <option value="pdv">PDV</option>
         <option value="outros">Outros</option>
       </select>
-      <select class="input" x-model="fUsuario" style="max-width:200px">
+      <select class="input" data-search x-model="fUsuario" style="max-width:200px">
         <option value="">Todos os usuários</option>
         <template x-for="u in usuarios" :key="u"><option :value="u" x-text="u"></option></template>
       </select>

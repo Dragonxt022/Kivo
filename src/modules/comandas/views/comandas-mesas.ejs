@@ -29,11 +29,21 @@
           um som e pisca a mesa — aviso pro garçom levar sem ficar olhando o painel.
           Fica no aparelho (localStorage), como o som de novo pedido do painel. %>
       <button type="button" class="icon-btn mesas-som-btn" :class="somProntoAtivo ? 'mesas-som-on' : ''"
-              @click="toggleSomPronto()"
-              :title="somProntoAtivo ? 'Desligar o som de pedido pronto' : 'Ligar o som de pedido pronto'"
-              aria-label="Som de pedido pronto">
+              @click="openSomDlg()"
+              :title="somProntoAtivo ? 'Som de pedido pronto: ' + somLabel(somArquivo) + ' — toque para trocar' : 'Escolher som de pedido pronto'"
+              aria-label="Escolher som de pedido pronto">
         <svg x-show="somProntoAtivo" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
         <svg x-show="!somProntoAtivo" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
+      <%# Tela acesa: no tablet/celular da rede (http://) a tela apagava e o navegador
+          suspendia a página — o aviso de pedido pronto parava junto. %>
+      <button type="button" class="icon-btn mesas-tela-btn" :class="telaLigada ? 'mesas-tela-on' : ''"
+              @click="toggleTelaLigada()"
+              :title="telaLigada ? (telaAtiva ? 'Tela sempre acesa para os avisos tocarem — toque para permitir que a tela apague' : 'Tentando manter a tela acesa — toque para tentar de novo') : 'Tela pode apagar (os avisos sonoros param com ela) — toque para manter acesa'"
+              :aria-pressed="telaLigada ? 'true' : 'false'"
+              aria-label="Manter a tela acesa">
+        <svg x-show="telaLigada" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg x-show="!telaLigada" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
       <span class="error" x-text="error"></span>
       <div class="mesas-tools">
@@ -172,7 +182,7 @@
       <div class="hist-filters">
         <div style="flex:1;min-width:180px">
           <label for="hist-table">Filtrar por <%= comandasLabels.singular %></label>
-          <select id="hist-table" x-model="history.tableId" @change="loadHistory()">
+          <select id="hist-table" data-search x-model="history.tableId" @change="loadHistory()">
             <option value="">Todas</option>
             <template x-for="t in tables" :key="t.id">
               <option :value="String(t.id)" x-text="t.label"></option>
@@ -257,6 +267,33 @@
         <button type="button" class="btn secondary" @click="$refs.historyDlg.close()">Fechar</button>
       </div>
     </dialog>
+
+    <!-- Dialog: som de pedido pronto (mesma linguagem visual do som da Cozinha) -->
+    <dialog x-ref="somDlg" class="mesas-sound-dialog" @close="stopPreview()">
+      <h1>Som de pedido pronto</h1>
+      <p class="muted dialog-text">Toque no play para ouvir antes de escolher. A seleção vale para este aparelho.</p>
+      <div class="som-list">
+        <button type="button" class="som-option" :class="{ selected: pendenteSom === '' }" @click="pendenteSom = ''">
+          <span>Silencioso</span>
+          <span class="muted text-sm">sem aviso sonoro</span>
+        </button>
+        <template x-for="s in sons" :key="s.file">
+          <div class="som-option" :class="{ selected: pendenteSom === s.file }">
+            <button type="button" class="som-choose" @click="pendenteSom = s.file">
+              <span x-text="s.label"></span>
+            </button>
+            <button type="button" class="icon-btn som-preview" @click="previewSom(s.file)" :title="'Ouvir ' + s.label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            </button>
+          </div>
+        </template>
+      </div>
+      <div class="toolbar som-dialog-actions">
+        <button type="button" class="btn secondary" @click="$refs.somDlg.close()">Cancelar</button>
+        <button type="button" class="btn" @click="salvarSom()"
+                x-text="pendenteSom ? 'Ativar este som' : 'Salvar silencioso'"></button>
+      </div>
+    </dialog>
   </main>
   <style>
     /* Verde de "pedido pronto": nem o vermelho de ocupada, nem o laranja de quer pagar. */
@@ -308,6 +345,27 @@
     .mesas-som-btn { color: var(--text-muted); }
     .mesas-som-btn:hover { color: var(--text); }
     .mesas-som-btn.mesas-som-on { color: var(--mesa-pronto); }
+    .mesas-tela-btn { color: var(--text-muted); }
+    .mesas-tela-btn:hover { color: var(--text); }
+    .mesas-tela-btn.mesas-tela-on { color: var(--primary); }
+
+    /* Seletor de som — mesma linguagem visual do painel da Cozinha. */
+    .mesas-sound-dialog { width: min(520px, 94vw); }
+    .som-list {
+      display: flex; flex-direction: column; gap: .4rem; margin: .75rem 0 1rem;
+      max-height: min(52vh, 420px); overflow-y: auto; padding-right: 2px;
+    }
+    .som-option {
+      display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+      border: 1.5px solid var(--border-light); border-radius: var(--radius);
+      background: var(--surface); padding: .55rem .8rem; cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .som-option:hover { background: var(--surface-hover); }
+    .som-option.selected { border-color: var(--primary); background: var(--primary-bg); font-weight: 600; }
+    .som-choose { display: flex; align-items: center; flex: 1; text-align: left; cursor: pointer; }
+    .som-preview { flex-shrink: 0; }
+    .som-dialog-actions { justify-content: flex-end; gap: .5rem; margin-top: .25rem; }
     /* Mesa que chamou a conta: destaque próprio para o caixa achar de longe, sem se
        confundir com o vermelho de "ocupada" — são estados diferentes. */
     .table-card.table-quer-pagar {
@@ -437,6 +495,17 @@
         // `knownReady` continua sendo o baseline das mesas já prontas, exclusivo para
         // piscar o card (o aviso sonoro/toast agora é global).
         somProntoAtivo: localStorage.getItem('mesas-som-pronto') !== '0',
+        // Som escolhido para o aviso de pedido pronto. A lista vem de public/sons e a
+        // escolha vive no canal global (ready-alerts), que também avisa nas outras telas.
+        somArquivo: localStorage.getItem('kivo-ready-som-arquivo') || 'pedido.mp3',
+        pendenteSom: '',
+        previewAudio: null,
+        sons: <%- JSON.stringify(sons) %>,
+        // Tela acesa: preferência do aparelho, ligada por padrão. O lock/vídeo é do
+        // /js/keep-awake.js (incluído pelo nav); aqui só refletimos no botão.
+        telaLigada: true,
+        telaAtiva: false,
+        onKeepAwake: null,
         knownReady: null,
         flashIds: [],
         eventSource: null,
@@ -449,7 +518,19 @@
           if (this.started) return;
           this.started = true;
           // O canal global pode ter uma preferência mais nova (menu "Mais" de outra tela).
-          if (window.KivoReadyAlerts) this.somProntoAtivo = window.KivoReadyAlerts.isSoundOn();
+          if (window.KivoReadyAlerts) {
+            this.somProntoAtivo = window.KivoReadyAlerts.isSoundOn();
+            this.somArquivo = window.KivoReadyAlerts.getSoundFile();
+          }
+          if (window.KivoKeepAwake) {
+            this.telaLigada = window.KivoKeepAwake.isEnabled();
+            this.telaAtiva = window.KivoKeepAwake.isActive();
+            this.onKeepAwake = (e) => {
+              this.telaLigada = !!(e && e.detail && e.detail.enabled);
+              this.telaAtiva = !!(e && e.detail && e.detail.active);
+            };
+            window.addEventListener('kivo:keep-awake', this.onKeepAwake);
+          }
           this.connectEvents();
           // Reserva do SSE: se a conexão cair, a grade ainda se atualiza sozinha.
           // Em aba oculta o navegador estrangula timers; ao voltar, o listener abaixo
@@ -485,6 +566,10 @@
             document.removeEventListener('visibilitychange', this.onVisible);
             window.removeEventListener('focus', this.onVisible);
           }
+          if (this.onKeepAwake) {
+            window.removeEventListener('kivo:keep-awake', this.onKeepAwake);
+            this.onKeepAwake = null;
+          }
         },
         async load() {
           if (this.dragId !== null) return;
@@ -512,16 +597,77 @@
             setTimeout(() => { this.flashIds = this.flashIds.filter((x) => x !== id); }, 8000);
           });
         },
-        toggleSomPronto() {
-          if (window.KivoReadyAlerts) {
-            this.somProntoAtivo = window.KivoReadyAlerts.toggleSound();
+        toggleTelaLigada() {
+          if (!window.KivoKeepAwake) {
+            showToast('Este navegador não permite manter a tela ligada.', 'error');
             return;
           }
-          // Reserva se o partial global não tiver carregado (não deveria acontecer).
-          this.somProntoAtivo = !this.somProntoAtivo;
-          localStorage.setItem('mesas-som-pronto', this.somProntoAtivo ? '1' : '0');
-          if (this.somProntoAtivo) showToast('Som de pedido pronto ativado.', 'success');
-          else showToast('Som de pedido pronto desligado.', 'info');
+          this.telaLigada = window.KivoKeepAwake.toggle();
+          showToast(
+            this.telaLigada
+              ? 'Tentando manter a tela acesa...'
+              : 'A tela pode apagar — com ela, os avisos sonoros param.',
+            'info',
+          );
+          setTimeout(() => {
+            if (!window.KivoKeepAwake) return;
+            this.telaAtiva = window.KivoKeepAwake.isActive();
+            if (this.telaLigada && !this.telaAtiva) {
+              showToast(
+                'Este navegador não liberou manter a tela acesa. Ajuste o tempo de tela do aparelho ou use HTTPS.',
+                'error',
+              );
+            }
+          }, 1500);
+        },
+        somLabel(file) {
+          return (this.sons.find((s) => s.file === file) ?? this.sons[0])?.label ?? 'Pedido 1';
+        },
+        openSomDlg() {
+          this.pendenteSom = this.somProntoAtivo ? this.somArquivo : '';
+          this.$refs.somDlg.showModal();
+        },
+        previewSom(file) {
+          try {
+            this.stopPreview();
+            this.previewAudio = window.KivoReadyAlerts
+              ? window.KivoReadyAlerts.previewSound(file)
+              : new Audio('/sons/' + file);
+            if (this.previewAudio && !window.KivoReadyAlerts) {
+              this.previewAudio.play().catch(() => showToast('Não foi possível tocar o áudio.', 'error'));
+            }
+          } catch {
+            showToast('Não foi possível tocar o áudio.', 'error');
+          }
+        },
+        stopPreview() {
+          if (!this.previewAudio) return;
+          try {
+            this.previewAudio.pause();
+            this.previewAudio.currentTime = 0;
+          } catch { /* áudio já encerrado */ }
+          this.previewAudio = null;
+        },
+        salvarSom() {
+          this.stopPreview();
+          if (this.pendenteSom) {
+            if (window.KivoReadyAlerts) {
+              window.KivoReadyAlerts.setSoundFile(this.pendenteSom);
+              window.KivoReadyAlerts.setSoundEnabled(true);
+            } else {
+              localStorage.setItem('kivo-ready-som-arquivo', this.pendenteSom);
+              localStorage.setItem('mesas-som-pronto', '1');
+            }
+            this.somArquivo = this.pendenteSom;
+            this.somProntoAtivo = true;
+            showToast('Som de pedido pronto ativado: ' + this.somLabel(this.somArquivo) + '.', 'success');
+          } else {
+            if (window.KivoReadyAlerts) window.KivoReadyAlerts.setSoundEnabled(false);
+            else localStorage.setItem('mesas-som-pronto', '0');
+            this.somProntoAtivo = false;
+            showToast('Aviso de pedido pronto silenciado.', 'info');
+          }
+          this.$refs.somDlg.close();
         },
         onCardPointerDown(e, t) {
           if (!this.canManage || e.pointerType === 'mouse' && e.button !== 0) return;

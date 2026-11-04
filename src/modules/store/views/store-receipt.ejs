@@ -75,6 +75,64 @@
   </table>
   <hr />
   <p class="center muted">Obrigado pela preferência!</p>
+  <%
+    /* Versão em texto do MESMO cupom, para a impressora térmica ESC/POS.
+       Fica escondida na página: o navegador continua usando o CSS acima, e o
+       Electron envia este texto direto pela serial/rede (ver electron/hardware.ts). */
+    const COLS = 48;
+    const linha = (esq, dir) => {
+      const a = String(esq ?? '');
+      const b = String(dir ?? '');
+      const espaco = Math.max(1, COLS - a.length - b.length);
+      return a + ' '.repeat(espaco) + b;
+    };
+    const centro = (txt) => {
+      const t = String(txt ?? '');
+      if (t.length >= COLS) return t.slice(0, COLS);
+      return ' '.repeat(Math.floor((COLS - t.length) / 2)) + t;
+    };
+    const separador = '-'.repeat(COLS);
+    const cupom = [];
+    cupom.push(centro(company.name));
+    if (company.document) cupom.push(centro(company.document));
+    if (company.address) cupom.push(centro(company.address));
+    cupom.push(centro('Cupom nao fiscal'));
+    cupom.push(separador);
+    cupom.push(linha('Venda #' + sale.id, fmtDateTime(sale.created_at)));
+    if (sale.status === 'cancelada') cupom.push('*** CANCELADA ***');
+    if (sale.customer) cupom.push('Cliente: ' + sale.customer);
+    cupom.push('Vendedor: ' + (sale.username ?? '-'));
+    cupom.push(separador);
+    items.forEach((i) => {
+      cupom.push(String(i.product_name));
+      cupom.push(linha('  ' + i.qty + ' x ' + brl(i.unit_price_cents), brl(i.total_cents)));
+    });
+    cupom.push(separador);
+    cupom.push(linha('Subtotal', brl(sale.subtotal_cents)));
+    if (sale.discount_cents > 0) cupom.push(linha('Desconto', '-' + brl(sale.discount_cents)));
+    if (sale.surcharge_cents > 0) cupom.push(linha('Acrescimo', '+' + brl(sale.surcharge_cents)));
+    cupom.push(linha('TOTAL', brl(sale.total_cents)));
+    if (typeof payments !== 'undefined' && payments.length) {
+      payments.forEach((p) => {
+        cupom.push(linha(p.method_name, brl(p.amount_cents)));
+        if (p.received_cents != null && p.change_cents > 0) {
+          cupom.push(linha('Recebido / Troco', brl(p.received_cents) + ' / ' + brl(p.change_cents)));
+        }
+      });
+    } else {
+      const rotulo = { dinheiro: 'Dinheiro', cartao_debito: 'Debito', cartao_credito: 'Credito', pix: 'PIX', prazo: 'A prazo' }[sale.payment_method] ?? sale.payment_method;
+      cupom.push(linha('Pagamento', rotulo));
+      if (sale.payment_method === 'dinheiro' && sale.paid_cents != null) {
+        cupom.push(linha('Recebido', brl(sale.paid_cents)));
+        cupom.push(linha('Troco', brl(sale.change_cents)));
+      }
+    }
+    cupom.push(separador);
+    cupom.push(centro('Obrigado pela preferencia!'));
+    cupom.push('');
+    cupom.push('');
+  %>
+  <pre id="cupom-thermal" hidden><%= cupom.join('\n') %></pre>
   <div class="no-print">
     <button id="btn-imprimir">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -85,12 +143,31 @@
       Fechar
     </button>
   </div>
-  <script nonce="<%= cspNonce %>">window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
   <script nonce="<%= cspNonce %>">
-    // Por addEventListener: a CSP recusa `onclick="..."` no HTML (nonce vale para a tag
-    // `script`, não para atributo de evento) e os botões ficariam sem reação nenhuma.
-    document.getElementById('btn-imprimir')?.addEventListener('click', function () { window.print(); });
-    document.getElementById('btn-fechar')?.addEventListener('click', function () { window.close(); });
+    /*
+      Ordem de impressão: ESC/POS primeiro (quando o Kivo está no desktop e a térmica
+      está ligada em Configurações › Periféricos), diálogo do navegador como reserva.
+      A ponte `window.kivo` só existe no Electron; no celular pela rede local cai
+      direto no window.print(), como antes.
+    */
+    (function () {
+      async function imprimir() {
+        var pre = document.getElementById('cupom-thermal');
+        var hw = window.kivo && window.kivo.hardware;
+        if (hw && pre && typeof hw.print === 'function') {
+          try {
+            var r = await hw.print({ text: pre.textContent || '' });
+            if (r && r.ok) return;
+          } catch (e) { /* sem impressora: segue para o diálogo */ }
+        }
+        window.print();
+      }
+      window.addEventListener('load', function () { setTimeout(imprimir, 300); });
+      // Por addEventListener: a CSP recusa `onclick="..."` no HTML (nonce vale para a tag
+      // `script`, não para atributo de evento) e os botões ficariam sem reação nenhuma.
+      document.getElementById('btn-imprimir')?.addEventListener('click', imprimir);
+      document.getElementById('btn-fechar')?.addEventListener('click', function () { window.close(); });
+    })();
   </script>
 </body>
 </html>

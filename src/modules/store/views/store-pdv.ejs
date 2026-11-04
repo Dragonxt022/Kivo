@@ -107,8 +107,8 @@
                   <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
                 </span>
                 <span class="price" x-text="brl(p.price_cents)"></span>
-                <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
-                      x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
+                <span class="stock" :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                      x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
               </div>
             </template>
           </div>
@@ -126,6 +126,23 @@
             <span x-text="customerName"></span>
           </button>
           <span class="cart-header-hint" x-show="!customerName">Cliente na tela de pagamento</span>
+        </div>
+
+        <%# Tipo do pedido: define o ícone no KDS. Só aparece quando há item de cozinha —
+            venda de balcão sem produção não precisa escolher nada. %>
+        <div class="pdv-service-type" x-show="hasKitchenItems()" x-cloak role="group" aria-label="Tipo do pedido">
+          <button type="button" :class="{ active: serviceType !== 'entrega' }"
+                  :aria-pressed="serviceType !== 'entrega' ? 'true' : 'false'"
+                  @click="setServiceType('local')" title="Pedido para consumir no local">
+            <%- svgIcon('plate-utensils', 16, 16) %>
+            <span>Consumir aqui</span>
+          </button>
+          <button type="button" class="entrega" :class="{ active: serviceType === 'entrega' }"
+                  :aria-pressed="serviceType === 'entrega' ? 'true' : 'false'"
+                  @click="setServiceType('entrega')" title="Pedido para entrega">
+            <%- svgIcon('motorcycle', 16, 16) %>
+            <span>Entrega</span>
+          </button>
         </div>
 
         <div class="pdv-favorites" x-show="!cart.length && !slots[activeSlot].comandaId && favorites.length" x-cloak>
@@ -475,8 +492,8 @@
             <span class="prod-meta">
               <span class="muted text-sm" x-show="p.category" x-text="p.category"></span>
               <span class="prod-stock"
-                    :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
-                    x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
+                    :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                    x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
             </span>
             <span class="prod-price" x-text="brl(p.price_cents)"></span>
           </button>
@@ -496,8 +513,8 @@
               <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
             </span>
             <span class="price" x-text="brl(p.price_cents)"></span>
-            <span class="stock" :class="{ low: p.track_stock && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && p.stock_qty < 0 }"
-                  x-show="p.track_stock" x-text="'Est: ' + p.stock_qty"></span>
+            <span class="stock" :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                  x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
           </div>
         </template>
         <p class="pdv-empty" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
@@ -597,6 +614,14 @@
         <button type="button" @click="qtyStep(1)">+1</button>
       </div>
       <div class="actions">
+        <%# Só aparece no app desktop e em item vendido por peso. No navegador/celular
+            não existe ponte com a serial, então o botão nem é renderizado. %>
+        <button type="button" class="btn secondary" x-show="hwScale && qtyDlg.fractional" x-cloak
+                @click="lerBalanca()" title="Ler o peso atual da balança">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 21h14"/><path d="M7 6h10l3 6H4l3-6Z"/></svg>
+          Ler balança
+        </button>
+        <span style="flex:1"></span>
         <button type="button" class="btn secondary" @click="$refs.qtyDlg.close()">Cancelar</button>
         <button type="button" class="btn" @click="saveQtyDlg()">Salvar quantidade</button>
       </div>
@@ -955,7 +980,7 @@
       <h1>Venda a prazo</h1>
       <div class="dialog-body">
         <label>Cliente</label>
-        <select x-model.number="prazoForm.customerId" @change="onPrazoCustomerChange()">
+        <select x-model.number="prazoForm.customerId" data-search @change="onPrazoCustomerChange()">
           <option value="">Selecione…</option>
           <template x-for="c in customers" :key="c.id"><option :value="c.id" x-text="c.name"></option></template>
         </select>
@@ -1203,6 +1228,10 @@
         set discountReason(v) { this.slots[this.activeSlot].discountReason = v; },
         get lastSaleId() { return this.slots[this.activeSlot].lastSaleId; },
         set lastSaleId(v) { this.slots[this.activeSlot].lastSaleId = v; },
+        // Tipo do atendimento: fica no slot (sobrevive a trocar de aba e recarregar) e
+        // vai junto no "Enviar para cozinha". Slots antigos não têm a chave: local.
+        get serviceType() { return this.slots[this.activeSlot].serviceType === 'entrega' ? 'entrega' : 'local'; },
+        set serviceType(v) { this.slots[this.activeSlot].serviceType = v === 'entrega' ? 'entrega' : 'local'; },
         get customerId() { return this.slots[this.activeSlot].customerId ?? ''; },
         set customerId(v) { this.slots[this.activeSlot].customerId = v; },
         get customerName() { return this.slots[this.activeSlot].customerName ?? ''; },
@@ -1225,6 +1254,8 @@
         complementDlg: { product: null, groups: [], selections: {}, mainNotes: '', errors: {} },
         noteDlg: { idx: null, text: '' },
         qtyDlg: { idx: null, name: '', unit: 'un', fractional: false, raw: '', error: '' },
+        // Ponte com o processo principal (só existe no Electron — ver preload.ts).
+        hwScale: !!(window.kivo && window.kivo.hardware),
         quoteForm: { validUntil: '', notes: '', error: '', saving: false },
 
         // ─── Complementos ───
@@ -1939,6 +1970,32 @@
           this.qtyDlg.raw = this.fmtQty(next);
           this.qtyDlg.error = '';
         },
+        /**
+         * Lê o peso da balança serial (Electron) e converte para a unidade do item.
+         * A balança sempre devolve kg; item em g/ml/L usa a mesma escala (1 kg ≈ 1 L).
+         */
+        async lerBalanca() {
+          const hw = window.kivo && window.kivo.hardware;
+          if (!hw || !hw.readScale) return;
+          this.qtyDlg.error = '';
+          try {
+            const r = await hw.readScale();
+            if (!r || !r.ok) {
+              this.qtyDlg.error = (r && r.error) || 'Não foi possível ler a balança.';
+              return;
+            }
+            const kg = Number(r.kg);
+            if (!Number.isFinite(kg) || kg <= 0) {
+              this.qtyDlg.error = 'A balança retornou um peso inválido. Verifique se há produto sobre o prato.';
+              return;
+            }
+            const unidade = String(this.qtyDlg.unit || 'kg').toLowerCase();
+            const qty = unidade === 'g' || unidade === 'ml' ? kg * 1000 : kg;
+            this.qtyDlg.raw = this.fmtQty(Math.round(qty * 1000) / 1000);
+          } catch (e) {
+            this.qtyDlg.error = 'Erro ao falar com a balança. Confira a porta em Configurações › Periféricos.';
+          }
+        },
         // Mesmo atalho do modal de comandas: dígitos, vírgula/ponto e Backspace.
         qtyKeyboard(ev) {
           if (!this.$refs.qtyDlg?.open) return;
@@ -2016,8 +2073,12 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 draftId: this.ensureKitchenDraftId(),
+                serviceType: this.serviceType,
                 items: items.map((i) => ({
                   productId: i.productId, name: i.name, qty: i.qty, notes: i.notes || undefined,
+                  // Mantém o grupo principal+complementos para a cozinha saber o que
+                  // acompanha o prato (ex.: Açaí + Granola + Leite condensado).
+                  lineGroupUuid: i.lineGroupUuid || undefined,
                 })),
               }),
             });
@@ -2145,6 +2206,23 @@
           this.persistSlots();
         },
 
+        setServiceType(type) {
+          const next = type === 'entrega' ? 'entrega' : 'local';
+          if (this.serviceType === next) return;
+          const jaFoiParaCozinha = this.cart.some((i) => i.goesToKitchen && i.kitchenSent === true);
+          this.serviceType = next;
+          this.persistSlots();
+          // O ticket já criado não muda de tipo: só os itens novos vão com a escolha atual.
+          // Avisar evita achar que a cozinha recebeu a troca.
+          if (jaFoiParaCozinha) {
+            showToast(
+              'O pedido já enviado mantém o tipo anterior; os próximos itens vão como '
+                + (next === 'entrega' ? 'Entrega' : 'Consumir aqui') + '.',
+              'info',
+            );
+          }
+        },
+
         // ─── Limpar carrinho ───
         clearCart() {
           if (!this.cart.length) return;
@@ -2153,6 +2231,7 @@
         },
         doClear() {
           this.cart = []; this.payments = []; this.discountCents = 0; this.surchargeCents = 0; this.discountReason = ''; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
+          this.serviceType = 'local';
           this.slots[this.activeSlot].clientRequestId = '';
           this.pay.editingBackup = null;
           // Limpar o carrinho desfaz o vínculo com o orçamento reaberto — o que sobra é um
@@ -2818,6 +2897,7 @@
             customerId: this.customerId || undefined,
             customerName: freeName,
             clientRequestId,
+            serviceType: this.serviceType,
           };
           if (directSale) {
             const kitchenDraftId = this.slots[this.activeSlot].kitchenDraftId;
@@ -2865,6 +2945,7 @@
             this.$refs.pay.close();
             this.beep(true);
             this.cart = []; this.payments = []; this.discountCents = 0; this.surchargeCents = 0; this.discountReason = ''; this.customerId = ''; this.customerName = ''; this.customerBalances = {};
+            this.serviceType = 'local';
             this.slots[this.activeSlot].clientRequestId = '';
             this.pay.editingBackup = null;
             this.error = '';

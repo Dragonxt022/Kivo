@@ -46,8 +46,12 @@
     "run": "eslint src"
   },
   "format": {
-    "description": "Prettier — formatar código",
+    "description": "Prettier - formatar código",
     "run": "prettier --write \"src/**/*.ts\""
+  },
+  "typecheck:e2e": {
+    "description": "TypeScript - checar os testes E2E (Playwright/DOM, fora do build do app)",
+    "run": "tsc -p tsconfig.e2e.json"
   },
   "db:migrate": {
     "description": "Rodar migrations pendentes",
@@ -390,8 +394,36 @@
     "run": "node scripts/test-isolated.js src/tests/e2e/kivo-web-mobile.ts"
   },
   "test:e2e:mobile": {
-    "description": "QA E2E (Playwright): layout mobile — telas não estouram a largura em 390px",
+    "description": "QA E2E (Playwright): layout mobile - telas não estouram a largura em 390px",
     "run": "node scripts/test-isolated.js src/tests/e2e/mobile-layout.ts"
+  },
+  "test:e2e:tela": {
+    "description": "QA E2E (Playwright): tela sempre acesa nos painéis de Cozinha e Mesas",
+    "run": "node scripts/test-isolated.js src/tests/e2e/tela-sempre-acesa.ts"
+  },
+  "test:e2e:tipo-pedido": {
+    "description": "QA E2E (Playwright): local x entrega nos cards da cozinha",
+    "run": "node scripts/test-isolated.js src/tests/e2e/cozinha-tipo-pedido.ts"
+  },
+  "test:e2e:responsivo": {
+    "description": "QA E2E (Playwright): PDV, Mesas e Cozinha em celular, tablet e computador",
+    "run": "node scripts/test-isolated.js src/tests/e2e/responsivo-3-telas.ts"
+  },
+  "test:e2e:sons": {
+    "description": "QA E2E (Playwright): sons configuráveis (cozinha/mesas) e local x entrega na comanda",
+    "run": "node scripts/test-isolated.js src/tests/e2e/sons-e-entrega.ts"
+  },
+  "test:e2e:complementos": {
+    "description": "QA E2E (Playwright): complementos agrupados na comanda e no aviso da cozinha",
+    "run": "node scripts/test-isolated.js src/tests/e2e/complementos-cozinha.ts"
+  },
+  "https:mkcert": {
+    "description": "Gera certificado HTTPS local com mkcert para a pasta que o Kivo lê",
+    "run": "node scripts/https-mkcert.js"
+  },
+  "test:https": {
+    "description": "Testes: HTTPS com certificado próprio (PEM/mkcert)",
+    "run": "node scripts/test-isolated.js src/tests/https-cert.ts"
   },
   "cloud:install": {
     "description": "Instalar dependências do cloud/",

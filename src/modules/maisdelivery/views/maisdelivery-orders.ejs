@@ -52,8 +52,8 @@
             <button type="button" class="md-preset" :class="{ active: presetActive(30) }" @click="setRange(30)">30 dias</button>
           </div>
           <div class="md-range">
-            <label>De <input type="date" class="input" x-model="from" /></label>
-            <label>Até <input type="date" class="input" x-model="to" /></label>
+            <label>De <input type="date" data-picker class="input" x-model="from" /></label>
+            <label>Até <input type="date" data-picker class="input" x-model="to" /></label>
             <button type="button" class="btn small secondary" @click="applyCustom()" :disabled="loading">Aplicar</button>
           </div>
           <label class="md-search">

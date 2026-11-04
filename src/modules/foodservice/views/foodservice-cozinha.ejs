@@ -15,13 +15,23 @@
     <div class="kds-head">
       <h1>Painel de cozinha</h1>
       <div class="toolbar kds-head-actions">
-        <%# Som de novo pedido: desligado por padrão (política de autoplay dos navegadores
-            exige um toque antes) — abrir o diálogo e ouvir a prévia já vale como interação.
+        <%# Som de novo pedido: LIGADO por padrão. A política de autoplay exige um toque
+            antes, então o primeiro pointerdown na tela libera o áudio (unlockAudio).
             A escolha fica no aparelho (localStorage): cada tela de cozinha decide sozinha. %>
         <button type="button" class="btn secondary" @click="openSomDlg()" title="Escolher ou silenciar o som de novo pedido">
           <svg x-show="somAtivo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
           <svg x-show="!somAtivo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           <span class="kds-btn-label" x-text="somAtivo ? ('Som: ' + somLabel(somArquivo)) : 'Som desligado'"></span>
+        </button>
+        <%# Com a tela apagada o navegador suspende a página e o som do pedido novo não
+            toca. No tablet da cozinha (http:// da rede local) a Wake Lock API não existe;
+            o /js/keep-awake.js cobre com vídeo mudo em loop. %>
+        <button type="button" class="btn secondary" @click="toggleTelaLigada()"
+                :title="telaLigada ? (telaAtiva ? 'Tela sempre acesa para os avisos tocarem — toque para permitir que a tela apague' : 'Tentando manter a tela acesa — toque para tentar de novo') : 'Tela pode apagar (os avisos sonoros param com ela) — toque para manter acesa'"
+                :aria-pressed="telaLigada ? 'true' : 'false'">
+          <svg x-show="telaLigada" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          <svg x-show="!telaLigada" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <span class="kds-btn-label" x-text="telaLigada ? (telaAtiva ? 'Tela acesa' : 'Reativar tela') : 'Tela apaga'"></span>
         </button>
         <button type="button" class="btn secondary" @click="showEntregues = !showEntregues"
                 title="Mostrar ou ocultar pedidos entregues" aria-label="Mostrar ou ocultar pedidos entregues">
@@ -39,7 +49,8 @@
 
     <p class="kds-touch-hint" x-show="hasVisibleTickets()" x-cloak>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
-      Toque em <strong>Iniciar</strong>/<strong>Pronto</strong> ou deslize o cartão para a direita para avançar o pedido.
+      Toque em <strong>Iniciar</strong>/<strong>Pronto</strong> ou deslize o cartão para a direita para avançar.
+      Para corrigir um toque errado, use <strong>⬅ Voltar</strong> no item ou no pedido.
     </p>
 
     <%# Kanban: uma coluna por etapa; o ticket anda de coluna quando os itens avançam.
@@ -60,15 +71,25 @@
                    @pointerup="swipeEnd($event, ticket)"
                    @pointercancel="swipeCancel()">
                 <div class="kds-card-header">
-                  <span class="kds-source">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path x-show="ticket.source_type === 'comanda'" d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
-                      <g x-show="ticket.source_type !== 'comanda'"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></g>
-                    </svg>
-                    <span x-text="ticket.source_type === 'comanda'
-                      ? (ticket.table_label || ('Comanda #' + ticket.source_id))
-                      : (ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id)"></span>
-                  </span>
+                  <div class="kds-card-head-left">
+                    <%# Tipo de atendimento: prato/garfo = consumir no local; motinha = entrega.
+                        O texto some no celular, mas o ícone colorido continua. %>
+                    <span class="kds-service" :class="'kds-service-' + serviceType(ticket)"
+                          :title="serviceLabel(ticket)" :aria-label="serviceLabel(ticket)">
+                      <span x-show="serviceType(ticket) === 'entrega'"><%- svgIcon('motorcycle', 16, 16) %></span>
+                      <span x-show="serviceType(ticket) !== 'entrega'"><%- svgIcon('plate-utensils', 16, 16) %></span>
+                      <span class="kds-service-label" x-text="serviceType(ticket) === 'entrega' ? 'Entrega' : 'Local'"></span>
+                    </span>
+                    <span class="kds-source">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path x-show="ticket.source_type === 'comanda'" d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+                        <g x-show="ticket.source_type !== 'comanda'"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></g>
+                      </svg>
+                      <span x-text="ticket.source_type === 'comanda'
+                        ? (ticket.table_label || ('Comanda #' + ticket.source_id))
+                        : (ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id)"></span>
+                    </span>
+                  </div>
                   <span class="kds-time" :class="{ 'kds-late': isLate(ticket) }" x-text="ticketAge(ticket)"></span>
                 </div>
                 <div class="kds-items">
@@ -77,28 +98,60 @@
                       <div class="kds-item-qty" x-text="item.qty + 'x'"></div>
                       <div class="kds-item-info">
                         <div class="kds-item-name" x-text="item.product_name"></div>
+                        <%# Complementos escolhidos no item principal (Açaí + Granola...).
+                            Sem esta linha a cozinha só via o Açaí. %>
+                        <div class="kds-item-complements" x-show="item.complements"
+                             x-text="'＋ ' + item.complements"></div>
                         <%# Observação do garçom em VERMELHO e em negrito: "sem cebola"
                             não pode se perder no meio do card. %>
                         <div class="kds-item-notes" x-show="item.notes" x-text="'⚠ Obs.: ' + item.notes"></div>
                         <span class="badge badge-info" x-show="item.station" x-text="item.station"></span>
                       </div>
-                      <button type="button" class="btn small kds-item-action"
-                              :disabled="item.status === 'entregue'"
-                              :aria-label="nextStatus(item.status) + ' — ' + item.product_name"
-                              @click="advanceItem(ticket.id, item.id, item.status)">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <polygon x-show="item.status === 'pendente'" points="6 3 20 12 6 21 6 3"/>
-                          <path x-show="item.status !== 'pendente'" d="M20 6 9 17l-5-5"/>
-                        </svg>
-                        <span x-text="nextStatus(item.status)"></span>
-                      </button>
+                      <div class="kds-item-actions">
+                        <button type="button" class="btn small secondary kds-item-back"
+                                x-show="prevTicketStatus(item.status)"
+                                :title="'Voltar uma etapa — ' + prevTicketAction(item.status)"
+                                :aria-label="'Voltar uma etapa de ' + item.product_name"
+                                @click="revertItem(ticket.id, item.id, item.status)">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+                          </svg>
+                        </button>
+                        <button type="button" class="btn small kds-item-action"
+                                x-show="item.status !== 'entregue'"
+                                :disabled="item.status === 'entregue'"
+                                :aria-label="nextStatus(item.status) + ' — ' + item.product_name"
+                                @click="advanceItem(ticket.id, item.id, item.status)">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon x-show="item.status === 'pendente'" points="6 3 20 12 6 21 6 3"/>
+                            <path x-show="item.status !== 'pendente'" d="M20 6 9 17l-5-5"/>
+                          </svg>
+                          <span x-text="nextStatus(item.status)"></span>
+                        </button>
+                      </div>
                     </div>
                   </template>
                 </div>
                 <%# Avanço do pedido inteiro (propaga pros itens no servidor) — atalho
-                    pra tirar o card da coluna sem tocar item por item. %>
-                <div class="kds-card-footer" x-show="nextTicketStatus(ticket.status)">
-                  <button type="button" class="btn small secondary kds-advance-ticket" @click="advanceTicket(ticket)">
+                    pra tirar o card da coluna sem tocar item por item. O botão da
+                    esquerda desfaz uma etapa (item ou pedido inteiro): cozinha erra
+                    toque, e sem isso só dava para corrigir mexendo no banco. %>
+                <%# Com UM item só, os botões do próprio item (Iniciar/Pronto/Entregar e ⬅)
+                    já fazem tudo; o rodapé repetia a mesma ação ("Iniciar preparo") e
+                    confundia. O rodapé fica para pedidos com 2+ itens, onde ele avança o
+                    pedido inteiro de uma vez. %>
+                <div class="kds-card-footer"
+                     x-show="ticketCanAdvanceWhole(ticket) || ticketCanRevertWhole(ticket)">
+                  <button type="button" class="btn small secondary kds-back-ticket"
+                          x-show="ticketCanRevertWhole(ticket)"
+                          :title="'Voltar uma etapa — ' + prevTicketAction(ticket.status)"
+                          :aria-label="prevTicketAction(ticket.status)"
+                          @click="revertTicket(ticket)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                    <span class="kds-btn-label">Voltar</span>
+                  </button>
+                  <button type="button" class="btn small secondary kds-advance-ticket"
+                          x-show="ticketCanAdvanceWhole(ticket)" @click="advanceTicket(ticket)">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
                     <span x-text="nextTicketAction(ticket.status)"></span>
                   </button>
@@ -127,30 +180,50 @@
       <% } %>
     </div>
 
-    <!-- Dialog: som de novo pedido -->
+    <!-- Dialog: sons do painel (novo pedido e cancelamento) -->
     <dialog x-ref="somDlg" @close="stopPreview()">
-      <h1>Som de novo pedido</h1>
+      <h1>Sons do painel</h1>
       <p class="muted dialog-text">Toque no play para ouvir antes de escolher. A seleção vale para esta tela.</p>
+
+      <h2 class="som-section-title">Novo pedido</h2>
       <div class="som-list">
         <button type="button" class="som-option" :class="{ selected: pendenteSom === '' }" @click="pendenteSom = ''">
           <span>Silencioso</span>
           <span class="muted text-sm">sem aviso sonoro</span>
         </button>
-        <template x-for="s in sons" :key="s.file">
+        <template x-for="s in sons" :key="'novo-' + s.file">
           <div class="som-option" :class="{ selected: pendenteSom === s.file }">
             <button type="button" class="som-choose" @click="pendenteSom = s.file">
               <span x-text="s.label"></span>
             </button>
-            <button type="button" class="icon-btn som-preview" @click="preview(s.file)" title="'Ouvir ' + s.label">
+            <button type="button" class="icon-btn som-preview" @click="preview(s.file)" :title="'Ouvir ' + s.label">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
             </button>
           </div>
         </template>
       </div>
+
+      <h2 class="som-section-title">Pedido cancelado</h2>
+      <div class="som-list">
+        <button type="button" class="som-option" :class="{ selected: pendenteSomCancel === '' }" @click="pendenteSomCancel = ''">
+          <span>Silencioso</span>
+          <span class="muted text-sm">sem aviso sonoro</span>
+        </button>
+        <template x-for="s in sons" :key="'cancel-' + s.file">
+          <div class="som-option" :class="{ selected: pendenteSomCancel === s.file }">
+            <button type="button" class="som-choose" @click="pendenteSomCancel = s.file">
+              <span x-text="s.label"></span>
+            </button>
+            <button type="button" class="icon-btn som-preview" @click="preview(s.file)" :title="'Ouvir ' + s.label">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+            </button>
+          </div>
+        </template>
+      </div>
+
       <div class="toolbar som-dialog-actions">
         <button type="button" class="btn secondary" @click="$refs.somDlg.close()">Cancelar</button>
-        <button type="button" class="btn" @click="salvarSom()"
-                x-text="pendenteSom ? 'Ativar este som' : 'Salvar silencioso'"></button>
+        <button type="button" class="btn" @click="salvarSom()">Salvar sons</button>
       </div>
     </dialog>
   </main>
@@ -165,13 +238,23 @@
     .kds-touch-hint svg { flex-shrink: 0; color: var(--primary); }
 
     /* ─── Kanban: colunas lado a lado; no celular viram pilha (uma abaixo da outra) ─── */
-    .kds-board { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 1rem; align-items: start; }
+    /* O KDS é um painel de operação, não uma página de leitura: ocupa a altura da
+       tela e cada coluna rola por dentro. Sem isso uma fila grande esticava a coluna
+       "Pendentes" até 2000px e empurrava as outras para fora da vista. */
+    body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+    body > main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .kds-board {
+      display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 1rem;
+      grid-template-rows: minmax(0, 1fr); align-items: stretch; align-content: stretch;
+      flex: 1 1 auto; min-height: 0;
+    }
     .kds-board.kds-4col { grid-template-columns: repeat(4, minmax(250px, 1fr)); }
     @media (max-width: 1100px) {
       .kds-board, .kds-board.kds-4col { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
     }
     .kds-col {
-      min-width: 0; min-height: 180px; padding: .75rem;
+      min-width: 0; min-height: 0; max-height: 100%; padding: .75rem;
+      display: flex; flex-direction: column;
       border: 1px solid var(--border-light); border-radius: var(--radius-lg);
       background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
     }
@@ -204,9 +287,9 @@
       min-width: 1.8rem; text-align: center; padding: .12rem .5rem; font-size: .76rem;
       color: var(--text-secondary); font-variant-numeric: tabular-nums;
     }
-    .kds-col-body { display: flex; flex-direction: column; gap: .7rem; }
+    .kds-col-body { display: flex; flex-direction: column; gap: .7rem; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
     .kds-empty {
-      display: grid; place-items: center; min-height: 120px;
+      display: grid; place-items: center; min-height: 0; height: 100%;
       color: var(--text-muted); font-size: .8rem; text-align: center;
       padding: 1.25rem .75rem; border: 1px dashed var(--border); border-radius: 12px;
       background: color-mix(in srgb, var(--surface) 55%, transparent);
@@ -216,7 +299,20 @@
       position: relative; background: var(--surface); border: 1px solid var(--border-light);
       border-left: 4px solid var(--border); border-radius: 14px;
       box-shadow: var(--shadow-xs); overflow: hidden; touch-action: pan-y;
+      /* O corpo da coluna rola; o cartão NÃO pode encolher para caber — encolhido ele
+         virava uma tira de 4px e o pedido desaparecia. */
+      flex-shrink: 0;
       transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+    /* Card entra suave na coluna. O poll do KDS recria o nó quando o pedido muda de
+       etapa (x-for por coluna), então a animação marca a chegada na nova coluna. */
+    @keyframes kds-card-in {
+      from { opacity: 0; transform: translateY(7px) scale(.985); }
+      to { opacity: 1; transform: none; }
+    }
+    .kds-card { animation: kds-card-in .24s cubic-bezier(.2,.8,.2,1); }
+    @media (prefers-reduced-motion: reduce) {
+      .kds-card { animation: none; }
     }
     .kds-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
     .kds-card.kds-swiping { transition: none; box-shadow: var(--shadow); }
@@ -232,24 +328,56 @@
     .kds-card.kds-pendente .kds-card-header { background: color-mix(in srgb, var(--warning-bg) 55%, var(--surface)); }
     .kds-card.kds-preparo .kds-card-header { background: color-mix(in srgb, var(--kds-preparo) 9%, var(--surface)); }
     .kds-card.kds-pronto .kds-card-header { background: color-mix(in srgb, var(--primary) 9%, var(--surface)); }
-    .kds-source { display: flex; align-items: center; gap: .45rem; color: var(--text); font-size: .92rem; }
+    .kds-card-head-left { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 1 1 auto; }
+    /* Tipo do pedido: prato/garfo (local) x motinha (entrega). Cor diferente para a
+       cozinha bater o olho e não confundir a sacola da entrega com o prato da mesa. */
+    .kds-service {
+      display: inline-flex; align-items: center; gap: .22rem; flex: none;
+      padding: .12rem .42rem; border: 1px solid transparent; border-radius: 999px;
+      font-size: .7rem; font-weight: 700; line-height: 1.2; white-space: nowrap;
+    }
+    .kds-service svg { flex-shrink: 0; }
+    .kds-service-local {
+      color: var(--primary); background: var(--primary-bg);
+      border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+    }
+    .kds-service-entrega {
+      color: var(--warning-text); background: var(--warning-bg);
+      border-color: color-mix(in srgb, var(--warning-text) 30%, transparent);
+    }
+    .kds-source { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 1 1 auto; color: var(--text); font-size: .92rem; }
+    .kds-source span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .kds-source svg { color: var(--text-muted); flex-shrink: 0; }
     .kds-time { color: var(--text-muted); font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .kds-time.kds-late { color: var(--warning-text); font-weight: 700; }
     .kds-items { display: flex; flex-direction: column; }
     .kds-item {
-      display: flex; align-items: center; gap: .75rem; padding: .7rem 1rem;
+      display: flex; flex-wrap: wrap; align-items: flex-start;
+      column-gap: .6rem; row-gap: .35rem; padding: .7rem 1rem;
       border-top: 1px solid var(--border-light);
+      transition: background-color .25s ease, opacity .25s ease;
     }
     .kds-item:first-child { border-top: none; }
     .kds-item-preparo { background: color-mix(in srgb, var(--kds-preparo) 8%, transparent); }
     .kds-item-entregue { opacity: .55; }
     .kds-item-qty {
+      flex: none; margin-top: .05rem;
       font-weight: 700; font-size: 1.02rem; min-width: 2.35rem; text-align: center;
       color: var(--primary); background: var(--primary-bg); border-radius: 8px; padding: .25rem 0;
     }
-    .kds-item-info { flex: 1; min-width: 0; }
+    .kds-item-info { flex: 1 1 170px; min-width: 0; }
+    .kds-item-actions {
+      display: flex; align-items: center; gap: .35rem;
+      flex: 0 0 auto; margin-left: auto;
+    }
     .kds-item-name { font-weight: 600; font-size: .95rem; }
+    /* Complementos do item principal: texto compacto, sem virar um bloco gigante que
+       espremia o nome/observação. A lista completa continua visível. */
+    .kds-item-complements {
+      display: block; margin-top: .18rem;
+      color: var(--primary); font-weight: 600; font-size: .76rem; line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
     /* Observação do garçom: destaque máximo — vermelho e negrito, com fundo leve. */
     .kds-item-notes {
       display: inline-block; margin-top: .2rem; padding: .1rem .45rem; border-radius: 6px;
@@ -260,19 +388,37 @@
       min-height: 44px; padding: .55rem .85rem; font-size: .82rem; border-radius: 10px;
       white-space: nowrap; flex-shrink: 0;
     }
+    /* Voltar uma etapa do item: alvo de toque quadrado, ao lado do botão de avançar. */
+    .kds-item-back {
+      width: 44px; min-height: 44px; padding: 0; flex: none; border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
     .kds-card-footer {
-      display: flex; padding: .6rem .85rem; border-top: 1px solid var(--border-light);
+      display: flex; gap: .5rem; padding: .6rem .85rem; border-top: 1px solid var(--border-light);
       background: var(--surface-hover);
     }
+    .kds-back-ticket {
+      flex: none; min-height: 46px; padding: 0 .85rem; border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+      font-size: .86rem;
+    }
     .kds-advance-ticket {
-      width: 100%; min-height: 46px; justify-content: center; gap: .4rem;
+      flex: 1 1 auto; min-height: 46px; justify-content: center; gap: .4rem;
       font-size: .86rem; border-radius: 10px;
     }
     .kds-advance-ticket.btn.secondary { background: var(--surface); border-color: var(--border); }
     .kds-advance-ticket.btn.secondary:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
 
     /* ─── Diálogo de som ─── */
-    .som-list { display: flex; flex-direction: column; gap: .4rem; margin: .75rem 0 1rem; min-width: min(420px, 80vw); }
+    .som-section-title {
+      margin: .9rem 0 .35rem; font-size: .78rem; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text-muted);
+    }
+    .som-list {
+      display: flex; flex-direction: column; gap: .4rem; margin: 0 0 .5rem;
+      min-width: min(420px, 80vw); max-height: min(28vh, 260px);
+      overflow-y: auto; padding-right: 2px;
+    }
     .som-option {
       display: flex; align-items: center; justify-content: space-between; gap: .5rem;
       border: 1.5px solid var(--border-light); border-radius: var(--radius);
@@ -309,13 +455,16 @@
       .kds-head h1 { font-size: 1.02rem; margin: 0; }
       .kds-head-actions { gap: .3rem; flex-wrap: nowrap; margin: 0; }
       .kds-head-actions .btn { padding: .35rem .5rem; min-height: 34px; font-size: .72rem; gap: .25rem; }
-      .kds-btn-label { display: none; }
+      .kds-head-actions .kds-btn-label { display: none; }
       .kds-touch-hint, .kds-dica { display: none; }
       .kds-board, .kds-board.kds-4col {
         flex: 1 1 auto;
         min-height: 0;
         display: flex;
         flex-direction: column;
+        /* Sem `stretch` as colunas vazias encolhiam para a largura do texto e as com
+           pedido ficavam com outra largura — era o layout torto do print do tablet. */
+        align-items: stretch;
         gap: .35rem;
       }
       .kds-col {
@@ -325,7 +474,11 @@
         flex-direction: column;
         padding: .3rem .4rem .35rem;
         border-radius: 10px;
+        transition: flex-grow .25s ease, background-color .25s ease;
       }
+      /* A etapa que tem pedido cresce mais que as vazias: no celular o rodapé com
+         "Marcar pronto"/"Entregar" ficava cortado embaixo do cartão. */
+      .kds-col:has(.kds-card) { flex-grow: 1.7; }
       .kds-col-head {
         flex: 0 0 auto;
         font-size: .66rem;
@@ -345,17 +498,44 @@
       .kds-card { border-radius: 10px; }
       .kds-card:hover { transform: none; }
       .kds-card-header { padding: .35rem .5rem; font-size: .74rem; }
+      .kds-card-head-left { gap: .3rem; }
+      .kds-service { padding: .04rem .25rem; font-size: .62rem; }
+      .kds-service-label { display: none; }
       .kds-source { gap: .3rem; font-size: .78rem; min-width: 0; }
       .kds-source span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .kds-time { font-size: .68rem; }
-      .kds-item { padding: .35rem .45rem; gap: .35rem; }
+      .kds-item { padding: .3rem .45rem; gap: .25rem .35rem; }
       .kds-item-qty { min-width: 1.7rem; font-size: .82rem; padding: .15rem 0; }
+      .kds-item-info { flex-basis: 120px; }
+      .kds-item-actions { gap: .25rem; }
       .kds-item-name { font-size: .8rem; }
+      .kds-item-complements { font-size: .7rem; margin-top: .08rem; }
       .kds-item-notes { font-size: .7rem; padding: .05rem .3rem; margin-top: .08rem; }
       .kds-item .badge { font-size: .6rem; padding: 0 .25rem; }
       .kds-item .btn.small { min-height: 34px; font-size: .68rem; padding: .3rem .45rem; gap: .2rem; }
-      .kds-card-footer { padding: .3rem .45rem; }
+      .kds-item-back { width: 34px; padding: 0; }
+      .kds-card-footer { padding: .3rem .45rem; gap: .35rem; }
+      .kds-back-ticket { min-height: 34px; padding: 0 .5rem; font-size: .72rem; }
       .kds-advance-ticket { min-height: 34px; font-size: .74rem; }
+    }
+
+    /* ─── Celular/tablet DEITADO (altura curta) ───
+       Empilhar 3 etapas numa tela de ~390px de altura espremia cada coluna para menos de
+       100px — o cartão virava uma tira de 4px. Deitado, as etapas voltam a ficar lado a
+       lado (como no desktop) e cada uma rola por dentro. */
+    @media (hover: none) and (orientation: landscape) and (max-height: 600px) {
+      body > main { padding: .3rem .5rem .25rem; }
+      .kds-head { margin-bottom: .25rem; }
+      .kds-board, .kds-board.kds-4col {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        align-items: stretch;
+        gap: .35rem;
+      }
+      .kds-col { flex: none; padding: .3rem .4rem .35rem; }
+      .kds-col:has(.kds-card) { flex-grow: 0; }
     }
   </style>
   <style>
@@ -372,22 +552,29 @@
         // Som de novo pedido: preferência fica no aparelho (localStorage) — cada tela
         // de cozinha decide sozinha. `knownIds` é o baseline: carregar a página não toca
         // sirene para pedidos que já estavam lá.
-        somAtivo: localStorage.getItem('kds-som') === '1',
+        // Padrão LIGADO: a cozinha precisa ouvir o pedido novo sem configurar nada.
+        // Só fica silenciosa se alguém escolher "silencioso" no diálogo (grava '0').
+        somAtivo: localStorage.getItem('kds-som') !== '0',
         somArquivo: localStorage.getItem('kds-som-arquivo') || 'pedido.mp3',
         pendenteSom: '',
-        sons: [
-          { label: 'Pedido 1', file: 'pedido.mp3' },
-          { label: 'Pedido 2', file: 'pedido2.mp3' },
-          { label: 'Pedido 3', file: 'pedido3.mp3' },
-          { label: 'Pedido 4', file: 'pedido4.mp3' },
-          { label: 'Pedido 5', file: 'pedido5.mp3' },
-        ],
+        // Aviso de pedido cancelado: som separado e configurável. Padrão ligado com um
+        // som diferente do "pedido novo", para a cozinha não confundir os dois.
+        somCancelAtivo: localStorage.getItem('kds-som-cancelamento') !== '0',
+        somCancelArquivo: localStorage.getItem('kds-som-cancelamento-arquivo') || 'pedido8.mp3',
+        pendenteSomCancel: '',
+        // Lista vem de public/sons (core/sound/notificationSounds): pedido9.mp3 que o
+        // lojista adicionar aparece aqui sem mexer na tela.
+        sons: <%- JSON.stringify(sons) %>,
         audio: null,
+        audioCancel: null,
         previewAudio: null,
         knownIds: null,
-        // Tela acesa enquanto o painel estiver aberto. Só existe em HTTPS (Kivo Web ou
-        // instalação com certificado); no http:// da rede local o navegador não libera.
-        wakeLock: null,
+        knownStatuses: null,
+        // Tela acesa enquanto o painel estiver aberto. O lock/vídeo é do partial
+        // /js/keep-awake.js (incluído pelo nav neste painel); aqui só refletimos o estado
+        // no botão. Ligado por padrão — a tela apagando, o som do pedido novo para.
+        telaLigada: true,
+        telaAtiva: false,
         columns: [
           { status: 'pendente', label: 'Pendentes' },
           { status: 'preparo', label: 'Em preparo' },
@@ -396,28 +583,56 @@
         ],
         async init() {
           await this.load();
+          // Política de autoplay: um play mudo no primeiro toque libera os próximos
+          // avisos sonoros. Sem isso o primeiro pedido podia chegar em silêncio.
+          document.addEventListener('pointerdown', () => this.unlockAudio(), { once: true, passive: true });
           // Não acorda a rede com a aba escondida; ao voltar, atualiza na hora.
           this.pollTimer = setInterval(() => { if (!document.hidden) this.load(); }, 5000);
           document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-              this.load();
-              this.requestWakeLock();
-            }
+            if (!document.hidden) this.load();
           });
-          this.bindWakeLock();
+          // Estado do "tela acesa" vem do parcial global; o botão só reflete/alterna.
+          if (window.KivoKeepAwake) {
+            this.telaLigada = window.KivoKeepAwake.isEnabled();
+            this.telaAtiva = window.KivoKeepAwake.isActive();
+            window.addEventListener('kivo:keep-awake', (e) => {
+              this.telaLigada = !!(e && e.detail && e.detail.enabled);
+              this.telaAtiva = !!(e && e.detail && e.detail.active);
+            });
+          }
         },
-        bindWakeLock() {
-          if (!('wakeLock' in navigator) || !window.isSecureContext) return;
-          // Pedir no primeiro toque evita o bloqueio de "sem interação do usuário".
-          var once = () => { this.requestWakeLock(); };
-          document.addEventListener('pointerdown', once, { once: true, passive: true });
+        toggleTelaLigada() {
+          if (!window.KivoKeepAwake) {
+            showToast('Este navegador não permite manter a tela ligada.', 'error');
+            return;
+          }
+          this.telaLigada = window.KivoKeepAwake.toggle();
+          showToast(
+            this.telaLigada
+              ? 'Tentando manter a tela acesa...'
+              : 'A tela pode apagar — com ela, os avisos sonoros param.',
+            'info',
+          );
+          // A ativação é assíncrona (Wake Lock/vídeo). Se o navegador recusar, avisa em
+          // vez de deixar o botão mentindo "Tela acesa".
+          setTimeout(() => {
+            if (!window.KivoKeepAwake) return;
+            this.telaAtiva = window.KivoKeepAwake.isActive();
+            if (this.telaLigada && !this.telaAtiva) {
+              showToast(
+                'Este navegador não liberou manter a tela acesa. Ajuste o tempo de tela do aparelho ou use HTTPS.',
+                'error',
+              );
+            }
+          }, 1500);
         },
-        async requestWakeLock() {
-          if (!('wakeLock' in navigator) || !window.isSecureContext || this.wakeLock) return;
-          try {
-            this.wakeLock = await navigator.wakeLock.request('screen');
-            this.wakeLock.addEventListener('release', () => { this.wakeLock = null; });
-          } catch (e) { /* navegador recusou: o painel segue normal */ }
+        // Tipo do pedido no card. Tickets antigos (antes da coluna service_type) são
+        // tratados como locais — era o único comportamento que existia.
+        serviceType(ticket) {
+          return ticket && ticket.service_type === 'entrega' ? 'entrega' : 'local';
+        },
+        serviceLabel(ticket) {
+          return this.serviceType(ticket) === 'entrega' ? 'Entrega' : 'Consumir no local';
         },
         visibleColumns() {
           return this.columns.filter((c) => c.status !== 'entregue' || this.showEntregues);
@@ -428,6 +643,12 @@
         hasVisibleTickets() {
           return this.visibleColumns().some((c) => this.byStatus(c.status).length > 0);
         },
+        ticketLabel(ticket) {
+          const base = ticket.source_type === 'comanda'
+            ? (ticket.table_label || ('Comanda #' + ticket.source_id))
+            : (ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id);
+          return (ticket.service_type === 'entrega' ? 'Entrega — ' : '') + base;
+        },
         async load() {
           const r = await fetch('/api/foodservice/kitchen/tickets');
           if (!r.ok) return;
@@ -435,16 +656,36 @@
           const visiveis = all.filter((t) => t.status !== 'cancelado');
           const ids = new Set(visiveis.map((t) => t.id));
           const novos = this.knownIds ? [...ids].filter((id) => !this.knownIds.has(id)) : [];
+
+          // Cancelamento: o ticket some da tela (status 'cancelado'), mas antes disso a
+          // cozinha precisa saber. A primeira carga é baseline — não toca para pedidos
+          // que já estavam cancelados quando a tela abriu.
+          const antes = this.knownStatuses;
+          const cancelados = antes
+            ? all.filter((t) => t.status === 'cancelado' && antes.has(t.id) && antes.get(t.id) !== 'cancelado')
+            : [];
+          this.knownStatuses = new Map(all.map((t) => [t.id, t.status]));
+
           if (novos.length && this.somAtivo) this.playSom();
+          if (cancelados.length) {
+            if (this.somCancelAtivo) this.playSomCancel();
+            const labels = cancelados.map((t) => this.ticketLabel(t)).join(', ');
+            showToast('Pedido cancelado: ' + labels + '.', 'error');
+            if (document.hidden && window.KivoReadyAlerts && window.KivoReadyAlerts.notify) {
+              window.KivoReadyAlerts.notify(
+                'Pedido cancelado na cozinha',
+                labels + ' — toque para abrir.',
+                '/app/foodservice/cozinha',
+                'kivo-cancel-' + cancelados[0].id,
+              );
+            }
+          }
+
           // Com a tela apagada ou a aba escondida, o som pode não tocar: o aviso do
           // sistema (quando o navegador permite) garante que o pedido não passe batido.
           if (novos.length && document.hidden && window.KivoReadyAlerts && window.KivoReadyAlerts.notify) {
             const t = visiveis.find((x) => x.id === novos[0]);
-            const label = t
-              ? (t.source_type === 'comanda'
-                ? (t.table_label || ('Comanda #' + t.source_id))
-                : (t.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + t.source_id))
-              : 'Novo pedido';
+            const label = t ? this.ticketLabel(t) : 'Novo pedido';
             window.KivoReadyAlerts.notify(
               'Novo pedido na cozinha',
               label + ' — toque para abrir.',
@@ -461,6 +702,7 @@
         openSomDlg() {
           // Seleção pendente começa na configuração atual; salvar só no botão.
           this.pendenteSom = this.somAtivo ? this.somArquivo : '';
+          this.pendenteSomCancel = this.somCancelAtivo ? this.somCancelArquivo : '';
           this.$refs.somDlg.showModal();
         },
         preview(file) {
@@ -479,22 +721,52 @@
           this.stopPreview();
           this.somArquivo = this.pendenteSom || 'pedido.mp3';
           this.somAtivo = !!this.pendenteSom;
+          this.somCancelArquivo = this.pendenteSomCancel || 'pedido8.mp3';
+          this.somCancelAtivo = !!this.pendenteSomCancel;
           localStorage.setItem('kds-som', this.somAtivo ? '1' : '0');
           localStorage.setItem('kds-som-arquivo', this.somArquivo);
+          localStorage.setItem('kds-som-cancelamento', this.somCancelAtivo ? '1' : '0');
+          localStorage.setItem('kds-som-cancelamento-arquivo', this.somCancelArquivo);
           this.$refs.somDlg.close();
-          if (this.somAtivo) { showToast(`Som ativado: ${this.somLabel(this.somArquivo)}.`, 'success'); this.playSom(); }
-          else showToast('Painel silenciado.', 'info');
+          const novo = this.somAtivo ? this.somLabel(this.somArquivo) : 'silencioso';
+          const cancel = this.somCancelAtivo ? this.somLabel(this.somCancelArquivo) : 'silencioso';
+          showToast(`Sons salvos — novo pedido: ${novo}; cancelamento: ${cancel}.`, 'success');
+          if (this.somAtivo) this.playSom();
+        },
+        unlockFile(prop, file) {
+          try {
+            if (!this[prop] || this[prop].dataset.file !== file) {
+              this[prop] = new Audio('/sons/' + file);
+              this[prop].dataset.file = file;
+            }
+            this[prop].muted = true;
+            this[prop].play().then(() => {
+              this[prop].pause();
+              this[prop].currentTime = 0;
+              this[prop].muted = false;
+            }).catch(() => { this[prop].muted = false; });
+          } catch { /* áudio indisponível não pode travar o painel */ }
+        },
+        unlockAudio() {
+          if (this.somAtivo) this.unlockFile('audio', this.somArquivo);
+          if (this.somCancelAtivo) this.unlockFile('audioCancel', this.somCancelArquivo);
+        },
+        playFile(prop, file, active) {
+          if (!active) return;
+          try {
+            if (!this[prop] || this[prop].dataset.file !== file) {
+              this[prop] = new Audio('/sons/' + file);
+              this[prop].dataset.file = file;
+            }
+            this[prop].currentTime = 0;
+            this[prop].play().catch(() => { /* autoplay bloqueado — nada que fazer */ });
+          } catch { /* áudio indisponível não pode travar o painel */ }
         },
         playSom() {
-          if (!this.somAtivo) return;
-          try {
-            if (!this.audio || this.audio.dataset.file !== this.somArquivo) {
-              this.audio = new Audio('/sons/' + this.somArquivo);
-              this.audio.dataset.file = this.somArquivo;
-            }
-            this.audio.currentTime = 0;
-            this.audio.play().catch(() => { /* autoplay bloqueado — nada que fazer */ });
-          } catch { /* áudio indisponível não pode travar o painel */ }
+          this.playFile('audio', this.somArquivo, this.somAtivo);
+        },
+        playSomCancel() {
+          this.playFile('audioCancel', this.somCancelArquivo, this.somCancelAtivo);
         },
         parseUtc(raw) {
           if (!raw) return null;
@@ -515,14 +787,21 @@
           const estimate = Math.max(15, ...(ticket.items || []).map((i) => i.estimated_minutes || 0));
           return min >= estimate;
         },
+        nextStatusValue(s) {
+          if (s === 'pendente') return 'preparo';
+          if (s === 'preparo') return 'pronto';
+          if (s === 'pronto') return 'entregue';
+          return '';
+        },
         nextStatus(s) {
-          if (s === 'pendente') return 'Iniciar';
-          if (s === 'preparo') return 'Pronto';
-          if (s === 'pronto') return 'Entregue';
+          const next = this.nextStatusValue(s);
+          if (next === 'preparo') return 'Iniciar';
+          if (next === 'pronto') return 'Pronto';
+          if (next === 'entregue') return 'Entregue';
           return '';
         },
         nextTicketStatus(s) {
-          if (s === 'pendente') return 'em preparo';
+          if (s === 'pendente') return 'preparo';
           if (s === 'preparo') return 'pronto';
           if (s === 'pronto') return 'entregue';
           return '';
@@ -532,6 +811,29 @@
           if (s === 'preparo') return 'Marcar pronto';
           if (s === 'pronto') return 'Entregar pedido';
           return '';
+        },
+        // Voltar etapa é o caminho de correção: toque errado na correria não pode exigir
+        // mexer no banco. A etapa anterior também é usada pelos botões ⬅ de item/pedido.
+        prevTicketStatus(s) {
+          if (s === 'entregue') return 'pronto';
+          if (s === 'pronto') return 'preparo';
+          if (s === 'preparo') return 'pendente';
+          return '';
+        },
+        prevTicketAction(s) {
+          const prev = this.prevTicketStatus(s);
+          if (prev === 'pendente') return 'Voltar para pendente';
+          if (prev === 'preparo') return 'Voltar para em preparo';
+          if (prev === 'pronto') return 'Voltar para pronto';
+          return '';
+        },
+        // O rodapé "pedido inteiro" só faz sentido com 2+ itens. Com um item só, os
+        // botões do próprio item já avançam/voltam e o rodapé seria a mesma ação duplicada.
+        ticketCanAdvanceWhole(ticket) {
+          return (ticket.items || []).length > 1 && !!this.nextTicketStatus(ticket.status);
+        },
+        ticketCanRevertWhole(ticket) {
+          return (ticket.items || []).length > 1 && !!this.prevTicketStatus(ticket.status);
         },
         // Deslizar o cartão para a direita avança o pedido inteiro. O gesto usa
         // pointer events (mouse + toque) e ignora toques que começam em botões,
@@ -571,22 +873,44 @@
           return `transform: translateX(${this.swipeDx}px); opacity: ${opacity};`;
         },
         async advanceItem(ticketId, itemId, currentStatus) {
-          const next = this.nextStatus(currentStatus);
+          const next = this.nextStatusValue(currentStatus);
           if (!next) return;
+          await this.setItemStatus(ticketId, itemId, next);
+        },
+        async revertItem(ticketId, itemId, currentStatus) {
+          const prev = this.prevTicketStatus(currentStatus);
+          if (!prev) return;
+          await this.setItemStatus(ticketId, itemId, prev);
+        },
+        async setItemStatus(ticketId, itemId, status) {
           const r = await fetch(`/api/foodservice/kitchen/tickets/${ticketId}/items/${itemId}/status`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: currentStatus === 'pendente' ? 'preparo' : currentStatus === 'preparo' ? 'pronto' : 'entregue' }),
+            body: JSON.stringify({ status }),
           });
           if (r.ok) await this.load();
+          else showToast('Não foi possível mudar o item de etapa. Tente de novo.', 'error');
         },
         async advanceTicket(ticket) {
-          const target = ticket.status === 'pendente' ? 'preparo' : ticket.status === 'preparo' ? 'pronto' : ticket.status === 'pronto' ? 'entregue' : null;
+          const target = this.nextTicketStatus(ticket.status);
           if (!target) return;
-          const r = await fetch(`/api/foodservice/kitchen/tickets/${ticket.id}/status`, {
+          await this.setTicketStatus(ticket.id, target);
+        },
+        async revertTicket(ticket) {
+          const target = this.prevTicketStatus(ticket.status);
+          if (!target) return;
+          await this.setTicketStatus(ticket.id, target);
+        },
+        async setTicketStatus(ticketId, status) {
+          const r = await fetch(`/api/foodservice/kitchen/tickets/${ticketId}/status`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: target }),
+            body: JSON.stringify({ status }),
           });
-          if (r.ok) await this.load();
+          if (r.ok) {
+            // Entregue sai da vista (a coluna só abre com "Mostrar entregues"); o toast
+            // evita a sensação de que o pedido sumiu.
+            if (status === 'entregue') showToast('Pedido entregue.', 'success');
+            await this.load();
+          } else showToast('Não foi possível mudar o pedido de etapa. Tente de novo.', 'error');
         },
       };
     }

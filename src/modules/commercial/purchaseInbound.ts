@@ -4,6 +4,7 @@ import { sumCents } from '../../shared/money';
 import { moveStockRaw } from './stock';
 import { purchaseRepository, purchaseItemRepository } from './repositories/PurchaseRepository';
 import { productRepository } from './repositories/ProductRepository';
+import { stockControlEnabled } from '../../core/config/stockControl';
 
 /**
  * Entrada de compra (recebida) — domínio compartilhado entre as rotas de compra e a
@@ -62,7 +63,9 @@ export function postPurchaseItems(req: Request, purchaseId: number, items: Purch
       | { id: number; stock_qty: number; cost_cents: number; track_stock: number } | undefined;
     if (!before) throw new Error(`Produto ${item.productId} não encontrado.`);
 
-    const novoCusto = before.track_stock
+    // Com o controle de quantidade desligado a compra não altera o saldo, então a média
+    // ponderada usaria uma quantidade que não existe mais. O custo passa a ser o da nota.
+    const novoCusto = stockControlEnabled() && before.track_stock
       ? weightedAverageCostCents(before.stock_qty, before.cost_cents, Number(item.qty), Math.round(item.unitCostCents))
       : Math.round(item.unitCostCents);
     productRepository.updateCost(item.productId, novoCusto);

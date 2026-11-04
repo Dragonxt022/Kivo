@@ -123,7 +123,10 @@ async function main(): Promise<void> {
     }, admin);
 
     browser = await openBrowser();
-    const page = await newPage(browser, { viewport: { width: 390, height: 844 } });
+    // `mobile: true` é o que faz `(pointer: coarse)` casar: sem isso o kivo-ui aplica o
+    // flatpickr (experiência de desktop) e o teste deixaria de exercitar o campo nativo
+    // que o celular/tablet realmente usa.
+    const page = await newPage(browser, { viewport: { width: 390, height: 844 }, mobile: true });
     // O tour de produtos abre sozinho na primeira visita e cobre a tela; aqui ele só
     // atrapalharia o print e o teste de largura. O tour do PDV já é desligado pelo harness.
     await page.addInitScript(() => {
@@ -265,16 +268,19 @@ async function main(): Promise<void> {
       }
 
       if (nome === 'pagar') {
-        const datas = await page.locator('.toolbar input[type=date]:visible').all();
-        const larguras: number[] = [];
-        for (const data of datas) {
-          const caixa = await data.boundingBox();
-          if (caixa) larguras.push(Math.round(caixa.width));
-        }
+        // `data-picker` é o campo de data depois do kivo-ui. No celular ele continua
+        // `type=date` nativo (precisa de ~240 px); no desktop o flatpickr o transforma em
+        // texto com placeholder dd/mm/aaaa, e 110 px já cabem os 10 caracteres + ícone.
+        const campos = await page.locator('.toolbar input[data-picker]:visible').evaluateAll((els) =>
+          els.map((el) => {
+            const e = el as unknown as { type: string; getBoundingClientRect(): { width: number } };
+            return { type: e.type, w: Math.round(e.getBoundingClientRect().width) };
+          }),
+        );
         reporter.check(
           'pagar: campos de data largos o bastante para dd/mm/aaaa',
-          larguras.length === 2 && larguras.every((w) => w >= 240),
-          larguras.join(', '),
+          campos.length === 2 && campos.every((c) => c.w >= (c.type === 'date' ? 240 : 110)),
+          campos.map((c) => `${c.type}:${c.w}px`).join(', '),
         );
       }
 

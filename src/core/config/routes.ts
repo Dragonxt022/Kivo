@@ -10,7 +10,7 @@ import { setSettingSchema } from '../../shared/schemas';
 import { getCloudServerUrl } from './cloud';
 import { setSecret, deleteSecret } from '../secrets/service';
 import { BRAVE_API_KEY_SECRET, getWebImageConfig, searchWebImages } from '../catalog/webImageSearch';
-import { getMachinePrefs, setMachinePrefs } from './machinePrefs';
+import { getMachinePrefs, setMachinePrefs, type MachinePrefs } from './machinePrefs';
 import { saveCompanyLogo, deleteCompanyLogoFile, LOGO_SETTING_KEY } from './companyLogo';
 import { getLicenseCredentials } from '../license/service';
 import { factoryReset } from '../reset/service';
@@ -21,6 +21,7 @@ import { cloudAuthHeaders, cloudBaseUrl } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
 import { getCardsOrder, getCardsHidden, saveCardsLayout } from './homeCards';
 import { getVisibleModulesOverride, saveVisibleModules } from './businessProfile';
+import { describeHttps } from './httpsCert';
 import { z } from 'zod';
 
 const log = createLogger('reset');
@@ -117,7 +118,23 @@ router.get('/network-info', requirePermission('settings.view'), async (req, res)
   // "já vale" ou "ativando…" em vez de deixar o lojista adivinhando por que o celular
   // não abre.
   const lanAtivo = typeof req.app.locals.lanAtivo === 'boolean' ? (req.app.locals.lanAtivo as boolean) : null;
-  res.json({ urls, port, lanAtivo });
+  // HTTPS com certificado próprio: `describeHttps` lê os arquivos; `app.locals` diz se o
+  // listener realmente subiu (o cert pode existir e o bind falhar).
+  const https = describeHttps();
+  const httpsAtivo = typeof req.app.locals.httpsAtivo === 'boolean' ? (req.app.locals.httpsAtivo as boolean) : false;
+  const httpsErro = typeof req.app.locals.httpsErro === 'string' ? (req.app.locals.httpsErro as string) : https.erro;
+  const httpsPort = typeof req.app.locals.httpsPort === 'number' ? (req.app.locals.httpsPort as number) : https.porta;
+  res.json({
+    urls,
+    port,
+    lanAtivo,
+    https: {
+      ...https,
+      porta: httpsPort,
+      ativo: httpsAtivo,
+      erro: httpsErro,
+    },
+  });
 });
 
 /** Link público do cardápio online (Fase 6) + QR — monta a partir do company_uuid da
@@ -146,20 +163,93 @@ router.get('/machine-prefs', requirePermission('settings.view'), (_req, res) => 
   res.json(getMachinePrefs());
 });
 
+/** Validação dos periféricos. Campo ausente = mantém o que já estava gravado. */
+function parsePeripheralPatch(body: Record<string, unknown>): { patch: Partial<MachinePrefs>; error?: string } {
+  const patch: Partial<MachinePrefs> = {};
+
+  if (body.balanca !== undefined) {
+    const b = body.balanca as Record<string, unknown>;
+    if (!b || typeof b !== 'object') return { patch, error: 'balanca inválida.' };
+    if (typeof b.enabled !== 'boolean') return { patch, error: 'balanca.enabled deve ser true/false.' };
+    if (typeof b.path !== 'string' || b.path.length > 128) return { patch, error: 'Informe a porta da balança (ex.: COM3).' };
+    const baud = Number(b.baudRate);
+    if (!Number.isInteger(baud) || baud < 1200 || baud > 115200) {
+      return { patch, error: 'Velocidade da balança inválida (1200 a 115200).' };
+    }
+    if (b.protocol !== 'toledo' && b.protocol !== 'generic') {
+      return { patch, error: 'Protocolo da balança inválido.' };
+    }
+    patch.balanca = { enabled: b.enabled, path: b.path.trim(), baudRate: baud, protocol: b.protocol };
+  }
+
+  if (body.impressora !== undefined) {
+    const p = body.impressora as Record<string, unknown>;
+    if (!p || typeof p !== 'object') return { patch, error: 'impressora inválida.' };
+    if (typeof p.enabled !== 'boolean') return { patch, error: 'impressora.enabled deve ser true/false.' };
+    if (!['epson', 'daruma', 'star', 'generic'].includes(String(p.type))) {
+      return { patch, error: 'Tipo de impressora inválido.' };
+    }
+    if (typeof p.interface !== 'string' || !p.interface.trim() || p.interface.length > 160) {
+      return { patch, error: 'Informe a conexão da impressora (ex.: printer:Nome ou tcp://192.168.0.10).' };
+    }
+    // Allowlist de conexão: o driver `printer:` chega a montar comando no sistema
+    // operacional, então nada de aceitar texto livre vindo do renderer.
+    const iface = p.interface.trim();
+    const nomeImpressora = /^printer:[\p{L}\p{N} ._()-]{1,120}$/u.test(iface);
+    const rede = /^tcp:\/\/[A-Za-z0-9.-]+(:\d{1,5})?$/.test(iface);
+    const usb = iface === 'usb';
+    const vazioPermitido = !p.enabled && iface === 'printer:';
+    if (!nomeImpressora && !rede && !usb && !vazioPermitido) {
+      return { patch, error: 'Conexão da impressora inválida. Use printer:Nome, tcp://IP:9100 ou usb.' };
+    }
+    const width = Number(p.width);
+    if (width !== 58 && width !== 80) return { patch, error: 'Largura do papel deve ser 58 ou 80 mm.' };
+    patch.impressora = {
+      enabled: p.enabled,
+      type: p.type as MachinePrefs['impressora']['type'],
+      interface: p.interface.trim(),
+      width,
+    };
+  }
+
+  return { patch };
+}
+
 router.put('/machine-prefs', requirePermission('settings.edit'), (req, res) => {
-  const { modoLeve } = req.body ?? {};
-  if (typeof modoLeve !== 'boolean') {
-    res.status(400).json({ error: 'Informe modoLeve (true/false).' });
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const before = getMachinePrefs();
+  const patch: Partial<MachinePrefs> = {};
+
+  // O modo leve continua sendo o único campo obrigatório quando enviado sozinho; os
+  // periféricos podem ser atualizados em separado pela tela de Configurações.
+  if (body.modoLeve !== undefined) {
+    if (typeof body.modoLeve !== 'boolean') {
+      res.status(400).json({ error: 'Informe modoLeve (true/false).' });
+      return;
+    }
+    patch.modoLeve = body.modoLeve;
+    // `modoLeveDetectado` fecha a porta da detecção automática: depois de uma escolha
+    // manual, o app nunca mais reverte o que o usuário decidiu.
+    patch.modoLeveDetectado = true;
+  }
+
+  const { patch: perifericos, error } = parsePeripheralPatch(body);
+  if (error) {
+    res.status(400).json({ error });
     return;
   }
-  const before = getMachinePrefs();
-  // `modoLeveDetectado` fecha a porta da detecção automática: depois de uma escolha manual,
-  // o app nunca mais reverte o que o usuário decidiu.
-  const after = setMachinePrefs({ modoLeve, modoLeveDetectado: true });
+  Object.assign(patch, perifericos);
+
+  if (!Object.keys(patch).length) {
+    res.status(400).json({ error: 'Nada para atualizar.' });
+    return;
+  }
+
+  const after = setMachinePrefs(patch);
   // As views leem `modoLeve` de app.locals para estampar `data-lite` no <html> já no primeiro
   // byte da resposta (sem piscar). Sem atualizar aqui, só valeria depois de reiniciar.
   req.app.locals.modoLeve = after.modoLeve;
-  audit(req, 'editar', 'machine-prefs', 'modoLeve', before, after);
+  audit(req, 'editar', 'machine-prefs', Object.keys(patch).join(','), before, after);
   res.json(after);
 });
 

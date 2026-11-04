@@ -47,6 +47,19 @@ async function main(): Promise<void> {
     reporter.check('formulário de login NÃO é exibido', (await page.locator('#login-user').count()) === 0);
     await snap(page, SHOTS, 'primeiro-acesso');
 
+    // ─── 1b. "Já tenho um usuário" não pode prender quem não tem nenhum ───
+    reporter.section('Ida e volta entre primeiro acesso e login');
+    await page.click('.login-card .link-btn:has-text("Já tenho um usuário")');
+    await page.waitForSelector('#login-user', { state: 'visible', timeout: 10000 });
+    reporter.check('"Já tenho um usuário" leva ao formulário de login', true);
+    reporter.check('tela de criação sai de cena', (await page.locator('#setup-user').count()) === 0);
+    const voltar = page.locator('.login-card .link-btn:has-text("criar meu acesso")');
+    reporter.check('link para voltar à criação do acesso aparece', await voltar.isVisible());
+    await voltar.click();
+    await page.waitForSelector('#setup-user', { state: 'visible', timeout: 10000 });
+    reporter.check('volta para a tela "Crie seu acesso" sem recarregar', true);
+    await snap(page, SHOTS, 'volta-primeiro-acesso');
+
     // ─── 2. Senha fraca é recusada pelo próprio formulário ───
     reporter.section('Validação de senha');
     await page.fill('#setup-name', 'Maria Teste');

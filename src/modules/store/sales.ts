@@ -5,6 +5,7 @@ import { audit } from '../../core/audit/service';
 import { sumCents } from '../../shared/money';
 import { addDays } from '../../shared/date';
 import { assertAuth } from '../../shared/auth';
+import { attachComplements } from '../../shared/lineGroupComplements';
 import type { CommercialStockService, CommercialPricingService, CommercialStoreCreditService, CommercialLoyaltyService } from '../commercial/setup';
 import type { FinanceCashService, FinanceReceivablesService, FinancePayMethodsService, FinanceAgreementsService, PaymentMethod } from '../finance/setup';
 import type { FoodserviceKitchenService } from '../foodservice/setup';
@@ -17,6 +18,7 @@ import { receivableRepository } from '../finance/repositories/BillRepository';
 import { agreementChargeRepository } from '../finance/repositories/AgreementRepository';
 import { stockMovementRepository } from '../commercial/repositories/StockMovementRepository';
 import { fifoCostEnabled, fifoUnitCostCents, restoreLotsForSale } from '../commercial/stock';
+import { stockControlEnabled } from '../../core/config/stockControl';
 import { loyaltyPointMovementRepository } from '../commercial/repositories/StockMovementRepository';
 import { scheduleSyncSoon } from '../../core/sync/scheduler';
 import { createLogger } from '../../core/logger';
@@ -55,6 +57,8 @@ export interface SaleInput {
   customerName?: string;
   dueDate?: string;
   clientRequestId?: string;
+  /** `entrega` quando a venda é delivery; o ticket da cozinha usa para o ícone do KDS. */
+  serviceType?: 'local' | 'entrega';
 }
 
 type SaleResult =
@@ -174,7 +178,7 @@ function resolveSaleItems(
           if (!ri.active) {
             return { error: `Insumo "${ri.name}" da ficha técnica de "${p.name}" está inativo.` };
           }
-          if (!ri.track_stock) {
+          if (!ri.track_stock && stockControlEnabled()) {
             return { error: `Insumo "${ri.name}" não controla estoque — obrigatório para produtos com ficha técnica.` };
           }
         }
@@ -488,9 +492,17 @@ export function createSale(
   if (!opts.skipKitchenNotify) {
     try {
       if (hasService('foodservice.kitchen')) {
+        const kitchenItems = attachComplements(items, (i) => i.name);
         getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
           sourceType: 'sale', sourceId: saleId,
-          items: items.map((i) => ({ productId: i.productId, name: i.name, qty: i.qty, notes: i.notes ?? undefined })),
+          serviceType: input.serviceType === 'entrega' ? 'entrega' : 'local',
+          items: kitchenItems.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            qty: i.qty,
+            notes: i.notes ?? undefined,
+            complements: i.complements,
+          })),
         });
       }
     } catch (e) { log.error('falha ao notificar', e); }

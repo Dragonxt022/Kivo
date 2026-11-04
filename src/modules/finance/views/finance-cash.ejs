@@ -49,8 +49,8 @@
     <div class="toolbar">
       <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
         Período
-        <input type="date" x-model="fromDate" class="input-search" />
-        até <input type="date" x-model="toDate" class="input-search" />
+        <input type="date" data-picker x-model="fromDate" class="input-search" />
+        até <input type="date" data-picker x-model="toDate" class="input-search" />
       </label>
       <a class="btn secondary small" :href="ledgerUrl()" title="Baixar o livro caixa (todos os movimentos do período)">Exportar livro caixa</a>
     </div>

@@ -99,9 +99,9 @@
             <option :value="r.type" x-text="r.label"></option>
           </template>
         </select>
-        <input class="input" type="date" x-model="from" @change="carregarRelatorio()" />
+        <input class="input" type="date" data-picker x-model="from" @change="carregarRelatorio()" />
         <span class="muted">até</span>
-        <input class="input" type="date" x-model="to" @change="carregarRelatorio()" />
+        <input class="input" type="date" data-picker x-model="to" @change="carregarRelatorio()" />
         <button class="btn secondary small" @click="carregarRelatorio()"><%- include('partials/odonto-icon', { name: 'refresh', size: 15 }) %><span>Atualizar</span></button>
         <a class="btn secondary small" :href="'/api/odonto/reports/' + tipo + '/csv?from=' + from + '&to=' + to"><%- include('partials/odonto-icon', { name: 'download', size: 15 }) %><span>Exportar CSV</span></a>
       </div>

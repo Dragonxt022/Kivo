@@ -1,5 +1,6 @@
 import { getSqlite } from '../../core/database/connection';
 import { getService } from '../../core/services/registry';
+import { stockControlEnabled } from '../../core/config/stockControl';
 import type { FinanceCashService } from '../finance/setup';
 
 /**
@@ -102,14 +103,17 @@ export function overviewKpis(): OverviewKpis {
   const prevMonthStart = localYmd(new Date(now.getFullYear(), now.getMonth() - 1, 1));
   const prevMonthEnd = localYmd(new Date(now.getFullYear(), now.getMonth(), 0));
 
-  const stock = getSqlite()
-    .prepare(
-      `SELECT
-         SUM(CASE WHEN stock_qty <= min_stock THEN 1 ELSE 0 END) AS low_count,
-         SUM(CASE WHEN stock_qty <= 0 THEN 1 ELSE 0 END) AS zero_count
-       FROM products WHERE deleted_at IS NULL AND track_stock = 1 AND active = 1`,
-    )
-    .get() as { low_count: number | null; zero_count: number | null };
+  // Sem controle de quantidade não existe "estoque baixo/zerado" para alertar.
+  const stock = stockControlEnabled()
+    ? (getSqlite()
+        .prepare(
+          `SELECT
+             SUM(CASE WHEN stock_qty <= min_stock THEN 1 ELSE 0 END) AS low_count,
+             SUM(CASE WHEN stock_qty <= 0 THEN 1 ELSE 0 END) AS zero_count
+           FROM products WHERE deleted_at IS NULL AND track_stock = 1 AND active = 1`,
+        )
+        .get() as { low_count: number | null; zero_count: number | null })
+    : { low_count: 0, zero_count: 0 };
 
   return {
     cash,
@@ -143,6 +147,7 @@ export interface StockRow {
 
 /** `low` = no mínimo ou abaixo (precisa repor, inclui zerados); `zero` = sem saldo. */
 export function stockReport(filter: StockFilter): StockRow[] {
+  if (!stockControlEnabled()) return [];
   const where =
     filter === 'zero' ? 'AND stock_qty <= 0' : filter === 'low' ? 'AND stock_qty <= min_stock' : '';
   return getSqlite()

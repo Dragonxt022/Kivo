@@ -1,0 +1,213 @@
+/*
+  Estilos das bibliotecas de interface carregadas por /js/kivo-ui.js.
+  Ficam num arquivo separado (e não no app.css) porque só valem quando a página
+  realmente usa calendário, busca em select, tooltip ou gráfico.
+
+  As regras usam as MESMAS variáveis do tema (--surface, --border...), então claro,
+  escuro, cor de destaque e modo leve continuam funcionando sem duplicar paleta.
+*/
+
+/* ─── Tooltip (Floating UI) ─── */
+.kivo-tip {
+  position: fixed;
+  z-index: 10050;
+  top: 0;
+  left: 0;
+  max-width: 280px;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+.kivo-tip[hidden] {
+  display: none;
+}
+
+/* ─── Gráfico de evolução (uPlot) ─── */
+.trend-chart {
+  position: relative;
+  width: 100%;
+  height: 190px;
+}
+.trend-chart.kivo-chart-empty {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border-light);
+}
+.kivo-chart-tip {
+  position: absolute;
+  z-index: 3;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.74rem;
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+  pointer-events: none;
+}
+.kivo-chart-tip[hidden] {
+  display: none;
+}
+.uplot {
+  font-family: inherit;
+}
+.u-select {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* ─── Calendário (flatpickr) ─── */
+.flatpickr-calendar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  border-radius: 12px;
+}
+.flatpickr-calendar.arrowTop::before,
+.flatpickr-calendar.arrowTop::after,
+.flatpickr-calendar.arrowBottom::before,
+.flatpickr-calendar.arrowBottom::after {
+  display: none;
+}
+.flatpickr-months .flatpickr-month,
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month input.cur-year,
+span.flatpickr-weekday {
+  color: var(--text);
+  fill: var(--text);
+  background: transparent;
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+  background: var(--surface);
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months .flatpickr-monthDropdown-month {
+  background: var(--surface);
+}
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+  color: var(--text-muted);
+  fill: var(--text-muted);
+}
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+  color: var(--primary);
+  fill: var(--primary);
+}
+.flatpickr-day {
+  color: var(--text);
+  border-radius: 8px;
+}
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+  color: var(--text-muted);
+}
+.flatpickr-day:hover,
+.flatpickr-day:focus {
+  background: var(--surface-hover);
+  border-color: var(--surface-hover);
+}
+.flatpickr-day.today {
+  border-color: var(--primary);
+}
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected:hover {
+  background: var(--primary-btn);
+  border-color: var(--primary-btn);
+  color: var(--on-primary);
+}
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.flatpickr-disabled:hover {
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+.flatpickr-input[readonly] {
+  cursor: pointer;
+}
+/* O calendário é filho do <dialog> (para ficar na top layer); o overflow padrão do
+   diálogo cortaria o calendário. A classe é posta/removida pelo kivo-ui.js. */
+dialog.kivo-fp-host {
+  overflow: visible !important;
+}
+
+/* ─── Select com busca (Tom Select) ─── */
+.ts-wrapper {
+  width: 100%;
+}
+.ts-wrapper.single .ts-control,
+.ts-wrapper.multi .ts-control {
+  min-height: 38px;
+  padding: 0.35rem 0.7rem;
+  border: 1.5px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--surface-hover);
+  color: var(--text);
+  font-size: 0.88rem;
+  box-shadow: none;
+}
+.ts-wrapper.single.input-active .ts-control,
+.ts-wrapper.focus .ts-control {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+.ts-wrapper.disabled .ts-control {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ts-wrapper .ts-control > input {
+  color: var(--text);
+  font-family: inherit;
+}
+.ts-wrapper .ts-control > input::placeholder {
+  color: var(--text-muted);
+}
+.ts-wrapper.single .ts-control::after {
+  border-color: var(--text-muted) transparent transparent;
+}
+.ts-dropdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  margin-top: 4px;
+}
+.ts-dropdown .option {
+  color: var(--text);
+  padding: 0.45rem 0.65rem;
+}
+.ts-dropdown .option.active,
+.ts-dropdown .option:hover {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  color: var(--text);
+}
+.ts-dropdown .option.selected {
+  color: var(--primary);
+  font-weight: 600;
+}
+.ts-dropdown .no-results,
+.ts-no-results {
+  padding: 0.5rem 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.ts-control .item {
+  color: var(--text);
+}
+:root[data-theme='dark'] .ts-dropdown .option.active,
+:root[data-theme='dark'] .ts-dropdown .option:hover {
+  background: color-mix(in srgb, var(--primary) 26%, var(--surface));
+}
+:root[data-theme='dark'] .flatpickr-calendar {
+  box-shadow: var(--shadow-lg);
+}

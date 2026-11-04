@@ -22,16 +22,29 @@ vai para produção — sem ela o painel fica vazio.
   cozinha). Devolve quantos itens geraram produção e o maior tempo estimado.
 - Cada item guarda estação, tempo estimado e status.
 
+### Tipo de atendimento
+`kitchen_tickets.service_type` guarda `local` (consumir no local) ou `entrega`. O KDS mostra
+prato/garfo para local e motinha para entrega. A comanda de mesa envia sempre `local`; o PDV
+tem o seletor "Consumir aqui / Entrega" ao lado do carrinho (só aparece quando há item de
+cozinha) e manda o valor no `POST /api/store/kitchen/send`. Tickets antigos ficam `local` por
+default da migration `0088_kitchen_ticket_service_type`.
+
 ### Status do ticket
 
 `pendente`, `preparo`, `pronto`, `entregue`, `cancelado`.
 
-A UI/API avança por `pendente → preparo → pronto → entregue`. `cancelado` **não** é setado
-pela cozinha: vem do cancelamento da venda/comanda.
+A UI/API avança por `pendente → preparo → pronto → entregue` e **também volta uma etapa**
+(botão ⬅ no item e no pedido). Voltar existe porque a cozinha erra toque na correria: sem
+isso, a única correção era mexer no banco. Ao voltar o ticket, só os itens **à frente** do
+alvo descem; item que já estava atrasado não é tocado. `cancelado` **não** é setado pela
+cozinha: vem do cancelamento da venda/comanda.
 
 O status do ticket é **derivado dos itens** (`recalcTicketStatus`): avançar um item, anular um
 item de comanda ou remover um item pendente recalcula o ticket — evitando que ele fique preso
-num status que não corresponde mais aos itens.
+num status que não corresponde mais aos itens. O recalc **não** rebaixa `entregue` por
+acidente (avançar um item esquecido depois da entrega não reabre o pedido), mas uma volta
+explícita de item ou de ticket manda reavaliar (`allowDowngrade`). Pedidos entregues ficam na
+coluna "Entregues" — oculta por padrão, é de lá que se desfaz a entrega.
 
 ## Integrações
 
