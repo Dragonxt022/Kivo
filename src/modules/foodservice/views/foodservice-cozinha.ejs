@@ -23,6 +23,19 @@
           <svg x-show="!somAtivo" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           <span class="kds-btn-label" x-text="somAtivo ? ('Som: ' + somLabel(somArquivo)) : 'Som desligado'"></span>
         </button>
+        <%# Alarme até visualizar: o som do pedido novo fica repetindo até alguém tocar
+            em "Visualizei" (ou avançar o pedido). É UM alarme só para todos os pedidos
+            abertos: se dois chegarem juntos, não viram duas sirenes — o alarme só para
+            quando o último for confirmado. Preferência fica no aparelho. %>
+        <button type="button" class="btn secondary kds-alarme-btn" @click="toggleAlarme()"
+                :class="{ 'kds-alarme-on': alarmeAtivo }"
+                :aria-pressed="alarmeAtivo ? 'true' : 'false'"
+                :title="alarmeAtivo
+                  ? 'Alarme ligado: o som repete até a cozinha confirmar que viu o pedido. Toque para desligar.'
+                  : 'Repetir o som do pedido novo até a cozinha confirmar que viu'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+          <span class="kds-btn-label" x-text="alarmeAtivo ? 'Alarme ligado' : 'Alarme'"></span>
+        </button>
         <%# Com a tela apagada o navegador suspende a página e o som do pedido novo não
             toca. No tablet da cozinha (http:// da rede local) a Wake Lock API não existe;
             o /js/keep-awake.js cobre com vídeo mudo em loop. %>
@@ -45,6 +58,25 @@
         </a>
         <% } %>
       </div>
+    </div>
+
+    <%# Barra do alarme: mostra quantos pedidos ainda não foram confirmados e oferece
+        um único "Confirmar todos". Fica visível mesmo com os cartões rolados, então a
+        cozinha sempre tem como parar o som. %>
+    <div class="kds-alarme-bar" x-show="alarmeAtivo && unackedCount() > 0" x-cloak role="status">
+      <span class="kds-alarme-bar-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+      </span>
+      <strong>
+        <span x-text="unackedCount()"></span>
+        <span x-text="unackedCount() === 1 ? 'pedido novo aguardando' : 'pedidos novos aguardando'"></span>
+        confirmação
+      </strong>
+      <span class="kds-alarme-bar-hint">O alarme só para quando todos forem confirmados.</span>
+      <button type="button" class="btn small kds-alarme-confirmar" @click="confirmarTodos()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Confirmar todos
+      </button>
     </div>
 
     <p class="kds-touch-hint" x-show="hasVisibleTickets()" x-cloak>
@@ -70,6 +102,17 @@
                    @pointermove="swipeMove($event, ticket)"
                    @pointerup="swipeEnd($event, ticket)"
                    @pointercancel="swipeCancel()">
+                <div class="kds-card-ack" x-show="alarmeAtivo && !ticket.acknowledged_at">
+                  <span class="kds-card-ack-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+                    Pedido novo — confirme que viu
+                  </span>
+                  <button type="button" class="btn small kds-ack-btn"
+                          :aria-label="'Confirmar que vi o pedido ' + ticketLabel(ticket)"
+                          @click.stop="confirmarVisualizacao(ticket)">
+                    Visualizei
+                  </button>
+                </div>
                 <div class="kds-card-header">
                   <div class="kds-card-head-left">
                     <%# Tipo de atendimento: prato/garfo = consumir no local; motinha = entrega.
@@ -184,6 +227,21 @@
     <dialog x-ref="somDlg" @close="stopPreview()">
       <h1>Sons do painel</h1>
       <p class="muted dialog-text">Toque no play para ouvir antes de escolher. A seleção vale para esta tela.</p>
+
+      <%# Alarme: opção separada do som. Ligado, o som do pedido novo NÃO toca uma vez
+          só — fica repetindo até a cozinha confirmar que viu (ou avançar o pedido).
+          UM alarme para todos os pedidos abertos: dois pedidos juntos não duplicam. %>
+      <div class="som-alarme-row" :class="{ 'is-on': pendenteAlarme }">
+        <div class="som-alarme-text">
+          <strong>Alarme até visualizar</strong>
+          <span class="muted text-sm">O som repete enquanto houver pedido novo sem confirmação. Só para quando todos forem confirmados.</span>
+        </div>
+        <button type="button" class="btn small" :class="pendenteAlarme ? '' : 'secondary'"
+                :aria-pressed="pendenteAlarme ? 'true' : 'false'"
+                @click="pendenteAlarme = !pendenteAlarme">
+          <span x-text="pendenteAlarme ? 'Ligado' : 'Desligado'"></span>
+        </button>
+      </div>
 
       <h2 class="som-section-title">Novo pedido</h2>
       <div class="som-list">
@@ -409,6 +467,39 @@
     .kds-advance-ticket.btn.secondary { background: var(--surface); border-color: var(--border); }
     .kds-advance-ticket.btn.secondary:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
 
+    /* ─── Alarme até visualizar ─── */
+    .kds-alarme-btn.kds-alarme-on {
+      color: var(--warning-text); border-color: var(--warning-text);
+      background: var(--warning-bg);
+    }
+    .kds-alarme-bar {
+      display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+      margin: .15rem 0 .7rem; padding: .5rem .8rem;
+      border: 1.5px solid var(--warning-text); border-radius: var(--radius);
+      background: color-mix(in srgb, var(--warning-bg) 80%, var(--surface));
+      color: var(--warning-text); font-size: .84rem;
+    }
+    .kds-alarme-bar-icon {
+      display: inline-flex; flex: none;
+      animation: kds-alarme-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes kds-alarme-pulse {
+      50% { transform: scale(1.12); opacity: .65; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .kds-alarme-bar-icon { animation: none; }
+    }
+    .kds-alarme-bar-hint { color: var(--text-muted); font-size: .76rem; }
+    .kds-alarme-confirmar { margin-left: auto; flex: none; }
+    .kds-card-ack {
+      display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+      padding: .45rem .75rem; font-size: .76rem; font-weight: 700;
+      background: var(--warning-bg); color: var(--warning-text);
+      border-bottom: 1px solid color-mix(in srgb, var(--warning-text) 35%, transparent);
+    }
+    .kds-card-ack-label { display: inline-flex; align-items: center; gap: .3rem; flex: 1 1 auto; }
+    .kds-ack-btn { margin-left: auto; flex: none; min-height: 36px; }
+
     /* ─── Diálogo de som ─── */
     .som-section-title {
       margin: .9rem 0 .35rem; font-size: .78rem; text-transform: uppercase;
@@ -430,6 +521,19 @@
     .som-choose { display: flex; align-items: center; flex: 1; text-align: left; cursor: pointer; }
     .som-preview { flex-shrink: 0; }
     .som-dialog-actions { justify-content: flex-end; gap: .5rem; margin-top: .25rem; }
+
+    /* Alarme no diálogo: linha de opção única, com estado ligado bem visível. */
+    .som-alarme-row {
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+      margin: .6rem 0 .2rem; padding: .6rem .8rem;
+      border: 1.5px solid var(--border-light); border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .som-alarme-row.is-on {
+      border-color: var(--warning-text);
+      background: color-mix(in srgb, var(--warning-bg) 55%, var(--surface));
+    }
+    .som-alarme-text { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
 
     /* ─── Celular: as etapas dividem a MESMA tela ───
        Antes as colunas empilhavam: para ver "Pendentes", "Em preparo" e "Prontos" era
@@ -457,6 +561,14 @@
       .kds-head-actions .btn { padding: .35rem .5rem; min-height: 34px; font-size: .72rem; gap: .25rem; }
       .kds-head-actions .kds-btn-label { display: none; }
       .kds-touch-hint, .kds-dica { display: none; }
+      .kds-alarme-bar {
+        flex: 0 0 auto; margin: 0 0 .35rem; padding: .3rem .5rem;
+        font-size: .72rem; gap: .35rem;
+      }
+      .kds-alarme-bar-hint { display: none; }
+      .kds-alarme-confirmar { min-height: 32px; padding: .25rem .5rem; font-size: .7rem; }
+      .kds-card-ack { padding: .25rem .45rem; font-size: .68rem; }
+      .kds-ack-btn { min-height: 32px; padding: .25rem .55rem; font-size: .68rem; }
       .kds-board, .kds-board.kds-4col {
         flex: 1 1 auto;
         min-height: 0;
@@ -565,6 +677,16 @@
         // Lista vem de public/sons (core/sound/notificationSounds): pedido9.mp3 que o
         // lojista adicionar aparece aqui sem mexer na tela.
         sons: <%- JSON.stringify(sons) %>,
+        // Alarme até visualizar: desligado por padrão. Ligado, o som de pedido novo
+        // fica em loop até a cozinha confirmar que viu. Um único elemento de áudio com
+        // loop cobre TODOS os pedidos abertos — dois pedidos juntos não viram duas
+        // sirenes, e o alarme só para quando o último for confirmado.
+        alarmeAtivo: localStorage.getItem('kds-alarme-visualizar') === '1',
+        pendenteAlarme: false,
+        audioAlarme: null,
+        alarmeTocando: false,
+        alarmeFile: null,
+        alarmeBloqueioAvisado: false,
         audio: null,
         audioCancel: null,
         previewAudio: null,
@@ -666,7 +788,9 @@
             : [];
           this.knownStatuses = new Map(all.map((t) => [t.id, t.status]));
 
-          if (novos.length && this.somAtivo) this.playSom();
+          // O alarme contínuo substitui o "toca uma vez" — e UM loop cobre todos os
+          // pedidos: se dois chegam juntos, ninguém dispara dois áudios ao mesmo tempo.
+          if (novos.length && this.somAtivo && !this.alarmeAtivo) this.playSom();
           if (cancelados.length) {
             if (this.somCancelAtivo) this.playSomCancel();
             const labels = cancelados.map((t) => this.ticketLabel(t)).join(', ');
@@ -695,6 +819,10 @@
           }
           this.knownIds = ids;
           this.tickets = visiveis;
+          // Depois de atualizar a lista: liga/desliga/retoma o loop conforme haja
+          // pedido sem confirmação. Também serve de retry quando o navegador bloqueou
+          // o áudio antes do primeiro toque na tela.
+          this.syncAlarme();
         },
         somLabel(file) {
           return (this.sons.find((s) => s.file === file) ?? this.sons[0]).label;
@@ -703,6 +831,7 @@
           // Seleção pendente começa na configuração atual; salvar só no botão.
           this.pendenteSom = this.somAtivo ? this.somArquivo : '';
           this.pendenteSomCancel = this.somCancelAtivo ? this.somCancelArquivo : '';
+          this.pendenteAlarme = this.alarmeAtivo;
           this.$refs.somDlg.showModal();
         },
         preview(file) {
@@ -723,15 +852,24 @@
           this.somAtivo = !!this.pendenteSom;
           this.somCancelArquivo = this.pendenteSomCancel || 'pedido8.mp3';
           this.somCancelAtivo = !!this.pendenteSomCancel;
+          // Alarme sem som não existe: se a tela ficou "Silencioso", o alarme desliga
+          // junto em vez de prometer um aviso que não pode tocar.
+          this.alarmeAtivo = !!this.pendenteAlarme && this.somAtivo;
           localStorage.setItem('kds-som', this.somAtivo ? '1' : '0');
           localStorage.setItem('kds-som-arquivo', this.somArquivo);
           localStorage.setItem('kds-som-cancelamento', this.somCancelAtivo ? '1' : '0');
           localStorage.setItem('kds-som-cancelamento-arquivo', this.somCancelArquivo);
+          localStorage.setItem('kds-alarme-visualizar', this.alarmeAtivo ? '1' : '0');
           this.$refs.somDlg.close();
           const novo = this.somAtivo ? this.somLabel(this.somArquivo) : 'silencioso';
           const cancel = this.somCancelAtivo ? this.somLabel(this.somCancelArquivo) : 'silencioso';
-          showToast(`Sons salvos — novo pedido: ${novo}; cancelamento: ${cancel}.`, 'success');
-          if (this.somAtivo) this.playSom();
+          const alarme = this.alarmeAtivo ? ' · alarme até visualizar LIGADO' : '';
+          showToast(`Sons salvos — novo pedido: ${novo}; cancelamento: ${cancel}${alarme}.`, 'success');
+          // Reconfigura o loop na hora (o arquivo pode ter mudado). Se o alarme está
+          // ligado e há pedido sem confirmação, ele continua; senão toca a prévia uma vez.
+          this.stopAlarme();
+          if (this.precisoAlarme()) this.syncAlarme();
+          else if (this.somAtivo) this.playSom();
         },
         unlockFile(prop, file) {
           try {
@@ -750,6 +888,9 @@
         unlockAudio() {
           if (this.somAtivo) this.unlockFile('audio', this.somArquivo);
           if (this.somCancelAtivo) this.unlockFile('audioCancel', this.somCancelArquivo);
+          // O toque que libera o áudio também é a chance de começar o alarme que estava
+          // bloqueado pelo navegador.
+          this.syncAlarme();
         },
         playFile(prop, file, active) {
           if (!active) return;
@@ -767,6 +908,119 @@
         },
         playSomCancel() {
           this.playFile('audioCancel', this.somCancelArquivo, this.somCancelAtivo);
+        },
+        // ─── Alarme até visualizar ───────────────────────────────────────────
+        toggleAlarme() {
+          this.setAlarmeAtivo(!this.alarmeAtivo, true);
+        },
+        setAlarmeAtivo(on, avisar) {
+          // Alarme sem som não existe: ligar o alarme liga o som do pedido novo.
+          if (on && !this.somAtivo) {
+            this.somAtivo = true;
+            this.somArquivo = this.somArquivo || 'pedido.mp3';
+            localStorage.setItem('kds-som', '1');
+            localStorage.setItem('kds-som-arquivo', this.somArquivo);
+          }
+          this.alarmeAtivo = !!on;
+          localStorage.setItem('kds-alarme-visualizar', this.alarmeAtivo ? '1' : '0');
+          if (!this.alarmeAtivo) this.stopAlarme();
+          else this.syncAlarme();
+          if (avisar) {
+            showToast(
+              this.alarmeAtivo
+                ? 'Alarme ligado: o som repete até a cozinha confirmar que viu o pedido.'
+                : 'Alarme desligado: o som toca uma vez quando chega pedido novo.',
+              this.alarmeAtivo ? 'success' : 'info',
+            );
+          }
+        },
+        alarmAudio() {
+          if (!this.audioAlarme || this.alarmeFile !== this.somArquivo) {
+            this.stopAlarme();
+            this.audioAlarme = new Audio('/sons/' + this.somArquivo);
+            // loop = true é o que faz o som "se repetir" sem timers nem sobreposição:
+            // um elemento só, independentemente de quantos pedidos chegaram.
+            this.audioAlarme.loop = true;
+            this.audioAlarme.preload = 'auto';
+            this.alarmeFile = this.somArquivo;
+          }
+          return this.audioAlarme;
+        },
+        unackedTickets() {
+          return this.tickets.filter((t) => !t.acknowledged_at);
+        },
+        unackedCount() {
+          return this.unackedTickets().length;
+        },
+        precisoAlarme() {
+          return this.alarmeAtivo && this.somAtivo && this.unackedCount() > 0;
+        },
+        /** Garante UM loop tocando enquanto houver pedido não confirmado; para no zero. */
+        syncAlarme() {
+          if (!this.precisoAlarme()) {
+            this.stopAlarme();
+            this.alarmeBloqueioAvisado = false;
+            return;
+          }
+          if (this.alarmeTocando) return;
+          try {
+            const a = this.alarmAudio();
+            a.muted = false;
+            a.currentTime = 0;
+            a.play().then(() => {
+              this.alarmeTocando = true;
+              this.alarmeBloqueioAvisado = false;
+            }).catch(() => {
+              this.alarmeTocando = false;
+              // Autoplay bloqueado (antes do primeiro toque): avisa uma vez; o poll
+              // seguinte tenta de novo, e o primeiro toque destrava.
+              if (!this.alarmeBloqueioAvisado) {
+                this.alarmeBloqueioAvisado = true;
+                showToast('Toque na tela uma vez para liberar o alarme sonoro.', 'info');
+              }
+            });
+          } catch { /* áudio indisponível não pode travar o painel */ }
+        },
+        stopAlarme() {
+          this.alarmeTocando = false;
+          if (!this.audioAlarme) return;
+          try {
+            this.audioAlarme.pause();
+            this.audioAlarme.currentTime = 0;
+          } catch { /* elemento já descartado */ }
+        },
+        /** Confirma UM pedido. O servidor guarda a marca, então vale para todos os painéis. */
+        async confirmarVisualizacao(ticket) {
+          if (!ticket || ticket.acknowledged_at) return;
+          const antes = ticket.acknowledged_at;
+          // Otimista: para o som na hora; a resposta do servidor é a fonte da verdade.
+          ticket.acknowledged_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          this.syncAlarme();
+          try {
+            const r = await fetch(`/api/foodservice/kitchen/tickets/${ticket.id}/ack`, { method: 'POST' });
+            if (!r.ok) throw new Error('ack ' + r.status);
+          } catch {
+            ticket.acknowledged_at = antes;
+            showToast('Não foi possível confirmar o pedido. Tente de novo.', 'error');
+            this.syncAlarme();
+          }
+          await this.load();
+        },
+        /** Dois pedidos juntos: um clique confirma todos e o loop para de uma vez. */
+        async confirmarTodos() {
+          const pendentes = this.unackedTickets();
+          if (!pendentes.length) { this.syncAlarme(); return; }
+          const agora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          for (const t of pendentes) t.acknowledged_at = agora;
+          this.syncAlarme();
+          const falhas = await Promise.all(pendentes.map(async (t) => {
+            try {
+              const r = await fetch(`/api/foodservice/kitchen/tickets/${t.id}/ack`, { method: 'POST' });
+              return r.ok ? 0 : 1;
+            } catch { return 1; }
+          }));
+          if (falhas.some(Boolean)) showToast('Alguns pedidos não foram confirmados. Tente de novo.', 'error');
+          await this.load();
         },
         parseUtc(raw) {
           if (!raw) return null;

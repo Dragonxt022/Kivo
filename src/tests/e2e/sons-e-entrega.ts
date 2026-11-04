@@ -105,6 +105,69 @@ async function main(): Promise<void> {
     );
     await snap(page, SHOTS, 'cozinha-sons');
 
+    // ─── Cozinha: alarme até visualizar ──────────────────────────────────
+    reporter.section('Cozinha — alarme até visualizar');
+    await page.locator('.kds-alarme-btn').click();
+    await page.waitForTimeout(300);
+    const alarmeLigado = await page.evaluate(() => ({
+      ativo: localStorage.getItem('kds-alarme-visualizar'),
+      som: localStorage.getItem('kds-som'),
+    }));
+    reporter.check('botão liga o alarme e guarda a escolha', alarmeLigado.ativo === '1' && alarmeLigado.som === '1', JSON.stringify(alarmeLigado));
+
+    // Duas comandas enviadas juntas: a cozinha deve ter UM alarme e DOIS avisos.
+    const pedidoAlarmeA = await call<{ id: number }>('POST', '/api/comandas/comandas', {});
+    const pedidoAlarmeB = await call<{ id: number }>('POST', '/api/comandas/comandas', {});
+    for (const comanda of [pedidoAlarmeA, pedidoAlarmeB]) {
+      await call('POST', `/api/comandas/comandas/${comanda.id}/items`, { productId: produto.id, qty: 1 });
+      await call('POST', `/api/comandas/comandas/${comanda.id}/enviar-cozinha`);
+    }
+    const doisJuntos = await page.waitForFunction(
+      () => document.body.innerText.includes('2 pedidos novos aguardando confirmação'),
+      undefined,
+      { timeout: 15000 },
+    ).then(() => true).catch(() => false);
+    reporter.check('dois pedidos juntos viram um único aviso de alarme', doisJuntos);
+    reporter.check('cada pedido tem o seu botão Visualizei', (await page.locator('.kds-ack-btn').count()) === 2);
+
+    await page.locator('.kds-ack-btn').first().click();
+    const restaUm = await page.waitForFunction(
+      () => document.body.innerText.includes('1 pedido novo aguardando confirmação'),
+      undefined,
+      { timeout: 10000 },
+    ).then(() => true).catch(() => false);
+    reporter.check('confirmar um pedido mantém o alarme do outro', restaUm);
+
+    await page.locator('.kds-alarme-confirmar').click();
+    const alarmeParou = await page.waitForFunction(
+      () => !document.body.innerText.includes('aguardando confirmação'),
+      undefined,
+      { timeout: 10000 },
+    ).then(() => true).catch(() => false);
+    reporter.check('confirmar todos para o alarme', alarmeParou);
+    const ticketsAlarme = await call<{ id: number; source_type: string; source_id: number; acknowledged_at: string | null }[]>('GET', '/api/foodservice/kitchen/tickets');
+    const ackA = ticketsAlarme.find((t) => t.source_type === 'comanda' && t.source_id === pedidoAlarmeA.id);
+    const ackB = ticketsAlarme.find((t) => t.source_type === 'comanda' && t.source_id === pedidoAlarmeB.id);
+    reporter.check('confirmação fica gravada para os dois pedidos', !!ackA?.acknowledged_at && !!ackB?.acknowledged_at);
+    const alarmeContinuaLigado = await page.evaluate(() => localStorage.getItem('kds-alarme-visualizar'));
+    reporter.check('o alarme continua ligado para o próximo pedido', alarmeContinuaLigado === '1');
+
+    // Avançar a produção também vale como "eu vi" — senão o alarme nunca pararia.
+    const pedidoIniciar = await call<{ id: number }>('POST', '/api/comandas/comandas', {});
+    await call('POST', `/api/comandas/comandas/${pedidoIniciar.id}/items`, { productId: produto.id, qty: 1 });
+    await call('POST', `/api/comandas/comandas/${pedidoIniciar.id}/enviar-cozinha`);
+    await page.waitForSelector('.kds-ack-btn', { state: 'visible', timeout: 12000 });
+    await page.locator('.kds-card:has(.kds-ack-btn:visible) .kds-item-action', { hasText: 'Iniciar' }).click();
+    const iniciarParou = await page.waitForFunction(
+      () => !document.body.innerText.includes('aguardando confirmação'),
+      undefined,
+      { timeout: 10000 },
+    ).then(() => true).catch(() => false);
+    reporter.check('iniciar o pedido também para o alarme', iniciarParou);
+    const ticketsIniciar = await call<{ source_type: string; source_id: number; acknowledged_at: string | null }[]>('GET', '/api/foodservice/kitchen/tickets');
+    const ackIniciar = ticketsIniciar.find((t) => t.source_type === 'comanda' && t.source_id === pedidoIniciar.id);
+    reporter.check('avançar a produção grava a confirmação', !!ackIniciar?.acknowledged_at);
+
     // ─── Cozinha avisa quando cancela ────────────────────────────────────
     reporter.section('Cozinha — cancelamento');
     const comandaCancel = await call<{ id: number }>('POST', '/api/comandas/comandas', { tableId: mesaA.id });

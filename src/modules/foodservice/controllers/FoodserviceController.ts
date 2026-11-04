@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
-import { advanceItemStatus, advanceTicketStatus, getItemsForTickets, listTickets } from '../kitchen';
+import { advanceItemStatus, advanceTicketStatus, acknowledgeTicket, getItemsForTickets, listTickets } from '../kitchen';
 import { kitchenRoutingRepository } from '../repositories/KitchenRepository';
 import { productRepository } from '../../commercial/repositories/ProductRepository';
 
@@ -112,6 +112,17 @@ export const foodserviceController = {
       res.status(400).json({ error: 'Status invalido.' }); return;
     }
     const result = advanceTicketStatus(req, id, status);
+    if (!result.ok) { res.status(404).json(result); return; }
+    res.json({ ok: true });
+  },
+
+  /** "Visualizei": para o alarme de novo pedido sem precisar avançar a produção. */
+  acknowledgeTicketAction(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Ticket invalido.' }); return;
+    }
+    const result = acknowledgeTicket(req, id);
     if (!result.ok) { res.status(404).json(result); return; }
     res.json({ ok: true });
   },

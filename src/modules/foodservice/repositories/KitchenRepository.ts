@@ -52,6 +52,18 @@ export class KitchenTicketRepository extends BaseRepository {
   }
 
   /**
+   * Marca o pedido como visto pela cozinha (idempotente). Atualiza só
+   * `acknowledged_at`, sem mexer em `updated_at`: confirmar um pedido não pode
+   * fazê-lo pular de posição no quadro nem parecer "recém-movimentado".
+   */
+  acknowledge(id: number): void {
+    this.rawRun(
+      "UPDATE kitchen_tickets SET acknowledged_at = COALESCE(acknowledged_at, datetime('now')) WHERE id = ? AND deleted_at IS NULL",
+      id,
+    );
+  }
+
+  /**
    * Quantos tickets 'pronto' (aguardando o garçom levar — a coluna "Prontos" do KDS)
    * cada comanda tem. A grade de mesas consome via serviço para marcar "pedido pronto".
    */

@@ -326,6 +326,35 @@ async function main() {
   check('cancelar a origem cancela só o ticket que ficou nela', ticketOrigemDepois.status === 'cancelado');
   check('ticket da comanda nova não é cancelado junto', ticketNovoDepois.status !== 'cancelado');
 
+  // ── Alarme até visualizar: confirmação persiste, é idempotente e não some com dois
+  //    pedidos ao mesmo tempo (cada um tem a sua marca) ──
+  const saleAckA = await unwrap<{ id: number }>(await api('/api/store/sales', {
+    method: 'POST', body: JSON.stringify({ items: [{ productId: hamburguer.id, qty: 1 }], paymentMethod: 'pix' }),
+  }, admin!));
+  const saleAckB = await unwrap<{ id: number }>(await api('/api/store/sales', {
+    method: 'POST', body: JSON.stringify({ items: [{ productId: hamburguer.id, qty: 1 }], paymentMethod: 'pix' }),
+  }, admin!));
+  const ackTicketA = db.prepare("SELECT id, acknowledged_at FROM kitchen_tickets WHERE source_type = 'sale' AND source_id = ?").get(saleAckA.id) as { id: number; acknowledged_at: string | null };
+  const ackTicketB = db.prepare("SELECT id, acknowledged_at FROM kitchen_tickets WHERE source_type = 'sale' AND source_id = ?").get(saleAckB.id) as { id: number; acknowledged_at: string | null };
+  check('ticket novo nasce sem confirmação de visualização', ackTicketA.acknowledged_at === null && ackTicketB.acknowledged_at === null);
+  const listaAck = await unwrap<{ id: number; acknowledged_at: string | null }[]>(await api('/api/foodservice/kitchen/tickets', {}, admin!));
+  check('lista da cozinha expõe acknowledged_at', listaAck.some((t) => t.id === ackTicketA.id && t.acknowledged_at === null));
+  check('confirma visualização do pedido A',
+    (await api(`/api/foodservice/kitchen/tickets/${ackTicketA.id}/ack`, { method: 'POST' }, admin!)).status === 200);
+  const ackA1 = db.prepare('SELECT acknowledged_at FROM kitchen_tickets WHERE id = ?').get(ackTicketA.id) as { acknowledged_at: string | null };
+  check('confirmação grava acknowledged_at', !!ackA1.acknowledged_at);
+  check('pedido B continua sem confirmação (dois pedidos não se confundem)',
+    (db.prepare('SELECT acknowledged_at FROM kitchen_tickets WHERE id = ?').get(ackTicketB.id) as { acknowledged_at: string | null }).acknowledged_at === null);
+  check('confirma de novo é idempotente',
+    (await api(`/api/foodservice/kitchen/tickets/${ackTicketA.id}/ack`, { method: 'POST' }, admin!)).status === 200);
+  const ackA2 = db.prepare('SELECT acknowledged_at FROM kitchen_tickets WHERE id = ?').get(ackTicketA.id) as { acknowledged_at: string | null };
+  check('confirmar duas vezes não altera o horário', ackA2.acknowledged_at === ackA1.acknowledged_at);
+  // Avançar a produção vale como "eu vi": o alarme não pode continuar depois disso.
+  check('avançar o pedido B para preparo',
+    (await api(`/api/foodservice/kitchen/tickets/${ackTicketB.id}/status`, { method: 'PUT', body: JSON.stringify({ status: 'preparo' }) }, admin!)).status === 200);
+  const ackB = db.prepare('SELECT acknowledged_at FROM kitchen_tickets WHERE id = ?').get(ackTicketB.id) as { acknowledged_at: string | null };
+  check('avançar o pedido também confirma a visualização', !!ackB.acknowledged_at);
+
   // Desliga a capability de novo -> volta a bloquear
   check('desliga capability foodservice.cozinha',
     (await api('/api/core/capabilities/foodservice.cozinha', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, admin!)).status === 200);

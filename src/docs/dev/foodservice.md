@@ -46,6 +46,22 @@ acidente (avançar um item esquecido depois da entrega não reabre o pedido), ma
 explícita de item ou de ticket manda reavaliar (`allowDowngrade`). Pedidos entregues ficam na
 coluna "Entregues" — oculta por padrão, é de lá que se desfaz a entrega.
 
+### Confirmação de visualização (alarme)
+
+`kitchen_tickets.acknowledged_at` guarda quando a cozinha confirmou que viu o pedido.
+`NULL` = ainda não confirmado. O KDS usa isso para o **alarme até visualizar**: com a
+opção ligada, o som do pedido novo fica em loop até o último pedido sem confirmação ser
+visto. Um único loop cobre todos os pedidos abertos — dois pedidos que chegam juntos não
+disparam dois áudios.
+
+- `POST /api/foodservice/kitchen/tickets/:id/ack` confirma a visualização (idempotente,
+  permissão `foodservice.kitchen.view`). A marca fica no servidor, então vale para todos
+  os painéis e sobrevive a um recarregamento da página.
+- Avançar item ou ticket também marca como visto (`acknowledge` em `advanceItemStatus` /
+  `advanceTicketStatus`): quem já começou a preparar não pode continuar ouvindo o alarme.
+- A migration `0090_kitchen_ticket_acknowledged` marca os tickets já existentes como
+  vistos, para a atualização não fazer o alarme tocar para pedidos antigos.
+
 ## Integrações
 
 - Venda (`createSale`) notifica a cozinha após gravar, exceto no fechamento de comanda

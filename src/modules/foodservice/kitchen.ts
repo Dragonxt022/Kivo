@@ -162,12 +162,31 @@ export function getItemsForTickets(ticketIds: number[]): unknown[] {
   return kitchenTicketItemRepository.listByTickets(ticketIds) as unknown[];
 }
 
+/**
+ * Confirma que a cozinha viu o pedido — é o que faz o alarme de novo pedido parar.
+ * Idempotente: confirmar de novo (ou em outro aparelho) não muda nada. Fica no
+ * servidor, e não só no navegador, para a confirmação valer para todos os painéis e
+ * sobreviver a um F5 no meio do expediente.
+ */
+export function acknowledgeTicket(req: Request, ticketId: number): { ok: true } | { ok: false; error: string } {
+  const ticket = kitchenTicketRepository.findById(ticketId) as { acknowledged_at: string | null } | undefined;
+  if (!ticket) return { ok: false, error: 'Ticket nao encontrado.' };
+  if (!ticket.acknowledged_at) {
+    kitchenTicketRepository.acknowledge(ticketId);
+    audit(req, 'confirmar_visualizacao_ticket', 'kitchen_ticket', ticketId);
+  }
+  return { ok: true };
+}
+
 export function advanceItemStatus(req: Request, ticketId: number, itemId: number, newStatus: KitchenActionableStatus): { ok: true } | { ok: false; error: string } {
   const ticket = kitchenTicketRepository.findById(ticketId) as { status: string } | undefined;
   if (!ticket) return { ok: false, error: 'Ticket nao encontrado.' };
   if (ticket.status === 'cancelado') return { ok: false, error: 'Ticket cancelado.' };
   const item = kitchenTicketItemRepository.findInTicket(itemId, ticketId) as { id: number; status: string } | undefined;
   if (!item) return { ok: false, error: 'Item nao encontrado.' };
+  // Qualquer ação da cozinha no pedido vale como "eu vi". Sem isso o alarme de novo
+  // pedido continuaria apitando mesmo depois de alguém já ter começado a preparar.
+  kitchenTicketRepository.acknowledge(ticketId);
   // Voltar etapa é uma correção explícita da cozinha ("marquei pronto sem querer"), então
   // o recalc do ticket pode rebaixar — inclusive um ticket já 'entregue'.
   const goingBack = rank(newStatus) < rank(item.status);
@@ -181,6 +200,8 @@ export function advanceTicketStatus(req: Request, ticketId: number, newStatus: K
   const ticket = kitchenTicketRepository.findById(ticketId) as { status: string } | undefined;
   if (!ticket) return { ok: false, error: 'Ticket nao encontrado.' };
   if (ticket.status === 'cancelado') return { ok: false, error: 'Ticket cancelado.' };
+  // Mesma regra do item: avançar o pedido confirma que a cozinha o viu.
+  kitchenTicketRepository.acknowledge(ticketId);
   const goingBack = rank(newStatus) < rank(ticket.status);
   kitchenTicketRepository.updateStatus(ticketId, newStatus);
   if (goingBack) {
