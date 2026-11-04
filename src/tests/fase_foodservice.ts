@@ -271,6 +271,61 @@ async function main() {
   check('aviso global some quando o pedido é entregue',
     !readyFeedAfter.alerts.some((a) => a.id === ticketMesa.id));
 
+  // ─── Divisão: grupo principal+complemento junto e tickets da cozinha seguem os itens ───
+  const comandaSplit = await unwrap<{ id: number }>(
+    await api('/api/comandas/comandas', { method: 'POST', body: JSON.stringify({}) }, admin!),
+  );
+  const grupo = 'grupo-split-' + comandaSplit.id;
+  const itemPrincipal = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaSplit.id}/items`, {
+    method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 1, lineGroupUuid: grupo }),
+  }, admin!));
+  const itemComplemento = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaSplit.id}/items`, {
+    method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 1, lineGroupUuid: grupo }),
+  }, admin!));
+  const itemForaDoGrupo = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaSplit.id}/items`, {
+    method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 1 }),
+  }, admin!));
+  await api(`/api/comandas/comandas/${comandaSplit.id}/enviar-cozinha`, { method: 'POST' }, admin!);
+  const ticketCompartilhado = db.prepare(
+    "SELECT id FROM kitchen_tickets WHERE source_type = 'comanda' AND source_id = ?",
+  ).get(comandaSplit.id) as { id: number };
+  const itensTicketAntes = (db.prepare(
+    'SELECT COUNT(*) c FROM kitchen_ticket_items WHERE ticket_id = ? AND deleted_at IS NULL',
+  ).get(ticketCompartilhado.id) as { c: number }).c;
+  check('ticket único com os 3 itens enviados', itensTicketAntes === 3, `itens=${itensTicketAntes}`);
+
+  const splitParcial = await api(`/api/comandas/comandas/${comandaSplit.id}/split`, {
+    method: 'POST', body: JSON.stringify({ itemIds: [itemPrincipal.id] }),
+  }, admin!);
+  const splitParcialBody = await splitParcial.json() as { error?: string };
+  check('dividir só o principal do grupo é recusado',
+    splitParcial.status === 400 && /complementos/i.test(splitParcialBody.error ?? ''));
+
+  const splitGrupoR = await api(`/api/comandas/comandas/${comandaSplit.id}/split`, {
+    method: 'POST', body: JSON.stringify({ itemIds: [itemPrincipal.id, itemComplemento.id] }),
+  }, admin!);
+  const splitGrupo = await unwrap<{ newComandaId: number }>(splitGrupoR);
+  check('dividir o grupo inteiro funciona', splitGrupoR.status === 200 && !!splitGrupo.newComandaId);
+  const origemSplit = await unwrap<{ items: { id: number }[] }>(await api(`/api/comandas/comandas/${comandaSplit.id}`, {}, admin!));
+  check('origem fica só com o item fora do grupo', origemSplit.items.length === 1 && origemSplit.items[0].id === itemForaDoGrupo.id);
+  const novaSplit = await unwrap<{ items: { id: number }[] }>(await api(`/api/comandas/comandas/${splitGrupo.newComandaId}`, {}, admin!));
+  check('comanda nova recebeu principal + complemento', novaSplit.items.length === 2);
+
+  const ticketNovo = db.prepare(
+    "SELECT id, status FROM kitchen_tickets WHERE source_type = 'comanda' AND source_id = ?",
+  ).get(splitGrupo.newComandaId) as { id: number; status: string } | undefined;
+  const itensTicketNovo = ticketNovo
+    ? (db.prepare('SELECT COUNT(*) c FROM kitchen_ticket_items WHERE ticket_id = ? AND deleted_at IS NULL').get(ticketNovo.id) as { c: number }).c
+    : 0;
+  check('ticket dos itens movidos passou a apontar para a comanda nova', !!ticketNovo && itensTicketNovo === 2, `itens=${itensTicketNovo}`);
+
+  check('cancela a origem depois da divisão',
+    (await api(`/api/comandas/comandas/${comandaSplit.id}/cancel`, { method: 'POST' }, admin!)).status === 200);
+  const ticketOrigemDepois = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(ticketCompartilhado.id) as { status: string };
+  const ticketNovoDepois = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(ticketNovo!.id) as { status: string };
+  check('cancelar a origem cancela só o ticket que ficou nela', ticketOrigemDepois.status === 'cancelado');
+  check('ticket da comanda nova não é cancelado junto', ticketNovoDepois.status !== 'cancelado');
+
   // Desliga a capability de novo -> volta a bloquear
   check('desliga capability foodservice.cozinha',
     (await api('/api/core/capabilities/foodservice.cozinha', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, admin!)).status === 200);

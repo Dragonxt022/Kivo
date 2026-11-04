@@ -33,6 +33,8 @@ router.put('/tables/:id', requireCapability('comandas.mesas'), requirePermission
 router.delete('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), comandasController.deleteTable);
 
 router.get('/comandas', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.listComandas);
+// Precisa vir antes de '/comandas/:id', senão "sem-mesa" cai na rota de detalhe.
+router.get('/comandas/sem-mesa', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.listComandasSemMesa);
 router.get('/comandas/:id', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.getComanda);
 router.post('/comandas', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(openComandaSchema), comandasController.openComandaAction);
 router.post('/comandas/:id/items', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(addComandaItemSchema), comandasController.addItemAction);

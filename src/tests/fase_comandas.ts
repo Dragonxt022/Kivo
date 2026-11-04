@@ -135,6 +135,8 @@ async function main() {
   const newComandaAfterSplit = await unwrap<{ items: ComandaItem[] }>(await api(`/api/comandas/comandas/${split.newComandaId}`, {}, admin!));
   check('nova comanda tem o item dividido (suco, preco 800 preservado)',
     newComandaAfterSplit.items.length === 1 && newComandaAfterSplit.items[0].unit_price_cents === 800);
+  const semMesa = await unwrap<{ id: number }[]>(await api('/api/comandas/comandas/sem-mesa', {}, admin!));
+  check('comanda criada pela divisao aparece em comandas sem mesa', semMesa.some((c) => c.id === split.newComandaId));
 
   // ─── Unir (merge) de volta ───
   const mergeR = await api(`/api/comandas/comandas/${comanda.id}/merge`, { method: 'POST', body: JSON.stringify({ sourceComandaId: split.newComandaId }) }, admin!);
@@ -143,6 +145,8 @@ async function main() {
   check('comanda voltou a ter 3 itens após merge', comandaAfterMerge.items.length === 3);
   const sourceAfterMerge = await unwrap<{ status: string }>(await api(`/api/comandas/comandas/${split.newComandaId}`, {}, admin!));
   check('comanda de origem do split ficou cancelada após merge', sourceAfterMerge.status === 'cancelada');
+  const semMesaAfterMerge = await unwrap<{ id: number }[]>(await api('/api/comandas/comandas/sem-mesa', {}, admin!));
+  check('comanda sem mesa some ao ser unida de volta', !semMesaAfterMerge.some((c) => c.id === split.newComandaId));
 
   // ─── Fechar comanda (gera venda real) ───
   const totalCents = comandaAfterMerge.items.reduce((a, i) => a + i.unit_price_cents * i.qty, 0);
@@ -198,6 +202,22 @@ async function main() {
   check('cancelar não gera venda nenhuma', salesCountAfter === salesCountBefore, `antes=${salesCountBefore} depois=${salesCountAfter}`);
   const statusAfterCancel = await unwrap<{ id: number; status: string }[]>(await api('/api/comandas/tables/status', {}, admin!));
   check('Mesa 3 libera ao cancelar', statusAfterCancel.find((t) => t.id === tableC.id)?.status === 'livre');
+
+  // ─── Dividir TODOS os itens: a origem vazia é cancelada e libera a mesa ───
+  const openD = await api('/api/comandas/comandas', { method: 'POST', body: JSON.stringify({ tableId: tableC.id }) }, admin!);
+  const comandaD = await unwrap<{ id: number }>(openD);
+  const itemD = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaD.id}/items`, {
+    method: 'POST', body: JSON.stringify({ productId: suco.id, qty: 1 }),
+  }, admin!));
+  const splitAllR = await api(`/api/comandas/comandas/${comandaD.id}/split`, { method: 'POST', body: JSON.stringify({ itemIds: [itemD.id] }) }, admin!);
+  const splitAll = await unwrap<{ newComandaId: number }>(splitAllR);
+  check('dividir todos os itens responde OK', splitAllR.status === 200 && !!splitAll.newComandaId);
+  const origemD = await unwrap<{ status: string }>(await api(`/api/comandas/comandas/${comandaD.id}`, {}, admin!));
+  check('comanda de origem fica cancelada quando não sobra item', origemD.status === 'cancelada');
+  const statusAfterSplitAll = await unwrap<{ id: number; status: string }[]>(await api('/api/comandas/tables/status', {}, admin!));
+  check('mesa da origem fica livre quando a divisão leva todos os itens', statusAfterSplitAll.find((t) => t.id === tableC.id)?.status === 'livre');
+  // Limpa a comanda nova sem mesa para não interferir no restante da fase.
+  await api(`/api/comandas/comandas/${splitAll.newComandaId}/cancel`, { method: 'POST' }, admin!);
 
   // ─── Gating: desliga a capability de novo ───
   check('desliga comandas.mesas', (await api('/api/core/capabilities/comandas.mesas', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, admin!)).status === 200);

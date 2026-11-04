@@ -157,6 +157,29 @@ export const comandasController = {
     res.json(comandaRepository.raw(sql, ...params));
   },
 
+  /**
+   * Comandas abertas sem mesa — principalmente as criadas pela divisão. A grade de
+   * Mesas só tem cards de mesa; sem esta lista a comanda dividida "sumia" para quem
+   * não estava na tela de destino.
+   */
+  listComandasSemMesa(_req: Request, res: Response) {
+    res.setHeader('Cache-Control', 'no-store');
+    const rows = comandaRepository.raw(
+      `SELECT c.id, c.customer_id, cu.name AS customer_name,
+              c.ready_for_payment_at, c.updated_at,
+              COALESCE(SUM(ci.qty * ci.unit_price_cents), 0) AS total_cents,
+              COUNT(ci.id) AS items_count
+         FROM comandas c
+         LEFT JOIN comanda_items ci
+           ON ci.comanda_id = c.id AND ci.deleted_at IS NULL AND ci.voided_at IS NULL
+         LEFT JOIN customers cu ON cu.id = c.customer_id
+        WHERE c.status = 'aberta' AND c.deleted_at IS NULL AND c.table_id IS NULL
+        GROUP BY c.id
+        ORDER BY c.id DESC`,
+    );
+    res.json(rows);
+  },
+
   getComanda(req: Request, res: Response) {
     const id = Number(req.params.id);
     const comanda = comandaRepository.rawOne(

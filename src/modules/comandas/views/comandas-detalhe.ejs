@@ -216,9 +216,10 @@
       <h1>Dividir comanda</h1>
       <div class="dialog-body">
         <p class="dialog-text">Selecione os itens que vão para uma nova comanda:</p>
-        <template x-for="item in items" :key="item.id">
-          <label class="split-item">
-            <input type="checkbox" x-model.number="splitItemIds" :value="item.id" />
+        <p class="hint mt-0">Itens com complementos são selecionados junto com o principal.</p>
+        <template x-for="(item, idx) in items" :key="item.id">
+          <label class="split-item" :class="{ 'split-item-complement': isComplement(idx) }">
+            <input type="checkbox" :checked="splitItemIds.includes(Number(item.id))" @change="toggleSplitItem(item)" />
             <span x-text="item.qty + 'x ' + item.product_name"></span>
             <span class="muted text-sm" x-text="brl(item.unit_price_cents * item.qty)"></span>
           </label>
@@ -564,6 +565,7 @@
     }
     .split-item:hover { background: var(--surface-hover); }
     .split-item span:nth-child(2) { flex: 1; }
+    .split-item-complement { padding-left: 1.6rem; font-size: .84rem; }
 
     /* ─── Barra "Fechar comanda" fixa embaixo no celular (como o botão Finalizar do PDV) ─── */
     .close-bar-spacer { display: none; }
@@ -693,6 +695,19 @@
 
         async init() {
           await this.load();
+          // A divisão redireciona para cá com ?origem=...&itens=... — sem este aviso,
+          // quem dividiu vê o item sumir da comanda antiga sem saber onde ele foi parar.
+          const params = new URLSearchParams(window.location.search);
+          const origem = params.get('origem');
+          if (origem) {
+            const qtd = Number(params.get('itens') ?? 0);
+            showToast(
+              qtd > 0
+                ? `${qtd} ${qtd === 1 ? 'item movido' : 'itens movidos'} da comanda #${origem}.`
+                : `Itens movidos da comanda #${origem}.`,
+              'success',
+            );
+          }
           // Com a aba escondida o poll só gastava bateria/rede do celular; ao voltar,
           // atualiza imediatamente para o garçom ver o que mudou na cozinha.
           this.pollTimer = setInterval(() => { if (!document.hidden) this.load(); }, 5000);
@@ -1096,6 +1111,21 @@
           this.splitItemIds = []; this.dlgError = '';
           this.$refs.splitDlg.showModal();
         },
+        // Principal + complementos são um pedido só (mesmo line_group_uuid): marcar
+        // qualquer um deles marca o grupo inteiro, para a divisão não quebrar o vínculo.
+        splitGroupIds(item) {
+          if (!item.line_group_uuid) return [Number(item.id)];
+          return this.items
+            .filter((i) => i.line_group_uuid === item.line_group_uuid)
+            .map((i) => Number(i.id));
+        },
+        toggleSplitItem(item) {
+          const ids = this.splitGroupIds(item);
+          const todos = ids.every((id) => this.splitItemIds.includes(id));
+          this.splitItemIds = todos
+            ? this.splitItemIds.filter((id) => !ids.includes(id))
+            : Array.from(new Set([...this.splitItemIds, ...ids]));
+        },
         async confirmSplit() {
           if (!this.splitItemIds.length) return;
           const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/split', {
@@ -1105,7 +1135,9 @@
           if (!r.ok) { this.dlgError = (await r.json()).error ?? 'Erro ao dividir.'; showToast(this.dlgError, 'error'); return; }
           const data = await r.json();
           this.$refs.splitDlg.close();
-          window.location.href = '/app/comandas/mesas/' + data.newComandaId;
+          // Diz na comanda nova de onde os itens vieram (o item "some" da origem).
+          const origem = new URLSearchParams({ origem: String(this.comandaId), itens: String(this.splitItemIds.length) });
+          window.location.href = '/app/comandas/mesas/' + data.newComandaId + '?' + origem.toString();
         },
         async openMergeDlg() {
           this.mergeSourceId = null; this.dlgError = '';

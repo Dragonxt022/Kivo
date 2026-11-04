@@ -307,6 +307,11 @@ export function split(req: Request, comandaId: number, itemIds: number[]): { ok:
   if (!comanda || comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao encontrada ou nao esta aberta.' };
   const validCount = comandaItemRepository.validateBelongToComanda(itemIds, comandaId);
   if (validCount !== itemIds.length) return { ok: false, error: 'Um ou mais itens nao encontrados ou ja anulados.' };
+  // Principal e complementos são um pedido só: dividir meio grupo deixaria o
+  // adicional como "principal" na comanda nova (ver attachComplements no fechamento).
+  if (comandaItemRepository.hasIncompleteLineGroup(itemIds, comandaId)) {
+    return { ok: false, error: 'Selecione o item principal e todos os complementos do mesmo grupo.' };
+  }
   let newComandaId: number;
   comandaRepository.transaction(() => {
     newComandaId = comandaRepository.create({
@@ -318,7 +323,27 @@ export function split(req: Request, comandaId: number, itemIds: number[]): { ok:
       origin_machine: req.headers['x-machine'] ?? null,
     });
     comandaItemRepository.moveToComanda(itemIds, newComandaId);
+    // O total da origem mudou: o aviso "quer pagar" não vale mais.
+    comandaRepository.setReadyForPayment(comandaId, false);
+    // Os tickets da cozinha seguem os itens; senão cancelar a origem cancelaria
+    // produção que já pertence à comanda nova. Best-effort: a divisão não pode
+    // falhar por causa da cozinha (mesmo padrão de voidItem/cancelComanda).
+    try {
+      if (hasService('foodservice.kitchen')) {
+        getService<FoodserviceKitchenService>('foodservice.kitchen').moveComandaItemTickets(req, {
+          itemIds,
+          toComandaId: newComandaId,
+        });
+      }
+    } catch { /* cozinha indisponível: a divisão continua */ }
+    audit(req, 'abrir_comanda', 'comanda', newComandaId, null, { origem: comandaId, tipo: 'divisao' });
     audit(req, 'dividir_comanda', 'comanda', comandaId, null, { origem: comandaId, destino: newComandaId, itens: itemIds });
+    // Levou todos os itens? A origem vazia não pode continuar "aberta" segurando a
+    // mesa (o garçom voltaria para uma mesa ocupada sem nenhum item).
+    if (!comandaItemRepository.listActiveByComanda(comandaId).length) {
+      comandaRepository.cancel(comandaId);
+      if (comanda.table_id) storeTableRepository.free(comanda.table_id);
+    }
   });
   return { ok: true, newComandaId: newComandaId! };
 }

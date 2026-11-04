@@ -220,6 +220,91 @@ export function cancelTicketsForSource(req: Request, sourceType: 'sale' | 'coman
 }
 
 /**
+ * A comanda foi dividida: os tickets da cozinha precisam seguir os itens, não a
+ * comanda antiga. Sem isso, `cancelTicketsForSource` cancelava no KDS produção que
+ * já tinha sido movida para outra comanda (e o card continuava com a mesa antiga).
+ *
+ * - Ticket inteiro movido: só reaponta `source_id` para a comanda nova.
+ * - Ticket misto: cria um ticket novo para a comanda nova e move só os itens
+ *   selecionados. Os status individuais são preservados e `recalcTicketStatus`
+ *   reavalia o status dos dois tickets.
+ */
+export function moveComandaItemTickets(
+  req: Request,
+  params: { itemIds: number[]; toComandaId: number },
+): number {
+  const ids = [...new Set(params.itemIds.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!ids.length) return 0;
+  const ph = ids.map(() => '?').join(',');
+  const tickets = kitchenTicketRepository.raw(
+    `SELECT DISTINCT kt.id, kt.source_id, kt.service_type
+       FROM kitchen_tickets kt
+       JOIN kitchen_ticket_items kti ON kti.ticket_id = kt.id
+      WHERE kti.comanda_item_id IN (${ph})
+        AND kti.deleted_at IS NULL
+        AND kt.deleted_at IS NULL`,
+    ...ids,
+  ) as { id: number; source_id: number; service_type: string | null }[];
+  if (!tickets.length) return 0;
+
+  const selected = new Set(ids);
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  let movidos = 0;
+
+  kitchenTicketRepository.transaction(() => {
+    for (const ticket of tickets) {
+      const items = kitchenTicketItemRepository.raw(
+        'SELECT id, comanda_item_id FROM kitchen_ticket_items WHERE ticket_id = ? AND deleted_at IS NULL',
+        ticket.id,
+      ) as { id: number; comanda_item_id: number | null }[];
+      const moving = items.filter((i) => i.comanda_item_id != null && selected.has(Number(i.comanda_item_id)));
+      const staying = items.filter((i) => !i.comanda_item_id || !selected.has(Number(i.comanda_item_id)));
+      if (!moving.length) continue;
+
+      if (!staying.length) {
+        // Todo o ticket pertence aos itens movidos: acompanha a comanda nova.
+        kitchenTicketRepository.rawRun(
+          "UPDATE kitchen_tickets SET source_id = ?, table_label = NULL, updated_at = datetime('now') WHERE id = ?",
+          params.toComandaId, ticket.id,
+        );
+      } else {
+        // Ticket misto: a produção dos itens movidos ganha ticket próprio, para o
+        // cancelamento de uma comanda não derrubar a outra.
+        const uuid = randomUUID();
+        kitchenTicketRepository.create({
+          source_type: 'comanda',
+          source_id: params.toComandaId,
+          table_label: null,
+          service_type: ticket.service_type === 'entrega' ? 'entrega' : 'local',
+          status: 'pendente',
+          uuid,
+          updated_at: now,
+          origin_machine: req.headers['x-machine'] ?? null,
+        });
+        const novoId = Number((kitchenTicketRepository.rawOne(
+          'SELECT id FROM kitchen_tickets WHERE uuid = ?', uuid,
+        ) as { id: number }).id);
+        const itemIds = moving.map((i) => i.id);
+        const iph = itemIds.map(() => '?').join(',');
+        kitchenTicketItemRepository.rawRun(
+          `UPDATE kitchen_ticket_items SET ticket_id = ?, updated_at = datetime('now') WHERE id IN (${iph})`,
+          novoId, ...itemIds,
+        );
+        recalcTicketStatus(req, novoId);
+      }
+
+      recalcTicketStatus(req, ticket.id);
+      movidos += moving.length;
+      audit(req, 'mover_ticket_comanda', 'kitchen_ticket', ticket.id,
+        { sourceId: ticket.source_id },
+        { sourceId: params.toComandaId, itens: moving.map((i) => i.comanda_item_id) });
+    }
+  });
+
+  return movidos;
+}
+
+/**
  * O PDV pode mandar itens para a cozinha ANTES de a venda existir, usando um id
  * negativo de rascunho. Quando a venda é concluída, os tickets desse rascunho passam
  * a apontar para o id real — é o que faz o cancelamento da venda cancelar a produção.

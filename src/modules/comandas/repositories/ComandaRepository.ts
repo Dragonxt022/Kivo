@@ -99,6 +99,32 @@ export class ComandaItemRepository extends BaseRepository {
     ) as { id: number }[];
     return rows.length;
   }
+
+  /**
+   * A divisão é por item, mas complemento e principal compartilham o `line_group_uuid`.
+   * Se a seleção levar só parte do grupo, o complemento vira "principal" na comanda
+   * nova (o fechamento assume o primeiro item do grupo) e o pedido sai errado.
+   * Retorna true quando algum grupo tocado pela seleção ficou incompleto.
+   */
+  hasIncompleteLineGroup(itemIds: number[], comandaId: number): boolean {
+    if (!itemIds.length) return false;
+    const ph = itemIds.map(() => '?').join(',');
+    const row = this.rawOne(
+      `SELECT COUNT(*) AS faltando
+         FROM comanda_items ci
+         JOIN (
+           SELECT DISTINCT line_group_uuid
+             FROM comanda_items
+            WHERE id IN (${ph}) AND comanda_id = ?
+              AND deleted_at IS NULL AND voided_at IS NULL
+              AND line_group_uuid IS NOT NULL
+         ) g ON g.line_group_uuid = ci.line_group_uuid
+        WHERE ci.comanda_id = ? AND ci.deleted_at IS NULL AND ci.voided_at IS NULL
+          AND ci.id NOT IN (${ph})`,
+      ...itemIds, comandaId, comandaId, ...itemIds,
+    ) as { faltando: number } | undefined;
+    return Number(row?.faltando ?? 0) > 0;
+  }
 }
 
 export const comandaItemRepository = new ComandaItemRepository();
