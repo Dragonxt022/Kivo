@@ -1,14 +1,27 @@
 import type { Request, Response, NextFunction } from 'express';
 import { z, type ZodSchema, ZodIssueCode } from 'zod';
 
-function translateIssue(issue: z.ZodIssue): string {
+// O Zod 4 não inclui mais o valor recebido nos issues de `invalid_type`
+// (o antigo `issue.input` sumiu), então recuperamos o valor pelo caminho
+// a partir do corpo original para diferenciar "faltou" de "veio com tipo errado".
+function valueAtPath(root: unknown, path: PropertyKey[]): unknown {
+  let current = root;
+  for (const key of path) {
+    if (current === null || typeof current !== 'object') return undefined;
+    current = (current as Record<PropertyKey, unknown>)[key];
+  }
+  return current;
+}
+
+function translateIssue(issue: z.ZodIssue, body: unknown): string {
   const custom = issue.message;
   // Se já tem mensagem customizada em português, mantém
   if (issue.code === ZodIssueCode.custom) return custom;
 
   switch (issue.code) {
     case ZodIssueCode.invalid_type: {
-      const { expected, input } = issue;
+      const { expected } = issue;
+      const input = valueAtPath(body, issue.path);
       if (input === undefined) return 'Campo obrigatório.';
       if (input === null) return 'Campo não pode ser nulo.';
       if (expected === 'string') return 'Deve ser um texto.';
@@ -63,7 +76,7 @@ export function validateBody<T extends ZodSchema>(schema: T) {
     const result = schema.safeParse(req.body);
     if (!result.success) {
       const first = result.error.issues[0];
-      res.status(400).json({ error: `"${first.path.join('.')}": ${translateIssue(first)}` });
+      res.status(400).json({ error: `"${first.path.join('.')}": ${translateIssue(first, req.body)}` });
       return;
     }
     req.body = result.data as z.infer<T>;

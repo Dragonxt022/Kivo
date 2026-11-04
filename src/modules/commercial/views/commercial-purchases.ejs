@@ -537,8 +537,8 @@
         <div class="dialog-body">
           <div class="field">
             <label>Forma de pagamento</label>
-            <select x-model="checkoutPayment.methodId">
-              <option :value="null">Selecione…</option>
+            <select x-model.number="checkoutPayment.methodId">
+              <option value="">Selecione…</option>
               <template x-for="m in paymentMethods" :key="m.id">
                 <option :value="m.id" x-text="m.name"></option>
               </template>
@@ -549,11 +549,11 @@
             <label>Tipo</label>
             <div style="display:flex;gap:.5rem">
               <label class="radio-label" style="flex:1">
-                <input type="radio" name="payType" :value="false" x-model="checkoutPayment.isInstallment" />
+                <input type="radio" name="payType" :value="0" x-model.number="checkoutPayment.isInstallment" />
                 <span>À vista</span>
               </label>
               <label class="radio-label" style="flex:1">
-                <input type="radio" name="payType" :value="true" x-model="checkoutPayment.isInstallment" />
+                <input type="radio" name="payType" :value="1" x-model.number="checkoutPayment.isInstallment" />
                 <span>A prazo</span>
               </label>
             </div>

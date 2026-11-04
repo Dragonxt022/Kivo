@@ -173,8 +173,8 @@
         <img x-show="openMessage && openMessage.hasImage" :src="openMessage ? '/api/messages/image/' + openMessage.uuid : ''" alt="Imagem da mensagem" />
         <div class="msg-read" x-html="openMessage ? openMessage.bodyHtml : ''"></div>
         <div class="actions" style="margin-top:1rem">
-          <select class="select" x-model="openCategoryId" @change="assignCategory(openMessage)">
-            <option :value="null">Sem categoria própria</option>
+          <select class="select" x-model.number="openCategoryId" @change="assignCategory(openMessage)">
+            <option value="">Sem categoria própria</option>
             <template x-for="c in categories" :key="'opt' + c.id">
               <option :value="c.id" x-text="c.name"></option>
             </template>
@@ -238,7 +238,7 @@
         },
         async open(m) {
           this.openMessage = m;
-          this.openCategoryId = m.customCategoryId;
+          this.openCategoryId = m.customCategoryId ?? '';
           this.$refs.readDlg.showModal();
           if (!m.read) await this.setRead(m, true);
         },
@@ -268,9 +268,12 @@
         },
         async assignCategory(m) {
           if (!m) return;
-          m.customCategoryId = this.openCategoryId;
+          const categoryId = this.openCategoryId === '' || this.openCategoryId == null
+            ? null
+            : Number(this.openCategoryId);
+          m.customCategoryId = categoryId;
           await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/category', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId: this.openCategoryId }),
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId }),
           }).catch(() => {});
         },
         async addCategory() {

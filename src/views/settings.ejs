@@ -372,11 +372,11 @@
                   <div class="muted text-xs" x-text="t.description"></div>
                 </td>
                 <td class="text-center">
-                  <input type="checkbox" x-model.number="t.controls_stock" :true-value="1" :false-value="0"
+                  <input type="checkbox" x-model="t.controls_stock"
                          @change="saveProductType(t)" />
                 </td>
                 <td class="text-center">
-                  <input type="checkbox" x-model.number="t.active" :true-value="1" :false-value="0"
+                  <input type="checkbox" x-model="t.active"
                          @change="saveProductType(t)" />
                 </td>
               </tr>
@@ -1980,7 +1980,7 @@
           try {
             const r = await fetch('/api/commercial/product-types/' + encodeURIComponent(t.key), {
               method: 'PUT', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ controlsStock: t.controls_stock === 1, active: t.active === 1 }),
+              body: JSON.stringify({ controlsStock: !!t.controls_stock, active: !!t.active }),
             });
             this.productTypesSaved = r.ok ? 'Salvo.' : 'Falha ao salvar.';
             if (r.ok) showToast('Tipo de produto atualizado.', 'success');

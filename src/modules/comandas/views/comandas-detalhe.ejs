@@ -218,7 +218,7 @@
         <p class="dialog-text">Selecione os itens que vão para uma nova comanda:</p>
         <template x-for="item in items" :key="item.id">
           <label class="split-item">
-            <input type="checkbox" x-model="splitItemIds" :value="item.id" />
+            <input type="checkbox" x-model.number="splitItemIds" :value="item.id" />
             <span x-text="item.qty + 'x ' + item.product_name"></span>
             <span class="muted text-sm" x-text="brl(item.unit_price_cents * item.qty)"></span>
           </label>
@@ -244,7 +244,7 @@
         <p class="dialog-text">Escolha a comanda que será unida a esta:</p>
         <template x-for="c in otherComandas" :key="c.id">
           <label class="split-item">
-            <input type="radio" name="mergeComanda" x-model="mergeSourceId" :value="c.id" />
+            <input type="radio" name="mergeComanda" x-model.number="mergeSourceId" :value="c.id" />
             <span x-text="'Comanda #' + c.id + (c.table_label ? ' — ' + c.table_label : '')"></span>
           </label>
         </template>
