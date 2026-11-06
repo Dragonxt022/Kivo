@@ -744,8 +744,9 @@
 .navbar {
   position: fixed;
   top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
   width: calc(100% - 32px);
   max-width: 1100px;
   height: 56px;
@@ -901,5 +902,20 @@
      controles da direita em telas de 390px. */
   .navbar .nav-wiki-btn {
     display: none;
+  }
+
+  /* Dropdowns ancorados no navbar fixo: no celular eles ocupam a largura da tela
+     com 12px de respiro. Antes, o dropdown de notificações nascia deslocado para
+     a esquerda do sino e tinha o título cortado pela borda da tela. */
+  .notif-dropdown,
+  .user-menu-dropdown {
+    position: fixed;
+    top: 70px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    min-width: 0;
+    max-height: min(70vh, 380px);
+    overflow-y: auto;
   }
 }
