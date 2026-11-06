@@ -221,8 +221,7 @@ body::before {
 }
 
 .fav-grid {
-  grid-template-columns: repeat(4, minmax(0, 200px));
-  justify-content: start;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 @media (max-width: 1200px) {
@@ -410,9 +409,13 @@ body::before {
 }
 
 @media (max-width: 900px) {
-  .fav-grid { grid-template-columns: repeat(4, minmax(0, 180px)); }
+  .fav-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .cloud-app-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
   .cloud-app-card { padding: 14px 12px; }
+}
+
+@media (max-width: 760px) {
+  .fav-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 620px) {

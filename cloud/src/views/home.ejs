@@ -66,7 +66,7 @@
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
               Favoritos
             </h2>
-            <span class="muted" x-text="favorites.length + '/4'"></span>
+            <span class="muted" x-text="favorites.length + '/' + maxFavorites"></span>
           </div>
           <div class="cloud-app-grid fav-grid">
             <template x-for="a in favoriteApps" :key="'fav-' + a.key">
@@ -180,6 +180,7 @@
         favWarning: '',
         greetingText: '',
         greetingIcon: 'sun',
+        maxFavorites: 5,
         storageKey: 'kivo-cloud-favorites:' + ADMIN_USERNAME,
 
         initLauncher() {
@@ -188,7 +189,7 @@
           try {
             const raw = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
             const valid = new Set(this.apps.map((a) => a.key));
-            this.favorites = (Array.isArray(raw) ? raw : []).filter((k) => valid.has(k)).slice(0, 4);
+            this.favorites = (Array.isArray(raw) ? raw : []).filter((k) => valid.has(k)).slice(0, this.maxFavorites);
           } catch (e) {
             this.favorites = [];
           }
@@ -257,7 +258,7 @@
 
         get emptySlots() {
           if (this.q.trim()) return 0;
-          return Math.max(0, 4 - this.favorites.length);
+          return Math.max(0, this.maxFavorites - this.favorites.length);
         },
 
         isFav(key) {
@@ -270,8 +271,8 @@
           if (index >= 0) {
             this.favorites.splice(index, 1);
           } else {
-            if (this.favorites.length >= 4) {
-              this.favWarning = 'Você já tem 4 favoritos. Remova um deles antes de adicionar outro.';
+            if (this.favorites.length >= this.maxFavorites) {
+              this.favWarning = 'Você já tem ' + this.maxFavorites + ' favoritos. Remova um deles antes de adicionar outro.';
               return;
             }
             this.favorites.push(key);
