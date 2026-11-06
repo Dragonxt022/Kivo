@@ -56,7 +56,9 @@ Cada lista pode ter faixas por quantidade (`min_qty`). O orçamento usa o preço
 
 `total = subtotal - discountCents + surchargeCents` (não pode ficar negativo). Aplicar
 desconto/acréscimo exige a permissão `store.sales.discount` — exceto quando a venda vem de um
-orçamento já autorizado (`allowDiscount`).
+orçamento já autorizado (`allowDiscount`). Com `pdv.desconto_exige_motivo = 1`, a API também
+recusa desconto/acréscimo sem `discountReason` (a conversão de orçamento fica isenta porque a
+cotação já foi autorizada).
 
 ### 4. Pagamentos
 
@@ -66,7 +68,7 @@ pagamentos precisa fechar o total** exatamente. Cada forma tem regras próprias:
 | Tipo | Regra |
 | --- | --- |
 | `dinheiro` | `receivedCents >= amountCents`; troco = recebido - valor |
-| `prazo` | Exige cliente; 1 a 12 parcelas; gera recebíveis (intervalos de 30 dias) |
+| `prazo` | Exige cliente; 1 a `pdv.parcelas_max` parcelas (máx. 24); gera recebíveis (intervalos de 30 dias) |
 | `credito_loja` | Exige cliente; resgata o crédito de troca |
 | `fidelidade` | Exige cliente; clube ativo; `pointsUsed * centsPerPoint == amountCents` |
 | `convenio` | Exige cliente com empresa conveniada; gera cobrança do convênio |
@@ -108,7 +110,10 @@ PDV de reenvio por rede/duplo clique).
 ## Cancelamento de venda
 
 `cancelSale` recusa quando: venda já cancelada, conta a receber já recebida, cobrança de
-convênio já faturada, ou há **nota fiscal viva** para a venda (cancele a nota antes).
+convênio já faturada, há **nota fiscal viva** para a venda (cancele a nota antes) ou a venda
+**já tem devolução registrada**. O último caso evita devolver estoque/dinheiro duas vezes: a
+devolução já ajustou parte do que o cancelamento ajustaria. O caminho é registrar a devolução
+do restante.
 
 Ao cancelar, numa transação:
 
@@ -129,6 +134,10 @@ sobrou (vendido menos já devolvido). `refundMethod`:
 - `dinheiro` — saída do caixa.
 - `credito_loja` — gera vale (exige cliente).
 
+O valor devolvido é **proporcional ao que o cliente pagou**: o desconto/acréscimo da venda é
+rateado pelas linhas, e o total nunca passa do saldo ainda não devolvido. Antes, devolver
+todos os itens de uma venda com desconto devolvia o subtotal cheio.
+
 Recompõe o estoque espelhando o que a venda consumiu (incluindo componentes de kit e insumos
 de ficha técnica) e devolve aos lotes de origem. A venda original **não** é alterada: o
 histórico guarda a venda e as devoluções.
@@ -140,7 +149,15 @@ histórico guarda a venda e as devoluções.
 - O **preço cotado é congelado** em `quote_items` e honrado na conversão (`allowPriceOverride`).
 - Kit/combo e ficha técnica **não** são explodidos no orçamento — a explosão acontece na
   conversão em venda (senão os componentes duplicariam).
-- Conversão: `createQuote` gera a venda reutilizando os itens e o desconto do orçamento.
+- Conversão: `convertQuote` gera a venda reutilizando os itens e o desconto do orçamento.
+
+## Listagem de vendas (filtros)
+
+`GET /api/store/sales` filtra por `q` (nome do cliente ou `#venda`), `status`, `from`/`to`,
+`userId` e `paymentMethod`. O filtro de forma de pagamento olha `sale_payments.method_type`
+(as formas reais de cada pagamento), com fallback para `sales.payment_method` em vendas
+antigas sem pagamentos. `sort` e `dir` ordenam no servidor (whitelist de colunas), e
+`X-Total-Sum` traz a soma das vendas concluídas do filtro para quem tem `store.reports.view`.
 
 ## Comandas (integração)
 

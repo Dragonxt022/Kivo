@@ -9,6 +9,16 @@ import { createUserSchema, updateUserSchema, bulkDeleteUsersSchema } from '../..
 import { userRepository } from '../repositories/UserRepository';
 import { roleRepository } from '../repositories/RoleRepository';
 import { disableQuickProfile, enableQuickProfile, hasQuickProfile } from '../auth/quickLogin';
+import {
+  allowedStartupModules,
+  getStartupPref,
+  normalizeStartupInput,
+  permissionsForRole,
+  permissionsForUser,
+  saveStartupPref,
+  type StartupPref,
+} from './startup';
+import type { ModuleMenuItem } from '../modules/types';
 
 const router = Router();
 
@@ -24,6 +34,31 @@ router.get('/roles', requirePermission('users.view'), (_req, res) => {
 router.get('/', requirePermission('users.view'), (_req, res) => {
   const users = userRepository.listWithRoles() as { id: number }[];
   res.json(users.map((u) => ({ ...u, quickLogin: hasQuickProfile(u.id) })));
+});
+
+/**
+ * Preferência de abertura do usuário e os módulos que ELE pode escolher. A lista vem
+ * filtrada pelas permissões do alvo (não pelas de quem está editando): o administrador
+ * não deve salvar em "Mesas" um garçom que perdeu `comandas.view`.
+ */
+router.get('/:id/startup', (req, res) => {
+  const id = Number(req.params.id);
+  if (!req.user) { res.status(401).json({ error: 'Não autenticado.' }); return; }
+  if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Usuário inválido.' }); return; }
+  if (req.user.id !== id && !req.user.permissions.has('users.edit')) {
+    res.status(403).json({ error: 'Permissão negada.' });
+    return;
+  }
+  if (!userRepository.findByIdWithRole(id)) { res.status(404).json({ error: 'Usuário não encontrado.' }); return; }
+  const modules = allowedStartupModules(
+    res.locals.moduleMenu as ModuleMenuItem[] | undefined,
+    permissionsForUser(id),
+  ).map((item) => ({
+    href: item.href,
+    label: item.label,
+    moduleName: item.moduleName ?? null,
+  }));
+  res.json({ ...getStartupPref(id), modules });
 });
 
 /** Liga/desliga o balão de entrada rápida deste usuário nesta máquina. */
@@ -66,7 +101,9 @@ router.put('/:id', requirePermission('users.edit'), validateBody(updateUserSchem
     res.status(404).json({ error: 'Usuário não encontrado.' });
     return;
   }
-  const { name, email, roleSlug, active, password, quickLogin } = req.body;
+  const { name, email, roleSlug, active, password, quickLogin, startup } = req.body;
+  const nId = Number(id);
+  const beforeStartup = getStartupPref(nId);
 
   if (password) {
     const pwError = validatePasswordStrength(password);
@@ -84,6 +121,24 @@ router.put('/:id', requirePermission('users.edit'), validateBody(updateUserSchem
       return;
     }
     roleId = role.id;
+  }
+
+  // Valida a abertura ANTES de gravar o usuário: um href sem permissão não pode deixar
+  // a edição pela metade. Se o cargo muda na mesma requisição, a lista considera o novo
+  // cargo, não o antigo.
+  let startupValue: StartupPref | undefined;
+  if (startup !== undefined) {
+    const permissions = roleId != null ? permissionsForRole(roleId) : permissionsForUser(nId);
+    const allowed = allowedStartupModules(
+      res.locals.moduleMenu as ModuleMenuItem[] | undefined,
+      permissions,
+    );
+    const normalized = normalizeStartupInput(startup, allowed);
+    if (!normalized.ok) {
+      res.status(400).json({ error: normalized.error });
+      return;
+    }
+    startupValue = normalized.value;
   }
 
   /**
@@ -106,13 +161,17 @@ router.put('/:id', requirePermission('users.edit'), validateBody(updateUserSchem
 
   // Usuário desativado perde o balão junto: deixá-lo na tela de login seria oferecer uma
   // entrada que o `quickLogin` recusa depois — um clique que só devolve erro.
-  const nId = Number(id);
   if (active != null && !active) disableQuickProfile(nId);
   else aplicarEntradaRapida(nId, quickLogin);
 
+  if (startupValue) saveStartupPref(nId, startupValue);
+
   const after = userRepository.findByIdWithRole(id);
-  audit(req, 'editar', 'user', id, before, after);
-  res.json({ ...(after as object), quickLogin: hasQuickProfile(nId) });
+  const afterStartup = getStartupPref(nId);
+  audit(req, 'editar', 'user', id,
+    { ...(before as object), startup: beforeStartup },
+    { ...(after as object), startup: afterStartup });
+  res.json({ ...(after as object), quickLogin: hasQuickProfile(nId), startup: afterStartup });
 });
 
 router.delete('/:id', requirePermission('users.delete'), (req, res) => {

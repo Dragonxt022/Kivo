@@ -250,8 +250,11 @@ export const closeRegisterSchema = z.object({
     .number()
     .int('Valor contado deve ser inteiro.')
     .min(0, 'Valor contado não pode ser negativo.'),
-  notes: z.string().optional(),
-  countBreakdown: z.record(z.string(), z.number()).optional(),
+  notes: z.string().max(500, 'Observação muito longa.').optional(),
+  // Quantidade de cédulas/moedas: inteiro e não negativo. Antes um valor fracionário
+  // (ou negativo) entrava no JSON e o relatório de fechamento mostrava quantidades
+  // impossíveis.
+  countBreakdown: z.record(z.string(), z.number().int().min(0)).optional(),
 });
 
 export const createCategorySchema = z.object({
@@ -454,6 +457,13 @@ export const updateUserSchema = z.object({
   // branco. O controller já trata pelo mesmo truthy.
   password: z.string().optional(),
   quickLogin: z.boolean().optional(),
+  // Abertura personalizada por usuário (ver core/users/startup.ts). A validação do
+  // módulo contra as permissões do alvo é feita na rota, que tem o menu da requisição.
+  startup: z.object({
+    enabled: z.boolean(),
+    moduleHref: z.string().max(200).optional().default(''),
+    fullscreen: z.boolean().optional().default(true),
+  }).optional(),
 });
 
 export const bulkDeleteUsersSchema = z.object({

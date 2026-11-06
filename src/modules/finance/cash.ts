@@ -113,6 +113,10 @@ export function editClosedRegister(req: Request, registerId: number, updates: { 
   ) as { id: number; status: string; expected_cents: number; counted_cents: number; difference_cents: number } | undefined;
   if (!before) return { ok: false, error: 'Registro de caixa não encontrado.' };
   if (before.status !== 'fechado') return { ok: false, error: 'Apenas caixas fechados podem ser editados.' };
+  if (updates.countedCents != null
+      && (!Number.isInteger(updates.countedCents) || updates.countedCents < 0)) {
+    return { ok: false, error: 'Valor contado inválido.' };
+  }
 
   const counted = updates.countedCents != null ? Math.round(updates.countedCents) : before.counted_cents;
   const difference = counted - before.expected_cents;

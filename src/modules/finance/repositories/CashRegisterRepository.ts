@@ -31,16 +31,38 @@ export class CashRegisterRepository extends BaseRepository {
     return { ...row, count_breakdown: countBreakdown };
   }
 
-  listHistory(): Row[] {
+  /**
+   * Histórico de turnos. O período (from/to) casa por sobreposição: um caixa aberto
+   * ontem e fechado hoje aparece tanto no filtro de ontem quanto no de hoje. Filtrar
+   * só pela data de abertura esconderia o turno que mais importa — o que virou a noite.
+   */
+  listHistory(from?: string, to?: string): Row[] {
+    const conditions = ['r.deleted_at IS NULL'];
+    const params: unknown[] = [];
+    if (from) {
+      conditions.push("date(COALESCE(r.closed_at, datetime('now')), 'localtime') >= ?");
+      params.push(from);
+    }
+    if (to) {
+      conditions.push("date(r.opened_at, 'localtime') <= ?");
+      params.push(to);
+    }
     return this.raw(
-      `SELECT r.id, r.status, r.opened_at, r.opening_cents, r.closed_at, r.expected_cents,
+      `SELECT r.id, r.status, r.opened_at, r.opening_cents, r.closed_at,
+              -- Turno aberto ainda não tem expected_cents gravado: calcula do livro-razão
+              -- para o histórico não mostrar R$ 0,00 enquanto a gaveta tem dinheiro.
+              CASE WHEN r.status = 'aberto' THEN (
+                SELECT COALESCE(SUM(CASE WHEN m.direction = 'entrada' THEN m.amount_cents ELSE -m.amount_cents END), 0)
+                  FROM cash_movements m WHERE m.register_id = r.id
+              ) ELSE r.expected_cents END AS expected_cents,
               r.counted_cents, r.difference_cents, r.edited_at, r.notes,
               uo.username AS opened_by, uc.username AS closed_by, ue.username AS edited_by_name
        FROM cash_registers r
        LEFT JOIN users uo ON uo.id = r.opened_by
        LEFT JOIN users uc ON uc.id = r.closed_by
        LEFT JOIN users ue ON ue.id = r.edited_by
-       WHERE r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 500`,
+       WHERE ${conditions.join(' AND ')} ORDER BY r.id DESC LIMIT 500`,
+      ...params,
     );
   }
 
@@ -70,13 +92,17 @@ export class CashMovementRepository extends BaseRepository {
     super('cash_movements');
   }
 
-  listByRegister(registerId: number): Row[] {
+  listByRegister(registerId: number, from?: string, to?: string): Row[] {
+    const conditions = ['m.register_id = ?'];
+    const params: unknown[] = [registerId];
+    if (from) { conditions.push("date(m.created_at, 'localtime') >= ?"); params.push(from); }
+    if (to) { conditions.push("date(m.created_at, 'localtime') <= ?"); params.push(to); }
     return this.raw(
       `SELECT m.id, m.direction, m.type, m.amount_cents, m.description, m.ref_entity, m.ref_id,
               u.username, m.created_at
        FROM cash_movements m LEFT JOIN users u ON u.id = m.user_id
-       WHERE m.register_id = ? ORDER BY m.id DESC`,
-      registerId,
+       WHERE ${conditions.join(' AND ')} ORDER BY m.id DESC`,
+      ...params,
     );
   }
 

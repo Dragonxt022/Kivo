@@ -7,7 +7,7 @@ import { audit } from '../audit/service';
 import { assertAuth } from '../../shared/auth';
 import { validateBody } from '../../shared/validateBody';
 import { loginSchema, changePasswordSchema, firstRunSetupSchema } from '../../shared/schemas';
-import { isLoopback, listQuickProfiles, quickLogin } from './quickLogin';
+import { canUseQuickLogin, listQuickProfiles, quickLogin } from './quickLogin';
 
 const router = Router();
 
@@ -70,21 +70,25 @@ router.post('/login', loginLimiter, validateBody(loginSchema), (req, res) => {
 /**
  * ─── Entrada rápida por perfil (balões na tela de login) ───
  *
- * Públicas por necessidade (não existe sessão antes de entrar) e restritas ao LOOPBACK: a
- * troca vale para quem está no teclado daquele computador, não para quem alcança o Kivo pela
- * rede. Com "Acesso pela rede local" ligado o app escuta em 0.0.0.0, e sem esta guarda
- * qualquer celular no Wi-Fi da loja entraria como o dono só abrindo o endereço.
+ * Públicas por necessidade (não existe sessão antes de entrar) e restritas ao LOOPBACK por
+ * padrão: a troca vale para quem está no teclado daquele computador, não para quem alcança o
+ * Kivo pela rede. Com "Acesso pela rede local" ligado o app escuta em 0.0.0.0, e sem esta
+ * guarda qualquer celular no Wi-Fi da loja entraria como o dono só abrindo o endereço.
  *
- * Fora do loopback a lista responde vazia em vez de 403: quem está no celular não precisa
- * saber que existem perfis salvos, nem quais são os nomes das pessoas da loja.
+ * O dono pode liberar a rede conscientemente em Configurações › Interface
+ * (`entradaRapidaRede` no machine-prefs). Fora das duas situações a lista responde vazia em
+ * vez de 403: quem está no celular não precisa saber que existem perfis salvos, nem quais são
+ * os nomes das pessoas da loja.
  */
 router.get('/quick-profiles', (req, res) => {
-  res.json(isLoopback(req) ? listQuickProfiles() : []);
+  res.json(canUseQuickLogin(req) ? listQuickProfiles() : []);
 });
 
 router.post('/quick-login', loginLimiter, (req, res) => {
-  if (!isLoopback(req)) {
-    res.status(403).json({ error: 'A entrada rápida só funciona no próprio computador.' });
+  if (!canUseQuickLogin(req)) {
+    res.status(403).json({
+      error: 'A entrada rápida só funciona no próprio computador. Para liberar na rede local, ative em Configurações › Interface.',
+    });
     return;
   }
   const profileId = Number((req.body ?? {}).profileId);

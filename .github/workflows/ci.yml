@@ -94,6 +94,10 @@ jobs:
         run: node scripts/kivo test:e2e:compras
       - name: QA — layout mobile
         run: node scripts/kivo test:e2e:mobile
+      - name: QA — responsivo de vendas e caixa
+        run: node scripts/kivo test:e2e:responsivo-vendas
+      - name: QA — abertura personalizada por usuário
+        run: node scripts/kivo test:e2e:user-startup
       - name: Screenshots da execução
         if: always()
         uses: actions/upload-artifact@v4

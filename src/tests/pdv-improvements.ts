@@ -107,11 +107,76 @@ async function main() {
       method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 5 }], refundMethod: 'nenhum' }),
     }, admin!);
     check('devolução acima do saldo → 400', overReturn.status === 400, String(overReturn.status));
+    const duplicatedLines = await api(`/api/store/sales/${sale.id}/return`, {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ productId: prod.id, qty: 1 }, { productId: prod.id, qty: 1 }], refundMethod: 'nenhum' }),
+    }, admin!);
+    check('linhas duplicadas somam no limite de devolução → 400', duplicatedLines.status === 400, String(duplicatedLines.status));
+
+    // Cancelar depois da devolução devolveria estoque/dinheiro duas vezes.
+    const cancelAfterReturn = await api(`/api/store/sales/${sale.id}/cancel`, { method: 'POST' }, admin!);
+    check('venda com devolução não pode ser cancelada', cancelAfterReturn.status === 400, String(cancelAfterReturn.status));
+
+    // Motivo do desconto: a configuração do PDV também vale para a API.
+    await api('/api/settings/pdv.desconto_exige_motivo', {
+      method: 'PUT', body: JSON.stringify({ value: '1' }),
+    }, admin!);
+    const noReason = await api('/api/store/sales', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ productId: prod.id, qty: 1 }],
+        discountCents: 100,
+        payments: [{ methodId: pix.id, amountCents: 900 }],
+      }),
+    }, admin!);
+    check('desconto sem motivo → 400 quando a configuração exige', noReason.status === 400, String(noReason.status));
+    await api('/api/settings/pdv.desconto_exige_motivo', {
+      method: 'PUT', body: JSON.stringify({ value: '0' }),
+    }, admin!);
+
+    // Devolução total de venda com desconto devolve o valor PAGO (2500), não o subtotal.
+    const discounted = await unwrap<{ id: number; totalCents: number }>(await api('/api/store/sales', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ productId: prod.id, qty: 2, unitPriceCents: 1500 }],
+        discountCents: 500,
+        payments: [{ methodId: pix.id, amountCents: 2500 }],
+      }),
+    }, admin!));
+    const fullReturn = await unwrap<{ totalCents: number }>(await api(`/api/store/sales/${discounted.id}/return`, {
+      method: 'POST', body: JSON.stringify({ items: [{ productId: prod.id, qty: 2 }], refundMethod: 'nenhum' }),
+    }, admin!));
+    check('devolução total de venda com desconto devolve o valor pago', fullReturn.totalCents === discounted.totalCents,
+      `${fullReturn.totalCents} vs ${discounted.totalCents}`);
+
+    // Limite de parcelas da configuração também é aplicado no servidor.
+    await api('/api/settings/pdv.parcelas_max', { method: 'PUT', body: JSON.stringify({ value: '2' }) }, admin!);
+    const overInstallments = await api('/api/store/sales', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ productId: prod.id, qty: 1 }],
+        customerId: cust.id,
+        payments: [{ methodId: methods.find((m) => m.type === 'prazo')!.id, amountCents: 1000,
+          customerId: cust.id, installments: { count: 3, firstDueDate: '2026-12-01' } }],
+      }),
+    }, admin!);
+    check('parcelamento acima do máximo configurado → 400', overInstallments.status === 400, String(overInstallments.status));
+    await api('/api/settings/pdv.parcelas_max', { method: 'PUT', body: JSON.stringify({ value: '12' }) }, admin!);
 
     // Histórico: filtro/paginação/exportação.
     const list = await api('/api/store/sales?status=concluida&limit=5', {}, admin!);
     const listRows = await unwrap<unknown[]>(list);
     check('lista de vendas filtra e pagina', listRows.length <= 5 && Number(list.headers.get('x-total-count')) >= 1);
+    const filteredByPix = await unwrap<{ id: number }[]>(await api('/api/store/sales?paymentMethod=pix', {}, admin!));
+    check('filtro por forma usa os pagamentos reais (pix)', filteredByPix.some((s) => s.id === discounted.id), String(filteredByPix.length));
+    const filteredByCash = await unwrap<{ id: number }[]>(await api('/api/store/sales?paymentMethod=dinheiro', {}, admin!));
+    check('filtro por dinheiro não devolve venda paga em pix', !filteredByCash.some((s) => s.id === discounted.id), String(filteredByCash.length));
+    const byHash = await unwrap<{ id: number }[]>(await api(`/api/store/sales?q=%23${discounted.id}`, {}, admin!));
+    check('busca por #venda encontra a venda', byHash.some((s) => s.id === discounted.id), String(byHash.length));
+    const sorted = await unwrap<{ total_cents: number }[]>(await api('/api/store/sales?sort=total_cents&dir=asc', {}, admin!));
+    check('ordenação é server-side e respeita a direção',
+      sorted.every((s, i) => i === 0 || sorted[i - 1].total_cents <= s.total_cents), JSON.stringify(sorted.map((s) => s.total_cents)));
+    check('soma do filtro vem no header', Number(list.headers.get('x-total-sum')) >= 5000, String(list.headers.get('x-total-sum')));
     const sellers = await api('/api/store/sales/sellers', {}, admin!);
     check('endpoint de vendedores responde 200', sellers.status === 200, String(sellers.status));
     const csv = await api('/api/store/sales/export.csv', {}, admin!);

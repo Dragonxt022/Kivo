@@ -22,6 +22,7 @@ import { stockControlEnabled } from '../../core/config/stockControl';
 import { loyaltyPointMovementRepository } from '../commercial/repositories/StockMovementRepository';
 import { scheduleSyncSoon } from '../../core/sync/scheduler';
 import { createLogger } from '../../core/logger';
+import { settingsRepository } from '../../core/repositories/SettingsRepository';
 
 const log = createLogger('kitchen');
 
@@ -141,6 +142,10 @@ function resolveSaleItems(
       baseProductId != null && baseProductId !== p.id
         ? pricing.resolveComplementPrice(baseProductId, p.id)
         : null;
+    if (opts.allowPriceOverride && item.unitPriceCents != null
+        && (!Number.isFinite(item.unitPriceCents) || item.unitPriceCents < 0)) {
+      return { error: `Preço inválido para "${p.name}".` };
+    }
     const unitCents =
       opts.allowPriceOverride && item.unitPriceCents != null
         ? Math.round(item.unitPriceCents)
@@ -287,12 +292,21 @@ function resolveSalePayments(
     return { error: `Pagamentos (${paymentsSum}) não fecham o total (${total}).` };
   }
 
+  // O PDV limita o parcelamento pela configuração; a API precisa da mesma trava, senão
+  // um cliente antigo/script fecha em 12x mesmo com o lojista tendo reduzido o máximo.
+  const configuredMax = Number(settingsRepository.get('pdv.parcelas_max') ?? 12);
+  const maxInstallments = Number.isFinite(configuredMax) && configuredMax >= 1
+    ? Math.min(Math.floor(configuredMax), 24)
+    : 12;
+
   for (const pay of resolved) {
     const custId = pay.customerId ?? input.customerId;
     if (pay.method.type === 'prazo') {
       if (!custId) return { error: 'Venda a prazo exige cliente.' };
       const count = pay.installments?.count ?? 1;
-      if (count < 1 || count > 12) return { error: 'Parcelamento deve ser entre 1 e 12 vezes.' };
+      if (count < 1 || count > maxInstallments) {
+        return { error: `Parcelamento deve ser entre 1 e ${maxInstallments} vezes.` };
+      }
     }
     if (pay.method.type === 'credito_loja' && !custId) {
       return { error: 'Pagamento com crédito de loja exige cliente.' };
@@ -345,6 +359,13 @@ export function createSale(
   // store.sales.discount não consegue faturar um orçamento com desconto que ele nem fez.
   if ((discount > 0 || surcharge > 0) && !opts.allowDiscount && !req.user.permissions.has('store.sales.discount')) {
     return { ok: false, error: 'Permissão negada: store.sales.discount (desconto/acréscimo).' };
+  }
+  // A cobrança do motivo era só do PDV: chamada direta na API passava sem ele. O
+  // orçamento fica de fora porque o desconto já foi autorizado e registrado na cotação.
+  if ((discount > 0 || surcharge > 0) && !opts.allowDiscount
+      && settingsRepository.getBool('pdv.desconto_exige_motivo', false)) {
+    const reason = typeof input.discountReason === 'string' ? input.discountReason.trim() : '';
+    if (!reason) return { ok: false, error: 'Informe o motivo do desconto/acréscimo.' };
   }
 
   const itemsResult = resolveSaleItems(input, pricing, opts);
@@ -618,6 +639,21 @@ export function cancelSale(req: Request, saleId: number): { ok: true } | { ok: f
   const err = validateCancellation(sale, saleReceivables, agreementCharge);
   if (err) return { ok: false, error: err };
 
+  // Cancelar depois de uma devolução parcial devolveria o estoque e o dinheiro duas
+  // vezes: os movimentos de devolução já repuseram parte do que a venda consumiu. Não há
+  // como "cancelar a devolução" no sistema, então a venda fica travada para cancelamento
+  // — o caminho correto é devolver o restante pela mesma tela.
+  const activeReturns = saleRepository.rawOne(
+    'SELECT COUNT(*) AS cnt FROM sale_returns WHERE sale_id = ? AND deleted_at IS NULL',
+    saleId,
+  ) as { cnt: number };
+  if (activeReturns.cnt > 0) {
+    return {
+      ok: false,
+      error: 'Esta venda já tem devolução registrada e não pode ser cancelada. Registre a devolução do restante em vez de cancelar.',
+    };
+  }
+
   // Cancelar a venda sem cancelar a nota deixaria uma NFC-e autorizada apontando para uma
   // venda que não existe mais — divergência fiscal que só aparece na apuração do contador.
   // Módulo fiscal ausente ou desligado: `hasService` é falso e a venda cancela normal.
@@ -682,13 +718,33 @@ export interface SaleReturnInput {
   notes?: string;
 }
 
-interface SoldLine { product_id: number; product_name: string; qty: number; unit_price_cents: number }
+interface SoldLine {
+  product_id: number;
+  product_name: string;
+  qty: number;
+  /** Soma do que a linha custou na venda (já com preço por item, se houve). */
+  total_cents: number;
+  unit_price_cents: number;
+}
 
-/** Linhas devolvíveis da venda: só as de preço > 0 (componentes/insumos entram por expansão). */
+/**
+ * Linhas devolvíveis da venda: as que têm preço > 0 e também as vendidas de graça
+ * (line_group_uuid nulo). Componentes/insumos de kit entram por expansão no estoque e
+ * ficam de fora. `total_cents` é a soma real das linhas — usar
+ * `MAX(unit_price_cents) * qty` devolvia mais do que o cliente pagou quando o mesmo
+ * produto tinha preços diferentes ou quando havia desconto no total da venda.
+ */
 export function soldLines(saleId: number): SoldLine[] {
   return saleRepository.raw(
-    `SELECT product_id, product_name, SUM(qty) AS qty, MAX(unit_price_cents) AS unit_price_cents
-       FROM sale_items WHERE sale_id = ? AND unit_price_cents > 0
+    `SELECT product_id, product_name, SUM(qty) AS qty, SUM(total_cents) AS total_cents,
+            MAX(unit_price_cents) AS unit_price_cents
+       FROM sale_items
+      WHERE sale_id = ?
+        -- Componentes/insumos de kit entram com preço 0 e line_group_uuid preenchido:
+        -- eles não são devolvíveis como linha própria (o estoque é recomposto junto do
+        -- pai). Já um produto vendido de graça tem line_group_uuid nulo e precisa
+        -- aparecer na lista para o estoque voltar.
+        AND (unit_price_cents > 0 OR line_group_uuid IS NULL)
       GROUP BY product_id ORDER BY product_name`,
     saleId,
   ) as unknown as SoldLine[];
@@ -709,13 +765,43 @@ export function returnedQtyByProduct(saleId: number): Map<number, number> {
  * quando pedido, devolve o valor em dinheiro (saída do caixa) ou em crédito de loja.
  * A venda original não é alterada: o histórico guarda venda + devoluções.
  */
+interface ReturnItem {
+  productId: number;
+  name: string;
+  qty: number;
+  unitCents: number;
+  totalCents: number;
+}
+
+/**
+ * Ajusta a soma dos itens ao valor exato da devolução. A proporção do desconto é
+ * arredondada por linha: sem este acerto, uma devolução total de venda com desconto
+ * podia fechar um ou dois centavos abaixo do que o cliente pagou.
+ */
+function fitReturnTotal(items: ReturnItem[], targetCents: number): number {
+  let diff = targetCents - sumCents(...items.map((i) => i.totalCents));
+  for (let i = items.length - 1; i >= 0 && diff !== 0; i -= 1) {
+    const next = items[i].totalCents + diff;
+    if (next >= 0) {
+      items[i].totalCents = next;
+      diff = 0;
+    } else {
+      diff = next;
+      items[i].totalCents = 0;
+    }
+  }
+  return sumCents(...items.map((i) => i.totalCents));
+}
+
 export function returnSale(
   req: Request,
   saleId: number,
   input: SaleReturnInput,
 ): { ok: true; returnId: number; totalCents: number; refundMethod: string } | { ok: false; error: string } {
   assertAuth(req);
-  const sale = saleRepository.findFull(saleId) as { id: number; status: string; customer_id: number | null } | undefined;
+  const sale = saleRepository.findFull(saleId) as
+    | { id: number; status: string; customer_id: number | null; subtotal_cents: number; total_cents: number }
+    | undefined;
   if (!sale) return { ok: false, error: 'Venda não encontrada.' };
   if (sale.status !== 'concluida') return { ok: false, error: 'Só é possível devolver itens de uma venda concluída.' };
 
@@ -728,22 +814,53 @@ export function returnSale(
 
   const soldById = new Map(soldLines(saleId).map((l) => [l.product_id, l]));
   const alreadyReturned = returnedQtyByProduct(saleId);
+  const returnedRow = saleRepository.rawOne(
+    'SELECT COALESCE(SUM(total_cents), 0) AS total FROM sale_returns WHERE sale_id = ? AND deleted_at IS NULL',
+    saleId,
+  ) as { total: number };
+  // Só é devolvível o que ainda não voltou, e o teto é o total efetivamente pago. Sem a
+  // proporção, uma venda de R$ 100 com R$ 10 de desconto devolveria R$ 100.
+  const refundableCents = Math.max(0, sale.total_cents - returnedRow.total);
+  const paidRatio = sale.subtotal_cents > 0 ? sale.total_cents / sale.subtotal_cents : 1;
+  const requestedByProduct = new Map<number, number>();
 
-  let totalCents = 0;
-  const resolvedItems: { productId: number; name: string; qty: number; unitCents: number }[] = [];
+  const resolvedItems: ReturnItem[] = [];
   for (const it of requested) {
     const line = soldById.get(Number(it.productId));
     if (!line) return { ok: false, error: 'Item não pertence a esta venda.' };
-    const remaining = line.qty - (alreadyReturned.get(line.product_id) ?? 0);
+    // Duas linhas do mesmo produto na mesma requisição somam: validar cada uma contra
+    // o saldo isoladamente deixaria devolver 6+6 de um item que só tem 6.
+    const remaining = line.qty - (alreadyReturned.get(line.product_id) ?? 0)
+      - (requestedByProduct.get(line.product_id) ?? 0);
     const qty = Math.round(Number(it.qty) * 1e6) / 1e6;
     if (qty > remaining + 1e-6) {
       return { ok: false, error: `Quantidade de "${line.product_name}" maior que a disponível para devolução (${remaining}).` };
     }
-    resolvedItems.push({ productId: line.product_id, name: line.product_name, qty, unitCents: line.unit_price_cents });
-    totalCents += Math.round(line.unit_price_cents * qty);
+    const linePortionCents = line.total_cents * (qty / line.qty);
+    resolvedItems.push({
+      productId: line.product_id,
+      name: line.product_name,
+      qty,
+      unitCents: Math.round(line.total_cents / line.qty),
+      totalCents: Math.round(linePortionCents * paidRatio),
+    });
+    requestedByProduct.set(line.product_id, (requestedByProduct.get(line.product_id) ?? 0) + qty);
   }
 
+  let totalCents = sumCents(...resolvedItems.map((i) => i.totalCents));
+  const allRemainingReturned = [...soldById.values()].every((line) => {
+    const remaining = line.qty - (alreadyReturned.get(line.product_id) ?? 0);
+    return remaining <= 1e-6 || (requestedByProduct.get(line.product_id) ?? 0) >= remaining - 1e-6;
+  });
+  // Devolução total fecha exatamente no que falta devolver; parcial nunca passa do saldo.
+  // O fit espalha a diferença de arredondamento entre as linhas devolvidas.
+  const targetCents = allRemainingReturned ? refundableCents : Math.min(totalCents, refundableCents);
+  if (targetCents !== totalCents) totalCents = fitReturnTotal(resolvedItems, targetCents);
+
   const refundMethod = input.refundMethod ?? 'nenhum';
+  if (!['nenhum', 'dinheiro', 'credito_loja'].includes(refundMethod)) {
+    return { ok: false, error: 'Forma de reembolso inválida.' };
+  }
   if (refundMethod === 'dinheiro' && !cash.currentRegister()) {
     return { ok: false, error: 'Abra o caixa para devolver em dinheiro.' };
   }
@@ -769,7 +886,7 @@ export function returnSale(
         saleRepository.rawRun(
           `INSERT INTO sale_return_items (return_id, sale_id, product_id, product_name, qty, unit_price_cents, total_cents, uuid)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          returnId, saleId, it.productId, it.name, it.qty, it.unitCents, Math.round(it.unitCents * it.qty), randomUUID(),
+          returnId, saleId, it.productId, it.name, it.qty, it.unitCents, it.totalCents, randomUUID(),
         );
 
         const p = productRepository.rawOne('SELECT id, product_type FROM products WHERE id = ?', it.productId) as

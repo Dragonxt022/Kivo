@@ -9,6 +9,14 @@ import { contextBridge, ipcRenderer } from 'electron';
  */
 contextBridge.exposeInMainWorld('kivo', {
   version: '0.1.0',
+  /**
+   * Controles da janela que a página usa na abertura personalizada (ir direto para um
+   * módulo em tela cheia). Sem isto, a Fullscreen API do Chromium exigiria um gesto do
+   * usuário e a preferência não funcionaria no primeiro carregamento do Electron.
+   */
+  window: {
+    setFullscreen: (enabled: boolean) => ipcRenderer.invoke('window:set-fullscreen', enabled === true),
+  },
   hardware: {
     /** Lista as portas seriais (para o seletor de balança em Configurações). */
     listPorts: () => ipcRenderer.invoke('hardware:ports'),

@@ -148,6 +148,76 @@
   } catch (e) {}
 })();
 </script>
+<%# Abertura personalizada POR USUÁRIO (core/users/startup.ts). Roda no <head> de todas
+    as telas, antes do corpo pintar, para o redirecionamento não piscar a home.
+    - Primeira abertura desta janela/sessão: vai para o módulo configurado.
+    - O destino recebe ?kivo_startup=1 e chama a tela cheia (Electron via preload; no
+      navegador tenta a Fullscreen API e, se o navegador exigir gesto, tenta no primeiro
+      toque).
+    - Desligado por padrão: no login `startup` é null e nada acontece. %>
+<script nonce="<%= cspNonce %>">
+(function () {
+  try {
+    var s = <%- JSON.stringify(typeof startup !== 'undefined' && startup ? startup : null) %>;
+    if (!s || !s.enabled || !s.href) return;
+
+    var params = new URLSearchParams(location.search);
+    // `?login=1` é o pedido explícito de trocar de usuário; não sequestrar essa tela.
+    if (params.get('login') === '1') return;
+    var viaStartup = params.get('kivo_startup') === '1';
+    if (viaStartup) {
+      // Tira a marca da URL antes de qualquer navegação para um F5 não repetir o efeito.
+      params.delete('kivo_startup');
+      var rest = params.toString();
+      history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+    }
+
+    var MARK = 'kivo-startup-open';
+    var first = false;
+    try {
+      first = sessionStorage.getItem(MARK) !== '1';
+      if (first) sessionStorage.setItem(MARK, '1');
+    } catch (e) {
+      // Sem sessionStorage: trata como primeira abertura, mas não entra em loop porque
+      // no destino o caminho já é igual ao alvo.
+      first = true;
+    }
+    if (!first && !viaStartup) return;
+
+    function entrarTelaCheia() {
+      if (window.kivo && window.kivo.window && typeof window.kivo.window.setFullscreen === 'function') {
+        try { window.kivo.window.setFullscreen(true); } catch (e) {}
+        return;
+      }
+      var el = document.documentElement;
+      if (!el.requestFullscreen) return;
+      var p = el.requestFullscreen();
+      if (p && p.catch) {
+        p.catch(function () {
+          // Chromium exige gesto do usuário para Fullscreen API: tenta no primeiro toque.
+          var once = function () {
+            document.removeEventListener('pointerdown', once, true);
+            try { el.requestFullscreen(); } catch (e) {}
+          };
+          document.addEventListener('pointerdown', once, true);
+        });
+      }
+    }
+
+    var target = new URL(s.href, location.origin);
+    // Compara caminho + query + hash: um item de menu como
+    // `/admin/configuracoes#cardapio` precisa abrir a aba certa, não só a página.
+    var cur = location.pathname.replace(/\/+$/, '') + location.search + location.hash;
+    var dst = target.pathname.replace(/\/+$/, '') + target.search + target.hash;
+    if (first && cur !== dst) {
+      target.searchParams.set('kivo_startup', '1');
+      location.replace(target.pathname + target.search + target.hash);
+      return;
+    }
+    if (s.fullscreen) entrarTelaCheia();
+  } catch (e) { /* preferência inválida nunca impede a tela de abrir */ }
+})();
+</script>
 <script nonce="<%= cspNonce %>">
 // O prompt nativo de instalação do Chrome só pode ser chamado no mesmo gesto em que
 // foi capturado; guardamos o evento e o diálogo "Kivo no celular" usa depois.

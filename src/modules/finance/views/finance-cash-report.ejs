@@ -77,7 +77,7 @@
   <table>
     <tr><th>Vendas</th><td><%= report.totals.vendas %></td><th>Subtotal</th><td><%= brl(report.totals.total_cents + report.totals.discount_cents - report.totals.surcharge_cents) %></td></tr>
     <tr><th>Descontos</th><td><%= brl(report.totals.discount_cents) %></td><th>Acréscimos</th><td><%= brl(report.totals.surcharge_cents) %></td></tr>
-    <tr><th>Taxas (maquininha)</th><td><%= brl(report.totals.fee_cents) %></td><th>Total líquido</th><td><strong><%= brl(report.totals.total_cents) %></strong></td></tr>
+    <tr><th>Taxas (maquininha)</th><td><%= brl(report.totals.fee_cents) %></td><th>Total vendido</th><td><strong><%= brl(report.totals.total_cents) %></strong></td></tr>
   </table>
 
   <h2>Por forma de pagamento</h2>
@@ -103,11 +103,16 @@
   </table>
 
   <h2>Vendas do caixa</h2>
+  <% var PAYMENT_LABELS = {
+    dinheiro: 'Dinheiro', cartao_debito: 'Débito', cartao_credito: 'Crédito',
+    pix: 'PIX', prazo: 'A prazo', credito_loja: 'Crédito de loja',
+    fidelidade: 'Fidelidade', convenio: 'Convênio', outro: 'Outro', multiplo: 'Múltiplo',
+  }; %>
   <table>
     <thead><tr><th>#</th><th>Cliente</th><th>Pagamento</th><th>Hora</th><th class="right">Total</th></tr></thead>
     <tbody>
       <% report.sales.forEach(function (s) { %>
-        <tr><td><%= s.id %></td><td><%= s.customer ?? '—' %></td><td><%= s.payment_method %></td><td><%= fmtDateTime(s.created_at) %></td><td class="right"><%= brl(s.total_cents) %></td></tr>
+        <tr><td><%= s.id %></td><td><%= s.customer ?? '—' %></td><td><%= s.payment_count > 1 ? 'Múltiplo' : (PAYMENT_LABELS[s.payment_method] ?? s.payment_method) %></td><td><%= fmtDateTime(s.created_at) %></td><td class="right"><%= brl(s.total_cents) %></td></tr>
       <% }) %>
       <% if (!report.sales.length) { %><tr><td colspan="5" class="muted">Nenhuma venda neste caixa.</td></tr><% } %>
     </tbody>

@@ -94,6 +94,10 @@ async function main() {
     check('caixa fechado', closeReg.status === 200, String(closeReg.status));
     const closeBody = await unwrap<{ id: number }>(closeReg);
     check('resposta do fechamento inclui o id do caixa', closeBody.id === openBodyId, JSON.stringify(closeBody));
+    const editNegativo = await api(`/api/finance/cash/${openBodyId}`, {
+      method: 'PUT', body: JSON.stringify({ countedCents: -100 }),
+    }, admin!);
+    check('edição de caixa recusa valor contado negativo', editNegativo.status === 400, String(editNegativo.status));
 
     const report = await unwrap<{
       totals: { vendas: number; total_cents: number };
@@ -109,6 +113,19 @@ async function main() {
     const printHtml = await printPage.text();
     check('página de impressão do relatório renderiza (200)', printPage.status === 200, String(printPage.status));
     check('relatório impresso menciona o total e o cliente', printHtml.includes('Cliente Caixa') && printHtml.includes('100,00'));
+
+    // O período do topo do Caixa filtra de verdade o histórico e os movimentos.
+    const hoje = new Date();
+    const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+    const historicoHoje = await unwrap<{ id: number }[]>(
+      await api(`/api/finance/cash/history?from=${hojeIso}&to=${hojeIso}`, {}, admin!));
+    check('período do caixa inclui o turno de hoje', historicoHoje.some((r) => r.id === openBodyId), String(historicoHoje.length));
+    const historicoAntigo = await unwrap<{ id: number }[]>(
+      await api('/api/finance/cash/history?from=1990-01-01&to=1990-12-31', {}, admin!));
+    check('período do caixa exclui turno fora do intervalo', !historicoAntigo.some((r) => r.id === openBodyId), String(historicoAntigo.length));
+    const movimentosHoje = await unwrap<{ id: number }[]>(
+      await api(`/api/finance/cash/movements?registerId=${openBodyId}&from=${hojeIso}&to=${hojeIso}`, {}, admin!));
+    check('movimentos respeitam o período', movimentosHoje.length >= 2, String(movimentosHoje.length));
 
     // ---------- Exportações para o contador ----------
     const ledger = await api('/api/finance/cash/movements/export.csv', {}, admin!);

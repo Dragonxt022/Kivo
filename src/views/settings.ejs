@@ -569,6 +569,59 @@
         <p class="error" x-show="erro" x-cloak x-text="erro"></p>
       </section>
 
+      <% if (user.permissions.has('settings.edit')) { %>
+      <section class="panel" x-data="{
+        rede: false, saving: false, erro: '',
+        async init() {
+          try {
+            const r = await fetch('/api/settings/machine-prefs');
+            if (r.ok) { const d = await r.json(); this.rede = !!d.entradaRapidaRede; }
+          } catch (e) { /* mantém desligado até carregar */ }
+        },
+        async toggle() {
+          this.saving = true; this.erro = '';
+          const alvo = !this.rede;
+          try {
+            const r = await fetch('/api/settings/machine-prefs', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ entradaRapidaRede: alvo }),
+            });
+            if (!r.ok) {
+              this.erro = ((await r.json()) || {}).error || 'Não foi possível salvar.';
+              return;
+            }
+            this.rede = alvo;
+            showToast(alvo
+              ? 'Entrada rápida liberada para a rede local. Recarregue o login nos outros aparelhos.'
+              : 'Entrada rápida restrita a este computador.', 'success');
+          } catch (e) {
+            this.erro = 'Erro de conexão ao salvar.';
+          } finally {
+            this.saving = false;
+          }
+        }
+      }" x-init="init()">
+        <h2>Entrada rápida pela rede local</h2>
+        <p class="hint mt-0">
+          Os balões de entrada sem senha foram feitos para o teclado deste computador. Ative
+          esta opção se quiser que eles também apareçam no celular/tablet que acessa este Kivo
+          pela rede local.
+        </p>
+        <p class="hint" style="color:var(--warning-text)">
+          <strong>Atenção:</strong> enquanto estiver ligada, qualquer aparelho na mesma rede
+          poderá entrar como os usuários que têm balão salvo, <strong>sem digitar senha</strong>.
+          Deixe desligada se a rede não for totalmente confiável.
+        </p>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" :checked="rede" :disabled="saving" @change="toggle()" />
+            Mostrar a entrada rápida também para quem acessa pela rede
+          </label>
+        </div>
+        <p class="error" x-show="erro" x-cloak x-text="erro"></p>
+      </section>
+      <% } %>
+
       <%# Balança e impressora térmica: hardware do PDV, configuração POR MÁQUINA.
           A ponte só existe no app desktop (window.kivo.hardware); no navegador a
           seção explica isso em vez de mostrar campos que não fariam nada. %>

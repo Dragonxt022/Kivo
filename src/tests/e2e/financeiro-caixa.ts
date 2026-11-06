@@ -91,7 +91,7 @@ async function main(): Promise<void> {
       (await toolbarCaixa.innerText()).includes('R$ 150,00'),
     );
     const tabelaAposSuprimento = await page.locator('table').first().innerText();
-    reporter.check('suprimento aparece na lista de movimentos', tabelaAposSuprimento.includes('suprimento'));
+    reporter.check('suprimento aparece na lista de movimentos', tabelaAposSuprimento.toLowerCase().includes('suprimento'));
     await snap(page, SHOTS, 'apos-suprimento');
 
     reporter.section('Sangria');
@@ -107,7 +107,7 @@ async function main(): Promise<void> {
     );
     reporter.check(
       'sangria aparece na lista de movimentos',
-      (await page.locator('table').first().innerText()).includes('sangria'),
+      (await page.locator('table').first().innerText()).toLowerCase().includes('sangria'),
     );
     await snap(page, SHOTS, 'apos-sangria');
 

@@ -23,7 +23,28 @@ function canOverridePrice(req: Request): boolean {
   return req.user?.permissions.has('store.sales.discount') ?? false;
 }
 
-/** Filtros da listagem/exportação de vendas, montados a partir da query string. */
+/**
+ * A forma de pagamento em `sales.payment_method` é o rótulo legado: vendas com mais de
+ * uma forma caem em `multiplo` e crédito de loja/fidelidade/convênio são gravados como
+ * `pix`. O filtro precisa olhar `sale_payments.method_type` (a forma real de cada
+ * pagamento) e só cair no rótulo legado quando a venda é antiga e não tem pagamentos.
+ */
+const PAYMENT_METHOD_LEGACY: Record<string, string> = {
+  dinheiro: 'dinheiro', debito: 'cartao_debito', credito: 'cartao_credito',
+  pix: 'pix', prazo: 'prazo',
+};
+
+/** Colunas que a listagem aceita ordenar. Qualquer outro valor cai no padrão (id DESC). */
+const SALE_SORT_COLUMNS: Record<string, string> = {
+  id: 's.id',
+  created_at: 's.created_at',
+  customer: 'COALESCE(s.customer_name, c.name)',
+  payment_method: 's.payment_method',
+  total_cents: 's.total_cents',
+  status: 's.status',
+  username: 'u.username',
+};
+
 function buildSalesWhere(req: Request): { whereSql: string; params: unknown[] } {
   const where: string[] = ['s.deleted_at IS NULL'];
   const params: unknown[] = [];
@@ -40,21 +61,39 @@ function buildSalesWhere(req: Request): { whereSql: string; params: unknown[] } 
   if (from) { where.push("date(s.created_at, 'localtime') >= ?"); params.push(from); }
   if (to) { where.push("date(s.created_at, 'localtime') <= ?"); params.push(to); }
   if (status) { where.push('s.status = ?'); params.push(status); }
-  if (paymentMethod) { where.push('s.payment_method = ?'); params.push(paymentMethod); }
+  if (paymentMethod) {
+    where.push(
+      `(EXISTS (SELECT 1 FROM sale_payments sp WHERE sp.sale_id = s.id AND sp.method_type = ?)
+        OR (NOT EXISTS (SELECT 1 FROM sale_payments sp0 WHERE sp0.sale_id = s.id)
+            AND s.payment_method = ?))`,
+    );
+    params.push(paymentMethod, PAYMENT_METHOD_LEGACY[paymentMethod] ?? paymentMethod);
+  }
   if (Number.isInteger(customerId) && customerId > 0) { where.push('s.customer_id = ?'); params.push(customerId); }
   if (Number.isInteger(userId) && userId > 0) { where.push('s.user_id = ?'); params.push(userId); }
   if (q) {
-    where.push('(CAST(s.id AS TEXT) = ? OR COALESCE(s.customer_name, c.name) LIKE ?)');
-    params.push(q, `%${q}%`);
+    // Aceita "#123", "123" e o nome do cliente. `customer_name` é o snapshot da venda;
+    // `c.name` só cobre vendas anteriores à migration 0058.
+    const idTerm = q.replace(/^#/, '').trim();
+    where.push('(CAST(s.id AS TEXT) LIKE ? OR COALESCE(s.customer_name, c.name) LIKE ?)');
+    params.push(`%${idTerm}%`, `%${q}%`);
   }
   return { whereSql: where.join(' AND '), params };
 }
 
+/** ORDER BY da listagem/exportação; a direção é validada para não virar SQL cru. */
+function buildSalesOrder(req: Request): string {
+  const col = SALE_SORT_COLUMNS[String(req.query.sort ?? '').trim()];
+  if (!col) return 's.id DESC';
+  const dir = String(req.query.dir ?? '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  return `${col} ${dir}, s.id DESC`;
+}
+
 // COALESCE: o nome congelado na venda manda; o JOIN só cobre vendas anteriores à migration
 // 0058, que não têm snapshot. `returned_cents` alimenta a coluna de devoluções.
-const SALE_LIST_SELECT = `SELECT s.id, s.status, s.total_cents, s.discount_cents, s.payment_method, s.change_cents,
+const SALE_LIST_SELECT = `SELECT s.id, s.status, s.total_cents, s.discount_cents, s.surcharge_cents, s.payment_method, s.change_cents,
        COALESCE(s.customer_name, c.name) AS customer, u.username, s.created_at,
-       (SELECT COUNT(*) FROM sale_payments sp WHERE sp.sale_id = s.id) AS payment_count,
+       (SELECT COUNT(DISTINCT sp.method_name) FROM sale_payments sp WHERE sp.sale_id = s.id) AS payment_count,
        (SELECT COALESCE(SUM(sr.total_cents), 0) FROM sale_returns sr WHERE sr.sale_id = s.id AND sr.deleted_at IS NULL) AS returned_cents
   FROM sales s
   LEFT JOIN customers c ON c.id = s.customer_id
@@ -126,8 +165,19 @@ export const storeController = {
       `SELECT COUNT(*) AS cnt FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE ${whereSql}`,
       ...params,
     ) as { cnt: number };
+    // Soma do filtro inteiro (não só da página). Só vai para quem enxerga relatórios:
+    // a permissão de listar vendas não deve revelar o faturamento acumulado.
+    if (req.user?.permissions.has('store.reports.view')) {
+      const sumRow = saleRepository.rawOne(
+        `SELECT COALESCE(SUM(s.total_cents), 0) AS total
+           FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
+          WHERE ${whereSql} AND s.status = 'concluida'`,
+        ...params,
+      ) as { total: number };
+      res.setHeader('X-Total-Sum', String(sumRow.total));
+    }
 
-    let sql = `${SALE_LIST_SELECT} WHERE ${whereSql} ORDER BY s.id DESC`;
+    let sql = `${SALE_LIST_SELECT} WHERE ${whereSql} ORDER BY ${buildSalesOrder(req)}`;
     const limit = Number(req.query.limit);
     if (Number.isFinite(limit) && limit > 0) {
       sql += ' LIMIT ?';
@@ -151,15 +201,16 @@ export const storeController = {
   exportSales(req: Request, res: Response) {
     const { whereSql, params } = buildSalesWhere(req);
     const rows = saleRepository.raw(
-      `${SALE_LIST_SELECT} WHERE ${whereSql} ORDER BY s.id DESC LIMIT 5000`,
+      `${SALE_LIST_SELECT} WHERE ${whereSql} ORDER BY ${buildSalesOrder(req)} LIMIT 5000`,
       ...params,
     ) as unknown as Record<string, unknown>[];
     const cents = (c: unknown): string => (Number(c ?? 0) / 100).toFixed(2).replace('.', ',');
     const csv = toCsv([
-      ['#', 'Data', 'Cliente', 'Situação', 'Pagamento', 'Vendedor', 'Total (R$)', 'Devolvido (R$)'],
+      ['#', 'Data', 'Cliente', 'Situação', 'Pagamento', 'Vendedor', 'Desconto (R$)', 'Acréscimo (R$)', 'Total (R$)', 'Devolvido (R$)'],
       ...rows.map((r) => [
         r.id as number, String(r.created_at), String(r.customer ?? ''), String(r.status),
-        String(r.payment_method), String(r.username ?? ''), cents(r.total_cents), cents(r.returned_cents),
+        String(r.payment_method), String(r.username ?? ''), cents(r.discount_cents), cents(r.surcharge_cents),
+        cents(r.total_cents), cents(r.returned_cents),
       ]),
     ]);
     const stamp = new Date().toISOString().slice(0, 10);
@@ -197,7 +248,12 @@ export const storeController = {
       returned_qty: returned.get(l.product_id) ?? 0,
       remaining_qty: l.qty - (returned.get(l.product_id) ?? 0),
     }));
-    res.json({ ...sale, items, payments, returns, returnable });
+    const returnedTotal = (saleRepository.rawOne(
+      `SELECT COALESCE(SUM(total_cents), 0) AS total FROM sale_returns
+        WHERE sale_id = ? AND deleted_at IS NULL`,
+      id,
+    ) as { total: number }).total;
+    res.json({ ...sale, items, payments, returns, returnable, returned_total_cents: returnedTotal });
   },
 
   cancelSaleAction(req: Request, res: Response) {
@@ -270,7 +326,9 @@ export const storeController = {
   dailyReport(req: Request, res: Response) {
     const day = String(req.query.day ?? todayLocalIso());
     const byPayment = salePaymentRepository.raw(
-      `SELECT p.method_name AS payment_method, COUNT(*) AS vendas,
+      // COUNT(DISTINCT s.id): uma venda dividida em pix + dinheiro aparece nas duas
+      // formas, mas conta como UMA venda em cada — não como duas vendas.
+      `SELECT p.method_name AS payment_method, COUNT(DISTINCT s.id) AS vendas,
               SUM(p.amount_cents) AS total_cents, SUM(p.fee_cents) AS fee_cents
        FROM sale_payments p JOIN sales s ON s.id = p.sale_id
        WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at, 'localtime') = ?
@@ -287,9 +345,12 @@ export const storeController = {
       day, day,
     );
     const topProducts = saleRepository.raw(
+      // `unit_price_cents > 0` deixa de fora componentes/insumos de kit, que entram com
+      // preço zero e apareciam como "mais vendidos" valendo R$ 0,00.
       `SELECT i.product_name, SUM(i.qty) AS qty, SUM(i.total_cents) AS total_cents
        FROM sale_items i JOIN sales s ON s.id = i.sale_id
-       WHERE s.status = 'concluida' AND s.deleted_at IS NULL AND date(s.created_at, 'localtime') = ?
+       WHERE s.status = 'concluida' AND s.deleted_at IS NULL
+         AND date(s.created_at, 'localtime') = ? AND i.unit_price_cents > 0
        GROUP BY i.product_name ORDER BY total_cents DESC LIMIT 10`,
       day,
     );

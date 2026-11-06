@@ -21,9 +21,17 @@ convênio) e registrar taxas. Nada é editado "no saldo": o caixa também é um 
   Aceita `count_breakdown` (contagem por cédula/moeda).
 - **Editar caixa fechado** (`editClosedRegister`): só caixas com status `fechado`, exige a
   permissão `finance.cash.edit` e é auditado (correção do valor contado/observação).
+  Valor contado precisa ser inteiro e não negativo.
 
 O PDV exige caixa aberto para vender; vendas em dinheiro lançam `venda` (entrada) e
 cancelamentos/devoluções em dinheiro lançam `pagamento` (saída).
+
+A tela do Caixa tem um período único no topo: ele filtra os **movimentos do turno** e o
+**histórico de fechamentos** (`/api/finance/cash/movements?from&to` e
+`/api/finance/cash/history?from&to`). O histórico casa por sobreposição — um turno aberto
+ontem e fechado hoje aparece nos dois dias. Sem período, o histórico traz os 500 turnos mais
+recentes. O "valor esperado" continua sendo o acumulado do turno inteiro; o resumo
+Entradas/Saídas é o recorte do período.
 
 ## Contas a pagar e a receber
 

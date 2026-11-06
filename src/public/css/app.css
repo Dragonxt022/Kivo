@@ -1716,6 +1716,30 @@ code.truncate {
 .toolbar-spacer {
   flex: 1 1 auto;
 }
+/* Vendas/Caixa: resumos da barra. `nowrap` no total evita "R$ 1.234,56" quebrar no meio
+   quando a barra tem muitos controles; no celular a linha inteira é respeitada. */
+.sales-filter-total,
+.cash-mov-summary {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cash-period {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.cash-mov-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+  margin: -0.35rem 0 0.7rem;
+}
+.cash-mov-summary strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ─── Seleção em massa (checkbox de linha + barra de ações) ─── */
 .col-checkbox {
@@ -4057,6 +4081,18 @@ a.btn-full {
   padding: 0.3rem 0;
   font-size: 0.9rem;
 }
+/* Resumo de totais no detalhe da venda (subtotal, desconto, acréscimo, total, troco). */
+.sale-detail-totals {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border-light);
+}
+.sale-detail-total {
+  margin-top: 0.2rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border-light);
+  font-size: 1.05rem;
+}
 
 /* ─── Responsive ─── */
 @media (max-width: 1080px) {
@@ -5823,65 +5859,6 @@ dialog.import-dialog > .dialog-body {
 :root[data-lite='1'] .card,
 :root[data-lite='1'] dialog {
   border-color: var(--border-light);
-}
-
-/* ─── Modal de novidade (partials/novidade.ejs) ───
-   Anúncio de produto: aparece uma vez por máquina, depois do assistente de boas-vindas. */
-.novidade-dlg {
-  max-width: 30rem;
-}
-.novidade-head {
-  padding: 1.25rem 1.25rem 0;
-}
-.novidade-badge {
-  display: inline-block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--primary);
-  background: var(--primary-bg);
-  border-radius: var(--radius-full);
-  padding: 0.2rem 0.6rem;
-  margin-bottom: 0.5rem;
-}
-.novidade-head h1 {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin: 0;
-}
-.novidade-lead {
-  font-size: 0.9rem;
-  margin: 0 0 0.9rem;
-}
-.novidade-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 0.9rem;
-  display: grid;
-  gap: 0.55rem;
-}
-.novidade-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  font-size: 0.86rem;
-  color: var(--text);
-}
-.novidade-list svg {
-  flex: none;
-  margin-top: 0.15rem;
-  color: var(--primary);
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-}
-.novidade-foot {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-light);
-  padding-top: 0.7rem;
-  margin: 0;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -7923,6 +7900,26 @@ dialog.kivo-app-dlg {
 @media (max-width: 640px) {
   .renew-plans { grid-template-columns: 1fr; }
   .renew-plans-head { flex-direction: column; align-items: flex-start; }
+}
+
+/* Vendas/Caixa no celular: o resumo e o período ocupam a linha inteira, sem espremer
+   o botão de exportar ao lado de um valor longo. */
+@media (max-width: 640px) {
+  .sales-filter-total {
+    flex: 1 1 100%;
+    white-space: normal;
+  }
+  .cash-period {
+    width: 100%;
+  }
+  .cash-period input[type='date'] {
+    flex: 1 1 9rem;
+    min-width: 9rem;
+    max-width: 100%;
+  }
+  .cash-mov-summary {
+    white-space: normal;
+  }
 }
 
 @media print {

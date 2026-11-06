@@ -836,14 +836,6 @@
   </div>
   <% } %>
 
-  <%# Depois do assistente de propósito: o próprio componente só abre quando o onboarding
-      está concluído, para os dois <dialog> nunca disputarem a camada superior. %>
-  <% if (user) { %>
-  <div x-data="novidadeAviso()">
-    <%- include('partials/novidade') %>
-  </div>
-  <% } %>
-
   <% if (user) { %>
   <%- include('partials/urgent-message') %>
   <% } %>
@@ -1266,6 +1258,8 @@
               this.quickError = b.error ?? 'Não foi possível entrar com este perfil.';
               return;
             }
+            // Novo login = nova abertura: deixa a preferência de abertura do usuário valer.
+            try { sessionStorage.removeItem('kivo-startup-open'); } catch (e) {}
             window.location.href = '/';
           } catch (e) {
             this.quickError = 'Erro de conexão.';
@@ -1332,6 +1326,7 @@
               }),
             });
             if (r.ok) {
+              try { sessionStorage.removeItem('kivo-startup-open'); } catch (e) {}
               window.location.href = '/';
             } else {
               const data = await r.json();
@@ -1371,6 +1366,7 @@
               }),
             });
             if (r.ok) {
+              try { sessionStorage.removeItem('kivo-startup-open'); } catch (e) {}
               window.location.href = '/';
             } else {
               const data = await r.json();

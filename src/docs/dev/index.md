@@ -68,6 +68,9 @@ compra / NF-e  ─►  estoque (ledger + lotes)  ─►  venda  ─►  caixa
   com padrão que preserva o que já existia.
 - **Recursos (capabilities)**: módulos/funcionalidades opcionais nascem desligados e são
   ativados em Configurações › Recursos.
+- **Abertura por usuário**: `user_startup` guarda, por usuário, um módulo e a opção de tela
+  cheia para abrir o Kivo direto nele. Configurada em Usuários › Editar, desligada por
+  padrão e revalidada contra as permissões do usuário a cada abertura; não sincroniza.
 - **Segredos**: chaves sensíveis ficam no cofre (`core/secrets`), nunca na tabela `settings`.
 - **Sincronização**: tabelas declaram `syncTables`; FKs viram UUIDs; conflitos por
   last-write-wins com auditoria. Tabelas derivadas/config locais ficam de fora.

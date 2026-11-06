@@ -13,7 +13,9 @@
  * checagem de loopback abaixo qualquer celular no Wi-Fi da loja entraria como o dono só
  * abrindo o endereço. Por isso:
  *
- *   1. as rotas de entrada rápida só respondem a chamadas da própria máquina (loopback);
+ *   1. as rotas de entrada rápida só respondem a chamadas da própria máquina (loopback),
+ *      a menos que o dono ligue `entradaRapidaRede` em Configurações › Interface — uma
+ *      escolha consciente, desligada por padrão;
  *   2. os perfis vivem numa tabela que NÃO sincroniza (migration 0056), então ligar a
  *      entrada rápida num computador não a libera nos outros.
  */
@@ -21,6 +23,7 @@ import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 import type { Request } from 'express';
 import { getSqlite } from '../database/connection';
+import { getMachinePrefs } from '../config/machinePrefs';
 import { loadAuthUser, type AuthUser } from './service';
 import { userRepository } from '../repositories/UserRepository';
 
@@ -46,6 +49,16 @@ export interface QuickProfile {
 export function isLoopback(req: Request): boolean {
   const ip = (req.ip ?? req.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
   return ip === '127.0.0.1' || ip === '::1' || ip === 'localhost';
+}
+
+/**
+ * Entrada rápida permitida nesta requisição. A regra padrão continua sendo só a própria
+ * máquina (loopback). O dono pode liberar a rede local em Configurações → Interface,
+ * ciente de que qualquer aparelho no Wi-Fi da loja passará a ver os balões e entrar sem
+ * senha; a preferência é deste computador e nasce desligada.
+ */
+export function canUseQuickLogin(req: Request): boolean {
+  return isLoopback(req) || getMachinePrefs().entradaRapidaRede === true;
 }
 
 function iniciais(nome: string): string {

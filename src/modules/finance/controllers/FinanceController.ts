@@ -91,11 +91,15 @@ export const financeController = {
   listCashMovements(req: Request, res: Response) {
     const registerId = req.query.registerId ? Number(req.query.registerId) : currentRegister()?.id;
     if (!registerId) { res.json([]); return; }
-    res.json(cashMovementRepository.listByRegister(registerId));
+    const from = String(req.query.from ?? '').trim();
+    const to = String(req.query.to ?? '').trim();
+    res.json(cashMovementRepository.listByRegister(registerId, from || undefined, to || undefined));
   },
 
-  listCashHistory(_req: Request, res: Response) {
-    res.json(cashRegisterRepository.listHistory());
+  listCashHistory(req: Request, res: Response) {
+    const from = String(req.query.from ?? '').trim();
+    const to = String(req.query.to ?? '').trim();
+    res.json(cashRegisterRepository.listHistory(from || undefined, to || undefined));
   },
 
   /** Livro caixa em CSV: todos os movimentos do período (opcionalmente de um caixa). */

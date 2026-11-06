@@ -9,6 +9,7 @@ import { responseEnvelope } from '../shared/responseEnvelope';
 import { formatBRL } from '../shared/money';
 import { appTimezone } from '../shared/datetime';
 import { loadModules, collectMenu, filterModuleMenu } from './modules/loader';
+import { startupLocals } from './users/startup';
 import type { LoadedModule } from './modules/types';
 import { attachUser, requireAuth } from './auth/middleware';
 import authRoutes from './auth/routes';
@@ -66,8 +67,9 @@ const logSessoes = createLogger('sessions');
 const logAuditoria = createLogger('auditoria');
 const logHttp = createLogger('http');
 
-/** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina/relógio
- * só se autocura se o usuário reiniciar o app ou clicar em "Sincronizar agora". */
+/** Revalidação periódica (fora do boot/sync manual): sem isso, a trava de máquina e a
+ * situação da empresa na nuvem só se autocorrigem se o usuário reiniciar o app ou clicar
+ * em "Sincronizar agora". */
 function startLicenseRevalidationScheduler(): NodeJS.Timeout {
   const check = () => {
     refreshLicenseFromCloud().catch((e) => logLicenca.error('falha na revalidação', e));
@@ -372,6 +374,9 @@ export async function createServer(): Promise<KivoServer> {
 
   app.use(attachUser);
   app.use(filterModuleMenu);
+  // Abertura personalizada por usuário (módulo + tela cheia). Depende do menu já
+  // filtrado por plano/capability acima. O `theme-init` de cada página lê o resultado.
+  app.use(startupLocals);
   // Rótulos da empresa (ex.: chamar o módulo de comandas de "Balcão") — depois de
   // filterModuleMenu, que preenche res.locals.moduleMenu.
   app.use(businessLabelsLocals);

@@ -1,9 +1,14 @@
 <%
   const _statusOpts = typeof statusOptions !== 'undefined' ? statusOptions : [];
   const _placeholder = typeof placeholder !== 'undefined' ? placeholder : 'Buscar';
+  // Telas que têm um período próprio na barra (Caixa) escondem o período daqui para
+  // não existirem dois controles concorrentes filtrando a mesma lista.
+  const _hidePeriod = typeof hidePeriod !== 'undefined' ? hidePeriod : false;
+  // Atalhos de período. 1 = hoje (só o dia atual), 7 = últimos 7 dias, etc.
+  const _quickDays = typeof quickDays !== 'undefined' ? quickDays : [30, 60, 90];
 %>
 <div class="search-filter"
-     x-data="searchFilter(<%= JSON.stringify(_statusOpts) %>)"
+     x-data="searchFilter(<%= JSON.stringify(_statusOpts) %>, <%= JSON.stringify(_quickDays) %>)"
      @apply-filter.window="onApply($event.detail)">
   <input type="text" :placeholder="<%= JSON.stringify(_placeholder) %>" x-model="q" @input.debounce.300ms="emit()" class="input-search" />
   <button type="button" class="filter-btn" :class="{ active: hasActive }" @click="$refs.filterDlg.showModal()" data-tip="Filtros avançados" aria-label="Filtros avançados">
@@ -13,7 +18,7 @@
     <span class="filter-badge" x-show="hasActive"></span>
   </button>
 
-  <dialog x-ref="filterDlg" style="width:380px">
+  <dialog x-ref="filterDlg" style="width:min(380px, 94vw)">
     <h2 class="dialog-heading-md">Filtros</h2>
     <div class="dialog-body">
       <template x-if="statusOpts.length">
@@ -27,6 +32,7 @@
           </select>
         </div>
       </template>
+      <% if (!_hidePeriod) { %>
       <div>
         <label>Período</label>
         <div style="display:flex;gap:.4rem;align-items:center">
@@ -35,11 +41,12 @@
           <input type="date" data-picker x-model="to" @change="quickActive = 0; emit()" style="flex:1" />
         </div>
         <div class="filter-quick">
-          <template x-for="d in [30, 60, 90]" :key="d">
-            <button type="button" :class="{ active: quickActive === d }" @click="setQuick(d)" x-text="d + 'd'"></button>
+          <template x-for="d in quickDays" :key="d">
+            <button type="button" :class="{ active: quickActive === d }" @click="setQuick(d)" x-text="d === 1 ? 'hoje' : (d + 'd')"></button>
           </template>
         </div>
       </div>
+      <% } %>
     </div>
     <div class="actions">
       <button type="button" class="btn secondary" @click="clear(); emit()">
@@ -54,17 +61,22 @@
   </dialog>
 </div>
 <script nonce="<%= cspNonce %>">
-  function searchFilter(statusOpts) {
-    const _d = new Date();
+  function searchFilter(statusOpts, quickDays) {
+    quickDays = Array.isArray(quickDays) && quickDays.length ? quickDays : [30, 60, 90];
     return {
       q: '', status: '', from: '', to: '',
-      quickActive: 0, statusOpts,
+      quickActive: 0, statusOpts, quickDays,
       get hasActive() { return !!(this.status || this.from || this.to); },
       setQuick(days) {
         this.quickActive = days;
-        const end = new Date(_d.getFullYear(), _d.getMonth(), _d.getDate());
+        // Data de hoje recalculada no clique: o PDV/caixa pode ficar aberto virando a
+        // noite, e um `new Date()` congelado no boot mandaria o filtro para o dia anterior.
+        const now = new Date();
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const start = new Date(end);
-        start.setDate(start.getDate() - days);
+        // 1 = hoje; 7 = hoje + os 6 dias anteriores. O `days` já é a quantidade de dias
+        // incluindo hoje, então não somamos um dia a mais como antes.
+        start.setDate(start.getDate() - Math.max(0, days - 1));
         this.from = fmtDateISO(start);
         this.to = fmtDateISO(end);
         this.emit();

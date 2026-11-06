@@ -84,6 +84,10 @@ function resolveQuoteItems(
       baseProductId != null && baseProductId !== p.id
         ? pricing.resolveComplementPrice(baseProductId, p.id)
         : null;
+    if (allowPriceOverride && item.unitPriceCents != null
+        && (!Number.isFinite(item.unitPriceCents) || item.unitPriceCents < 0)) {
+      return { error: `Preço inválido para "${p.name}".` };
+    }
     const unitCents =
       allowPriceOverride && item.unitPriceCents != null
         ? Math.round(item.unitPriceCents)

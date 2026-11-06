@@ -186,6 +186,40 @@
           com acesso a este teclado consegue entrar como <span x-text="form.name || 'este usuário'"></span>.
         </p>
 
+        <%# Abertura personalizada POR USUÁRIO. Só aparece depois que o usuário existe:
+            os módulos disponíveis vêm do servidor já filtrados pelas permissões dele. %>
+        <p class="hint" x-show="!form.id" style="margin:.9rem 0 0">
+          Depois de salvar, edite o usuário para escolher se ele deve abrir direto em um módulo.
+        </p>
+        <template x-if="form.id">
+          <div style="margin-top:1.1rem;padding-top:.9rem;border-top:1px solid var(--border-light)">
+            <label class="label-checkbox">
+              <input type="checkbox" x-model="startup.enabled" :disabled="startupLoading || !startupLoaded" />
+              Abrir direto em um módulo ao iniciar
+            </label>
+            <p class="hint" style="margin:.35rem 0 .55rem">
+              Desligado por padrão. Vale <strong>só para este usuário</strong>: ao abrir o Kivo
+              (ou depois do login), ele vai direto para o módulo escolhido em vez da tela inicial.
+              Se o usuário perder acesso ao módulo, o Kivo abre normalmente.
+            </p>
+            <div x-show="startup.enabled" x-cloak>
+              <label>Módulo</label>
+              <select x-model="startup.moduleHref" :disabled="startupLoading">
+                <option value="">Escolha o módulo…</option>
+                <template x-for="m in startup.modules" :key="m.href">
+                  <option :value="m.href" x-text="m.moduleName ? m.moduleName + ' — ' + m.label : m.label"></option>
+                </template>
+              </select>
+              <label class="label-checkbox" style="margin-top:.55rem">
+                <input type="checkbox" x-model="startup.fullscreen" :disabled="startupLoading" />
+                Abrir em tela cheia
+              </label>
+            </div>
+            <p class="hint" x-show="startupLoading" x-cloak>Carregando módulos…</p>
+            <p class="error" x-show="startupError" x-cloak x-text="startupError"></p>
+          </div>
+        </template>
+
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">
@@ -274,6 +308,9 @@
         ...tableToolkit(),
         users: [], roles: ['administrador','gerente','operador','caixa','entregador','estoquista'],
         form: {}, q: '', error: '', dlgError: '',
+        // Abertura personalizada do usuário em edição (módulo + tela cheia).
+        startup: { enabled: false, moduleHref: '', fullscreen: true, modules: [] },
+        startupLoaded: false, startupLoading: false, startupError: '',
         // Quantas pessoas conseguem redefinir a senha de outra (permissão users.edit).
         // `null` enquanto não carregou, para o aviso não piscar em toda abertura da tela.
         resetters: null,
@@ -352,16 +389,54 @@
           if (data && data.selfSkipped) showToast('Seu próprio usuário não pode ser excluído em massa — foi mantido na lista.', 'warning');
 
         },
-        openNew() { this.form = { roleSlug: 'operador', quickLogin: false }; this.dlgError = ''; this.$refs.dlg.showModal(); },
-        openEdit(u) {
+        openNew() {
+          this.form = { roleSlug: 'operador', quickLogin: false };
+          this.startup = { enabled: false, moduleHref: '', fullscreen: true, modules: [] };
+          this.startupLoaded = false; this.startupLoading = false; this.startupError = '';
+          this.dlgError = ''; this.$refs.dlg.showModal();
+        },
+        async openEdit(u) {
           this.form = { id: u.id, name: u.name, username: u.username, email: u.email ?? '', roleSlug: u.role,
                         active: !!u.active, password: '', quickLogin: !!u.quickLogin };
+          this.startup = { enabled: false, moduleHref: '', fullscreen: true, modules: [] };
+          this.startupLoaded = false; this.startupLoading = true; this.startupError = '';
           this.dlgError = ''; this.$refs.dlg.showModal();
+          try {
+            const r = await fetch(`/api/users/${u.id}/startup`);
+            if (!r.ok) {
+              this.startupError = ((await r.json().catch(() => ({}))) || {}).error
+                ?? 'Não foi possível carregar os módulos deste usuário.';
+              return;
+            }
+            const d = await r.json();
+            this.startup = {
+              enabled: !!d.enabled,
+              moduleHref: d.moduleHref ?? '',
+              fullscreen: d.fullscreen !== false,
+              modules: Array.isArray(d.modules) ? d.modules : [],
+            };
+            this.startupLoaded = true;
+          } catch (e) {
+            // Sem a lista de módulos não dá para editar com segurança; a tela avisa no
+            // próprio bloco e o restante do usuário continua editável.
+            this.startupError = 'Erro de conexão ao carregar os módulos.';
+          } finally {
+            this.startupLoading = false;
+          }
         },
         async save() {
           const isEdit = !!this.form.id;
           const body = { ...this.form };
           if (isEdit && !body.password) delete body.password;
+          // Só envia a abertura se ela foi carregada; um erro de rede ao abrir o diálogo
+          // não pode desligar silenciosamente a configuração que já existia.
+          if (isEdit && this.startupLoaded) {
+            body.startup = {
+              enabled: !!this.startup.enabled,
+              moduleHref: this.startup.moduleHref || '',
+              fullscreen: this.startup.fullscreen !== false,
+            };
+          }
           const r = await fetch(isEdit ? `/api/users/${this.form.id}` : '/api/users', {
             method: isEdit ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },

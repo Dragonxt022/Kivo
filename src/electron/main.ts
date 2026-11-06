@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, nativeTheme, net, screen, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, screen, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -425,6 +425,15 @@ async function boot() {
   // Balança e impressora térmica: registra os canais antes de abrir a janela, para a
   // primeira tela do PDV já encontrar a ponte pronta. As bibliotecas são opcionais.
   registerHardwareIpc();
+  // Abertura personalizada: o renderer pede tela cheia depois de redirecionar para o
+  // módulo escolhido. Feito no processo principal porque a Fullscreen API do Chromium
+  // exige gesto do usuário e aqui não há gesto no primeiro carregamento.
+  ipcMain.handle('window:set-fullscreen', (event, enabled: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return false;
+    win.setFullScreen(enabled === true);
+    return win.isFullScreen();
+  });
 
   // Splash primeiro: dá feedback imediato enquanto migrations/seeds/licença (trabalho
   // pesado e, em parte, síncrono) seguram o boot. A folga de 50 ms é para o renderer
@@ -611,6 +620,15 @@ async function boot() {
     },
   });
   win.maximize();
+
+  // Tela cheia da abertura personalizada: F11 alterna para o operador conseguir sair sem
+  // fechar o Kivo. O PDV já tem o botão próprio; nas outras telas não havia como voltar.
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      event.preventDefault();
+      win.setFullScreen(!win.isFullScreen());
+    }
+  });
 
   /**
    * Janelas abertas por `window.open` (cupom, orçamento, relatório de caixa).

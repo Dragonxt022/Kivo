@@ -58,7 +58,7 @@
       .finally(() => { this.renewPlansLoading = false; });
   },
   notifUserKey: <%= JSON.stringify(user ? user.username : '') %>,
-  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', novidade: 'sparkles', atualizacao: 'refresh-cw', licenca: 'shield-check', mensagem: 'chat' },
+  notifIconMap: { payable: 'dollar-sign', receivable: 'hand-coins', cash: 'wallet', billing: 'receipt', trial: 'sparkles', atualizacao: 'refresh-cw', licenca: 'shield-check', mensagem: 'chat' },
   atualizacao: null,
   notifIconSvg(type) {
     const name = this.notifIconMap[type];
@@ -119,18 +119,6 @@
       const d = this.licenseStatus.daysRemaining;
       list.push({ id: 'licenca-vencendo', type: 'licenca', message: d > 0 ? `Sua licença vence em ${d} dia(s)` : 'Sua licença vence hoje', link: '/admin/configuracoes' });
     }
-    // Anúncio de produto (ver partials/novidade.ejs). Diferente dos demais itens, não vem de
-    // nenhuma API: é conteúdo fixo desta versão, e o id versionado faz o 'dispensar' valer só
-    // para este anúncio. O link reabre a modal ignorando o 'já vi'.
-    // (Aspas SIMPLES nos comentários deste bloco: tudo aqui vive dentro do valor do
-    //  atributo x-data, e uma aspa DUPLA fecha o atributo no meio — o navegador segue
-    //  lendo lixo até o próximo '>', que é o de uma arrow function, e o resto do nav
-    //  aparece como texto cru na tela. Ver o teste em src/tests/recuperacao-senha.ts.)
-    list.push({
-      id: 'novidade-web-v1', type: 'novidade',
-      message: 'Kivo Web: acompanhe a loja e faça orçamento pelo celular',
-      link: '/?novidade=web-v1',
-    });
     return list;
   },
   get notifications() {
@@ -555,7 +543,7 @@
     </div>
     <h2 class="dialog-heading-md" style="text-align:center;margin-bottom:.45rem" x-text="licenseStatus && licenseStatus.status === 'bloqueada' ? 'Licença bloqueada' : 'Licença expirada'"></h2>
     <p class="dialog-text" style="text-align:center" x-show="licenseStatus && licenseStatus.status === 'bloqueada'">
-      Detectamos uma inconsistência nesta instalação (relógio do sistema, integridade dos dados de licença ou
+      Detectamos uma inconsistência nesta instalação (integridade dos dados de licença ou
       dispositivo). Conecte esta máquina à internet para revalidar. Se o problema continuar, contate o suporte.
     </p>
     <p class="dialog-text" style="text-align:center" x-show="!licenseStatus || licenseStatus.status !== 'bloqueada'">

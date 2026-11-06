@@ -20,10 +20,13 @@ import { getSecret, setSecret } from '../secrets/service';
  * Licenciamento (KIVO_PLANO.md §7): Machine ID + Empresa UUID + License Key.
  * Ativação online obrigatória na primeira vez (ver activationRoutes.ts); depois disso,
  * opera offline com tolerância configurável. Reforços contra uso indevido: trava de
- * máquina (machineId real, não hostname), watermark anti-retrocesso de relógio e
- * assinatura de integridade da linha local — nenhum desses é à prova de engenharia
- * reversa do binário Electron, são barreiras contra adulteração casual (editar o
- * SQLite na mão, copiar o banco pra outra máquina, atrasar o relógio do Windows).
+ * máquina (machineId real, não hostname) e assinatura de integridade da linha local —
+ * nenhum desses é à prova de engenharia reversa do binário Electron, são barreiras
+ * contra adulteração casual (editar o SQLite na mão, copiar o banco pra outra máquina).
+ *
+ * O relógio continua sendo registrado em `time_watermark`, mas NÃO bloqueia mais: uma
+ * instalação feita com a hora errada ou um ajuste manual/NTP do Windows é uma situação
+ * comum, e travar o lojista por isso causava mais dano do que protegia.
  */
 
 export type LicenseStatus = 'valida' | 'tolerancia' | 'expirada' | 'sem_licenca' | 'bloqueada';
@@ -71,7 +74,7 @@ const MACHINE_ID_VERSION = 2;
  */
 const INTEGRITY_PEPPER = 'kivo-license-integrity-v1-8f2c6a41';
 
-/** Folga para diferença de fuso/NTP antes de considerar o relógio retrocedido. */
+/** Folga para diferença de fuso/NTP antes de reancorar o watermark de relógio. */
 const CLOCK_TOLERANCE_MS = 5 * 60_000;
 
 let cachedMachineId: string | null = null;
@@ -196,6 +199,20 @@ function reanchorMachineIdIfNeeded(row: LicenseRow): void {
 /** Nunca deixa o watermark regredir; grava junto a assinatura de integridade recalculada. */
 function bumpWatermark(row: LicenseRow, candidateMs: number): void {
   if (row.time_watermark != null && candidateMs <= row.time_watermark) return;
+  setWatermark(row, candidateMs);
+}
+
+/**
+ * Reancora o watermark no relógio atual. Serve para o caso legítimo de instalação com
+ * hora adiantada/corrigida depois: o watermark antigo ficava no futuro e nunca mais
+ * avançava. Só é chamado depois de a assinatura de integridade da linha ser conferida,
+ * para não usar a reancoragem como forma de mascarar `valid_until` editado.
+ */
+function resetWatermark(row: LicenseRow, candidateMs: number): void {
+  setWatermark(row, candidateMs);
+}
+
+function setWatermark(row: LicenseRow, candidateMs: number): void {
   const hmac = computeIntegrityHmac({ ...row, time_watermark: candidateMs });
   getSqlite()
     .prepare('UPDATE license SET time_watermark = ?, integrity_hmac = ? WHERE id = ?')
@@ -724,8 +741,7 @@ export function validateLicense(): LicenseInfo {
 
   // A tolerância conta a partir do FIM DA ASSINATURA (`valid_until`), não da última
   // validação online: senão o prazo deslizava a cada sync e a licença vencida nunca
-  // bloqueava (o `last_validated_at` era renovado sempre). O anti-retrocesso de relógio
-  // (`time_watermark`) continua impedindo esticar o prazo atrasando o relógio.
+  // bloqueava (o `last_validated_at` era renovado sempre).
   const now = Date.now();
   const DAY_MS = 86_400_000;
   const validUntilMs = row.valid_until ? parseSqliteUtc(row.valid_until) : null;
@@ -763,19 +779,26 @@ export function validateLicense(): LicenseInfo {
     };
   }
 
-  const clockRolledBack = row.time_watermark != null && now < row.time_watermark - CLOCK_TOLERANCE_MS;
+  // Integridade e máquina continuam bloqueando. O relógio, não: primeiro conferimos a
+  // assinatura (para a reancoragem abaixo não mascarar `valid_until` editado) e depois
+  // apenas registramos/realinhamos o watermark.
   const hmacInvalid = row.integrity_hmac != null && row.integrity_hmac !== computeIntegrityHmac(row);
   const machineMismatch = row.machine_id !== machineId();
 
-  if (!clockRolledBack) bumpWatermark(row, now);
-
-  if (clockRolledBack || hmacInvalid || machineMismatch) {
+  if (hmacInvalid || machineMismatch) {
     return {
       ...base,
       status: 'bloqueada',
-      message: 'Detectamos uma inconsistência nesta instalação (relógio, integridade ou dispositivo). Conecte-se à internet para revalidar.',
+      message: 'Detectamos uma inconsistência nesta instalação (integridade dos dados ou dispositivo). Conecte-se à internet para revalidar.',
     };
   }
+
+  // Hora do sistema atrás do watermark não é fraude por si só: instalação com relógio
+  // adiantado, ajuste manual ou correção de NTP são comuns. Reancora no horário atual em
+  // vez de bloquear; nos demais casos mantém o watermark avançando normalmente.
+  const clockBehindWatermark = row.time_watermark != null && now < row.time_watermark - CLOCK_TOLERANCE_MS;
+  if (clockBehindWatermark) resetWatermark(row, now);
+  else bumpWatermark(row, now);
 
   if (validUntilMs != null && validUntilMs < now) {
     // Ainda dentro da tolerância pós-vencimento: opera, mas com contagem regressiva até o bloqueio.

@@ -45,6 +45,12 @@ export interface MachinePrefs {
   balanca: ScalePrefs;
   /** Impressora térmica não fiscal (cupom do PDV). */
   impressora: PrinterPrefs;
+  /**
+   * Exibe os balões de entrada rápida também para quem acessa pela rede local.
+   * Desligado por padrão: sem senha, qualquer aparelho no Wi-Fi da loja entraria como
+   * qualquer usuário com perfil salvo. O dono precisa ligar conscientemente.
+   */
+  entradaRapidaRede: boolean;
 }
 
 export const SCALE_DEFAULTS: ScalePrefs = {
@@ -66,6 +72,7 @@ const DEFAULTS: MachinePrefs = {
   modoLeveDetectado: false,
   balanca: { ...SCALE_DEFAULTS },
   impressora: { ...PRINTER_DEFAULTS },
+  entradaRapidaRede: false,
 };
 
 let cache: MachinePrefs | null = null;
@@ -87,6 +94,7 @@ export function getMachinePrefs(): MachinePrefs {
       // máquina que já existia caia nos padrões sem perder modoLeve.
       balanca: { ...SCALE_DEFAULTS, ...(parsed.balanca ?? {}) },
       impressora: { ...PRINTER_DEFAULTS, ...(parsed.impressora ?? {}) },
+      entradaRapidaRede: parsed.entradaRapidaRede === true,
     };
   } catch {
     // Arquivo ausente na primeira execução, ou ilegível: os padrões valem e o boot segue.

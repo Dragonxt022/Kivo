@@ -43,14 +43,14 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/finance/caixa' }) %>
-  <main x-data="cashPage()" x-init="load()" @apply-filter.window="filter=$event.detail">
+  <main x-data="cashPage()" x-init="load()" @apply-filter.window="filter=$event.detail; page=1">
     <h1>Caixa</h1>
 
     <div class="toolbar">
-      <label class="muted text-sm" style="display:inline-flex;align-items:center;gap:.35rem">
+      <label class="muted text-sm cash-period">
         Período
-        <input type="date" data-picker x-model="fromDate" class="input-search" />
-        até <input type="date" data-picker x-model="toDate" class="input-search" />
+        <input type="date" data-picker x-model="fromDate" @change="load()" class="input-search" />
+        até <input type="date" data-picker x-model="toDate" @change="load()" class="input-search" />
       </label>
       <a class="btn secondary small" :href="ledgerUrl()" title="Baixar o livro caixa (todos os movimentos do período)">Exportar livro caixa</a>
     </div>
@@ -86,26 +86,32 @@
             </button>
           <% } %>
           <% if (user.permissions.has('finance.cash.close')) { %>
-            <button class="btn" @click="$refs.close.showModal()">
+            <button class="btn" @click="closeError=''; $refs.close.showModal()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="7" width="22" height="14" rx="2"/><path d="M1 10h22"/><circle cx="12" cy="14" r="2"/></svg>
               Fechar caixa
             </button>
           <% } %>
           <span class="error" x-text="error"></span>
         </div>
-        <table>
+        <div class="cash-mov-summary muted text-sm">
+          <span><strong x-text="movements.length"></strong> movimento(s) no período</span>
+          <span>Entradas <strong x-text="brl(movementTotals.entradas)"></strong></span>
+          <span>Saídas <strong x-text="brl(movementTotals.saidas)"></strong></span>
+        </div>
+        <table id="cash-movements-table">
           <thead><tr><th>Quando</th><th>Tipo</th><th>Direção</th><th>Valor</th><th>Descrição</th><th>Usuário</th></tr></thead>
           <tbody>
             <template x-for="m in movements" :key="m.id">
               <tr>
                 <td class="muted" x-text="fmtDateTime(m.created_at)"></td>
-                <td x-text="m.type"></td>
-                <td><span class="badge" :class="m.direction === 'entrada' ? 'ok' : 'off'" x-text="m.direction"></span></td>
+                <td x-text="movementLabel(m.type)"></td>
+                <td><span class="badge" :class="m.direction === 'entrada' ? 'ok' : 'off'" x-text="m.direction === 'entrada' ? 'entrada' : 'saída'"></span></td>
                 <td x-text="brl(m.amount_cents)"></td>
                 <td class="muted" x-text="m.description ?? '—'"></td>
                 <td class="muted" x-text="m.username ?? '—'"></td>
               </tr>
             </template>
+            <tr x-show="!movements.length"><td colspan="6" class="muted">Nenhum movimento no período selecionado.</td></tr>
           </tbody>
         </table>
       </div>
@@ -209,12 +215,12 @@
 
     <template x-if="history.length">
       <div class="mt-2">
-        <h2>Histórico de fechamentos</h2>
+        <h2>Histórico de caixas</h2>
         <div class="toolbar">
           <%- include('partials/search-filter', { statusOptions: [
             { value: 'aberto', label: 'Aberto', color: '#eab308' },
             { value: 'fechado', label: 'Fechado', color: '#16a34a' },
-          ], placeholder: 'Buscar por observação' }) %>
+          ], placeholder: 'Buscar por observação', hidePeriod: true }) %>
           <span class="muted" x-text="pageTotal + ' registro(s)'"></span>
         </div>
         <table>
@@ -233,10 +239,12 @@
                 <td class="muted" x-text="fmtDateTime(r.opened_at)"></td>
                 <td class="muted" x-text="r.closed_at ? fmtDateTime(r.closed_at) : '—'"></td>
                 <td x-text="brl(r.expected_cents)"></td>
-                <td x-text="brl(r.counted_cents)"></td>
+                <td x-text="r.status === 'fechado' ? brl(r.counted_cents) : '—'"></td>
                 <td>
-                  <span :style="{ color: r.difference_cents < 0 ? 'var(--danger)' : r.difference_cents > 0 ? 'var(--success-text)' : '', fontWeight: r.difference_cents !== 0 ? 700 : 400 }"
+                  <span x-show="r.status === 'fechado'"
+                        :style="{ color: r.difference_cents < 0 ? 'var(--danger)' : r.difference_cents > 0 ? 'var(--success-text)' : '', fontWeight: r.difference_cents !== 0 ? 700 : 400 }"
                         x-text="(r.difference_cents >= 0 ? '+' : '') + (r.difference_cents / 100).toFixed(2).replace('.', ',')"></span>
+                  <span class="muted" x-show="r.status !== 'fechado'">—</span>
                 </td>
                 <td>
                   <span class="badge" :class="r.status === 'aberto' ? 'off' : 'ok'" x-text="r.status"></span>
@@ -340,12 +348,27 @@
         get displayRows() { return this.sortedRows(filterRows(this.history, this.filter), this.sortGetters); },
         get pageTotal() { return this.displayRows.length; },
         get pageRows() { return this.pagedRows(this.displayRows); },
+        // Entradas e saídas do período exibido. O "esperado" continua sendo o acumulado
+        // do turno; aqui é só o recorte que o operador escolheu no topo.
+        get movementTotals() {
+          return this.movements.reduce((acc, m) => {
+            if (m.direction === 'entrada') acc.entradas += m.amount_cents;
+            else acc.saidas += m.amount_cents;
+            return acc;
+          }, { entradas: 0, saidas: 0 });
+        },
         get countTotal() {
           return this.denominations.reduce((sum, d) => sum + (Number(this.counts[d.cents]) || 0) * d.cents, 0);
         },
         get closeCountedCents() { return this.countMode ? this.countTotal : this.cents(this.counted); },
         get closeDifference() { return this.closeCountedCents - this.expected; },
         brl(c) { return window.brl(c); },
+        movementLabel(t) {
+          return ({
+            abertura: 'Abertura', suprimento: 'Suprimento', sangria: 'Sangria',
+            venda: 'Venda', recebimento: 'Recebimento', pagamento: 'Pagamento',
+          })[t] ?? t;
+        },
         printReport(id) { if (id) window.open(`/app/finance/caixa/${id}/relatorio`, '_blank', 'width=800,height=900'); },
         ledgerUrl() {
           const p = new URLSearchParams();
@@ -357,19 +380,31 @@
         cents(s) { const n = parseFloat(String(s || '0').replace(/\./g, '').replace(',', '.')); return Math.round(n * 100); },
         openOpenDlg() { this.opening = ''; this.error = ''; this.$refs.openDlg.showModal(); },
         async load() {
-          const r = await fetch('/api/finance/cash/current');
-          if (!r.ok) return;
-          const data = await r.json();
-          this.open = data.open; this.expected = data.expectedCents ?? 0;
-          if (this.open) {
-            const m = await fetch('/api/finance/cash/movements');
-            if (m.ok) this.movements = await m.json();
+          const params = new URLSearchParams(location.search);
+          // O período do topo vale para a tela inteira: movimentos do turno e histórico de
+          // fechamentos. Antes ele só alimentava o CSV de exportação.
+          const range = new URLSearchParams();
+          if (this.fromDate) range.set('from', this.fromDate);
+          if (this.toDate) range.set('to', this.toDate);
+          const qs = range.toString() ? '?' + range.toString() : '';
+          try {
+            const r = await fetch('/api/finance/cash/current');
+            if (!r.ok) return;
+            const data = await r.json();
+            this.open = data.open; this.expected = data.expectedCents ?? 0;
+            if (this.open) {
+              const m = await fetch('/api/finance/cash/movements' + qs);
+              this.movements = m.ok ? await m.json() : [];
+            } else {
+              this.movements = [];
+            }
+            const h = await fetch('/api/finance/cash/history' + qs);
+            if (h.ok) this.history = await h.json();
+          } catch {
+            this.movements = [];
           }
-          const h = await fetch('/api/finance/cash/history');
-          if (h.ok) this.history = await h.json();
           // Vindo do aviso de "caixa aberto há mais de 24h" (nav.ejs) — abre direto o fechamento,
           // sem exigir mais um clique na tela do Caixa.
-          const params = new URLSearchParams(location.search);
           if (params.get('fechar') === '1' && this.open) {
             // Mantém history.state: o Voltar do cabeçalho guarda a profundidade da
             // navegação ali (kivoDepth, ver partials/nav.ejs).
@@ -407,6 +442,15 @@
           if (r.ok) { this.$refs.mv.close(); this.load(); } else this.mvError = (await r.json()).error;
         },
         async closeCash() {
+          this.closeError = '';
+          if (!this.countMode && !String(this.counted ?? '').trim()) {
+            this.closeError = 'Informe o valor contado na gaveta.';
+            return;
+          }
+          if (this.countMode && !Object.values(this.counts).some((qty) => Number(qty) > 0)) {
+            this.closeError = 'Informe ao menos uma cédula ou moeda contada.';
+            return;
+          }
           const countedCents = this.countMode ? this.countTotal : this.cents(this.counted);
           const body = { countedCents, notes: this.closeNotes || undefined };
           if (this.countMode) {

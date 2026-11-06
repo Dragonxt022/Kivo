@@ -409,6 +409,14 @@
     "description": "QA E2E (Playwright): PDV, Mesas e Cozinha em celular, tablet e computador",
     "run": "node scripts/test-isolated.js src/tests/e2e/responsivo-3-telas.ts"
   },
+  "test:e2e:responsivo-vendas": {
+    "description": "QA E2E (Playwright): Vendas e Caixa em celular, tablet e computador",
+    "run": "node scripts/test-isolated.js src/tests/e2e/responsivo-vendas-caixa.ts"
+  },
+  "test:e2e:user-startup": {
+    "description": "QA E2E (Playwright): abertura personalizada por usuário (módulo + tela cheia)",
+    "run": "node scripts/test-isolated.js src/tests/e2e/user-startup.ts"
+  },
   "test:e2e:sons": {
     "description": "QA E2E (Playwright): sons configuráveis (cozinha/mesas) e local x entrega na comanda",
     "run": "node scripts/test-isolated.js src/tests/e2e/sons-e-entrega.ts"

@@ -233,6 +233,14 @@ router.put('/machine-prefs', requirePermission('settings.edit'), (req, res) => {
     patch.modoLeveDetectado = true;
   }
 
+  if (body.entradaRapidaRede !== undefined) {
+    if (typeof body.entradaRapidaRede !== 'boolean') {
+      res.status(400).json({ error: 'Informe entradaRapidaRede (true/false).' });
+      return;
+    }
+    patch.entradaRapidaRede = body.entradaRapidaRede;
+  }
+
   const { patch: perifericos, error } = parsePeripheralPatch(body);
   if (error) {
     res.status(400).json({ error });
