@@ -7,16 +7,15 @@
     <a href="/admin" class="icon-btn" title="Início — aplicações" aria-label="Início — aplicações">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
     </a>
-    <a href="/admin" class="brand">
-      <img id="brand-logo" class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
-      <img id="brand-logo-dark" class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" style="display:none" />
-    </a>
-    <div class="navbar-search" style="position:relative; flex:1; max-width:420px; margin-left:16px;">
-      <input type="text" id="global-search" placeholder="Buscar empresa, machine ID…" autocomplete="off"
-             style="width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:.85rem;" />
-      <div id="global-search-results" style="display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; background:var(--card-bg, var(--bg)); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:60; overflow:hidden;"></div>
+    <div class="navbar-search">
+      <input type="search" id="global-search" placeholder="Buscar empresa, machine ID…" autocomplete="off" />
+      <div id="global-search-results"></div>
     </div>
   </div>
+  <a href="/admin" class="brand">
+    <img id="brand-logo" class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
+    <img id="brand-logo-dark" class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" style="display:none" />
+  </a>
   <div class="right">
     <div class="user-menu">
       <button type="button" class="icon-btn" id="notif-btn" title="Notificações" aria-label="Notificações">
@@ -28,7 +27,7 @@
         <div id="notif-list"></div>
       </div>
     </div>
-    <a href="/wiki" class="icon-btn" title="Wiki — Documentação" aria-label="Wiki — Documentação">
+    <a href="/wiki" class="icon-btn nav-wiki-btn" title="Wiki — Documentação" aria-label="Wiki — Documentação">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
       </svg>
@@ -53,6 +52,7 @@
         </div>
         <a href="/admin">Aplicações</a>
         <a href="/admin/profile">Meu perfil</a>
+        <a href="/wiki">Wiki / Documentação</a>
         <% if (_adminPerms.indexOf('roles') !== -1) { %>
         <a href="/admin/cargos">Grupos de permissão</a>
         <% } %>

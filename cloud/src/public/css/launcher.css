@@ -731,3 +731,175 @@
   .role-form-footer .btn { width: 100%; }
   .perm-grid { grid-template-columns: 1fr; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Navbar flutuante de vidro — mesmo desenho do Kivo desktop.
+   O container não ocupa a largura toda: fica centralizado, com 12px de respiro no
+   topo, 56px de altura e a logo no centro geométrico da barra.
+   ───────────────────────────────────────────────────────────────────────────── */
+.app-shell {
+  padding-top: 80px;
+}
+
+.navbar {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 1100px;
+  height: 56px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  padding: 0 0.6rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  box-shadow:
+    var(--shadow-sm),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  z-index: 100;
+}
+
+.navbar::after {
+  display: none;
+}
+
+.navbar .left {
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  margin-left: 10px;
+}
+
+.navbar .brand {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.navbar .brand:hover {
+  opacity: 0.82;
+  text-decoration: none;
+}
+
+.navbar .brand img {
+  width: 150px;
+  height: 25px;
+  max-width: 150px;
+  object-fit: contain;
+}
+
+.navbar .right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.navbar .icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.navbar-search {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 360px;
+  margin-left: 10px;
+}
+
+.navbar-search input {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.navbar-search input::placeholder {
+  color: var(--muted);
+}
+
+.navbar-search input:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent);
+}
+
+#global-search-results {
+  display: none;
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  z-index: 120;
+  overflow: hidden;
+}
+
+@media (max-width: 1080px) {
+  .navbar {
+    width: calc(100% - 20px);
+    top: 10px;
+    padding: 0 0.5rem;
+  }
+  .app-shell {
+    padding-top: 74px;
+  }
+  .navbar .left {
+    margin-left: 4px;
+  }
+}
+
+@media (max-width: 820px) {
+  .navbar-search {
+    display: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .navbar {
+    height: 50px;
+    width: calc(100% - 16px);
+    padding: 0 0.4rem;
+  }
+  .app-shell {
+    padding-top: 68px;
+  }
+  .navbar .right {
+    gap: 0.15rem;
+  }
+  .navbar .brand img {
+    width: 118px;
+    height: auto;
+  }
+  .navbar .icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+  /* A wiki continua no menu do usuário; o ícone sai para a logo não encostar nos
+     controles da direita em telas de 390px. */
+  .navbar .nav-wiki-btn {
+    display: none;
+  }
+}
