@@ -22,6 +22,6 @@ coverage/
 
 # QA visual (scripts/qa-browser.js)
 .qa-screenshots/
-
+.playwright-mcp
 # Scripts temporários de diagnóstico (não versionar)
 .tmp-*
