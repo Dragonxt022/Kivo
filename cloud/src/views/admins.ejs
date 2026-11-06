@@ -5,20 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
   <title>Kivo Cloud — Administradores</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body>
   <div class="app-shell">
-    <%- include('partials/sidebar', { active: 'admins' }) %>
     <main class="content">
       <%- include('partials/navbar', { active: 'admins' }) %>
 
       <div class="page" x-data="adminsPage()">
         <div class="page-header">
-          <h1>Administradores</h1>
+          <div>
+            <div class="breadcrumb">Administração</div>
+            <h1>Administradores</h1>
+          </div>
           <button class="btn" onclick="document.getElementById('modal-new-admin').showModal()">+ Novo administrador</button>
         </div>
+
+        <p class="page-intro">
+          O grupo de permissão define quais blocos cada administrador vê na tela inicial e
+          pode acessar. Gerencie os grupos em
+          <a href="/admin/cargos">Grupos de permissão</a>.
+        </p>
 
         <% if (typeof error !== 'undefined' && error) { %>
           <div class="error-banner"><%= error %></div>
@@ -32,6 +41,7 @@
           <table>
             <thead><tr>
               <th class="sortable" @click="sortCycle('username')">Usuário<span class="sort-arrow" x-text="sortArrow('username')"></span></th>
+              <th>Grupo de permissão</th>
               <th class="sortable" @click="sortCycle('created_at')">Criado em<span class="sort-arrow" x-text="sortArrow('created_at')"></span></th>
               <th></th>
             </tr></thead>
@@ -39,6 +49,19 @@
               <template x-for="a in displayRows" :key="a.id">
                 <tr>
                   <td x-text="a.username"></td>
+                  <td>
+                    <form method="post" :action="'/admin/admins/' + a.id + '/role'" class="role-change-form"
+                          :class="{ disabled: a.username === '<%= adminUsername %>' }">
+                      <select name="roleId" :disabled="a.username === '<%= adminUsername %>'">
+                        <template x-for="r in roles" :key="r.id">
+                          <option :value="r.id" :selected="Number(r.id) === Number(a.role_id)" x-text="r.name"></option>
+                        </template>
+                      </select>
+                      <button type="submit" class="btn secondary small"
+                              :disabled="a.username === '<%= adminUsername %>'"
+                              title="Salvar grupo">Salvar</button>
+                    </form>
+                  </td>
                   <td x-text="fmtDateTime(a.created_at)"></td>
                   <td style="text-align: right;">
                     <form method="post" :action="'/admin/admins/' + a.id + '/delete'"
@@ -48,7 +71,7 @@
                   </td>
                 </tr>
               </template>
-              <tr x-show="!displayRows.length"><td colspan="3"><%- include('partials/empty-state', { message: 'Nenhum administrador cadastrado.' }) %></td></tr>
+              <tr x-show="!displayRows.length"><td colspan="4"><%- include('partials/empty-state', { message: 'Nenhum administrador cadastrado.' }) %></td></tr>
             </tbody>
           </table>
         </div>
@@ -69,6 +92,14 @@
         <input type="password" name="password" required minlength="8" autocomplete="new-password"
                autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
         <p class="field-hint">Pelo menos 8 caracteres.</p>
+        <label>Grupo de permissão</label>
+        <select name="roleId" required>
+          <option value="">Selecione…</option>
+          <% (typeof roles !== 'undefined' ? roles : []).forEach(function (r) { %>
+          <option value="<%= r.id %>"><%= r.name %><%= Number(r.is_system) ? ' (sistema)' : '' %></option>
+          <% }); %>
+        </select>
+        <p class="field-hint">O grupo define os blocos que este usuário poderá acessar.</p>
         <div class="modal-actions">
           <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-admin').close()">Cancelar</button>
           <button type="submit" class="btn">Criar</button>
@@ -83,6 +114,7 @@
       return {
         ...tableToolkit(),
         rows: <%- JSON.stringify(admins) %>,
+        roles: <%- JSON.stringify(typeof roles !== 'undefined' ? roles.map(function (r) { return { id: r.id, name: r.name }; }) : []) %>,
         q: '',
         sortGetters: { username: (a) => a.username, created_at: (a) => a.created_at ?? '' },
         get displayRows() {

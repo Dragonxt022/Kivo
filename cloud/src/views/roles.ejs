@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Grupos de permissão</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <main class="content">
+      <%- include('partials/navbar', { active: 'roles' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb">Administração</div>
+            <h1>Grupos de permissão</h1>
+          </div>
+          <button class="btn" onclick="document.getElementById('modal-new-role').showModal()">+ Novo grupo</button>
+        </div>
+
+        <p class="page-intro">
+          Cada administrador pertence a um grupo. O grupo define quais blocos aparecem na
+          tela inicial e quais páginas ele pode acessar. Os grupos
+          <strong>Administrador</strong>, <strong>Afiliados</strong> e <strong>Suporte</strong>
+          já vêm criados; ajuste as permissões conforme a sua equipe.
+        </p>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="error-banner"><%= error %></div>
+        <% } %>
+
+        <div class="card" style="padding: 0;">
+          <table>
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th>Descrição</th>
+                <th>Blocos liberados</th>
+                <th>Usuários</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% roles.forEach(function (role) { %>
+              <tr>
+                <td>
+                  <div class="role-name-cell">
+                    <span class="role-avatar"><%= String(role.name || '?').charAt(0).toUpperCase() %></span>
+                    <div>
+                      <strong><%= role.name %></strong>
+                      <div class="role-slug"><%= role.slug %></div>
+                    </div>
+                    <% if (Number(role.is_system)) { %><span class="badge-soft">Sistema</span><% } %>
+                  </div>
+                </td>
+                <td class="muted"><%= role.description || '—' %></td>
+                <td><strong><%= Number(role.permission_count) %></strong> de <%= blocks.length %></td>
+                <td><strong><%= Number(role.user_count) %></strong></td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <a class="btn secondary small" href="/admin/cargos/<%= role.id %>">Editar permissões</a>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="roles-note">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <span>O filtro é aplicado no servidor: mesmo digitando a URL direto, o usuário sem permissão não abre o bloco.</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="modal-new-role">
+    <form method="post" action="/admin/cargos" autocomplete="off">
+      <div class="modal-header">
+        <h2>Novo grupo de permissão</h2>
+        <button type="button" class="modal-close" onclick="document.getElementById('modal-new-role').close()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nome do grupo</label>
+        <input type="text" name="name" required autofocus placeholder="Ex.: Financeiro">
+        <label>Descrição</label>
+        <textarea name="description" rows="3" placeholder="Para que serve este grupo?"></textarea>
+        <p class="field-hint">Depois de criar, você escolhe quais blocos o grupo pode acessar.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn secondary" onclick="document.getElementById('modal-new-role').close()">Cancelar</button>
+          <button type="submit" class="btn">Criar grupo</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

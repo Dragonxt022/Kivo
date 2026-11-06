@@ -2,6 +2,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import type { Request, Response, NextFunction } from 'express';
 import { getPool } from './db';
+import { blockForPath, loadAdminAccess, type AdminAccess } from './adminPermissions';
 
 export const ADMIN_SESSION_COOKIE = 'kivo_admin_session';
 const SESSION_TTL_MS = 12 * 3600e3; // 12h
@@ -166,6 +167,7 @@ function readCookie(req: Request): string | null {
 
 export interface AdminRequest extends Request {
   adminUsername?: string;
+  adminAccess?: AdminAccess;
 }
 
 interface NotificationItem {
@@ -174,22 +176,40 @@ interface NotificationItem {
   link: string;
 }
 
-/** Sino do topo: licenças vencidas/a vencer em 7 dias + fila de curadoria do banco de imagens. */
-async function loadNotifications(): Promise<{ count: number; items: NotificationItem[] }> {
+/**
+ * Sino do topo: licenças vencidas/a vencer em 7 dias + fila de curadoria do banco de
+ * imagens. Os itens respeitam o grupo de permissão: quem não acessa Empresas,
+ * Banco de imagens ou Pagamentos não recebe aviso desses blocos.
+ */
+async function loadNotifications(
+  permissions?: Set<string>,
+): Promise<{ count: number; items: NotificationItem[] }> {
+  const can = (key: string) => !permissions || permissions.has(key);
   try {
     const pool = getPool();
-    const [companyRows] = await pool.query(
-      `SELECT company_uuid, name, valid_until FROM companies
-       WHERE valid_until IS NOT NULL AND valid_until <= DATE_ADD(NOW(), INTERVAL 7 DAY)
-       ORDER BY valid_until ASC LIMIT 5`,
-    );
-    const [pendingRows] = await pool.query("SELECT COUNT(*) AS total FROM catalog_images WHERE status = 'pendente'");
-    const pendingTotal = (pendingRows as { total: number }[])[0]?.total ?? 0;
-    const [payoutRows] = await pool.query(
-      `SELECT p.id, p.amount_cents, a.name FROM affiliate_payouts p
-        LEFT JOIN affiliates a ON a.id = p.affiliate_id
-       WHERE p.status = 'solicitado' ORDER BY p.id DESC LIMIT 5`,
-    );
+    const companyRows = can('companies')
+      ? (
+          await pool.query(
+            `SELECT company_uuid, name, valid_until FROM companies
+             WHERE valid_until IS NOT NULL AND valid_until <= DATE_ADD(NOW(), INTERVAL 7 DAY)
+             ORDER BY valid_until ASC LIMIT 5`,
+          )
+        )[0]
+      : [];
+    const pendingTotal = can('catalog')
+      ? ((
+          await pool.query("SELECT COUNT(*) AS total FROM catalog_images WHERE status = 'pendente'")
+        )[0] as { total: number }[])[0]?.total ?? 0
+      : 0;
+    const payoutRows = can('payouts')
+      ? (
+          await pool.query(
+            `SELECT p.id, p.amount_cents, a.name FROM affiliate_payouts p
+              LEFT JOIN affiliates a ON a.id = p.affiliate_id
+             WHERE p.status = 'solicitado' ORDER BY p.id DESC LIMIT 5`,
+          )
+        )[0]
+      : [];
 
     const items: NotificationItem[] = (
       companyRows as { company_uuid: string; name: string | null; valid_until: string }[]
@@ -259,9 +279,34 @@ export async function requireAdminAuth(req: AdminRequest, res: Response, next: N
     res.redirect('/admin/login');
     return;
   }
+
   req.adminUsername = username;
   res.locals.adminUsername = username;
-  res.locals.notifications = await loadNotifications();
+
+  // Grupo de permissão do usuário. A checagem acontece aqui (e não em cada rota) para
+  // que nenhuma rota nova — inclusive as montadas em outros routers sob /admin — nasça
+  // sem proteção.
+  const access = await loadAdminAccess(username);
+  req.adminAccess = access;
+  res.locals.adminAccess = access;
+  res.locals.adminRole = { slug: access.roleSlug, name: access.roleName };
+  res.locals.adminPermissions = [...access.permissions];
+
+  const block = blockForPath(req.originalUrl || req.url);
+  if (block && !access.permissions.has(block)) {
+    const wantsJson =
+      req.originalUrl.startsWith('/admin/api/') ||
+      req.xhr ||
+      String(req.get('accept') || '').includes('application/json');
+    if (wantsJson) {
+      res.status(403).json({ ok: false, error: 'Sem permissão para acessar este bloco.', block });
+      return;
+    }
+    res.redirect('/admin?denied=' + encodeURIComponent(block));
+    return;
+  }
+
+  res.locals.notifications = await loadNotifications(access.permissions);
   next();
 }
 

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — <%= role.name %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <main class="content">
+      <%- include('partials/navbar', { active: 'roles' }) %>
+
+      <div class="page">
+        <div class="page-header">
+          <div>
+            <div class="breadcrumb"><a href="/admin/cargos">Grupos de permissão</a> / <%= role.name %></div>
+            <h1>
+              <%= role.name %>
+              <% if (Number(role.is_system)) { %><span class="badge-soft" style="vertical-align: middle; margin-left: 8px;">Sistema</span><% } %>
+            </h1>
+          </div>
+          <a class="btn secondary" href="/admin/cargos">Voltar</a>
+        </div>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="error-banner"><%= error %></div>
+        <% } %>
+
+        <form method="post" action="/admin/cargos/<%= role.id %>">
+          <div class="card role-form-head">
+            <div>
+              <label for="role-name">Nome do grupo</label>
+              <input id="role-name" type="text" name="name" value="<%= role.name %>" required maxlength="100">
+            </div>
+            <div>
+              <label for="role-description">Descrição</label>
+              <input id="role-description" type="text" name="description" value="<%= role.description || '' %>" maxlength="255"
+                     placeholder="Ex.: equipe de atendimento">
+            </div>
+            <div class="role-form-slug">
+              <span>Identificador</span>
+              <code><%= role.slug %></code>
+            </div>
+          </div>
+
+          <div class="role-perm-head">
+            <div>
+              <h2>Blocos que este grupo pode acessar</h2>
+              <p>Marque cada área liberada. O card correspondente aparece na tela inicial do usuário.</p>
+            </div>
+            <div class="role-perm-actions">
+              <button type="button" class="btn secondary small" onclick="toggleAllPermissions(true)">Marcar todos</button>
+              <button type="button" class="btn secondary small" onclick="toggleAllPermissions(false)">Desmarcar todos</button>
+            </div>
+          </div>
+
+          <% categories.forEach(function (category) {
+               var categoryBlocks = blocks.filter(function (b) { return b.category === category; });
+               if (!categoryBlocks.length) return; %>
+          <section class="perm-group">
+            <div class="perm-group-head">
+              <h3><%= category %></h3>
+              <div>
+                <button type="button" class="perm-quick" onclick="toggleCategory('<%= category %>', true)">todos</button>
+                <button type="button" class="perm-quick" onclick="toggleCategory('<%= category %>', false)">nenhum</button>
+              </div>
+            </div>
+            <div class="perm-grid">
+              <% categoryBlocks.forEach(function (block) { %>
+              <label class="perm-item">
+                <input type="checkbox" name="permissions" value="<%= block.key %>"
+                       data-category="<%= category %>" <%= permissions.indexOf(block.key) !== -1 ? 'checked' : '' %>>
+                <span class="perm-check"></span>
+                <span class="perm-text">
+                  <strong><%= block.label %></strong>
+                  <small><%= block.description %></small>
+                </span>
+              </label>
+              <% }) %>
+            </div>
+          </section>
+          <% }); %>
+
+          <div class="role-form-footer">
+            <span class="muted">
+              <%= users.length ? users.length + ' administrador(es) neste grupo.' : 'Nenhum administrador neste grupo ainda.' %>
+            </span>
+            <div class="actions">
+              <button type="submit" class="btn">Salvar permissões</button>
+            </div>
+          </div>
+        </form>
+
+        <% if (!Number(role.is_system)) { %>
+        <div class="role-danger">
+          <div>
+            <strong>Excluir este grupo</strong>
+            <p>Só é possível excluir grupos sem administradores vinculados.</p>
+          </div>
+          <form method="post" action="/admin/cargos/<%= role.id %>/delete"
+                onsubmit="return confirm('Excluir este grupo de permissão?');">
+            <button type="submit" class="btn danger">Excluir grupo</button>
+          </form>
+        </div>
+        <% } else { %>
+        <p class="roles-note" style="margin-top: 18px;">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Este é um grupo do sistema. Ele pode ter as permissões ajustadas, mas não pode ser excluído.</span>
+        </p>
+        <% } %>
+
+        <% if (users.length) { %>
+        <div class="card" style="margin-top: 18px;">
+          <h2 style="font-size: .92rem; margin: 0 0 10px;">Administradores neste grupo</h2>
+          <div class="role-users">
+            <% users.forEach(function (u) { %>
+            <span class="role-user-chip">
+              <span class="role-avatar small"><%= u.username.charAt(0).toUpperCase() %></span>
+              <%= u.username %>
+            </span>
+            <% }); %>
+          </div>
+        </div>
+        <% } %>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function toggleCategory(category, checked) {
+      document.querySelectorAll('.perm-item input[data-category="' + category + '"]').forEach(function (input) {
+        input.checked = checked;
+      });
+    }
+    function toggleAllPermissions(checked) {
+      document.querySelectorAll('.perm-item input[name="permissions"]').forEach(function (input) {
+        input.checked = checked;
+      });
+    }
+  </script>
+</body>
+</html>

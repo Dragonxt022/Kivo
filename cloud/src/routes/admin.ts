@@ -31,6 +31,7 @@ import { THEMES_STORAGE_DIR } from './themes';
 import { listDevDocs, renderDevDoc } from '../devdocs';
 import { currentPeriod } from '../aiUsage';
 import { listTools, setCompanyLimit, updateTool } from '../aiQuota';
+import { ADMIN_BLOCKS, ADMIN_CATEGORIES, ADMIN_PERMISSION_KEYS, adminBlock } from '../adminPermissions';
 import { dateInTz } from '../tz';
 import { loadAiConfig, loadAiSettingsForView } from '../aiConfig';
 import { chat as aiProviderChat, defaultModelFor, isProviderId, keyFor, listOllamaModels, PROVIDER_LABELS } from '../aiProviders';
@@ -208,6 +209,16 @@ router.post('/setup', async (req, res) => {
     'INSERT INTO admin_users (username, password_hash) VALUES (?, ?)',
     [String(username), hashPassword(String(password))],
   );
+  // Primeiro usuário nasce no grupo Administrador (a migration 0050 cria o grupo).
+  // Best-effort: numa instalação anterior à migration, ele segue como acesso total.
+  await getPool()
+    .query(
+      `UPDATE admin_users
+          SET role_id = (SELECT id FROM admin_roles WHERE slug = 'administrador')
+        WHERE username = ?`,
+      [String(username)],
+    )
+    .catch(() => {});
   const session = await createAdminSession(String(username));
   res.cookie(ADMIN_SESSION_COOKIE, session.token, {
     httpOnly: true,
@@ -531,7 +542,28 @@ router.get('/documentacao', requireAdminAuth, (req: AdminRequest, res) => {
   res.render('devdocs', { adminUsername: req.adminUsername, docs, current });
 });
 
-router.get('/', requireAdminAuth, async (_req, res) => {
+/**
+ * Tela inicial do painel: os antigos itens do menu lateral viram cards.
+ *
+ * O menu lateral foi removido. A navegação principal agora é esta grade, com busca e
+ * favoritos (até 4). Os blocos são filtrados pelo grupo de permissão do usuário no
+ * próprio servidor — o card não aparece se o acesso não for permitido.
+ */
+router.get('/', requireAdminAuth, async (req: AdminRequest, res) => {
+  const permissions = new Set(res.locals.adminPermissions as string[]);
+  const apps = ADMIN_BLOCKS.filter((b) => permissions.has(b.key));
+  const deniedKey = typeof req.query.denied === 'string' ? req.query.denied : '';
+  const denied = deniedKey ? adminBlock(deniedKey) : undefined;
+
+  res.render('home', {
+    adminApps: apps,
+    adminCategories: ADMIN_CATEGORIES,
+    deniedBlock: denied ? denied.label : '',
+    currentRole: res.locals.adminRole,
+  });
+});
+
+router.get('/dashboard', requireAdminAuth, async (_req, res) => {
   const pool = getPool();
 
   const [kpiRows] = await pool.query(
@@ -2125,51 +2157,280 @@ router.get('/settings/ai/models', requireAdminAuth, async (req, res) => {
   }
 });
 
+// --- Grupos de permissão do painel ---
+
+/** Gera um identificador estável a partir do nome do grupo. */
+function roleSlug(name: string): string {
+  return String(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'grupo';
+}
+
+function permissionListFromBody(body: Record<string, unknown>): string[] {
+  const raw = body.permissions;
+  const list = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+  const allowed = new Set(ADMIN_PERMISSION_KEYS);
+  return [...new Set(list.map(String).filter((p) => allowed.has(p)))];
+}
+
+async function loadRoles() {
+  const [rows] = await getPool().query(
+    `SELECT r.id, r.slug, r.name, r.description, r.is_system, r.created_at,
+            (SELECT COUNT(*) FROM admin_role_permissions p WHERE p.role_id = r.id) AS permission_count,
+            (SELECT COUNT(*) FROM admin_users u WHERE u.role_id = r.id) AS user_count
+       FROM admin_roles r
+      ORDER BY r.is_system DESC, r.name ASC`,
+  );
+  return rows as {
+    id: number;
+    slug: string;
+    name: string;
+    description: string | null;
+    is_system: number;
+    created_at: string;
+    permission_count: number;
+    user_count: number;
+  }[];
+}
+
+async function loadAdmins() {
+  const [rows] = await getPool().query(
+    `SELECT u.id, u.username, u.created_at, u.role_id, r.name AS role_name, r.slug AS role_slug
+       FROM admin_users u
+       LEFT JOIN admin_roles r ON r.id = u.role_id
+      ORDER BY u.username`,
+  );
+  return rows as {
+    id: number;
+    username: string;
+    created_at: string;
+    role_id: number | null;
+    role_name: string | null;
+    role_slug: string | null;
+  }[];
+}
+
+async function renderAdmins(res: import('express').Response, status: number, error: string | null) {
+  const [admins, roles] = await Promise.all([loadAdmins(), loadRoles()]);
+  res.status(status).render('admins', { admins, roles, error });
+}
+
+router.get('/cargos', requireAdminAuth, async (_req, res) => {
+  const roles = await loadRoles();
+  res.render('roles', { roles, blocks: ADMIN_BLOCKS, error: null });
+});
+
+router.get('/cargos/:id', requireAdminAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const [roleRows] = await getPool().query(
+    'SELECT id, slug, name, description, is_system, created_at FROM admin_roles WHERE id = ?',
+    [id],
+  );
+  const role = (roleRows as {
+    id: number;
+    slug: string;
+    name: string;
+    description: string | null;
+    is_system: number;
+    created_at: string;
+  }[])[0];
+  if (!role) {
+    res.redirect('/admin/cargos');
+    return;
+  }
+  const [permissionRows] = await getPool().query(
+    'SELECT permission_key FROM admin_role_permissions WHERE role_id = ?',
+    [id],
+  );
+  const permissions = (permissionRows as { permission_key: string }[]).map((p) => p.permission_key);
+  const [userRows] = await getPool().query(
+    'SELECT u.id, u.username FROM admin_users u WHERE u.role_id = ? ORDER BY u.username',
+    [id],
+  );
+  res.render('role-detail', {
+    role,
+    permissions,
+    users: userRows as { id: number; username: string }[],
+    blocks: ADMIN_BLOCKS,
+    categories: ADMIN_CATEGORIES,
+    error: null,
+  });
+});
+
+router.post('/cargos', requireAdminAuth, async (req, res) => {
+  const name = String(req.body?.name ?? '').trim();
+  const description = String(req.body?.description ?? '').trim();
+  if (!name) {
+    const roles = await loadRoles();
+    res.status(400).render('roles', { roles, blocks: ADMIN_BLOCKS, error: 'Informe o nome do grupo.' });
+    return;
+  }
+  let slug = roleSlug(name);
+  try {
+    // Garante slug único acrescentando sufixo quando já existir.
+    for (let i = 2; i < 100; i++) {
+      const [exists] = await getPool().query('SELECT id FROM admin_roles WHERE slug = ? LIMIT 1', [slug]);
+      if (!(exists as unknown[]).length) break;
+      slug = `${roleSlug(name)}-${i}`;
+    }
+    await getPool().query(
+      'INSERT INTO admin_roles (slug, name, description, is_system) VALUES (?, ?, ?, 0)',
+      [slug, name, description || null],
+    );
+    res.redirect('/admin/cargos');
+  } catch {
+    const roles = await loadRoles();
+    res.status(400).render('roles', {
+      roles,
+      blocks: ADMIN_BLOCKS,
+      error: 'Não foi possível criar o grupo. Verifique o nome e tente novamente.',
+    });
+  }
+});
+
+router.post('/cargos/:id', requireAdminAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const name = String(req.body?.name ?? '').trim();
+  const description = String(req.body?.description ?? '').trim();
+  const permissions = permissionListFromBody(req.body ?? {});
+  if (!name) {
+    res.redirect(`/admin/cargos/${id}`);
+    return;
+  }
+  const [roleRows] = await getPool().query('SELECT is_system FROM admin_roles WHERE id = ?', [id]);
+  if (!(roleRows as unknown[]).length) {
+    res.redirect('/admin/cargos');
+    return;
+  }
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query('UPDATE admin_roles SET name = ?, description = ? WHERE id = ?', [
+      name,
+      description || null,
+      id,
+    ]);
+    await conn.query('DELETE FROM admin_role_permissions WHERE role_id = ?', [id]);
+    for (const permission of permissions) {
+      await conn.query(
+        'INSERT INTO admin_role_permissions (role_id, permission_key) VALUES (?, ?)',
+        [id, permission],
+      );
+    }
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+  res.redirect('/admin/cargos');
+});
+
+router.post('/cargos/:id/delete', requireAdminAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const [roleRows] = await getPool().query('SELECT is_system FROM admin_roles WHERE id = ?', [id]);
+  const role = (roleRows as { is_system: number }[])[0];
+  if (!role) {
+    res.redirect('/admin/cargos');
+    return;
+  }
+  if (role.is_system) {
+    const roles = await loadRoles();
+    res.status(400).render('roles', {
+      roles,
+      blocks: ADMIN_BLOCKS,
+      error: 'Os grupos Administrador, Afiliados e Suporte são do sistema e não podem ser excluídos. Edite as permissões deles.',
+    });
+    return;
+  }
+  const [userRows] = await getPool().query('SELECT COUNT(*) AS total FROM admin_users WHERE role_id = ?', [id]);
+  if (Number((userRows as { total: number }[])[0]?.total || 0) > 0) {
+    const roles = await loadRoles();
+    res.status(400).render('roles', {
+      roles,
+      blocks: ADMIN_BLOCKS,
+      error: 'Este grupo ainda tem administradores vinculados. Troque o grupo deles antes de excluir.',
+    });
+    return;
+  }
+  await getPool().query('DELETE FROM admin_role_permissions WHERE role_id = ?', [id]);
+  await getPool().query('DELETE FROM admin_roles WHERE id = ?', [id]);
+  res.redirect('/admin/cargos');
+});
+
 // --- Administradores do painel ---
 
 router.get('/admins', requireAdminAuth, async (_req, res) => {
-  const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
-  res.render('admins', { admins, error: null });
+  await renderAdmins(res, 200, null);
 });
 
 router.post('/admins', requireAdminAuth, async (req, res) => {
   const { username, password } = req.body ?? {};
-  if (!username || !password) {
-    const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
-    res.status(400).render('admins', { admins, error: 'Preencha usuário e senha.' });
+  const roleId = Number(req.body?.roleId);
+  if (!username || !password || !roleId) {
+    await renderAdmins(res, 400, 'Preencha usuário, senha e grupo de permissão.');
+    return;
+  }
+  const [roleExists] = await getPool().query('SELECT id FROM admin_roles WHERE id = ? LIMIT 1', [roleId]);
+  if (!(roleExists as unknown[]).length) {
+    await renderAdmins(res, 400, 'Grupo de permissão inválido.');
     return;
   }
   try {
-    await getPool().query('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)', [
+    await getPool().query('INSERT INTO admin_users (username, password_hash, role_id) VALUES (?, ?, ?)', [
       String(username).trim(),
       hashPassword(String(password)),
+      roleId,
     ]);
     res.redirect('/admin/admins');
   } catch {
-    const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
-    res.status(400).render('admins', { admins, error: 'Já existe um administrador com esse usuário.' });
+    await renderAdmins(res, 400, 'Já existe um administrador com esse usuário.');
   }
+});
+
+router.post('/admins/:id/role', requireAdminAuth, async (req: AdminRequest, res) => {
+  const id = Number(req.params.id);
+  const roleId = Number(req.body?.roleId);
+  const [rows] = await getPool().query('SELECT username FROM admin_users WHERE id = ?', [id]);
+  const target = (rows as { username: string }[])[0];
+  if (!target || !roleId) {
+    await renderAdmins(res, 400, 'Administrador ou grupo não encontrado.');
+    return;
+  }
+  const [roleExists] = await getPool().query('SELECT id FROM admin_roles WHERE id = ? LIMIT 1', [roleId]);
+  if (!(roleExists as unknown[]).length) {
+    await renderAdmins(res, 400, 'Grupo de permissão inválido.');
+    return;
+  }
+  // Trocar o próprio grupo poderia trancar o usuário para fora da administração.
+  if (target.username === req.adminUsername) {
+    await renderAdmins(res, 400, 'Você não pode alterar o seu próprio grupo de permissão.');
+    return;
+  }
+  await getPool().query('UPDATE admin_users SET role_id = ? WHERE id = ?', [roleId, id]);
+  res.redirect('/admin/admins');
 });
 
 router.post('/admins/:id/delete', requireAdminAuth, async (req: AdminRequest, res) => {
   const id = Number(req.params.id);
   const [rows] = await getPool().query('SELECT username FROM admin_users WHERE id = ?', [id]);
   const target = (rows as { username: string }[])[0];
-  const loadWithError = async (error: string) => {
-    const [admins] = await getPool().query('SELECT id, username, created_at FROM admin_users ORDER BY username');
-    res.status(400).render('admins', { admins, error });
-  };
   if (!target) {
-    await loadWithError('Administrador não encontrado.');
+    await renderAdmins(res, 400, 'Administrador não encontrado.');
     return;
   }
   if (target.username === req.adminUsername) {
-    await loadWithError('Você não pode excluir seu próprio usuário.');
+    await renderAdmins(res, 400, 'Você não pode excluir seu próprio usuário.');
     return;
   }
   const [countRows] = await getPool().query('SELECT COUNT(*) AS total FROM admin_users');
   if ((countRows as { total: number }[])[0].total <= 1) {
-    await loadWithError('Não é possível excluir o último administrador.');
+    await renderAdmins(res, 400, 'Não é possível excluir o último administrador.');
     return;
   }
   await getPool().query('DELETE FROM admin_users WHERE id = ?', [id]);
@@ -3074,19 +3335,35 @@ router.get('/api/search', requireAdminAuth, async (req, res) => {
   }
   const like = `%${q}%`;
   const pool = getPool();
-  const [companyRows] = await pool.query(
-    `SELECT company_uuid, name FROM companies
-      WHERE name LIKE ? OR document LIKE ? OR company_uuid = ?
-      ORDER BY name LIMIT 6`,
-    [like, like, q],
-  );
-  const [deviceRows] = await pool.query(
-    `SELECT cd.company_uuid, cd.machine_id, c.name AS company_name
-       FROM company_devices cd JOIN companies c ON c.company_uuid = cd.company_uuid
-      WHERE cd.machine_id LIKE ?
-      ORDER BY cd.last_seen_at DESC LIMIT 6`,
-    [like],
-  );
+  const permissions = new Set(res.locals.adminPermissions as string[]);
+  // A busca global só devolve o que o grupo do usuário pode abrir.
+  const canCompanies = permissions.has('companies');
+  const canDevices = permissions.has('devices');
+  if (!canCompanies && !canDevices) {
+    res.json({ results: [] });
+    return;
+  }
+  const companyRows = canCompanies
+    ? (
+        await pool.query(
+          `SELECT company_uuid, name FROM companies
+            WHERE name LIKE ? OR document LIKE ? OR company_uuid = ?
+            ORDER BY name LIMIT 6`,
+          [like, like, q],
+        )
+      )[0]
+    : [];
+  const deviceRows = canDevices
+    ? (
+        await pool.query(
+          `SELECT cd.company_uuid, cd.machine_id, c.name AS company_name
+             FROM company_devices cd JOIN companies c ON c.company_uuid = cd.company_uuid
+            WHERE cd.machine_id LIKE ?
+            ORDER BY cd.last_seen_at DESC LIMIT 6`,
+          [like],
+        )
+      )[0]
+    : [];
   const results = [
     ...(companyRows as { company_uuid: string; name: string | null }[]).map((c) => ({
       type: 'Empresa',
@@ -3108,37 +3385,62 @@ router.get('/api/search', requireAdminAuth, async (req, res) => {
 
 router.get('/api/notifications', requireAdminAuth, async (_req, res) => {
   const pool = getPool();
-  const [ticketRows] = await pool.query(
-    'SELECT COUNT(*) AS cnt FROM support_tickets WHERE admin_unread > 0',
-  );
-  const [leadRows] = await pool.query(
-    "SELECT COUNT(*) AS cnt FROM contact_leads WHERE status = 'novo'",
-  );
-  const [recentTickets] = await pool.query(
-    `SELECT t.id, t.subject, t.admin_unread, t.last_message_at, c.name AS company_name
-       FROM support_tickets t
-       LEFT JOIN companies c ON c.company_uuid = t.company_uuid
-      WHERE t.admin_unread > 0
-      ORDER BY t.last_message_at DESC
-      LIMIT 5`,
-  );
-  const [recentLeads] = await pool.query(
-    `SELECT id, name, whatsapp, created_at
-       FROM contact_leads
-      WHERE status = 'novo'
-      ORDER BY created_at DESC
-      LIMIT 5`,
-  );
-  const [payoutRows] = await pool.query(
-    `SELECT p.id, p.amount_cents, a.name AS affiliate_name
-       FROM affiliate_payouts p LEFT JOIN affiliates a ON a.id = p.affiliate_id
-      WHERE p.status = 'solicitado'
-      ORDER BY p.id DESC LIMIT 5`,
-  );
+  const permissions = new Set(res.locals.adminPermissions as string[]);
+  const canSupport = permissions.has('support');
+  const canLeads = permissions.has('leads');
+  const canPayouts = permissions.has('payouts') || permissions.has('commissions');
+
+  let unreadTickets = 0;
+  let newLeads = 0;
+  let recentTickets: unknown[] = [];
+  let recentLeads: unknown[] = [];
+  let payoutRows: unknown[] = [];
+
+  if (canSupport) {
+    const [ticketRows] = await pool.query(
+      'SELECT COUNT(*) AS cnt FROM support_tickets WHERE admin_unread > 0',
+    );
+    unreadTickets = Number((ticketRows as { cnt: number }[])[0]?.cnt ?? 0);
+    const [rows] = await pool.query(
+      `SELECT t.id, t.subject, t.admin_unread, t.last_message_at, c.name AS company_name
+         FROM support_tickets t
+         LEFT JOIN companies c ON c.company_uuid = t.company_uuid
+        WHERE t.admin_unread > 0
+        ORDER BY t.last_message_at DESC
+        LIMIT 5`,
+    );
+    recentTickets = rows as unknown[];
+  }
+
+  if (canLeads) {
+    const [leadRows] = await pool.query(
+      "SELECT COUNT(*) AS cnt FROM contact_leads WHERE status = 'novo'",
+    );
+    newLeads = Number((leadRows as { cnt: number }[])[0]?.cnt ?? 0);
+    const [rows] = await pool.query(
+      `SELECT id, name, whatsapp, created_at
+         FROM contact_leads
+        WHERE status = 'novo'
+        ORDER BY created_at DESC
+        LIMIT 5`,
+    );
+    recentLeads = rows as unknown[];
+  }
+
+  if (canPayouts) {
+    const [rows] = await pool.query(
+      `SELECT p.id, p.amount_cents, a.name AS affiliate_name
+         FROM affiliate_payouts p LEFT JOIN affiliates a ON a.id = p.affiliate_id
+        WHERE p.status = 'solicitado'
+        ORDER BY p.id DESC LIMIT 5`,
+    );
+    payoutRows = rows as unknown[];
+  }
+
   res.json({
-    unreadTickets: Number((ticketRows as { cnt: number }[])[0]?.cnt ?? 0),
-    newLeads: Number((leadRows as { cnt: number }[])[0]?.cnt ?? 0),
-    pendingPayouts: Number((payoutRows as unknown[]).length),
+    unreadTickets,
+    newLeads,
+    pendingPayouts: payoutRows.length,
     recentTickets: recentTickets as { id: number; subject: string; admin_unread: number; last_message_at: string; company_name: string | null }[],
     recentLeads: recentLeads as { id: number; name: string; whatsapp: string; created_at: string }[],
     recentPayouts: payoutRows as { id: number; amount_cents: number; affiliate_name: string | null }[],

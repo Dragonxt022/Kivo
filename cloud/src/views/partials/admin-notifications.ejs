@@ -1,0 +1,84 @@
+<script>
+  // Notificações do topo do painel: novos tickets, leads e pagamentos de afiliados.
+  // Antes esse polling morava no menu lateral; com os cards ele veio para o navbar.
+  (function () {
+    if (!window.location.pathname.startsWith('/admin')) return;
+    var bellBadge = document.querySelector('#notif-btn .notif-badge');
+    var notifList = document.getElementById('notif-list');
+    if (!bellBadge && !notifList) return;
+
+    var lastTickets = 0;
+    var lastLeads = 0;
+
+    function update() {
+      fetch('/admin/api/notifications', { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d) return;
+          var total = (d.unreadTickets || 0) + (d.newLeads || 0) + (d.pendingPayouts || 0);
+
+          if (bellBadge) {
+            bellBadge.style.display = total > 0 ? 'grid' : 'none';
+            bellBadge.textContent = total > 9 ? '9+' : String(total);
+          }
+
+          if (notifList) {
+            var html = '';
+            if (!total) {
+              html = '<div class="notif-empty">Nenhuma notificação por aqui.</div>';
+            } else {
+              (d.recentTickets || []).forEach(function (t) {
+                html += '<a href="/admin/support/' + t.id + '" class="notif-item">' +
+                  '<div class="notif-title">' + (t.company_name || 'Empresa') + ': ' + t.subject + '</div>' +
+                  '<div class="notif-meta">' + t.admin_unread + ' nova(s) · ' + String(t.last_message_at || '').slice(0, 16) + '</div>' +
+                  '</a>';
+              });
+              (d.recentLeads || []).forEach(function (l) {
+                html += '<a href="/admin/leads" class="notif-item">' +
+                  '<div class="notif-title">Novo lead: ' + l.name + '</div>' +
+                  '<div class="notif-meta">' + l.whatsapp + ' · ' + String(l.created_at || '').slice(0, 16) + '</div>' +
+                  '</a>';
+              });
+              (d.recentPayouts || []).forEach(function (p) {
+                var valor = (Number(p.amount_cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                html += '<a href="/admin/payouts" class="notif-item">' +
+                  '<div class="notif-title">Pagamento de afiliado: ' + (p.affiliate_name || 'afiliado') + '</div>' +
+                  '<div class="notif-meta">' + valor + ' aguardando confirmação</div>' +
+                  '</a>';
+              });
+            }
+            notifList.innerHTML = html;
+          }
+
+          if ((d.unreadTickets || 0) > lastTickets && lastTickets > 0) {
+            var n = d.recentTickets && d.recentTickets[0];
+            if (n && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('Novo ticket de suporte', {
+                body: (n.company_name || 'Empresa') + ': ' + n.subject,
+                icon: '/logo_kivo-icon.svg',
+              });
+            }
+          }
+          if ((d.newLeads || 0) > lastLeads && lastLeads > 0) {
+            var l = d.recentLeads && d.recentLeads[0];
+            if (l && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification('Novo lead', {
+                body: l.name + ' · ' + l.whatsapp,
+                icon: '/logo_kivo-icon.svg',
+              });
+            }
+          }
+          lastTickets = d.unreadTickets || 0;
+          lastLeads = d.newLeads || 0;
+        })
+        .catch(function () { /* silencioso */ });
+    }
+
+    update();
+    setInterval(update, 15000);
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  })();
+</script>

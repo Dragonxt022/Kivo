@@ -17,6 +17,15 @@ async function main(): Promise<void> {
      ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)`,
     [username, hashPassword(password)],
   );
+  // Coloca o usuário no grupo Administrador quando a migration de grupos já rodou.
+  await getPool()
+    .query(
+      `UPDATE admin_users
+          SET role_id = COALESCE(role_id, (SELECT id FROM admin_roles WHERE slug = 'administrador'))
+        WHERE username = ?`,
+      [username],
+    )
+    .catch(() => {});
   console.log(`Admin provisionado: ${username}`);
   await closePool();
 }

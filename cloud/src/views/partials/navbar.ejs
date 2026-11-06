@@ -1,8 +1,12 @@
+<%
+  var _adminPerms = typeof adminPermissions !== 'undefined' ? adminPermissions : [];
+  var _adminRoleName = typeof adminRole !== 'undefined' && adminRole ? adminRole.name : 'Administrador';
+%>
 <div class="navbar">
   <div class="left">
-    <button type="button" class="icon-btn" id="sidebar-toggle" title="Alternar menu" aria-label="Alternar menu">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
+    <a href="/admin" class="icon-btn" title="Início — aplicações" aria-label="Início — aplicações">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+    </a>
     <a href="/admin" class="brand">
       <img id="brand-logo" class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
       <img id="brand-logo-dark" class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" style="display:none" />
@@ -43,7 +47,15 @@
         <span class="username"><%= typeof adminUsername !== 'undefined' ? adminUsername : '' %></span>
       </button>
       <div class="user-menu-dropdown" id="user-menu-dropdown">
+        <div class="user-menu-role">
+          <span>Grupo de acesso</span>
+          <strong><%= _adminRoleName %></strong>
+        </div>
+        <a href="/admin">Aplicações</a>
         <a href="/admin/profile">Meu perfil</a>
+        <% if (_adminPerms.indexOf('roles') !== -1) { %>
+        <a href="/admin/cargos">Grupos de permissão</a>
+        <% } %>
         <form method="post" action="/admin/logout"><button type="submit">Sair</button></form>
       </div>
     </div>
@@ -116,3 +128,4 @@
     }
   })();
 </script>
+<%- include('admin-notifications') %>

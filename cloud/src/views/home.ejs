@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title>Kivo Cloud — Aplicações</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <script defer src="/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <main class="content">
+      <%- include('partials/navbar', { active: 'home' }) %>
+
+      <div class="page launcher-page"
+           x-data="launcherPage()"
+           x-init="initLauncher()">
+        <div class="launcher-hero">
+          <div>
+            <div class="breadcrumb">Painel</div>
+            <h1>Olá, <%= adminUsername %></h1>
+            <p class="launcher-sub">
+              Acesso como
+              <span class="role-chip">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <%= currentRole && currentRole.name ? currentRole.name : 'Administrador' %>
+              </span>
+              · escolha um aplicativo para começar.
+            </p>
+          </div>
+        </div>
+
+        <div x-show="deniedLabel" x-cloak class="launcher-denied" role="alert">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Seu grupo de permissão não permite acessar <strong x-text="deniedLabel"></strong>.</span>
+          <button type="button" class="btn-reset" @click="deniedLabel = ''" aria-label="Fechar">&times;</button>
+        </div>
+
+        <div class="home-bar launcher-search">
+          <div class="search-wrap">
+            <span class="search-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input type="search" x-model="q" placeholder="Buscar aplicativo…" autocomplete="off"
+                   aria-label="Buscar aplicativo">
+          </div>
+          <span class="launcher-count" x-text="visibleApps.length + (visibleApps.length === 1 ? ' aplicativo' : ' aplicativos')"></span>
+        </div>
+
+        <section class="fav-section" x-show="!q || favoriteApps.length" x-cloak>
+          <div class="section-head">
+            <h2>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Favoritos
+            </h2>
+            <span class="muted" x-text="favorites.length + '/4'"></span>
+          </div>
+          <div class="cloud-app-grid fav-grid">
+            <template x-for="a in favoriteApps" :key="'fav-' + a.key">
+              <div class="cloud-app-card is-favorite">
+                <a class="cloud-app-link" :href="a.href" :aria-label="a.label"></a>
+                <span class="cloud-app-icon" x-html="iconSvg(a.icon)"></span>
+                <span class="cloud-app-title" x-text="a.label"></span>
+                <span class="cloud-app-desc" x-text="a.description"></span>
+                <button type="button" class="cloud-fav-btn active" @click.prevent="toggleFav(a.key)"
+                        title="Remover dos favoritos" :aria-label="'Remover ' + a.label + ' dos favoritos'">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </button>
+              </div>
+            </template>
+            <template x-for="i in emptySlots" :key="'empty-' + i">
+              <div class="cloud-app-card fav-empty">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span>Fixe um aplicativo</span>
+              </div>
+            </template>
+          </div>
+          <p class="fav-warning" x-show="favWarning" x-text="favWarning"></p>
+        </section>
+
+        <template x-for="group in groups" :key="group.name">
+          <section class="app-group" x-show="group.apps.length">
+            <div class="section-head">
+              <h2 x-text="group.name"></h2>
+              <span class="muted" x-text="group.apps.length"></span>
+            </div>
+            <div class="cloud-app-grid">
+              <template x-for="a in group.apps" :key="a.key">
+                <div class="cloud-app-card" :class="{ 'is-favorite': isFav(a.key) }">
+                  <a class="cloud-app-link" :href="a.href" :aria-label="a.label"></a>
+                  <span class="cloud-app-icon" x-html="iconSvg(a.icon)"></span>
+                  <span class="cloud-app-title" x-text="a.label"></span>
+                  <span class="cloud-app-desc" x-text="a.description"></span>
+                  <button type="button" class="cloud-fav-btn" :class="{ active: isFav(a.key) }"
+                          @click.prevent="toggleFav(a.key)"
+                          :title="isFav(a.key) ? 'Remover dos favoritos' : 'Favoritar'"
+                          :aria-label="(isFav(a.key) ? 'Remover ' : 'Favoritar ') + a.label">
+                    <svg viewBox="0 0 24 24" width="16" height="16" :fill="isFav(a.key) ? 'currentColor' : 'none'"
+                         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  </button>
+                </div>
+              </template>
+            </div>
+          </section>
+        </template>
+
+        <div class="app-empty" x-show="!visibleApps.length" x-cloak>
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <strong>Nenhum aplicativo encontrado</strong>
+          <span>Tente outro termo ou peça ao administrador para liberar mais blocos no seu grupo.</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Sprite de ícones dos cards (leve: os mesmos traços do menu antigo). -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="cloud-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+    <symbol id="cloud-companies" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+    <symbol id="cloud-usage" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+    <symbol id="cloud-devices" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></symbol>
+    <symbol id="cloud-downloads" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="cloud-versions" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+    <symbol id="cloud-leads" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+    <symbol id="cloud-contracts" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></symbol>
+    <symbol id="cloud-subscriptions" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="cloud-charges" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></symbol>
+    <symbol id="cloud-plans" viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></symbol>
+    <symbol id="cloud-gateways" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M7 15h2"/><path d="M15 17.5a3.5 3.5 0 0 1 5-3.1"/><path d="M20 12.5v2h-2"/></symbol>
+    <symbol id="cloud-affiliates" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="cloud-commissions" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+    <symbol id="cloud-payouts" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M6 15h4"/><path d="M17 14l2 2-2 2"/></symbol>
+    <symbol id="cloud-support" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="cloud-messages" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="cloud-catalog" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></symbol>
+    <symbol id="cloud-themes" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="12.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="13.5" r="2.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.3-.5-.8-.5-1.2 0-1.1.9-2 2-2h2.3A4.7 4.7 0 0 0 22 10.8C21.7 5.9 17.3 2 12 2z"/></symbol>
+    <symbol id="cloud-ai" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></symbol>
+    <symbol id="cloud-docs" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></symbol>
+    <symbol id="cloud-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="cloud-errors" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="cloud-hardware" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></symbol>
+    <symbol id="cloud-admins" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="cloud-roles" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  </svg>
+
+  <script>
+    const ADMIN_APPS = <%- JSON.stringify(adminApps) %>;
+    const ADMIN_CATEGORIES = <%- JSON.stringify(adminCategories) %>;
+    const ADMIN_USERNAME = <%- JSON.stringify(adminUsername || '') %>;
+    const DENIED_LABEL = <%- JSON.stringify(deniedBlock || '') %>;
+
+    function normalizeText(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    }
+
+    function launcherPage() {
+      return {
+        apps: ADMIN_APPS,
+        categories: ADMIN_CATEGORIES,
+        username: ADMIN_USERNAME,
+        deniedLabel: DENIED_LABEL,
+        q: '',
+        favorites: [],
+        favWarning: '',
+        storageKey: 'kivo-cloud-favorites:' + ADMIN_USERNAME,
+
+        initLauncher() {
+          try {
+            const raw = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
+            const valid = new Set(this.apps.map((a) => a.key));
+            this.favorites = (Array.isArray(raw) ? raw : []).filter((k) => valid.has(k)).slice(0, 4);
+          } catch (e) {
+            this.favorites = [];
+          }
+        },
+
+        matches(app) {
+          const q = normalizeText(this.q.trim());
+          if (!q) return true;
+          return normalizeText([
+            app.label, app.description, app.keywords, app.category,
+          ].join(' ')).includes(q);
+        },
+
+        get visibleApps() {
+          return this.apps.filter((a) => this.matches(a));
+        },
+
+        get groups() {
+          const byCategory = new Map(this.categories.map((c) => [c, []]));
+          for (const app of this.visibleApps) {
+            if (!byCategory.has(app.category)) byCategory.set(app.category, []);
+            byCategory.get(app.category).push(app);
+          }
+          return [...byCategory.entries()]
+            .map(([name, apps]) => ({ name, apps }))
+            .filter((g) => g.apps.length);
+        },
+
+        get favoriteApps() {
+          const byKey = new Map(this.apps.map((a) => [a.key, a]));
+          return this.favorites
+            .map((key) => byKey.get(key))
+            .filter(Boolean)
+            .filter((a) => this.matches(a));
+        },
+
+        get emptySlots() {
+          if (this.q.trim()) return 0;
+          return Math.max(0, 4 - this.favorites.length);
+        },
+
+        isFav(key) {
+          return this.favorites.includes(key);
+        },
+
+        toggleFav(key) {
+          this.favWarning = '';
+          const index = this.favorites.indexOf(key);
+          if (index >= 0) {
+            this.favorites.splice(index, 1);
+          } else {
+            if (this.favorites.length >= 4) {
+              this.favWarning = 'Você já tem 4 favoritos. Remova um deles antes de adicionar outro.';
+              return;
+            }
+            this.favorites.push(key);
+          }
+          try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.favorites));
+          } catch (e) { /* modo privado: os favoritos valem só nesta sessão */ }
+        },
+
+        iconSvg(name) {
+          return '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#cloud-' + name + '"></use></svg>';
+        },
+      };
+    }
+  </script>
+</body>
+</html>
