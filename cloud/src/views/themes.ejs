@@ -97,7 +97,7 @@
                 </div>
                 <% if (t.description) { %><p class="cell-muted" style="margin:.35rem 0 0"><%= t.description %></p><% } %>
               </div>
-              <div style="display:flex; gap:8px; flex: none;">
+              <div class="theme-actions">
                 <button type="button" class="btn secondary small" onclick="openPreviewTheme(<%= t.id %>)">Pré-visualizar</button>
                 <button type="button" class="btn secondary small" onclick="openEditTheme(<%= t.id %>)">Editar</button>
                 <form method="post" action="/admin/themes/<%= t.id %>/delete" onsubmit="return confirm('Remover o tema <%= t.name %>? Empresas que já baixaram mantêm os ícones.');">

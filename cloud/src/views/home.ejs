@@ -17,18 +17,29 @@
       <div class="page launcher-page"
            x-data="launcherPage()"
            x-init="initLauncher()">
+        <%
+          // Saudação inicial renderizada no servidor; o Alpine recalcula no fuso do
+          // navegador logo em seguida, para o VPS em UTC não dizer "bom dia" à noite.
+          var _agora = new Date();
+          var _hora = _agora.getHours();
+          var _fimDeSemana = _agora.getDay() === 0 || _agora.getDay() === 6;
+          var _saudacao = _fimDeSemana
+            ? 'Bom fim de semana'
+            : (_hora >= 5 && _hora < 12 ? 'Bom dia' : (_hora >= 12 && _hora < 18 ? 'Boa tarde' : 'Boa noite'));
+          var _icone = _fimDeSemana ? 'weekend' : ((_hora >= 18 || _hora < 5) ? 'moon' : 'sun');
+          var _iconeSvg = _icone === 'moon'
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+            : (_icone === 'weekend'
+              ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V10"/><path d="M12 10C9.5 6.5 6 6 4 7c1.5 2.5 4 4 8 3z"/><path d="M12 10c2.5-3.5 6-4 8-3-1.5 2.5-4 4-8 3z"/><path d="M12 10c-.5-3.5 1.5-6.5 4-7 .5 2.5-.5 5-4 7z"/></svg>'
+              : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>');
+        %>
         <div class="launcher-hero">
           <div>
             <div class="breadcrumb">Painel</div>
-            <h1>Olá, <%= adminUsername %></h1>
-            <p class="launcher-sub">
-              Acesso como
-              <span class="role-chip">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                <%= currentRole && currentRole.name ? currentRole.name : 'Administrador' %>
-              </span>
-              · escolha um aplicativo para começar.
-            </p>
+            <h1 class="launcher-greeting">
+              <span class="greeting-icon <%= _icone %>" x-html="greetingIconSvg()"><%- _iconeSvg %></span>
+              <span x-text="greetingText"><%= _saudacao %>, <%= adminUsername %></span>
+            </h1>
           </div>
         </div>
 
@@ -167,9 +178,13 @@
         q: '',
         favorites: [],
         favWarning: '',
+        greetingText: '',
+        greetingIcon: 'sun',
         storageKey: 'kivo-cloud-favorites:' + ADMIN_USERNAME,
 
         initLauncher() {
+          this.updateGreeting();
+          setInterval(() => this.updateGreeting(), 60000);
           try {
             const raw = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
             const valid = new Set(this.apps.map((a) => a.key));
@@ -177,6 +192,36 @@
           } catch (e) {
             this.favorites = [];
           }
+        },
+
+        /** Saudação pelo relógio do navegador; no fim de semana o ícone é especial. */
+        updateGreeting() {
+          const now = new Date();
+          const hour = now.getHours();
+          const weekend = now.getDay() === 0 || now.getDay() === 6;
+          if (weekend) {
+            this.greetingText = 'Bom fim de semana, ' + this.username;
+            this.greetingIcon = 'weekend';
+          } else if (hour >= 5 && hour < 12) {
+            this.greetingText = 'Bom dia, ' + this.username;
+            this.greetingIcon = 'sun';
+          } else if (hour >= 12 && hour < 18) {
+            this.greetingText = 'Boa tarde, ' + this.username;
+            this.greetingIcon = 'sun';
+          } else {
+            this.greetingText = 'Boa noite, ' + this.username;
+            this.greetingIcon = 'moon';
+          }
+        },
+
+        greetingIconSvg() {
+          if (this.greetingIcon === 'moon') {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+          }
+          if (this.greetingIcon === 'weekend') {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V10"/><path d="M12 10C9.5 6.5 6 6 4 7c1.5 2.5 4 4 8 3z"/><path d="M12 10c2.5-3.5 6-4 8-3-1.5 2.5-4 4-8 3z"/><path d="M12 10c-.5-3.5 1.5-6.5 4-7 .5 2.5-.5 5-4 7z"/></svg>';
+          }
+          return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
         },
 
         matches(app) {
