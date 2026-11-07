@@ -104,7 +104,12 @@
                 <span class="menu-category-count">· <%= cat.items.length %></span>
               </div>
               <% cat.items.forEach(function(item, idx) { %>
-                <div class="menu-item" data-item data-search="<%= (item.name + ' ' + (item.description || '')).toLowerCase() %>" style="animation-delay:<%= Math.min(idx, 6) * 0.04 %>s">
+                <div class="menu-item<%= item.image_id ? ' has-thumb' : '' %>" data-item data-search="<%= (item.name + ' ' + (item.description || '')).toLowerCase() %>" style="animation-delay:<%= Math.min(idx, 6) * 0.04 %>s">
+                  <% if (item.image_id) { %>
+                  <div class="menu-item-thumb">
+                    <img src="/cardapio/<%= company.company_uuid %>/imagem/<%= item.image_id %>" alt="<%= item.name %>" loading="lazy" decoding="async">
+                  </div>
+                  <% } %>
                   <div class="menu-item-main">
                     <div class="menu-item-name"><%= item.name %></div>
                     <% if (item.description) { %><div class="menu-item-desc"><%= item.description %></div><% } %>

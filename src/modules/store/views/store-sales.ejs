@@ -21,7 +21,7 @@
   %>
   <main x-data="salesPage()" x-init="load()" @apply-filter.window="filter=$event.detail; page=1; load()">
     <h1>Vendas</h1>
-    <div class="toolbar">
+    <div class="toolbar sales-toolbar">
       <%- include('partials/search-filter', { statusOptions: _sfStatusOpts, placeholder: 'Buscar por cliente ou #venda', quickDays: [1, 7, 30, 90] }) %>
       <select x-model="paymentMethod" @change="page=1; load()" title="Forma de pagamento">
         <option value="">Todas as formas</option>
@@ -51,7 +51,7 @@
     </div>
 
     <% if (user.permissions.has('store.reports.view')) { %>
-    <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1.2rem">
+    <div class="sales-summary">
       <section>
         <h2 class="muted" style="font-size:.95rem;margin-bottom:.5rem">Por forma de pagamento (hoje)</h2>
         <table>

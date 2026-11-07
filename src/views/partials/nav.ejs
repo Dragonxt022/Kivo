@@ -6,6 +6,9 @@
   licenseStatus: null,
   cloudIssueDismissed: false,
   cashAlert: null,
+  // Abrir no celular: estado do diálogo compartilhado (vive na nav para abrir o QR
+  // em qualquer tela, sem navegar para a home).
+  celular: { loading: false, erro: '', ativando: false, copiado: '', info: { urls: [], lanAtivo: null } },
   renewPlans: [],
   renewPlansLoading: false,
   renewPlansError: '',
@@ -178,6 +181,14 @@
   // Sem o clear, o estado antigo do Alpine voltava junto ao retornar para uma página em
   // bfcache (depois de fechar o caixa), e a modal reaparecia até clicar em 'Depois'.
   loadCashAlert() {
+    // Na própria tela do Caixa o turno aberto já aparece no topo. Quando ela é aberta
+    // pelo botão Fechar caixa do aviso (?fechar=1), o fechamento vem em modal — repetir
+    // o aviso aqui empilhava duas janelas e, depois de confirmar o fechamento, a modal de
+    // caixa aberto há mais de 24h continuava na frente da tela.
+    if (location.pathname === '/app/finance/caixa') {
+      this.cashAlert = null;
+      return Promise.resolve();
+    }
     return fetch('/api/finance/cash/current')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -188,6 +199,84 @@
         this.cashAlert = (d && d.open && d.openTooLong && !renovando) ? d : null;
       })
       .catch(() => {});
+  },
+  // ─── Abrir no celular (mesma rede local) ───────────────────────────────────
+  // O diálogo mora na nav (e não só na home) para o atalho do cabeçalho abrir o QR na
+  // tela em que o usuário está. A home também o aciona pelo evento kivo-open-celular.
+  async abrirCelular() {
+    const dlg = this.$refs.dlgCelular;
+    if (!dlg) return;
+    if (!dlg.open) dlg.showModal();
+    await this.carregarCelular();
+  },
+  fecharCelular() {
+    const dlg = this.$refs.dlgCelular;
+    if (dlg && dlg.open) dlg.close();
+  },
+  async carregarCelular() {
+    this.celular.loading = true;
+    this.celular.erro = '';
+    try {
+      const r = await fetch('/api/settings/network-info');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      this.celular.info = await r.json();
+    } catch (e) {
+      this.celular.erro = 'Não foi possível consultar os endereços da rede local.';
+    } finally {
+      this.celular.loading = false;
+    }
+  },
+  async ativarCelular() {
+    if (this.celular.ativando) return;
+    this.celular.ativando = true;
+    try {
+      const r = await fetch('/api/settings/rede.acesso_local', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: '1' }),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      showToast('Acesso pela rede local ativado.', 'success');
+      // A troca do host roda no servidor logo depois desta resposta; reler o estado
+      // real troca o botão pelos QR codes sem precisar fechar e abrir o dialog.
+      setTimeout(() => this.carregarCelular(), 900);
+      setTimeout(() => { this.carregarCelular(); this.celular.ativando = false; }, 2500);
+    } catch (e) {
+      showToast('Não foi possível ativar o acesso pela rede local.', 'error');
+      this.celular.ativando = false;
+    }
+  },
+  async copiarCelular(url) {
+    const ok = await this.copiarTexto(url);
+    if (ok) {
+      this.celular.copiado = url;
+      setTimeout(() => { if (this.celular.copiado === url) this.celular.copiado = ''; }, 1500);
+    } else {
+      showToast('Não foi possível copiar o endereço.', 'error');
+    }
+  },
+  async copiarTexto(txt) {
+    // navigator.clipboard só existe em contexto seguro (localhost/HTTPS). Quando o
+    // próprio Kivo é aberto pelo IP da rede (HTTP), cai no textarea antigo.
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(txt);
+        return true;
+      }
+    } catch (e) { /* tenta o fallback abaixo */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, txt.length);
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
   },
   init() {
     // Modo leve espaça o que roda em toda página o dia inteiro: o relógio passa de 1s para
@@ -237,6 +326,9 @@
     // Voltando de outra tela (ex.: depois de fechar o caixa), a página pode vir do bfcache
     // com o estado antigo: revalida para a modal não reaparecer com o caixa já fechado.
     window.addEventListener('pageshow', (ev) => { if (ev.persisted) this.loadCashAlert(); });
+    // A tela do Caixa avisa quando abre/fecha o turno; revalida o aviso na hora para ele
+    // não continuar aberto (ou reaparecer) com o caixa já fechado.
+    window.addEventListener('kivo-cash-changed', () => this.loadCashAlert());
     <% } %>
     <% if (user && (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view'))) { %>
     jobs.push(fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; }).catch(() => {}));
@@ -357,12 +449,12 @@
     </span>
 
     <% if (user.permissions.has('settings.view')) { %>
-    <a href="/?celular=1" class="btn-icon nav-celular-btn" title="Abrir no celular"
-       aria-label="Abrir o Kivo no celular ou tablet" style="text-decoration:none">
+    <button type="button" class="btn-icon nav-celular-btn" title="Abrir no celular"
+            aria-label="Abrir o Kivo no celular ou tablet" @click="abrirCelular()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
       </svg>
-    </a>
+    </button>
     <% } %>
 
     <%# Instalar no celular / tela cheia. Só aparece no layout estreito: no desktop o Kivo
@@ -618,7 +710,15 @@
 
 <% if (user && user.permissions.has('finance.cash.view')) { %>
 <dialog x-ref="cashAlertDlg" style="border:0;border-radius:12px;padding:0;box-shadow:var(--shadow-lg);width:360px;max-width:90vw"
-        x-init="$watch('cashAlert', v => v ? $refs.cashAlertDlg.showModal() : $refs.cashAlertDlg.close())">
+        x-init="$watch('cashAlert', (v) => {
+          const dlg = $refs.cashAlertDlg;
+          if (!dlg) return;
+          // `showModal()` num diálogo já aberto lança InvalidStateError: a revalidação
+          // (ex.: depois de abrir/fechar o caixa) pode disparar o watcher de novo.
+          if (v && !dlg.open) dlg.showModal();
+          else if (!v && dlg.open) dlg.close();
+        })"
+        @close="cashAlert = null">
   <div class="dialog-body-center" style="padding:1.25rem">
     <div class="dialog-icon-sm dialog-icon-warning">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
@@ -640,6 +740,80 @@
       </button>
     </div>
   </div>
+</dialog>
+<% } %>
+
+<% if (user && user.permissions.has('settings.view')) { %>
+<%# Diálogo "Abrir no celular" global: o atalho do cabeçalho abre o QR sem navegar
+    para a home. A home também o aciona pelo evento kivo-open-celular. %>
+<dialog x-ref="dlgCelular" class="dlg-celular" @kivo-open-celular.window="abrirCelular()">
+  <div class="celular-topo">
+    <span class="celular-topo-icone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" aria-hidden="true">
+        <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+      </svg>
+    </span>
+    <div>
+      <h1>Abrir no celular</h1>
+      <p>Aponte a câmera para o QR code — o aparelho precisa estar na mesma rede Wi-Fi ou cabo desta máquina.</p>
+    </div>
+    <button type="button" class="celular-fechar" @click="fecharCelular()" title="Fechar" aria-label="Fechar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <div x-show="celular.loading" class="hint">Procurando os endereços desta máquina…</div>
+
+  <div x-show="!celular.loading && celular.erro" x-cloak>
+    <p class="hint" style="color:var(--danger)" x-text="celular.erro"></p>
+    <button type="button" class="btn secondary small" @click="carregarCelular()">Tentar de novo</button>
+  </div>
+
+  <div x-show="!celular.loading && !celular.erro" x-cloak>
+    <template x-if="celular.info.lanAtivo === false">
+      <div>
+        <p class="hint mt-0">
+          O acesso pela rede local está <strong>desligado</strong>. Ao ativar, o celular ou
+          tablet na mesma rede passa a abrir o Kivo — não é acesso pela internet.
+        </p>
+        <% if (user.permissions.has('settings.edit')) { %>
+        <button type="button" class="btn" :disabled="celular.ativando" @click="ativarCelular()"
+                x-text="celular.ativando ? 'Ativando…' : 'Ativar acesso pela rede local'"></button>
+        <% } else { %>
+        <p class="hint">Peça a um administrador para ativar em Configurações → Rede local.</p>
+        <% } %>
+      </div>
+    </template>
+
+    <template x-if="celular.info.lanAtivo !== false">
+      <div>
+        <p class="hint mt-0" x-show="celular.info.lanAtivo"><span class="badge ok">Ativo</span> Outros aparelhos da mesma rede já conseguem abrir o Kivo.</p>
+        <p class="hint mt-0" x-show="!celular.info.lanAtivo" x-cloak>
+          Não foi possível confirmar o estado da rede agora. Se o endereço abaixo não abrir no
+          celular, verifique o firewall do Windows ou as configurações de rede local.
+        </p>
+        <template x-for="u in celular.info.urls" :key="u.url">
+          <div class="celular-url">
+            <img :src="u.qr" width="92" height="92" alt="QR code do endereço do Kivo" />
+            <div class="celular-url-info">
+              <code x-text="u.url"></code>
+              <button type="button" class="btn secondary small" @click="copiarCelular(u.url)"
+                      x-text="celular.copiado === u.url ? 'Copiado!' : 'Copiar endereço'"></button>
+            </div>
+          </div>
+        </template>
+        <p class="hint" x-show="!celular.info.urls.length" x-cloak>
+          Nenhuma interface de rede local detectada — verifique se o cabo ou o Wi-Fi está conectado.
+        </p>
+      </div>
+    </template>
+  </div>
+
+  <% if (user.permissions.has('settings.edit')) { %>
+  <a class="celular-link-rede" href="/admin/configuracoes#rede">Abrir as configurações de rede local</a>
+  <% } %>
 </dialog>
 <% } %>
 

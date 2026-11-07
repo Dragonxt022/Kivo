@@ -171,10 +171,23 @@ async function main(): Promise<void> {
       await page.waitForTimeout(500);
 
       reporter.check(`caixa não estoura a largura${at}`, (await overflowX(page)) <= 0, String(await overflowX(page)));
-      // No desktop o kivo-ui troca o campo nativo por um texto do flatpickr; contar o
-      // input (sem exigir type=date) funciona nos dois modos.
-      const periodos = await page.locator('.cash-period input').count();
+      // O período agora vive no botão "Filtros" (a barra do topo não mistura mais o
+      // período com os botões do turno). No desktop o kivo-ui troca o campo nativo por
+      // um texto do flatpickr; contar os inputs (sem exigir type=date) serve nos dois modos.
+      await page.locator('.cash-filter-btn').click();
+      const periodDlg = page.locator('dialog[x-ref="periodDlg"][open]');
+      await periodDlg.waitFor({ state: 'visible', timeout: 8000 });
+      const periodos = await periodDlg.locator('input').count();
       reporter.check(`caixa mostra o período${at}`, periodos === 2, String(periodos));
+      await periodDlg.locator('button:has-text("hoje")').click();
+      await periodDlg.locator('button:has-text("Aplicar")').click();
+      await page.waitForTimeout(600);
+      const periodoAplicado = await page.locator('.cash-toolbar .muted').first().textContent();
+      reporter.check(
+        `caixa aplica o período${at}`,
+        (periodoAplicado ?? '').includes('/'),
+        periodoAplicado ?? '',
+      );
 
       const caixaLayout = await page.evaluate(() => {
         const table = document.querySelector('#cash-movements-table');

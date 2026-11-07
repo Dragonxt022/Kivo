@@ -39,6 +39,11 @@
     .cc-diff-label { font-size: .82rem; }
     .cc-diff-value { font-size: 1.1rem; font-weight: 800; }
     @media (max-width: 520px) { .cc-denom-grid { grid-template-columns: 1fr; } }
+    /* Filtros do topo: o período vive num diálogo, para a barra não competir com os
+       botões do turno (suprimento/sangria/fechar). */
+    .cash-filter-btn { position: relative; }
+    .cash-period-fields { display: flex; align-items: center; gap: .4rem; }
+    .cash-period-fields input { flex: 1 1 0; min-width: 0; }
   </style>
 </head>
 <body>
@@ -46,14 +51,39 @@
   <main x-data="cashPage()" x-init="load()" @apply-filter.window="filter=$event.detail; page=1">
     <h1>Caixa</h1>
 
-    <div class="toolbar">
-      <label class="muted text-sm cash-period">
-        Período
-        <input type="date" data-picker x-model="fromDate" @change="load()" class="input-search" />
-        até <input type="date" data-picker x-model="toDate" @change="load()" class="input-search" />
-      </label>
+    <div class="toolbar cash-toolbar">
+      <button type="button" class="btn secondary small cash-filter-btn" @click="$refs.periodDlg.showModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtros
+        <span class="filter-badge" x-show="hasPeriodFilter" x-cloak></span>
+      </button>
+      <span class="muted text-sm" x-text="periodLabel()"></span>
+      <span class="toolbar-spacer"></span>
       <a class="btn secondary small" :href="ledgerUrl()" title="Baixar o livro caixa (todos os movimentos do período)">Exportar livro caixa</a>
     </div>
+
+    <dialog x-ref="periodDlg" style="width:min(400px,94vw)">
+      <h2 class="dialog-heading-md">Filtrar por período</h2>
+      <p class="dialog-muted-sm">Vale para os movimentos do turno e para o histórico de fechamentos.</p>
+      <div class="dialog-body">
+        <label>Período</label>
+        <div class="cash-period-fields">
+          <input type="date" data-picker x-model="fromDate" @change="quickDays = 0" />
+          <span class="muted text-xs">até</span>
+          <input type="date" data-picker x-model="toDate" @change="quickDays = 0" />
+        </div>
+        <div class="filter-quick">
+          <button type="button" :class="{ active: quickDays === 1 }" @click="setPeriod(1)">hoje</button>
+          <button type="button" :class="{ active: quickDays === 7 }" @click="setPeriod(7)">7d</button>
+          <button type="button" :class="{ active: quickDays === 30 }" @click="setPeriod(30)">30d</button>
+          <button type="button" :class="{ active: quickDays === 90 }" @click="setPeriod(90)">90d</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn secondary" @click="clearPeriod()">Limpar</button>
+        <button type="button" class="btn" @click="applyPeriod()">Aplicar</button>
+      </div>
+    </dialog>
 
     <template x-if="!open">
       <div>
@@ -75,6 +105,7 @@
         <div class="toolbar">
           <span class="badge ok">aberto</span>
           <span>Esperado na gaveta: <strong x-text="brl(expected)"></strong></span>
+          <span class="toolbar-spacer"></span>
           <% if (user.permissions.has('finance.cash.move')) { %>
             <button class="btn secondary" @click="openMove('suprimento')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -332,7 +363,7 @@
       return {
         ...tableToolkit(),
         open: false, expected: 0, movements: [], opening: '', counted: '', closeNotes: '',
-        countMode: false, counts: {}, filter: {}, fromDate: '', toDate: '',
+        countMode: false, counts: {}, filter: {}, fromDate: '', toDate: '', quickDays: 0,
         denominations: [
           { cents: 20000, label: 'R$ 200' }, { cents: 10000, label: 'R$ 100' }, { cents: 5000, label: 'R$ 50' },
           { cents: 2000, label: 'R$ 20' }, { cents: 1000, label: 'R$ 10' }, { cents: 500, label: 'R$ 5' },
@@ -362,6 +393,26 @@
         },
         get closeCountedCents() { return this.countMode ? this.countTotal : this.cents(this.counted); },
         get closeDifference() { return this.closeCountedCents - this.expected; },
+        get hasPeriodFilter() { return !!(this.fromDate || this.toDate); },
+        periodLabel() {
+          const fmt = (iso) => { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; };
+          if (this.fromDate && this.toDate) return `${fmt(this.fromDate)} – ${fmt(this.toDate)}`;
+          if (this.fromDate) return `A partir de ${fmt(this.fromDate)}`;
+          if (this.toDate) return `Até ${fmt(this.toDate)}`;
+          return 'Todo o período';
+        },
+        setPeriod(days) {
+          const now = new Date();
+          const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const start = new Date(end);
+          start.setDate(start.getDate() - Math.max(0, days - 1));
+          this.fromDate = iso(start);
+          this.toDate = iso(end);
+          this.quickDays = days;
+        },
+        clearPeriod() { this.fromDate = ''; this.toDate = ''; this.quickDays = 0; },
+        applyPeriod() { this.$refs.periodDlg.close(); this.load(); },
         brl(c) { return window.brl(c); },
         movementLabel(t) {
           return ({
@@ -433,7 +484,7 @@
         async openCash() {
           const r = await fetch('/api/finance/cash/open', { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ openingCents: this.cents(this.opening) }) });
-          if (r.ok) { this.$refs.openDlg.close(); this.load(); showToast('Caixa aberto.', 'success'); } else showToast((await r.json()).error, 'error');
+          if (r.ok) { this.$refs.openDlg.close(); this.load(); window.dispatchEvent(new CustomEvent('kivo-cash-changed')); showToast('Caixa aberto.', 'success'); } else showToast((await r.json()).error, 'error');
         },
         openMove(type) { this.move = { type, amount: '', description: '' }; this.mvError = ''; this.$refs.mv.showModal(); },
         async saveMove() {
@@ -467,6 +518,9 @@
             this.closeResult = d;
             this.$refs.closeResultDlg.showModal();
             this.load();
+            // O aviso de "caixa aberto há mais de 24h" vive no header (nav.ejs): avisa
+            // que o turno mudou para ele fechar/revalidar em vez de continuar na frente.
+            window.dispatchEvent(new CustomEvent('kivo-cash-changed'));
           } else this.closeError = (await r.json()).error;
         },
       };
