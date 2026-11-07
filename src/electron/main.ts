@@ -683,8 +683,23 @@ async function boot() {
       if (!splash.isDestroyed()) splash.destroy();
     }, restante);
   });
-  await win.loadURL(`http://localhost:${PORT}/`);
-  bootLog('boot: janela principal carregada');
+  try {
+    await win.loadURL(`http://localhost:${PORT}/`);
+    bootLog('boot: janela principal carregada');
+  } catch (err) {
+    // Abertura personalizada (src/views/partials/theme-init.ejs) redireciona com
+    // `location.replace` ainda durante o loadURL inicial. O Chromium cancela a
+    // navegação original e o Electron rejeita com ERR_ABORTED (-3) mesmo com a tela
+    // de destino carregando normalmente — isso não é falha de boot. Qualquer outro
+    // erro (servidor fora do ar, porta recusada) continua fatal.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (win.isDestroyed()) {
+      bootLog('boot: janela fechada durante a carga');
+      return;
+    }
+    if (!/ERR_ABORTED/.test(msg)) throw err;
+    bootLog('boot: abertura personalizada redirecionou a janela (ERR_ABORTED ignorado)');
+  }
 
   // Acompanha o tema claro/escuro do Windows em tempo real (o ícone gravado no .exe
   // no build é fixo; isto troca o ícone da janela/taskbar enquanto o app está aberto).

@@ -31,7 +31,7 @@ import securityRoutes from './security/routes';
 import { startBackupScheduler } from './backup/service';
 import { validateLicense, isActivated, refreshLicenseFromCloud } from './license/service';
 import activationRoutes from './license/activationRoutes';
-import { productImagesDir, categoryImagesDir, trySubmitPending } from './catalog/submissionQueue';
+import { productImagesDir, categoryImagesDir, trySubmitPending, backfillMenuImageSubmissions } from './catalog/submissionQueue';
 import { companyLogoDir, LOGO_SETTING_KEY } from './config/companyLogo';
 import { billAttachmentsDir } from '../modules/finance/attachments';
 import { examFilesDir } from '../modules/odonto/examFiles';
@@ -504,6 +504,13 @@ export async function createServer(): Promise<KivoServer> {
   // no celular. O ciclo acima continua sendo a rede de segurança se o canal cair.
   startEventChannel();
   // Fotos de produto pendentes de envio ao banco de imagens do Cloud (best-effort, não trava o boot).
+  // Antes do envio, vincula as fotos de quem já está publicado no cardápio: fotos escolhidas
+  // pelo autofill/catálogo nunca passaram pela fila e a página pública ficava sem miniatura.
+  try {
+    backfillMenuImageSubmissions();
+  } catch (e) {
+    logCatalogo.error('erro ao vincular fotos do cardápio', e);
+  }
   trySubmitPending().catch((e) => logCatalogo.error('erro ao enviar fotos pendentes', e));
   // Mensagens do suporte: primeira busca no boot; o ciclo de sync e o evento SSE atualizam depois.
   fetchInbox().catch((e) => logCatalogo.error('erro ao buscar mensagens', e));

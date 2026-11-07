@@ -63,6 +63,7 @@ interface ProductImageRow {
   sku: string | null;
   updated_at: string;
   image_url?: string;
+  catalog_image_id?: number | null;
 }
 
 export interface AutofillImageResult {
@@ -82,10 +83,16 @@ export interface AutofillImageResult {
   remoteError?: string;
 }
 
+interface ImageRef {
+  url: string;
+  /** Id no banco de imagens do Cloud — sem ele o cardápio público não tem como servir a foto. */
+  catalogImageId: number | null;
+}
+
 interface NormalizedIndex {
-  byBarcode: Map<string, string>;
-  bySku: Map<string, string>;
-  byName: Map<string, string>;
+  byBarcode: Map<string, ImageRef>;
+  bySku: Map<string, ImageRef>;
+  byName: Map<string, ImageRef>;
 }
 
 /** Indexa produtos COM foto pelo campo mais específico (mais recente vence). */
@@ -94,14 +101,15 @@ function buildImageIndex(rows: ProductImageRow[]): NormalizedIndex {
   // updated_at DESC → o primeiro a entrar no Map é o mais recente.
   const sorted = [...rows].sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
   for (const row of sorted) {
-    if (!index.byBarcode.has(row.barcode ?? '') && row.barcode) index.byBarcode.set(row.barcode.trim(), row.image_url!);
-    if (!index.bySku.has(row.sku ?? '') && row.sku) index.bySku.set(row.sku.trim(), row.image_url!);
-    if (!index.byName.has(row.name) && row.name) index.byName.set(row.name.trim(), row.image_url!);
+    const ref: ImageRef = { url: row.image_url!, catalogImageId: row.catalog_image_id ?? null };
+    if (!index.byBarcode.has(row.barcode ?? '') && row.barcode) index.byBarcode.set(row.barcode.trim(), ref);
+    if (!index.bySku.has(row.sku ?? '') && row.sku) index.bySku.set(row.sku.trim(), ref);
+    if (!index.byName.has(row.name) && row.name) index.byName.set(row.name.trim(), ref);
   }
   return index;
 }
 
-function localMatch(index: NormalizedIndex, row: ProductImageRow): string | null {
+function localMatch(index: NormalizedIndex, row: ProductImageRow): ImageRef | null {
   if (row.barcode) {
     const hit = index.byBarcode.get(row.barcode.trim());
     if (hit) return hit;
@@ -135,7 +143,7 @@ function fillFromLocalProducts(scope: AutofillScope): { filled: number; remainin
 
   const sources = db()
     .prepare(
-      `SELECT p.id, p.name, p.barcode, p.sku, p.updated_at, p.image_url
+      `SELECT p.id, p.name, p.barcode, p.sku, p.updated_at, p.image_url, p.catalog_image_id
        FROM products p WHERE p.deleted_at IS NULL AND p.image_url IS NOT NULL AND p.image_url != ''
        AND ${scopePredicate(scope)}`,
     )
@@ -145,14 +153,14 @@ function fillFromLocalProducts(scope: AutofillScope): { filled: number; remainin
   let filled = 0;
   const remaining: ProductImageRow[] = [];
   for (const row of missing) {
-    const imageUrl = localMatch(index, row);
-    if (!imageUrl) {
+    const hit = localMatch(index, row);
+    if (!hit) {
       remaining.push(row);
       continue;
     }
     productRepository.rawRun(
-      "UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?",
-      imageUrl, row.id,
+      "UPDATE products SET image_url = ?, catalog_image_id = ?, updated_at = datetime('now') WHERE id = ?",
+      hit.url, hit.catalogImageId, row.id,
     );
     filled++;
   }
@@ -179,7 +187,7 @@ async function fillFromCloud(rows: ProductImageRow[]): Promise<{
   let offline = false;
   let remoteError: string | undefined;
   // Duplicados do mesmo nome baixam a foto uma vez só e reusam o arquivo local.
-  const byNamePath = new Map<string, string>();
+  const byNamePath = new Map<string, ImageRef>();
 
   for (const row of rows) {
     const name = (row.name ?? '').trim();
@@ -194,8 +202,8 @@ async function fillFromCloud(rows: ProductImageRow[]): Promise<{
       const cached = byNamePath.get(name);
       if (cached) {
         productRepository.rawRun(
-          "UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?",
-          cached, row.id,
+          "UPDATE products SET image_url = ?, catalog_image_id = ?, updated_at = datetime('now') WHERE id = ?",
+          cached.url, cached.catalogImageId, row.id,
         );
         filled++;
         continue;
@@ -231,10 +239,17 @@ async function fillFromCloud(rows: ProductImageRow[]): Promise<{
       if (!check.ok) continue;
 
       const localPath = saveLocalProductImage(buf, check.format);
-      byNamePath.set(name, localPath);
+      // `/api/catalog/image/<id>` — guardar o id é o que permite o cardápio público
+      // achar ESTA foto depois, sem depender do nome (ver menu_items.catalog_image_id).
+      const parsed = /\/catalog\/image\/(\d+)/.exec(results[0].url);
+      const ref: ImageRef = {
+        url: localPath,
+        catalogImageId: parsed ? Number(parsed[1]) : null,
+      };
+      byNamePath.set(name, ref);
       productRepository.rawRun(
-        "UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?",
-        localPath, row.id,
+        "UPDATE products SET image_url = ?, catalog_image_id = ?, updated_at = datetime('now') WHERE id = ?",
+        ref.url, ref.catalogImageId, row.id,
       );
       filled++;
     } catch (e) {

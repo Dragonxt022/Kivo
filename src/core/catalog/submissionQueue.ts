@@ -68,12 +68,24 @@ export function queueProductImageSubmission(
   barcode?: string | null,
 ): void {
   const absPath = path.join(productImagesDir(), path.basename(localPath));
-  getSqlite()
-    .prepare(
+  const db = getSqlite();
+  db.transaction(() => {
+    db.prepare(
       `INSERT INTO product_image_submissions (product_id, local_path, sha256, product_name, barcode, status)
        VALUES (?, ?, ?, ?, ?, 'pendente_envio')`,
-    )
-    .run(productId, absPath, sha256(buf), productName, barcode ? String(barcode).slice(0, 64) : null);
+    ).run(productId, absPath, sha256(buf), productName, barcode ? String(barcode).slice(0, 64) : null);
+    // A foto mudou: o id antigo do catálogo não vale mais até o novo envio concluir. O
+    // updated_at novo também faz o sync reenviar o produto, para o cardápio parar de
+    // mostrar a foto anterior em vez de exibir uma imagem errada.
+    db.prepare(
+      "UPDATE products SET catalog_image_id = NULL, updated_at = datetime('now') WHERE id = ?",
+    ).run(productId);
+  })();
+}
+
+/** URL local servida por `/uploads/products/...` a partir do caminho absoluto da fila. */
+function localImageUrl(absPath: string): string {
+  return `/uploads/products/${path.basename(absPath)}`;
 }
 
 export function cloudBaseUrl(): string | null {
@@ -89,6 +101,7 @@ export function cloudAuthHeaders(): Record<string, string> | null {
 
 interface PendingRow {
   id: number;
+  product_id: number;
   local_path: string;
   sha256: string;
   product_name: string;
@@ -107,7 +120,7 @@ export async function trySubmitPending(): Promise<void> {
 
   const db = getSqlite();
   const pending = db
-    .prepare(`SELECT id, local_path, sha256, product_name, barcode FROM product_image_submissions WHERE status = 'pendente_envio' LIMIT 20`)
+    .prepare(`SELECT id, product_id, local_path, sha256, product_name, barcode FROM product_image_submissions WHERE status = 'pendente_envio' LIMIT 20`)
     .all() as PendingRow[];
 
   for (const row of pending) {
@@ -137,9 +150,20 @@ export async function trySubmitPending(): Promise<void> {
       });
       if (res.ok) {
         const body = (await res.json()) as { catalogImageId?: number };
+        const remoteId = body.catalogImageId != null ? String(body.catalogImageId) : null;
         db.prepare(
           `UPDATE product_image_submissions SET status = 'enviado', remote_catalog_image_id = ?, updated_at = datetime('now') WHERE id = ?`,
-        ).run(body.catalogImageId != null ? String(body.catalogImageId) : null, row.id);
+        ).run(remoteId, row.id);
+        // Vincula a foto ao produto. Só quando o produto ainda aponta para ESTE arquivo —
+        // se o lojista trocou a foto no meio do envio, o id antigo não pode sobrescrever o
+        // da foto nova. O updated_at novo faz o sync mandar o id ao Cloud.
+        const numericId = Number(body.catalogImageId);
+        if (Number.isInteger(numericId) && numericId > 0) {
+          db.prepare(
+            `UPDATE products SET catalog_image_id = ?, updated_at = datetime('now')
+              WHERE id = ? AND image_url = ?`,
+          ).run(numericId, row.product_id, localImageUrl(row.local_path));
+        }
       } else if (res.status === 409) {
         // Já avaliada e rejeitada antes (mesma imagem, hash igual) — não adianta tentar de novo.
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -155,4 +179,67 @@ export async function trySubmitPending(): Promise<void> {
       // Sem rede — deixa pendente, tenta na próxima chamada.
     }
   }
+}
+
+interface BackfillRow {
+  id: number;
+  name: string;
+  barcode: string | null;
+  image_url: string;
+}
+
+/** URL antiga do proxy local `.../products/catalog-image/<id>` — o id já está na URL. */
+const LEGACY_CATALOG_URL_RE = /\/catalog-image\/(\d+)(?:[?#]|$)/;
+
+/**
+ * Garante que TODO produto publicado no cardápio e com foto local tenha um envio ao banco
+ * de imagens do Cloud. Sem isto a página pública só conseguia achar a miniatura pelo NOME
+ * do produto, e fotos vindas das sugestões automáticas (ou de catálogos antigos) nunca
+ * chegavam ao Cloud — o cardápio ficava sem as fotinhas.
+ *
+ * Idempotente: só pega produto visível/ativo, sem `catalog_image_id` e que ainda não tenha
+ * linha na fila para a mesma foto. O envio de fato fica para `trySubmitPending` (best-effort,
+ * respeita rede/credenciais). Retorna quantos foram enfileirados/vinculados agora.
+ */
+export function backfillMenuImageSubmissions(limit = 50): number {
+  const db = getSqlite();
+  const rows = db
+    .prepare(
+      `SELECT p.id, p.name, p.barcode, p.image_url
+         FROM products p
+        WHERE p.deleted_at IS NULL AND p.active = 1 AND p.visivel_cardapio = 1
+          AND p.catalog_image_id IS NULL
+          AND p.image_url IS NOT NULL AND p.image_url != ''
+        ORDER BY p.updated_at DESC, p.id DESC
+        LIMIT ?`,
+    )
+    .all(limit) as BackfillRow[];
+
+  let linked = 0;
+  for (const row of rows) {
+    const legacy = LEGACY_CATALOG_URL_RE.exec(row.image_url);
+    if (legacy) {
+      db.prepare("UPDATE products SET catalog_image_id = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(Number(legacy[1]), row.id);
+      linked++;
+      continue;
+    }
+    if (!row.image_url.startsWith('/uploads/products/')) continue;
+
+    const absPath = path.join(productImagesDir(), path.basename(row.image_url));
+    if (!fs.existsSync(absPath)) continue;
+    // Já existe envio (mesmo pendente/erro) desta foto para este produto: não duplica.
+    const existing = db
+      .prepare('SELECT 1 FROM product_image_submissions WHERE product_id = ? AND local_path = ? LIMIT 1')
+      .get(row.id, absPath);
+    if (existing) continue;
+
+    try {
+      queueProductImageSubmission(row.id, row.name, row.image_url, fs.readFileSync(absPath), row.barcode);
+      linked++;
+    } catch {
+      // arquivo ilegível: fica sem miniatura até o lojista reenviar a foto
+    }
+  }
+  return linked;
 }

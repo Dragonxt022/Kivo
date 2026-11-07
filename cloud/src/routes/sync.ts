@@ -50,12 +50,20 @@ async function projectMenuItem(
     const p = item.payload;
     const visible = !item.deletedAt && Number(p.active) === 1 && Number(p.visivel_cardapio) === 1;
     if (visible) {
+      // Id da foto no banco de imagens do Cloud. Vem do app local (products.catalog_image_id);
+      // é o que permite o cardápio público servir a miniatura certa sem casar pelo nome.
+      const catalogImageId = Number(p.catalog_image_id);
       await conn.query(
-        `INSERT INTO menu_items (company_uuid, product_uuid, name, description, price_cents, category_uuid)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO menu_items (company_uuid, product_uuid, name, description, price_cents, category_uuid, catalog_image_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description),
-           price_cents = VALUES(price_cents), category_uuid = VALUES(category_uuid)`,
-        [companyUuid, item.uuid, String(p.name ?? ''), (p.description as string | null) ?? null, Number(p.price_cents ?? 0), (p.category_id as string | null) ?? null],
+           price_cents = VALUES(price_cents), category_uuid = VALUES(category_uuid),
+           catalog_image_id = VALUES(catalog_image_id)`,
+        [
+          companyUuid, item.uuid, String(p.name ?? ''), (p.description as string | null) ?? null,
+          Number(p.price_cents ?? 0), (p.category_id as string | null) ?? null,
+          Number.isInteger(catalogImageId) && catalogImageId > 0 ? catalogImageId : null,
+        ],
       );
     } else {
       await conn.query('DELETE FROM menu_items WHERE company_uuid = ? AND product_uuid = ?', [companyUuid, item.uuid]);

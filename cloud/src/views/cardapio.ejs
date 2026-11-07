@@ -107,7 +107,7 @@
                 <div class="menu-item<%= item.image_id ? ' has-thumb' : '' %>" data-item data-search="<%= (item.name + ' ' + (item.description || '')).toLowerCase() %>" style="animation-delay:<%= Math.min(idx, 6) * 0.04 %>s">
                   <% if (item.image_id) { %>
                   <div class="menu-item-thumb">
-                    <img src="/cardapio/<%= company.company_uuid %>/imagem/<%= item.image_id %>" alt="<%= item.name %>" loading="lazy" decoding="async">
+                    <img src="/cardapio/<%= company.company_uuid %>/imagem/<%= item.image_id %>" alt="<%= item.name %>" loading="lazy" decoding="async" onerror="this.closest('.menu-item')?.classList.remove('has-thumb'); this.parentElement?.remove();">
                   </div>
                   <% } %>
                   <div class="menu-item-main">

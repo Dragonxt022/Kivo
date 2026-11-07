@@ -4,6 +4,7 @@ import { runSync } from './engine';
 import { drainCommands } from './commands';
 import { CloudAuthError } from './client';
 import { fetchInbox } from '../messages/service';
+import { trySubmitPending, backfillMenuImageSubmissions } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
 
 const log = createLogger('sync');
@@ -56,6 +57,15 @@ async function tick(motivo: string): Promise<void> {
     // mesmo quando o sync foi pulado (plano sem nuvem) porque os comandos de SUPORTE do
     // painel cloud precisam chegar em qualquer plano.
     await drainCommands();
+    // Fotos de produto: vincula as que faltam e tenta enviar as pendentes. É o que mantém
+    // as miniaturas do cardápio público atualizadas quando o lojista publica/edita um item
+    // entre um clique manual de sync e outro. Best-effort: não segura o ciclo.
+    try {
+      backfillMenuImageSubmissions();
+    } catch (e) {
+      log.error('erro ao vincular fotos do cardápio', e);
+    }
+    trySubmitPending().catch((e) => log.error('erro ao enviar fotos pendentes', e));
     // Mensagens do suporte: rede de segurança do canal de eventos. Independe do plano e não
     // bloqueia o tick (uma rede lenta não pode segurar o ciclo).
     void fetchInbox();

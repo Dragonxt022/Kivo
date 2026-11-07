@@ -7,7 +7,7 @@ import { getSyncTables } from './registry';
 import { getSqlite } from '../database/connection';
 import { getCloudServerUrl } from '../config/cloud';
 import { getLicenseCredentials } from '../license/service';
-import { trySubmitPending } from '../catalog/submissionQueue';
+import { trySubmitPending, backfillMenuImageSubmissions } from '../catalog/submissionQueue';
 import { createLogger } from '../logger';
 
 const log = createLogger('submit');
@@ -60,6 +60,13 @@ router.post('/run', requirePermission('sync.run'), async (req, res) => {
     const result = await runSync(req);
     // Independe do gate de plano do sync de tabelas: imagens de produto podem ser
     // contribuídas ao banco do Cloud por qualquer plano (ver cloud/src/routes/catalog.ts).
+    // O backfill cobre fotos que já estavam no produto mas nunca entraram na fila (autofill,
+    // sugestões do catálogo) — sem ele o cardápio público não tem a miniatura.
+    try {
+      backfillMenuImageSubmissions();
+    } catch (e) {
+      log.error('erro ao vincular fotos do cardápio', e);
+    }
     trySubmitPending().catch((e) => log.error('erro no sync manual', e));
     if (result.skipped) {
       res.status(403).json({ error: 'Sincronização em nuvem não incluída no plano atual.' });

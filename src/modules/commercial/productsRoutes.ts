@@ -18,7 +18,7 @@ import { runSync } from '../../core/sync/engine';
 import { autofillMissingProductImages } from './productImageAutofill';
 import {
   productImagesDir, saveLocalProductImage, queueProductImageSubmission, trySubmitPending,
-  cloudBaseUrl, cloudAuthHeaders,
+  backfillMenuImageSubmissions, cloudBaseUrl, cloudAuthHeaders,
 } from '../../core/catalog/submissionQueue';
 import { getWebImageConfig, searchWebImages, fetchExternalImage } from '../../core/catalog/webImageSearch';
 import { productRepository } from './repositories/ProductRepository';
@@ -151,11 +151,21 @@ function findExistingProductImage(b: Record<string, unknown>): string | null {
   return row?.image_url ?? null;
 }
 
+/** Id do Cloud embutido na URL antiga do proxy local `/…/products/catalog-image/<id>`. */
+function catalogImageIdFromUrl(url: string | null | undefined): number | null {
+  if (!url) return null;
+  const m = /\/catalog-image\/(\d+)/.exec(url);
+  return m ? Number(m[1]) : null;
+}
+
 function prepareProductImage(b: Record<string, unknown>): {
-  imageUrl?: string | null; buf?: Buffer; submit?: boolean; error?: string;
+  imageUrl?: string | null; buf?: Buffer; submit?: boolean; catalogImageId?: number | null; error?: string;
 } {
-  if (b.removeImage) return { imageUrl: null };
-  if (b.imageUrl) return { imageUrl: String(b.imageUrl) };
+  if (b.removeImage) return { imageUrl: null, catalogImageId: null };
+  if (b.imageUrl) {
+    const url = String(b.imageUrl);
+    return { imageUrl: url, catalogImageId: catalogImageIdFromUrl(url) };
+  }
   if (b.imageBase64) {
     let buf: Buffer;
     try {
@@ -166,7 +176,15 @@ function prepareProductImage(b: Record<string, unknown>): {
     const check = validateImageBuffer(buf);
     if (!check.ok) return { error: check.error };
     const imageUrl = saveLocalProductImage(buf, check.format);
-    return { imageUrl, buf, submit: b.submitToCatalog !== false };
+    // O id vem quando o lojista escolhe uma sugestão do banco de imagens: os bytes foram
+    // baixados e são salvos como um upload comum, mas a foto JÁ existe no Cloud.
+    const picked = Number(b.catalogImageId);
+    return {
+      imageUrl,
+      buf,
+      submit: b.submitToCatalog !== false,
+      catalogImageId: Number.isInteger(picked) && picked > 0 ? picked : null,
+    };
   }
   const fallbackImage = findExistingProductImage(b);
   if (fallbackImage) return { imageUrl: fallbackImage };
@@ -548,11 +566,11 @@ router.post('/products', requirePermission('commercial.products.create'), valida
   let info: { lastInsertRowid: number | bigint };
   try {
     info = productRepository.rawRun(
-      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, image_url, product_type, controla_lote, uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (name, description, sku, barcode, category_id, unit, price_cents, cost_cents, track_stock, min_stock, image_url, catalog_image_id, product_type, controla_lote, uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       b.name, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? 'un', Math.round(b.priceCents ?? 0), Math.round(b.costCents ?? 0),
-      trackStock, b.minStock ?? 0, img.imageUrl ?? null, productType, controlaLote, randomUUID(),
+      trackStock, b.minStock ?? 0, img.imageUrl ?? null, img.catalogImageId ?? null, productType, controlaLote, randomUUID(),
     );
   } catch (e) {
     const friendly = friendlyUniqueError(e);
@@ -656,7 +674,7 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
   assertAuth(req);
   const id = String(req.params.id);
   const before = productRepository.findDetailed(id) as
-    | { price_cents: number; image_url: string | null; product_type: string; parent_product_id: number | null }
+    | { price_cents: number; image_url: string | null; catalog_image_id: number | null; product_type: string; parent_product_id: number | null }
     | undefined;
   if (!before) {
     res.status(404).json({ error: 'Produto não encontrado.' });
@@ -686,6 +704,10 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
     return;
   }
   const finalImageUrl = img.imageUrl !== undefined ? img.imageUrl : before.image_url;
+  // Só troca o vínculo com o banco de imagens quando a foto realmente mudou; salvar o
+  // produto sem tocar na imagem não pode perder o id que o cardápio público já usa.
+  const imageChanged = img.imageUrl !== undefined && img.imageUrl !== before.image_url;
+  const finalCatalogImageId = imageChanged ? (img.catalogImageId ?? null) : before.catalog_image_id;
   // Só barra quem está *mudando* o tipo para variante: um produto que já é variante continua
   // editável mesmo com o recurso desligado depois (senão o dado existente fica inacessível).
   const capErrorUpdate = variantCapabilityError(b.productType);
@@ -720,14 +742,14 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
          price_cents = COALESCE(?, price_cents), cost_cents = COALESCE(?, cost_cents),
          track_stock = COALESCE(?, track_stock), min_stock = COALESCE(?, min_stock),
          controla_lote = COALESCE(?, controla_lote),
-         active = COALESCE(?, active), image_url = ?, product_type = ?, updated_at = datetime('now')
+         active = COALESCE(?, active), image_url = ?, catalog_image_id = ?, product_type = ?, updated_at = datetime('now')
        WHERE id = ?`,
       b.name ?? null, b.description ?? null, b.sku ?? null, b.barcode ?? null, b.categoryId ?? null,
       b.unit ?? null, b.priceCents != null ? Math.round(b.priceCents) : null,
       b.costCents != null ? Math.round(b.costCents) : null,
       trackStock, b.minStock ?? null,
       b.controlaLote != null ? (b.controlaLote ? 1 : 0) : null,
-      b.active != null ? (b.active ? 1 : 0) : null, finalImageUrl, productType, id,
+      b.active != null ? (b.active ? 1 : 0) : null, finalImageUrl, finalCatalogImageId, productType, id,
     );
   } catch (e) {
     const friendly = friendlyUniqueError(e);
@@ -832,6 +854,16 @@ router.put('/products/:id/cardapio-online', requirePermission('commercial.produc
   }
   const visivelCardapio = req.body?.visivelCardapio ? 1 : 0;
   productRepository.setCardapioOnline(id, !!visivelCardapio);
+  // Ao publicar no cardápio, garante que a foto do produto vá para o Cloud (a página
+  // pública não consegue ler o arquivo local) — senão o item aparece sem miniatura.
+  if (visivelCardapio) {
+    try {
+      backfillMenuImageSubmissions();
+    } catch (e) {
+      logCardapio.error('falha ao vincular foto do cardápio', (e as Error).message);
+    }
+    trySubmitPending().catch((e) => logCardapio.error('falha ao enviar foto do cardápio', (e as Error).message));
+  }
   const after = productRepository.findDetailed(id);
   audit(req, 'editar', 'product', id, before, after);
   res.json(after);

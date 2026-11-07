@@ -2008,6 +2008,7 @@
         resetImageState() {
           this.form.imageUrl = null; this.form.newImagePreview = null;
           this.form.pendingImageBase64 = null; this.form.pendingImageUrl = null;
+          this.form.pendingCatalogImageId = null;
           this.form.removeImage = false; this.form.submitToCatalog = true;
           this.imgSearchResults = []; this.imgSearchOffline = false; this.imgSearchError = '';
         },
@@ -2022,6 +2023,7 @@
             this.form.newImagePreview = dataUrl;
             this.form.pendingImageBase64 = dataUrl.split(',')[1] ?? '';
             this.form.pendingImageUrl = null;
+            this.form.pendingCatalogImageId = null;
             this.form.removeImage = false;
           };
           reader.readAsDataURL(file);
@@ -2029,6 +2031,7 @@
         removeProductImage() {
           this.form.newImagePreview = null; this.form.imageUrl = null;
           this.form.pendingImageBase64 = null; this.form.pendingImageUrl = null;
+          this.form.pendingCatalogImageId = null;
           this.form.removeImage = true;
         },
         /**
@@ -2106,6 +2109,7 @@
             this.form.newImagePreview = dataUrl;
             this.form.pendingImageBase64 = dataUrl.split(',')[1] ?? '';
             this.form.pendingImageUrl = null;
+            this.form.pendingCatalogImageId = r.source === 'catalog' ? r.id : null;
             this.form.removeImage = false;
             this.form.submitToCatalog = false; // já veio de uma sugestão — reenviar não tem sentido
             const nome = (this.form.name || '').trim();
@@ -2280,7 +2284,13 @@
           const price = this.toCents(this.form.price); if (price != null) body.priceCents = price;
           const cost = this.toCents(this.form.cost); if (cost != null) body.costCents = cost;
           if (this.form.removeImage) body.removeImage = true;
-          else if (this.form.pendingImageBase64) { body.imageBase64 = this.form.pendingImageBase64; body.submitToCatalog = this.form.submitToCatalog !== false; }
+          else if (this.form.pendingImageBase64) {
+            body.imageBase64 = this.form.pendingImageBase64;
+            body.submitToCatalog = this.form.submitToCatalog !== false;
+            // Foto escolhida nas sugestões: o id permite o cardápio público achar a
+            // miniatura sem depender do nome do produto.
+            if (this.form.pendingCatalogImageId) body.catalogImageId = this.form.pendingCatalogImageId;
+          }
           else if (this.form.pendingImageUrl) body.imageUrl = this.form.pendingImageUrl;
           const isEdit = !!this.form.id;
           const r = await fetch(isEdit ? `/api/commercial/products/${this.form.id}` : '/api/commercial/products', {

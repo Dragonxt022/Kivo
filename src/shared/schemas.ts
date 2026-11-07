@@ -30,6 +30,8 @@ export const createProductSchema = z.object({
   initialStock: z.number().int().positive().optional(),
   imageBase64: z.string().optional(),
   imageUrl: z.string().optional(),
+  /** Id da foto no banco de imagens do Cloud quando a imagem veio de uma sugestão. */
+  catalogImageId: z.number().int().positive().nullish(),
   removeImage: z.boolean().optional(),
   submitToCatalog: z.boolean().optional(),
 });
@@ -64,6 +66,8 @@ export const updateProductSchema = z.object({
     .optional(),
   imageBase64: z.string().optional(),
   imageUrl: z.string().optional(),
+  /** Id da foto no banco de imagens do Cloud quando a imagem veio de uma sugestão. */
+  catalogImageId: z.number().int().positive().nullish(),
   removeImage: z.boolean().optional(),
   submitToCatalog: z.boolean().optional(),
 });

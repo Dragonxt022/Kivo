@@ -41,13 +41,30 @@ router.get('/:companyUuid', async (req, res) => {
   const [rows] = await pool.query(
     `SELECT mi.name, mi.description, mi.price_cents, mi.category_uuid, mi.product_uuid,
             sr.payload AS category_payload,
-            (SELECT ci.id
-               FROM catalog_images ci
-              WHERE ci.company_uuid = mi.company_uuid
-                AND ci.product_name = mi.name
-                AND ci.status <> 'rejeitada'
-              ORDER BY (ci.status = 'aprovada') DESC, ci.id DESC
-              LIMIT 1) AS image_id
+            -- 1) foto vinculada pelo app local (id do catálogo) — caminho principal;
+            -- 2) foto da própria empresa casada pelo nome — legado de quem contribuiu;
+            -- 3) foto aprovada do banco compartilhado com o mesmo nome — para fotos que
+            --    vieram das sugestões automáticas antes do vínculo por id existir.
+            COALESCE(
+              (SELECT ci.id
+                 FROM catalog_images ci
+                WHERE ci.id = mi.catalog_image_id
+                  AND ci.status <> 'rejeitada'
+                LIMIT 1),
+              (SELECT ci.id
+                 FROM catalog_images ci
+                WHERE ci.company_uuid = mi.company_uuid
+                  AND ci.product_name = mi.name
+                  AND ci.status <> 'rejeitada'
+                ORDER BY (ci.status = 'aprovada') DESC, ci.id DESC
+                LIMIT 1),
+              (SELECT ci.id
+                 FROM catalog_images ci
+                WHERE ci.status = 'aprovada'
+                  AND ci.product_name = mi.name
+                ORDER BY ci.pick_count DESC, ci.id DESC
+                LIMIT 1)
+            ) AS image_id
      FROM menu_items mi
      LEFT JOIN sync_records sr
        ON sr.company_uuid = mi.company_uuid AND sr.entity_type = 'commercial.categories'
@@ -81,9 +98,10 @@ router.get('/:companyUuid', async (req, res) => {
  *
  * O app local guarda a foto em `/uploads/products/...` (arquivo que só existe naquela
  * máquina) e, ao cadastrar o produto, envia uma cópia para o banco de imagens do Cloud.
- * Aqui servimos essa cópia — mas só quando ela pertence à empresa e casa com um item
- * realmente publicado no cardápio dela. Assim a rota é pública sem virar um mural de
- * imagens de outras empresas.
+ * Aqui servimos essa cópia — mas só quando ela está REALMENTE vinculada a um item
+ * publicado no cardápio da empresa: pelo id (`catalog_image_id`, inclusive fotos de
+ * sugestões) ou, no legado, pelo nome (foto da própria empresa ou aprovada do banco
+ * compartilhado). Assim a rota é pública sem virar um mural de imagens de terceiros.
  */
 router.get('/:companyUuid/imagem/:imageId', async (req, res, next) => {
   const { companyUuid } = req.params;
@@ -99,10 +117,13 @@ router.get('/:companyUuid/imagem/:imageId', async (req, res, next) => {
       `SELECT ci.image_path, ci.format
          FROM catalog_images ci
          JOIN menu_items mi
-           ON mi.company_uuid = ci.company_uuid AND mi.name = ci.product_name
-        WHERE ci.id = ? AND ci.company_uuid = ? AND ci.status <> 'rejeitada'
+           ON mi.company_uuid = ?
+          AND (mi.catalog_image_id = ci.id
+               OR (mi.name = ci.product_name
+                   AND (ci.company_uuid = mi.company_uuid OR ci.status = 'aprovada')))
+        WHERE ci.id = ? AND ci.status <> 'rejeitada'
         LIMIT 1`,
-      [imageId, companyUuid],
+      [companyUuid, imageId],
     );
     const row = (rows as { image_path: string; format: keyof typeof CATALOG_MIME_BY_FORMAT }[])[0];
     if (!row?.image_path) {
