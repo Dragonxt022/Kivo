@@ -97,6 +97,34 @@
     .dre-item strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
     .dre-item.result strong { color: var(--primary); }
 
+    /* ─── Insights da IA (Markdown renderizado) ─── */
+    .ai-insight-md { color: var(--text); font-size: .9rem; }
+    .ai-insight-md > :first-child { margin-top: 0; }
+    .ai-insight-md > :last-child { margin-bottom: 0; }
+    .ai-insight-md p { margin: .5rem 0; }
+    .ai-insight-md h3,
+    .ai-insight-md h4,
+    .ai-insight-md h5 { margin: .85rem 0 .3rem; line-height: 1.3; }
+    .ai-insight-md h3 { font-size: 1.02rem; }
+    .ai-insight-md h4 { font-size: .96rem; }
+    .ai-insight-md h5 { font-size: .9rem; }
+    .ai-insight-md ul,
+    .ai-insight-md ol { margin: .45rem 0 .55rem; padding-left: 1.25rem; }
+    .ai-insight-md li { margin: .22rem 0; }
+    .ai-insight-md li > p { margin: .15rem 0; }
+    .ai-insight-md strong { color: var(--text); font-weight: 700; }
+    .ai-insight-md em { color: var(--text-muted); }
+    .ai-insight-md code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: .82em; padding: .08rem .3rem; border-radius: 5px;
+      background: var(--surface-hover); border: 1px solid var(--border-light);
+    }
+    .ai-insight-md blockquote {
+      margin: .5rem 0; padding: .15rem 0 .15rem .7rem;
+      border-left: 3px solid var(--primary); color: var(--text-muted);
+    }
+    .ai-insight-md a { color: var(--primary); text-decoration: underline; }
+
     .num { text-align: right; font-variant-numeric: tabular-nums; }
   </style>
 </head>
@@ -288,8 +316,9 @@
         A IA lê as vendas do período selecionado e aponta destaques e ações práticas. Cada análise usa 1 crédito.
       </p>
       <p class="hint" x-show="aiInsight.error" x-cloak style="color:var(--danger);margin:.2rem 0 0" x-text="aiInsight.error"></p>
-      <div x-show="aiInsight.text" x-cloak x-text="aiInsight.text"
-           style="white-space:pre-wrap;line-height:1.6;margin-top:.7rem;padding:.85rem 1rem;border:1px solid var(--border-light);border-radius:10px;background:var(--bg-subtle)"></div>
+      <div x-show="aiInsight.text" x-cloak x-html="aiInsight.html"
+           class="ai-insight-md"
+           style="line-height:1.6;margin-top:.7rem;padding:.85rem 1rem;border:1px solid var(--border-light);border-radius:10px;background:var(--bg-subtle)"></div>
     </section>
 
     <!-- ─── Vendas do período: produtos e formas de pagamento ─── -->
@@ -516,6 +545,93 @@
 
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>">
+    /**
+     * Markdown mínimo e SEGURO para a resposta dos Insights da IA.
+     *
+     * A resposta é texto do modelo: pode vir com **negrito**, listas "* item" e
+     * "1. item". Renderizamos só esse subconjunto, escapando TODO o HTML antes de
+     * aplicar a formatação — o modelo não consegue injetar tag/script na tela.
+     */
+    function renderAiMarkdown(raw) {
+      function escapeHtml(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function inline(text) {
+        var t = text;
+        t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+        t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        t = t.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+        t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+        t = t.replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>');
+        t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, function (_m, label, url) {
+          return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+        });
+        return t;
+      }
+
+      var source = escapeHtml(raw).replace(/\r\n?/g, '\n');
+      var lines = source.split('\n');
+      var html = '';
+      var paragraph = [];
+      var list = null;
+
+      function closeList() {
+        if (!list) return;
+        html += '</' + list + '>';
+        list = null;
+      }
+      function flushParagraph() {
+        if (!paragraph.length) return;
+        html += '<p>' + paragraph.map(inline).join('<br>') + '</p>';
+        paragraph = [];
+      }
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmed = line.trim();
+        if (!trimmed) {
+          flushParagraph();
+          closeList();
+          continue;
+        }
+        var heading = /^(#{1,4})\s+(.*)$/.exec(trimmed);
+        if (heading) {
+          flushParagraph();
+          closeList();
+          var level = Math.min(5, heading[1].length + 2);
+          html += '<h' + level + '>' + inline(heading[2]) + '</h' + level + '>';
+          continue;
+        }
+        var bullet = /^[-*•]\s+(.*)$/.exec(trimmed);
+        if (bullet) {
+          flushParagraph();
+          if (list !== 'ul') { closeList(); html += '<ul>'; list = 'ul'; }
+          html += '<li>' + inline(bullet[1]) + '</li>';
+          continue;
+        }
+        var numbered = /^\d+[.)]\s+(.*)$/.exec(trimmed);
+        if (numbered) {
+          flushParagraph();
+          if (list !== 'ol') { closeList(); html += '<ol>'; list = 'ol'; }
+          html += '<li>' + inline(numbered[1]) + '</li>';
+          continue;
+        }
+        var quote = /^&gt;\s?(.*)$/.exec(trimmed);
+        if (quote) {
+          flushParagraph();
+          closeList();
+          html += '<blockquote>' + inline(quote[1]) + '</blockquote>';
+          continue;
+        }
+        paragraph.push(trimmed);
+      }
+      flushParagraph();
+      closeList();
+      return html || '<p>' + inline(source) + '</p>';
+    }
+
     function overviewPage() {
       const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const HAS_DRE = <%= user.permissions.has('dre.view') ? 'true' : 'false' %>;
@@ -547,7 +663,7 @@
         cash: { rows: [], totals: { count: 0, entradas: 0, saidas: 0, vendas: 0, vendasCents: 0, differenceCents: 0 } },
         loading: true,
         updatedAt: '',
-        aiInsight: { loading: false, text: '', error: '', status: null },
+        aiInsight: { loading: false, text: '', html: '', error: '', status: null },
 
         async init() {
           this.applyPreset('mes');
@@ -646,6 +762,7 @@
               return;
             }
             this.aiInsight.text = data.insight || '';
+            this.aiInsight.html = renderAiMarkdown(this.aiInsight.text);
             if (data.status) this.aiInsight.status = data.status;
           } catch {
             this.aiInsight.error = 'Não foi possível falar com a IA agora. Tente novamente em instantes.';

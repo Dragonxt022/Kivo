@@ -9,28 +9,57 @@
   --pedido-line: #e8e2db;
   --pedido-green: #15803d;
   --pedido-red: #b91c1c;
+  --pedido-warning-bg: #fff7ed;
+  --pedido-warning-text: #9a3412;
   --pedido-radius: 16px;
   --pedido-shadow: 0 10px 30px rgba(31, 27, 22, .08);
+  color-scheme: light;
+}
+/* O Cloud já decide o tema em `data-theme` (partials/theme-init). A página pública
+   precisa seguir a MESMA decisão; o @media sozinho deixava o fundo claro com texto
+   escuro quando o tema do site era dark mas o sistema era light (e vice-versa). */
+:root[data-theme='dark'] {
+  --pedido-bg: #141210;
+  --pedido-surface: #1e1b18;
+  --pedido-text: #f6f1eb;
+  --pedido-muted: #a89e94;
+  --pedido-line: #322d28;
+  --pedido-green: #4ade80;
+  --pedido-red: #f87171;
+  --pedido-warning-bg: #2a1b0e;
+  --pedido-warning-text: #fdba74;
+  --pedido-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --pedido-bg: #141210;
     --pedido-surface: #1e1b18;
     --pedido-text: #f6f1eb;
     --pedido-muted: #a89e94;
     --pedido-line: #322d28;
+    --pedido-green: #4ade80;
+    --pedido-red: #f87171;
+    --pedido-warning-bg: #2a1b0e;
+    --pedido-warning-text: #fdba74;
     --pedido-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html { background: var(--pedido-bg); }
 body {
   background: var(--pedido-bg);
   color: var(--pedido-text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
+/* O launcher.css do painel reativa esse pseudo-elemento com um gradiente claro para
+   o navbar de vidro. Nesta página não existe navbar e ele cobria o fundo dark. */
+body::before { display: none !important; }
 button, input, textarea { font: inherit; }
 img { max-width: 100%; display: block; }
 
@@ -316,3 +345,70 @@ img { max-width: 100%; display: block; }
   .pedido-thumb { width: 104px; height: 104px; }
   .pedido-menu { gap: 1.8rem; }
 }
+
+/* ─── "Seus últimos pedidos" (guardados no navegador do cliente) ─── */
+.pedido-history { margin: .25rem 0 1rem; }
+.pedido-history[hidden] { display: none; }
+.pedido-history-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .55rem;
+}
+.pedido-history-head h2 {
+  margin: 0;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--pedido-muted);
+}
+.pedido-history-clear {
+  border: 0;
+  background: transparent;
+  color: var(--pedido-muted);
+  font-size: .76rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.pedido-history-list { display: grid; gap: .55rem; }
+.pedido-history-card {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .7rem .8rem;
+  border: 1px solid var(--pedido-line);
+  border-radius: 14px;
+  background: var(--pedido-surface);
+  box-shadow: var(--pedido-shadow);
+}
+.pedido-history-main { flex: 1; min-width: 0; display: grid; gap: .12rem; }
+.pedido-history-title { font-weight: 700; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pedido-history-meta { color: var(--pedido-muted); font-size: .75rem; }
+.pedido-history-total { font-weight: 800; color: var(--pedido-accent); font-size: .82rem; white-space: nowrap; }
+.pedido-history-reorder {
+  border: 1px solid var(--pedido-accent);
+  background: var(--pedido-accent-soft);
+  color: var(--pedido-accent);
+  border-radius: 999px;
+  padding: .42rem .65rem;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pedido-reorder-note {
+  margin: 0 0 .75rem;
+  padding: .6rem .7rem;
+  border: 1px solid color-mix(in srgb, var(--pedido-warning-text) 30%, transparent);
+  border-radius: 12px;
+  background: var(--pedido-warning-bg);
+  color: var(--pedido-warning-text);
+  font-size: .78rem;
+  display: grid;
+  gap: .2rem;
+}
+.pedido-reorder-note[hidden] { display: none; }
+.pedido-reorder-note strong { font-size: .8rem; }
+

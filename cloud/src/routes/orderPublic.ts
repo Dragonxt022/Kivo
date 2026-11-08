@@ -202,7 +202,7 @@ orderPage.get('/:token', async (req: Request, res: Response) => {
   if (!resolved.ok) {
     res.status(404).render('pedido', {
       companyName: null, tableLabel: null, token: null, menu: null, menuJson: null,
-      desktopOnline: false, error: messageFor(resolved.reason),
+      companyUuid: null, desktopOnline: false, error: messageFor(resolved.reason),
     });
     return;
   }
@@ -210,6 +210,7 @@ orderPage.get('/:token', async (req: Request, res: Response) => {
   res.render('pedido', {
     companyName: resolved.table.companyName,
     tableLabel: resolved.table.tableLabel,
+    companyUuid: resolved.table.companyUuid,
     token: String(req.params.token),
     menu,
     menuJson: safeJson(menu),

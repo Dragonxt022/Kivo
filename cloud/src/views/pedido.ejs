@@ -31,6 +31,14 @@
         <p><%= error %></p>
       </div>
     <% } else { %>
+      <section class="pedido-history" id="historySection" hidden>
+        <div class="pedido-history-head">
+          <h2>Seus últimos pedidos</h2>
+          <button type="button" class="pedido-history-clear" id="clearHistory">Limpar</button>
+        </div>
+        <div class="pedido-history-list" id="historyList"></div>
+      </section>
+
       <div class="pedido-search-wrap">
         <div class="pedido-search">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -81,6 +89,7 @@
       <h2>Seu pedido</h2>
       <button type="button" class="pedido-close" data-close="cartDlg" aria-label="Fechar">×</button>
     </div>
+    <div class="pedido-reorder-note" id="reorderNote" hidden></div>
     <div class="pedido-cart-body" id="cartBody"></div>
     <label class="pedido-field">
       <span>Observação geral (opcional)</span>
@@ -105,10 +114,15 @@
 
   <script id="menu-data" type="application/json"><%- typeof menuJson !== 'undefined' && menuJson ? menuJson : 'null' %></script>
   <script>
-    window.__PEDIDO__ = {
-      token: <%- JSON.stringify(typeof token !== 'undefined' ? token : null) %>,
-      online: <%- JSON.stringify(typeof desktopOnline !== 'undefined' ? desktopOnline : false) %>
-    };
+    <%
+      var pedidoConfig = JSON.stringify({
+        token: typeof token !== 'undefined' ? token : null,
+        companyUuid: typeof companyUuid !== 'undefined' ? companyUuid : null,
+        tableLabel: typeof tableLabel !== 'undefined' ? tableLabel : null,
+        online: typeof desktopOnline !== 'undefined' ? desktopOnline : false,
+      }).replace(/</g, '\\u003c');
+    %>
+    window.__PEDIDO__ = <%- pedidoConfig %>;
   </script>
   <% if (!error) { %><script src="/js/pedido.js" defer></script><% } %>
 </body>
