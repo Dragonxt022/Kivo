@@ -31,12 +31,43 @@
         <p><%= error %></p>
       </div>
     <% } else { %>
-      <section class="pedido-history" id="historySection" hidden>
-        <div class="pedido-history-head">
-          <h2>Seus últimos pedidos</h2>
-          <button type="button" class="pedido-history-clear" id="clearHistory">Limpar</button>
+      <div class="pedido-quickbar">
+        <button type="button" class="pedido-history-btn" id="openHistory">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>
+          <span>Meus pedidos</span>
+          <span class="pedido-history-count" id="historyCount" hidden>0</span>
+        </button>
+      </div>
+
+      <section class="pedido-last-order" id="lastOrderSection" hidden>
+        <div class="pedido-last-order-head">
+          <span class="pedido-last-order-label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            Último pedido
+          </span>
+          <span class="pedido-history-status" id="lastOrderStatus"></span>
         </div>
-        <div class="pedido-history-list" id="historyList"></div>
+        <div class="pedido-last-order-card">
+          <div class="pedido-last-order-main">
+            <div class="pedido-history-title" id="lastOrderTitle"></div>
+            <div class="pedido-history-meta" id="lastOrderMeta"></div>
+            <div class="pedido-history-total" id="lastOrderTotal"></div>
+          </div>
+          <div class="pedido-last-order-actions">
+            <button type="button" class="pedido-history-detail" id="lastOrderDetails">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+              Detalhes
+            </button>
+            <button type="button" class="pedido-history-reorder" id="lastOrderReorder">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              Pedir novamente
+            </button>
+          </div>
+        </div>
+        <button type="button" class="pedido-history-all" id="lastOrderAll">
+          Ver todos os pedidos
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
       </section>
 
       <div class="pedido-search-wrap">
@@ -108,6 +139,48 @@
     <p class="pedido-status-offline" id="statusOffline" hidden>A loja está offline agora; o pedido será processado quando ela reconectar.</p>
     <div class="pedido-dialog-actions">
       <button type="button" class="pedido-btn primary" id="orderMore">Pedir mais</button>
+    </div>
+  </dialog>
+
+  <dialog id="historyDlg" class="pedido-dialog pedido-history-dialog">
+    <div class="pedido-dialog-head">
+      <h2>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:.35rem"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>
+        Meus pedidos
+      </h2>
+      <button type="button" class="pedido-close" data-close="historyDlg" aria-label="Fechar">×</button>
+    </div>
+    <div class="pedido-history-toolbar">
+      <span>Salvos apenas neste navegador.</span>
+      <button type="button" class="pedido-history-clear" id="clearHistory">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        Limpar
+      </button>
+    </div>
+    <div class="pedido-history-list" id="historyList"></div>
+    <div class="pedido-history-empty" id="historyEmpty" hidden>
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/></svg>
+      <p>Você ainda não fez pedidos neste navegador.</p>
+      <button type="button" class="pedido-btn secondary" data-close="historyDlg">Voltar ao menu</button>
+    </div>
+  </dialog>
+
+  <dialog id="historyDetailDlg" class="pedido-dialog pedido-history-detail-dialog">
+    <div class="pedido-dialog-head">
+      <button type="button" class="pedido-back" id="historyBack" aria-label="Voltar para Meus pedidos">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <h2>Detalhes do pedido</h2>
+      <button type="button" class="pedido-close" data-close="historyDetailDlg" aria-label="Fechar">×</button>
+    </div>
+    <div class="pedido-detail-headline" id="historyDetailHeadline"></div>
+    <div class="pedido-detail-body" id="historyDetailBody"></div>
+    <div class="pedido-dialog-actions">
+      <button type="button" class="pedido-btn secondary" data-close="historyDetailDlg">Fechar</button>
+      <button type="button" class="pedido-btn primary" id="detailReorder">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Pedir novamente
+      </button>
     </div>
   </dialog>
   <% } %>

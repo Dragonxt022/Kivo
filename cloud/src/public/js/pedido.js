@@ -116,31 +116,167 @@
     renderHistory();
   }
 
-  function renderHistory() {
-    var section = byId('historySection');
-    var listEl = byId('historyList');
-    if (!section || !listEl) return;
-    var list = readHistory();
-    section.hidden = list.length === 0;
-    if (!list.length) {
-      listEl.innerHTML = '';
-      return;
+  var historyDetailIndex = 0;
+
+  function statusInfo(status) {
+    var s = String(status || '');
+    if (s === 'confirmado') {
+      return {
+        label: 'Confirmado', cls: 'is-ok',
+        icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+      };
     }
+    if (s === 'recusado') {
+      return {
+        label: 'Recusado', cls: 'is-bad',
+        icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>',
+      };
+    }
+    if (s === 'erro') {
+      return {
+        label: 'Falhou', cls: 'is-bad',
+        icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>',
+      };
+    }
+    if (s === 'aplicado') {
+      return {
+        label: 'Aguardando atendente', cls: 'is-wait',
+        icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      };
+    }
+    return {
+      label: 'Enviado', cls: 'is-sent',
+      icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+    };
+  }
+
+  function statusChip(status) {
+    var info = statusInfo(status);
+    return '<span class="pedido-status-chip ' + info.cls + '">' + info.icon + esc(info.label) + '</span>';
+  }
+
+  function orderItemsSummary(order) {
+    return (order.items || []).map(function (i) {
+      return (Number(i.qty) || 1) + '× ' + (i.name || 'item');
+    }).join(', ');
+  }
+
+  function orderMeta(order) {
+    var meta = formatHistoryDate(order.createdAt);
+    if (order.tableLabel) meta += (meta ? ' · ' : '') + order.tableLabel;
+    return meta;
+  }
+
+  function renderHistory() {
+    var list = readHistory();
+
+    var count = byId('historyCount');
+    if (count) {
+      count.textContent = String(list.length);
+      count.hidden = list.length === 0;
+    }
+
+    var last = list[0];
+    var lastSection = byId('lastOrderSection');
+    if (lastSection) {
+      lastSection.hidden = !last;
+      if (last) {
+        if (byId('lastOrderTitle')) byId('lastOrderTitle').textContent = orderItemsSummary(last);
+        if (byId('lastOrderMeta')) byId('lastOrderMeta').textContent = orderMeta(last);
+        if (byId('lastOrderTotal')) byId('lastOrderTotal').textContent = brl(last.totalCents);
+        if (byId('lastOrderStatus')) byId('lastOrderStatus').innerHTML = statusChip(last.status);
+      }
+    }
+
+    var listEl = byId('historyList');
+    var empty = byId('historyEmpty');
+    if (!listEl) return;
+    if (empty) empty.hidden = list.length > 0;
     listEl.innerHTML = list.map(function (order, idx) {
-      var names = (order.items || []).map(function (i) {
-        return (Number(i.qty) || 1) + '× ' + (i.name || 'item');
-      }).join(', ');
-      var meta = formatHistoryDate(order.createdAt);
-      if (order.tableLabel) meta += (meta ? ' · ' : '') + order.tableLabel;
       return '<div class="pedido-history-card">' +
+        '<div class="pedido-history-card-top">' +
         '<div class="pedido-history-main">' +
-        '<div class="pedido-history-title">' + esc(names) + '</div>' +
-        (meta ? '<div class="pedido-history-meta">' + esc(meta) + '</div>' : '') +
-        '<div class="pedido-history-total">' + brl(order.totalCents) + '</div>' +
+        '<div class="pedido-history-title">' + esc(orderItemsSummary(order)) + '</div>' +
+        '<div class="pedido-history-meta">' + esc(orderMeta(order)) + '</div>' +
         '</div>' +
-        '<button type="button" class="pedido-history-reorder" data-reorder="' + idx + '">Pedir novamente</button>' +
+        statusChip(order.status) +
+        '</div>' +
+        '<div class="pedido-history-foot">' +
+        '<strong class="pedido-history-total">' + brl(order.totalCents) + '</strong>' +
+        '<div class="pedido-history-actions">' +
+        '<button type="button" class="pedido-history-detail" data-detail="' + idx + '">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg> Detalhes</button>' +
+        '<button type="button" class="pedido-history-reorder" data-reorder="' + idx + '">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Pedir novamente</button>' +
+        '</div></div></div>';
+    }).join('');
+  }
+
+  function renderHistoryDetail(order) {
+    var head = byId('historyDetailHeadline');
+    if (head) {
+      head.innerHTML = statusChip(order.status) +
+        '<span class="pedido-history-meta">' + esc(orderMeta(order)) + '</span>';
+    }
+    var body = byId('historyDetailBody');
+    if (!body) return;
+    var rows = (order.items || []).map(function (item) {
+      var complements = (item.complements || []).map(function (c) {
+        return '<div class="pedido-detail-complement">+ ' + (Number(c.qty) || 1) + '× ' + esc(c.name) +
+          '<span>' + brl(Number(c.unitPriceCents) * (Number(c.qty) || 1)) + '</span></div>';
+      }).join('');
+      var total = Number(item.unitPriceCents) * (Number(item.qty) || 1);
+      (item.complements || []).forEach(function (c) {
+        total += Number(c.unitPriceCents) * (Number(c.qty) || 1);
+      });
+      return '<div class="pedido-detail-item">' +
+        '<div class="pedido-detail-line"><strong>' + (Number(item.qty) || 1) + '× ' + esc(item.name) + '</strong>' +
+        '<span>' + brl(total) + '</span></div>' +
+        (item.takeaway ? '<div class="pedido-detail-tag">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Para viagem</div>' : '') +
+        complements +
+        (item.notes ? '<div class="pedido-detail-note">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> ' + esc(item.notes) + '</div>' : '') +
         '</div>';
     }).join('');
+    body.innerHTML = rows +
+      '<div class="pedido-detail-total"><span>Total</span><strong>' + brl(order.totalCents) + '</strong></div>' +
+      (order.note ? '<div class="pedido-detail-note pedido-detail-general">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> ' + esc(order.note) + '</div>' : '');
+  }
+
+  function openHistory() {
+    renderHistory();
+    var dlg = byId('historyDlg');
+    if (dlg) dlg.showModal();
+  }
+
+  function openHistoryDetail(index) {
+    var order = readHistory()[index];
+    if (!order) return;
+    historyDetailIndex = index;
+    renderHistoryDetail(order);
+    var historyDlg = byId('historyDlg');
+    if (historyDlg && historyDlg.open) historyDlg.close();
+    var dlg = byId('historyDetailDlg');
+    if (dlg) dlg.showModal();
+  }
+
+  function updateHistoryStatus(orderUuid, status) {
+    if (!orderUuid || !status) return;
+    var list = readHistory();
+    var changed = false;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].orderUuid === orderUuid) {
+        list[i].status = status;
+        list[i].statusUpdatedAt = new Date().toISOString();
+        changed = true;
+      }
+    }
+    if (changed) {
+      writeHistory(list);
+      renderHistory();
+    }
   }
 
   function showReorderNote(messages) {
@@ -626,6 +762,7 @@
         saveOrderHistory({
           orderUuid: body.orderUuid,
           createdAt: new Date().toISOString(),
+          status: 'recebido',
           totalCents: body.totalCents || cartTotal(),
           tableLabel: cfg.tableLabel || null,
           note: note,
@@ -667,23 +804,43 @@
 
   function statusContent(status, reason) {
     if (status === 'confirmado') {
-      return { icon: '✓', title: 'Pedido confirmado!', text: 'O atendente confirmou e o pedido já foi para a cozinha.' };
+      return {
+        icon: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+        title: 'Pedido confirmado!',
+        text: 'O atendente confirmou e o pedido já foi para a cozinha.',
+      };
     }
     if (status === 'recusado') {
-      return { icon: '✕', title: 'Pedido não confirmado', text: reason || 'Fale com o atendente para ajustar o pedido.' };
+      return {
+        icon: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>',
+        title: 'Pedido não confirmado',
+        text: reason || 'Fale com o atendente para ajustar o pedido.',
+      };
     }
     if (status === 'erro') {
-      return { icon: '!', title: 'Não foi possível enviar', text: reason || 'Chame o atendente para fazer o pedido.' };
+      return {
+        icon: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>',
+        title: 'Não foi possível enviar',
+        text: reason || 'Chame o atendente para fazer o pedido.',
+      };
     }
     if (status === 'aplicado') {
-      return { icon: '…', title: 'Pedido recebido', text: 'Aguarde a confirmação do atendente.' };
+      return {
+        icon: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+        title: 'Pedido recebido',
+        text: 'Aguardando confirmação do atendente.',
+      };
     }
-    return { icon: '…', title: 'Pedido enviado!', text: 'Aguarde a confirmação do atendente.' };
+    return {
+      icon: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+      title: 'Pedido enviado!',
+      text: 'Aguardando confirmação do atendente.',
+    };
   }
 
   function showStatus(status, reason, offline) {
     var content = statusContent(status, reason);
-    byId('statusIcon').textContent = content.icon;
+    byId('statusIcon').innerHTML = content.icon;
     byId('statusTitle').textContent = content.title;
     byId('statusText').textContent = content.text;
     byId('statusOffline').hidden = !offline;
@@ -699,9 +856,10 @@
         .then(function (body) {
           if (!body) return;
           var content = statusContent(body.status, body.reason);
-          byId('statusIcon').textContent = content.icon;
+          byId('statusIcon').innerHTML = content.icon;
           byId('statusTitle').textContent = content.title;
           byId('statusText').textContent = content.text;
+          updateHistoryStatus(state.orderUuid, body.status);
           if (body.status === 'confirmado' || body.status === 'recusado' || body.status === 'erro') {
             clearInterval(state.poll);
             state.poll = null;
@@ -720,6 +878,15 @@
   }
 
   // ─── Histórico: render inicial, "pedir novamente" e limpar ───
+  var openHistoryBtn = byId('openHistory');
+  if (openHistoryBtn) openHistoryBtn.addEventListener('click', openHistory);
+  var lastOrderAllBtn = byId('lastOrderAll');
+  if (lastOrderAllBtn) lastOrderAllBtn.addEventListener('click', openHistory);
+  var lastOrderDetailsBtn = byId('lastOrderDetails');
+  if (lastOrderDetailsBtn) lastOrderDetailsBtn.addEventListener('click', function () { openHistoryDetail(0); });
+  var lastOrderReorderBtn = byId('lastOrderReorder');
+  if (lastOrderReorderBtn) lastOrderReorderBtn.addEventListener('click', function () { reorder(0); });
+
   var clearHistoryBtn = byId('clearHistory');
   if (clearHistoryBtn) {
     clearHistoryBtn.addEventListener('click', function () {
@@ -732,9 +899,32 @@
   var historyListEl = byId('historyList');
   if (historyListEl) {
     historyListEl.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-reorder]');
-      if (!btn) return;
-      reorder(Number(btn.getAttribute('data-reorder')));
+      var detailBtn = e.target.closest('[data-detail]');
+      if (detailBtn) {
+        openHistoryDetail(Number(detailBtn.getAttribute('data-detail')));
+        return;
+      }
+      var reorderBtn = e.target.closest('[data-reorder]');
+      if (!reorderBtn) return;
+      reorder(Number(reorderBtn.getAttribute('data-reorder')));
+    });
+  }
+  var historyBackBtn = byId('historyBack');
+  if (historyBackBtn) {
+    historyBackBtn.addEventListener('click', function () {
+      var detail = byId('historyDetailDlg');
+      if (detail && detail.open) detail.close();
+      openHistory();
+    });
+  }
+  var detailReorderBtn = byId('detailReorder');
+  if (detailReorderBtn) {
+    detailReorderBtn.addEventListener('click', function () {
+      var detail = byId('historyDetailDlg');
+      if (detail && detail.open) detail.close();
+      var history = byId('historyDlg');
+      if (history && history.open) history.close();
+      reorder(historyDetailIndex);
     });
   }
   renderHistory();
