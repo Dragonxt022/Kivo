@@ -318,8 +318,21 @@ img { max-width: 100%; display: block; }
 .pedido-cart-sum { display: flex; justify-content: space-between; align-items: center; margin-top: .75rem; font-size: 1.05rem; font-weight: 800; }
 .pedido-tag { display: inline-block; margin-left: .35rem; padding: .1rem .4rem; border-radius: 999px; background: var(--pedido-accent-soft); color: var(--pedido-accent); font-size: .68rem; font-weight: 700; }
 
-.pedido-status-dialog { text-align: center; }
-.pedido-status-icon { display: grid; place-items: center; width: 4rem; height: 4rem; margin: .5rem auto .75rem; border-radius: 999px; background: var(--pedido-accent-soft); color: var(--pedido-accent); font-size: 1.8rem; }
+.pedido-send-error {
+  margin-top: .6rem;
+  padding: .6rem .7rem;
+  border: 1px solid color-mix(in srgb, var(--pedido-red) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--pedido-red) 10%, transparent);
+  color: var(--pedido-red);
+  font-size: .8rem;
+  display: grid;
+  gap: .45rem;
+}
+.pedido-send-error[hidden] { display: none; }
+.pedido-send-error .pedido-btn { justify-self: start; }
+
+.pedido-status-dialog { text-align: center; }.pedido-status-icon { display: grid; place-items: center; width: 4rem; height: 4rem; margin: .5rem auto .75rem; border-radius: 999px; background: var(--pedido-accent-soft); color: var(--pedido-accent); font-size: 1.8rem; }
 .pedido-status-dialog h2 { margin: 0 0 .35rem; }
 .pedido-status-dialog p { margin: .25rem 0; color: var(--pedido-muted); }
 .pedido-status-offline { font-size: .78rem; }

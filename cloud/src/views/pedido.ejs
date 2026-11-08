@@ -126,6 +126,10 @@
       <span>Observação geral (opcional)</span>
       <textarea id="orderNote" maxlength="500" rows="2" placeholder="Ex.: trazer tudo junto, sem guardanapo…"></textarea>
     </label>
+    <div class="pedido-send-error" id="sendError" hidden>
+      <span id="sendErrorText"></span>
+      <button type="button" class="pedido-btn secondary" id="reloadMenu" hidden>Atualizar cardápio</button>
+    </div>
     <div class="pedido-dialog-actions">
       <button type="button" class="pedido-btn secondary" data-close="cartDlg">Continuar escolhendo</button>
       <button type="button" class="pedido-btn primary" id="sendOrder">Enviar pedido</button>

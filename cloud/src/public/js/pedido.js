@@ -381,6 +381,7 @@
     if (byId('orderNote')) byId('orderNote').value = order.note || '';
     renderCart();
     showReorderNote(messages);
+    clearSendError();
     cartDlg.showModal();
   }
 
@@ -715,6 +716,7 @@
 
   if (byId('openCart')) {
     byId('openCart').addEventListener('click', function () {
+      clearSendError();
       renderCart();
       cartDlg.showModal();
     });
@@ -723,11 +725,31 @@
   // ─── Envio e status ────────────────────────────────────────────────────────
   var statusDlg = byId('statusDlg');
   var sending = false;
+  var sendErrorEl = byId('sendError');
+  var sendErrorText = byId('sendErrorText');
+  var reloadMenuBtn = byId('reloadMenu');
+
+  function clearSendError() {
+    if (sendErrorEl) sendErrorEl.hidden = true;
+    if (sendErrorText) sendErrorText.textContent = '';
+    if (reloadMenuBtn) reloadMenuBtn.hidden = true;
+  }
+
+  function showSendError(message, canReload) {
+    if (sendErrorEl) sendErrorEl.hidden = false;
+    if (sendErrorText) sendErrorText.textContent = message;
+    if (reloadMenuBtn) reloadMenuBtn.hidden = !canReload;
+  }
+
+  if (reloadMenuBtn) {
+    reloadMenuBtn.addEventListener('click', function () { window.location.reload(); });
+  }
 
   if (byId('sendOrder')) {
     byId('sendOrder').addEventListener('click', function () {
       if (sending || !state.cart.length) return;
       sending = true;
+      clearSendError();
       var btn = byId('sendOrder');
       btn.disabled = true;
       btn.textContent = 'Enviando…';
@@ -754,46 +776,63 @@
         body: JSON.stringify(payload),
       }).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (body) {
-          if (!r.ok) throw new Error(body.error || 'Não foi possível enviar o pedido.');
+          if (!r.ok) {
+            var error = new Error(body.error || 'Não foi possível enviar o pedido (HTTP ' + r.status + ').');
+            error.status = r.status;
+            throw error;
+          }
           return body;
         });
       }).then(function (body) {
         // Guarda no navegador ANTES de limpar o carrinho: é o "pedir novamente".
-        saveOrderHistory({
-          orderUuid: body.orderUuid,
-          createdAt: new Date().toISOString(),
-          status: 'recebido',
-          totalCents: body.totalCents || cartTotal(),
-          tableLabel: cfg.tableLabel || null,
-          note: note,
-          items: state.cart.map(function (line) {
-            return {
-              productUuid: line.productUuid,
-              name: line.name,
-              qty: line.qty,
-              notes: line.notes,
-              takeaway: line.takeaway,
-              unitPriceCents: line.priceCents,
-              complements: (line.complements || []).map(function (c) {
-                return {
-                  productUuid: c.productUuid, name: c.name, qty: c.qty,
-                  unitPriceCents: c.priceCents,
-                };
-              }),
-            };
-          }),
-        });
+        // Uma falha do localStorage/histórico NUNCA pode fazer um pedido já aceito
+        // parecer que falhou para o cliente.
+        try {
+          saveOrderHistory({
+            orderUuid: body.orderUuid,
+            createdAt: new Date().toISOString(),
+            status: 'recebido',
+            totalCents: body.totalCents || cartTotal(),
+            tableLabel: cfg.tableLabel || null,
+            note: note,
+            items: state.cart.map(function (line) {
+              return {
+                productUuid: line.productUuid,
+                name: line.name,
+                qty: line.qty,
+                notes: line.notes,
+                takeaway: line.takeaway,
+                unitPriceCents: line.priceCents,
+                complements: (line.complements || []).map(function (c) {
+                  return {
+                    productUuid: c.productUuid, name: c.name, qty: c.qty,
+                    unitPriceCents: c.priceCents,
+                  };
+                }),
+              };
+            }),
+          });
+        } catch (historyError) {
+          console.error('Não foi possível guardar o histórico local:', historyError);
+        }
         state.orderUuid = body.orderUuid;
         state.clientRequestId = uuid();
         state.cart = [];
         if (byId('orderNote')) byId('orderNote').value = '';
         showReorderNote([]);
+        clearSendError();
         renderCart();
         cartDlg.close();
         showStatus('recebido', null, body.desktopOnline === false);
         startPolling();
       }).catch(function (err) {
-        toast(err.message || 'Falha ao enviar. Tente de novo.');
+        var message = err && err.message ? err.message : 'Não foi possível enviar o pedido.';
+        if (!err.status && /fetch|network|load failed/i.test(message)) {
+          message = 'Sem conexão com a loja. Verifique a internet e tente novamente.';
+        }
+        // O aviso fica DENTRO da modal: um toast atrás do dialog o cliente não vê.
+        showSendError(message, err.status === 409 || err.status === 404);
+        toast(message);
       }).then(function () {
         sending = false;
         btn.disabled = state.cart.length === 0;
