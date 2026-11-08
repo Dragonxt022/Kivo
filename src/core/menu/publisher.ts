@@ -178,15 +178,28 @@ function hashSnapshot(snapshot: PublicMenuSnapshot): string {
   return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
 }
 
-let publishing = false;
+let currentPublish: Promise<boolean> | null = null;
 
 /**
  * Publica o menu agora, se ele mudou. `force` ignora o hash (usado quando o QR é aberto,
  * para garantir que o cliente veja o cardápio deste instante).
  * Retorna `true` quando o Cloud confirmou a publicação.
+ *
+ * Chamadas concorrentes (scheduler de 45s + abertura do QR) compartilham a MESMA
+ * publicação em vez de a segunda receber `false` e o lojista ver "não foi possível
+ * publicar" sem motivo.
  */
 export async function publishMenuNow(force = false): Promise<boolean> {
-  if (publishing) return false;
+  if (currentPublish) return currentPublish;
+  currentPublish = doPublish(force);
+  try {
+    return await currentPublish;
+  } finally {
+    currentPublish = null;
+  }
+}
+
+async function doPublish(force: boolean): Promise<boolean> {
   const base = cloudBaseUrl();
   const auth = cloudAuthHeaders();
   if (!base || !auth) return false;
@@ -203,7 +216,6 @@ export async function publishMenuNow(force = false): Promise<boolean> {
   if (!force && !previousHash && !enabled) return false;
   if (!force && previousHash === hash) return true;
 
-  publishing = true;
   try {
     const r = await fetch(`${base}/api/menu/publish`, {
       method: 'POST',
@@ -223,8 +235,6 @@ export async function publishMenuNow(force = false): Promise<boolean> {
     // Sem rede: mantém o hash antigo para tentar de novo no próximo ciclo.
     log.warn('não foi possível publicar o menu público:', (e as Error).message);
     return false;
-  } finally {
-    publishing = false;
   }
 }
 
