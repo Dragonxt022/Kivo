@@ -265,7 +265,7 @@ async function main(): Promise<void> {
   } finally {
     try {
       if (companyUuid) {
-        for (const t of ['charges', 'contracts', 'company_devices', 'sync_records', 'cloud_backups', 'ai_usage', 'catalog_images', 'menu_items']) {
+        for (const t of ['charges', 'contracts', 'company_devices', 'sync_records', 'cloud_backups', 'ai_usage', 'catalog_images', 'menu_items', 'public_orders', 'menu_table_tokens', 'menu_publications']) {
           await conn.query(`DELETE FROM ${t} WHERE company_uuid = ?`, [companyUuid]);
         }
         // Os PDFs ficam em storage/contracts: some junto com o contrato do teste.

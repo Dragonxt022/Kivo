@@ -301,7 +301,7 @@ async function main(): Promise<void> {
   } finally {
     try {
       // Ordem das FKs: as tabelas filhas antes da empresa (o app cria sync/backup/dispositivo).
-      for (const tabela of ['charges', 'company_devices', 'sync_records', 'cloud_backups', 'ai_usage', 'catalog_images', 'menu_items']) {
+      for (const tabela of ['charges', 'company_devices', 'sync_records', 'cloud_backups', 'ai_usage', 'catalog_images', 'menu_items', 'public_orders', 'menu_table_tokens', 'menu_publications']) {
         await conn.query(`DELETE FROM ${tabela} WHERE company_uuid = ?`, [COMPANY]);
       }
       await conn.query('DELETE FROM companies WHERE company_uuid = ?', [COMPANY]);
