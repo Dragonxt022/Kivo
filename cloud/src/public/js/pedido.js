@@ -294,13 +294,61 @@
       unique.map(function (m) { return '<span>• ' + esc(m) + '</span>'; }).join('');
   }
 
-  function reorder(index) {
-    var order = readHistory()[index];
-    if (!order) return;
+  // ─── Rascunho do carrinho (sobrevive a recarregar a página) ────────────────
+  // Quando o cardápio muda e a gente pede para atualizar, o cliente não pode
+  // perder o que já escolheu. Guardamos no sessionStorage e revalidamos no load.
+  var CART_KEY = 'kivo:pedido-carrinho:v1:' + token;
+
+  function readCartDraft() {
+    try {
+      var raw = window.sessionStorage.getItem(CART_KEY);
+      var parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.items)) return null;
+      return parsed;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeCartDraft() {
+    var note = byId('orderNote') ? (byId('orderNote').value || '').trim().slice(0, 500) : '';
+    if (!state.cart.length) {
+      try { window.sessionStorage.removeItem(CART_KEY); } catch (e) { /* sem sessionStorage */ }
+      return;
+    }
+    var draft = {
+      items: state.cart.map(function (line) {
+        return {
+          productUuid: line.productUuid,
+          name: line.name,
+          qty: line.qty,
+          notes: line.notes,
+          takeaway: line.takeaway,
+          unitPriceCents: line.priceCents,
+          complements: (line.complements || []).map(function (c) {
+            return { productUuid: c.productUuid, name: c.name, qty: c.qty, unitPriceCents: c.priceCents };
+          }),
+        };
+      }),
+      note: note,
+      clientRequestId: state.clientRequestId,
+    };
+    try { window.sessionStorage.setItem(CART_KEY, JSON.stringify(draft)); } catch (e) { /* sem sessionStorage */ }
+  }
+
+  function clearCartDraft() {
+    try { window.sessionStorage.removeItem(CART_KEY); } catch (e) { /* sem sessionStorage */ }
+  }
+
+  /**
+   * Revalida itens salvos (histórico ou rascunho) contra o cardápio atual e
+   * junta no carrinho. Devolve os avisos do que mudou/sumiu.
+   */
+  function mergeItemsIntoCart(savedItems) {
     var messages = [];
     var added = 0;
 
-    (order.items || []).forEach(function (saved) {
+    (savedItems || []).forEach(function (saved) {
       var item = itemByUuid(saved.productUuid);
       if (!item) {
         messages.push('Indisponível agora: ' + (saved.name || 'item'));
@@ -374,7 +422,16 @@
       added++;
     });
 
-    if (!added) {
+    return { messages: messages, added: added };
+  }
+
+  function reorder(index) {
+    var order = readHistory()[index];
+    if (!order) return;
+    var result = mergeItemsIntoCart(order.items);
+    var messages = result.messages;
+
+    if (!result.added) {
       toast(messages[0] || 'Nenhum item deste pedido está disponível agora.');
       return;
     }
@@ -693,6 +750,7 @@
       }).join('') + '<div class="pedido-cart-sum"><span>Total</span><span>' + brl(cartTotal()) + '</span></div>';
     }
     if (byId('sendOrder')) byId('sendOrder').disabled = state.cart.length === 0;
+    writeCartDraft();
   }
 
   cartBody.addEventListener('click', function (e) {
@@ -770,10 +828,16 @@
         }),
       };
 
+      // Se a rede do celular pendurar a requisição, o botão não pode ficar
+      // travado em "Enviando…" para sempre: aborta e libera uma nova tentativa.
+      var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+      var timeoutId = ctrl ? setTimeout(function () { ctrl.abort(); }, 25000) : null;
+
       fetch('/api/pedido/' + encodeURIComponent(token) + '/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: ctrl ? ctrl.signal : undefined,
       }).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (body) {
           if (!r.ok) {
@@ -827,13 +891,16 @@
         startPolling();
       }).catch(function (err) {
         var message = err && err.message ? err.message : 'Não foi possível enviar o pedido.';
-        if (!err.status && /fetch|network|load failed/i.test(message)) {
+        if (err && err.name === 'AbortError') {
+          message = 'A loja demorou para responder. Verifique a internet e tente novamente.';
+        } else if (!err.status && /fetch|network|load failed/i.test(message)) {
           message = 'Sem conexão com a loja. Verifique a internet e tente novamente.';
         }
         // O aviso fica DENTRO da modal: um toast atrás do dialog o cliente não vê.
         showSendError(message, err.status === 409 || err.status === 404);
         toast(message);
       }).then(function () {
+        if (timeoutId) clearTimeout(timeoutId);
         sending = false;
         btn.disabled = state.cart.length === 0;
         btn.textContent = 'Enviar pedido';
@@ -966,6 +1033,29 @@
       reorder(historyDetailIndex);
     });
   }
+  // ─── Recupera o carrinho se a página foi recarregada no meio do pedido ─────
+  // Ex.: o cardápio mudou, o envio avisou "atualize" e a pessoa recarregou.
+  (function restoreCartDraft() {
+    var draft = readCartDraft();
+    if (!draft || !Array.isArray(draft.items) || !draft.items.length) return;
+    var result = mergeItemsIntoCart(draft.items);
+    if (!result.added) {
+      clearCartDraft();
+      return;
+    }
+    if (draft.clientRequestId) state.clientRequestId = String(draft.clientRequestId).slice(0, 80);
+    if (byId('orderNote')) byId('orderNote').value = draft.note || '';
+    renderCart();
+    // Mantém o mesmo clientRequestId: se o pedido anterior chegou ao servidor
+    // e só a resposta se perdeu, reenviar devolve o MESMO pedido (idempotência).
+    if (result.messages.length) showReorderNote(result.messages);
+    toast('Recuperamos o pedido que você estava montando.');
+  })();
+
+  if (byId('orderNote')) {
+    byId('orderNote').addEventListener('input', writeCartDraft);
+  }
+
   renderHistory();
 
   // Fecha diálogos no botão e no clique fora.
