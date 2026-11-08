@@ -1601,7 +1601,8 @@
         async loadComanda(id) {
           const r = await fetch(`/api/comandas/comandas/${id}`);
           if (!r.ok) { showToast('Comanda não encontrada ou já fechada.', 'error'); return; }
-          const c = await r.json();
+          const rawComanda = await r.json();
+          const c = rawComanda.data ?? rawComanda;
           if (c.status !== 'aberta') { showToast('Esta comanda não está mais aberta.', 'error'); return; }
           const cart = (c.items || []).map((i) => ({
             productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
@@ -1641,7 +1642,8 @@
         async loadQuote(id) {
           const r = await fetch(`/api/store/quotes/${id}`);
           if (!r.ok) { showToast('Orçamento não encontrado.', 'error'); return; }
-          const q = await r.json();
+          const rawQuote = await r.json();
+          const q = rawQuote.data ?? rawQuote;
           if (q.status !== 'aberto') { showToast(`Este orçamento já está "${q.status}".`, 'error'); return; }
           const cart = (q.items || []).map((i) => ({
             productId: i.product_id, name: i.product_name, price_cents: i.unit_price_cents, qty: i.qty,
