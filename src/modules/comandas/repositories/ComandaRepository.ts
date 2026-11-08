@@ -12,6 +12,16 @@ export class ComandaRepository extends BaseRepository {
     );
   }
 
+  /** Comanda aberta da mesa (o pedido por QR reusa a mesma conta). */
+  findOpenByTable(tableId: number): Row | undefined {
+    return this.rawOne(
+      `SELECT id, table_id, customer_id, status, notes FROM comandas
+        WHERE table_id = ? AND status = 'aberta' AND deleted_at IS NULL
+        ORDER BY id DESC LIMIT 1`,
+      tableId,
+    );
+  }
+
   close(id: number, saleId: number): void {
     this.rawRun(
       "UPDATE comandas SET status = 'fechada', sale_id = ?, closed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
@@ -56,7 +66,8 @@ export class ComandaItemRepository extends BaseRepository {
     // nome para o ticket (snapshot — o produto pode mudar de nome depois).
     return this.raw(
       `SELECT id, product_id AS productId, product_name AS productName, qty, notes,
-              line_group_uuid AS lineGroupUuid, unit_price_cents
+              line_group_uuid AS lineGroupUuid, unit_price_cents,
+              para_viagem AS paraViagem, origem, qr_order_id AS qrOrderId
        FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL ORDER BY id`,
       comandaId,
     );

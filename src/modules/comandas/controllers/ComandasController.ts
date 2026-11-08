@@ -8,10 +8,54 @@ import { storeTableRepository } from '../repositories/StoreTableRepository';
 import { comandaRepository, comandaItemRepository } from '../repositories/ComandaRepository';
 import { notifyTableEvents, subscribeTableEvents } from '../tableEvents';
 import { generateTables, listTableHistory } from '../tables';
+import { generateTableQr, getTableQr, revokeTableQr } from '../qr';
+import { confirmQrOrders, rejectQrOrders, setItemTakeaway } from '../qrOrder';
 
 export const comandasController = {
   listTables(_req: Request, res: Response) {
     res.json(storeTableRepository.findAll({ orderBy: 'sort_order' }));
+  },
+
+  /** QR já gerado para a mesa (a modal reabre no mesmo código, sem rotacionar). */
+  async getTableQrAction(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Mesa inválida.' });
+      return;
+    }
+    const data = await getTableQr(id);
+    if (!data) {
+      res.status(404).json({ error: 'Esta mesa ainda não tem QR.' });
+      return;
+    }
+    res.json(data);
+  },
+
+  /** Gera (ou rotaciona, com `{ rotate: true }`) o QR da mesa no Cloud. */
+  async generateTableQrAction(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Mesa inválida.' });
+      return;
+    }
+    const result = await generateTableQr(req, id, req.body?.rotate === true);
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    notifyTableEvents();
+    res.status(201).json(result.data);
+  },
+
+  async revokeTableQrAction(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const result = await revokeTableQr(req, id);
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    notifyTableEvents();
+    res.json({ ok: true });
   },
 
   /**
@@ -29,7 +73,11 @@ export const comandasController = {
     // continuar mostrando a mesa livre/ocupada antiga.
     res.setHeader('Cache-Control', 'no-store');
     const tables = storeTableRepository.raw(
-      `SELECT t.*, MAX(c.id) AS comanda_id, c.ready_for_payment_at
+      `SELECT t.*, MAX(c.id) AS comanda_id, c.ready_for_payment_at,
+              (SELECT COUNT(*) FROM qr_orders q
+                 JOIN comandas c2 ON c2.id = q.comanda_id
+                WHERE c2.table_id = t.id AND c2.status = 'aberta' AND c2.deleted_at IS NULL
+                  AND q.status = 'pendente' AND q.deleted_at IS NULL) AS qr_pending_count
          FROM store_tables t
          LEFT JOIN comandas c
            ON c.table_id = t.id AND c.status = 'aberta' AND c.deleted_at IS NULL
@@ -235,7 +283,16 @@ export const comandasController = {
         kitchen_status: kitchenStatus,
       };
     });
-    res.json({ ...comanda, items: kitchenItems });
+    const qrPending = comandaRepository.raw(
+      `SELECT q.id, q.order_uuid, q.status, q.created_at, q.rejection_reason,
+              (SELECT COUNT(*) FROM comanda_items ci
+                WHERE ci.qr_order_id = q.id AND ci.deleted_at IS NULL AND ci.voided_at IS NULL) AS items_count
+         FROM qr_orders q
+        WHERE q.comanda_id = ? AND q.deleted_at IS NULL AND q.status = 'pendente'
+        ORDER BY q.id`,
+      id,
+    );
+    res.json({ ...comanda, items: kitchenItems, qr_pending: qrPending });
   },
 
   openComandaAction(req: Request, res: Response) {
@@ -281,6 +338,31 @@ export const comandasController = {
     // A alteração de quantidade também desmarca o "Quer pagar".
     notifyTableEvents();
     res.json({ ok: true });
+  },
+
+  /** Garçom confirmou o pedido do cliente no QR: manda só a rodada dele à cozinha. */
+  confirmQrOrdersAction(req: Request, res: Response) {
+    const orderUuid = req.body?.orderUuid ? String(req.body.orderUuid) : undefined;
+    const result = confirmQrOrders(req, Number(req.params.id), orderUuid);
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.json({ sent: result.sent, orders: result.orders });
+  },
+
+  /** Garçom recusou (brincadeira/criança/item em falta): anula a rodada e avisa o celular. */
+  rejectQrOrdersAction(req: Request, res: Response) {
+    const orderUuid = req.body?.orderUuid ? String(req.body.orderUuid) : undefined;
+    const reason = req.body?.reason != null ? String(req.body.reason) : null;
+    const result = rejectQrOrders(req, Number(req.params.id), orderUuid, reason);
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.json({ orders: result.orders });
+  },
+
+  /** "Viagem" por item (principal + adicionais do mesmo grupo). */
+  setItemTakeawayAction(req: Request, res: Response) {
+    const paraViagem = req.body?.paraViagem === true || req.body?.paraViagem === 1;
+    const result = setItemTakeaway(req, Number(req.params.id), Number(req.params.itemId), paraViagem);
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.json({ ok: true, paraViagem });
   },
 
   enviarCozinhaAction(req: Request, res: Response) {

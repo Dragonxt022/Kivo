@@ -7,6 +7,8 @@ import licenseRoutes from './routes/license';
 import backupRoutes from './routes/backup';
 import billingRoutes from './routes/billing';
 import catalogRoutes from './routes/catalog';
+import { router as menuPublishRoutes } from './routes/menuPublish';
+import { orderPage as orderPageRoutes, orderApi as orderApiRoutes } from './routes/orderPublic';
 import themeRoutes from './routes/themes';
 import messageRoutes from './routes/messages';
 import adminRoutes from './routes/admin';
@@ -126,6 +128,11 @@ export function createCloudServer() {
   app.use('/api/backup', backupRoutes);
   app.use('/api/billing', billingRoutes);
   app.use('/api/catalog', catalogRoutes);
+  // Pedido pela mesa via QR: o app local publica o menu/tokens (trial + Diamante) e o
+  // celular do cliente usa a página pública + API sem login (token da mesa).
+  app.use('/api/menu', menuPublishRoutes);
+  app.use('/pedido', orderPageRoutes);
+  app.use('/api/pedido', orderApiRoutes);
   // Loja de temas (pacotes de ícones): o servidor local do desktop chama com as credenciais
   // de licença da empresa.
   app.use('/api/themes', themeRoutes);

@@ -25,13 +25,13 @@
   <h1>Ticket de Cozinha</h1>
   <div class="meta">
     <div><%= ticket.source_type === 'comanda' ? 'Mesa ' + (ticket.table_label || ticket.source_id) : 'PDV #' + ticket.source_id %></div>
-    <div><strong><%= ticket.service_type === 'entrega' ? 'ENTREGA' : 'CONSUMIR NO LOCAL' %></strong></div>
+    <div><strong><%= ticket.service_type === 'entrega' ? 'ENTREGA' : (ticket.service_type === 'viagem' ? 'PARA VIAGEM' : 'CONSUMIR NO LOCAL') %></strong></div>
     <div><%= ticket.updated_at?.slice(11, 19) || '' %></div>
   </div>
   <% if (ticket.items?.length) { %>
     <% for (const item of ticket.items) { %>
       <div class="item">
-        <div class="item-qty"><%= item.qty %>x <%= item.product_name %></div>
+        <div class="item-qty"><%= item.para_viagem ? '[VIAGEM] ' : '' %><%= item.qty %>x <%= item.product_name %></div>
         <% if (item.complements) { %><div class="item-complements">Complementos: <%= item.complements %></div><% } %>
         <% if (item.notes) { %><div class="item-notes">Obs: <%= item.notes %></div><% } %>
         <% if (item.station) { %><div class="item-notes">Estação: <%= item.station %></div><% } %>

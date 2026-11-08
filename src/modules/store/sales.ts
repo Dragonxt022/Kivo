@@ -32,6 +32,8 @@ export interface SaleItemInput {
   unitPriceCents?: number;
   notes?: string;
   lineGroupUuid?: string;
+  /** Cliente no local, item embalado para viagem. */
+  paraViagem?: boolean;
 }
 
 export interface SalePaymentInput {
@@ -82,6 +84,7 @@ interface ResolvedItem {
   productId: number; name: string; qty: number; unitCents: number;
   costCents: number; totalCents: number; notes: string | null;
   lineGroupUuid: string | null;
+  paraViagem: boolean;
   recipeConsumption?: { productId: number; qty: number }[];
 }
 
@@ -152,11 +155,12 @@ function resolveSaleItems(
         : complementCents ?? pricing.resolvePrice(p.id, item.qty, input.customerId ?? null).unitCents;
     const notes = item.notes ?? null;
     const lineGroupUuid = item.lineGroupUuid ?? null;
+    const paraViagem = item.paraViagem === true;
     items.push({
       productId: p.id, name: p.name, qty: item.qty, unitCents,
       costCents: fifo ? fifoUnitCostCents(p.id, item.qty, p.cost_cents) : p.cost_cents,
       totalCents: Math.round(unitCents * item.qty),
-      notes, lineGroupUuid,
+      notes, lineGroupUuid, paraViagem,
     });
 
     if (p.product_type === 'kit' || p.product_type === 'combo') {
@@ -170,7 +174,7 @@ function resolveSaleItems(
         items.push({
           productId: comp.id, name: comp.name, qty: compQty,
           unitCents: 0, costCents: fifo ? fifoUnitCostCents(comp.id, compQty, comp.cost_cents) : comp.cost_cents, totalCents: 0,
-          notes, lineGroupUuid,
+          notes, lineGroupUuid, paraViagem,
         });
       }
     }
@@ -419,9 +423,9 @@ export function createSale(
 
       for (const i of items) {
         saleRepository.rawRun(
-          `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents, notes, line_group_uuid)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, i.notes, i.lineGroupUuid,
+          `INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price_cents, cost_cents, total_cents, notes, line_group_uuid, para_viagem)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          saleId, i.productId, i.name, i.qty, i.unitCents, i.costCents, i.totalCents, i.notes, i.lineGroupUuid, i.paraViagem ? 1 : 0,
         );
         const move = stock.moveRaw(req, i.productId, 'saida', i.qty, 'venda', 'sale', saleId, true);
         if (!move.ok) throw new Error(move.error);

@@ -244,6 +244,16 @@ export function canUseWebApp(plan: string | null | undefined): boolean {
   return (plan ?? '').toLowerCase() === 'diamante';
 }
 
+/**
+ * Pedido pela mesa via QR: Diamante ou Trial. Espelha `canUseQrOrder` de
+ * src/core/license/plans.ts. O trial publica o menu pela rota /api/menu/publish,
+ * sem ganhar sync/backup geral.
+ */
+export function canUseQrOrder(plan: string | null | undefined): boolean {
+  const p = (plan ?? '').toLowerCase();
+  return p === 'diamante' || p === 'trial';
+}
+
 /** Validade padrão de uma licença trial: 15 dias a partir de agora. */
 export function trialValidUntil(): string {
   const d = new Date(Date.now() + 15 * 24 * 3600e3);

@@ -1,10 +1,11 @@
 import { getSqlite } from '../database/connection';
 import { impersonate } from '../auth/systemContext';
 import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
-import { getService } from '../services/registry';
+import { getService, hasService } from '../services/registry';
 import { createLogger } from '../logger';
 import { flushTelemetry, getMachineInventory } from '../telemetry/service';
 import { machineId } from '../license/service';
+import { settingsRepository } from '../repositories/SettingsRepository';
 import { forcarAtualizacaoSilenciosa, getUpdateState } from '../updater';
 
 const log = createLogger('commands');
@@ -26,7 +27,7 @@ export interface PendingCommand {
   id: number;
   kind: string;
   payload: Record<string, unknown>;
-  created_by_user_uuid: string;
+  created_by_user_uuid: string | null;
 }
 
 interface QuoteItemPayload {
@@ -182,9 +183,60 @@ function handleQuoteCreate(cmd: PendingCommand): HandlerResult {
   };
 }
 
+interface QrOrderService {
+  receiveQrOrder: (
+    req: import('express').Request,
+    payload: Record<string, unknown>,
+  ) => { ok: true; result: Record<string, unknown> } | { ok: false; error: string };
+}
+
+/**
+ * Resolve quem vai "assinar" o pedido do cliente no desktop. O payload público não tem
+ * usuário; usamos o configurado em `pedido_qr.usuario_responsavel` ou o primeiro usuário
+ * ativo com `comandas.manage`. Sem isso, `opened_by`/`added_by` e a auditoria ficariam
+ * sem autor — e o serviço de comandas exige um `req.user`.
+ */
+function resolveQrActor(): { userId: number; actor: ReturnType<typeof impersonate> } | { error: string } {
+  const configuredUuid = settingsRepository.get('pedido_qr.usuario_responsavel');
+  if (configuredUuid) {
+    const configuredId = localIdByUuid('users', configuredUuid);
+    if (configuredId) {
+      const actor = impersonate(configuredId, 'pedido-qr');
+      if (actor) return { userId: configuredId, actor };
+    }
+  }
+  const candidates = db()
+    .prepare('SELECT id FROM users WHERE active = 1 AND deleted_at IS NULL ORDER BY id')
+    .all() as { id: number }[];
+  for (const row of candidates) {
+    const actor = impersonate(Number(row.id), 'pedido-qr');
+    if (actor?.user.permissions.has('comandas.manage')) return { userId: Number(row.id), actor };
+  }
+  return { error: 'Nenhum usuário ativo com permissão de comandas para receber o pedido do QR. Configure o responsável em Configurações.' };
+}
+
+function handleQrOrder(cmd: PendingCommand): HandlerResult {
+  if (!hasService('comandas.qr')) {
+    return { ok: false, error: 'O módulo de comandas não está instalado neste computador.' };
+  }
+  const actor = resolveQrActor();
+  if ('error' in actor) return { ok: false, error: actor.error };
+  const service = getService<QrOrderService>('comandas.qr');
+  try {
+    const out = service.receiveQrOrder(actor.actor!, cmd.payload);
+    if (!out.ok) return { ok: false, error: out.error };
+    return { ok: true, result: out.result };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {
   'store.quote.create': handleQuoteCreate,
   'finance.receivable.receive': handleReceivableReceive,
+  // Pedido público feito no QR da mesa. O desktop aplica e o garçom confirma na tela de
+  // Mesas; a cozinha só recebe depois dessa confirmação.
+  'comandas.qr.order': handleQrOrder,
 
   // Comandos de SUPORTE (o painel cloud dispara; não dependem do plano nem de usuário).
   // "Forçar sincronização": agenda um ciclo agora — o resultado real sai no próximo sync.

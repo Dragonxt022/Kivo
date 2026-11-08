@@ -13,6 +13,7 @@ interface MenuItemRow {
   category_uuid: string | null;
   product_uuid: string;
   category_payload: string | Record<string, unknown> | null;
+  category_name: string | null;
   image_id: number | null;
 }
 
@@ -40,6 +41,7 @@ router.get('/:companyUuid', async (req, res) => {
 
   const [rows] = await pool.query(
     `SELECT mi.name, mi.description, mi.price_cents, mi.category_uuid, mi.product_uuid,
+            mi.category_name,
             sr.payload AS category_payload,
             -- 1) foto vinculada pelo app local (id do catálogo) — caminho principal;
             -- 2) foto da própria empresa casada pelo nome — legado de quem contribuiu;
@@ -84,6 +86,7 @@ router.get('/:companyUuid', async (req, res) => {
           : row.category_payload;
       if (payload?.name) categoryName = String(payload.name);
     }
+    if (categoryName === 'Outros' && row.category_name) categoryName = String(row.category_name);
     const key = row.category_uuid ?? '__none__';
     if (!grouped.has(key)) grouped.set(key, { name: categoryName, items: [] });
     grouped.get(key)!.items.push(row);

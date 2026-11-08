@@ -22,21 +22,8 @@
         <p class="muted" x-show="comanda?.notes" x-text="'Obs.: ' + (comanda?.notes ?? '')"></p>
       </div>
       <div class="toolbar header-actions" x-show="isOpen" x-cloak>
-        <%# Tipo do pedido: a comanda nasce como consumo no local; o garçom troca para
-            Entrega quando o pedido for para viagem. %>
-        <div class="comanda-service-type" x-show="kitchenPendingCount() > 0" x-cloak
-             role="group" aria-label="Tipo do pedido">
-          <button type="button" class="btn secondary" :class="{ active: serviceType === 'local' }"
-                  @click="serviceType = 'local'" title="Consumir no local">
-            <%- svgIcon('plate-utensils', 15, 15) %>
-            <span class="btn-label">Local</span>
-          </button>
-          <button type="button" class="btn secondary entrega" :class="{ active: serviceType === 'entrega' }"
-                  @click="serviceType = 'entrega'" title="Pedido para entrega">
-            <%- svgIcon('motorcycle', 15, 15) %>
-            <span class="btn-label">Entrega</span>
-          </button>
-        </div>
+        <%# "Viagem" agora é por item (o cliente escolhe no celular e o garçom pode
+            ajustar na lista). O envio à cozinha só manda o que o garçom confirmar. %>
         <%# Envio explícito: enquanto monta o pedido o cliente pode desistir/trocar —
             a cozinha só vê o que o garçom confirmar aqui. %>
         <%# Só os itens ainda não enviados contam: depois do primeiro envio o botão fica
@@ -67,6 +54,19 @@
       </div>
     </div>
     <div class="error" x-text="error"></div>
+
+    <%# Pedido do cliente no QR: fica PENDENTE até o garçom confirmar. A cozinha não
+        recebe nada enquanto isso — é o que evita criança/brincadeira virar pedido. %>
+    <div class="comanda-qr-pending" x-show="qrPending.length" x-cloak>
+      <div class="comanda-qr-pending-text">
+        <strong>Pedido do cliente aguardando confirmação</strong>
+        <span x-text="qrPendingSummary()"></span>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="btn secondary" @click="rejectQr()">Recusar</button>
+        <button type="button" class="btn" @click="confirmQr()">Confirmar e enviar p/ cozinha</button>
+      </div>
+    </div>
 
     <div class="panel comanda-panel">
       <div class="comanda-items" x-show="items.length">
@@ -100,6 +100,16 @@
               </button>
               <div class="comanda-item-tags" x-show="item.goes_to_kitchen" x-cloak>
                 <span class="kitchen-tag" :class="{ sent: item.kitchen_sent }" x-text="kitchenStatusLabel(item)"></span>
+              </div>
+              <div class="comanda-item-tags" x-show="item.origem === 'cliente_qr' || item.para_viagem || (isOpen && !isComplement(idx))" x-cloak>
+                <span class="kitchen-tag qr-tag" x-show="item.origem === 'cliente_qr'">Cliente (QR)</span>
+                <button type="button" class="kitchen-tag takeaway-tag"
+                        :class="{ sent: item.para_viagem }"
+                        x-show="isOpen && !isComplement(idx)"
+                        @click="toggleTakeaway(item)"
+                        :title="item.para_viagem ? 'Voltar para consumo no local' : 'Marcar este item para viagem'"
+                        x-text="item.para_viagem ? 'Para viagem ✓' : 'Marcar viagem'"></button>
+                <span class="kitchen-tag takeaway-tag sent" x-show="isComplement(idx) && item.para_viagem">Viagem</span>
               </div>
               <div class="comanda-item-meta" x-show="item.notes" x-text="'Obs.: ' + item.notes"></div>
             </div>
@@ -674,6 +684,32 @@
       background: var(--success-bg); color: var(--success-text);
       border: 1.5px solid color-mix(in srgb, var(--success-text) 25%, transparent);
     }
+
+    /* Pedido do cliente no QR: banner de confirmação e tags dos itens. */
+    .comanda-qr-pending {
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+      margin: .75rem 0; padding: .75rem .9rem;
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    }
+    .comanda-qr-pending-text { display: grid; gap: .1rem; font-size: .86rem; }
+    .comanda-qr-pending-text strong { color: var(--primary); }
+    .comanda-qr-pending .toolbar { margin: 0; flex-wrap: wrap; }
+    .kitchen-tag.qr-tag {
+      background: color-mix(in srgb, var(--primary) 16%, transparent);
+      color: var(--primary); font-weight: 700;
+    }
+    .kitchen-tag.takeaway-tag {
+      border: 1px dashed var(--border); background: transparent; color: var(--text-muted);
+      cursor: pointer; font: inherit;
+    }
+    .kitchen-tag.takeaway-tag.sent {
+      background: var(--success-bg); color: var(--success-text); border-style: solid;
+    }
+    @media (max-width: 560px) {
+      .comanda-qr-pending { flex-direction: column; align-items: stretch; }
+    }
   </style>
   <script nonce="<%= cspNonce %>">
     function comandaDetalhePage() {
@@ -693,6 +729,7 @@
         salvandoObs: false,
         searchResults: [],
         isOpen: false,
+        qrPending: [],
         error: '', dlgError: '',
         transferTables: [],
         transferTarget: null,
@@ -742,9 +779,11 @@
         async load() {
           const r = await fetch('/api/comandas/comandas/' + this.comandaId);
           if (!r.ok) { window.handleApiError(r, await r.json().catch(() => ({})), 'Erro ao carregar comanda.'); return; }
-          const data = await r.json();
+          const raw = await r.json();
+          const data = raw.data ?? raw;
           this.comanda = data;
           this.items = this.groupItems(data.items || []);
+          this.qrPending = data.qr_pending || [];
           this.isOpen = data.status === 'aberta';
         },
         brl(c) { return window.brl(c); },
@@ -752,7 +791,9 @@
         // Itens de cozinha que ainda não têm ticket ativo. O botão só reenvia o que falta —
         // reenviar a comanda inteira duplicaria pratos no KDS.
         kitchenPendingCount() {
-          return this.items.filter((i) => i.goes_to_kitchen && !i.kitchen_sent).length;
+          const pendentesQr = new Set(this.qrPending.map((o) => Number(o.id)));
+          return this.items.filter((i) => i.goes_to_kitchen && !i.kitchen_sent
+            && !(i.qr_order_id && pendentesQr.has(Number(i.qr_order_id)))).length;
         },
         kitchenStatusLabel(item) {
           if (!item.goes_to_kitchen) return '';
@@ -765,6 +806,74 @@
           const pending = this.kitchenPendingCount();
           if (pending > 0) return 'Enviar p/ cozinha (' + pending + ')';
           return this.items.some((i) => i.goes_to_kitchen) ? 'Cozinha em dia' : 'Enviar p/ cozinha';
+        },
+        qrPendingSummary() {
+          const items = this.qrPending.reduce((n, o) => n + Number(o.items_count || 0), 0);
+          const orders = this.qrPending.length;
+          return items + (items === 1 ? ' item' : ' itens') + ' em ' + orders +
+            (orders === 1 ? ' pedido do cliente' : ' pedidos do cliente');
+        },
+        async confirmQr() {
+          if (!this.qrPending.length) return;
+          try {
+            const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/qr-orders/confirm', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+            });
+            const body = await r.json().catch(() => ({}));
+            const d = body.data ?? body;
+            if (!r.ok || body.success === false) {
+              showToast(d.error || 'Não foi possível confirmar o pedido.', 'error');
+              return;
+            }
+            showToast('Pedido do cliente confirmado e enviado para a cozinha.', 'success');
+            await this.load();
+          } catch {
+            showToast('Sem conexão com o servidor local.', 'error');
+          }
+        },
+        async rejectQr() {
+          if (!this.qrPending.length) return;
+          const motivo = window.prompt('Motivo da recusa (o cliente vê esta mensagem):', 'Pedido não confirmado pelo atendente.');
+          if (motivo === null) return;
+          try {
+            const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/qr-orders/reject', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reason: motivo }),
+            });
+            const body = await r.json().catch(() => ({}));
+            const d = body.data ?? body;
+            if (!r.ok || body.success === false) {
+              showToast(d.error || 'Não foi possível recusar o pedido.', 'error');
+              return;
+            }
+            showToast('Pedido do cliente recusado.', 'info');
+            await this.load();
+          } catch {
+            showToast('Sem conexão com o servidor local.', 'error');
+          }
+        },
+        async toggleTakeaway(item) {
+          const target = !item.para_viagem;
+          try {
+            const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/items/' + item.id + '/takeaway', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paraViagem: target }),
+            });
+            const body = await r.json().catch(() => ({}));
+            const d = body.data ?? body;
+            if (!r.ok || body.success === false) {
+              showToast(d.error || 'Não foi possível alterar.', 'error');
+              return;
+            }
+            const group = item.line_group_uuid;
+            this.items.forEach((i) => {
+              if ((group && i.line_group_uuid === group) || (!group && i.id === item.id)) {
+                i.para_viagem = target ? 1 : 0;
+              }
+            });
+          } catch {
+            showToast('Sem conexão com o servidor local.', 'error');
+          }
         },
         async searchProducts() {
           if (!this.searchQ.trim()) { this.searchResults = []; return; }

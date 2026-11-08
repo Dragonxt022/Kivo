@@ -120,8 +120,9 @@
                     <span class="kds-service" :class="'kds-service-' + serviceType(ticket)"
                           :title="serviceLabel(ticket)" :aria-label="serviceLabel(ticket)">
                       <span x-show="serviceType(ticket) === 'entrega'"><%- svgIcon('motorcycle', 16, 16) %></span>
-                      <span x-show="serviceType(ticket) !== 'entrega'"><%- svgIcon('plate-utensils', 16, 16) %></span>
-                      <span class="kds-service-label" x-text="serviceType(ticket) === 'entrega' ? 'Entrega' : 'Local'"></span>
+                      <span x-show="serviceType(ticket) === 'viagem'"><%- svgIcon('bag', 16, 16) %></span>
+                      <span x-show="serviceType(ticket) === 'local'"><%- svgIcon('plate-utensils', 16, 16) %></span>
+                      <span class="kds-service-label" x-text="serviceLabel(ticket)"></span>
                     </span>
                     <span class="kds-source">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -149,6 +150,7 @@
                             não pode se perder no meio do card. %>
                         <div class="kds-item-notes" x-show="item.notes" x-text="'⚠ Obs.: ' + item.notes"></div>
                         <span class="badge badge-info" x-show="item.station" x-text="item.station"></span>
+                        <span class="badge badge-viagem" x-show="item.para_viagem">Viagem</span>
                       </div>
                       <div class="kds-item-actions">
                         <button type="button" class="btn small secondary kds-item-back"
@@ -402,6 +404,13 @@
     .kds-service-entrega {
       color: var(--warning-text); background: var(--warning-bg);
       border-color: color-mix(in srgb, var(--warning-text) 30%, transparent);
+    }
+    .kds-service-viagem {
+      color: var(--success-text); background: var(--success-bg);
+      border-color: color-mix(in srgb, var(--success-text) 30%, transparent);
+    }
+    .badge-viagem {
+      background: var(--success-bg); color: var(--success-text); font-weight: 700;
     }
     .kds-source { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 1 1 auto; color: var(--text); font-size: .92rem; }
     .kds-source span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -751,10 +760,16 @@
         // Tipo do pedido no card. Tickets antigos (antes da coluna service_type) são
         // tratados como locais — era o único comportamento que existia.
         serviceType(ticket) {
-          return ticket && ticket.service_type === 'entrega' ? 'entrega' : 'local';
+          if (ticket && (ticket.service_type === 'entrega' || ticket.service_type === 'viagem')) {
+            return ticket.service_type;
+          }
+          return 'local';
         },
         serviceLabel(ticket) {
-          return this.serviceType(ticket) === 'entrega' ? 'Entrega' : 'Consumir no local';
+          const type = this.serviceType(ticket);
+          if (type === 'entrega') return 'Entrega';
+          if (type === 'viagem') return 'Para viagem';
+          return 'Consumir no local';
         },
         visibleColumns() {
           return this.columns.filter((c) => c.status !== 'entregue' || this.showEntregues);
@@ -769,12 +784,13 @@
           const base = ticket.source_type === 'comanda'
             ? (ticket.table_label || ('Comanda #' + ticket.source_id))
             : (ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id);
-          return (ticket.service_type === 'entrega' ? 'Entrega — ' : '') + base;
+          return (ticket.service_type === 'entrega' ? 'Entrega — ' : ticket.service_type === 'viagem' ? 'Viagem — ' : '') + base;
         },
         async load() {
           const r = await fetch('/api/foodservice/kitchen/tickets');
           if (!r.ok) return;
-          const all = await r.json();
+          const raw = await r.json();
+          const all = Array.isArray(raw) ? raw : (raw.data ?? []);
           const visiveis = all.filter((t) => t.status !== 'cancelado');
           const ids = new Set(visiveis.map((t) => t.id));
           const novos = this.knownIds ? [...ids].filter((id) => !this.knownIds.has(id)) : [];

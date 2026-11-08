@@ -13,7 +13,16 @@ import { storeTableRepository } from './repositories/StoreTableRepository';
 import { saleRepository } from '../store/repositories/SaleRepository';
 
 interface OpenComandaParams { tableId?: number; customerId?: number; notes?: string }
-interface AddItemParams { productId: number; qty: number; notes?: string; lineGroupUuid?: string }
+interface AddItemParams {
+  productId: number; qty: number; notes?: string; lineGroupUuid?: string;
+  /** Cliente no local, item embalado para viagem. Adicionais herdam do principal. */
+  paraViagem?: boolean;
+  /** 'garcom' (padrão) ou 'cliente_qr'. */
+  origem?: 'garcom' | 'cliente_qr';
+  qrOrderId?: number | null;
+  /** Preço congelado vindo do pedido público (o cliente paga o que viu no celular). */
+  unitPriceCents?: number | null;
+}
 
 interface ComandaRow {
   id: number; table_id: number | null; status: string; notes: string | null;
@@ -21,7 +30,11 @@ interface ComandaRow {
   closed_at?: string | null;
 }
 
-interface ComandaItemRow { id: number; productId: number; productName: string; qty: number; notes: string | null; lineGroupUuid: string | null; unit_price_cents: number }
+interface ComandaItemRow {
+  id: number; productId: number; productName: string; qty: number; notes: string | null;
+  lineGroupUuid: string | null; unit_price_cents: number;
+  paraViagem?: number; qrOrderId?: number | null; origem?: string;
+}
 
 /**
  * Produto principal da mesma linha de complementos (`line_group_uuid`).
@@ -106,9 +119,11 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
   ) as { id: number; name: string; price_cents: number; deleted_at: string | null } | undefined;
   if (!product) return { ok: false, error: 'Produto nao encontrado.' };
   const pricing = getService<CommercialPricingService>('commercial.pricing');
-  const unitPriceCents = resolveLineUnitPrice(
-    pricing, comanda, product.id, params.qty, params.lineGroupUuid ?? null,
-  );
+  const unitPriceCents = params.unitPriceCents != null && Number.isFinite(Number(params.unitPriceCents))
+    ? Math.max(0, Math.round(Number(params.unitPriceCents)))
+    : resolveLineUnitPrice(
+        pricing, comanda, product.id, params.qty, params.lineGroupUuid ?? null,
+      );
   const itemId = comandaItemRepository.create({
     comanda_id: comandaId,
     product_id: product.id,
@@ -117,6 +132,9 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
     unit_price_cents: unitPriceCents,
     notes: params.notes ?? null,
     line_group_uuid: params.lineGroupUuid ?? null,
+    para_viagem: params.paraViagem ? 1 : 0,
+    origem: params.origem ?? 'garcom',
+    qr_order_id: params.qrOrderId ?? null,
     added_by: req.user.id,
     uuid: randomUUID(),
     origin_machine: req.headers['x-machine'] ?? null,
@@ -142,14 +160,32 @@ export function addItem(req: Request, comandaId: number, params: AddItemParams):
 export function sendToKitchen(
   req: Request,
   comandaId: number,
-  serviceType: 'local' | 'entrega' = 'local',
+  serviceType: 'local' | 'viagem' | 'entrega' = 'local',
+  itemIds?: number[],
 ): { ok: true; sent: number; estimatedMinutes: number | null } | { ok: false; error: string } {
   assertAuth(req);
   const comanda = comandaRepository.findOpen(comandaId) as ComandaRow | undefined;
   if (!comanda) return { ok: false, error: 'Comanda nao encontrada.' };
   if (comanda.status !== 'aberta') return { ok: false, error: 'Comanda nao esta aberta.' };
-  const items = comandaItemRepository.listActiveByComanda(comandaId) as unknown as ComandaItemRow[];
+  let items = comandaItemRepository.listActiveByComanda(comandaId) as unknown as ComandaItemRow[];
+  if (itemIds?.length) {
+    const allowed = new Set(itemIds.map((id) => Number(id)));
+    items = items.filter((i) => allowed.has(Number(i.id)));
+  }
   if (!items.length) return { ok: false, error: 'Comanda sem itens.' };
+
+  // Pedido do cliente que o garçom ainda NÃO confirmou não pode vazar para a cozinha
+  // pelo botão normal de "Enviar p/ cozinha". A confirmação marca a rodada antes de
+  // chamar esta função, então os itens dela passam.
+  const pendingQrOrders = new Set(
+    (comandaItemRepository.raw(
+      "SELECT id FROM qr_orders WHERE comanda_id = ? AND status = 'pendente' AND deleted_at IS NULL",
+      comandaId,
+    ) as { id: number }[]).map((r) => Number(r.id)),
+  );
+  items = items.filter((i) => i.qrOrderId == null || !pendingQrOrders.has(Number(i.qrOrderId)));
+  if (!items.length) return { ok: true, sent: 0, estimatedMinutes: null };
+
   if (!hasService('foodservice.kitchen')) return { ok: true, sent: 0, estimatedMinutes: null };
   const kitchen = getService<FoodserviceKitchenService>('foodservice.kitchen');
   const alreadySent = new Set(kitchen.findSentComandaItemIds(items.map((i) => i.id)));
@@ -158,6 +194,14 @@ export function sendToKitchen(
   const enriched = attachComplements(items, (i) => i.productName ?? String(i.productId));
   const pending = enriched.filter((i) => !alreadySent.has(i.id));
   if (!pending.length) return { ok: true, sent: 0, estimatedMinutes: null };
+
+  // "Viagem" por item. Se o chamador marcou o pedido inteiro como viagem (tela antiga
+  // ou confirmação do QR), o fallback vale para itens sem flag gravada.
+  const explicitTakeaway = serviceType !== 'local';
+  const hasFlag = pending.some((i) => Number(i.paraViagem) === 1);
+  const takeawayByItem = pending.map((i) => Number(i.paraViagem) === 1 || (explicitTakeaway && !hasFlag));
+  const allTakeaway = takeawayByItem.every(Boolean);
+
   const tableLabel = comanda.table_id
     ? (storeTableRepository.findByComandaTableId(comanda.table_id) as { label: string } | undefined)?.label
     : undefined;
@@ -166,23 +210,24 @@ export function sendToKitchen(
     result = kitchen.notifyOrder(req, {
       sourceType: 'comanda', sourceId: comandaId,
       tableLabel,
-      // Padrão da comanda é consumo no local; o garçom pode marcar Entrega na própria
-      // tela quando o pedido for para viagem.
-      serviceType: serviceType === 'entrega' ? 'entrega' : 'local',
-      items: pending.map((i) => ({
+      serviceType: allTakeaway ? 'viagem' : 'local',
+      items: pending.map((i, idx) => ({
         productId: i.productId,
         name: i.productName ?? String(i.productId),
         qty: i.qty,
         notes: i.notes ?? undefined,
         complements: i.complements,
         comandaItemId: i.id,
+        paraViagem: takeawayByItem[idx],
       })),
     });
   } catch {
     // Aqui falha NÃO é silenciosa: o garçom precisa saber que a cozinha não recebeu.
     return { ok: false, error: 'Nao foi possivel enviar para a cozinha. Tente de novo.' };
   }
-  audit(req, 'enviar_cozinha', 'comanda', comandaId, null, { itensEnviados: result.items, itensNoPedido: pending.length, minutosEstimados: result.maxEstimatedMinutes });
+  audit(req, 'enviar_cozinha', 'comanda', comandaId, null, {
+    itensEnviados: result.items, itensNoPedido: pending.length, minutosEstimados: result.maxEstimatedMinutes,
+  });
   return { ok: true, sent: result.items, estimatedMinutes: result.maxEstimatedMinutes };
 }
 
@@ -367,7 +412,7 @@ export function closeComanda(
   req: Request, comandaId: number,
   input: {
     payments: SalePaymentInput[]; discountCents?: number; surchargeCents?: number; customerId?: number; customerName?: string;
-    items?: { productId: number; qty: number; notes?: string; lineGroupUuid?: string; unitPriceCents?: number }[];
+    items?: { productId: number; qty: number; notes?: string; lineGroupUuid?: string; unitPriceCents?: number; paraViagem?: boolean }[];
     clientRequestId?: string;
   },
 ): { ok: true; saleId: number } | { ok: false; error: string } {
@@ -397,7 +442,9 @@ export function closeComanda(
     ? input.items
     : dbItems.map((i) => {
         let unitPriceCents = i.unit_price_cents;
-        if (i.lineGroupUuid) {
+        // Pedido do QR congela o preço que o cliente viu no celular; re-resolver aqui
+        // poderia cobrar diferente do cardápio exibido.
+        if (i.lineGroupUuid && i.origem !== 'cliente_qr') {
           const baseProductId = lineBase.get(i.lineGroupUuid);
           if (baseProductId != null && baseProductId !== i.productId) {
             const complementCents = pricing.resolveComplementPrice(baseProductId, i.productId);
@@ -410,6 +457,7 @@ export function closeComanda(
           notes: i.notes ?? undefined,
           lineGroupUuid: i.lineGroupUuid ?? undefined,
           unitPriceCents,
+          paraViagem: Number(i.paraViagem) === 1,
         };
       });
   if (!items.length) return { ok: false, error: 'Comanda sem itens para fechar.' };

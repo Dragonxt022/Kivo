@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <%- include('partials/theme-init') %>
+  <title><%= companyName ? `Pedido — ${companyName}` : 'Pedido pela mesa — Kivo' %></title>
+  <meta name="theme-color" content="#ff8000">
+  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <%- include('partials/styles') %>
+  <link rel="stylesheet" href="/css/pedido.css">
+</head>
+<body>
+  <div class="pedido-page">
+    <header class="pedido-hero">
+      <span class="pedido-eyebrow">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+        Pedido pelo celular
+      </span>
+      <h1><%= companyName ?? 'Kivo' %></h1>
+      <% if (tableLabel) { %><p class="pedido-table"><%= tableLabel %></p><% } %>
+      <% if (!error) { %>
+      <p class="pedido-hint">Monte seu pedido e envie. O atendente confirma antes de ir para a cozinha.</p>
+      <% } %>
+    </header>
+
+    <% if (error) { %>
+      <div class="pedido-notice">
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+        <h2>Pedido indisponível</h2>
+        <p><%= error %></p>
+      </div>
+    <% } else { %>
+      <div class="pedido-search-wrap">
+        <div class="pedido-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" id="menuSearch" placeholder="Buscar no menu…" autocomplete="off" aria-label="Buscar no menu">
+        </div>
+      </div>
+
+      <nav class="pedido-catnav" id="catNav" aria-label="Categorias"></nav>
+      <main class="pedido-menu" id="menu"></main>
+      <div class="pedido-empty" id="noResults" hidden>
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <p>Nada encontrado. Tente outro termo.</p>
+      </div>
+
+      <div class="pedido-cartbar" id="cartBar" hidden>
+        <button type="button" class="pedido-cartbtn" id="openCart">
+          <span class="pedido-cart-count" id="cartCount">0</span>
+          <span class="pedido-cart-label">Ver pedido</span>
+          <span class="pedido-cart-total" id="cartTotal">R$ 0,00</span>
+        </button>
+      </div>
+    <% } %>
+
+    <footer class="pedido-footer">
+      <span class="mark">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+        Kivo
+      </span>
+      <span>Pedido gerado pelo Kivo</span>
+    </footer>
+  </div>
+
+  <% if (!error) { %>
+  <dialog id="itemDlg" class="pedido-dialog pedido-item-dialog">
+    <div class="pedido-dialog-head">
+      <h2 id="itemTitle">Item</h2>
+      <button type="button" class="pedido-close" data-close="itemDlg" aria-label="Fechar">×</button>
+    </div>
+    <div class="pedido-item-body" id="itemBody"></div>
+    <div class="pedido-dialog-actions">
+      <button type="button" class="pedido-btn secondary" data-close="itemDlg">Cancelar</button>
+      <button type="button" class="pedido-btn primary" id="addItem">Adicionar ao pedido</button>
+    </div>
+  </dialog>
+
+  <dialog id="cartDlg" class="pedido-dialog pedido-cart-dialog">
+    <div class="pedido-dialog-head">
+      <h2>Seu pedido</h2>
+      <button type="button" class="pedido-close" data-close="cartDlg" aria-label="Fechar">×</button>
+    </div>
+    <div class="pedido-cart-body" id="cartBody"></div>
+    <label class="pedido-field">
+      <span>Observação geral (opcional)</span>
+      <textarea id="orderNote" maxlength="500" rows="2" placeholder="Ex.: trazer tudo junto, sem guardanapo…"></textarea>
+    </label>
+    <div class="pedido-dialog-actions">
+      <button type="button" class="pedido-btn secondary" data-close="cartDlg">Continuar escolhendo</button>
+      <button type="button" class="pedido-btn primary" id="sendOrder">Enviar pedido</button>
+    </div>
+  </dialog>
+
+  <dialog id="statusDlg" class="pedido-dialog pedido-status-dialog">
+    <div class="pedido-status-icon" id="statusIcon">…</div>
+    <h2 id="statusTitle">Pedido enviado!</h2>
+    <p id="statusText">Aguarde a confirmação do atendente.</p>
+    <p class="pedido-status-offline" id="statusOffline" hidden>A loja está offline agora; o pedido será processado quando ela reconectar.</p>
+    <div class="pedido-dialog-actions">
+      <button type="button" class="pedido-btn primary" id="orderMore">Pedir mais</button>
+    </div>
+  </dialog>
+  <% } %>
+
+  <script id="menu-data" type="application/json"><%- typeof menuJson !== 'undefined' && menuJson ? menuJson : 'null' %></script>
+  <script>
+    window.__PEDIDO__ = {
+      token: <%- JSON.stringify(typeof token !== 'undefined' ? token : null) %>,
+      online: <%- JSON.stringify(typeof desktopOnline !== 'undefined' ? desktopOnline : false) %>
+    };
+  </script>
+  <% if (!error) { %><script src="/js/pedido.js" defer></script><% } %>
+</body>
+</html>

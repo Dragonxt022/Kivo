@@ -32,6 +32,12 @@ router.post('/tables/generate', requireCapability('comandas.mesas'), requirePerm
 router.put('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), validateBody(updateTableSchema), comandasController.updateTable);
 router.delete('/tables/:id', requireCapability('comandas.mesas'), requirePermission('comandas.tables.manage'), comandasController.deleteTable);
 
+// Pedido pela mesa via QR. O botão só aparece na tela quando a capability está ligada,
+// mas a rota confere de novo — um POST direto não pode furar o recurso/plano.
+router.get('/tables/:id/qr', requireCapability('comandas.pedido_qr'), requirePermission('comandas.view'), comandasController.getTableQrAction);
+router.post('/tables/:id/qr', requireCapability('comandas.pedido_qr'), requirePermission('comandas.tables.manage'), comandasController.generateTableQrAction);
+router.delete('/tables/:id/qr', requireCapability('comandas.pedido_qr'), requirePermission('comandas.tables.manage'), comandasController.revokeTableQrAction);
+
 router.get('/comandas', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.listComandas);
 // Precisa vir antes de '/comandas/:id', senão "sem-mesa" cai na rota de detalhe.
 router.get('/comandas/sem-mesa', requireCapability('comandas.mesas'), requirePermission('comandas.view'), comandasController.listComandasSemMesa);
@@ -43,6 +49,12 @@ router.put('/comandas/:id/items/:itemId/notes', requireCapability('comandas.mesa
 router.put('/comandas/:id/items/:itemId/qty', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(comandaItemQtySchema), comandasController.updateItemQtyAction);
 // "Enviar p/ cozinha" é ação do garçom (mesma permissão de lançar item), não do caixa.
 router.post('/comandas/:id/enviar-cozinha', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.enviarCozinhaAction);
+
+// Pedido do cliente no QR: o garçom confirma (só então vai à cozinha) ou recusa.
+router.post('/comandas/:id/qr-orders/confirm', requireCapability('comandas.pedido_qr'), requirePermission('comandas.manage'), comandasController.confirmQrOrdersAction);
+router.post('/comandas/:id/qr-orders/reject', requireCapability('comandas.pedido_qr'), requirePermission('comandas.manage'), comandasController.rejectQrOrdersAction);
+// "Viagem" por item: principal e adicionais do mesmo grupo andam juntos.
+router.put('/comandas/:id/items/:itemId/takeaway', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.setItemTakeawayAction);
 router.delete('/comandas/:id/items/:itemId', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), comandasController.voidItemAction);
 router.post('/comandas/:id/transfer', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(transferComandaSchema), comandasController.transferAction);
 router.post('/comandas/:id/split', requireCapability('comandas.mesas'), requirePermission('comandas.manage'), validateBody(splitComandaSchema), comandasController.splitAction);

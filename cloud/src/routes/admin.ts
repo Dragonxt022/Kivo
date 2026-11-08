@@ -1181,6 +1181,9 @@ async function deleteCompanyCompletely(uuid: string): Promise<void> {
     await conn.query('DELETE FROM cloud_backups WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM charges WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM menu_items WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM menu_publications WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM menu_table_tokens WHERE company_uuid = ?', [uuid]);
+    await conn.query('DELETE FROM public_orders WHERE company_uuid = ?', [uuid]);
     // support_messages cai junto por ON DELETE CASCADE em fk_support_messages_ticket.
     await conn.query('DELETE FROM support_tickets WHERE company_uuid = ?', [uuid]);
     await conn.query('DELETE FROM trial_registry WHERE company_uuid = ?', [uuid]);

@@ -64,7 +64,7 @@ function announceReady(ticketId: number, req: Request): void {
  * `entrega` é o delivery — o KDS troca o ícone (prato/garfo x motinha) sem depender
  * de adivinhar pelo nome da mesa ou pelo texto do pedido.
  */
-export type KitchenServiceType = 'local' | 'entrega';
+export type KitchenServiceType = 'local' | 'viagem' | 'entrega';
 
 export interface NotifyOrderItem {
   productId: number;
@@ -78,6 +78,8 @@ export interface NotifyOrderItem {
    * voidItem da comanda localizar e remover o item correspondente na cozinha.
    */
   comandaItemId?: number;
+  /** Cliente no local, item embalado para viagem. */
+  paraViagem?: boolean;
 }
 
 /**
@@ -110,7 +112,9 @@ export function notifyOrder(
       source_type: params.sourceType,
       source_id: params.sourceId,
       table_label: params.tableLabel ?? null,
-      service_type: params.serviceType === 'entrega' ? 'entrega' : 'local',
+      service_type: params.serviceType === 'viagem'
+        ? 'viagem'
+        : params.serviceType === 'entrega' ? 'entrega' : 'local',
       status: 'pendente',
       uuid: ticketUuid,
       updated_at: now,
@@ -126,6 +130,7 @@ export function notifyOrder(
         qty: item.qty,
         notes: item.notes ?? null,
         complements: item.complements?.length ? item.complements.join(', ') : null,
+        para_viagem: item.paraViagem ? 1 : 0,
         station: route.station,
         estimated_minutes: route.estimated_minutes,
         status: 'pendente',
@@ -296,7 +301,9 @@ export function moveComandaItemTickets(
           source_type: 'comanda',
           source_id: params.toComandaId,
           table_label: null,
-          service_type: ticket.service_type === 'entrega' ? 'entrega' : 'local',
+          service_type: ticket.service_type === 'entrega'
+            ? 'entrega'
+            : ticket.service_type === 'viagem' ? 'viagem' : 'local',
           status: 'pendente',
           uuid,
           updated_at: now,

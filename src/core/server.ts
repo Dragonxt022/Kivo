@@ -39,6 +39,7 @@ import { customerImagesDir, legacyPatientPhotosDir } from './config/customerPhot
 import { getSqlite } from './database/connection';
 import { registerSyncTables } from './sync/registry';
 import { startSyncScheduler } from './sync/scheduler';
+import { startMenuPublisherScheduler } from './menu/publisher';
 import { startEventChannel } from './sync/events';
 import capabilitiesRoutes from './capabilities/routes';
 import onboardingRoutes from './onboarding/routes';
@@ -500,6 +501,9 @@ export async function createServer(): Promise<KivoServer> {
   // Sync periódico: o painel do Kivo Web lê o que a nuvem tem, então parar de depender do
   // clique manual em "Sincronizar agora" é pré-requisito para o dado no celular ser atual.
   startSyncScheduler();
+  // Menu público do pedido via QR: o Trial não tem sync, então o snapshot sai por uma
+  // rota própria. O ciclo de 45s cobre mudanças de produto/categoria/complemento.
+  startMenuPublisherScheduler();
   // Canal de eventos: encurta de minutos para segundos a confirmação de um orçamento feito
   // no celular. O ciclo acima continua sendo a rede de segurança se o canal cair.
   startEventChannel();

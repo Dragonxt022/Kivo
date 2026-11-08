@@ -5,6 +5,7 @@ import { Router, type Request } from 'express';
 import { requirePermission, requireAnyPermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
 import { audit } from '../../core/audit/service';
+import { scheduleMenuPublish } from '../../core/menu/publisher';
 import { createCategorySchema, updateCategorySchema, deleteCategorySchema, grantStoreCreditSchema, createComplementGroupSchema, updateComplementGroupSchema, createComplementItemSchema, updateComplementItemSchema } from '../../shared/schemas';
 import { validateBody } from '../../shared/validateBody';
 import productsRouter from './productsRoutes';
@@ -25,6 +26,21 @@ import { saveLocalCategoryImage, categoryImagesDir } from '../../core/catalog/su
 import { saveCustomerPhoto, deleteCustomerPhotoByUrl } from '../../core/config/customerPhoto';
 
 const router = Router();
+
+/**
+ * Categorias e grupos de complementos entram no menu público do QR. Em vez de repetir
+ * `scheduleMenuPublish()` em cada handler (são vários CRUDs), agenda no fim de qualquer
+ * mutação bem-sucedida dessas rotas. A publicação é debounced e compara hash.
+ */
+router.use((req, res, next) => {
+  if (req.method === 'GET') return next();
+  res.on('finish', () => {
+    if (res.statusCode < 400 && /\/(categories|complement-groups)(\/|$)/.test(req.originalUrl)) {
+      scheduleMenuPublish();
+    }
+  });
+  next();
+});
 
 // ---------- Clientes (CRUD via fábrica + ficha/segmentação) ----------
 

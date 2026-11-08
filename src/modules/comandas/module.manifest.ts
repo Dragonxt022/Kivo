@@ -7,13 +7,19 @@ const manifest: ModuleManifest = {
     { key: 'comandas.manage', description: 'Abrir, adicionar itens, transferir, dividir, unir e fechar comandas' },
     { key: 'comandas.tables.manage', description: 'Cadastrar/editar mesas' },
   ],
-  capabilities: [{ key: 'comandas.mesas', description: 'Mesas e comandas — pre-venda que vira venda normal ao fechar' }],
-  routes: './routes', pages: './pages', views: './views', migrations: './migrations',
+  capabilities: [
+    { key: 'comandas.mesas', description: 'Mesas e comandas — pre-venda que vira venda normal ao fechar' },
+    {
+      key: 'comandas.pedido_qr',
+      description: 'Pedido pela mesa via QR code — o cliente monta o pedido no celular e o garçom confirma antes de enviar à cozinha',
+    },
+  ],
+  routes: './routes', pages: './pages', views: './views', migrations: './migrations', setup: './setup',
   menu: [{ label: 'Mesas', href: '/app/comandas/mesas', permission: 'comandas.view', description: 'Mesas e comandas abertas.', icon: 'utensils' }],
   syncTables: [
     { table: 'store_tables' },
     { table: 'comandas', foreignKeys: { table_id: 'store_tables', customer_id: 'customers', sale_id: 'sales' }, excludeColumns: ['opened_by'] },
-    { table: 'comanda_items', foreignKeys: { comanda_id: 'comandas', product_id: 'products' }, excludeColumns: ['added_by'] },
+    { table: 'comanda_items', foreignKeys: { comanda_id: 'comandas', product_id: 'products' }, excludeColumns: ['added_by', 'qr_order_id'] },
   ],
 };
 

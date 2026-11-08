@@ -17,8 +17,8 @@ export interface ReadyAlert {
   sourceId: number;
   /** "Mesa 01" ou "Pedido #123" — texto pronto para o aviso. */
   label: string;
-  /** `entrega` para o garçom saber que é sacola, não mesa. */
-  serviceType: 'local' | 'entrega';
+  /** `entrega`/`viagem` para o garçom saber que é sacola, não mesa. */
+  serviceType: 'local' | 'viagem' | 'entrega';
   /** Momento em que o ticket ficou pronto (updated_at do SQLite, UTC). */
   readyAt: string | null;
 }
@@ -41,7 +41,7 @@ function kitchenTableExists(): boolean {
 }
 
 function labelFor(sourceType: string, sourceId: number, tableLabel: string | null, serviceType: string): string {
-  const prefix = serviceType === 'entrega' ? 'Entrega — ' : '';
+  const prefix = serviceType === 'entrega' ? 'Entrega — ' : serviceType === 'viagem' ? 'Viagem — ' : '';
   if (sourceType === 'comanda') {
     return prefix + (tableLabel && tableLabel.trim() ? tableLabel.trim() : `Comanda #${sourceId}`);
   }
@@ -59,7 +59,9 @@ function toAlert(row: {
   updated_at: string | null;
 }): ReadyAlert {
   const sourceType = row.source_type === 'comanda' ? 'comanda' : 'sale';
-  const serviceType = row.service_type === 'entrega' ? 'entrega' : 'local';
+  const serviceType = row.service_type === 'entrega'
+    ? 'entrega'
+    : row.service_type === 'viagem' ? 'viagem' : 'local';
   return {
     id: Number(row.id),
     sourceType,

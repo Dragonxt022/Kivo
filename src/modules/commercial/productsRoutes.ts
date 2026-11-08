@@ -15,6 +15,7 @@ import { stockControlEnabled } from '../../core/config/stockControl';
 import { resolveMany } from './pricing';
 import { validateImageBuffer } from '../../core/catalog/imageValidation';
 import { runSync } from '../../core/sync/engine';
+import { scheduleMenuPublish } from '../../core/menu/publisher';
 import { autofillMissingProductImages } from './productImageAutofill';
 import {
   productImagesDir, saveLocalProductImage, queueProductImageSubmission, trySubmitPending,
@@ -601,6 +602,7 @@ router.post('/products', requirePermission('commercial.products.create'), valida
   }
   const created = productRepository.findDetailed(newId);
   audit(req, 'criar', 'product', newId, null, created);
+  scheduleMenuPublish();
   res.status(201).json(created);
 });
 
@@ -773,6 +775,7 @@ router.put('/products/:id', requirePermission('commercial.products.edit'), valid
   }
   const after = productRepository.findDetailed(id);
   audit(req, 'editar', 'product', id, before, after);
+  scheduleMenuPublish();
   res.json(after);
 });
 
@@ -795,6 +798,7 @@ router.delete('/products/:id', requirePermission('commercial.products.delete'), 
     productRepository.softDelete(id);
   });
   audit(req, 'excluir', 'product', id, before, null);
+  scheduleMenuPublish();
   res.json({ ok: true });
 });
 
@@ -827,6 +831,7 @@ router.post('/products/bulk-delete', requirePermission('commercial.products.dele
       deletedIds.push(id);
     }
   });
+  scheduleMenuPublish();
   res.json({ deleted: deletedIds.length, deletedIds, skipped });
 });
 
@@ -854,6 +859,7 @@ router.put('/products/:id/cardapio-online', requirePermission('commercial.produc
   }
   const visivelCardapio = req.body?.visivelCardapio ? 1 : 0;
   productRepository.setCardapioOnline(id, !!visivelCardapio);
+  scheduleMenuPublish(1200);
   // Ao publicar no cardápio, garante que a foto do produto vá para o Cloud (a página
   // pública não consegue ler o arquivo local) — senão o item aparece sem miniatura.
   if (visivelCardapio) {

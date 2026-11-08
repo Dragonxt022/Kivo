@@ -25,6 +25,7 @@ import { requirePermission } from '../../core/permissions/middleware';
 import { requireCapability } from '../../core/capabilities/middleware';
 import { hasCapability } from '../../core/capabilities/service';
 import { audit } from '../../core/audit/service';
+import { scheduleMenuPublish } from '../../core/menu/publisher';
 import { assertAuth } from '../../shared/auth';
 import { validateBarcode } from '../../shared/barcode';
 import { moveStockRaw } from './stock';
@@ -561,6 +562,7 @@ router.post('/products/import/commit', requirePermission('commercial.products.cr
   audit(req, 'importar', 'product', 0, null, {
     criados: created.length, atualizados: updated.length, categoriasCriadas: categoriesCreated,
   });
+  scheduleMenuPublish(1500);
   res.json({
     ok: true,
     criados: created.length,

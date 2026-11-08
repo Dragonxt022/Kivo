@@ -51,6 +51,16 @@ export function canUseWebApp(plan: string | null): boolean {
   return (plan ?? '').toLowerCase() === 'diamante';
 }
 
+/**
+ * Pedido pela mesa via QR: Diamante ou Trial (o teste libera o recurso por 15 dias).
+ * O trial NÃO tem sync geral, então o menu público é publicado por uma rota própria
+ * (ver core/menu/publisher.ts) — este gate não abre backup/sync para o teste.
+ */
+export function canUseQrOrder(plan: string | null): boolean {
+  const p = (plan ?? '').toLowerCase();
+  return p === 'diamante' || p === 'trial';
+}
+
 export function planLabel(plan: string | null): string {
   return plan ? (PLAN_LABELS[plan as PlanTier] ?? plan) : '—';
 }

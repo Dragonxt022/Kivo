@@ -17,7 +17,7 @@ import { loadAuthUser, type AuthUser } from './service';
  * leitura honesta de "isto não foi ninguém que clicou".
  */
 export function systemRequest(): Request {
-  return { ip: 'kivo-sistema' } as unknown as Request;
+  return { ip: 'kivo-sistema', headers: {} } as unknown as Request;
 }
 
 /**
@@ -31,5 +31,5 @@ export function systemRequest(): Request {
 export function impersonate(userId: number, ip = 'kivo-web'): (Request & { user: AuthUser }) | null {
   const user = loadAuthUser(userId);
   if (!user) return null;
-  return { ip, user } as unknown as Request & { user: AuthUser };
+  return { ip, user, headers: {} } as unknown as Request & { user: AuthUser };
 }
