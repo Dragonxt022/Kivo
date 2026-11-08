@@ -208,12 +208,16 @@ async function doPublish(force: boolean): Promise<boolean> {
   const enabled = lic.status === 'valida'
     && canUseQrOrder(lic.plan)
     && hasCapability('comandas.pedido_qr');
-  const snapshot = buildSnapshot(enabled);
-  const hash = hashSnapshot(snapshot);
   const previousHash = settingsRepository.get(SETTING_HASH);
 
-  // Nunca publicou e o recurso está desligado: não há o que tirar do ar.
+  // Nunca publicou e o recurso está desligado: não há o que tirar do ar — e nem motivo
+  // para varrer o catálogo a cada 45s em toda empresa que não usa o QR.
   if (!force && !previousHash && !enabled) return false;
+
+  const snapshot: PublicMenuSnapshot = enabled
+    ? buildSnapshot(true)
+    : { enabled: false, items: [] };
+  const hash = hashSnapshot(snapshot);
   if (!force && previousHash === hash) return true;
 
   try {
