@@ -54,7 +54,7 @@
         <% if (user.permissions.has('foodservice.routing.manage')) { %>
         <a href="/app/foodservice/roteamento" class="btn secondary" title="Escolher produtos da cozinha" aria-label="Escolher produtos da cozinha">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
-          <span class="kds-btn-label">Escolher produtos da cozinha</span>
+          <span class="kds-btn-label kds-btn-label-wide">Escolher produtos da cozinha</span>
         </a>
         <% } %>
       </div>
@@ -288,8 +288,19 @@
     </dialog>
   </main>
   <style>
-    .kds-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-    .kds-head h1 { margin-bottom: 0; }
+    .kds-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: nowrap; }
+    .kds-head h1 { margin-bottom: 0; white-space: nowrap; }
+    /* Ações do topo na MESMA linha do título. Antes elas caíam para baixo e gastavam
+       uma faixa inteira da tela; com rótulos encurtados/ocultos em telas menores cabe. */
+    .kds-head-actions { flex-wrap: nowrap; gap: .4rem; margin: 0; }
+    .kds-head-actions .btn { padding: .45rem .65rem; font-size: .8rem; gap: .35rem; min-height: 34px; }
+    .kds-head-actions .btn svg { width: 15px; height: 15px; }
+    @media (max-width: 1440px) {
+      .kds-head-actions .kds-btn-label-wide { display: none; }
+    }
+    @media (max-width: 1100px) {
+      .kds-head-actions .kds-btn-label { display: none; }
+    }
     .kds-dica { max-width: 62ch; margin: .75rem auto 0; text-align: center; }
     .kds-touch-hint {
       display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
@@ -302,7 +313,10 @@
        tela e cada coluna rola por dentro. Sem isso uma fila grande esticava a coluna
        "Pendentes" até 2000px e empurrava as outras para fora da vista. */
     body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
-    body > main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    /* O KDS é um painel de operação: usa a largura da tela em vez de ficar preso aos
+       1100px das páginas de leitura. Colunas mais largas embrulham menos o texto e os
+       cartões ficam mais baixos — cabem mais pedidos na mesma altura. */
+    body > main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; max-width: 1560px; }
     .kds-board {
       display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 1rem;
       grid-template-rows: minmax(0, 1fr); align-items: stretch; align-content: stretch;
@@ -313,7 +327,7 @@
       .kds-board, .kds-board.kds-4col { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
     }
     .kds-col {
-      min-width: 0; min-height: 0; max-height: 100%; padding: .75rem;
+      min-width: 0; min-height: 0; max-height: 100%; padding: .55rem;
       display: flex; flex-direction: column;
       border: 1px solid var(--border-light); border-radius: var(--radius-lg);
       background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
@@ -324,8 +338,8 @@
     .kds-col-entregue { background: color-mix(in srgb, var(--surface-hover) 55%, transparent); }
     .kds-col-head {
       display: flex; justify-content: space-between; align-items: center;
-      font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
-      color: var(--text-secondary); padding: .2rem .3rem .65rem; margin-bottom: .6rem;
+      font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-secondary); padding: .1rem .25rem .45rem; margin-bottom: .45rem;
       border-bottom: 2px solid var(--border-light);
     }
     .kds-col-title { display: flex; align-items: center; gap: .45rem; }
@@ -347,11 +361,11 @@
       min-width: 1.8rem; text-align: center; padding: .12rem .5rem; font-size: .76rem;
       color: var(--text-secondary); font-variant-numeric: tabular-nums;
     }
-    .kds-col-body { display: flex; flex-direction: column; gap: .7rem; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+    .kds-col-body { display: flex; flex-direction: column; gap: .45rem; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
     .kds-empty {
       display: grid; place-items: center; min-height: 0; height: 100%;
       color: var(--text-muted); font-size: .8rem; text-align: center;
-      padding: 1.25rem .75rem; border: 1px dashed var(--border); border-radius: 12px;
+      padding: .75rem .5rem; border: 1px dashed var(--border); border-radius: 12px;
       background: color-mix(in srgb, var(--surface) 55%, transparent);
     }
 
@@ -382,7 +396,7 @@
     .kds-card.kds-entregue { border-left-color: var(--text-muted); opacity: .65; }
     .kds-card-header {
       display: flex; justify-content: space-between; align-items: center;
-      padding: .75rem 1rem; font-weight: 600; font-size: .9rem;
+      padding: .45rem .7rem; font-weight: 600; font-size: .82rem;
       background: var(--surface-hover); border-bottom: 1px solid var(--border-light);
     }
     .kds-card.kds-pendente .kds-card-header { background: color-mix(in srgb, var(--warning-bg) 55%, var(--surface)); }
@@ -393,8 +407,8 @@
        cozinha bater o olho e não confundir a sacola da entrega com o prato da mesa. */
     .kds-service {
       display: inline-flex; align-items: center; gap: .22rem; flex: none;
-      padding: .12rem .42rem; border: 1px solid transparent; border-radius: 999px;
-      font-size: .7rem; font-weight: 700; line-height: 1.2; white-space: nowrap;
+      padding: .08rem .35rem; border: 1px solid transparent; border-radius: 999px;
+      font-size: .66rem; font-weight: 700; line-height: 1.2; white-space: nowrap;
     }
     .kds-service svg { flex-shrink: 0; }
     .kds-service-local {
@@ -412,15 +426,15 @@
     .badge-viagem {
       background: var(--success-bg); color: var(--success-text); font-weight: 700;
     }
-    .kds-source { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 1 1 auto; color: var(--text); font-size: .92rem; }
+    .kds-source { display: flex; align-items: center; gap: .35rem; min-width: 0; flex: 1 1 auto; color: var(--text); font-size: .84rem; }
     .kds-source span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .kds-source svg { color: var(--text-muted); flex-shrink: 0; }
-    .kds-time { color: var(--text-muted); font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .kds-time { color: var(--text-muted); font-size: .74rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .kds-time.kds-late { color: var(--warning-text); font-weight: 700; }
     .kds-items { display: flex; flex-direction: column; }
     .kds-item {
-      display: flex; flex-wrap: wrap; align-items: flex-start;
-      column-gap: .6rem; row-gap: .35rem; padding: .7rem 1rem;
+      display: flex; flex-wrap: nowrap; align-items: center;
+      column-gap: .5rem; row-gap: .15rem; padding: .4rem .7rem;
       border-top: 1px solid var(--border-light);
       transition: background-color .25s ease, opacity .25s ease;
     }
@@ -428,50 +442,50 @@
     .kds-item-preparo { background: color-mix(in srgb, var(--kds-preparo) 8%, transparent); }
     .kds-item-entregue { opacity: .55; }
     .kds-item-qty {
-      flex: none; margin-top: .05rem;
-      font-weight: 700; font-size: 1.02rem; min-width: 2.35rem; text-align: center;
-      color: var(--primary); background: var(--primary-bg); border-radius: 8px; padding: .25rem 0;
+      flex: none; margin-top: 0;
+      font-weight: 700; font-size: .9rem; min-width: 1.9rem; text-align: center;
+      color: var(--primary); background: var(--primary-bg); border-radius: 6px; padding: .12rem 0;
     }
     .kds-item-info { flex: 1 1 170px; min-width: 0; }
     .kds-item-actions {
-      display: flex; align-items: center; gap: .35rem;
-      flex: 0 0 auto; margin-left: auto;
+      display: flex; align-items: center; gap: .25rem;
+      flex: 0 0 auto; margin-left: auto; align-self: center;
     }
-    .kds-item-name { font-weight: 600; font-size: .95rem; }
+    .kds-item-name { font-weight: 600; font-size: .88rem; }
     /* Complementos do item principal: texto compacto, sem virar um bloco gigante que
        espremia o nome/observação. A lista completa continua visível. */
     .kds-item-complements {
-      display: block; margin-top: .18rem;
-      color: var(--primary); font-weight: 600; font-size: .76rem; line-height: 1.3;
+      display: block; margin-top: .12rem;
+      color: var(--primary); font-weight: 600; font-size: .72rem; line-height: 1.3;
       overflow-wrap: anywhere;
     }
     /* Observação do garçom: destaque máximo — vermelho e negrito, com fundo leve. */
     .kds-item-notes {
-      display: inline-block; margin-top: .2rem; padding: .1rem .45rem; border-radius: 6px;
+      display: inline-block; margin-top: .1rem; padding: .05rem .35rem; border-radius: 6px;
       background: var(--danger-bg); color: var(--danger-text);
-      font-weight: 700; font-size: .82rem;
+      font-weight: 700; font-size: .76rem;
     }
     .kds-item-action {
-      min-height: 44px; padding: .55rem .85rem; font-size: .82rem; border-radius: 10px;
+      min-height: 34px; padding: .35rem .6rem; font-size: .78rem; border-radius: 9px;
       white-space: nowrap; flex-shrink: 0;
     }
     /* Voltar uma etapa do item: alvo de toque quadrado, ao lado do botão de avançar. */
     .kds-item-back {
-      width: 44px; min-height: 44px; padding: 0; flex: none; border-radius: 10px;
+      width: 34px; min-height: 34px; padding: 0; flex: none; border-radius: 9px;
       display: inline-flex; align-items: center; justify-content: center;
     }
     .kds-card-footer {
-      display: flex; gap: .5rem; padding: .6rem .85rem; border-top: 1px solid var(--border-light);
+      display: flex; gap: .5rem; padding: .35rem .6rem; border-top: 1px solid var(--border-light);
       background: var(--surface-hover);
     }
     .kds-back-ticket {
-      flex: none; min-height: 46px; padding: 0 .85rem; border-radius: 10px;
+      flex: none; min-height: 36px; padding: 0 .7rem; border-radius: 9px;
       display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
-      font-size: .86rem;
+      font-size: .8rem;
     }
     .kds-advance-ticket {
-      flex: 1 1 auto; min-height: 46px; justify-content: center; gap: .4rem;
-      font-size: .86rem; border-radius: 10px;
+      flex: 1 1 auto; min-height: 36px; justify-content: center; gap: .4rem;
+      font-size: .8rem; border-radius: 9px;
     }
     .kds-advance-ticket.btn.secondary { background: var(--surface); border-color: var(--border); }
     .kds-advance-ticket.btn.secondary:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
