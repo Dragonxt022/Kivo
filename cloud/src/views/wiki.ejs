@@ -119,6 +119,10 @@
             <img id="wiki-nav-logo" src="/logo_kivo-icon.svg" alt="Kivo" />
             Wiki Kivo
           </a>
+          <div class="wiki-search">
+            <svg class="wiki-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="wiki-search-input" type="search" placeholder="Buscar no guia…" autocomplete="off" aria-label="Buscar no guia" />
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <button type="button" class="theme-toggle" id="wiki-theme-toggle" title="Alternar tema" aria-label="Alternar tema">
@@ -147,12 +151,57 @@
 
           <div class="wiki-card">
             <h4>Blocos principais</h4>
-            <ul>
-              <li><span class="wiki-badge">Comercial</span> Cadastros de clientes, fornecedores, produtos, estoque e compras.</li>
-              <li><span class="wiki-badge">Financeiro</span> Controle de caixa, contas a pagar e receber, fluxo de caixa.</li>
-              <li><span class="wiki-badge">Loja</span> PDV (ponto de venda), histórico de vendas e orçamentos.</li>
-              <li><span class="wiki-badge">Admin</span> Usuários, cargos, configurações, backup e licença.</li>
-            </ul>
+            <div class="wiki-cards-grid">
+              <a href="#clientes" class="wiki-module-card">
+                <span class="wiki-module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <span class="wiki-module-body">
+                  <strong>Comercial</strong>
+                  <span>Cadastros de clientes, fornecedores, produtos, estoque e compras.</span>
+                </span>
+              </a>
+              <a href="#caixa" class="wiki-module-card">
+                <span class="wiki-module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v8H4V12"/><path d="M22 6H2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2"/><circle cx="12" cy="12" r="2"/></svg></span>
+                <span class="wiki-module-body">
+                  <strong>Financeiro</strong>
+                  <span>Caixa, contas a pagar e receber, fluxo de caixa e conciliação.</span>
+                </span>
+              </a>
+              <a href="#pdv" class="wiki-module-card">
+                <span class="wiki-module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.6"/><circle cx="18" cy="21" r="1.6"/><path d="M2.5 3h2l2.4 11.2a2 2 0 0 0 2 1.8h9.2a2 2 0 0 0 2-1.6L20.5 7H6"/></svg></span>
+                <span class="wiki-module-body">
+                  <strong>Loja / PDV</strong>
+                  <span>Ponto de venda, histórico de vendas e orçamentos.</span>
+                </span>
+              </a>
+              <a href="#mesas-comandas" class="wiki-module-card">
+                <span class="wiki-module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></span>
+                <span class="wiki-module-body">
+                  <strong>Restaurante</strong>
+                  <span>Mesas, comandas, modo garçom, cozinha e cardápio por QR.</span>
+                </span>
+              </a>
+              <a href="#fiscal-notas" class="wiki-module-card">
+                <span class="wiki-module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></span>
+                <span class="wiki-module-body">
+                  <strong>Fiscal</strong>
+                  <span>Notas fiscais, NFC-e e configuração fiscal.</span>
+                </span>
+              </a>
+              <a href="#odonto-painel" class="wiki-module-card">
+                <span class="wiki-module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+                <span class="wiki-module-body">
+                  <strong>Odonto</strong>
+                  <span>Agenda, pacientes, prontuário, planos e exames.</span>
+                </span>
+              </a>
+              <a href="#usuarios" class="wiki-module-card">
+                <span class="wiki-module-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+                <span class="wiki-module-body">
+                  <strong>Administração</strong>
+                  <span>Usuários, cargos, permissões, configurações, backup e licença.</span>
+                </span>
+              </a>
+            </div>
           </div>
 
           <div class="wiki-card">
@@ -1597,8 +1646,8 @@
       onScroll();
     })();
 
-    // Smooth scroll for TOC links
-    document.querySelectorAll('.wiki-toc-link').forEach(function (link) {
+    // Smooth scroll for TOC links and module cards
+    document.querySelectorAll('.wiki-toc-link, .wiki-module-card').forEach(function (link) {
       link.addEventListener('click', function (e) {
         var href = this.getAttribute('href');
         if (href && href.startsWith('#')) {
@@ -1614,6 +1663,26 @@
         }
       });
     });
+
+    // Wiki search — filtra o sumário conforme o usuário digita na navbar.
+    (function () {
+      var input = document.getElementById('wiki-search-input');
+      if (!input) return;
+      input.addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+        var groups = document.querySelectorAll('.wiki-toc-group');
+        groups.forEach(function (group) {
+          var hasVisible = false;
+          group.querySelectorAll('.wiki-toc-link').forEach(function (link) {
+            var text = (link.textContent || '').toLowerCase();
+            var match = text.indexOf(q) !== -1;
+            link.style.display = match ? '' : 'none';
+            if (match) hasVisible = true;
+          });
+          group.style.display = hasVisible ? '' : 'none';
+        });
+      });
+    })();
   </script>
 </body>
 </html>
