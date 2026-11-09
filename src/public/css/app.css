@@ -1682,10 +1682,7 @@ code.truncate {
 .btn.secondary:hover {
   background: var(--border-light);
 }
-.btn.small {
-  padding: 0.3rem 0.7rem;
-  font-size: 0.8rem;
-}
+
 .btn.danger {
   background: var(--danger);
 }

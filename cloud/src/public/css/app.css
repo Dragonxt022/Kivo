@@ -845,10 +845,6 @@ td.empty-state {
 .btn.danger:hover {
   background: var(--danger-soft);
 }
-.btn.small {
-  padding: 5px 11px;
-  font-size: 0.8rem;
-}
 
 /* Barra de filtros/ações no topo de listas (busca, selects, botões). Estava sendo
    usada em 7 telas sem existir no CSS — os controles ficavam colados, sem respiro.
