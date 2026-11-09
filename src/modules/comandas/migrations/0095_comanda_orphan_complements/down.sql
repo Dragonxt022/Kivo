@@ -1,0 +1,3 @@
+-- Reversão impossível: a limpeza é destrutiva por natureza — depois de rodar não há
+-- como saber quais complementos eram órfãos e quais foram anulados pelo uso normal.
+-- O rollback é um no-op deliberado.

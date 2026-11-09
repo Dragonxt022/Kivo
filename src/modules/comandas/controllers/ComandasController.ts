@@ -321,7 +321,7 @@ export const comandasController = {
     if (!result.ok) { res.status(400).json(result); return; }
     // Pode ter removido o último item que estava pronto na cozinha (selo da mesa).
     notifyTableEvents();
-    res.json({ ok: true });
+    res.json({ ok: true, voided: result.voided });
   },
 
   updateItemNotesAction(req: Request, res: Response) {

@@ -11,6 +11,7 @@ import { attachComplements } from '../../shared/lineGroupComplements';
 import { comandaRepository, comandaItemRepository } from './repositories/ComandaRepository';
 import { storeTableRepository } from './repositories/StoreTableRepository';
 import { saleRepository } from '../store/repositories/SaleRepository';
+import { notifyTableEvents } from './tableEvents';
 
 interface OpenComandaParams { tableId?: number; customerId?: number; notes?: string }
 interface AddItemParams {
@@ -303,20 +304,71 @@ export function setReadyForPayment(
   return { ok: true };
 }
 
-export function voidItem(req: Request, comandaId: number, itemId: number): { ok: true } | { ok: false; error: string } {
-  const item = comandaItemRepository.findInComanda(itemId, comandaId) as { id: number; voided_at: string | null } | undefined;
+export function voidItem(
+  req: Request,
+  comandaId: number,
+  itemId: number,
+  opts: { skipKitchen?: boolean } = {},
+): { ok: true; voided: number } | { ok: false; error: string } {
+  const item = comandaItemRepository.findInComanda(itemId, comandaId) as
+    { id: number; voided_at: string | null; line_group_uuid: string | null } | undefined;
   if (!item) return { ok: false, error: 'Item nao encontrado.' };
   if (item.voided_at) return { ok: false, error: 'Item ja foi anulado.' };
-  comandaItemRepository.void(itemId);
-  audit(req, 'anular_item_comanda', 'comanda_item', itemId);
-  // Best-effort: remove o item do ticket da cozinha se ele ainda não foi pra produção
-  // (ticket sem nenhum item ativo é cancelado junto). Falha aqui não desfaz a anulação.
-  try {
-    if (hasService('foodservice.kitchen')) {
-      getService<FoodserviceKitchenService>('foodservice.kitchen').voidComandaItem(req, itemId);
+
+  // Principal + complementos são um pedido só. Anular o principal leva os adicionais
+  // junto (senão Granola/Leite ficavam soltos na mesa); anular um complemento remove
+  // só aquela linha. O "principal" é o primeiro item do grupo, inclusive anulados —
+  // a mesma régua usada pelo preço e pelo fechamento.
+  let ids = [itemId];
+  if (item.line_group_uuid) {
+    const group = comandaItemRepository.activeLineGroupIds(comandaId, item.line_group_uuid);
+    const baseId = comandaItemRepository.lineGroupBaseId(comandaId, item.line_group_uuid);
+    // Sem principal ativo (dado antigo, de antes da correção), qualquer complemento
+    // que sobrou é órfão: remover um já limpa o grupo inteiro.
+    const baseActive = baseId !== null && group.includes(baseId);
+    if (baseId === itemId || !baseActive) {
+      if (group.length) ids = group;
     }
-  } catch { /* best-effort */ }
-  return { ok: true };
+  }
+
+  comandaItemRepository.voidMany(ids);
+  // A conta mudou: o caixa não pode fechar com o aviso "quer pagar" do total antigo.
+  comandaRepository.setReadyForPayment(comandaId, false);
+  audit(req, 'anular_item_comanda', 'comanda_item', itemId, null, { itemIds: ids });
+  // Best-effort: remove os itens do ticket da cozinha se ainda não foram pra produção
+  // (ticket sem nenhum item ativo é cancelado junto). Falha aqui não desfaz a anulação.
+  if (!opts.skipKitchen) {
+    try {
+      if (hasService('foodservice.kitchen')) {
+        const kitchen = getService<FoodserviceKitchenService>('foodservice.kitchen');
+        for (const id of ids) kitchen.voidComandaItem(req, id);
+      }
+    } catch { /* best-effort */ }
+  }
+  return { ok: true, voided: ids.length };
+}
+
+/**
+ * A cozinha cancelou um pedido: anula os itens da comanda que geraram o ticket junto
+ * com os complementos do mesmo grupo. Quem chama (`foodservice.kitchen.cancelTicket`)
+ * já está cancelando o ticket, então não acionamos `voidComandaItem` de novo.
+ */
+export function voidItemsForKitchen(req: Request, comandaItemIds: number[]): { ok: true; voided: number } {
+  const ids = [...new Set(comandaItemIds.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  let voided = 0;
+  comandaRepository.transaction(() => {
+    for (const itemId of ids) {
+      const item = comandaItemRepository.rawOne(
+        'SELECT comanda_id, voided_at FROM comanda_items WHERE id = ? AND deleted_at IS NULL',
+        itemId,
+      ) as { comanda_id: number; voided_at: string | null } | undefined;
+      if (!item || item.voided_at) continue;
+      const result = voidItem(req, Number(item.comanda_id), itemId, { skipKitchen: true });
+      if (result.ok) voided += result.voided;
+    }
+  });
+  if (voided > 0) notifyTableEvents();
+  return { ok: true, voided };
 }
 
 export function transfer(req: Request, comandaId: number, targetTableId: number): { ok: true } | { ok: false; error: string } {

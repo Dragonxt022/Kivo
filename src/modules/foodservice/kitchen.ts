@@ -3,7 +3,13 @@ import type { Request } from 'express';
 import { audit } from '../../core/audit/service';
 import { broadcastReadyAlert } from '../../core/ready-alerts/events';
 import { findReadyAlert } from '../../core/ready-alerts/service';
+import { getService, hasService } from '../../core/services/registry';
 import { kitchenRoutingRepository, kitchenTicketRepository, kitchenTicketItemRepository } from './repositories/KitchenRepository';
+
+/** O que a cozinha precisa do módulo de comandas ao cancelar um pedido. */
+interface ComandasItemsService {
+  voidItemsForKitchen: (req: Request, itemIds: number[]) => { ok: true; voided: number };
+}
 
 /**
  * Status do TICKET inclui 'cancelado': venda/comanda cancelada não pode deixar o
@@ -243,6 +249,65 @@ export function cancelTicketsForSource(req: Request, sourceType: 'sale' | 'coman
     kitchenTicketRepository.updateStatus(t.id, 'cancelado');
     audit(req, 'cancelar_ticket_cozinha', 'kitchen_ticket', t.id, { status: t.status }, { motivo: `${sourceType === 'sale' ? 'venda' : 'comanda'} #${sourceId} cancelada` });
   }
+}
+
+/**
+ * Cozinha cancelando um pedido que já recebeu (item em falta, pedido errado, cliente
+ * desistiu). O ticket sai do KDS e, quando veio de uma comanda, os itens também são
+ * anulados para o caixa não cobrar o que não vai ser produzido.
+ *
+ * Pedido já entregue (ou parcialmente entregue) não é cancelado por aqui: o que saiu
+ * para a mesa não pode sumir da conta silenciosamente. O garçom resolve item a item.
+ */
+export function cancelTicket(
+  req: Request,
+  ticketId: number,
+  reason?: string | null,
+): { ok: true; voidedComandaItems: number } | { ok: false; error: string } {
+  const ticket = kitchenTicketRepository.findById(ticketId) as
+    { id: number; status: string; source_type: string } | undefined;
+  if (!ticket) return { ok: false, error: 'Ticket nao encontrado.' };
+  if (ticket.status === 'cancelado') return { ok: false, error: 'Pedido ja foi cancelado.' };
+  if (ticket.status === 'entregue') return { ok: false, error: 'Pedido ja foi entregue.' };
+
+  const delivered = kitchenTicketItemRepository.rawOne(
+    "SELECT id FROM kitchen_ticket_items WHERE ticket_id = ? AND deleted_at IS NULL AND status = 'entregue' LIMIT 1",
+    ticketId,
+  ) as { id: number } | undefined;
+  if (delivered) {
+    return { ok: false, error: 'Parte do pedido ja foi entregue. Cancele apenas os itens pendentes.' };
+  }
+
+  const links = kitchenTicketItemRepository.raw(
+    `SELECT DISTINCT comanda_item_id FROM kitchen_ticket_items
+      WHERE ticket_id = ? AND deleted_at IS NULL AND comanda_item_id IS NOT NULL`,
+    ticketId,
+  ) as { comanda_item_id: number }[];
+  const comandaItemIds = links.map((l) => Number(l.comanda_item_id));
+
+  let voided = 0;
+  try {
+    // Mesmo banco: a transação cobre o ticket e os itens da comanda. Se a anulação
+    // falhar, o pedido continua na cozinha em vez de sumir pela metade.
+    kitchenTicketRepository.transaction(() => {
+      kitchenTicketRepository.updateStatus(ticketId, 'cancelado');
+      kitchenTicketRepository.acknowledge(ticketId);
+      if (ticket.source_type === 'comanda' && comandaItemIds.length && hasService('comandas.items')) {
+        const comandas = getService<ComandasItemsService>('comandas.items');
+        voided = comandas.voidItemsForKitchen(req, comandaItemIds).voided;
+      }
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Nao foi possivel cancelar o pedido.' };
+  }
+
+  const cleanReason = reason && String(reason).trim()
+    ? String(reason).trim().slice(0, 200)
+    : 'Cancelado pela cozinha';
+  audit(req, 'cancelar_ticket_cozinha', 'kitchen_ticket', ticketId, { status: ticket.status }, {
+    motivo: cleanReason, itensComandaAnulados: voided,
+  });
+  return { ok: true, voidedComandaItems: voided };
 }
 
 /**

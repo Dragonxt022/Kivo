@@ -36,8 +36,12 @@ default da migration `0088_kitchen_ticket_service_type`.
 A UI/API avança por `pendente → preparo → pronto → entregue` e **também volta uma etapa**
 (botão ⬅ no item e no pedido). Voltar existe porque a cozinha erra toque na correria: sem
 isso, a única correção era mexer no banco. Ao voltar o ticket, só os itens **à frente** do
-alvo descem; item que já estava atrasado não é tocado. `cancelado` **não** é setado pela
-cozinha: vem do cancelamento da venda/comanda.
+alvo descem; item que já estava atrasado não é tocado. `cancelado` vem do cancelamento da
+venda/comanda ou do botão **Cancelar pedido** da cozinha (`cancelTicket`), disponível para
+tickets `pendente`/`preparo`/`pronto`. Pedido já entregue (ou com item entregue) não é
+cancelado por ali: o que saiu para a mesa não pode sumir da conta. Quando o ticket veio de
+uma comanda, os itens vinculados são anulados junto (o principal leva os complementos do
+grupo); quando veio de uma venda, só o ticket da cozinha é cancelado e a venda não muda.
 
 O status do ticket é **derivado dos itens** (`recalcTicketStatus`): avançar um item, anular um
 item de comanda ou remover um item pendente recalcula o ticket — evitando que ele fique preso
@@ -78,7 +82,7 @@ disparam dois áudios.
 ## Permissões
 
 - `foodservice.kitchen.view` — ver o painel.
-- `foodservice.kitchen.manage` — avançar status.
+- `foodservice.kitchen.manage` — avançar status e cancelar pedido.
 - `foodservice.routing.manage` — definir o que vai para a cozinha.
 
 ## Arquivos-chave

@@ -227,6 +227,98 @@ async function main(): Promise<void> {
       check('total da venda direta inclui o adicional (3400)',
         directSale.total_cents === directTotal, `total=${directSale.total_cents}`);
     }
+
+    // ─── Excluir o principal leva os complementos do grupo junto ───────────────
+    // Regressão: o DELETE anulava só a linha clicada e Granola/Leite ficavam soltos
+    // na comanda, cobrando adicionais de um produto que não existia mais.
+    const comandaVoid = await unwrap<{ id: number }>(await api('/api/comandas/comandas', {
+      method: 'POST', body: JSON.stringify({}),
+    }));
+    const groupVoid = randomUUID();
+    const principalVoid = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaVoid.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: principal.id, qty: 1, lineGroupUuid: groupVoid }),
+    }));
+    await api(`/api/comandas/comandas/${comandaVoid.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: adicional.id, qty: 2, lineGroupUuid: groupVoid }),
+    });
+    const antesVoid = await getComanda(comandaVoid.id);
+    check('comanda de teste começa com principal + complemento', antesVoid.length === 2, `itens=${antesVoid.length}`);
+
+    const delPrincipal = await api(`/api/comandas/comandas/${comandaVoid.id}/items/${principalVoid.id}`, { method: 'DELETE' });
+    check('excluir principal responde OK', delPrincipal.ok, `status=${delPrincipal.status}`);
+    const depoisVoid = await getComanda(comandaVoid.id);
+    check('excluir principal remove o complemento da comanda', depoisVoid.length === 0, `itens=${depoisVoid.length}`);
+    const linhasVoid = db.prepare(
+      'SELECT voided_at FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL',
+    ).all(comandaVoid.id) as { voided_at: string | null }[];
+    check('principal e complemento ficam anulados no banco',
+      linhasVoid.length === 2 && linhasVoid.every((l) => !!l.voided_at), JSON.stringify(linhasVoid));
+
+    // Excluir um complemento específico continua removendo só ele.
+    const comandaVoid2 = await unwrap<{ id: number }>(await api('/api/comandas/comandas', {
+      method: 'POST', body: JSON.stringify({}),
+    }));
+    const groupVoid2 = randomUUID();
+    const principalVoid2 = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaVoid2.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: principal.id, qty: 1, lineGroupUuid: groupVoid2 }),
+    }));
+    const complementoVoid2 = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaVoid2.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: adicional.id, qty: 1, lineGroupUuid: groupVoid2 }),
+    }));
+    await api(`/api/comandas/comandas/${comandaVoid2.id}/items/${complementoVoid2.id}`, { method: 'DELETE' });
+    const depoisVoid2 = await getComanda(comandaVoid2.id);
+    check('excluir só o complemento mantém o principal',
+      depoisVoid2.length === 1 && depoisVoid2[0].id === principalVoid2.id,
+      `itens=${depoisVoid2.map((i) => i.product_name).join(',')}`);
+
+    // ─── Dados antigos: complemento órfão é limpo pela migration 0095 ─────────
+    // Simula o estrago que a versão anterior deixou: principal anulado, adicional
+    // ainda ativo. A migration roda uma vez no upgrade e limpa o grupo.
+    const comandaLegacy = await unwrap<{ id: number }>(await api('/api/comandas/comandas', {
+      method: 'POST', body: JSON.stringify({}),
+    }));
+    const groupLegacy = randomUUID();
+    const principalLegacy = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaLegacy.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: principal.id, qty: 1, lineGroupUuid: groupLegacy }),
+    }));
+    const complementoLegacy = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaLegacy.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: adicional.id, qty: 1, lineGroupUuid: groupLegacy }),
+    }));
+    db.prepare("UPDATE comanda_items SET voided_at = datetime('now') WHERE id = ?").run(principalLegacy.id);
+    const antesLegacy = await getComanda(comandaLegacy.id);
+    check('dado antigo deixa só o complemento ativo', antesLegacy.length === 1, `itens=${antesLegacy.length}`);
+
+    const orphanSql = fs.readFileSync(
+      path.join(__dirname, '..', 'modules', 'comandas', 'migrations', '0095_comanda_orphan_complements', 'up.sql'),
+      'utf8',
+    );
+    db.exec(orphanSql);
+    const linhasLegacy = db.prepare(
+      'SELECT id, voided_at FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL ORDER BY id',
+    ).all(comandaLegacy.id) as { id: number; voided_at: string | null }[];
+    check('migration 0095 anula o complemento órfão',
+      linhasLegacy.length === 2 && linhasLegacy.every((l) => !!l.voided_at), JSON.stringify(linhasLegacy));
+
+    // Mesmo sem a migration (ex.: banco que não passou pelo upgrade), remover o
+    // complemento restante já limpa o grupo órfão pelo próprio voidItem.
+    const comandaLegacy2 = await unwrap<{ id: number }>(await api('/api/comandas/comandas', {
+      method: 'POST', body: JSON.stringify({}),
+    }));
+    const groupLegacy2 = randomUUID();
+    const principalLegacy2 = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaLegacy2.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: principal.id, qty: 1, lineGroupUuid: groupLegacy2 }),
+    }));
+    const complementoLegacy2 = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaLegacy2.id}/items`, {
+      method: 'POST', body: JSON.stringify({ productId: adicional.id, qty: 1, lineGroupUuid: groupLegacy2 }),
+    }));
+    db.prepare("UPDATE comanda_items SET voided_at = datetime('now') WHERE id = ?").run(principalLegacy2.id);
+    const delOrfao = await api(`/api/comandas/comandas/${comandaLegacy2.id}/items/${complementoLegacy2.id}`, { method: 'DELETE' });
+    check('remover complemento órfão responde OK', delOrfao.ok, `status=${delOrfao.status}`);
+    const linhasLegacy2 = db.prepare(
+      'SELECT voided_at FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL',
+    ).all(comandaLegacy2.id) as { voided_at: string | null }[];
+    check('remover complemento órfão limpa o grupo antigo',
+      linhasLegacy2.length === 2 && linhasLegacy2.every((l) => !!l.voided_at), JSON.stringify(linhasLegacy2));
   } finally {
     server.close();
     closeDb();

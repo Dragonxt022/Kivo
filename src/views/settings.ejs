@@ -468,6 +468,17 @@
             <option value="balcao">Balcão</option>
           </select>
         </div>
+        <div class="field">
+          <label class="label-checkbox">
+            <input type="checkbox" x-model="comandas.exigirMesaAberta" />
+            Aceitar pedido pelo QR somente com a mesa aberta pelo atendente
+          </label>
+          <p class="hint mt-0" style="margin-top:.35rem">
+            Recomendado. Sem isso, qualquer pessoa com o link do QR consegue mandar pedido
+            para uma mesa livre, mesmo estando fora da loja. O atendente abre a mesa ao
+            receber os clientes e o pedido do celular continua dependendo da confirmação dele.
+          </p>
+        </div>
         <% if (user.permissions.has('settings.edit')) { %>
         <div class="toolbar">
           <button class="btn" @click="saveComandas()">
@@ -1949,7 +1960,7 @@
         },
         productTypes: [], savingProductTypes: false, productTypesSaved: '',
         sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
-        comandas: { rotulo: 'mesa' }, savingComandas: false, comandasSaved: '',
+        comandas: { rotulo: 'mesa', exigirMesaAberta: true }, savingComandas: false, comandasSaved: '',
         financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
         savingFinanceiro: false, financeiroSaved: '',
         empresa: { nome: '', razaoSocial: '', documento: '', ie: '', email: '', telefone: '', endereco: '' }, savingEmpresa: false, empresaSaved: '',
@@ -2065,6 +2076,8 @@
           this.sales.pdvDescontoMax = this.settings.find(s => s.key === 'pdv.desconto_maximo_percentual')?.value ?? '0';
           this.sales.pdvParcelasMax = Number(this.settings.find(s => s.key === 'pdv.parcelas_max')?.value ?? 12);
           this.comandas.rotulo = this.settings.find(s => s.key === 'comandas.rotulo')?.value === 'balcao' ? 'balcao' : 'mesa';
+          // Padrão LIGADO: sem valor salvo, o QR só aceita pedido com a mesa aberta.
+          this.comandas.exigirMesaAberta = this.settings.find(s => s.key === 'pedido_qr.exigir_mesa_aberta')?.value !== '0';
           this.financeiro.multaAtiva = this.settings.find(s => s.key === 'financeiro.multa_atraso.ativa')?.value === '1';
           const multaPct = this.settings.find(s => s.key === 'financeiro.multa_atraso.percentual')?.value;
           this.financeiro.multaPercentual = (multaPct != null ? Number(multaPct) : 2).toFixed(2).replace('.', ',');
@@ -2330,13 +2343,20 @@
         },
         async saveComandas() {
           this.savingComandas = true; this.comandasSaved = '';
-          const r = await fetch('/api/settings/comandas.rotulo', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: this.comandas.rotulo }),
-          });
+          const results = await Promise.all([
+            fetch('/api/settings/comandas.rotulo', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value: this.comandas.rotulo }),
+            }),
+            fetch('/api/settings/pedido_qr.exigir_mesa_aberta', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ value: this.comandas.exigirMesaAberta ? '1' : '0' }),
+            }),
+          ]);
           this.savingComandas = false;
-          this.comandasSaved = r.ok ? 'Salvo.' : 'Falha ao salvar.';
-          if (r.ok) showToast('Rótulo salvo — o menu e a tela inicial já usam o novo nome.', 'success');
+          const ok = results.every((r) => r.ok);
+          this.comandasSaved = ok ? 'Salvo.' : 'Falha ao salvar.';
+          if (ok) showToast('Preferências de mesas salvas.', 'success');
         },
         async saveFinanceiro() {
           this.savingFinanceiro = true; this.financeiroSaved = '';

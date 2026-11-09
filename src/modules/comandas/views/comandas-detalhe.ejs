@@ -1219,10 +1219,27 @@
           }
         },
         async voidItem(itemId, idx) {
-          if (!await window.confirmDlg('Remover ' + this.items[idx].product_name + ' da comanda?')) return;
+          const item = this.items[idx];
+          // Principal + complementos são um pedido só: o servidor anula o grupo inteiro
+          // ao remover o principal. A mensagem avisa a consequência antes do clique.
+          const group = item?.line_group_uuid;
+          const isBase = group
+            ? this.items.filter((i) => i.line_group_uuid === group)[0]?.id === item?.id
+            : false;
+          const pergunta = isBase
+            ? `Remover ${item.product_name} e os complementos deste pedido da comanda?`
+            : `Remover ${item.product_name} da comanda?`;
+          if (!await window.confirmDlg(pergunta)) return;
           const r = await fetch('/api/comandas/comandas/' + this.comandaId + '/items/' + itemId, { method: 'DELETE' });
-          if (r.ok) { await this.load(); showToast('Item removido.', 'success'); }
-          else showToast((await r.json()).error ?? 'Erro ao remover item.', 'error');
+          const body = await r.json().catch(() => ({}));
+          if (r.ok) {
+            await this.load();
+            const data = body.data ?? body;
+            const voided = typeof data === 'number' ? data : Number(data?.voided ?? 1);
+            showToast(voided > 1 ? `Item e ${voided - 1} complemento(s) removidos.` : 'Item removido.', 'success');
+          } else {
+            showToast(body.error ?? body.data?.error ?? 'Erro ao remover item.', 'error');
+          }
         },
         async openTransferDlg() {
           this.transferTarget = null; this.dlgError = '';

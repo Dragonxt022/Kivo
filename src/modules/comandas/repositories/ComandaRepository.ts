@@ -101,6 +101,46 @@ export class ComandaItemRepository extends BaseRepository {
     this.rawRun("UPDATE comanda_items SET voided_at = datetime('now'), updated_at = datetime('now') WHERE id = ?", id);
   }
 
+  /**
+   * Itens ativos do grupo, em ordem de lançamento. O primeiro id é o principal; os
+   * seguintes são complementos. Usado ao anular o principal: o grupo é um pedido só e
+   * não pode ficar com adicionais soltos na comanda.
+   */
+  activeLineGroupIds(comandaId: number, lineGroupUuid: string): number[] {
+    return (this.raw(
+      `SELECT id FROM comanda_items
+        WHERE comanda_id = ? AND line_group_uuid = ?
+          AND deleted_at IS NULL AND voided_at IS NULL
+        ORDER BY id`,
+      comandaId, lineGroupUuid,
+    ) as { id: number }[]).map((r) => Number(r.id));
+  }
+
+  /**
+   * Primeiro item do grupo, incluindo anulados. É a definição de "principal" do resto
+   * da tela (mesma ordem usada por findLineBaseProductId e pelo fechamento).
+   */
+  lineGroupBaseId(comandaId: number, lineGroupUuid: string): number | null {
+    const row = this.rawOne(
+      `SELECT id FROM comanda_items
+        WHERE comanda_id = ? AND line_group_uuid = ? AND deleted_at IS NULL
+        ORDER BY id LIMIT 1`,
+      comandaId, lineGroupUuid,
+    ) as { id: number } | undefined;
+    return row ? Number(row.id) : null;
+  }
+
+  /** Anula várias linhas de uma vez (principal + complementos). */
+  voidMany(ids: number[]): void {
+    if (!ids.length) return;
+    const ph = ids.map(() => '?').join(',');
+    this.rawRun(
+      `UPDATE comanda_items SET voided_at = datetime('now'), updated_at = datetime('now')
+        WHERE id IN (${ph})`,
+      ...ids,
+    );
+  }
+
   validateBelongToComanda(itemIds: number[], comandaId: number): number {
     if (!itemIds.length) return 0;
     const ph = itemIds.map(() => '?').join(',');

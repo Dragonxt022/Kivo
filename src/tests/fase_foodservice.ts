@@ -355,6 +355,35 @@ async function main() {
   const ackB = db.prepare('SELECT acknowledged_at FROM kitchen_tickets WHERE id = ?').get(ackTicketB.id) as { acknowledged_at: string | null };
   check('avançar o pedido também confirma a visualização', !!ackB.acknowledged_at);
 
+  // ── Cozinha pode cancelar um pedido que já recebeu ─────────────────────────
+  // Pedido já entregue não pode sumir da conta: só o que ainda não saiu da cozinha.
+  const cancelDelivered = await api(`/api/foodservice/kitchen/tickets/${ticket.id}/cancel`, { method: 'POST' }, admin!);
+  check('cozinha NÃO cancela pedido já entregue', cancelDelivered.status === 400);
+
+  const comandaCancel = await unwrap<{ id: number }>(await api('/api/comandas/comandas', {
+    method: 'POST', body: JSON.stringify({}),
+  }, admin!));
+  const itemCancel = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaCancel.id}/items`, {
+    method: 'POST', body: JSON.stringify({ productId: hamburguer.id, qty: 1 }),
+  }, admin!));
+  await api(`/api/comandas/comandas/${comandaCancel.id}/enviar-cozinha`, { method: 'POST' }, admin!);
+  const ticketCozinhaCancel = db.prepare(
+    "SELECT id FROM kitchen_tickets WHERE source_type = 'comanda' AND source_id = ?",
+  ).get(comandaCancel.id) as { id: number };
+  check('pedido da comanda chegou à cozinha', !!ticketCozinhaCancel);
+  const cancelR = await api(`/api/foodservice/kitchen/tickets/${ticketCozinhaCancel.id}/cancel`, {
+    method: 'POST', body: JSON.stringify({ reason: 'Item em falta' }),
+  }, admin!);
+  check('cozinha cancela pedido já recebido', cancelR.status === 200, `status=${cancelR.status}`);
+  const ticketCancelRow = db.prepare('SELECT status FROM kitchen_tickets WHERE id = ?').get(ticketCozinhaCancel.id) as { status: string };
+  check('ticket cancelado pela cozinha', ticketCancelRow.status === 'cancelado');
+  const itemCancelRow = db.prepare('SELECT voided_at FROM comanda_items WHERE id = ?').get(itemCancel.id) as { voided_at: string | null };
+  check('item da comanda é anulado junto com o ticket', !!itemCancelRow.voided_at);
+  const ativosCancel = db.prepare(
+    'SELECT COUNT(*) c FROM comanda_items WHERE comanda_id = ? AND deleted_at IS NULL AND voided_at IS NULL',
+  ).get(comandaCancel.id) as { c: number };
+  check('comanda não fica com item ativo após cancelamento da cozinha', Number(ativosCancel.c) === 0);
+
   // Desliga a capability de novo -> volta a bloquear
   check('desliga capability foodservice.cozinha',
     (await api('/api/core/capabilities/foodservice.cozinha', { method: 'PUT', body: JSON.stringify({ enabled: false }) }, admin!)).status === 200);

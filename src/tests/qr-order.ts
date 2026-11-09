@@ -18,7 +18,7 @@ import commercialSetup from '../modules/commercial/setup';
 import foodserviceSetup from '../modules/foodservice/setup';
 import comandasSetup from '../modules/comandas/setup';
 import { applyCommand } from '../core/sync/commands';
-import { sendToKitchen } from '../modules/comandas/comandas';
+import { openComanda, sendToKitchen } from '../modules/comandas/comandas';
 import { confirmQrOrders, receiveQrOrder, rejectQrOrders, setItemTakeaway } from '../modules/comandas/qrOrder';
 import { publishMenuNow } from '../core/menu/publisher';
 
@@ -98,6 +98,9 @@ async function main(): Promise<void> {
   db.prepare(
     "INSERT INTO store_tables (label, status, uuid) VALUES ('Mesa 01', 'livre', ?)",
   ).run(UUID.table);
+  const tableId = Number(
+    (db.prepare('SELECT id FROM store_tables WHERE uuid = ?').get(UUID.table) as { id: number }).id,
+  );
 
   // Só o principal gera ticket; adicionais vão como texto no item principal.
   db.prepare(
@@ -122,10 +125,21 @@ async function main(): Promise<void> {
     }],
   };
 
+  // Sem abrir a mesa, o link do QR não serve nem para quem está em casa: a presença é
+  // confirmada pelo atendente ao abrir a comanda. O QR impresso continua o mesmo.
+  const semMesaAberta = receiveQrOrder(req, payload);
+  check('pedido QR em mesa livre é recusado (exige mesa aberta)', !semMesaAberta.ok,
+    semMesaAberta.ok ? '' : semMesaAberta.error);
+
+  const opened = openComanda(req, { tableId });
+  check('atendente abre a mesa', opened.ok, opened.ok ? '' : opened.error);
+  if (!opened.ok) return;
+
   const first = receiveQrOrder(req, payload);
-  check('pedido QR é aceito', first.ok, first.ok ? '' : first.error);
+  check('pedido QR é aceito com a mesa aberta', first.ok, first.ok ? '' : first.error);
   if (!first.ok) return;
   const comandaId = first.result.comandaId;
+  check('pedido reaproveita a comanda aberta pelo atendente', comandaId === opened.id);
 
   const qrOrder = db.prepare('SELECT id, status FROM qr_orders WHERE order_uuid = ?').get(UUID.order1) as
     { id: number; status: string } | undefined;

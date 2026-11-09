@@ -18,6 +18,7 @@ router.delete('/kitchen-routing/:id', requireCapability('foodservice.cozinha'), 
 
 router.get('/kitchen/tickets', requireCapability('foodservice.cozinha'), requirePermission('foodservice.kitchen.view'), foodserviceController.listKitchenTickets);
 router.post('/kitchen/tickets/:id/ack', requireCapability('foodservice.cozinha'), requirePermission('foodservice.kitchen.view'), foodserviceController.acknowledgeTicketAction);
+router.post('/kitchen/tickets/:id/cancel', requireCapability('foodservice.cozinha'), requirePermission('foodservice.kitchen.manage'), foodserviceController.cancelTicketAction);
 router.put('/kitchen/tickets/:ticketId/items/:itemId/status', requireCapability('foodservice.cozinha'), requirePermission('foodservice.kitchen.manage'), validateBody(kitchenStatusSchema), foodserviceController.advanceItemStatusAction);
 router.put('/kitchen/tickets/:id/status', requireCapability('foodservice.cozinha'), requirePermission('foodservice.kitchen.manage'), validateBody(kitchenStatusSchema), foodserviceController.advanceTicketStatusAction);
 

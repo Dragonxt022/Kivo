@@ -36,6 +36,12 @@ por `comanda_item_id`.
 `voidItem` remove o item; se ele tinha ido para a cozinha e o item de produção ainda está
 `pendente`, ele é removido de lá e o ticket é reavaliado (cancelado se ficar vazio).
 
+Principal e complementos formam **um pedido só** (`line_group_uuid`). Anular o principal
+anula o grupo inteiro — senão os adicionais ficariam soltos na comanda e seriam cobrados
+sozinhos. Anular um complemento remove só aquela linha. A migration
+`0095_comanda_orphan_complements` limpa os complementos órfãos que já existiam e desfaz o
+aviso de "pronta para pagamento" de comandas cujo total mudou.
+
 ### Pronta para pagamento
 
 `setReadyForPayment` marca a comanda como pronta — a grade de mesas destaca e o caixa pode
@@ -58,6 +64,24 @@ mesa. Pagamento, desconto e cliente seguem as regras de `vendas.md`.
 ### Cancelar
 
 `cancelComanda` só para comanda `aberta`; libera a mesa e cancela os tickets de cozinha.
+
+## Pedido pelo QR da mesa
+
+O QR impresso é fixo (o token fica em `store_tables.qr_token`); para não depender de trocar
+o código colado na mesa, a presença é confirmada pelo atendente:
+
+- por padrão (`pedido_qr.exigir_mesa_aberta = 1`), o pedido só entra se a mesa já tiver uma
+  comanda aberta pelo atendente. Quem está em casa com o link salvo não consegue abrir uma
+  mesa livre;
+- o garçom continua confirmando cada rodada antes de ela ir para a cozinha;
+- o Cloud limita a 8 pedidos por 10 minutos por token+IP e a 2 rodadas pendentes por mesa,
+  para um link vazado não inundar a tela do atendente;
+- desligar a opção em **Configurações → Mesas e balcão** volta ao fluxo antigo (o QR abre a
+  mesa sozinho).
+
+Limitação assumida: se a mesa estiver ocupada, alguém de fora com o link ainda consegue
+enviar até 2 rodadas; elas aparecem para o garçom, que recusa. Para abuso persistente, o
+caminho é revogar/rotacionar o QR daquela mesa (exige reimprimir o código).
 
 ## Sincronização
 

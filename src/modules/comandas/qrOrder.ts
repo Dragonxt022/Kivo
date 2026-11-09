@@ -215,6 +215,11 @@ export function receiveQrOrder(req: Request, payload: QrOrderPayload): ReceiveRe
   const resolved = resolveLines(payload.items);
   if (!resolved.ok) return resolved;
 
+  // Sem mudar o QR impresso, a presença é confirmada pelo atendente: o pedido só entra
+  // se a mesa já estiver aberta. Quem está em casa com o link salvo não consegue abrir
+  // a mesa; quando a mesa está ocupada, o garçom ainda confirma cada rodada.
+  // `abrir_mesa_auto` continua valendo para quem preferir o fluxo antigo.
+  const requireOpenTable = settingsRepository.getBool('pedido_qr.exigir_mesa_aberta', true);
   const autoOpen = settingsRepository.getBool('pedido_qr.abrir_mesa_auto', true);
   let comandaId: number;
   let createdComanda = false;
@@ -222,6 +227,9 @@ export function receiveQrOrder(req: Request, payload: QrOrderPayload): ReceiveRe
   if (open) {
     comandaId = Number(open.id);
   } else {
+    if (requireOpenTable) {
+      return { ok: false, error: 'A mesa não está aberta. Peça ao atendente para liberar a mesa antes de fazer o pedido.' };
+    }
     if (!autoOpen) {
       return { ok: false, error: 'A mesa não está aberta. Peça ao atendente para liberar a mesa.' };
     }

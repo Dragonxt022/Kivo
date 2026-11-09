@@ -13,7 +13,12 @@ import { connectedCount, emitToCompany } from '../events';
  * intenção em `company_commands` e o desktop executa a regra de negócio.
  */
 
-const orderLimiter = createRateLimiter({ windowMs: 10 * 60e3, max: 20, keyPrefix: 'pedido:' });
+// O QR é público e o link pode vazar. O limite é por token+IP: um cliente normal faz
+// poucos pedidos por rodada, e um bot não consegue inundar a fila de uma mesa.
+const orderLimiter = createRateLimiter({ windowMs: 10 * 60e3, max: 8, keyPrefix: 'pedido:' });
+
+/** Pedidos ainda sem desfecho do atendente que uma mesa pode acumular. */
+const MAX_PENDING_PER_TABLE = 2;
 
 interface ResolvedTable {
   companyUuid: string;
@@ -350,6 +355,24 @@ orderApi.post('/:token/orders', async (req, res) => {
       status: existing.status,
       totalCents: Number(existing.total_cents),
       desktopOnline: connectedCount(table.companyUuid) > 0,
+    });
+    return;
+  }
+
+  // Anti-flood: a mesa não acumula dezenas de rodadas esperando o garçom. Duas já
+  // bastam para um pedido normal (principal + "mais uma rodada"); a terceira espera a
+  // confirmação/recusa das anteriores. É o freio que impede um link vazado de encher
+  // a tela do atendente com pedidos falsos.
+  const [pendingRows] = await pool.query(
+    `SELECT COUNT(*) AS pending FROM public_orders
+      WHERE company_uuid = ? AND table_uuid = ? AND status = 'recebido'
+        AND created_at > (NOW(3) - INTERVAL 30 MINUTE)`,
+    [table.companyUuid, table.tableUuid],
+  );
+  const pending = Number((pendingRows as { pending: number }[])[0]?.pending ?? 0);
+  if (pending >= MAX_PENDING_PER_TABLE) {
+    res.status(429).json({
+      error: 'Já existem pedidos desta mesa aguardando o atendente. Aguarde a confirmação ou chame o atendente.',
     });
     return;
   }

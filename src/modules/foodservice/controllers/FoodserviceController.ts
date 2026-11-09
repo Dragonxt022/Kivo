@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { audit } from '../../../core/audit/service';
-import { advanceItemStatus, advanceTicketStatus, acknowledgeTicket, getItemsForTickets, listTickets } from '../kitchen';
+import { advanceItemStatus, advanceTicketStatus, acknowledgeTicket, cancelTicket, getItemsForTickets, listTickets } from '../kitchen';
 import { kitchenRoutingRepository } from '../repositories/KitchenRepository';
 import { productRepository } from '../../commercial/repositories/ProductRepository';
 
@@ -114,6 +114,18 @@ export const foodserviceController = {
     const result = advanceTicketStatus(req, id, status);
     if (!result.ok) { res.status(404).json(result); return; }
     res.json({ ok: true });
+  },
+
+  /** Cozinha cancela um pedido que já recebeu (item em falta, pedido errado etc.). */
+  cancelTicketAction(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Ticket invalido.' }); return;
+    }
+    const reason = req.body?.reason != null ? String(req.body.reason) : null;
+    const result = cancelTicket(req, id, reason);
+    if (!result.ok) { res.status(400).json(result); return; }
+    res.json({ voidedComandaItems: result.voidedComandaItems });
   },
 
   /** "Visualizei": para o alarme de novo pedido sem precisar avançar a produção. */
