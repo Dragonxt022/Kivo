@@ -223,12 +223,45 @@
             this.hasAccessTokenProducao = !!data.hasAccessTokenProducao;
             this.hasAccessTokenSandbox = !!data.hasAccessTokenSandbox;
             this.hasBasicAuth = !!data.hasBasicAuth;
-            if (data.idEmpresaIntegrada) this.form.empresaIntegrada = String(data.idEmpresaIntegrada);
-            if (data.sandbox !== undefined) this.form.sandbox = !!data.sandbox;
+            if (data.idEmpresaIntegrada) {
+              this.form.empresaIntegrada = String(data.idEmpresaIntegrada);
+              // Persiste o ID da empresa da sede no banco local para as chamadas à API.
+              await this.saveEmpresaIntegrada();
+            }
+            if (data.sandbox !== undefined) {
+              this.form.sandbox = !!data.sandbox;
+              await this.saveSandbox();
+            }
           } catch (e) {
             this.cloudError = 'Erro ao buscar credenciais da nuvem.';
           } finally {
             this.cloudLoading = false;
+          }
+        },
+        async saveEmpresaIntegrada() {
+          try {
+            await fetch('/api/maisdelivery/settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                empresaIntegrada: numOrNull(this.form.empresaIntegrada),
+              }),
+            });
+          } catch {
+            // Falha ao persistir empresa integrada; o teste de conexão vai falhar com mensagem clara.
+          }
+        },
+        async saveSandbox() {
+          try {
+            await fetch('/api/maisdelivery/settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sandbox: this.form.sandbox,
+              }),
+            });
+          } catch {
+            // Falha ao persistir sandbox.
           }
         },
         async getCloudUrl() {
