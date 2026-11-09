@@ -1,6 +1,8 @@
+import { randomBytes } from 'node:crypto';
 import { Router, type Request } from 'express';
 import { getPool } from '../db';
 import { getCommercialPlans } from '../plans';
+import { createRateLimiter } from '../rateLimit';
 
 /**
  * Landing page pública de venda do Kivo (rota "/").
@@ -66,31 +68,19 @@ async function getReleaseInfo(): Promise<ReleaseInfo> {
 const router = Router();
 
 /**
- * Registro de downloads do instalador. Serve para o painel saber que alguém baixou o Kivo
- * mesmo antes de ativar qualquer licença/teste — a instalação em si só aparece em
- * company_devices depois que o app valida.
+ * Cadastro obrigatório antes do download. Em vez de contar cliques anônimos, o site pede
+ * nome, celular e e-mail e guarda em installer_leads. O link do instalador carrega um token
+ * aleatório com validade curta, então o painel consegue ver quem se cadastrou e quem baixou.
  *
- * Best-effort: se o banco estiver fora, o download continua. Também há um freio simples
- * por IP para um bot não inflar a contagem com centenas de cliques.
+ * Best-effort, como antes: se o banco estiver fora, o download continua (o cadastro é
+ * perdido, mas o cliente não fica bloqueado). O freio por IP evita enxurrada de robôs.
  */
-const downloadHits = new Map<string, { count: number; resetAt: number }>();
-const DOWNLOAD_WINDOW_MS = 60_000;
-const DOWNLOAD_MAX_PER_WINDOW = 20;
-
-function downloadThrottled(ip: string): boolean {
-  const now = Date.now();
-  const hit = downloadHits.get(ip);
-  if (!hit || now > hit.resetAt) {
-    downloadHits.set(ip, { count: 1, resetAt: now + DOWNLOAD_WINDOW_MS });
-    // Limpeza ocasional para a lista não crescer sem limite.
-    if (downloadHits.size > 5000) {
-      for (const [k, v] of downloadHits) if (now > v.resetAt) downloadHits.delete(k);
-    }
-    return false;
-  }
-  hit.count += 1;
-  return hit.count > DOWNLOAD_MAX_PER_WINDOW;
-}
+const DOWNLOAD_TOKEN_TTL_DAYS = 7;
+const downloadRateLimited = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 8,
+  keyPrefix: 'download-lead:',
+});
 
 function clip(value: unknown, max: number): string | null {
   if (value == null) return null;
@@ -98,39 +88,185 @@ function clip(value: unknown, max: number): string | null {
   return s ? s.slice(0, max) : null;
 }
 
-async function recordDownload(req: Request, version: string): Promise<void> {
-  const ip = clip(req.ip, 64);
-  if (ip && downloadThrottled(ip)) return;
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+/** Origem amigável para o painel: o caminho da página que levou ao formulário. */
+function origemFromReferer(req: Request): string | null {
+  const raw = req.get('referer');
+  if (!raw) return null;
   try {
-    await getPool().query(
-      'INSERT INTO installer_downloads (ip, user_agent, referer, origem, version) VALUES (?, ?, ?, ?, ?)',
-      [
-        ip,
-        clip(req.get('user-agent'), 400),
-        clip(req.get('referer'), 500),
-        clip(req.query.origem, 80),
-        clip(version, 24),
-      ],
-    );
-  } catch (e) {
-    console.error('[downloads] falha ao registrar download (segue para o instalador):', e);
+    return clip(new URL(raw).pathname, 80);
+  } catch {
+    return clip(raw, 80);
   }
 }
 
+function downloadFormParams(
+  version: string,
+  extra: {
+    origem?: string;
+    error?: string | null;
+    expirado?: boolean;
+    values?: { name?: string; whatsapp?: string; email?: string };
+  } = {},
+) {
+  return {
+    downloadUrl: '/baixar',
+    appVersion: version,
+    plans: getCommercialPlans(),
+    origem: extra.origem ?? '',
+    error: extra.error ?? null,
+    expirado: extra.expirado ?? false,
+    values: {
+      name: extra.values?.name ?? '',
+      whatsapp: extra.values?.whatsapp ?? '',
+      email: extra.values?.email ?? '',
+    },
+  };
+}
+
 /**
- * Link público do botão "Baixar". Em vez de mandar o navegador direto ao GitHub, passa por
- * aqui para registrar o clique e só então redireciona para o asset da release.
+ * Formulário público de download. O link exibido em todas as páginas do site é `/baixar`,
+ * nunca a URL direta do GitHub, senão o cadastro é ignorado.
  */
 router.get('/baixar', async (req, res) => {
+  const { version } = await getReleaseInfo();
+  res.render(
+    'baixar',
+    downloadFormParams(version, {
+      origem: clip(req.query.origem, 80) ?? '',
+      expirado: req.query.expirado === '1',
+    }),
+  );
+});
+
+router.post('/baixar', async (req, res) => {
+  const b = (req.body ?? {}) as Record<string, unknown>;
   const { downloadUrl, version } = await getReleaseInfo();
-  await recordDownload(req, version);
+
+  const renderError = (error: string, status = 400) =>
+    res.status(status).render(
+      'baixar',
+      downloadFormParams(version, {
+        origem: clip(b.origem, 80) ?? clip(req.query.origem, 80) ?? '',
+        error,
+        values: {
+          name: String(b.name ?? '').trim(),
+          whatsapp: String(b.whatsapp ?? '').trim(),
+          email: String(b.email ?? '').trim(),
+        },
+      }),
+    );
+
+  // Honeypot: campo invisível para humanos; bot que preencher não recebe token.
+  if (typeof b.website === 'string' && b.website.trim() !== '') {
+    return res.redirect(303, '/baixar');
+  }
+
+  const name = String(b.name ?? '').trim();
+  const whatsapp = String(b.whatsapp ?? '').trim();
+  const email = String(b.email ?? '').trim().toLowerCase();
+  const phoneDigits = digitsOnly(whatsapp);
+
+  if (name.length < 2 || name.length > 120) {
+    return renderError('Informe seu nome completo.');
+  }
+  if (phoneDigits.length < 10 || phoneDigits.length > 13) {
+    return renderError('Informe um celular válido, com DDD.');
+  }
+  if (email.length > 160 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return renderError('Informe um e-mail válido.');
+  }
+  if (downloadRateLimited(req.ip ?? 'desconhecido')) {
+    return renderError('Muitos cadastros seguidos — tente novamente mais tarde.', 429);
+  }
+
+  const origem = clip(b.origem, 80) ?? clip(req.query.origem, 80) ?? origemFromReferer(req);
+  const token = randomBytes(24).toString('hex');
+
+  try {
+    await getPool().query(
+      `INSERT INTO installer_leads
+         (name, whatsapp, email, ip, user_agent, referer, origem, version, download_token, token_expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(3), INTERVAL ${DOWNLOAD_TOKEN_TTL_DAYS} DAY))`,
+      [
+        name,
+        whatsapp,
+        email,
+        clip(req.ip, 64),
+        clip(req.get('user-agent'), 400),
+        clip(req.get('referer'), 500),
+        origem,
+        clip(version, 24),
+        token,
+      ],
+    );
+  } catch (e) {
+    console.error('[downloads] falha ao registrar cadastro (libera o download mesmo assim):', e);
+    return res.redirect(303, downloadUrl);
+  }
+
+  res.redirect(303, `/baixar/obrigado?t=${encodeURIComponent(token)}`);
+});
+
+router.get('/baixar/obrigado', async (req, res) => {
+  const token = String(req.query.t ?? '').trim();
+  if (!/^[a-f0-9]{48}$/.test(token)) return res.redirect(303, '/baixar');
+
+  // Valida antes de exibir a página: token expirado volta para o formulário.
+  try {
+    const [rows] = await getPool().query(
+      `SELECT id FROM installer_leads
+        WHERE download_token = ? AND token_expires_at > NOW(3) LIMIT 1`,
+      [token],
+    );
+    if (!(rows as { id: number }[]).length) return res.redirect(303, '/baixar?expirado=1');
+  } catch (e) {
+    // Banco fora: não bloqueia a página; o botão de download tenta de novo.
+    console.error('[downloads] falha ao validar token (segue para a página):', e);
+  }
+
+  const { version } = await getReleaseInfo();
+  res.render('baixar-obrigado', {
+    downloadUrl: `/baixar/arquivo?t=${encodeURIComponent(token)}`,
+    appVersion: version,
+    fileUrl: `/baixar/arquivo?t=${encodeURIComponent(token)}`,
+  });
+});
+
+router.get('/baixar/arquivo', async (req, res) => {
+  const token = String(req.query.t ?? '').trim();
+  if (!/^[a-f0-9]{48}$/.test(token)) return res.redirect(303, '/baixar');
+
+  try {
+    const [rows] = await getPool().query(
+      `SELECT id FROM installer_leads
+        WHERE download_token = ? AND token_expires_at > NOW(3) LIMIT 1`,
+      [token],
+    );
+    const lead = (rows as { id: number }[])[0];
+    if (!lead) return res.redirect(303, '/baixar?expirado=1');
+
+    await getPool().query(
+      `UPDATE installer_leads
+          SET downloaded_at = COALESCE(downloaded_at, NOW(3)),
+              download_count = download_count + 1
+        WHERE id = ?`,
+      [lead.id],
+    );
+  } catch (e) {
+    // Igual ao cadastro: a indisponibilidade do banco não pode impedir o download.
+    console.error('[downloads] falha ao validar token (libera o download mesmo assim):', e);
+  }
+
+  const { downloadUrl } = await getReleaseInfo();
   res.redirect(302, downloadUrl);
 });
 
 router.get('/', async (_req, res) => {
   const { version } = await getReleaseInfo();
-  // `/baixar` registra o clique antes de redirecionar; o link exibido nas páginas é este,
-  // nunca a URL direta do GitHub, senão os downloads feitos pelo site não aparecem no painel.
   res.render('landing', { downloadUrl: '/baixar', appVersion: version, plans: getCommercialPlans() });
 });
 

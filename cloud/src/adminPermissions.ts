@@ -70,7 +70,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   {
     key: 'downloads',
     label: 'Downloads e testes',
-    description: 'Instaladores, builds e downloads para testes.',
+    description: 'Cadastros de download, instaladores e testes.',
     href: '/admin/downloads',
     category: 'Visão geral',
     icon: 'downloads',

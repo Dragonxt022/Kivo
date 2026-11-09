@@ -1066,33 +1066,47 @@ function cmpVersao(a: string, b: string): number {
 }
 
 /**
- * Downloads do instalador + testes em andamento. O download é registrado em `/baixar`
- * (routes/landing.ts) antes de o navegador ir ao GitHub; o teste só aparece aqui depois
- * que a máquina ativa a licença e entra em company_devices.
+ * Cadastros de download + testes em andamento. O formulário é `/baixar`
+ * (routes/landing.ts): o visitante deixa nome, celular e e-mail antes de receber o link do
+ * instalador. O teste só aparece aqui depois que a máquina ativa a licença e entra em
+ * company_devices.
  *
- * Serve para responder "quantas pessoas baixaram?" e "quantos estão usando o teste?" sem
- * depender de cruzar manualmente GitHub, empresas e dispositivos.
+ * Serve para responder "quem se cadastrou?", "quem realmente baixou?" e "quantos estão
+ * usando o teste?" sem depender de contar cliques anônimos.
  */
 router.get('/downloads', requireAdminAuth, async (_req, res) => {
   const pool = getPool();
-  const [downloadRows] = await pool.query(
-    `SELECT id, ip, user_agent, referer, origem, version, created_at
-       FROM installer_downloads ORDER BY created_at DESC LIMIT 500`,
+  const [leadRows] = await pool.query(
+    `SELECT id, name, whatsapp, email, ip, user_agent, referer, origem, version,
+            download_count, downloaded_at, created_at
+       FROM installer_leads ORDER BY created_at DESC LIMIT 500`,
   );
   const [statsRows] = await pool.query(
     `SELECT COUNT(*) AS total,
-            COUNT(DISTINCT ip) AS unique_ips,
+            COUNT(DISTINCT email) AS unique_emails,
             SUM(created_at >= (NOW(3) - INTERVAL 24 HOUR)) AS last_24h,
-            SUM(created_at >= (NOW(3) - INTERVAL 7 DAY)) AS last_7d
-       FROM installer_downloads`,
+            SUM(created_at >= (NOW(3) - INTERVAL 7 DAY)) AS last_7d,
+            COUNT(downloaded_at) AS downloaded
+       FROM installer_leads`,
   );
   const rawStats = (statsRows as Record<string, unknown>[])[0] ?? {};
   const stats = {
     total: Number(rawStats.total || 0),
-    unique_ips: Number(rawStats.unique_ips || 0),
+    unique_emails: Number(rawStats.unique_emails || 0),
     last_24h: Number(rawStats.last_24h || 0),
     last_7d: Number(rawStats.last_7d || 0),
+    downloaded: Number(rawStats.downloaded || 0),
   };
+
+  // Link direto do WhatsApp para o time conseguir chamar o lead com um clique. Se o número
+  // já vier com o código do Brasil (55), não duplica o DDI.
+  const leads = (leadRows as Record<string, unknown>[]).map((l) => {
+    const digits = String(l.whatsapp ?? '').replace(/\D/g, '').replace(/^0+/, '');
+    const withCountry = digits
+      ? (digits.startsWith('55') && digits.length >= 12 ? digits : `55${digits}`)
+      : '';
+    return { ...l, wa_link: withCountry ? `https://wa.me/${withCountry}` : null };
+  });
 
   // Trial por empresa, com a máquina que ativou. LEFT JOIN de propósito: um teste criado
   // pelo painel pode ainda não ter aberto o app, e mesmo assim precisa aparecer.
@@ -1109,7 +1123,7 @@ router.get('/downloads', requireAdminAuth, async (_req, res) => {
 
   const trials = trialRows as Record<string, unknown>[];
   res.render('downloads', {
-    downloads: downloadRows as Record<string, unknown>[],
+    leads,
     stats,
     trials,
     totalTrials: new Set(trials.map((t) => String(t.company_uuid))).size,

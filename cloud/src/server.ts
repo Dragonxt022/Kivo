@@ -55,7 +55,7 @@ function startDataRetention(): NodeJS.Timeout {
       if (removidos > 0) console.log(`[retention] ${removidos} comando(s) antigo(s) removido(s).`);
       // Cache da busca de imagens vencido: não precisa ficar ocupando espaço.
       await getPool().query('DELETE FROM catalog_search_cache WHERE expires_at < NOW()');
-      // Downloads do instalador: guarda 180 dias para o painel enxergar a origem, depois some.
+      // Cliques antigos do instalador (tabela legada, anterior ao formulário): 180 dias.
       await getPool().query('DELETE FROM installer_downloads WHERE created_at < (NOW(3) - INTERVAL 180 DAY)');
     } catch (e) {
       console.error('[retention] falha ao limpar comandos antigos:', e);

@@ -25,25 +25,28 @@
         </div>
 
         <p class="field-hint" style="margin-top:0">
-          Todo clique em “Baixar” no site passa por <strong>/baixar</strong> e fica registrado
-          aqui, mesmo que a pessoa nunca ative uma licença. Quando o instalador é aberto e o
-          teste de 15 dias é solicitado, a empresa e a máquina aparecem na segunda tabela.
+          Para baixar o instalador, o visitante preenche nome, celular e e-mail em
+          <strong>/baixar</strong>. O cadastro aparece aqui mesmo que a pessoa nunca ative uma
+          licença. Quando o instalador é aberto e o teste de 15 dias é solicitado, a empresa e a
+          máquina aparecem na segunda tabela.
         </p>
 
         <div class="dash-kpi-grid">
           <div class="dash-kpi">
             <div class="dash-kpi-icon blue">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             </div>
             <div class="dash-kpi-value"><%= stats.total %></div>
-            <div class="dash-kpi-label">Downloads registrados</div>
+            <div class="dash-kpi-label">Cadastros para download</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base"><%= stats.last_24h %> nas últimas 24h</span></div>
           </div>
           <div class="dash-kpi">
             <div class="dash-kpi-icon green">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </div>
-            <div class="dash-kpi-value"><%= stats.last_24h %></div>
-            <div class="dash-kpi-label">Últimas 24 horas</div>
+            <div class="dash-kpi-value"><%= stats.downloaded %></div>
+            <div class="dash-kpi-label">Downloads efetivados</div>
+            <div class="dash-kpi-delta flat"><span class="delta-base"><%= stats.total ? Math.round((stats.downloaded / stats.total) * 100) : 0 %>% dos cadastros</span></div>
           </div>
           <div class="dash-kpi">
             <div class="dash-kpi-icon amber">
@@ -58,29 +61,45 @@
             </div>
             <div class="dash-kpi-value"><%= totalTrials %></div>
             <div class="dash-kpi-label">Testes em andamento</div>
-            <div class="dash-kpi-delta flat"><span class="delta-base"><%= stats.unique_ips %> IP(s) único(s) nos downloads</span></div>
+            <div class="dash-kpi-delta flat"><span class="delta-base"><%= stats.unique_emails %> e-mail(s) único(s)</span></div>
           </div>
         </div>
 
         <div class="card table-card">
           <div class="table-toolbar">
-            <h2 style="margin:0; font-size:1.05rem;">Downloads recentes</h2>
+            <h2 style="margin:0; font-size:1.05rem;">Cadastros para download</h2>
             <div class="table-count">até 500 registros</div>
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Quando</th><th>Versão</th><th>Origem</th><th>IP</th><th>Navegador</th></tr></thead>
+              <thead><tr><th>Quando</th><th>Nome / IP</th><th>Celular</th><th>E-mail</th><th>Versão</th><th>Origem</th><th>Download</th></tr></thead>
               <tbody>
-                <% downloads.forEach(function(d) { %>
+                <% leads.forEach(function(l) { %>
                 <tr>
-                  <td><%= fmtDateTimeBr(d.created_at) %></td>
-                  <td><span class="badge paga"><%= d.version || '—' %></span></td>
-                  <td class="cell-muted" title="<%= d.referer || '' %>"><%= d.origem || d.referer || 'direto' %></td>
-                  <td class="cell-muted"><%= d.ip || '—' %></td>
-                  <td class="cell-muted" title="<%= d.user_agent || '' %>"><%= d.user_agent ? String(d.user_agent).slice(0, 60) + (String(d.user_agent).length > 60 ? '…' : '') : '—' %></td>
+                  <td><%= fmtDateTimeBr(l.created_at) %></td>
+                  <td>
+                    <strong><%= l.name %></strong>
+                    <div class="cell-sub" title="<%= l.ip || '' %>"><%= l.ip || 'IP não registrado' %></div>
+                  </td>
+                  <td>
+                    <% if (l.wa_link) { %>
+                    <a href="<%= l.wa_link %>" target="_blank" rel="noopener"><%= l.whatsapp %></a>
+                    <% } else { %>—<% } %>
+                  </td>
+                  <td><a href="mailto:<%= l.email %>"><%= l.email %></a></td>
+                  <td><span class="badge paga"><%= l.version || '—' %></span></td>
+                  <td class="cell-muted" title="<%= l.referer || '' %>"><%= l.origem || l.referer || 'direto' %></td>
+                  <td>
+                    <% if (l.downloaded_at) { %>
+                    <span class="badge paga">baixou</span>
+                    <div class="cell-sub"><%= fmtDateTimeBr(l.downloaded_at) %><% if (Number(l.download_count) > 1) { %> · <%= l.download_count %>x<% } %></div>
+                    <% } else { %>
+                    <span class="badge pendente">não baixou</span>
+                    <% } %>
+                  </td>
                 </tr>
                 <% }) %>
-                <% if (!downloads.length) { %><tr><td colspan="5"><%- include('partials/empty-state', { message: 'Nenhum download registrado ainda. Os cliques em “Baixar” no site aparecem aqui.' }) %></td></tr><% } %>
+                <% if (!leads.length) { %><tr><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhum cadastro ainda. Quando alguém preencher o formulário em /baixar, aparece aqui.' }) %></td></tr><% } %>
               </tbody>
             </table>
           </div>
