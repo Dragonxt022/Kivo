@@ -670,20 +670,19 @@ async function call(
   extra: Record<string, unknown> = {},
 ): Promise<{ body: unknown; data: unknown }> {
   const config = getMaisDeliveryConfig();
-  if (!config.empresaIntegrada) {
-    throw new MaisDeliveryError('Informe o idEmpresaIntegrada nas configurações.', 400);
-  }
 
   // Resolve credenciais: tenta a nuvem primeiro, depois o cofre local.
   let accessToken: string | null = null;
   let basicAuth: string | null = null;
   const cloud = await fetchCloudMdCredentials();
+  // O idEmpresaIntegrada pode vir só da nuvem (painel cloud). Se não estiver salvo
+  // localmente, usa o valor da nuvem para não bloquear o teste de conexão.
+  let empresaIntegrada = config.empresaIntegrada;
   if (cloud) {
     accessToken = cloud.sandbox ? cloud.accessTokenSandbox : cloud.accessTokenProducao;
     basicAuth = cloud.basicAuth;
-    // O ID da empresa e o modo sandbox vêm da nuvem quando disponíveis.
-    if (cloud.idEmpresaIntegrada && !config.empresaIntegrada) {
-      // A empresa integrada é fixa da nuvem; só usa se não houver local.
+    if (cloud.idEmpresaIntegrada && !empresaIntegrada) {
+      empresaIntegrada = Number(cloud.idEmpresaIntegrada) || null;
     }
     if (cloud.sandbox !== undefined && config.sandbox === undefined) {
       // sandbox local pode ser sobrescrito pela nuvem se não definido
@@ -700,10 +699,14 @@ async function call(
     basicAuth = localCreds.basicAuth;
   }
 
+  if (!empresaIntegrada) {
+    throw new MaisDeliveryError('Informe o idEmpresaIntegrada nas configurações.', 400);
+  }
+
   const payload: Record<string, unknown> = {
     nrOperacao: operation,
     sandBox: config.sandbox,
-    idEmpresaIntegrada: config.empresaIntegrada,
+    idEmpresaIntegrada: empresaIntegrada,
     idOrigem: 11,
     ...extra,
   };
