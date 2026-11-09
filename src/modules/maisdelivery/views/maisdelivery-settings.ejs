@@ -62,21 +62,19 @@
           <span class="hint">Fornecido pelo suporte do Mais Delivery. Use apenas números.</span>
         </div>
 
-        <div class="md-row">
-          <div class="md-field" :disabled="!canEditCodigo">
-            <label>Tipo</label>
-            <div class="md-radio-group" role="radiogroup">
-              <label class="md-radio">
-                <input type="radio" name="mdTipo" value="restaurante" x-model="form.tipo" :disabled="!canEditCodigo" />
-                <span>Restaurante</span>
-              </label>
-              <label class="md-radio">
-                <input type="radio" name="mdTipo" value="marketplace" x-model="form.tipo" :disabled="!canEditCodigo" />
-                <span>Marketplace</span>
-              </label>
-            </div>
-            <span class="hint">O suporte do Mais Delivery informa qual usar.</span>
+        <div class="md-field" :disabled="!canEditCodigo">
+          <label>Tipo de integração</label>
+          <div class="md-radio-group" role="radiogroup">
+            <label class="md-radio">
+              <input type="radio" name="mdTipo" value="restaurante" x-model="form.tipo" :disabled="!canEditCodigo" />
+              <span>Restaurante</span>
+            </label>
+            <label class="md-radio">
+              <input type="radio" name="mdTipo" value="marketplace" x-model="form.tipo" :disabled="!canEditCodigo" />
+              <span>Marketplace</span>
+            </label>
           </div>
+          <span class="hint">O suporte do Mais Delivery informa qual usar. O tipo determina se o pedido é consultado pelo ID do restaurante ou pelo ID do marketplace.</span>
         </div>
 
         <div class="md-actions">
