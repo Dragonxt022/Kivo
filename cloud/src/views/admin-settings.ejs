@@ -47,6 +47,7 @@
               <button type="button" class="settings-nav-item" data-settings-tab="email">E-mail (SMTP)</button>
               <button type="button" class="settings-nav-item" data-settings-tab="imagens">Busca de imagens</button>
               <button type="button" class="settings-nav-item" data-settings-tab="ia">KIVO IA</button>
+              <button type="button" class="settings-nav-item" data-settings-tab="maisdelivery">Mais Delivery</button>
             </nav>
 
             <div class="settings-panels">
@@ -234,6 +235,51 @@
                   <button type="button" class="btn secondary" id="ai-test-btn" onclick="testAi()">Testar IA</button>
                 </div>
                 <p id="ai-test-result" class="field-hint" style="margin-top:10px"></p>
+              </div>
+
+              <div class="card settings-panel" data-settings-panel="maisdelivery" hidden>
+                <h2>Mais Delivery — credenciais da sede</h2>
+                <p class="field-hint" style="margin-top:0">
+                  Configure aqui as credenciais da sede que serão usadas por todas as lojas
+                  (franqueados). Cada loja preencherá apenas o <strong>código de integração</strong>
+                  fornecido pelo suporte do Mais Delivery. Os valores são guardados no servidor
+                  e nunca exibidos de volta — só sinalizamos se já estão salvos.
+                </p>
+
+                <label>Basic Auth</label>
+                <input type="password" name="mdBasicAuth" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
+                       placeholder="<%= mdHasBasicAuth ? '•••••••• (salvo — deixe em branco para manter)' : 'Cole o Basic Auth do Mais Delivery' %>">
+                <p class="field-hint">Enviado no header <code>Authorization</code>.</p>
+
+                <label>Access token — Produção</label>
+                <input type="password" name="mdAccessTokenProducao" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
+                       placeholder="<%= mdHasAccessTokenProd ? '•••••••• (salvo)' : 'Cole o Access token de produção' %>">
+                <p class="field-hint">Usado quando o modo sandbox está DESLIGADO.</p>
+
+                <label>Access token — Sandbox</label>
+                <input type="password" name="mdAccessTokenSandbox" value="" autocomplete="new-password"
+                       autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
+                       placeholder="<%= mdHasAccessTokenSandbox ? '•••••••• (salvo)' : 'Cole o Access token de sandbox' %>">
+                <p class="field-hint">Usado quando o modo sandbox está LIGADO (ambiente de teste).</p>
+
+                <label>ID da empresa integrada</label>
+                <input type="text" name="mdIdEmpresaIntegrada" value="<%= mdIdEmpresaIntegrada || '' %>"
+                       placeholder="Ex.: 12345">
+                <p class="field-hint">ID de teste da empresa, fixo para todas as lojas.</p>
+
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <input type="checkbox" name="mdSandbox" value="1" <%= mdSandbox ? 'checked' : '' %> style="width:auto;">
+                  Modo sandbox ligado por padrão
+                </label>
+                <p class="field-hint">Quando ligado, todas as operações usam <code>sandBox: true</code>.</p>
+
+                <p class="field-hint" style="margin-top:1rem">
+                  <strong>Fluxo:</strong> o administrador salva estas credenciais aqui na VPS.
+                  O franqueado abre o Kivo, entra em Integrações &rarr; Mais Delivery &rarr; Configurar,
+                  e preenche apenas o <strong>código de integração</strong> da sua loja.
+                </p>
               </div>
 
               <div class="modal-actions" style="justify-content: flex-start; margin-top:1rem">

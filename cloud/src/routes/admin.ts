@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import express, { Router } from 'express';
 import { getPool } from '../db';
-import { hashLicenseKey } from '../auth';
+import { hashLicenseKey, requireCompanyAuth } from '../auth';
 import { emitToCompany } from '../events';
 import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
 import {
@@ -2000,12 +2000,26 @@ router.get('/settings', requireAdminAuth, async (req, res) => {
   // KIVO IA: provedores e chaves ficam aqui (o cliente não configura nada). As chaves não
   // voltam para a tela — só o sinalizador de "já configurada".
   const ai = await loadAiSettingsForView();
+  // Mais Delivery: credenciais da sede (não devolvemos os segredos brutos, só sinalizadores).
+  const mdHasBasicAuth = Boolean(settings.md_basic_auth);
+  const mdHasAccessTokenProd = Boolean(settings.md_access_token_producao);
+  const mdHasAccessTokenSandbox = Boolean(settings.md_access_token_sandbox);
+  const mdIdEmpresaIntegrada = settings.md_id_empresa_integrada ?? null;
+  const mdSandbox = settings.md_sandbox === '1';
+  settings.md_basic_auth = '';
+  settings.md_access_token_producao = '';
+  settings.md_access_token_sandbox = '';
   res.render('admin-settings', {
     settings,
     smtpPasswordSet,
     imageApiKeySet,
     imageGoogleKeySet,
     ai,
+    mdHasBasicAuth,
+    mdHasAccessTokenProd,
+    mdHasAccessTokenSandbox,
+    mdIdEmpresaIntegrada,
+    mdSandbox,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
   });
@@ -2053,7 +2067,44 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
   if (deepseekKey) await upsert('ai_deepseek_key', deepseekKey);
   const anthropicKey = String(b.aiAnthropicKey ?? '').trim();
   if (anthropicKey) await upsert('ai_anthropic_key', anthropicKey);
+  // Mais Delivery: credenciais da sede configuradas pelo administrador na VPS.
+  // Os clientes locais usam estas credenciais e preenchem apenas o código de integração.
+  const mdBasicAuth = String(b.mdBasicAuth ?? '').trim();
+  if (mdBasicAuth) await upsert('md_basic_auth', mdBasicAuth);
+  const mdAccessTokenProd = String(b.mdAccessTokenProducao ?? '').trim();
+  if (mdAccessTokenProd) await upsert('md_access_token_producao', mdAccessTokenProd);
+  const mdAccessTokenSandbox = String(b.mdAccessTokenSandbox ?? '').trim();
+  if (mdAccessTokenSandbox) await upsert('md_access_token_sandbox', mdAccessTokenSandbox);
+  const mdIdEmpresa = String(b.mdIdEmpresaIntegrada ?? '').trim();
+  if (mdIdEmpresa) await upsert('md_id_empresa_integrada', mdIdEmpresa);
+  const mdSandbox = String(b.mdSandbox ?? '0').trim();
+  await upsert('md_sandbox', mdSandbox === '1' ? '1' : '0');
   res.redirect('/admin/settings?ok=' + encodeURIComponent('Configurações salvas.'));
+});
+
+/**
+ * Fornece as credenciais da sede do Mais Delivery para a instalação local do cliente.
+ * Autenticado por licença da empresa (X-Kivo-Company / X-Kivo-License-Key).
+ * O cliente usa estas credenciais e preenche apenas o código de integração localmente.
+ */
+router.get('/api/maisdelivery/credentials', requireCompanyAuth, async (_req, res) => {
+  const [rows] = await getPool().query(
+    "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('md_basic_auth','md_access_token_producao','md_access_token_sandbox','md_id_empresa_integrada','md_sandbox')",
+  );
+  const cfg = Object.fromEntries(
+    (rows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
+  );
+  res.json({
+    hasBasicAuth: Boolean(cfg.md_basic_auth),
+    hasAccessTokenProducao: Boolean(cfg.md_access_token_producao),
+    hasAccessTokenSandbox: Boolean(cfg.md_access_token_sandbox),
+    idEmpresaIntegrada: cfg.md_id_empresa_integrada ?? null,
+    sandbox: cfg.md_sandbox === '1',
+    // Os valores reais são devolvidos para a instalação local usar nas chamadas à API.
+    basicAuth: cfg.md_basic_auth ?? null,
+    accessTokenProducao: cfg.md_access_token_producao ?? null,
+    accessTokenSandbox: cfg.md_access_token_sandbox ?? null,
+  });
 });
 
 /**

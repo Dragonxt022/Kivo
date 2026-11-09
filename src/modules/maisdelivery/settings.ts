@@ -79,13 +79,16 @@ export function saveMaisDeliveryConfig(input: MaisDeliveryConfigInput): MaisDeli
   return getMaisDeliveryConfig();
 }
 
-/** Configuração mínima para listar/consultar pedidos. */
+/** Configuração mínima para listar/consultar pedidos.
+ *
+ * As credenciais (Access token e Basic Auth) ficam agora na nuvem, então esta
+ * checagem só verifica os IDs locais: empresa integrada + restaurante/marketplace
+ * (código de integração da loja). O token é validado na chamada à API via cloud.
+ */
 export function isMaisDeliveryConfigured(config = getMaisDeliveryConfig()): boolean {
   return Boolean(
     config.empresaIntegrada &&
-    (config.restaurante || config.marketplace) &&
-    config.hasAccessToken &&
-    config.hasBasicAuth,
+    (config.restaurante || config.marketplace),
   );
 }
 

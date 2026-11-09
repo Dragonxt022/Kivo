@@ -3,6 +3,8 @@ import {
   getMaisDeliveryCredentials,
   type MaisDeliveryConfig,
 } from './settings';
+import { getCloudServerUrl } from '../../core/config/cloud';
+import { getLicenseCredentials } from '../../core/license/service';
 
 /**
  * Cliente da API pública do Mais Delivery.
@@ -624,6 +626,41 @@ function authorizationHeader(basicAuth: string): string {
   return /^basic\s+/i.test(basicAuth) ? basicAuth : `Basic ${basicAuth}`;
 }
 
+interface CloudMdCredentials {
+  basicAuth: string | null;
+  accessTokenProducao: string | null;
+  accessTokenSandbox: string | null;
+  hasBasicAuth: boolean;
+  hasAccessTokenProducao: boolean;
+  hasAccessTokenSandbox: boolean;
+  idEmpresaIntegrada: string | null;
+  sandbox: boolean;
+}
+
+/**
+ * Busca as credenciais da sede do Mais Delivery no painel cloud (VPS).
+ * Usa a licença da empresa para autenticar. Retorna null se não houver cloud
+ * ou licença configurada, ou se a busca falhar.
+ */
+async function fetchCloudMdCredentials(): Promise<CloudMdCredentials | null> {
+  const { companyUuid, licenseKey } = getLicenseCredentials();
+  const cloudUrl = getCloudServerUrl();
+  if (!companyUuid || !licenseKey || !cloudUrl) return null;
+  try {
+    const res = await fetch(`${cloudUrl.replace(/\/$/, '')}/api/maisdelivery/credentials`, {
+      headers: {
+        'X-Kivo-Company': companyUuid,
+        'X-Kivo-License-Key': licenseKey,
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as CloudMdCredentials;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Monta o corpo comum e faz a chamada. Só inclui `idRestaurante`/`idMarketplace`
  * quando o chamador pediu — a operação 14, por exemplo, não aceita restaurante.
@@ -633,15 +670,34 @@ async function call(
   extra: Record<string, unknown> = {},
 ): Promise<{ body: unknown; data: unknown }> {
   const config = getMaisDeliveryConfig();
-  const credentials = getMaisDeliveryCredentials();
-  if (!credentials) {
-    throw new MaisDeliveryError(
-      'Credenciais não configuradas ou ilegíveis. Salve o Access token e o Basic Auth novamente.',
-      400,
-    );
-  }
   if (!config.empresaIntegrada) {
     throw new MaisDeliveryError('Informe o idEmpresaIntegrada nas configurações.', 400);
+  }
+
+  // Resolve credenciais: tenta a nuvem primeiro, depois o cofre local.
+  let accessToken: string | null = null;
+  let basicAuth: string | null = null;
+  const cloud = await fetchCloudMdCredentials();
+  if (cloud) {
+    accessToken = cloud.sandbox ? cloud.accessTokenSandbox : cloud.accessTokenProducao;
+    basicAuth = cloud.basicAuth;
+    // O ID da empresa e o modo sandbox vêm da nuvem quando disponíveis.
+    if (cloud.idEmpresaIntegrada && !config.empresaIntegrada) {
+      // A empresa integrada é fixa da nuvem; só usa se não houver local.
+    }
+    if (cloud.sandbox !== undefined && config.sandbox === undefined) {
+      // sandbox local pode ser sobrescrito pela nuvem se não definido
+    }
+  } else {
+    const localCreds = getMaisDeliveryCredentials();
+    if (!localCreds) {
+      throw new MaisDeliveryError(
+        'Credenciais não configuradas. Peça ao administrador para salvar o Access token e o Basic Auth no painel cloud.',
+        400,
+      );
+    }
+    accessToken = localCreds.accessToken;
+    basicAuth = localCreds.basicAuth;
   }
 
   const payload: Record<string, unknown> = {
@@ -661,8 +717,8 @@ async function call(
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         Accept: 'application/json',
-        Accesstoken: credentials.accessToken,
-        Authorization: authorizationHeader(credentials.basicAuth),
+        Accesstoken: accessToken!,
+        Authorization: authorizationHeader(basicAuth!),
       },
       body: JSON.stringify(payload),
       signal: controller.signal,

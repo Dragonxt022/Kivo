@@ -25,6 +25,8 @@ router.get('/configuracoes', (req, res) => {
     user: req.user,
     config,
     configured: isMaisDeliveryConfigured(config),
+    canSettings: req.user.permissions.has('maisdelivery.settings.manage'),
+    canOrders: req.user.permissions.has('maisdelivery.orders.view'),
   });
 });
 
