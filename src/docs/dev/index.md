@@ -21,7 +21,9 @@ Regras de negócio por módulo, para suporte e treinamento de agentes de IA. É 
 | [Fiscal](/admin/documentacao?doc=fiscal) | NFC-e, certificado, prontidão, emissão e cancelamento |
 | [Comercial](/admin/documentacao?doc=comercial) | Clientes, fornecedores, categorias, listas de preço |
 | [Comandas](/admin/documentacao?doc=comandas) | Mesas e comandas |
+| [Cardápio Online / QR](/admin/documentacao?doc=cardapio-online) | Cardápio público, QR da mesa, pedido do cliente e recompra |
 | [Food Service](/admin/documentacao?doc=foodservice) | Cozinha (KDS) e roteamento de produção |
+| [Download do instalador](/admin/documentacao?doc=downloads) | Cadastro obrigatório, token de download, leads e painel |
 | [Etiquetas](/admin/documentacao?doc=etiquetas) | Gerador de etiquetas de produto |
 | [Kivo Odonto](/admin/documentacao?doc=odonto) | Pacientes, ficha clínica, profissionais e procedimentos |
 | [Perfis por segmento](/admin/documentacao?doc=segmentos) | O que ligar em cada ramo (módulos, recursos e cargos) |

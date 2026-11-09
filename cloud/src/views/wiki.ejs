@@ -78,6 +78,7 @@
         <div class="wiki-toc-label">Restaurante</div>
         <a href="#mesas-comandas" class="wiki-toc-link" data-section="mesas-comandas">Mesas &amp; Comandas</a>
         <a href="#modo-garcom" class="wiki-toc-link" data-section="modo-garcom">Modo Garçom</a>
+        <a href="#pedido-qr-mesa" class="wiki-toc-link" data-section="pedido-qr-mesa">Pedido pela Mesa (QR)</a>
         <a href="#cozinha-kds" class="wiki-toc-link" data-section="cozinha-kds">Cozinha (Painel de Produção)</a>
         <a href="#roteamento-cozinha" class="wiki-toc-link" data-section="roteamento-cozinha">Roteamento para a Cozinha</a>
         <a href="#cardapio-online" class="wiki-toc-link" data-section="cardapio-online">Cardápio Online</a>
@@ -152,6 +153,12 @@
               <li><span class="wiki-badge">Loja</span> PDV (ponto de venda), histórico de vendas e orçamentos.</li>
               <li><span class="wiki-badge">Admin</span> Usuários, cargos, configurações, backup e licença.</li>
             </ul>
+          </div>
+
+          <div class="wiki-card">
+            <h4>Baixar e instalar</h4>
+            <p>O instalador do Kivo para Windows fica em <a href="/baixar">/baixar</a>. Para liberar o download, informe seu nome, um celular com DDD e um e-mail válido — o teste é de 15 dias, sem cartão de crédito. Depois de instalar, abra o Kivo e ative o teste: o sistema prepara a empresa e libera os módulos do seu segmento.</p>
+            <p>Para usar no celular ou em outro computador da mesma rede (garçom, cozinha, caixa), ative o <a href="#rede-local">Acesso pela Rede Local</a> e abra no navegador do aparelho o endereço mostrado em <em>Configurações</em>.</p>
           </div>
         </div>
 
@@ -431,11 +438,12 @@
             <li>Acesse <em>Caixa</em> no menu.</li>
             <li>Clique em <strong>Abrir Caixa</strong> e informe o valor de abertura (troco inicial).</li>
             <li>Durante o dia, o PDV registra entradas automaticamente. Use <strong>Suprimento</strong> (entrada extra) ou <strong>Sangria</strong> (retirada) conforme necessário.</li>
+            <li>Clique em <strong>Filtros</strong> para escolher o período: informe as datas de/até ou use os atalhos <em>hoje</em>, <em>7d</em>, <em>30d</em> e <em>90d</em>. O filtro vale para os movimentos do turno e para o histórico de fechamentos; <strong>Exportar livro caixa</strong> baixa todos os movimentos do período.</li>
             <li>Ao fechar, informe o valor contado. O sistema calcula a diferença.</li>
           </ol>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
-            <p>Abra o caixa com <em>R$ 200,00</em> de troco. Durante o dia, o PDV registra R$ 1.500,00 em vendas em dinheiro. Registre uma sangria de R$ 100,00 parapagar um fornecedor. Ao fechar, conte R$ 1.600,00 — o sistema mostra "esperado: R$ 1.600,00 | contado: R$ 1.600,00 | diferença: R$ 0,00".</p>
+            <p>Abra o caixa com <em>R$ 200,00</em> de troco. Durante o dia, o PDV registra R$ 1.500,00 em vendas em dinheiro. Registre uma sangria de R$ 100,00 para pagar um fornecedor. Ao fechar, conte R$ 1.600,00 — o sistema mostra "esperado: R$ 1.600,00 | contado: R$ 1.600,00 | diferença: R$ 0,00". Para conferir a semana, abra <strong>Filtros</strong>, clique em <em>7d</em> e exporte o livro caixa.</p>
           </div>
         </div>
 
@@ -829,7 +837,7 @@
             <h3>Vendas</h3>
           </div>
           <%- include('partials/wiki-shot', { name: 'vendas', caption: 'Vendas — histórico e relatório do dia.' }) %>
-          <p>O histórico de vendas mostra todas as transações realizadas, com opção de cancelamento e impressão de cupom.</p>
+          <p>O histórico de vendas mostra todas as transações realizadas, com opção de cancelamento e impressão de cupom. No topo, um resumo mostra os totais do dia por forma de pagamento e os valores do período filtrado.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -841,14 +849,15 @@
           </div>
           <ol>
             <li>Acesse <em>Vendas</em> no menu.</li>
-            <li>Veja a lista de vendas com data, cliente, total e status.</li>
+            <li>Use a barra de filtros para buscar por cliente ou número da venda, filtrar por status e por forma de pagamento, e escolher o período pelos atalhos <em>hoje</em>, <em>7d</em>, <em>30d</em> ou <em>90d</em>.</li>
+            <li>Confira o resumo: totais do dia por forma de pagamento e o consolidado do período selecionado.</li>
             <li>Clique em uma venda para ver os detalhes.</li>
             <li>Use <strong>Cancelar</strong> para estornar (estoque volta automaticamente).</li>
             <li>Use <strong>Cupom</strong> para imprimir ou visualizar o comprovante.</li>
           </ol>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
-            <p>Um cliente quer devolver um produto. Localize a venda no histórico, clique em <strong>Cancelar</strong>. O estoque é devolvido e, se o pagamento foi em dinheiro, o valor é estornado do caixa.</p>
+            <p>Um cliente quer devolver um produto. Localize a venda no histórico pelo nome dele ou pelo número, clique em <strong>Cancelar</strong>. O estoque é devolvido e, se o pagamento foi em dinheiro, o valor é estornado do caixa. No fechamento do mês, filtre pelos últimos 30 dias e confira o resumo por forma de pagamento antes de bater o caixa.</p>
           </div>
         </div>
 
@@ -898,7 +907,7 @@
             <h3>Mesas &amp; Comandas</h3>
           </div>
           <%- include('partials/wiki-shot', { name: 'mesas-comandas', caption: 'Mesas e comandas — salão e balcão.' }) %>
-          <p>Os módulos <strong>Mesas</strong> e <strong>Comandas</strong> são para quem atende mesa — o garçom abre uma comanda na mesa, vai lançando os pedidos do cliente ao longo do atendimento, e só quando a mesa pede a conta é que aquilo tudo vira uma venda de verdade, com pagamento.</p>
+          <p>Os módulos <strong>Mesas</strong> e <strong>Comandas</strong> são para quem atende mesa — o garçom abre uma comanda na mesa, vai lançando os pedidos do cliente ao longo do atendimento, e só quando a mesa pede a conta é que aquilo tudo vira uma venda de verdade, com pagamento. A mesma tela também recebe os pedidos que o cliente faz pelo <a href="#pedido-qr-mesa">QR da mesa</a>: eles só vão para a cozinha depois que o garçom confirma.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -912,12 +921,16 @@
             <li>Acesse <em>Mesas</em> no menu.</li>
             <li>Mesas em <strong>verde</strong> estão livres; em <strong>vermelho</strong>, ocupadas. Clique numa mesa livre para abrir uma comanda nova nela, ou numa ocupada para continuar a comanda já aberta.</li>
             <li>Dentro da comanda, busque o produto e clique para adicionar — cada item entra com o preço do momento do pedido, e esse preço fica travado mesmo que o cardápio mude depois.</li>
-            <li>Use <strong>Transferir</strong> se o cliente mudar de mesa, <strong>Dividir</strong> para separar parte da conta numa comanda nova (ex: "essas cervejas são de outra pessoa") e <strong>Unir</strong> para juntar duas comandas.</li>
+            <li>Use <strong>Transferir</strong> se o cliente mudar de mesa. O seletor mostra todas as mesas: as livres podem ser escolhidas e as ocupadas aparecem em vermelho, desabilitadas. Se a comanda não tiver mesa, o botão vira <strong>Vincular mesa</strong>.</li>
+            <li>Use <strong>Dividir</strong> para separar parte da conta numa comanda nova (ex: "essas cervejas são de outra pessoa") e <strong>Unir</strong> para juntar duas comandas. Na divisão, o grupo principal + complementos precisa ir completo; os itens movidos continuam vinculados à cozinha.</li>
+            <li>As comandas criadas pela divisão (ou abertas sem mesa) aparecem na lista <strong>Comandas sem mesa</strong>, abaixo da grade. Use o atalho <strong>Mesa</strong> para vinculá-las a uma mesa livre.</li>
+            <li>Para remover um item, clique no ícone de lixeira. Se ele tem complementos, o principal e os adicionais saem juntos — remover só um complemento apaga apenas aquela linha.</li>
             <li>Quando o cliente pedir a conta, clique em <strong>Fechar Comanda</strong> — você é levado direto ao PDV, com o carrinho já preenchido e os preços travados, só falta escolher a forma de pagamento e confirmar.</li>
           </ol>
+          <p><strong>Pedidos do cliente (QR):</strong> quando a mesa tem QR ativo, o pedido enviado pelo cliente aparece como <em>Pedido do cliente aguardando confirmação</em> na comanda e com um selo na mesa. Nada vai para a cozinha antes de o garçom clicar em <strong>Confirmar e enviar p/ cozinha</strong>; se não puder atender, use <strong>Recusar</strong> e escreva o motivo — o cliente vê a mensagem no celular.</p>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
-            <p>A <strong>Mesa 4</strong> pede 2 Refrigerantes e 1 Porção de Batata. O garçom abre a comanda pelo celular e lança os 3 itens. Depois, a mesa pede mais 1 Refrigerante — o garçom adiciona na mesma comanda. Na hora de pagar, ele clica em "Fechar Comanda": o PDV abre com os 4 itens e o total certo, prontos para receber o pagamento em PIX ou cartão.</p>
+            <p>A <strong>Mesa 4</strong> pede 2 Refrigerantes e 1 Porção de Batata. O garçom abre a comanda pelo celular e lança os 3 itens. Depois, a mesa pede mais 1 Refrigerante — o garçom adiciona na mesma comanda. Um dos clientes faz um pedido pelo QR da mesa; ele aparece como "Pedido do cliente aguardando confirmação", o garçom confere e confirma, e só então a cozinha recebe. Na hora de pagar, ele clica em "Fechar Comanda": o PDV abre com todos os itens e o total certo, prontos para receber o pagamento em PIX ou cartão.</p>
           </div>
         </div>
 
@@ -945,9 +958,36 @@
             <li>No celular do garçom, abra o navegador, digite o endereço da máquina mostrado em Configurações (ex: <code>http://192.168.0.10:3123</code>) e faça login com o usuário dele. Sugestão: salve como atalho na tela inicial do celular.</li>
           </ol>
           <p><strong>No dia a dia:</strong> o garçom abre a mesa, lança os itens (com complementos, se houver), e envia. Ele pode acompanhar pelo próprio celular quando a cozinha marca cada prato como <em>Pronto</em>. Quando o cliente pede a conta, o fechamento vai para o PDV/caixa — o garçom não precisa mexer em dinheiro.</p>
+          <p>Se a mesa tiver <a href="#pedido-qr-mesa">QR de pedido</a>, o cliente também pode montar o pedido no próprio celular. A rodada chega no celular do garçom como <strong>Pedido do cliente aguardando confirmação</strong>: ele confere, confirma (e aí sim vai para a cozinha) ou recusa com um motivo, que o cliente vê na tela.</p>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
-            <p>O garçom <strong>João</strong> faz login no celular com o usuário "garcom-joao". Na Mesa 7, ele lança "2 Chopp" e "1 X-Burguer com bacon". O X-Burguer aparece na cozinha na hora; o chopp vai direto pro bar. Quando a cozinha marca "Pronto", João vê no celular e leva o prato. No fim, ele clica em "Fechar Comanda" e o caixa recebe o pedido completo para cobrar.</p>
+            <p>O garçom <strong>João</strong> faz login no celular com o usuário "garcom-joao". Na Mesa 7, ele lança "2 Chopp" e "1 X-Burguer com bacon". O X-Burguer aparece na cozinha na hora; o chopp vai direto pro bar. Enquanto isso, um cliente na Mesa 7 pede uma porção pelo QR; o pedido cai no celular do João, que confirma e ele segue para a cozinha. Quando a cozinha marca "Pronto", João vê no celular e leva o prato. No fim, ele clica em "Fechar Comanda" e o caixa recebe o pedido completo para cobrar.</p>
+          </div>
+        </div>
+
+        <div class="wiki-section" id="pedido-qr-mesa">
+          <div class="wiki-section-head">
+            <div class="wiki-section-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20v1"/></svg>
+            </div>
+            <h3>Pedido pela Mesa (QR)</h3>
+          </div>
+          <p>Com o QR de pedido, o cliente aponta a câmera para o código da mesa, monta o pedido no próprio celular (com foto, preço, complementos e observações) e envia. O pedido <strong>não vai direto para a cozinha</strong>: primeiro o garçom confirma, para evitar pedido errado ou brincadeira.</p>
+          <div class="wiki-callout">
+            <p><strong>Requisitos:</strong> recurso <em>Pedido pela mesa (QR)</em> ativo em <em>Configurações → Recursos</em>; plano <strong>Diamante</strong> ou período de teste; o Kivo aberto na máquina que publica o cardápio; e os produtos marcados como <strong>Visível no cardápio</strong>.</p>
+          </div>
+          <ol>
+            <li>Ative o recurso e marque em <a href="#produtos">Produtos</a> os itens que podem ser pedidos pelo celular.</li>
+            <li>Em <em>Mesas</em>, clique no ícone de QR da mesa. Na primeira vez ele gera o código; depois, a mesma janela reexibe o QR. Use <strong>Copiar link</strong>, <strong>Imprimir</strong>, <strong>Gerar novo</strong> (invalida o QR impresso anterior) ou <strong>Desativar</strong> (quem tiver o link antigo não consegue mais pedir).</li>
+            <li>O cliente aponta a câmera, escolhe os itens e envia. Ele acompanha o status em <em>Meus pedidos</em>, no próprio celular.</li>
+            <li>Na comanda, o pedido aparece como <strong>Pedido do cliente aguardando confirmação</strong> e a mesa ganha o selo <em>Pedido do cliente</em>. A cozinha ainda não vê nada.</li>
+            <li>O garçom clica em <strong>Confirmar e enviar p/ cozinha</strong> para liberar a produção, ou em <strong>Recusar</strong> e informa o motivo — a mensagem aparece no celular do cliente.</li>
+          </ol>
+          <p><strong>Mesa aberta pelo atendente (recomendado):</strong> por padrão, o QR só aceita pedido quando a mesa já tem uma comanda aberta pelo atendente. Se a mesa estiver livre, o cliente vê o aviso para chamar o atendente. Isso impede que alguém de fora, com um link salvo, abra uma mesa e mande pedidos. A regra fica em <em>Configurações → Mesas e balcão</em>; desligar volta ao fluxo antigo, em que o QR abre a mesa sozinho.</p>
+          <p><strong>Proteções contra abuso:</strong> o Cloud aceita até <strong>8 pedidos por 10 minutos</strong> por QR + IP e no máximo <strong>2 rodadas pendentes por mesa em 30 minutos</strong> — a terceira só entra depois que o garçom confirmar ou recusar as anteriores. Cada rodada aceita até 40 itens, com validação de produto ativo, complementos obrigatórios e preço.</p>
+          <div class="wiki-example">
+            <div class="wiki-example-label">Exemplo prático</div>
+            <p>A <strong>Mesa 12</strong> tem um QR impresso no suporte de mesa. O cliente aponta a câmera, vê o cardápio com fotos, escolhe um X-Burguer com bacon e uma limonada e envia. O garçom recebe "Pedido do cliente aguardando confirmação" e confirma; o lanche vai para a cozinha e a limonada entra na comanda. Se o cliente pedir um item que acabou, o garçom recusa com o motivo "acabou o bacon hoje" — o cliente lê a mensagem e ajusta o pedido sem precisar chamar ninguém.</p>
           </div>
         </div>
 
@@ -972,12 +1012,16 @@
           <ol>
             <li>Acesse <em>Cozinha</em> no menu (ideal deixar aberto num tablet fixo na cozinha — veja <a href="#rede-local">Acesso pela Rede Local</a> abaixo).</li>
             <li>Cada venda ou pedido de comanda que tenha ao menos 1 produto roteado para a cozinha (veja a seção seguinte) gera um <strong>ticket</strong> automaticamente — sem nenhuma ação manual.</li>
-            <li>Use as abas <strong>Pendente / Em Preparo / Pronto / Entregue</strong> para navegar pelos tickets por status.</li>
-            <li>Clique no botão de cada item para avançar seu status; quando todos os itens de um ticket estiverem no mesmo status, o ticket inteiro reflete isso.</li>
+            <li>As colunas <strong>Pendente</strong>, <strong>Em Preparo</strong> e <strong>Pronto</strong> ficam sempre à vista. A coluna <strong>Entregue</strong> começa oculta: use <strong>Mostrar entregues</strong> para abri-la e desfazer uma entrega, se precisar.</li>
+            <li>Clique no status de cada item para avançar; use a seta de voltar para corrigir um toque errado. O mesmo vale para o pedido inteiro, e deslizar o card para a direita também avança a etapa.</li>
+            <li>Use <strong>Cancelar pedido</strong> quando o pedido veio errado ou falta um item. O cancelamento vale para pedidos pendentes, em preparo ou prontos — nunca depois que algum item foi entregue.</li>
+            <li>O botão <strong>Alarme</strong> deixa o som de pedido novo repetindo até alguém clicar em <strong>Visualizei</strong> (ou começar a preparar o pedido). Um único alarme cobre todos os pedidos ainda não confirmados.</li>
           </ol>
+          <p>Quando um pedido é cancelado — pela cozinha, pela comanda ou pela venda — o painel toca o <strong>som de cancelamento</strong> e mostra o aviso na tela. Se o pedido veio de uma comanda, os itens e complementos são anulados juntos e não entram na conta; se veio de uma venda no PDV, só o ticket da cozinha é cancelado e a venda continua como está. Os dois sons são escolhidos em <em>Cozinha → Sons</em>, com prévia.</p>
+          <p>Os cards mostram os complementos em uma linha compacta e as ações na mesma faixa do título, para caber mais pedidos na tela sem espremer o nome do produto.</p>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
-            <p>A Mesa 4 pede 1 Hambúrguer (vai pra cozinha) e 1 Refrigerante (não vai). Assim que o garçom lança o pedido, um ticket aparece no painel da cozinha com só o Hambúrguer. O cozinheiro clica para avançar de "Pendente" para "Em Preparo" e depois "Pronto" — o garçom acompanha esse status para saber quando pode levar o prato à mesa.</p>
+            <p>A Mesa 4 pede 1 Hambúrguer (vai pra cozinha) e 1 Refrigerante (não vai). Assim que o garçom lança o pedido, um ticket aparece no painel da cozinha com só o Hambúrguer. O cozinheiro clica para avançar de "Pendente" para "Em Preparo" e depois "Pronto" — o garçom acompanha esse status para saber quando pode levar o prato à mesa. Se o cliente desistir antes da entrega, a cozinha cancela o pedido; o item sai da comanda e o painel toca o aviso de cancelamento.</p>
           </div>
         </div>
 
@@ -1018,7 +1062,7 @@
             </div>
             <h3>Cardápio Online</h3>
           </div>
-          <p>O cardápio online é uma <strong>página pública, sem login</strong>, hospedada na nuvem, que mostra os produtos que você escolher — com foto, preço e organizados por categoria. Ideal para compartilhar o link ou um QR Code com o cliente na mesa.</p>
+          <p>O cardápio online é uma <strong>página pública, sem login</strong>, hospedada na nuvem, que mostra os produtos que você escolher — com foto, preço e organizados por categoria. Ideal para compartilhar o link ou um QR Code com o cliente na mesa. Com o recurso <a href="#pedido-qr-mesa">Pedido pela Mesa (QR)</a> ativo, o mesmo cardápio também recebe pedidos pelo celular.</p>
           <div class="wiki-objective">
             <div class="wiki-objective-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -1029,16 +1073,19 @@
             </div>
           </div>
           <div class="wiki-callout">
-            <p><strong>Requer o recurso "Cardápio online" ativo</strong> e licença com nuvem. É uma capacidade opcional — ative em <em>Configurações → Recursos</em> ou fale com o suporte.</p>
+            <p><strong>Requer o recurso "Cardápio online" ativo</strong> e licença com nuvem. O <em>pedido</em> pelo QR exige também o recurso <strong>Pedido pela mesa (QR)</strong>, disponível no plano Diamante ou no período de teste. Ative em <em>Configurações → Recursos</em> ou fale com o suporte.</p>
           </div>
           <ol>
             <li>Ao cadastrar ou editar um produto, marque a opção <strong>Visível no cardápio</strong>. Só os produtos marcados aparecem na página pública.</li>
             <li>Capriche nas <a href="#categorias">categorias</a> e nas imagens — é o que o cliente vê primeiro.</li>
-            <li>Compartilhe o link do cardápio (ou gere um QR Code a partir dele) para colar nas mesas ou divulgar nas redes.</li>
+            <li>Compartilhe o link do cardápio (ou gere um QR Code a partir dele) para colar nas mesas ou divulgar nas redes. Para pedidos na mesa, use o QR gerado em <em>Mesas</em>.</li>
+            <li>O cliente acompanha tudo em <strong>Meus pedidos</strong>: o histórico fica guardado no navegador dele (até 8 pedidos) com data, mesa, itens, total e um selo de status — <em>Enviado</em>, <em>Aguardando atendente</em>, <em>Confirmado</em>, <em>Recusado</em> ou <em>Falhou</em>.</li>
+            <li><strong>Pedir novamente</strong> reaproveita um pedido anterior, mas valida o cardápio atual: item indisponível ou adicional que saiu do menu é removido, limite de complementos é reaplicado e o preço passa a ser o de agora. O cliente vê um aviso do que mudou antes de enviar.</li>
           </ol>
+          <p>O carrinho é salvo no navegador e sobrevive a recarregar a página — se o cardápio for atualizado no meio da escolha, o cliente não perde o que já montou. Se o envio demorar mais de 25 segundos ou falhar, o erro aparece dentro do carrinho, com o botão <strong>Atualizar cardápio</strong> quando o problema for cardápio desatualizado. Se a loja estiver offline, o pedido fica registrado e é processado quando ela reconectar. Cada item pode ser marcado como <strong>para viagem</strong>, e a observação geral vale para o pedido inteiro.</p>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
-            <p>Você marca "Visível no cardápio" nos 20 pratos principais e nas bebidas, cada um com foto e categoria. Gera um QR Code do link e cola em cada mesa. O cliente aponta o celular, vê o cardápio com fotos e preços atualizados — e você nunca mais reimprime um cardápio de papel por causa de um reajuste.</p>
+            <p>Você marca "Visível no cardápio" nos 20 pratos principais e nas bebidas, cada um com foto e categoria. Gera um QR Code do link e cola em cada mesa. O cliente aponta o celular, vê o cardápio com fotos e preços atualizados — e, se o pedido pela mesa estiver ativo, monta o pedido ali mesmo. Na semana seguinte ele volta, abre <em>Meus pedidos</em> e usa <em>Pedir novamente</em>; o sistema avisa que um dos acompanhamentos acabou e monta o carrinho só com o que ainda existe, com o preço atual.</p>
           </div>
         </div>
 
@@ -1340,7 +1387,9 @@
             <li>Clique em <strong>+ Novo Usuário</strong>, preencha nome, login e senha.</li>
             <li>Escolha o cargo (Administrador, Gerente, Operador, Caixa, <strong>Garçom</strong>, <strong>Cozinha (KDS)</strong>, etc.).</li>
             <li>Para criar um cargo customizado, acesse <em>Cargos</em> e defina as permissões específicas.</li>
+            <li>Depois de salvar, edite o usuário para configurar a <strong>abertura personalizada</strong>: escolha um módulo para abrir direto ao iniciar o Kivo (ou após o login) e, se quiser, marque <strong>Abrir em tela cheia</strong>.</li>
           </ol>
+          <p>A abertura personalizada vale <strong>só para aquele usuário</strong> — o operador do tablet de Mesas pode abrir direto em Mesas, enquanto o caixa abre no PDV. Se o usuário perder acesso ao módulo escolhido, o Kivo abre normalmente na tela inicial. A preferência fica desligada por padrão.</p>
           <div class="wiki-example">
             <div class="wiki-example-label">Exemplo prático</div>
             <p>Criar o cargo <strong>"Vendedor Balcão"</strong> com permissões: visualizar e criar vendas, visualizar e criar orçamentos, visualizar produtos e clientes. Depois, criar o usuário <strong>"João"</strong> com esse cargo. João só enxerga o que o cargo dele permite — não vê caixa, usuários nem configurações.</p>

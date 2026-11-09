@@ -38,17 +38,34 @@ A UI/API avança por `pendente → preparo → pronto → entregue` e **também 
 isso, a única correção era mexer no banco. Ao voltar o ticket, só os itens **à frente** do
 alvo descem; item que já estava atrasado não é tocado. `cancelado` vem do cancelamento da
 venda/comanda ou do botão **Cancelar pedido** da cozinha (`cancelTicket`), disponível para
-tickets `pendente`/`preparo`/`pronto`. Pedido já entregue (ou com item entregue) não é
-cancelado por ali: o que saiu para a mesa não pode sumir da conta. Quando o ticket veio de
-uma comanda, os itens vinculados são anulados junto (o principal leva os complementos do
-grupo); quando veio de uma venda, só o ticket da cozinha é cancelado e a venda não muda.
+tickets `pendente`/`preparo`/`pronto`.
+
+O cancelamento pela cozinha usa `POST /api/foodservice/kitchen/tickets/:id/cancel` (body
+opcional `{ reason }`, permissão `foodservice.kitchen.manage`). Ele recusa ticket já
+`cancelado` ou `entregue` e também ticket com **qualquer item entregue** — o que saiu para a
+mesa não pode sumir da conta; nesse caso o garçom resolve item a item. A operação roda em
+transação: marca o ticket como `cancelado`, confirma a visualização e, quando o ticket veio
+de uma comanda, anula os itens vinculados junto (o principal leva os complementos do grupo).
+Se veio de uma venda, só o ticket da cozinha é cancelado e a venda não muda. O motivo fica
+na auditoria (`cancelar_ticket_cozinha`).
+
+No KDS, o botão de cancelar só aparece quando o ticket permite; a confirmação avisa que, em
+comanda, os itens também serão anulados e não serão cobrados. Quando o ticket some da lista
+(por esse botão ou porque a comanda/venda foi cancelada), o painel toca o **som de
+cancelamento** e mostra um aviso. Os sons de novo pedido e de cancelamento são configurados
+em **Cozinha → Sons**, com prévia, e ficam no `localStorage` daquele aparelho.
 
 O status do ticket é **derivado dos itens** (`recalcTicketStatus`): avançar um item, anular um
 item de comanda ou remover um item pendente recalcula o ticket — evitando que ele fique preso
 num status que não corresponde mais aos itens. O recalc **não** rebaixa `entregue` por
 acidente (avançar um item esquecido depois da entrega não reabre o pedido), mas uma volta
 explícita de item ou de ticket manda reavaliar (`allowDowngrade`). Pedidos entregues ficam na
-coluna "Entregues" — oculta por padrão, é de lá que se desfaz a entrega.
+coluna "Entregues" — oculta por padrão, é de lá que se desfaz a entrega (o botão
+**Mostrar entregues** abre a quarta coluna).
+
+Os cards do KDS são compactos de propósito: complementos em uma linha só, nome do produto
+sem quebrar e ações na mesma faixa do título. Isso é layout, não regra de negócio — a
+ordem das colunas e os status continuam os mesmos.
 
 ### Confirmação de visualização (alarme)
 
@@ -65,6 +82,10 @@ disparam dois áudios.
   `advanceTicketStatus`): quem já começou a preparar não pode continuar ouvindo o alarme.
 - A migration `0090_kitchen_ticket_acknowledged` marca os tickets já existentes como
   vistos, para a atualização não fazer o alarme tocar para pedidos antigos.
+
+Na tela, o botão **Alarme** liga/desliga o loop e a barra mostra quantos pedidos ainda não
+foram confirmados, com **Confirmar todos**; cada card tem o botão **Visualizei**. Desligar o
+alarme só silencia o som — não marca pedido como visto.
 
 ## Integrações
 

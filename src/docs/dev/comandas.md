@@ -49,10 +49,23 @@ fechá-la.
 
 ### Transferir, dividir e unir
 
-- `transfer`: move a comanda para outra mesa `livre`.
-- `split`: move os itens selecionados para uma **nova** comanda (divide a conta).
+- `transfer`: move a comanda para outra mesa `livre`. A tela lista todas as mesas, mas as
+  ocupadas ficam desabilitadas (e o servidor também recusa). Comanda sem mesa usa a mesma
+  operação como **Vincular mesa**.
+- `split`: move os itens selecionados para uma **nova** comanda (divide a conta). A seleção
+  precisa levar o **grupo completo** (`line_group_uuid`): principal + complementos. Os
+  tickets da cozinha acompanham os itens movidos; se um ticket tiver itens das duas
+  comandas, ele é separado. A comanda nova nasce sem mesa e aparece em **Comandas sem
+  mesa**; a origem vazia é cancelada e a mesa liberada.
 - `merge`: move todos os itens da comanda origem para a destino (as duas precisam estar
   `aberta`).
+
+### Comandas sem mesa
+
+Comandas abertas sem `table_id` (normalmente criadas por uma divisão) aparecem na lista
+**Comandas sem mesa**, abaixo da grade de mesas. O atalho **Mesa** abre o detalhe com o
+seletor de mesa; ao vincular, a mesa é ocupada e a comanda passa a aparecer na grade. A
+lista também expõe a contagem de rodadas do QR pendentes.
 
 ### Fechar
 
@@ -79,6 +92,21 @@ o código colado na mesa, a presença é confirmada pelo atendente:
 - desligar a opção em **Configurações → Mesas e balcão** volta ao fluxo antigo (o QR abre a
   mesa sozinho).
 
+O QR só é gerado quando a capability `comandas.pedido_qr` está ativa, o plano é Diamante ou
+Trial, a licença está válida e o Cloud está configurado. O Cloud guarda só o SHA-256 do
+token em `menu_table_tokens`; o app guarda o token em claro para reexibir o mesmo QR.
+
+- `GET /api/comandas/tables/:id/qr` reexibe o QR existente;
+- `POST /api/comandas/tables/:id/qr` cria (ou rotaciona, com `{ rotate: true }`) e invalida
+  o QR impresso anterior;
+- `DELETE /api/comandas/tables/:id/qr` desativa o token no Cloud e limpa o local.
+
+O pedido aplicado fica em `qr_orders` com status `pendente` e os itens com
+`origem = 'cliente_qr'`. A tela de Mesas mostra o banner de confirmação e o selo na mesa;
+`POST /api/comandas/comandas/:id/qr-orders/confirm` envia os itens à cozinha e
+`.../reject` grava o motivo, que o cliente vê no celular. O detalhamento do cardápio
+público, das validações e da recompra está em `cardapio-online.md`.
+
 Limitação assumida: se a mesa estiver ocupada, alguém de fora com o link ainda consegue
 enviar até 2 rodadas; elas aparecem para o garçom, que recusa. Para abuso persistente, o
 caminho é revogar/rotacionar o QR daquela mesa (exige reimprimir o código).
@@ -91,10 +119,14 @@ referenciam usuários).
 ## Permissões
 
 - `comandas.view` — ver mesas e comandas.
-- `comandas.manage` — abrir, lançar, transferir, dividir, unir e fechar.
-- `comandas.tables.manage` — cadastrar/editar mesas.
+- `comandas.manage` — abrir, lançar, transferir, dividir, unir e fechar; confirmar/recusar
+  pedidos do QR.
+- `comandas.tables.manage` — cadastrar/editar mesas e gerar/rotacionar/desativar o QR.
+- capability `comandas.pedido_qr` — liga o pedido pela mesa via QR (plano Diamante/Trial).
 
 ## Arquivos-chave
 
 - `src/modules/comandas/comandas.ts` — todo o ciclo de vida.
+- `src/modules/comandas/qr.ts` — token, geração, rotação e revogação do QR.
+- `src/modules/comandas/qrOrder.ts` — aplicação, confirmação e recusa do pedido.
 - `src/modules/comandas/repositories/ComandaRepository.ts` e `StoreTableRepository.ts`.
