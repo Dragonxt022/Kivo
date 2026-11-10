@@ -674,18 +674,20 @@ async function call(
   // Resolve credenciais: tenta a nuvem primeiro, depois o cofre local.
   let accessToken: string | null = null;
   let basicAuth: string | null = null;
+  let sandbox = config.sandbox;
   const cloud = await fetchCloudMdCredentials();
   // O idEmpresaIntegrada pode vir só da nuvem (painel cloud). Se não estiver salvo
   // localmente, usa o valor da nuvem para não bloquear o teste de conexão.
   let empresaIntegrada = config.empresaIntegrada;
   if (cloud) {
+    // Com credenciais da sede, o modo do AMBIENTE também é decisão da sede: usar a
+    // sandbox local aqui divergia da escolha de token e enviava token de produção com
+    // `sandBox: true` (ou o contrário).
     accessToken = cloud.sandbox ? cloud.accessTokenSandbox : cloud.accessTokenProducao;
     basicAuth = cloud.basicAuth;
+    sandbox = cloud.sandbox;
     if (cloud.idEmpresaIntegrada && !empresaIntegrada) {
       empresaIntegrada = Number(cloud.idEmpresaIntegrada) || null;
-    }
-    if (cloud.sandbox !== undefined && config.sandbox === undefined) {
-      // sandbox local pode ser sobrescrito pela nuvem se não definido
     }
   } else {
     const localCreds = getMaisDeliveryCredentials();
@@ -705,7 +707,7 @@ async function call(
 
   const payload: Record<string, unknown> = {
     nrOperacao: operation,
-    sandBox: config.sandbox,
+    sandBox: sandbox,
     idEmpresaIntegrada: empresaIntegrada,
     idOrigem: 11,
     ...extra,

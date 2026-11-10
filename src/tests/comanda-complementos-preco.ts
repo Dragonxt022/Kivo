@@ -281,7 +281,7 @@ async function main(): Promise<void> {
     const principalLegacy = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaLegacy.id}/items`, {
       method: 'POST', body: JSON.stringify({ productId: principal.id, qty: 1, lineGroupUuid: groupLegacy }),
     }));
-    const complementoLegacy = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaLegacy.id}/items`, {
+    const _complementoLegacy = await unwrap<{ id: number }>(await api(`/api/comandas/comandas/${comandaLegacy.id}/items`, {
       method: 'POST', body: JSON.stringify({ productId: adicional.id, qty: 1, lineGroupUuid: groupLegacy }),
     }));
     db.prepare("UPDATE comanda_items SET voided_at = datetime('now') WHERE id = ?").run(principalLegacy.id);

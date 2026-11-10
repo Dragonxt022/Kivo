@@ -143,11 +143,13 @@
   <script nonce="<%= cspNonce %>">
     function maisdeliverySettingsPage() {
       const cfg = window.MAISDELIVERY_CONFIG || {};
-      const canOrders = <%- canOrders ? 'true' : 'false' %>;
+      // A tela inteira já fica atrás de `maisdelivery.settings.manage` (pages.ts), então
+      // editar o código de integração não deve depender da permissão de VER pedidos.
+      const canSettings = <%- canSettings ? 'true' : 'false' %>;
       return {
         canOrders,
         canEditCodigo() {
-          return canOrders;
+          return canSettings;
         },
         form: {
           empresaIntegrada: cfg.empresaIntegrada ?? '',

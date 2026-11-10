@@ -12,6 +12,7 @@ import { orderPage as orderPageRoutes, orderApi as orderApiRoutes } from './rout
 import themeRoutes from './routes/themes';
 import messageRoutes from './routes/messages';
 import adminRoutes from './routes/admin';
+import maisdeliveryRoutes from './routes/maisdelivery';
 import adminMessagesRoutes from './routes/adminMessages';
 import wikiRoutes from './routes/wiki';
 import landingRoutes from './routes/landing';
@@ -153,6 +154,9 @@ export function createCloudServer() {
   // KIVO IA: o app local manda a requisição com as credenciais de licença e o cloud
   // encaminha para o Ollama local da VPS (OLLAMA_URL).
   app.use('/api/ai', aiRoutes);
+  // Credenciais da sede do Mais Delivery para as instalações locais (autenticado por
+  // licença). Vive fora de /admin de propósito: o Kivo chama /api/maisdelivery direto.
+  app.use('/api/maisdelivery', maisdeliveryRoutes);
   // Webhook do gateway de pagamento (Mercado Pago). Público de propósito: quem autentica é a
   // assinatura HMAC do Mercado Pago, e o status é sempre reconferido na API deles — a
   // notificação, sozinha, não marca cobrança como paga (ver routes/webhooks.ts).
