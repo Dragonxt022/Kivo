@@ -287,6 +287,19 @@
   }
   .md-status-form { display: flex; flex-direction: column; gap: .55rem; margin-top: .65rem; }
   .md-status-form .input { width: 100%; }
+  /* Botões "Enviar p/ cozinha" / "Na cozinha ✓" — coluna de ações do card e do modal. */
+  .md-order-side-actions { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+  .md-kitchen-row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: .35rem; }
+  .md-kitchen-state { font-size: .84rem; color: var(--text-secondary); flex: 1 1 auto; min-width: 12rem; }
+  .md-kitchen-tag {
+    display: inline-flex; align-items: center; gap: .3rem; padding: .28rem .6rem;
+    border-radius: 999px; font-size: .76rem; font-weight: 700;
+    background: color-mix(in srgb, #22c55e 14%, transparent); color: #16a34a;
+  }
+  @media (max-width: 640px) {
+    .md-order-side-actions .btn { flex: 1 1 auto; justify-content: center; }
+  }
+
   .md-status-form .btn { align-self: flex-start; }
   .md-raw { margin-top: 1rem; }
   .md-raw summary { cursor: pointer; color: var(--text-muted); font-size: .81rem; }

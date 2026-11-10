@@ -21,6 +21,31 @@ import {
   saveMaisDeliveryConfig,
   type MaisDeliveryConfigInput,
 } from '../settings';
+import { isCancelSituation, sendOrderToKitchen } from '../kitchenBridge';
+import { getService, hasService } from '../../../core/services/registry';
+
+interface KitchenServiceFacade {
+  hasOpenDeliveryTickets: (orderIds: number[]) => number[];
+  cancelTicketsForSource: (req: Request, sourceType: 'sale' | 'comanda' | 'delivery', sourceId: number) => void;
+}
+
+function kitchenFacade(): KitchenServiceFacade | null {
+  return hasService('foodservice.kitchen')
+    ? getService<KitchenServiceFacade>('foodservice.kitchen')
+    : null;
+}
+
+/** Painel de cozinha ligado e pedido com ticket de delivery em aberto. */
+function sentToKitchenFlag(req: Request | null, orderId: number): boolean {
+  const kitchenService = kitchenFacade();
+  if (!kitchenService || !orderId) return false;
+  try {
+    return kitchenService.hasOpenDeliveryTickets([orderId]).includes(orderId);
+  } catch {
+    // Sem a tabela de cozinha (instalação sem o módulo): sem flag e sem tela quebrada.
+    return false;
+  }
+}
 
 function wrap(handler: (req: Request, res: Response) => Promise<void> | void) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -126,7 +151,10 @@ export const maisDeliveryController = {
       return;
     }
     const result = await fetchOrder(orderId, { fresh: req.query.fresh === '1' });
-    res.json({ order: result.order, raw: result.raw });
+    res.json({
+      order: { ...result.order, sentToKitchen: sentToKitchenFlag(req, positiveInt(result.order.id) ?? 0) },
+      raw: result.raw,
+    });
   }),
 
   /**
@@ -140,9 +168,18 @@ export const maisDeliveryController = {
       concurrency: 4,
       fresh: req.query.fresh === '1',
     });
+    // Um só SELECT para marcar os pedidos que já estão na fila da cozinha (a tela
+    // usa para trocar o botão "Enviar p/ cozinha" por estado "na cozinha").
+    const kitchenService = kitchenFacade();
+    const sentIds = new Set(
+      kitchenService ? kitchenService.hasOpenDeliveryTickets(body.ids) : [],
+    );
     res.json({
       // O detalhe individual é quem expõe `raw`; em lote ele multiplicaria o payload.
-      orders: result.orders.map(({ raw: _raw, ...order }) => order),
+      orders: result.orders.map(({ raw: _raw, ...order }) => ({
+        ...order,
+        sentToKitchen: sentIds.has(Number(order.id || -1)),
+      })),
       failed: result.failed,
     });
   }),
@@ -164,11 +201,44 @@ export const maisDeliveryController = {
       return;
     }
     const body = req.body as z.infer<typeof maisDeliveryOrderStatusSchema>;
+    // Classificação ANTES de alterar: o pedido pode já estar cancelado na cozinha e
+    // situações listadas pela operação 7 (guardadas em riot cache interno, sem custo extra).
+    let cancelSituation: boolean = false;
+    const kitchenService = kitchenFacade();
+    if (kitchenService) {
+      try {
+        const { statuses } = await fetchStatuses();
+        const situation = statuses.find((s) => String(s.id) === String(body.statusId));
+        cancelSituation = Boolean(situation && isCancelSituation(situation.name));
+      } catch {
+        // Sem a lista de situações não dá para classificar; segue o fluxo normal.
+      }
+    }
     await changeOrderStatus(orderId, body.statusId, body.reason ?? '');
+    // Situação de cancelamento lá fora derruba a produção da fila do KDS: pedido
+    // recusado/cancelado no marketplace não pode continuar pendente na cozinha.
+    if (kitchenService && cancelSituation) {
+      try {
+        kitchenService.cancelTicketsForSource(req, 'delivery', orderId);
+      } catch {
+        // Sem a tabela de cozinha (instalação sem o módulo): sem ação local.
+      }
+    }
     audit(req, 'editar', 'maisdelivery_order', orderId, null, {
       statusId: body.statusId,
       reason: body.reason ?? '',
     });
-    res.json({ changed: true });
+    res.json({ changed: true, sentToKitchen: sentToKitchenFlag(req, orderId) });
+  }),
+
+  /** Botão "Enviar p/ cozinha" da tela de pedidos (marketplace → KDS + situação lá fora). */
+  sendToKitchen: wrap(async (req, res) => {
+    const orderId = positiveInt(req.params.id);
+    if (!orderId) {
+      res.status(400).json({ error: 'Pedido inválido.' });
+      return;
+    }
+    const result = await sendOrderToKitchen(req, orderId);
+    res.json(result);
   }),
 };

@@ -52,6 +52,13 @@ router.post(
   validateBody(maisDeliveryOrderStatusSchema),
   maisDeliveryController.updateStatus,
 );
+// Enviar para a cozinha cria produção no Kivo E muda a situação no marketplace —
+// por isso usa a mesma permissão da troca de situação, não apenas a de leitura.
+router.post(
+  '/orders/:id/enviar-cozinha',
+  requirePermission('maisdelivery.orders.status'),
+  maisDeliveryController.sendToKitchen,
+);
 
 // Auxiliares para filtros e para montar o seletor de situação.
 router.get(

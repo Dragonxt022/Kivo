@@ -170,7 +170,17 @@
             <div class="md-order-side">
               <strong class="md-order-total" x-text="order._loaded ? money(order) : '—'"></strong>
               <span class="muted" x-text="order._loaded ? sideLabel(order) : 'carregando…'"></span>
-              <button type="button" class="btn small secondary" @click="openDetail(order)">Detalhes</button>
+              <div class="md-order-side-actions">
+                <button type="button" class="btn small" x-show="order._loaded && order.sentToKitchen" x-cloak disabled
+                        title="Este pedido já está na fila da cozinha.">Na cozinha ✓</button>
+                <button type="button" class="btn small" x-show="order._loaded && !order.sentToKitchen
+                        && statusClass(statusLabel(order)) !== 'cancelado'" x-cloak
+                        @click="sendToKitchen(order)"
+                        :disabled="sendingKitchen === String(order.id)">
+                  <span x-text="sendingKitchen === String(order.id) ? 'Enviando…' : 'Enviar p/ cozinha'"></span>
+                </button>
+                <button type="button" class="btn small secondary" @click="openDetail(order)">Detalhes</button>
+              </div>
             </div>
           </article>
         </template>
@@ -372,6 +382,24 @@
                 </div>
               </section>
 
+              <section class="md-section" x-show="canManage && detail.order._loaded" x-cloak>
+                <h3>Produção</h3>
+                <div class="md-kitchen-row">
+                  <span class="md-kitchen-state" x-text="detail.order.sentToKitchen
+                    ? 'Este pedido já está na fila da cozinha (KDS).'
+                    : 'Envie para o painel de produção da cozinha.'"></span>
+                  <button type="button" class="btn" x-show="!detail.order.sentToKitchen
+                          && statusClass(statusLabel(detail.order)) !== 'cancelado'"
+                          @click="sendToKitchen(detail.order)" :disabled="sendingKitchen === String(detail.order.id)">
+                    <span x-text="sendingKitchen === String(detail.order.id) ? 'Enviando…' : 'Enviar p/ cozinha'"></span>
+                  </button>
+                  <span class="md-kitchen-tag" x-show="detail.order.sentToKitchen" x-cloak>Na cozinha ✓</span>
+                </div>
+                <p class="muted text-xs" x-show="detail.order.sentToKitchen" x-cloak>
+                  Quando a cozinha marcar "pronto" no KDS, a situação no Mais Delivery também atualiza.
+                </p>
+              </section>
+
               <section class="md-section" x-show="canManage">
                 <button type="button" class="md-section-toggle" @click="statusForm = !statusForm"
                         :aria-expanded="statusForm ? 'true' : 'false'">
@@ -438,6 +466,7 @@
         statusId: '',
         statusReason: '',
         savingStatus: false,
+        sendingKitchen: '',
 
         init() {
           if (this.started) return;
@@ -995,6 +1024,54 @@
             this.detailError = 'Erro de conexão ao alterar a situação.';
           } finally {
             this.savingStatus = false;
+          }
+        },
+
+        /**
+         * "Enviar p/ cozinha": o servidor cria o ticket de produção no KDS e muda a
+         * situação no marketplace ("em preparo"). Aqui só patch state local — a
+         * cozinha quem acompanha dali (o card já vira "Na cozinha ✓").
+         */
+        async sendToKitchen(order) {
+          if (!order || !order.id || !this.canManage || order.sentToKitchen) return;
+          const id = String(order.id);
+          if (
+            window.confirmDlg &&
+            !(await window.confirmDlg('Enviar o pedido #' + id + ' para a cozinha? A situação lá no Mais Delivery também atualiza.'))
+          ) {
+            return;
+          }
+          this.sendingKitchen = id;
+          try {
+            const response = await fetch('/api/maisdelivery/orders/' + encodeURIComponent(id) + '/enviar-cozinha', { method: 'POST' });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.flash(data.error || 'Não foi possível enviar para a cozinha.');
+              return;
+            }
+            const patch = { sentToKitchen: true };
+            if (!data.alreadyInKitchen && data.statusChanged && data.statusId) patch.statusId = data.statusId;
+            this.orders = this.orders.map((item) => (String(item.id) === id ? { ...item, ...patch } : item));
+            if (this.detail && this.detail.order && String(this.detail.order.id) === id) {
+              this.detail = { order: { ...this.detail.order, ...patch }, raw: this.detail.raw };
+            }
+            if (data.alreadyInKitchen) {
+              this.flash('Este pedido já está na cozinha.');
+              return;
+            }
+            if (data.warning) {
+              this.notice = data.warning;
+              if (this.noticeTimer) clearTimeout(this.noticeTimer);
+              this.noticeTimer = setTimeout(() => { this.notice = ''; }, 10000);
+              return;
+            }
+            this.flash(data.statusName
+              ? 'Pedido na cozinha! Situação no Mais Delivery: ' + data.statusName + '.'
+              : 'Pedido enviado para a cozinha!');
+          } catch {
+            this.flash('Erro de conexão ao enviar para a cozinha.');
+          } finally {
+            this.sendingKitchen = '';
           }
         },
       };

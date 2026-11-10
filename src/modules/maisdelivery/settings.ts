@@ -10,6 +10,9 @@ const SETTING_EMPRESA = 'maisdelivery.empresa_integrada';
 const SETTING_RESTAURANTE = 'maisdelivery.restaurante';
 const SETTING_MARKETPLACE = 'maisdelivery.marketplace';
 const SETTING_SANDBOX = 'maisdelivery.sandbox';
+/** Situação do marketplace correspondente à etapa da cozinha (aprendida no uso). */
+const SETTING_SITUACAO_PREPARO = 'maisdelivery.situacao_preparo';
+const SETTING_SITUACAO_PRONTO = 'maisdelivery.situacao_pronto';
 
 export const MAISDELIVERY_ACCESS_TOKEN_SECRET = 'maisdelivery.access_token';
 export const MAISDELIVERY_BASIC_AUTH_SECRET = 'maisdelivery.basic_auth';
@@ -102,4 +105,30 @@ export function getMaisDeliveryCredentials(): { accessToken: string; basicAuth: 
   const basicAuth = getSecret(MAISDELIVERY_BASIC_AUTH_SECRET);
   if (!accessToken || !basicAuth) return null;
   return { accessToken, basicAuth };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ponte cozinha ⇆ marketplace. Os ids de situação "em preparo" / "pronto" são
+// específicos da conta do lojista na API (operação 7), então a ponte APRENDE a
+// primeira vez em que precisar deles e guarda aqui. `null` = ainda não combinada:
+// a mudança de status é pulada, nunca chuteada pelo id errado.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type KitchenSituationSlot = 'preparo' | 'pronto';
+
+export interface KitchenSituations {
+  preparo: number | null;
+  pronto: number | null;
+}
+
+export function getKitchenSituations(): KitchenSituations {
+  return {
+    preparo: intSetting(SETTING_SITUACAO_PREPARO),
+    pronto: intSetting(SETTING_SITUACAO_PRONTO),
+  };
+}
+
+export function saveKitchenSituations(situations: Partial<KitchenSituations>): void {
+  if (situations.preparo !== undefined) setIntSetting(SETTING_SITUACAO_PREPARO, situations.preparo);
+  if (situations.pronto !== undefined) setIntSetting(SETTING_SITUACAO_PRONTO, situations.pronto);
 }

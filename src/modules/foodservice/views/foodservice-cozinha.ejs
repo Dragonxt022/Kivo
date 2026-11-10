@@ -138,7 +138,12 @@
                           <span class="kds-table-chip-num" x-text="tableChip(ticket).texto"></span>
                         </span>
                       </template>
-                      <template x-if="ticket.source_type !== 'comanda'">
+                      <template x-if="ticket.source_type === 'delivery'">
+                        <!-- Marketplace (ex.: Mais Delivery): o rótulo vem em table_label
+                             ("Mais Delivery · Cliente") — não é PDV nem mesa. -->
+                        <span x-text="ticket.table_label || ('Mais Delivery #' + ticket.source_id)"></span>
+                      </template>
+                      <template x-if="ticket.source_type !== 'comanda' && ticket.source_type !== 'delivery'">
                         <span x-text="ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id"></span>
                       </template>
                     </span>
@@ -832,9 +837,11 @@
           return this.visibleColumns().some((c) => this.byStatus(c.status).length > 0);
         },
         ticketLabel(ticket) {
-          const base = ticket.source_type === 'comanda'
-            ? (ticket.table_label || ('Comanda #' + ticket.source_id))
-            : (ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id);
+          const base = ticket.source_type === 'delivery'
+            ? (ticket.table_label || ('Mais Delivery #' + ticket.source_id))
+            : ticket.source_type === 'comanda'
+              ? (ticket.table_label || ('Comanda #' + ticket.source_id))
+              : (ticket.source_id < 0 ? 'PDV — novo pedido' : 'PDV #' + ticket.source_id);
           return (ticket.service_type === 'entrega' ? 'Entrega — ' : ticket.service_type === 'viagem' ? 'Viagem — ' : '') + base;
         },
         // Número da mesa destacado no cartão: extrai só os dígitos do rótulo (ex.

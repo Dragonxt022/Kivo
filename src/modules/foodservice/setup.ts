@@ -1,5 +1,15 @@
 import { registerService } from '../../core/services/registry';
-import { adoptSaleDraft, cancelTicketsForSource, moveComandaItemTickets, notifyOrder, readyTicketCountByComanda, syncItemNotes, voidComandaItem } from './kitchen';
+import {
+  adoptSaleDraft,
+  cancelTicketsForSource,
+  hasOpenDeliveryTickets,
+  moveComandaItemTickets,
+  notifyDeliveryOrder,
+  notifyOrder,
+  readyTicketCountByComanda,
+  syncItemNotes,
+  voidComandaItem,
+} from './kitchen';
 import { kitchenRoutingRepository, kitchenTicketItemRepository } from './repositories/KitchenRepository';
 
 export interface FoodserviceKitchenService {
@@ -22,11 +32,16 @@ export interface FoodserviceKitchenService {
   syncItemNotes: typeof syncItemNotes;
   /** Tickets 'pronto' por comanda — a grade de mesas sinaliza "pedido pronto" na mesa. */
   readyTicketCountByComanda: typeof readyTicketCountByComanda;
+  /** Pedido do marketplace vira ticket com os itens textuais (sem roteamento por produto). */
+  notifyDeliveryOrder: typeof notifyDeliveryOrder;
+  /** Pedidos do marketplace que já estão na cozinha (idempotência do botão do módulo). */
+  hasOpenDeliveryTickets: typeof hasOpenDeliveryTickets;
 }
 
 export default function setup(): void {
   registerService('foodservice.kitchen', {
     notifyOrder, cancelTicketsForSource, adoptSaleDraft, voidComandaItem, syncItemNotes, readyTicketCountByComanda, moveComandaItemTickets,
+    notifyDeliveryOrder, hasOpenDeliveryTickets,
     findSentComandaItemIds: (ids) => kitchenTicketItemRepository.findSentComandaItemIds(ids),
     findRoutedProductIds: (ids) => kitchenRoutingRepository.findRoutedProductIds(ids),
     findStatusByComandaItemIds: (ids) => kitchenTicketItemRepository

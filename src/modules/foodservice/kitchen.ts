@@ -89,6 +89,52 @@ export interface NotifyOrderItem {
 }
 
 /**
+ * Item de pedido do marketplace (Mais Delivery): vem como texto da própria API,
+ * sem produto do catálogo. Sem estação/tempo estimado — a cozinha vê o cardápio
+ * do marketplace exatamente como o cliente pediu.
+ */
+export interface NotifyDeliveryItem {
+  name: string;
+  qty: number;
+  notes?: string;
+  complements?: string[];
+}
+
+/**
+ * Módulos que precisam reagir quando um ticket de delivery muda de etapa (ex.: o
+ * Mais Delivery atualiza a situação lá no marketplace quando a cozinha marca
+ * "pronto"). Registrado via service registry — a cozinha não importa módulo de
+ * integração (mesma separação que `comandas.items`).
+ */
+interface DeliveryStatusService {
+  onTicketStatusChange: (
+    req: Request,
+    sourceId: number,
+    ticketStatus: KitchenActionableStatus,
+  ) => Promise<void> | void;
+}
+
+/**
+ * Propaga a etapa do ticket de delivery para o módulo de origem (fire-and-forget:
+ * o KDS não pode travar porque a API do marketplace falhou; o erro fica na auditoria).
+ */
+function syncDeliveryStatus(
+  req: Request,
+  ticket: { source_type: string; source_id: number },
+  newStatus: KitchenActionableStatus,
+): void {
+  if (ticket.source_type !== 'delivery' || !hasService('maisdelivery.kitchen')) return;
+  void Promise.resolve()
+    .then(() => getService<DeliveryStatusService>('maisdelivery.kitchen').onTicketStatusChange(req, ticket.source_id, newStatus))
+    .catch((error) => {
+      audit(req, 'sincronizar_status_delivery', 'maisdelivery_order', ticket.source_id, null, {
+        ticketStatus: newStatus,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+}
+
+/**
  * Cria ticket com os itens roteados para a cozinha. Devolve quantos itens geraram
  * produção e o maior tempo estimado entre eles (para o garçom poder dizer ao cliente
  * "pronto em ~X min") — produtos fora do roteamento são ignorados silenciosamente
@@ -153,6 +199,83 @@ export function notifyOrder(
   return { items: matched.length, maxEstimatedMinutes: maxEstimate > 0 ? maxEstimate : null };
 }
 
+/**
+ * Pedido do marketplace (Mais Delivery) virando produção: um ticket com os itens
+ * TEXTUAIS do pedido (sem produto do catálogo, sem estação/tempo). Diferente de
+ * `notifyOrder`, NADA é filtrado por roteamento — o marketplace define a fila, o
+ * roteamento é do menu do marketplace. Duplicidade é responsabilidade de quem
+ * chama (`hasOpenDeliveryTickets` — idempotência no clique).
+ */
+export function notifyDeliveryOrder(
+  req: Request,
+  params: {
+    sourceId: number;
+    tableLabel?: string;
+    serviceType?: KitchenServiceType;
+    items: NotifyDeliveryItem[];
+  },
+): { items: number; maxEstimatedMinutes: number | null } {
+  const valid = params.items.filter((item) => item.name.trim() && item.qty > 0);
+  if (!valid.length) return { items: 0, maxEstimatedMinutes: null };
+  const ticketUuid = randomUUID();
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  kitchenTicketRepository.transaction(() => {
+    kitchenTicketRepository.create({
+      source_type: 'delivery',
+      source_id: params.sourceId,
+      table_label: params.tableLabel ?? null,
+      service_type: params.serviceType === 'viagem'
+        ? 'viagem'
+        : params.serviceType === 'entrega' ? 'entrega' : 'local',
+      status: 'pendente',
+      uuid: ticketUuid,
+      updated_at: now,
+      origin_machine: req.headers['x-machine'] ?? null,
+    });
+    const ticketId = (kitchenTicketRepository.rawOne('SELECT id FROM kitchen_tickets WHERE uuid = ?', ticketUuid) as { id: number }).id;
+    for (const item of valid) {
+      kitchenTicketItemRepository.create({
+        ticket_id: ticketId,
+        product_id: null,
+        product_name: item.name.trim(),
+        qty: item.qty,
+        notes: item.notes ?? null,
+        complements: item.complements?.length ? item.complements.join(', ') : null,
+        para_viagem: 0,
+        station: null,
+        estimated_minutes: null,
+        status: 'pendente',
+        uuid: randomUUID(),
+        updated_at: now,
+        origin_machine: req.headers['x-machine'] ?? null,
+        comanda_item_id: null,
+      });
+    }
+    audit(req, 'criar_ticket_cozinha_delivery', 'kitchen_ticket', ticketId, null, {
+      sourceId: params.sourceId, marketplace: 'maisdelivery',
+      items: valid.map((i) => ({ name: i.name, qty: i.qty })),
+    });
+  });
+  return { items: valid.length, maxEstimatedMinutes: null };
+}
+
+/** Pedidos do marketplace que JÁ têm ticket de cozinha em aberto (idempotência do botão). */
+export function hasOpenDeliveryTickets(orderIds: number[]): number[] {
+  const ids = orderIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (!ids.length) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = kitchenTicketRepository.raw(
+    `SELECT DISTINCT source_id FROM kitchen_tickets
+      WHERE source_type = 'delivery' AND deleted_at IS NULL
+        AND status IN ('pendente','preparo','pronto')
+        AND source_id IN (${placeholders})`,
+    ...ids,
+  ) as { source_id: number }[];
+  return rows.map((r) => Number(r.source_id));
+}
+
 export function listTickets(statusFilter?: string[]): unknown[] {
   return kitchenTicketRepository.listByStatus(statusFilter) as unknown[];
 }
@@ -208,7 +331,8 @@ export function advanceItemStatus(req: Request, ticketId: number, itemId: number
 }
 
 export function advanceTicketStatus(req: Request, ticketId: number, newStatus: KitchenActionableStatus): { ok: true } | { ok: false; error: string } {
-  const ticket = kitchenTicketRepository.findById(ticketId) as { status: string } | undefined;
+  const ticket = kitchenTicketRepository.findById(ticketId) as
+    { status: string; source_type?: string; source_id?: number } | undefined;
   if (!ticket) return { ok: false, error: 'Ticket nao encontrado.' };
   if (ticket.status === 'cancelado') return { ok: false, error: 'Ticket cancelado.' };
   // Mesma regra do item: avançar o pedido confirma que a cozinha o viu.
@@ -230,6 +354,11 @@ export function advanceTicketStatus(req: Request, ticketId: number, newStatus: K
   // O garçom/PDV precisa saber na hora — inclusive se estiver em outra página. Voltar de
   // etapa não reanuncia: o pedido já era conhecido e o aviso viraria ruído.
   if (!goingBack && newStatus === 'pronto' && ticket.status !== 'pronto') announceReady(ticketId, req);
+  // Marketplace na fila: a etapa que subiu aqui muda a situação do pedido lá fora
+  // (ex.: "pronto" do KDS vira "saída pra entrega" no Mais Delivery).
+  if (ticket.status !== newStatus && !goingBack && ticket.source_type && ticket.source_id != null) {
+    syncDeliveryStatus(req, { source_type: ticket.source_type, source_id: ticket.source_id }, newStatus);
+  }
   return { ok: true };
 }
 
@@ -239,7 +368,7 @@ export function advanceTicketStatus(req: Request, ticketId: number, newStatus: K
  * mas cada mudança é auditada. Tickets já 'entregue' ficam como estão — o que foi
  * servido foi servido; 'cancelado' idem (idempotente).
  */
-export function cancelTicketsForSource(req: Request, sourceType: 'sale' | 'comanda', sourceId: number): void {
+export function cancelTicketsForSource(req: Request, sourceType: 'sale' | 'comanda' | 'delivery', sourceId: number): void {
   const tickets = kitchenTicketRepository.raw(
     `SELECT id, status FROM kitchen_tickets
      WHERE source_type = ? AND source_id = ? AND deleted_at IS NULL AND status IN ('pendente','preparo','pronto')`,
@@ -247,7 +376,10 @@ export function cancelTicketsForSource(req: Request, sourceType: 'sale' | 'coman
   ) as { id: number; status: string }[];
   for (const t of tickets) {
     kitchenTicketRepository.updateStatus(t.id, 'cancelado');
-    audit(req, 'cancelar_ticket_cozinha', 'kitchen_ticket', t.id, { status: t.status }, { motivo: `${sourceType === 'sale' ? 'venda' : 'comanda'} #${sourceId} cancelada` });
+    const motivo = sourceType === 'sale' ? `venda #${sourceId} cancelada`
+      : sourceType === 'delivery' ? `pedido #${sourceId} cancelado no marketplace`
+      : `comanda #${sourceId} cancelada`;
+    audit(req, 'cancelar_ticket_cozinha', 'kitchen_ticket', t.id, { status: t.status }, { motivo });
   }
 }
 
@@ -454,7 +586,8 @@ function recalcTicketStatus(
   ticketId: number,
   opts: { allowDowngrade?: boolean } = {},
 ): void {
-  const ticket = kitchenTicketRepository.rawOne('SELECT status FROM kitchen_tickets WHERE id = ?', ticketId) as { status: string } | undefined;
+  const ticket = kitchenTicketRepository.rawOne('SELECT status, source_type, source_id FROM kitchen_tickets WHERE id = ?', ticketId) as
+    { status: string; source_type?: string; source_id?: number } | undefined;
   // 'cancelado' é definitivo. 'entregue' também não rebaixa por acidente (avançar um item
   // esquecido depois da entrega não pode "reabrir" a mesa) — mas uma correção explícita da
   // cozinha, que volta a etapa de um item, manda reavaliar (`allowDowngrade`).
@@ -477,5 +610,13 @@ function recalcTicketStatus(
     audit(req, 'reavaliar_ticket_cozinha', 'kitchen_ticket', ticketId, { status: ticket.status }, { status: ticketStatus });
     // Avançar item por item também pode fechar o ticket como pronto.
     if (ticketStatus === 'pronto' && ticket.status !== 'pronto') announceReady(ticketId, req);
+    // Recalc por item também eleva a etapa real do pedido (ex.: último item ficou
+    // pronto) — a sincronia com o marketplace segue a mesma regra do avanço manual.
+    if (
+      rank(ticketStatus) > rank(ticket.status as KitchenActionableStatus) &&
+      ticket.source_type && ticket.source_id != null
+    ) {
+      syncDeliveryStatus(req, { source_type: ticket.source_type, source_id: ticket.source_id }, ticketStatus as KitchenActionableStatus);
+    }
   }
 }

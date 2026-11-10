@@ -3,13 +3,15 @@ import type { ModuleManifest } from '../../core/modules/types';
 /**
  * Integração com a API pública do Mais Delivery.
  *
- * A API tem um único endpoint POST e opera por `nrOperacao`. Nesta primeira entrega
- * o módulo apenas LÊ pedidos do marketplace e permite alterar a situação do pedido
- * no Mais Delivery. Nada é gravado em vendas, comandas ou estoque do Kivo — a tela
- * é uma janela para o marketplace, com o mesmo token e Basic Auth do painel.
+ * A API tem um único endpoint POST e opera por `nrOperacao`. O módulo lê pedidos do
+ * marketplace, permite alterar a situação lá fora e tem a PONTE DE COZINHA
+ * (`kitchenBridge.ts`): "Enviar p/ cozinha" cria um ticket de produção no KDS
+ * (source_type='delivery', itens textuais — sem loja de catálogo/venda do Kivo) e
+ * sincroniza a etapa da cozinha com a situação do pedido no marketplace.
  *
- * As credenciais ficam no cofre local (`core/secrets`), fora do banco e do backup.
- * O restante da configuração (ids e sandbox) usa a tabela `settings`.
+ * As credenciais (Access token e Basic Auth) podem ficar no cofre local
+ * (`core/secrets`) ou no painel cloud; o restante da configuração (ids e sandbox)
+ * usa a tabela `settings`.
  */
 const manifest: ModuleManifest = {
   id: 'maisdelivery',
@@ -30,6 +32,7 @@ const manifest: ModuleManifest = {
   routes: './routes',
   pages: './pages',
   views: './views',
+  setup: './setup',
   menu: [
     {
       label: 'Pedidos',

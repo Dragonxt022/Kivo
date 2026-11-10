@@ -24,7 +24,7 @@
   <% const ticket = locals.ticket; if (!ticket) { %><p>Ticket não encontrado.</p><% return; } %>
   <h1>Ticket de Cozinha</h1>
   <div class="meta">
-    <div><%= ticket.source_type === 'comanda' ? 'Mesa ' + (ticket.table_label || ticket.source_id) : 'PDV #' + ticket.source_id %></div>
+    <div><%= ticket.source_type === 'comanda' ? 'Mesa ' + (ticket.table_label || ticket.source_id) : ticket.source_type === 'delivery' ? (ticket.table_label || 'Mais Delivery #' + ticket.source_id) : 'PDV #' + ticket.source_id %></div>
     <div><strong><%= ticket.service_type === 'entrega' ? 'ENTREGA' : (ticket.service_type === 'viagem' ? 'PARA VIAGEM' : 'CONSUMIR NO LOCAL') %></strong></div>
     <div><%= ticket.updated_at?.slice(11, 19) || '' %></div>
   </div>
