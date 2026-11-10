@@ -2,7 +2,7 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import { getPool } from '../db';
 import { requireCompanyAuth, hashLicenseKey, type AuthedRequest } from '../auth';
-import { commercialPlan, trialValidUntil } from '../plans';
+import { commercialPlan, planFeaturesFor, trialValidUntil } from '../plans';
 
 const router = Router();
 
@@ -304,6 +304,13 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
 
     res.json({
       plan: company.plan,
+      // Nome comercial do plano (para a tela de licença funcionar com planos criados no
+      // painel, cuja chave crua não diz nada ao lojista). Nulo em valor legado desconhecido.
+      planLabel: company.plan === 'trial' ? 'Teste (15 dias)' : plano?.label ?? null,
+      // Funcionalidades efetivas do plano (nuvem, Kivo Web, QR mesa), da tabela `plans`.
+      // O desktop usa para liberar recursos sem regra fixa por chave — permite planos
+      // criados no painel. Nuvem antiga não manda o campo: o desktop mantém a regra fixa.
+      planFeatures: planFeaturesFor(company.plan),
       // Caminho relativo do selo no cloud (personalizado ou a imagem padrão). O desktop
       // resolve contra a URL da nuvem e guarda para exibir na tela de licença.
       planSealPath: plano?.sealPath ?? null,

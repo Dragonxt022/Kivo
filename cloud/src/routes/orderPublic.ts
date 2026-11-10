@@ -188,7 +188,7 @@ function safeJson(v: unknown): string {
 function messageFor(reason: 'invalido' | 'plano' | 'expirado' | 'desativado'): string {
   switch (reason) {
     case 'plano':
-      return 'O pedido pelo celular está disponível no plano Diamante ou durante o teste.';
+      return 'O pedido pelo celular não está incluído no plano atual desta loja.';
     case 'expirado':
       return 'O período de teste desta loja terminou. Peça ajuda ao atendente.';
     case 'desativado':

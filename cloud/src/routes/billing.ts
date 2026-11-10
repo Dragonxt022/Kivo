@@ -11,7 +11,7 @@ import {
   savePaymentSnapshot, settleCharge,
 } from '../charges';
 import { affiliateDiscountFor } from '../affiliates';
-import { commercialPlan, getCommercialPlans } from '../plans';
+import { getCommercialPlans, sellablePlan } from '../plans';
 import {
   cancelCompanySubscription,
   createCompanySubscription,
@@ -125,7 +125,9 @@ router.get('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) 
 router.post('/subscription', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const companyUuid = req.companyUuid!;
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const plan = commercialPlan(String(body.planKey ?? ''));
+  // Só plano ATIVO pode ser contratado: um plano pausado continua resolvendo para
+  // baixa/renovação (ver commercialPlan), mas nova venda ele bloqueia.
+  const plan = sellablePlan(String(body.planKey ?? ''));
   if (!plan) {
     res.status(400).json({ error: 'Escolha um plano válido.' });
     return;
@@ -176,7 +178,8 @@ router.post('/subscription', requireCompanyAuth, async (req: AuthedRequest, res)
 router.post('/upfront', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const companyUuid = req.companyUuid!;
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const plan = commercialPlan(String(body.planKey ?? ''));
+  // Só plano ATIVO pode ser comprado à vista (baixa de cobrança pendente não bloqueia).
+  const plan = sellablePlan(String(body.planKey ?? ''));
   if (!plan) {
     res.status(400).json({ error: 'Escolha um plano válido.' });
     return;

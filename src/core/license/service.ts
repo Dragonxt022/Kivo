@@ -15,6 +15,7 @@ const log = createLogger('license');
 // algum dia alguém precisar de `getSecret` no corpo deste arquivo (fora de função), o
 // ciclo passa a devolver `undefined` e é preciso quebrá-lo de verdade.
 import { getSecret, setSecret } from '../secrets/service';
+import { setPlanFeatures, setPlanLabel, type PlanFeatures } from './plans';
 
 /**
  * Licenciamento (KIVO_PLANO.md §7): Machine ID + Empresa UUID + License Key.
@@ -348,6 +349,13 @@ export interface CloudCompanyProfile {
 
 interface CloudValidateResponse {
   plan: string | null;
+  /** Nome comercial do plano (tela de licença); ausente em cloud antigo. */
+  planLabel?: string | null;
+  /**
+   * Funcionalidades do plano por chave (nuvem, Kivo Web, QR mesa), da tabela `plans`
+   * do cloud. Ausente em cloud antigo: `storePlanFeatures` preserva o que já havia.
+   */
+  planFeatures?: Record<string, PlanFeatures> | null;
   /** Caminho relativo do selo no cloud; ausente em cloud antigo. */
   planSealPath?: string | null;
   modules: string[] | null;
@@ -633,6 +641,8 @@ export async function activateLicense(companyUuid: string | null, licenseKey: st
 
   const body = (await res.json()) as CloudValidateResponse;
   storeLicensedVersion(body.licensedVersion);
+  setPlanFeatures(body.planFeatures);
+  setPlanLabel(body.plan, body.planLabel);
   storePlanSealPath(body.planSealPath);
   clearCloudIssue();
   ensureLicenseRow();
@@ -704,6 +714,8 @@ export async function refreshLicenseFromCloud(): Promise<void> {
     }
     const body = (await res.json()) as CloudValidateResponse;
     storeLicensedVersion(body.licensedVersion);
+    setPlanFeatures(body.planFeatures);
+    setPlanLabel(body.plan, body.planLabel);
     storePlanSealPath(body.planSealPath);
     clearCloudIssue();
     ensureLicenseRow();

@@ -50,11 +50,11 @@ interface PublishComplementGroup {
 
 router.use(requireCompanyAuth);
 
-/** Trial e Diamante têm o pedido por QR; os outros planos recebem uma recusa clara. */
+/** Plano sem a funcionalidade `qr_order` recebe uma recusa clara. */
 router.use((req: AuthedRequest, res, next) => {
   if (!canUseQrOrder(req.companyPlan)) {
     res.status(403).json({
-      error: 'Pedido pela mesa via QR está disponível no plano Diamante ou durante o teste.',
+      error: 'Pedido pela mesa via QR não está incluído no plano atual desta empresa.',
       code: 'qr_order_plan',
     });
     return;

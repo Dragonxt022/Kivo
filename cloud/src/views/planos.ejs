@@ -32,8 +32,6 @@
   </section>
 
   <%
-    var planByKey = {};
-    (plans || []).forEach(function (p) { planByKey[p.key] = p; });
     function reais(cents) {
       var v = Number(cents || 0) / 100;
       return v % 1 === 0 ? String(v) : v.toFixed(2).replace('.', ',');
@@ -41,6 +39,15 @@
     function promoDate(iso) {
       return iso ? iso.split('-').reverse().join('/') : '';
     }
+    var CHECK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    var CROSS = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    // Itens que dependem da configuração do plano (painel). Sempre nos mesmos três grupos
+    // para os cards de qualquer plano ficarem comparáveis.
+    var FEAT_DISPLAY = [
+      { key: 'cloud_sync', yes: 'Backup e sync automáticos em nuvem', no: 'Nuvem e backup automático' },
+      { key: 'qr_order', yes: 'Cardápio online e pedido pela mesa (QR)', no: 'Cardápio online com QR code' },
+      { key: 'web_app', yes: 'Kivo Web: acesso pelo celular', no: 'Kivo Web: acesso pelo celular' },
+    ];
   %>
 
   <section class="sec-tight">
@@ -51,67 +58,37 @@
           <div class="price free">Grátis</div>
           <div class="tag">15 dias, sem cartão</div>
           <ul>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Todos os módulos liberados</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona offline</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Dados de exemplo para testar</li>
-            <li class="no"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Salvamento em nuvem</li>
+            <li class="yes"><%- CHECK %> Todos os módulos liberados</li>
+            <li class="yes"><%- CHECK %> Funciona offline</li>
+            <li class="yes"><%- CHECK %> Dados de exemplo para testar</li>
+            <li class="no"><%- CROSS %> Salvamento em nuvem</li>
           </ul>
           <a class="btn secondary" href="<%= downloadUrl %>">Começar grátis</a>
         </div>
-        <div class="plan">
-          <h3>Prata</h3>
+        <% (plans || []).forEach(function (p) { %>
+        <div class="plan<%= p.promoted ? ' featured' : '' %>">
+          <h3><%= p.label %></h3>
           <div class="price">
-            <% if (planByKey.prata && planByKey.prata.promoted) { %><del class="old-price">R$ <%= reais(planByKey.prata.originalPriceCents) %></del><% } %>
-            <span class="cur">R$</span><%= planByKey.prata ? reais(planByKey.prata.priceCents) : '150' %><span class="per">/mês</span>
+            <% if (p.promoted) { %><del class="old-price">R$ <%= reais(p.originalPriceCents) %></del><% } %>
+            <span class="cur">R$</span><%= reais(p.priceCents) %><span class="per">/mês</span>
           </div>
-          <% if (planByKey.prata && planByKey.prata.promoted) { %>
-            <div class="plan-promo"><%= planByKey.prata.promoLabel || 'Promoção' %><% if (planByKey.prata.promoUntil) { %> · até <%= promoDate(planByKey.prata.promoUntil) %><% } %></div>
+          <% if (p.promoted) { %>
+            <div class="plan-promo"><%= p.promoLabel || 'Promoção' %><% if (p.promoUntil) { %> · até <%= promoDate(p.promoUntil) %><% } %></div>
           <% } %>
-          <div class="tag">Para começar a operar</div>
+          <div class="tag"><%= p.description %></div>
           <ul>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV, estoque e financeiro completos</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> DRE e relatórios</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Migração + treinamento + suporte</li>
-            <li class="no"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Nuvem e atualização automática</li>
-          </ul>
-          <a class="btn secondary" href="/contato">Falar com a gente</a>
-        </div>
-        <div class="plan featured">
-          <h3>Ouro</h3>
-          <div class="price">
-            <% if (planByKey.ouro && planByKey.ouro.promoted) { %><del class="old-price">R$ <%= reais(planByKey.ouro.originalPriceCents) %></del><% } %>
-            <span class="cur">R$</span><%= planByKey.ouro ? reais(planByKey.ouro.priceCents) : '200' %><span class="per">/mês</span>
-          </div>
-          <% if (planByKey.ouro && planByKey.ouro.promoted) { %>
-            <div class="plan-promo"><%= planByKey.ouro.promoLabel || 'Promoção' %><% if (planByKey.ouro.promoUntil) { %> · até <%= promoDate(planByKey.ouro.promoUntil) %><% } %></div>
-          <% } %>
-          <div class="tag">O equilíbrio ideal</div>
-          <ul>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Prata</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <strong>Salvamento automático em nuvem</strong></li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Atualizações automáticas</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Cardápio online</li>
+            <li class="yes"><%- CHECK %> PDV, estoque e financeiro completos</li>
+            <li class="yes"><%- CHECK %> DRE e relatórios</li>
+            <li class="yes"><%- CHECK %> Migração + treinamento + suporte</li>
+            <% FEAT_DISPLAY.forEach(function (f) { %>
+              <% var on = p.features && p.features[f.key]; %>
+              <li class="<%= on ? 'yes' : 'no' %>"><%- on ? CHECK : CROSS %> <%= on ? f.yes : f.no %></li>
+            <% }); %>
+            <li class="yes"><%- CHECK %> <%= p.maxDevices === 1 ? '1 computador' : 'Até ' + p.maxDevices + ' computadores' %></li>
           </ul>
           <a class="btn" href="/contato">Falar com a gente</a>
         </div>
-        <div class="plan">
-          <h3>Diamante</h3>
-          <div class="price">
-            <% if (planByKey.diamante && planByKey.diamante.promoted) { %><del class="old-price">R$ <%= reais(planByKey.diamante.originalPriceCents) %></del><% } %>
-            <span class="cur">R$</span><%= planByKey.diamante ? reais(planByKey.diamante.priceCents) : '250' %><span class="per">/mês</span>
-          </div>
-          <% if (planByKey.diamante && planByKey.diamante.promoted) { %>
-            <div class="plan-promo"><%= planByKey.diamante.promoLabel || 'Promoção' %><% if (planByKey.diamante.promoUntil) { %> · até <%= promoDate(planByKey.diamante.promoUntil) %><% } %></div>
-          <% } %>
-          <div class="tag">Operação completa</div>
-          <ul>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tudo do Ouro</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mesas, garçom e cozinha (KDS)</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Prioridade máxima no suporte</li>
-            <li class="yes"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Acesso web (em breve)</li>
-          </ul>
-          <a class="btn secondary" href="/contato">Falar com a gente</a>
-        </div>
+        <% }); %>
       </div>
     </div>
   </section>
@@ -130,47 +107,41 @@
             <tr>
               <th>Recurso</th>
               <th class="c">Teste<span class="cmp-price">Grátis</span></th>
-              <th class="c">Prata<span class="cmp-price">R$ <%= planByKey.prata ? reais(planByKey.prata.priceCents) : '150' %>/mês</span></th>
-              <th class="c hi">Ouro<span class="cmp-price">R$ <%= planByKey.ouro ? reais(planByKey.ouro.priceCents) : '200' %>/mês</span></th>
-              <th class="c">Diamante<span class="cmp-price">R$ <%= planByKey.diamante ? reais(planByKey.diamante.priceCents) : '250' %>/mês</span></th>
+              <% (plans || []).forEach(function (p, i) { %>
+                <th class="c<%= i === plans.length - 1 ? ' hi' : '' %>"><%= p.label %><span class="cmp-price">R$ <%= reais(p.priceCents) %>/mês</span></th>
+              <% }); %>
             </tr>
           </thead>
           <tbody>
-            <tr class="grp"><td colspan="5">Vendas</td></tr>
-            <tr><td>PDV com atalhos e múltiplas vendas</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Dinheiro, PIX, cartão e venda a prazo</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Pagamento dividido e carnê</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Orçamentos</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr class="grp"><td colspan="<%= 2 + (plans || []).length %>">Em todos os planos (inclusive o teste)</td></tr>
+            <% var ckAll = function () { return '<td class="c"><span class="ck">✓</span></td>'; }; %>
+            <tr><td>PDV, dinheiro, PIX, cartão e venda a prazo</td><td class="c"><span class="ck">✓</span></td><%= (plans || []).map(ckAll).join('') %></tr>
+            <tr><td>Catálogo e estoque completos</td><td class="c"><span class="ck">✓</span></td><%= (plans || []).map(ckAll).join('') %></tr>
+            <tr><td>Financeiro: caixa, contas e DRE</td><td class="c"><span class="ck">✓</span></td><%= (plans || []).map(ckAll).join('') %></tr>
+            <tr><td>Migração, treinamento e suporte humano</td><td class="c"><span class="ck">✓</span></td><%= (plans || []).map(ckAll).join('') %></tr>
+            <tr><td>Funciona offline</td><td class="c"><span class="ck">✓</span></td><%= (plans || []).map(ckAll).join('') %></tr>
 
-            <tr class="grp"><td colspan="5">Catálogo e estoque</td></tr>
-            <tr><td>11 tipos de produto (kit, combo, variantes…)</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Compras com custo médio ponderado</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Importação e exportação por planilha</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Sugestor automático de imagens</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Gerador de etiquetas (código de barras e preço)</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr class="grp"><td colspan="<%= 2 + (plans || []).length %>">Funcionalidades por plano</td></tr>
+            <% FEAT_DISPLAY.forEach(function (f) { %>
+            <tr>
+              <td><%= f.yes %></td>
+              <% if (f.key === 'qr_order') { /* o teste libera o pedido pela mesa por 15 dias */ %>
+                <td class="c"><span class="ck">✓</span></td>
+              <% } else { %>
+                <td class="c"><span class="nk">—</span></td>
+              <% } %>
+              <% (plans || []).forEach(function (p) { %>
+                <td class="c"><span class="<%= p.features && p.features[f.key] ? 'ck' : 'nk' %>"><%= p.features && p.features[f.key] ? '✓' : '—' %></span></td>
+              <% }); %>
+            </tr>
+            <% }); %>
 
-            <tr class="grp"><td colspan="5">Financeiro</td></tr>
-            <tr><td>Caixa com sangria, suprimento e conferência</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Contas a pagar e a receber</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>DRE com CMV e simulação de cenários</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Convênios e faturamento mensal</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-
-            <tr class="grp"><td colspan="5">Nuvem</td></tr>
-            <tr><td>Salvamento automático na nuvem</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Backup do banco de dados</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Atualizações automáticas</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Cardápio online com QR code</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-
-            <tr class="grp"><td colspan="5">Restaurante</td></tr>
-            <tr><td>Mesas e comandas</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Painel de cozinha (KDS) por estação</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Modo garçom</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
-
-            <tr class="grp"><td colspan="5">Serviço</td></tr>
-            <tr><td>Migração dos seus dados</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Treinamento da equipe</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Suporte humano (até 8h úteis)</td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td><td class="c"><span class="ck">✓</span></td></tr>
-            <tr><td>Prioridade máxima no atendimento</td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="nk">—</span></td><td class="c"><span class="ck">✓</span></td></tr>
+            <tr class="grp"><td colspan="<%= 2 + (plans || []).length %>">Equipamentos</td></tr>
+            <tr>
+              <td>Computadores incluídos na licença</td>
+              <td class="c">1</td>
+              <% (plans || []).forEach(function (p) { %><td class="c"><%= p.maxDevices %></td><% }); %>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -195,7 +166,7 @@
         </details>
         <details>
           <summary>Preciso pagar mensalidade?</summary>
-          <p>Sim: a licença de uso do Kivo é mensal — Prata R$ 150, Ouro R$ 200 e Diamante R$ 250 por mês. Migração de dados, treinamento e suporte humano já vêm inclusos, e as atualizações da linha de versão contratada não custam nada à parte.</p>
+          <p>Sim: a licença de uso do Kivo é mensal (veja os valores em cada plano na tabela acima). Migração de dados, treinamento e suporte humano já vêm inclusos, e as atualizações da linha de versão contratada não custam nada à parte.</p>
         </details>
         <details>
           <summary>Posso trocar de plano depois?</summary>

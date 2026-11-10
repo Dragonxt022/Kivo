@@ -5,7 +5,7 @@ import express, { Router } from 'express';
 import { getPool } from '../db';
 import { hashLicenseKey, requireCompanyAuth } from '../auth';
 import { emitToCompany } from '../events';
-import { PLAN_TIERS, PLAN_LABELS, trialValidUntil } from '../plans';
+import { planSelectorData, trialValidUntil } from '../plans';
 import {
   accrueCommissionForCharge,
   affiliateDiscountFor,
@@ -367,10 +367,11 @@ router.get('/companies', requireAdminAuth, async (req, res) => {
   for (const empresa of companies) {
     empresa.contracts = byCompany.get(String(empresa.company_uuid)) ?? [];
   }
+  const plans = planSelectorData();
   res.render('companies', {
     companies,
-    planTiers: PLAN_TIERS,
-    planLabels: PLAN_LABELS,
+    planTiers: plans.planTiers,
+    planLabels: plans.planLabels,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
   });
 });
@@ -815,8 +816,9 @@ router.get('/dashboard', requireAdminAuth, async (_req, res) => {
     });
   }
 
+  const plans = planSelectorData();
   res.render('dashboard', {
-    planTiers: PLAN_TIERS, planLabels: PLAN_LABELS,
+    planTiers: plans.planTiers, planLabels: plans.planLabels,
     kpis, planDistribution, recentActivity, alerts: alerts.slice(0, 8), syncTrend, revenueTrend, commercial,
     billing, upcomingCharges, affiliateStats,
   });
@@ -840,7 +842,8 @@ router.post('/companies', requireAdminAuth, async (req: AdminRequest, res) => {
     ],
   );
   const detail = await loadCompanyDetail(companyUuid);
-  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
+  const plans = planSelectorData();
+  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey, planTiers: plans.planTiers, planLabels: plans.planLabels });
 });
 
 router.get('/companies/:uuid', requireAdminAuth, async (req, res) => {
@@ -852,8 +855,8 @@ router.get('/companies/:uuid', requireAdminAuth, async (req, res) => {
   res.render('company-detail', {
     ...detail,
     revealedLicenseKey: null,
-    planTiers: PLAN_TIERS,
-    planLabels: PLAN_LABELS,
+    planTiers: planSelectorData().planTiers,
+    planLabels: planSelectorData().planLabels,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
   });
@@ -968,7 +971,8 @@ router.get('/devices', requireAdminAuth, async (_req, res) => {
     company_name: companyNames.get(t.company_uuid) ?? null,
     company_exists: companyNames.has(t.company_uuid),
   }));
-  res.render('devices', { devices, trials, planLabels: PLAN_LABELS });
+  const selector = planSelectorData();
+  res.render('devices', { devices, trials, planLabels: selector.planLabels });
 });
 
 /** Libera o teste grátis de uma máquina: apaga a marca em `trial_registry` e ela volta
@@ -1278,7 +1282,8 @@ router.post('/companies/:uuid/rotate-key', requireAdminAuth, async (req, res) =>
     res.status(404).send('Empresa não encontrada.');
     return;
   }
-  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey, planTiers: PLAN_TIERS, planLabels: PLAN_LABELS });
+  const plans = planSelectorData();
+  res.render('company-detail', { ...detail, revealedLicenseKey: licenseKey, planTiers: plans.planTiers, planLabels: plans.planLabels });
 });
 
 /**
@@ -1306,13 +1311,14 @@ router.post('/companies/:uuid/recovery-code', requireAdminAuth, async (req: Admi
   if (recoveryCode) {
     console.log(`[admin] resgate de senha gerado para ${uuid} por ${req.adminUsername ?? '?'} (desafio ${challenge})`);
   }
+  const recoverySel = planSelectorData();
   res.render('company-detail', {
     ...detail,
     revealedLicenseKey: null,
     recoveryChallenge: challenge,
     recoveryCode,
-    planTiers: PLAN_TIERS,
-    planLabels: PLAN_LABELS,
+    planTiers: recoverySel.planTiers,
+    planLabels: recoverySel.planLabels,
   });
 });
 

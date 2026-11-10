@@ -26,23 +26,32 @@
     return (Number(cents || 0) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   },
   planLabel(plan) {
-    return ({ prata: 'Prata', ouro: 'Ouro', diamante: 'Diamante', trial: 'Teste' })[String(plan || '').toLowerCase()]
+    // Nome comercial (mandado pela nuvem) quando disponível; senão o mapa local ou a chave crua.
+    const stored = this.licenseStatus && this.licenseStatus.plan === plan && this.licenseStatus.planLabel;
+    return stored || ({ prata: 'Prata', ouro: 'Ouro', diamante: 'Diamante', trial: 'Teste' })[String(plan || '').toLowerCase()]
       || (plan ? String(plan) : '—');
   },
   /** Selo do plano no modal de renovação; o proxy local evita bloqueio de CSP. */
   planSealSrc(p) {
     if (!p || !p.key) return '';
-    // Só o selo personalizado precisa do proxy; o padrão do cloud é a mesma imagem local.
-    if (p.sealPath && String(p.sealPath).startsWith('/planos/selos/')) {
+    const key = String(p.key).toLowerCase();
+    const builtin = ['prata', 'ouro', 'diamante'].includes(key);
+    // Selo personalizado (ou padrão de plano novo, que só existe no cloud) precisa do
+    // proxy; para os planos originais a imagem é a mesma local, sem rede.
+    if (p.sealPath && (!builtin || String(p.sealPath).startsWith('/planos/selos/'))) {
       return '/api/license/seal?p=' + encodeURIComponent(p.sealPath);
     }
-    const key = String(p.key).toLowerCase();
-    return ['prata', 'ouro', 'diamante'].includes(key) ? '/img/plano_' + key + '.jpg' : '';
+    return builtin ? '/img/plano_' + key + '.jpg' : '';
   },
   planSealFallback(ev, p) {
     const key = String((p && p.key) || '').toLowerCase();
+    // Planos do catálogo têm imagem padrão no cloud (plano_default.jpg para os novos):
+    // tenta o proxy antes de sumir com a imagem.
     if (['prata', 'ouro', 'diamante'].includes(key)) {
       ev.target.src = '/img/plano_' + key + '.jpg';
+      ev.target.onerror = null;
+    } else if (p && p.sealPath) {
+      ev.target.src = '/api/license/seal?p=' + encodeURIComponent(p.sealPath);
       ev.target.onerror = null;
     } else {
       ev.target.style.display = 'none';

@@ -31,6 +31,33 @@ oferece o pagamento — ele nunca fala com o Mercado Pago.
 7. **Estorno não é automático**: `refunded`/`charged_back` só registram o status no gateway;
    desfazer a baixa (e a comissão) continua sendo ação do admin.
 
+## Planos (o que está à venda e o que cada um inclui)
+
+Os planos comerciais vivem na tabela `plans` do cloud (migration `0054`) e são gerenciados
+pelo painel em **Planos e preços** (`/admin/plans`): cadastrar, editar (nome, descrição,
+preço, dispositivos, dias por pagamento), **pausar/reativar a venda** e marcar as
+funcionalidades (backup/sync em nuvem, Kivo Web, cardápio/QR mesa).
+
+| Peça | Onde | Papel |
+| --- | --- | --- |
+| Tabela `plans` + config de promoção/selo | `cloud/src/plans.ts` | catálogo em memória, recarregado no boot e a cada gravação |
+| Painel | `cloud/src/routes/plans.ts` + `views/admin-plans.ejs` | CRUD, promoção, selo e pausar/reativar |
+| Gating no cloud | `canSaveToCloud` / `canUseWebApp` / `canUseQrOrder` | funcionalidade do plano, não mais regra fixa por chave |
+| Gating no app | `src/core/license/plans.ts` + `service.ts` | a nuvem manda `planFeatures` no `/api/license/validate`; o app guarda em `settings` |
+
+Regras:
+
+1. **A chave do plano nunca muda.** `charges.plan_key`, `company_subscriptions.plan_key` e
+   `companies.plan` referenciam a chave.
+2. **"Remover" é pausar** (`active = 0`): sai do catálogo de venda, mas quem já contratou
+   segue válido e cobranças em aberto continuam baixando (`commercialPlan` resolve plano
+   pausado; `sellablePlan` só passa planos ativos — exigido na compra/assinatura nova).
+3. **Preço de tabela no banco**, promoção/selo em `app_settings.plan_pricing` (por chave).
+   O desktop nunca envia preço — vale para assinaturas já criadas o valor contratado.
+4. **Compatibilidade**: empresa com `plan` fora da tabela (antigo) continua sob a regra
+   fixa por chave (`legacyFeaturesFor` no cloud, `RESTRICTED_PLANS` no app). O trial não
+   é plano de venda (chave reservada) — QR/liberação do teste segue hard-coded.
+
 ## Configuração (resumo do tutorial do painel)
 
 1. Criar a aplicação em [Suas integrações](https://www.mercadopago.com.br/developers/panel/app).
@@ -97,6 +124,8 @@ paga.
 
 ## Arquivos-chave
 
+- `cloud/src/plans.ts` — catálogo de planos (tabela `plans`), preços/promoção e as
+  funções de funcionalidade (`canSaveToCloud`/`canUseWebApp`/`canUseQrOrder`).
 - `cloud/src/gateway.ts` — Mercado Pago: credenciais, criação de Pix/boleto/preferência,
   leitura de status, validação da assinatura (`MP_API_BASE` é configurável para teste).
 - `cloud/src/charges.ts` — cobrança: token público, gravação do resultado e `settleCharge`.

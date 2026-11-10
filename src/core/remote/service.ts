@@ -63,7 +63,7 @@ type GrantResult =
 export async function grantRemoteAccess(req: Request, userId: number, label?: string): Promise<GrantResult> {
   const lic = validateLicense();
   if (!canUseWebApp(lic.plan)) {
-    return { ok: false, error: 'O acesso pelo celular (Kivo Web) é exclusivo do plano Diamante.' };
+    return { ok: false, error: 'O acesso pelo celular (Kivo Web) não está incluído no plano contratado. Contate o suporte para liberar.' };
   }
   const base = cloudBaseUrl();
   const auth = cloudAuthHeaders();

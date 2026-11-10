@@ -1911,15 +1911,19 @@
           return ['prata', 'ouro', 'diamante'].includes(key) ? '/img/plano_' + key + '.jpg' : '';
         },
         sealSrc() {
-          // Selo personalizado passa pelo proxy (a CSP não deixa buscar no cloud direto).
-          // O caminho padrão do cloud é idêntico à imagem local, então usa o arquivo local
-          // e funciona até sem internet.
-          if (!this.sealFalhou && this.license && this.license.sealPath
-              && String(this.license.sealPath).startsWith('/planos/selos/')) {
+          // Selo personalizado (ou imagem específica de plano criado no painel do cloud,
+          // que não existe como arquivo local) passa pelo proxy — a CSP não deixa buscar
+          // no cloud direto. Para os planos originais o caminho padrão do cloud é idêntico
+          // à imagem local, então usa o arquivo local e funciona até sem internet.
+          const lic = this.license || {};
+          const key = String(lic.plan || '').toLowerCase();
+          const builtin = ['prata', 'ouro', 'diamante'].includes(key);
+          if (!this.sealFalhou && lic.sealPath
+              && (!builtin || String(lic.sealPath).startsWith('/planos/selos/'))) {
             // O caminho entra na query para trocar o cache quando o selo muda.
-            return '/api/license/seal?p=' + encodeURIComponent(this.license.sealPath);
+            return '/api/license/seal?p=' + encodeURIComponent(lic.sealPath);
           }
-          return this.sealFallback(this.license && this.license.plan);
+          return this.sealFallback(lic.plan);
         },
         stock: {
           controlarQuantidade: true,

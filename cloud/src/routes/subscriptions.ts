@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { getPool } from '../db';
 import { requireAdminAuth } from '../adminAuth';
 import { parseAmountCents } from '../format';
-import { commercialPlan } from '../plans';
+import { commercialPlan, planSelectorData } from '../plans';
 import { loadSettingsForView } from '../gateway';
 import {
   cancelCompanySubscription,
@@ -78,12 +78,15 @@ adminSubscriptionsRouter.get('/subscriptions', requireAdminAuth, async (req, res
   };
 
   const gateway = await loadSettingsForView();
+  const selector = planSelectorData();
   res.render('subscriptions', {
     subscriptions,
     companies: companies as Record<string, unknown>[],
     stats,
     companyFilter,
     gatewayEnvironment: gateway.environment,
+    planTiers: selector.planTiers,
+    planLabels: selector.planLabels,
     ok: typeof req.query.ok === 'string' ? req.query.ok : null,
     error: typeof req.query.error === 'string' ? req.query.error : null,
   });

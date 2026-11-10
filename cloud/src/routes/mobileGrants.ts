@@ -13,7 +13,7 @@ const router = Router();
 /** Gate de plano na concessão. A revalidação por requisição fica em `mobileAuth.ts`. */
 function requireWebAppPlan(req: AuthedRequest, res: import('express').Response, next: import('express').NextFunction): void {
   if (!canUseWebApp(req.companyPlan)) {
-    res.status(403).json({ error: 'O acesso pelo celular (Kivo Web) é exclusivo do plano Diamante.' });
+    res.status(403).json({ error: 'O acesso pelo celular (Kivo Web) não está incluído no plano atual desta empresa.' });
     return;
   }
   next();

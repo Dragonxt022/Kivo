@@ -52,7 +52,7 @@ export function qrOrderAvailability(): { available: boolean; reason: string | nu
     return { available: false, reason: 'Ative o recurso "Pedido pela mesa via QR" em Configurações › Recursos.' };
   }
   if (!canUseQrOrder(lic.plan)) {
-    return { available: false, reason: 'Pedido pela mesa via QR está disponível no plano Diamante ou durante o teste.' };
+    return { available: false, reason: 'Pedido pela mesa via QR não está incluído no plano contratado. Renove/fale com o suporte para liberar.' };
   }
   if (lic.status !== 'valida') {
     return { available: false, reason: 'A licença precisa estar válida para gerar o QR.' };

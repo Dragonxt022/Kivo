@@ -206,9 +206,10 @@
           <div class="field col-6">
             <label>Plano</label>
             <select name="planKey">
-              <option value="prata">Prata</option>
-              <option value="ouro" selected>Ouro</option>
-              <option value="diamante">Diamante</option>
+              <% planTiers.forEach(function (t) { %>
+                <% if (t === 'trial') { return; } /* trial não é plano de assinatura */ %>
+                <option value="<%= t %>" <% if (t === 'ouro') { %>selected<% } %>><%= planLabels[t] %></option>
+              <% }); %>
               <option value="personalizada">Personalizada</option>
             </select>
           </div>

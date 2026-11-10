@@ -37,7 +37,7 @@ import { purgeExpiredAdminSessions, purgeExpiredPasswordResets } from './adminAu
 import { purgeExpiredAffiliateSessions } from './affiliateAuth';
 import { fmtDateBr, fmtDateTimeBr } from './format';
 import { MAX_CONTRACT_PDF_BYTES } from './contracts';
-import { loadPlanPricing } from './plans';
+import { loadPlanCatalog } from './plans';
 
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
@@ -95,9 +95,9 @@ function startSupportAutoClose(): NodeJS.Timeout {
 
 export function createCloudServer() {
   const app = express();
-  // Preços configuráveis pelo painel: carrega em segundo plano; o catálogo tem os
-  // valores de tabela até a primeira leitura terminar.
-  void loadPlanPricing();
+  // Planos (tabela `plans`) + preços/promoções configuráveis pelo painel: carrega em
+  // segundo plano; o catálogo mantém os valores legados até a primeira leitura terminar.
+  void loadPlanCatalog();
   app.set('view engine', 'ejs');
   app.set('views', path.resolve(__dirname, 'views'));
   app.use(express.static(path.resolve(__dirname, 'public')));

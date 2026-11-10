@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requirePermission } from '../permissions/middleware';
 import { audit } from '../audit/service';
 import { validateLicense, setLicense, getEntitledModules, type LicenseInfo } from './service';
-import { canAutoUpdate, canSaveToCloud } from './plans';
+import { canAutoUpdate, canSaveToCloud, planLabel } from './plans';
 import { runSync } from '../sync/engine';
 import { getCloudServerUrl } from '../config/cloud';
 
@@ -11,6 +11,7 @@ const router = Router();
 function licensePayload(info: LicenseInfo) {
   return {
     ...info,
+    planLabel: planLabel(info.plan),
     modules: getEntitledModules(),
     canAutoUpdate: canAutoUpdate(info.plan),
     canSaveToCloud: canSaveToCloud(info.plan),
@@ -31,6 +32,7 @@ router.get('/status', (_req, res) => {
   res.json({
     status: info.status,
     plan: info.plan,
+    planLabel: planLabel(info.plan),
     daysRemaining: info.daysRemaining,
     daysUntilBlock: info.daysUntilBlock,
     blockAt: info.blockAt,

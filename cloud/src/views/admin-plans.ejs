@@ -8,10 +8,9 @@
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
   <%- include('partials/styles') %>
   <style>
-    .price-editor { display: flex; flex-direction: column; gap: 16px; }
     .plan-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
       gap: 14px;
       align-items: stretch;
     }
@@ -27,6 +26,10 @@
     }
     .plan-editor.has-promo {
       border-color: color-mix(in srgb, var(--primary) 35%, var(--border-light));
+    }
+    .plan-editor.paused {
+      opacity: 0.75;
+      background: var(--surface-hover);
     }
     .plan-editor-head {
       display: flex;
@@ -47,7 +50,7 @@
     .plan-seal-actions { display: flex; flex-wrap: wrap; gap: 6px; }
     .plan-seal-actions form { margin: 0; }
     .plan-seal-actions .btn { min-height: 30px; padding: 4px 9px; font-size: 0.74rem; }
-    .plan-footer {
+    .plan-actions-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -56,27 +59,64 @@
       margin-top: auto;
     }
     .plan-editor-head h2 { margin: 0; font-size: 1.1rem; letter-spacing: -0.02em; }
-    .plan-desc { margin: 3px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--muted); }
-    .plan-price-now { flex: none; text-align: right; }
-    .plan-price-now span {
-      display: block;
-      font-size: 0.6rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
+    .plan-key { margin: 2px 0 0; font-size: 0.66rem; letter-spacing: 0.05em; color: var(--muted); }
+    .plan-desc-input {
+      width: 100%;
+      min-height: 52px;
+      resize: vertical;
+      font-size: 0.82rem;
     }
-    .plan-price-now strong { display: block; font-size: 1.3rem; line-height: 1.2; letter-spacing: -0.035em; }
-    .plan-price-now del { color: var(--muted); font-size: 0.72rem; }
-    .price-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
-    .price-grid label {
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .status-pill.on { background: color-mix(in srgb, var(--success, #16a34a) 15%, transparent); color: var(--success, #16a34a); }
+    .status-pill.off { background: var(--surface-hover); color: var(--muted); }
+    .label-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .label-grid h2 { font-size: 1.05rem; }
+    .label-grid input { min-height: 34px; width: 220px; font-weight: 700; }
+    .editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+    .editor-grid label, .field label {
       display: block;
       margin-bottom: 4px;
       font-size: 0.74rem;
       font-weight: 600;
       color: var(--muted);
     }
-    .price-grid input { width: 100%; min-height: 38px; margin-bottom: 0; }
+    .editor-grid input { width: 100%; min-height: 38px; margin-bottom: 0; }
+    .field { display: flex; flex-direction: column; }
+    .field-desc textarea { margin-bottom: 0; }
+    .features-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      background: var(--surface-hover);
+    }
+    .features-list .feature {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+    .features-list .feature input { margin-top: 2px; }
+    .features-list .feature small { display: block; color: var(--muted); font-size: 0.7rem; }
+    .features-help { margin: 0; font-size: 0.72rem; color: var(--muted); }
     .price-preview {
       display: flex;
       align-items: baseline;
@@ -107,12 +147,20 @@
     }
     .promo-pill.on { background: var(--primary-soft); color: var(--primary); }
     .promo-pill.off { background: var(--surface-hover); color: var(--muted); }
-    .price-help { margin: 0; max-width: 720px; font-size: 0.78rem; line-height: 1.5; color: var(--muted); }
+    .new-plan {
+      border: 1px dashed var(--border-light);
+      box-shadow: none;
+      background: transparent;
+    }
+    .new-plan-title { font-size: 1rem; margin: 0; }
+    .new-plan-title small { display: block; font-weight: 400; color: var(--muted); margin-top: 2px; }
+    .plans-help { margin: 0 0 14px; max-width: 860px; font-size: 0.8rem; line-height: 1.55; color: var(--muted); }
     @media (max-width: 720px) {
       .plan-grid { grid-template-columns: 1fr; }
       .plan-editor-head { flex-direction: column; }
-      .plan-price-now { text-align: left; }
-      .price-grid { grid-template-columns: 1fr; }
+      .editor-grid { grid-template-columns: 1fr; }
+      .label-grid { grid-template-columns: 1fr; }
+      .label-grid input { width: 100%; }
     }
   </style>
 </head>
@@ -130,115 +178,209 @@
             <div class="breadcrumb">Comercial</div>
             <h1>Planos e preços</h1>
             <p class="page-subtitle">
-              Defina o preço normal de cada plano e, se quiser, uma promoção com prazo.
-              O app e a página pública mostram o valor original riscado ao lado do promocional;
-              depois do prazo, o preço normal volta sozinho.
+              Cadastre planos, marque as funcionalidades de cada um e controle o preço do dia.
+              Pausar um plano o tira do catálogo de venda — quem já contratou continua válido
+              e cobranças em aberto continuam baixando. Não há exclusão real: a chave do plano
+              nunca muda depois de criada.
             </p>
           </div>
         </div>
 
-        <form method="post" action="/admin/plans" class="price-editor">
-          <div class="plan-grid">
-            <% definitions.forEach(function (p) {
-                 var cfg = pricing[p.key];
-                 var hoje = new Date().toISOString().slice(0, 10);
-                 var promoAtiva = cfg.promoPriceCents && cfg.promoPriceCents > 0
-                   && cfg.promoPriceCents < cfg.priceCents
-                   && (!cfg.promoUntil || cfg.promoUntil >= hoje);
-                 var reais = function (cents) { return Number(cents || 0) / 100; };
-                 var fmt = function (cents) { return reais(cents).toFixed(2).replace('.', ','); };
-            %>
-            <section class="plan-editor<%= promoAtiva ? ' has-promo' : '' %>">
-              <div class="plan-editor-head">
-                <div class="plan-identity">
-                  <%
-                    var sealPath = cfg.sealFile
-                      ? '/planos/selos/' + encodeURIComponent(String(cfg.sealFile))
-                      : '/img/planos/plano_' + p.key + '.jpg';
-                  %>
-                  <img class="plan-seal-thumb" src="<%= sealPath %>" alt="Selo do plano <%= p.label %>">
-                  <div>
-                    <h2><%= p.label %></h2>
-                    <p class="plan-desc"><%= p.description %></p>
-                  </div>
+        <p class="plans-help">
+          As funcionalidades marcadas valem no app desktop e no cloud (baixa automática na
+          próxima validação de licença). Preço e promoção valem apenas para novas assinaturas
+          e compras à vista: assinaturas já criadas mantêm o valor contratado.
+        </p>
+
+        <div class="plan-grid">
+          <%
+            var reais = function (cents) { return Number(cents || 0) / 100; };
+            var fmt = function (cents) { return reais(cents).toFixed(2).replace('.', ','); };
+            var hoje = new Date().toISOString().slice(0, 10);
+            definitions.forEach(function (p) {
+              var cfg = promos[p.key] || { promoPriceCents: null, promoLabel: null, promoUntil: null, sealFile: null };
+              var promoAtiva = cfg.promoPriceCents && cfg.promoPriceCents > 0
+                && cfg.promoPriceCents < p.priceCents
+                && (!cfg.promoUntil || cfg.promoUntil >= hoje);
+              var sealPath = cfg.sealFile
+                ? '/planos/selos/' + encodeURIComponent(String(cfg.sealFile))
+                : (['prata', 'ouro', 'diamante'].indexOf(p.key) >= 0
+                    ? '/img/planos/plano_' + p.key + '.jpg'
+                    : '/img/planos/plano_default.jpg');
+          %>
+          <section class="plan-editor<%= promoAtiva ? ' has-promo' : '' %><%= p.active ? '' : ' paused' %>">
+            <div class="plan-editor-head">
+              <div class="plan-identity">
+                <img class="plan-seal-thumb" src="<%= sealPath %>" alt="Selo do plano <%= p.label %>">
+                <div>
+                  <span class="status-pill <%= p.active ? 'on' : 'off' %>"><%= p.active ? 'À venda' : 'Pausado' %></span>
                 </div>
-                <div class="plan-price-now">
-                  <span>Hoje o cliente paga</span>
-                  <strong>R$ <%= fmt(promoAtiva ? cfg.promoPriceCents : cfg.priceCents) %></strong>
-                  <% if (promoAtiva) { %><del>R$ <%= fmt(cfg.priceCents) %>/mês</del><% } %>
+              </div>
+              <div class="plan-price-now">
+                <span>Hoje o cliente paga</span>
+                <strong>R$ <%= fmt(promoAtiva ? cfg.promoPriceCents : p.priceCents) %></strong>
+                <% if (promoAtiva) { %><del>R$ <%= fmt(p.priceCents) %></del><% } %>
+              </div>
+            </div>
+
+            <form method="post" action="/admin/plans/<%= p.key %>/update">
+              <div class="label-grid" style="margin-bottom:10px">
+                <h2><%= p.label %> <span class="plan-key">chave: <%= p.key %></span></h2>
+                <div>
+                  <label for="label-<%= p.key %>">Nome exibido</label>
+                  <input id="label-<%= p.key %>" type="text" name="label" maxlength="60"
+                         value="<%= p.label %>" required>
                 </div>
               </div>
 
-              <div class="price-grid">
+              <div class="field field-desc" style="margin-bottom:10px">
+                <label for="desc-<%= p.key %>">Descrição na tela de planos</label>
+                <textarea id="desc-<%= p.key %>" class="plan-desc-input" name="description"
+                          maxlength="255" placeholder="Ex.: Tudo do Prata + nuvem e backup."><%= p.description %></textarea>
+              </div>
+
+              <div class="editor-grid" style="margin-bottom:10px">
                 <div>
                   <label for="price-<%= p.key %>">Preço normal (R$)</label>
-                  <input id="price-<%= p.key %>" type="text" inputmode="decimal" name="price_<%= p.key %>"
-                         value="<%= fmt(cfg.priceCents) %>" placeholder="0,00" required>
+                  <input id="price-<%= p.key %>" type="text" inputmode="decimal" name="price"
+                         value="<%= fmt(p.priceCents) %>" placeholder="0,00" required>
+                </div>
+                <div>
+                  <label for="devices-<%= p.key %>">Limite de dispositivos</label>
+                  <input id="devices-<%= p.key %>" type="number" name="maxDevices" min="1" max="999"
+                         value="<%= p.maxDevices %>" required>
+                </div>
+                <div>
+                  <label for="days-<%= p.key %>">Dias de licença por pagamento</label>
+                  <input id="days-<%= p.key %>" type="number" name="extendsDays" min="1" max="3650"
+                         value="<%= p.extendsDays %>" required>
                 </div>
                 <div>
                   <label for="promo-<%= p.key %>">Preço promocional (R$)</label>
-                  <input id="promo-<%= p.key %>" type="text" inputmode="decimal" name="promo_<%= p.key %>"
+                  <input id="promo-<%= p.key %>" type="text" inputmode="decimal" name="promo"
                          value="<%= cfg.promoPriceCents ? fmt(cfg.promoPriceCents) : '' %>"
                          placeholder="Sem promoção">
                 </div>
                 <div>
                   <label for="promo-label-<%= p.key %>">Nome da promoção</label>
-                  <input id="promo-label-<%= p.key %>" type="text" maxlength="60" name="promo_label_<%= p.key %>"
+                  <input id="promo-label-<%= p.key %>" type="text" maxlength="60" name="promoLabel"
                          value="<%= cfg.promoLabel || '' %>" placeholder="Ex.: Black Friday">
                 </div>
                 <div>
                   <label for="promo-until-<%= p.key %>">Promoção válida até</label>
-                  <input id="promo-until-<%= p.key %>" type="date" name="promo_until_<%= p.key %>"
+                  <input id="promo-until-<%= p.key %>" type="date" name="promoUntil"
                          value="<%= cfg.promoUntil || '' %>">
                 </div>
               </div>
 
-              <div class="price-preview">
+              <div class="features-list" style="margin-bottom:8px">
+                <% featureOptions.forEach(function (f) { %>
+                <label class="feature">
+                  <input type="checkbox" name="features[<%= f.key %>]" value="1" <%= p.features[f.key] ? 'checked' : '' %>>
+                  <span>
+                    <strong><%= f.label %></strong>
+                    <small><%= f.hint %></small>
+                  </span>
+                </label>
+                <% }); %>
+              </div>
+
+              <div class="price-preview" style="margin-bottom:12px">
                 <% if (promoAtiva) { %>
                   <span>No app:</span>
-                  <del>R$ <%= fmt(cfg.priceCents) %></del>
-                  <span class="promo">R$ <%= fmt(cfg.promoPriceCents) %>/mês</span>
+                  <del>R$ <%= fmt(p.priceCents) %></del>
+                  <span class="promo">R$ <%= fmt(cfg.promoPriceCents) %></span>
                   <% if (cfg.promoLabel) { %><strong><%= cfg.promoLabel %></strong><% } %>
                 <% } else { %>
                   <span>No app:</span>
-                  <strong>R$ <%= fmt(cfg.priceCents) %>/mês</strong>
+                  <strong>R$ <%= fmt(p.priceCents) %></strong>
                   <% if (cfg.promoPriceCents) { %><span>· promoção fora do prazo</span><% } %>
                 <% } %>
               </div>
 
-              <div class="plan-footer">
+              <div class="plan-actions-bar">
                 <span class="promo-pill <%= promoAtiva ? 'on' : 'off' %>">
                   <%= promoAtiva ? 'Promoção ativa' : (cfg.promoPriceCents ? 'Promoção programada/expirada' : 'Sem promoção') %>
                 </span>
-                <div class="plan-seal-actions">
-                  <input type="file" id="seal-file-<%= p.key %>" accept="image/png,image/jpeg,image/webp"
-                         style="display:none" onchange="enviarSelo('<%= p.key %>', this)">
-                  <button type="button" class="btn secondary small"
-                          onclick="document.getElementById('seal-file-<%= p.key %>').click()">Alterar selo</button>
-                  <% if (cfg.sealFile) { %>
-                  <form method="post" action="/admin/plans/<%= p.key %>/seal/remove">
-                    <button type="submit" class="btn secondary small">Usar padrão</button>
-                  </form>
-                  <% } %>
+                <button type="submit" class="btn small">Salvar plano</button>
+              </div>
+            </form>
+
+            <div class="plan-seal-actions" style="border-top:1px solid var(--border-light); padding-top:10px; align-items:center">
+              <input type="file" id="seal-file-<%= p.key %>" accept="image/png,image/jpeg,image/webp"
+                     style="display:none" onchange="enviarSelo('<%= p.key %>', this)">
+              <button type="button" class="btn secondary small"
+                      onclick="document.getElementById('seal-file-<%= p.key %>').click()">Alterar selo</button>
+              <% if (cfg.sealFile) { %>
+              <form method="post" action="/admin/plans/<%= p.key %>/seal/remove">
+                <button type="submit" class="btn secondary small">Usar padrão</button>
+              </form>
+              <% } %>
+              <form method="post" action="/admin/plans/<%= p.key %>/toggle" style="margin-left:auto">
+                <button type="submit" class="btn <%= p.active ? 'secondary' : '' %> small">
+                  <%= p.active ? 'Pausar venda' : 'Ativar para venda' %>
+                </button>
+              </form>
+            </div>
+          </section>
+          <% }); %>
+
+          <section class="plan-editor new-plan">
+            <h2 class="new-plan-title">Cadastrar novo plano
+              <small>Fica disponível para venda assim que criado (você pode pausar depois).</small>
+            </h2>
+            <form method="post" action="/admin/plans/create" class="field" id="novo-plano">
+              <div style="margin-bottom:10px">
+                <label for="new-key">Chave interna (única, não muda depois)</label>
+                <input id="new-key" type="text" name="key" maxlength="30" required
+                       placeholder="Ex.: bronze" pattern="[A-Za-z][A-Za-z0-9_-]{1,29}">
+              </div>
+              <div style="margin-bottom:10px">
+                <label for="new-label">Nome exibido</label>
+                <input id="new-label" type="text" name="label" maxlength="60" required placeholder="Ex.: Bronze">
+              </div>
+              <div class="field field-desc" style="margin-bottom:10px">
+                <label for="new-desc">Descrição na tela de planos</label>
+                <textarea id="new-desc" class="plan-desc-input" name="description" maxlength="255"
+                          placeholder="Ex.: PDV e estoque para quem está começando."></textarea>
+              </div>
+              <div class="editor-grid" style="margin-bottom:10px">
+                <div>
+                  <label for="new-price">Preço normal (R$)</label>
+                  <input id="new-price" type="text" inputmode="decimal" name="price" placeholder="0,00" required>
+                </div>
+                <div>
+                  <label for="new-devices">Limite de dispositivos</label>
+                  <input id="new-devices" type="number" name="maxDevices" min="1" max="999" value="1" required>
+                </div>
+                <div>
+                  <label for="new-days">Dias de licença por pagamento</label>
+                  <input id="new-days" type="number" name="extendsDays" min="1" max="3650" value="30" required>
                 </div>
               </div>
-            </section>
-            <% }); %>
-          </div>
-
-          <div class="form-actions-bar">
-            <p class="price-help">
-              A promoção vale apenas para novas assinaturas e compras à vista.
-              Assinaturas já criadas mantêm o valor contratado.
-            </p>
-            <button type="submit" class="btn">Salvar preços e promoções</button>
-          </div>
-        </form>
+              <div class="features-list" style="margin-bottom:12px">
+                <% featureOptions.forEach(function (f) { %>
+                <label class="feature">
+                  <input type="checkbox" name="features[<%= f.key %>]" value="1">
+                  <span>
+                    <strong><%= f.label %></strong>
+                    <small><%= f.hint %></small>
+                  </span>
+                </label>
+                <% }); %>
+              </div>
+              <div class="plan-actions-bar">
+                <span class="plans-help" style="margin:0">O Pix/boleto/cartão e a assinatura usam o preço que você salvar aqui.</span>
+                <button type="submit" class="btn small">Criar plano</button>
+              </div>
+            </form>
+          </section>
+        </div>
       </div>
     </main>
   </div>
   <script>
-    // O formulário de preços usa POST normal; o selo sobe como data URL porque o cloud
+    // O formulário do plano usa POST normal; o selo sobe como data URL porque o cloud
     // não usa multipart (mesmo padrão do PDF de contrato e do catálogo).
     async function enviarSelo(key, input) {
       const file = input.files && input.files[0];
