@@ -286,6 +286,44 @@ async function main(): Promise<void> {
       JSON.stringify(detailsBody).slice(0, 200),
     );
 
+    // ── Pedido de teste (sandbox): ticket real na cozinha, sem marketplace ──
+    lastRequest = null;
+    const testOrder = await api('/api/maisdelivery/test-order', { method: 'POST' });
+    const testBody = await unwrap<{
+      orderId: string;
+      customer: string;
+      deliveryType: string;
+      itemCount: number;
+      totalCents: number;
+    }>(testOrder);
+    check('pedido de teste responde', testOrder.status === 200, `status=${testOrder.status}`);
+    check(
+      'pedido de teste: id negativo e rótulo TESTE',
+      Boolean(testBody) && Number(testBody.orderId) < 0 && testBody.customer === 'PEDIDO TESTE',
+    );
+    check(
+      'pedido de teste: itens e total coerentes',
+      testBody.itemCount === 3 && testBody.totalCents > 0,
+      `itens=${testBody.itemCount} total=${testBody.totalCents}`,
+    );
+    const testTicket = getSqlite()
+      .prepare(
+        `SELECT kt.id, kt.table_label, kt.status
+           FROM kitchen_tickets kt
+          WHERE kt.source_type = 'delivery' AND kt.source_id = ? AND kt.deleted_at IS NULL`,
+      )
+      .get(Number(testBody.orderId)) as { id: number; table_label: string | null; status: string } | undefined;
+    check(
+      'ticket de teste existe no KDS',
+      Boolean(testTicket) && (testTicket?.table_label ?? '').startsWith('TESTE') && testTicket?.status === 'pendente',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    /* Função, não const: o TS estreita `lastRequest` para `null` logo após `lastRequest = null`
+       e acusaria `never` no acesso — dentro de função o narrowing some. */
+    const sawStatusCall = (): boolean =>
+      lastRequest !== null && Number(lastRequest.body.nrOperacao) === 3;
+    check('pedido de teste NÃO conversa com o marketplace', !sawStatusCall());
+
     // ── Volta: cozinha marca "pronto" → marketplace ──
     lastRequest = null;
     const ticketId = ticket?.id ?? 0;

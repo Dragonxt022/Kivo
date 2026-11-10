@@ -12,6 +12,7 @@ router.get('/pedidos', (req: Request, res: Response) => {
   res.render('maisdelivery-orders', {
     user: req.user,
     configured: isMaisDeliveryConfigured(),
+    sandbox: getMaisDeliveryConfig().sandbox,
     canManage: req.user.permissions.has('maisdelivery.orders.status'),
     canSettings: req.user.permissions.has('maisdelivery.settings.manage'),
   });

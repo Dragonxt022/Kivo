@@ -14,12 +14,12 @@
 <body>
   <%- include('partials/nav', { user, page: '/app/maisdelivery/pedidos' }) %>
   <main class="md-page"
-        x-data="maisdeliveryOrdersPage(<%= configured ? 'true' : 'false' %>, <%= canManage ? 'true' : 'false' %>, <%= canSettings ? 'true' : 'false' %>)">
+        x-data="maisdeliveryOrdersPage(<%= configured ? 'true' : 'false' %>, <%= canManage ? 'true' : 'false' %>, <%= canSettings ? 'true' : 'false' %>, <%= sandbox ? 'true' : 'false' %>)">
     <header class="md-head">
       <img src="/img/maisdelivery.png" alt="Mais Delivery" class="md-logo" />
       <div class="md-head-text">
         <h1>Pedidos Mais Delivery</h1>
-        <p class="muted">Acompanhe os pedidos do marketplace em tempo real. O Kivo não altera venda, comanda ou estoque por aqui.</p>
+        <p class="muted" x-text="configured ? 'Acompanhe os pedidos do marketplace e envie para a cozinha.' : 'Conclua a integração para acompanhar os pedidos.'"></p>
       </div>
       <div class="md-head-actions">
         <span class="md-sync" x-show="lastSyncLabel()" x-text="lastSyncLabel()" x-cloak></span>
@@ -31,10 +31,19 @@
     </header>
 
     <section class="md-banner" x-show="!configured" x-cloak>
-      <strong>Integração ainda não configurada.</strong>
-      <span>Salve o Access token, o Basic Auth e os IDs para liberar a listagem de pedidos.</span>
-      <a class="btn" href="/app/maisdelivery/configuracoes" x-show="canSettings">Configurar</a>
-      <span x-show="!canSettings">Peça ao administrador para configurar a integração.</span>
+      <strong>Integração ainda não concluída.</strong>
+      <span>Conclua a integração (código de integração da loja) para liberar a listagem de pedidos.</span>
+      <a class="btn" href="/app/maisdelivery/configuracoes" x-show="canSettings">Concluir integração</a>
+      <span x-show="!canSettings">Peça ao administrador para concluir a integração.</span>
+    </section>
+
+    <section class="md-banner" x-show="configured && sandbox" x-cloak>
+      <strong>Modo sandbox ligado.</strong>
+      <span>Quer testar a ponte da cozinha sem criar pedido no marketplace?</span>
+      <button type="button" class="btn small" :disabled="creatingTest" @click="createTestOrder()"
+              title="Cria um pedido fictício na fila da cozinha — nada é enviado ao Mais Delivery.">
+        <span x-text="creatingTest ? 'Criando…' : 'Criar pedido de teste'"></span>
+      </button>
     </section>
 
     <div class="md-alert" x-show="error" x-cloak>
@@ -150,6 +159,7 @@
                 </template>
                 <span class="md-skel w-24" x-show="!order._loaded"></span>
                 <span class="md-tag new" x-show="order._loaded && order.customerIsNew" x-cloak>Novo cliente</span>
+                <span class="md-tag warn" x-show="order._test" x-cloak>Pedido de teste</span>
                 <span class="md-tag" x-show="order._loaded && order.origin" x-cloak x-text="order.origin"></span>
               </div>
               <div class="md-order-customer">
@@ -433,11 +443,12 @@
   </main>
 
   <script nonce="<%= cspNonce %>">
-    function maisdeliveryOrdersPage(configured, canManage, canSettings) {
+    function maisdeliveryOrdersPage(configured, canManage, canSettings, sandbox) {
       return {
         configured: configured,
         canManage: canManage,
         canSettings: canSettings,
+        sandbox: sandbox,
         started: false,
         loading: false,
         hydrating: false,
@@ -467,6 +478,7 @@
         statusReason: '',
         savingStatus: false,
         sendingKitchen: '',
+        creatingTest: false,
 
         init() {
           if (this.started) return;
@@ -1024,6 +1036,52 @@
             this.detailError = 'Erro de conexão ao alterar a situação.';
           } finally {
             this.savingStatus = false;
+          }
+        },
+
+        /**
+         * Pedido fictício de teste (sandbox): o servidor cria um ticket REAL na
+         * cozinha (rótulo "TESTE") sem tocar no marketplace; aqui o card entra no
+         * topo já marcado como "na cozinha". Ele some da lista quando a tela
+         * recarrega (a API não lista pedidos de teste) — na cozinha ele continua.
+         */
+        async createTestOrder() {
+          if (!this.sandbox || !this.canManage || this.creatingTest) return;
+          this.creatingTest = true;
+          try {
+            const response = await fetch('/api/maisdelivery/test-order', { method: 'POST' });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              this.flash(data.error || 'Não foi possível criar o pedido de teste.');
+              return;
+            }
+            this.orders.unshift({
+              id: data.orderId || 'teste',
+              _loaded: true,
+              _test: true,
+              _failed: false,
+              sentToKitchen: true,
+              customer: data.customer || 'PEDIDO TESTE',
+              phone: '',
+              address: 'Pedido de teste — modo sandbox',
+              deliveryType: data.deliveryType || 'Sandbox',
+              origin: data.origin || 'Kivo (teste)',
+              createdAtIso: new Date().toISOString(),
+              totalCents: data.totalCents ?? null,
+              totalRaw: data.totalRaw || '',
+              itemCount: data.itemCount || 0,
+              items: data.items || [],
+              status: 'Pendente',
+              statusId: '1',
+              notes: 'Pedido de teste criado no Kivo (sandbox).',
+              customerIsNew: false,
+            });
+            this.page = 1;
+            this.flash('Pedido de teste na cozinha! Ele aparece em "TESTE · Sandbox" no KDS e some da lista ao atualizar.');
+          } catch {
+            this.flash('Erro de conexão ao criar o pedido de teste.');
+          } finally {
+            this.creatingTest = false;
           }
         },
 

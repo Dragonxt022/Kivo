@@ -21,7 +21,7 @@ import {
   saveMaisDeliveryConfig,
   type MaisDeliveryConfigInput,
 } from '../settings';
-import { isCancelSituation, sendOrderToKitchen } from '../kitchenBridge';
+import { isCancelSituation, sendOrderToKitchen, createTestOrder } from '../kitchenBridge';
 import { getService, hasService } from '../../../core/services/registry';
 
 interface KitchenServiceFacade {
@@ -240,5 +240,10 @@ export const maisDeliveryController = {
     }
     const result = await sendOrderToKitchen(req, orderId);
     res.json(result);
+  }),
+
+  /** Pedido fictício de teste (sandbox): ticket real na cozinha, sem falar com a API. */
+  createTestOrder: wrap(async (req, res) => {
+    res.json(await createTestOrder(req));
   }),
 };

@@ -164,7 +164,12 @@
                     <div class="kds-item" :class="'kds-item-' + item.status">
                       <div class="kds-item-qty" x-text="item.qty + 'x'"></div>
                       <div class="kds-item-info">
-                        <div class="kds-item-name" x-text="item.product_name"></div>
+                        <%# Toque no nome abre o detalhe ampliado: leitura de longe e
+                            botões de voltar/avançar no lugar (tablet da cozinha). %>
+                        <button type="button" class="kds-item-name kds-item-name-btn"
+                                @click="openItemDetail(ticket, item)"
+                                :aria-label="'Detalhe de ' + item.product_name"
+                                x-text="item.product_name"></button>
                         <%# Complementos escolhidos no item principal (Açaí + Granola...).
                             Sem esta linha a cozinha só via o Açaí. %>
                         <div class="kds-item-complements" x-show="item.complements"
@@ -308,6 +313,51 @@
         <button type="button" class="btn secondary" @click="$refs.somDlg.close()">Cancelar</button>
         <button type="button" class="btn" @click="salvarSom()">Salvar sons</button>
       </div>
+    </dialog>
+
+    <!-- Dialog: detalhe ampliado do item — cozinha toca no nome do item para ler de longe. -->
+    <dialog x-ref="itemDlg" class="kds-item-dlg" @close="itemDetail = null" @click="itemDlgBackdrop($event)">
+      <template x-if="resolveItemDetail()">
+        <div class="kds-item-dlg-body">
+          <div class="kds-item-dlg-head">
+            <span class="kds-item-dlg-ticket" x-text="ticketLabel(resolveItemDetail().ticket)"></span>
+            <span class="kds-item-dlg-age" x-text="ticketAge(resolveItemDetail().ticket)"></span>
+            <button type="button" class="icon-btn" @click="closeItemDetail()" aria-label="Fechar">×</button>
+          </div>
+          <div class="kds-item-dlg-content">
+            <div class="kds-item-dlg-qty" x-text="resolveItemDetail().item.qty + '×'"></div>
+            <h2 class="kds-item-dlg-name" x-text="resolveItemDetail().item.product_name"></h2>
+            <div class="kds-item-dlg-status">
+              <span class="badge" :class="'kds-badge-' + resolveItemDetail().item.status"
+                    x-text="resolveItemDetail().item.status"></span>
+              <span class="badge badge-info" x-show="resolveItemDetail().item.station"
+                    x-text="resolveItemDetail().item.station"></span>
+              <span class="badge badge-viagem" x-show="resolveItemDetail().item.para_viagem">Viagem</span>
+            </div>
+            <div class="kds-item-dlg-note" x-show="resolveItemDetail().item.notes" x-cloak>
+              <strong>Observação:</strong>
+              <span x-text="resolveItemDetail().item.notes"></span>
+            </div>
+            <div class="kds-item-dlg-note" x-show="resolveItemDetail().item.complements" x-cloak>
+              <strong>Acompanha:</strong>
+              <span x-text="resolveItemDetail().item.complements"></span>
+            </div>
+            <div class="kds-item-dlg-actions">
+              <button type="button" class="btn secondary" @click="closeItemDetail()">Fechar</button>
+              <button type="button" class="btn secondary" x-show="prevTicketStatus(resolveItemDetail().item.status)"
+                      @click="itemDetailRevert()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                <span x-text="prevTicketAction(resolveItemDetail().item.status)"></span>
+              </button>
+              <button type="button" class="btn kds-item-dlg-advance"
+                      x-show="resolveItemDetail().item.status !== 'entregue'"
+                      @click="itemDetailAdvance()">
+                <span x-text="nextStatus(resolveItemDetail().item.status)"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
     </dialog>
   </main>
   <style>
@@ -714,6 +764,52 @@
       .kds-col { flex: none; padding: .3rem .4rem .35rem; }
       .kds-col:has(.kds-card) { flex-grow: 0; }
     }
+
+    /* Nome do item clicável: abre o detalhe ampliado (modal para leitura de longe). */
+    .kds-item-name-btn {
+      appearance: none; background: none; border: none; padding: 0;
+      font: inherit; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left; max-width: 100%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .kds-item-name-btn:hover { color: var(--primary); text-decoration: underline; }
+    .kds-item-name-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+    .kds-badge-pendente { background: var(--surface-hover); color: var(--text-muted); }
+    .kds-badge-preparo { background: #2a78d6; color: #fff; }
+    .kds-badge-pronto { background: #16a34a; color: #fff; }
+    .kds-badge-entregue { background: var(--surface-hover); color: var(--text-muted); }
+
+    /* Modal do detalhe ampliado: cozinha lê de longe — texto gigante e botão grande. */
+    dialog.kds-item-dlg {
+      width: min(460px, calc(100vw - 2rem)); border-radius: 18px; padding: 0;
+      border: 1px solid var(--border-light); background: var(--surface);
+      color: var(--text); animation: kds-item-dlg-in .18s ease-out;
+    }
+    @keyframes kds-item-dlg-in { from { opacity: .4; transform: scale(.96); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { dialog.kds-item-dlg { animation: none; } }
+    .kds-item-dlg-body { padding: 1.1rem 1.3rem 1.4rem; }
+    .kds-item-dlg-head {
+      display: flex; align-items: center; gap: .6rem; margin-bottom: .9rem;
+      font-size: .85rem; color: var(--text-muted);
+    }
+    .kds-item-dlg-ticket { font-weight: 700; color: var(--text); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kds-item-dlg-age { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .kds-item-dlg-content { display: flex; flex-direction: column; gap: .6rem; }
+    .kds-item-dlg-qty {
+      font-size: 1.05rem; font-weight: 800; color: var(--primary);
+      font-variant-numeric: tabular-nums;
+    }
+    .kds-item-dlg-name { margin: 0; font-size: 2.1rem; line-height: 1.15; letter-spacing: -.01em; }
+    .kds-item-dlg-status { display: flex; gap: .4rem; flex-wrap: wrap; }
+    .kds-item-dlg-note {
+      padding: .65rem .8rem; border-radius: 12px; font-size: 1.05rem; line-height: 1.35;
+      border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-light));
+      background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+    }
+    .kds-item-dlg-note strong { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: .15rem; }
+    .kds-item-dlg-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .6rem; }
+    .kds-item-dlg-actions .btn { flex: 1 1 auto; justify-content: center; min-height: 52px; font-size: 1rem; font-weight: 700; }
+    .kds-item-dlg-advance { background: var(--primary); }
   </style>
   <style>
     :root { --kds-preparo: #2a78d6; --kds-mesa: #6d28d9; }
@@ -725,6 +821,9 @@
         tickets: [],
         pollTimer: null,
         showEntregues: false,
+        // Detalhe ampliado do item: só ids — após o load() os dados re-resolvem
+        // da lista nova (modal mostra a etapa ATUAL, não um snapshot velho).
+        itemDetail: null,
         swipeId: null, swipeStartX: 0, swipeStartY: 0, swipeDx: 0,
         // Som de novo pedido: preferência fica no aparelho (localStorage) — cada tela
         // de cozinha decide sozinha. `knownIds` é o baseline: carregar a página não toca
@@ -1219,6 +1318,38 @@
           const next = this.nextStatusValue(currentStatus);
           if (!next) return;
           await this.setItemStatus(ticketId, itemId, next);
+        },
+        /* ── Modal do item ampliado (toque no nome) ── */
+        openItemDetail(ticket, item) {
+          this.itemDetail = { ticketId: ticket.id, itemId: item.id };
+          if (this.$refs.itemDlg && !this.$refs.itemDlg.open) this.$refs.itemDlg.showModal();
+        },
+        closeItemDetail() {
+          if (this.$refs.itemDlg?.open) this.$refs.itemDlg.close();
+          this.itemDetail = null;
+        },
+        resolveItemDetail() {
+          if (!this.itemDetail) return null;
+          const ticket = this.tickets.find((t) => t.id === this.itemDetail.ticketId);
+          const item = ticket && (ticket.items || []).find((i) => i.id === this.itemDetail.itemId);
+          return ticket && item ? { ticket, item } : null;
+        },
+        itemDlgBackdrop(event) {
+          if (event.target === this.$refs.itemDlg) this.closeItemDetail();
+        },
+        async itemDetailAdvance() {
+          const detail = this.resolveItemDetail();
+          if (!detail) return this.closeItemDetail();
+          const next = this.nextStatusValue(detail.item.status);
+          if (!next) return;
+          await this.setItemStatus(detail.ticket.id, detail.item.id, next);
+        },
+        async itemDetailRevert() {
+          const detail = this.resolveItemDetail();
+          if (!detail) return this.closeItemDetail();
+          const prev = this.prevTicketStatus(detail.item.status);
+          if (!prev) return;
+          await this.setItemStatus(detail.ticket.id, detail.item.id, prev);
         },
         async revertItem(ticketId, itemId, currentStatus) {
           const prev = this.prevTicketStatus(currentStatus);

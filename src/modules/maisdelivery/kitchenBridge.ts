@@ -12,7 +12,7 @@ import {
   type OrderSummary,
   type StatusOption,
 } from './client';
-import { getKitchenSituations, isMaisDeliveryConfigured, saveKitchenSituations } from './settings';
+import { getKitchenSituations, getMaisDeliveryConfig, isMaisDeliveryConfigured, saveKitchenSituations } from './settings';
 
 /**
  * Ponte cozinha ⇆ Mais Delivery.
@@ -243,6 +243,68 @@ export async function sendOrderToKitchen(req: Request, orderId: number): Promise
   }
 
   return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pedido de teste (sandbox)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Itens fictícios com preço — a API do marketplace não cria pedidos, o teste é local. */
+const TEST_ORDER_ITEMS = [
+  { name: 'X-Burger (TESTE)', qty: 1, unit: 2990 },
+  { name: 'Batata frita (TESTE)', qty: 2, unit: 1290, notes: 'bem feita, sem sal na batata' },
+  { name: 'Refrigerante lata (TESTE)', qty: 2, unit: 690 },
+];
+
+/**
+ * Cria um pedido de teste no modo sandbox: ticket REAL de cozinha (mesma fila dos
+ * pedidos de marketplace, com rótulo "TESTE") que a cozinha pode avançar de etapa
+ * normalmente. Nada é enviado ao Mais Delivery — source_id negativo marca que este
+ * ticket não é um pedido real do marketplace (a sincronia com lá fora o ignora).
+ */
+export async function createTestOrder(req: Request): Promise<{
+  orderId: string;
+  customer: string;
+  deliveryType: string;
+  origin: string;
+  items: { name: string; qty: string }[];
+  itemCount: number;
+  totalCents: number;
+  totalRaw: string;
+}> {
+  const kitchenService = kitchen();
+  if (!kitchenService) {
+    throw new MaisDeliveryError('O painel de cozinha não está disponível nesta instalação.', 400);
+  }
+  if (!isMaisDeliveryConfigured() || !getMaisDeliveryConfig().sandbox) {
+    throw new MaisDeliveryError('Ligue o modo sandbox para criar pedidos de teste.', 400);
+  }
+
+  const sourceId = -Date.now(); // negativo = pedido de teste, nunca vai para o marketplace
+  const created = kitchenService.notifyDeliveryOrder(req, {
+    sourceId,
+    tableLabel: 'TESTE · Sandbox',
+    serviceType: 'entrega',
+    items: TEST_ORDER_ITEMS.map((item) => ({ name: item.name, qty: item.qty, notes: item.notes })),
+  });
+  if (created.items === 0) {
+    throw new MaisDeliveryError('Não foi possível gerar os itens do pedido de teste.', 400);
+  }
+  audit(req, 'criar_pedido_teste', 'maisdelivery_order', sourceId, null, {
+    items: TEST_ORDER_ITEMS.map((i) => ({ name: i.name, qty: i.qty })),
+  });
+
+  const totalCents = TEST_ORDER_ITEMS.reduce((sum, item) => sum + item.qty * item.unit, 0);
+  return {
+    orderId: String(sourceId),
+    customer: 'PEDIDO TESTE',
+    deliveryType: 'Sandbox',
+    origin: 'Kivo (teste)',
+    items: TEST_ORDER_ITEMS.map((item) => ({ name: item.name, qty: String(item.qty) })),
+    itemCount: TEST_ORDER_ITEMS.length,
+    totalCents,
+    totalRaw: (totalCents / 100).toFixed(2).replace('.', ','),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -45,19 +45,19 @@
           <h2>Status da integração</h2>
           <div class="md-status-list">
             <div class="md-status-item">
-              <span class="md-dot" :class="{ on: hasAccessTokenProducao || hasAccessTokenSandbox }"></span>
+              <span class="md-dot" :class="tokenDotClass()"></span>
               <span x-text="sedeTokenLabel()"></span>
             </div>
             <div class="md-status-item">
-              <span class="md-dot" :class="{ on: hasBasicAuth }"></span>
-              <span x-text="hasBasicAuth ? 'Basic Auth da sede configurado na VPS' : 'Basic Auth da sede não configurado'"></span>
+              <span class="md-dot" :class="basicAuthDotClass()"></span>
+              <span x-text="basicAuthLabel()"></span>
             </div>
             <div class="md-status-item">
-              <span class="md-dot" :class="{ on: !sandbox }"></span>
+              <span class="md-dot" :class="{ on: !sandbox, wait: sandbox && !cloudLoading }"></span>
               <span x-text="sandbox ? 'Modo sandbox (teste)' : 'Modo produção'"></span>
             </div>
             <div class="md-status-item">
-              <span class="md-dot" :class="{ on: !cloudError && sedeConfigured() }"></span>
+              <span class="md-dot" :class="sedeDotClass()"></span>
               <span x-text="sedeStatusLabel()"></span>
             </div>
           </div>
@@ -230,14 +230,42 @@
         sedeConfigured() {
           return (this.hasAccessTokenProducao || this.hasAccessTokenSandbox) && this.hasBasicAuth;
         },
+        /* Three-state das bolinhas: verde = ok, amarelo = validando na nuvem, vermelho = falta. */
+        hasSedeToken() {
+          return this.hasAccessTokenProducao || this.hasAccessTokenSandbox;
+        },
+        tokenDotClass() {
+          if (this.hasSedeToken()) return { on: true };
+          return { wait: this.cloudLoading };
+        },
+        basicAuthDotClass() {
+          if (this.hasBasicAuth) return { on: true };
+          return { wait: this.cloudLoading };
+        },
+        sedeDotClass() {
+          if (this.sedeConfigured()) return { on: true };
+          if (this.cloudError) return {};
+          return { wait: this.cloudLoading };
+        },
         sedeTokenLabel() {
-          if (this.hasAccessTokenProducao || this.hasAccessTokenSandbox) return 'Access token da sede configurado na VPS';
+          if (this.hasSedeToken()) return 'Access token da sede configurado na VPS';
           return this.cloudLoading ? 'Validando access token da sede…' : 'Access token da sede não configurado';
+        },
+        basicAuthLabel() {
+          if (this.hasBasicAuth) return 'Basic Auth da sede configurado na VPS';
+          return this.cloudLoading ? 'Validando Basic Auth da sede…' : 'Basic Auth da sede não configurado';
         },
         sedeStatusLabel() {
           if (this.cloudLoading) return 'Buscando credenciais da sede…';
           if (this.sedeConfigured()) return 'Sede em ordem: credenciais prontas para uso';
           return 'Faltam credenciais da sede no painel cloud';
+        },
+        /* Ao abrir a página (loja já integrada) valida as credenciais da sede na hora:
+           sem isso as bolinhas ficavam eternamente "validando" até alguém integrar. */
+        init() {
+          if (Number(this.empresaIntegrada) > 0 || Number(this.restaurante) > 0 || Number(this.marketplace) > 0) {
+            void this.buscarCredenciaisSede();
+          }
         },
         stepClass(n) {
           return { done: n < this.step || this.done, active: n === this.step };

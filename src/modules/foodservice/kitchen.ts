@@ -124,6 +124,8 @@ function syncDeliveryStatus(
   newStatus: KitchenActionableStatus,
 ): void {
   if (ticket.source_type !== 'delivery' || !hasService('maisdelivery.kitchen')) return;
+  // source_id negativo = pedido de teste (sandbox): não existe no marketplace.
+  if (ticket.source_id <= 0) return;
   void Promise.resolve()
     .then(() => getService<DeliveryStatusService>('maisdelivery.kitchen').onTicketStatusChange(req, ticket.source_id, newStatus))
     .catch((error) => {

@@ -59,6 +59,13 @@ router.post(
   requirePermission('maisdelivery.orders.status'),
   maisDeliveryController.sendToKitchen,
 );
+// Pedido fictício de teste (só com sandbox ligado): ticket real na cozinha para
+// exercitar a fila sem criar nada no marketplace.
+router.post(
+  '/test-order',
+  requirePermission('maisdelivery.orders.status'),
+  maisDeliveryController.createTestOrder,
+);
 
 // Auxiliares para filtros e para montar o seletor de situação.
 router.get(
