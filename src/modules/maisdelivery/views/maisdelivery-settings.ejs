@@ -7,13 +7,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
-  <style>
-    .btn.disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-  </style>
   <%- include('partials/maisdelivery-styles') %>
   <script nonce="<%= cspNonce %>">
     window.MAISDELIVERY_CONFIG = <%- JSON.stringify(config) %>;
@@ -22,218 +15,339 @@
 </head>
 <body>
   <%- include('partials/nav', { user, page: '/app/maisdelivery/configuracoes' }) %>
-  <main class="md-page" x-data="maisdeliverySettingsPage()" x-init="loadCloudCredentials()">
+  <main class="md-page" x-data="maisdeliverySettingsPage()">
     <header class="md-head">
       <img src="/img/maisdelivery.png" alt="Mais Delivery" class="md-logo" />
       <div class="md-head-text">
         <h1>Integração Mais Delivery</h1>
-        <p class="muted">Conecte o painel do Mais Delivery para acompanhar os pedidos do marketplace dentro do Kivo.</p>
-        <div class="md-config-summary" x-show="isConfigured()" x-cloak>
-          <span class="md-config-chip">Empresa <strong x-text="form.empresaIntegrada || '—'"></strong></span>
-          <span class="md-config-chip">Restaurante <strong x-text="form.restaurante || '—'"></strong></span>
-          <span class="md-config-chip" x-show="form.marketplace">Marketplace <strong x-text="form.marketplace"></strong></span>
-          <span class="md-config-chip" :class="{ sandbox: form.sandbox }" x-text="form.sandbox ? 'Sandbox' : 'Produção'"></span>
+        <p class="muted" x-text="configured ? 'Sua loja está conectada ao marketplace.' : 'Conecte o painel do Mais Delivery para acompanhar os pedidos do marketplace dentro do Kivo.'"></p>
+        <div class="md-config-summary" x-show="configured" x-cloak>
+          <span class="md-config-chip" x-text="restauranteLabel()"></span>
+          <span class="md-config-chip">Empresa <strong x-text="empresaIntegrada"></strong></span>
+          <span class="md-config-chip" :class="{ sandbox }" x-text="sandbox ? 'Sandbox' : 'Produção'"></span>
         </div>
       </div>
       <div class="md-head-actions">
         <a class="btn secondary" href="https://maisdeliveryapp.com.br/web/institucional.auth.api.publica.php" target="_blank" rel="noopener">Abrir painel</a>
-        <a class="btn" :href="isConfigured() ? '/app/maisdelivery/pedidos' : '#'" @click.prevent="!isConfigured()" :class="{ disabled: !isConfigured() }">Ver pedidos</a>
+        <a class="btn" x-show="configured && canOrders" x-cloak href="/app/maisdelivery/pedidos">Ver pedidos</a>
       </div>
     </header>
 
-    <div class="md-banner" x-show="config.sandbox" x-cloak>
+    <div class="md-banner" x-show="configured && sandbox" x-cloak>
       <strong>Modo sandbox ligado.</strong>
       <span>Os pedidos exibidos são do ambiente de teste do Mais Delivery. Desligue somente quando for usar o token de produção.</span>
     </div>
 
-    <div class="md-grid">
-      <section class="panel">
-        <h2>Código de integração da sua loja</h2>
-        <p class="muted text-sm">
-          Informe o código de integração fornecido pelo suporte do Mais Delivery. Ele identifica o seu restaurante ou marketplace.
-          As credenciais (Access token e Basic Auth) já vêm configuradas pela sede.
-        </p>
-
-        <div class="md-field" :disabled="!canEditCodigo">
-          <label for="md-codigo-integracao">Código de integração</label>
-          <input id="md-codigo-integracao" type="number" min="1" step="1" class="input" x-model="form.codigoIntegracao"
-                 :placeholder="config.restaurante || config.marketplace ? '•••••••• (salvo)' : 'Ex.: 50451'"
-                 :disabled="!canEditCodigo" />
-          <span class="hint">Fornecido pelo suporte do Mais Delivery. Use apenas números.</span>
-        </div>
-
-        <div class="md-field" :disabled="!canEditCodigo">
-          <label>Tipo de integração</label>
-          <div class="md-radio-group" role="radiogroup">
-            <label class="md-radio">
-              <input type="radio" name="mdTipo" value="restaurante" x-model="form.tipo" :disabled="!canEditCodigo" />
-              <span>Restaurante</span>
-            </label>
-            <label class="md-radio">
-              <input type="radio" name="mdTipo" value="marketplace" x-model="form.tipo" :disabled="!canEditCodigo" />
-              <span>Marketplace</span>
-            </label>
-          </div>
-          <span class="hint">O suporte do Mais Delivery informa qual usar. O tipo determina se o pedido é consultado pelo ID do restaurante ou pelo ID do marketplace.</span>
-        </div>
-
-        <div class="md-actions">
-          <button type="button" class="btn" @click="salvarCodigo()" :disabled="saving || !canEditCodigo">
-            <span x-text="saving ? 'Integrando…' : 'Salvar código de integração'"></span>
-          </button>
-        </div>
-        <p class="error" x-text="errorCodigo" x-show="errorCodigo" x-cloak></p>
-        <p class="md-note" x-text="noticeCodigo" x-show="noticeCodigo" x-cloak></p>
-      </section>
-
-      <section class="panel">
-        <h2>Status da integração</h2>
-        <div class="md-status-list">
-          <div class="md-status-item">
-            <span class="md-dot" :class="{ on: config.hasAccessTokenProducao || config.hasAccessTokenSandbox }"></span>
-            <span x-text="(config.hasAccessTokenProducao || config.hasAccessTokenSandbox) ? 'Access token da sede configurado na VPS' : 'Access token da sede não configurado'"></span>
-          </div>
-          <div class="md-status-item">
-            <span class="md-dot" :class="{ on: config.hasBasicAuth }"></span>
-            <span x-text="config.hasBasicAuth ? 'Basic Auth da sede configurado na VPS' : 'Basic Auth da sede não configurado'"></span>
-          </div>
-          <div class="md-status-item">
-            <span class="md-dot" :class="{ on: isConfigured() }"></span>
-            <span x-text="isConfigured() ? 'Pronto para listar pedidos' : 'Faltam dados para listar pedidos'"></span>
-          </div>
-          <div class="md-status-item">
-            <span class="md-dot" :class="{ on: !config.sandbox }"></span>
-            <span x-text="config.sandbox ? 'Modo sandbox (teste)' : 'Modo produção'"></span>
-          </div>
-        </div>
-
-        <div class="md-test" x-show="testResult || testError" x-cloak>
-          <div class="md-test-card" :class="testResult ? 'ok' : 'err'">
-            <h3 x-text="testResult ? (testResult.establishment && testResult.establishment.name ? testResult.establishment.name : 'Conexão validada') : 'Falha no teste'"></h3>
-            <p class="muted text-sm" x-text="testResult ? establishmentLine() : testError"></p>
-            <div class="md-actions" x-show="testResult">
-              <a class="btn small" href="/app/maisdelivery/pedidos">Ver pedidos</a>
+    <% if (configured) { %>
+      <!-- Loja já integrada: visão enxuta, só status e atalhos. -->
+      <div class="md-grid">
+        <section class="panel">
+          <h2>Status da integração</h2>
+          <div class="md-status-list">
+            <div class="md-status-item">
+              <span class="md-dot" :class="{ on: hasAccessTokenProducao || hasAccessTokenSandbox }"></span>
+              <span x-text="sedeTokenLabel()"></span>
             </div>
-            <details class="md-raw" x-show="testResult">
-              <summary>Resposta original da API</summary>
-              <pre x-text="testResult ? JSON.stringify(testResult.raw, null, 2) : ''"></pre>
-            </details>
+            <div class="md-status-item">
+              <span class="md-dot" :class="{ on: hasBasicAuth }"></span>
+              <span x-text="hasBasicAuth ? 'Basic Auth da sede configurado na VPS' : 'Basic Auth da sede não configurado'"></span>
+            </div>
+            <div class="md-status-item">
+              <span class="md-dot" :class="{ on: !sandbox }"></span>
+              <span x-text="sandbox ? 'Modo sandbox (teste)' : 'Modo produção'"></span>
+            </div>
+            <div class="md-status-item">
+              <span class="md-dot" :class="{ on: !cloudError && sedeConfigured() }"></span>
+              <span x-text="sedeStatusLabel()"></span>
+            </div>
           </div>
-        </div>
+          <p class="error" x-text="cloudError" x-show="cloudError" x-cloak></p>
+        </section>
 
-        <div style="margin-top:1.1rem">
-          <h3>Como configurar</h3>
-          <ol class="md-help">
-            <li>O administrador salva o Access token, o Basic Auth e o ID da empresa integrada no painel cloud (Integrações &rarr; Mais Delivery).</li>
-            <li>Informe o código de integração da sua loja (Restaurante ou Marketplace) recebido do suporte do Mais Delivery.</li>
-            <li>Salve e teste a conexão. Quando o estabelecimento aparecer, abra <a href="/app/maisdelivery/pedidos">Pedidos</a>.</li>
-          </ol>
+        <section class="panel">
+          <h2>Sua integração</h2>
+          <p class="muted text-sm">
+            O código de integração identifica o seu restaurante ou marketplace no Mais Delivery.
+          </p>
+          <div class="md-status-list">
+            <div class="md-status-item"><strong x-text="restauranteLabel()"></strong></div>
+            <div class="md-status-item" style="color:var(--text-muted)">
+              <span>Empresa integrada: <strong x-text="empresaIntegrada"></strong></span>
+            </div>
+          </div>
+          <div class="md-actions">
+            <a class="btn" x-show="canOrders" href="/app/maisdelivery/pedidos">Ver pedidos</a>
+            <button type="button" class="btn secondary" @click="openModal()" :disabled="!canSettings">
+              Alterar código de integração
+            </button>
+          </div>
+        </section>
+      </div>
+    <% } else { %>
+      <!-- Loja ainda não integrada: onboarding com CTA único. -->
+      <section class="md-onboard">
+        <div class="md-onboard-icon" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 17h4V5H2v12h3" /><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5" /><path d="M14 17h1" /><circle cx="7.5" cy="17.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" />
+          </svg>
         </div>
-
-        <p class="muted text-xs" style="margin-top:1rem">
-          O modo sandbox envia <code>sandBox: true</code> em todas as operações. Para obter as credenciais,
-          <a href="https://maisdeliveryapp.com.br/web/institucional.cadastro.api.publica.php" target="_blank" rel="noopener">cadastre a empresa</a>
-          e faça login no painel. O administrador salva o Access token e o Basic Auth na nuvem (painel cloud),
-          e eles são compartilhados com todas as lojas.
+        <h2>Conectar minha loja</h2>
+        <p>
+          Você só precisa do <strong>código de integração</strong> que o suporte do Mais Delivery te passou.
+          As credenciais já são configuradas pela sede automaticamente.
         </p>
+        <button type="button" class="btn primary md-btn-xl" @click="openModal()" :disabled="!canSettings">
+          <span x-text="canSettings ? 'Integrar agora' : 'Sem permissão para integrar'"></span>
+        </button>
+        <details class="md-onboard-details">
+          <summary>Como funciona a integração</summary>
+          <ol class="md-help">
+            <li>O administrador salva as credenciais da sede no painel cloud (Integrações &rarr; Mais Delivery).</li>
+            <li>Aqui, você coloca apenas o código de integração da sua loja (Restaurante ou Marketplace).</li>
+            <li>Ao integrar, o Kivo valida a conexão e já abre a tela de pedidos sincronizada.</li>
+          </ol>
+        </details>
       </section>
-    </div>
+    <% } %>
+
+    <!-- Modal de integração -->
+    <dialog x-ref="integrateDlg" class="md-modal" @keydown.escape.prevent="closeModalIfIdle()" @click="backdropClose($event)">
+      <div class="md-modal-body">
+        <template x-if="!connecting && !done">
+          <div>
+            <h2 x-text="restaurante || marketplace ? 'Alterar código de integração' : 'Integrar minha loja'"></h2>
+            <p class="muted">
+              Cole o código de integração fornecido pelo suporte do Mais Delivery e selecione o tipo.
+            </p>
+            <div class="md-field">
+              <label for="md-codigo-integracao">Código de integração</label>
+              <input id="md-codigo-integracao" type="number" min="1" step="1" class="input" x-model="form.codigoIntegracao"
+                     :placeholder="restaurante || marketplace ? 'Atual: ' + (restaurante || marketplace) : 'Ex.: 50451'"
+                     @keydown.enter.prevent="integrar()" />
+              <span class="hint">Use apenas números.</span>
+            </div>
+            <div class="md-field">
+              <label>Tipo de integração</label>
+              <div class="md-radio-group" role="radiogroup">
+                <label class="md-radio">
+                  <input type="radio" name="mdTipo" value="restaurante" x-model="form.tipo" />
+                  <span>Restaurante</span>
+                </label>
+                <label class="md-radio">
+                  <input type="radio" name="mdTipo" value="marketplace" x-model="form.tipo" />
+                  <span>Marketplace</span>
+                </label>
+              </div>
+              <span class="hint">O suporte do Mais Delivery informa qual usar.</span>
+            </div>
+            <div class="md-modal-actions">
+              <button type="button" class="btn secondary" @click="closeModal()">Cancelar</button>
+              <button type="button" class="btn" @click="integrar()">
+                <span x-text="restaurante || marketplace ? 'Salvar e conectar' : 'Integrar'"></span>
+              </button>
+            </div>
+            <div class="md-modal-error" x-show="integrarError" x-cloak>
+              <span x-text="integrarError"></span>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="connecting && !done">
+          <div>
+            <h2>Conectando sua loja…</h2>
+            <p class="muted">Isso leva alguns segundos.</p>
+            <div class="md-connecting">
+              <div class="md-step" :class="stepClass(1)">
+                <span class="md-step-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                <span>Salvando código de integração</span>
+              </div>
+              <div class="md-step" :class="stepClass(2)">
+                <span class="md-step-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                <span>Conectando ao Mais Delivery</span>
+              </div>
+              <div class="md-step" :class="stepClass(3)">
+                <span class="md-step-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                <span>Validando credenciais da sede</span>
+              </div>
+            </div>
+            <div class="md-modal-error" x-show="integrarError" x-cloak>
+              <span x-text="integrarError"></span>
+            </div>
+            <div class="md-modal-actions" x-show="integrarError" x-cloak>
+              <button type="button" class="btn secondary" @click="resetFlow()">Voltar e corrigir</button>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="done">
+          <div class="md-modal-success">
+            <div class="md-modal-success-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h2>Loja integrada!</h2>
+            <p class="muted" x-text="canOrders ? 'Tudo certo, já vamos abrir seus pedidos sincronizados…' : 'Conexão validada. Use o menu para abrir a tela de Pedidos.'"></p>
+          </div>
+        </template>
+      </div>
+    </dialog>
   </main>
 
   <script nonce="<%= cspNonce %>">
     function maisdeliverySettingsPage() {
       const cfg = window.MAISDELIVERY_CONFIG || {};
-      // A tela inteira já fica atrás de `maisdelivery.settings.manage` (pages.ts), então
-      // editar o código de integração não deve depender da permissão de VER pedidos.
+      const canOrders = <%- canOrders ? 'true' : 'false' %>;
       const canSettings = <%- canSettings ? 'true' : 'false' %>;
       return {
         canOrders,
-        canEditCodigo() {
-          return canSettings;
-        },
+        canSettings,
+        // Estado local da integração (espelha o settings.ts via API).
+        empresaIntegrada: cfg.empresaIntegrada ?? '',
+        restaurante: cfg.restaurante ?? null,
+        marketplace: cfg.marketplace ?? null,
+        sandbox: cfg.sandbox !== false,
+        hasAccessTokenProducao: false,
+        hasAccessTokenSandbox: false,
+        hasBasicAuth: false,
+        cloudLoading: true,
+        cloudError: '',
+        // Modal
         form: {
-          empresaIntegrada: cfg.empresaIntegrada ?? '',
-          restaurante: cfg.restaurante ?? '',
-          marketplace: cfg.marketplace ?? '',
-          sandbox: cfg.sandbox !== false,
           codigoIntegracao: '',
           tipo: cfg.restaurante ? 'restaurante' : (cfg.marketplace ? 'marketplace' : 'restaurante'),
         },
-        hasAccessTokenProducao: !!cfg.hasAccessTokenProducao,
-        hasAccessTokenSandbox: !!cfg.hasAccessTokenSandbox,
-        hasBasicAuth: !!cfg.hasBasicAuth,
-        cloudLoading: true,
-        cloudError: '',
-        saving: false,
-        testing: false,
-        error: '',
-        notice: '',
-        errorCodigo: '',
-        noticeCodigo: '',
-        testResult: null,
-        testError: '',
-        isConfigured() {
-          return !!(
-            (this.hasAccessTokenProducao || this.hasAccessTokenSandbox) &&
-            this.hasBasicAuth &&
-            Number(this.form.empresaIntegrada) > 0 &&
-            (Number(this.form.restaurante) > 0 || Number(this.form.marketplace) > 0)
-          );
+        connecting: false,
+        step: 0,
+        done: false,
+        integrarError: '',
+        get configured() {
+          return Number(this.empresaIntegrada) > 0 && (Number(this.restaurante) > 0 || Number(this.marketplace) > 0);
         },
-        establishmentLine() {
-          if (!this.testResult || !this.testResult.establishment) {
-            return 'A API respondeu sem os dados do estabelecimento.';
+        restauranteLabel() {
+          if (Number(this.restaurante) > 0) return `Restaurante · ${this.restaurante}`;
+          if (Number(this.marketplace) > 0) return `Marketplace · ${this.marketplace}`;
+          return 'Sem código de integração';
+        },
+        sedeConfigured() {
+          return (this.hasAccessTokenProducao || this.hasAccessTokenSandbox) && this.hasBasicAuth;
+        },
+        sedeTokenLabel() {
+          if (this.hasAccessTokenProducao || this.hasAccessTokenSandbox) return 'Access token da sede configurado na VPS';
+          return this.cloudLoading ? 'Validando access token da sede…' : 'Access token da sede não configurado';
+        },
+        sedeStatusLabel() {
+          if (this.cloudLoading) return 'Buscando credenciais da sede…';
+          if (this.sedeConfigured()) return 'Sede em ordem: credenciais prontas para uso';
+          return 'Faltam credenciais da sede no painel cloud';
+        },
+        stepClass(n) {
+          return { done: n < this.step || this.done, active: n === this.step };
+        },
+        /* ---- modal ---- */
+        openModal() {
+          if (!this.canSettings) return;
+          this.integrarError = '';
+          this.step = 0;
+          this.done = false;
+          this.connecting = false;
+          this.$refs.integrateDlg.showModal();
+          this.$nextTick(() => document.getElementById('md-codigo-integracao')?.focus());
+        },
+        closeModal() {
+          if (this.connecting && !this.integrarError) return; // não fecha no meio da animação
+          this.$refs.integrateDlg.close();
+        },
+        closeModalIfIdle() {
+          // ESC não fecha no meio da animação de conexão.
+          if (!this.connecting || this.integrarError) this.$refs.integrateDlg.close();
+        },
+        backdropClose(event) {
+          if (event.target === this.$refs.integrateDlg) this.closeModal();
+        },
+        resetFlow() {
+          this.connecting = false;
+          this.step = 0;
+          this.integrarError = '';
+        },
+        async integrar() {
+          if (this.connecting) return;
+          this.integrarError = '';
+          const codigo = Number(this.form.codigoIntegracao);
+          if (!Number.isInteger(codigo) || codigo <= 0) {
+            this.integrarError = 'Informe um código de integração válido.';
+            return;
           }
-          const e = this.testResult.establishment;
-          return [e.document, e.phone, e.address].filter(Boolean).join(' · ')
-            || 'Estabelecimento consultado com sucesso.';
+          this.connecting = true;
+          this.step = 1;
+          try {
+            const body = {
+              empresaIntegrada: numOrNull(this.empresaIntegrada),
+              restaurante: this.form.tipo === 'restaurante' ? codigo : null,
+              marketplace: this.form.tipo === 'marketplace' ? codigo : null,
+              sandbox: !!this.sandbox,
+            };
+            const response = await fetch('/api/maisdelivery/settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(data.error || 'Não foi possível salvar o código de integração.');
+            }
+            this.empresaIntegrada = data.empresaIntegrada ?? this.empresaIntegrada;
+            this.restaurante = data.restaurante ?? null;
+            this.marketplace = data.marketplace ?? null;
+            if (data.sandbox !== undefined) this.sandbox = !!data.sandbox;
+
+            this.step = 2;
+            await this.buscarCredenciaisSede()
+
+            this.step = 3;
+            const testResponse = await fetch('/api/maisdelivery/test', { method: 'POST' });
+            const testData = await testResponse.json().catch(() => ({}));
+            if (!testResponse.ok) {
+              throw new Error(testData.error || 'A conexão com o Mais Delivery falhou. Revise o código e tente de novo.');
+            }
+
+            this.done = true;
+            if (this.canOrders) {
+              setTimeout(() => { window.location.href = '/app/maisdelivery/pedidos'; }, 1400);
+            }
+          } catch (error) {
+            this.integrarError = error instanceof Error ? error.message : 'Erro de conexão ao integrar.';
+          }
         },
-        applyConfig(data) {
-          this.form.empresaIntegrada = data.empresaIntegrada ?? '';
-          this.form.restaurante = data.restaurante ?? '';
-          this.form.marketplace = data.marketplace ?? '';
-          this.form.sandbox = data.sandbox !== false;
-        },
-        async loadCloudCredentials() {
+        /* ---- credenciais da sede (cloud) ---- */
+        async buscarCredenciaisSede() {
           this.cloudLoading = true;
           this.cloudError = '';
           try {
             const cloudUrl = await this.getCloudUrl();
-            if (!cloudUrl) {
-              this.cloudError = 'Não foi possível resolver a URL do cloud.';
-              return;
-            }
+            if (!cloudUrl) throw new Error('cloud-url');
             const licenseKey = await this.getLicenseKey();
             const companyUuid = await this.getCompanyUuid();
-            if (!licenseKey || !companyUuid) {
-              this.cloudError = 'Licença não configurada.';
-              return;
-            }
+            if (!licenseKey || !companyUuid) throw new Error('license');
             const res = await fetch(`${cloudUrl}/api/maisdelivery/credentials`, {
               headers: {
                 'X-Kivo-Company': companyUuid,
                 'X-Kivo-License-Key': licenseKey,
               },
             });
-            if (!res.ok) {
-              this.cloudError = 'Não foi possível buscar credenciais da sede.';
-              return;
-            }
+            if (!res.ok) throw new Error('cloud-fetch');
             const data = await res.json();
             this.hasAccessTokenProducao = !!data.hasAccessTokenProducao;
             this.hasAccessTokenSandbox = !!data.hasAccessTokenSandbox;
             this.hasBasicAuth = !!data.hasBasicAuth;
-            if (data.idEmpresaIntegrada) {
-              this.form.empresaIntegrada = String(data.idEmpresaIntegrada);
-              // Persiste o ID da empresa da sede no banco local para as chamadas à API.
+            if (data.idEmpresaIntegrada && Number(data.idEmpresaIntegrada) > 0) {
+              this.empresaIntegrada = String(data.idEmpresaIntegrada);
               await this.saveEmpresaIntegrada();
             }
             if (data.sandbox !== undefined) {
-              this.form.sandbox = !!data.sandbox;
+              this.sandbox = !!data.sandbox;
               await this.saveSandbox();
             }
           } catch (e) {
-            this.cloudError = 'Erro ao buscar credenciais da nuvem.';
+            this.cloudError = 'Não foi possível validar as credenciais da sede proando a nuvem. A integração ainda pode funcionar, mas confira o painel cloud.';
           } finally {
             this.cloudLoading = false;
           }
@@ -243,26 +357,18 @@
             await fetch('/api/maisdelivery/settings', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                empresaIntegrada: numOrNull(this.form.empresaIntegrada),
-              }),
+              body: JSON.stringify({ empresaIntegrada: numOrNull(this.empresaIntegrada) }),
             });
-          } catch {
-            // Falha ao persistir empresa integrada; o teste de conexão vai falhar com mensagem clara.
-          }
+          } catch { /* o teste de conexão mostra erro claro se faltar */ }
         },
         async saveSandbox() {
           try {
             await fetch('/api/maisdelivery/settings', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                sandbox: this.form.sandbox,
-              }),
+              body: JSON.stringify({ sandbox: this.sandbox }),
             });
-          } catch {
-            // Falha ao persistir sandbox.
-          }
+          } catch { /* sem back de persistência */ }
         },
         async getCloudUrl() {
           try {
@@ -294,70 +400,12 @@
           } catch { /* ignore */ }
           return null;
         },
-        async salvarCodigo() {
-          if (this.saving) return false;
-          this.saving = true;
-          this.errorCodigo = '';
-          this.noticeCodigo = '';
-          this.testResult = null;
-          this.testError = '';
-
-          const codigo = Number(this.form.codigoIntegracao);
-          if (!Number.isInteger(codigo) || codigo <= 0) {
-            this.errorCodigo = 'Informe um código de integração válido.';
-            this.saving = false;
-            return false;
-          }
-
-          try {
-            const body = {
-              empresaIntegrada: numOrNull(this.form.empresaIntegrada),
-              restaurante: this.form.tipo === 'restaurante' ? codigo : null,
-              marketplace: this.form.tipo === 'marketplace' ? codigo : null,
-              sandbox: !!this.form.sandbox,
-            };
-            const response = await fetch('/api/maisdelivery/settings', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-              this.errorCodigo = data.error || 'Não foi possível salvar o código de integração.';
-              return false;
-            }
-            this.applyConfig(data);
-            this.noticeCodigo = 'Código de integração salvo.';
-            if (data.restaurante || data.marketplace) {
-              this.testResult = null;
-              this.testError = '';
-              try {
-                const testResponse = await fetch('/api/maisdelivery/test', { method: 'POST' });
-                const testData = await testResponse.json().catch(() => ({}));
-                if (testResponse.ok) {
-                  this.testResult = testData;
-                  this.noticeCodigo = 'Código de integração salvo e conexão validada.';
-                } else {
-                  this.testError = testData.error || 'Código salvo, mas a validação da conexão falhou.';
-                }
-              } catch {
-                this.testError = 'Código salvo, mas não foi possível validar a conexão.';
-              }
-            }
-            return true;
-          } catch {
-            this.errorCodigo = 'Erro de conexão ao salvar o código de integração.';
-            return false;
-          } finally {
-            this.saving = false;
-          }
-        },
       };
+    }
 
-      function numOrNull(value) {
-        const parsed = Number(value);
-        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-      }
+    function numOrNull(value) {
+      const parsed = Number(value);
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
     }
   </script>
 </body>
