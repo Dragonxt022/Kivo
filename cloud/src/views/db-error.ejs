@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
   <title>Kuruk Cloud — Erro de conexão</title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
+  <link rel="icon" type="image/png" href="/logo_kuruk-icon.png">
   <%- include('partials/styles') %>
   <link rel="stylesheet" href="/css/db-error.css">
 </head>
 <body>
   <div class="card error-card">
-    <div class="brand"><img id="brand-logo" src="/logo_kuruk-icon.svg" alt=""> Kuruk Cloud</div>
+    <div class="brand"><img id="brand-logo" src="/logo_kuruk-icon.png" alt=""> Kuruk Cloud</div>
     <div class="icon">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
@@ -42,7 +42,7 @@
   </div>
   <script>
     if (document.documentElement.getAttribute('data-theme') === 'dark') {
-      document.getElementById('brand-logo').src = '/logo_kuruk-icon_branco.svg';
+      document.getElementById('brand-logo').src = '/logo_kuruk-icon_branco.png';
     }
   </script>
 </body>

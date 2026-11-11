@@ -426,15 +426,15 @@
     <% } else { %>
       <%# `src` estático (e não só `:src`): sem ele, o <img> nasce sem fonte e o navegador
           pisca o ícone de imagem quebrada a cada troca de página, até o Alpine rodar. %>
-      <img class="logo" id="kuruk-logo" src="/logo_kuruk-horizontal.svg" alt="Kuruk"
-           :src="theme === 'dark' ? '/logo_kuruk-horizontal_branco.svg' : '/logo_kuruk-horizontal.svg'" />
+      <img class="logo" id="kuruk-logo" src="/logo_kuruk-horizontal.png" alt="Kuruk"
+           :src="theme === 'dark' ? '/logo_kuruk-horizontal_branco.png' : '/logo_kuruk-horizontal.png'" />
     <% } %>
   </a>
   <script nonce="<%= cspNonce %>">
     // Corrige o logo do tema escuro JÁ na primeira pintura (o Alpine é `defer` e chegaria tarde).
     (function () {
       var l = document.getElementById('kuruk-logo');
-      if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kuruk-horizontal_branco.svg';
+      if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kuruk-horizontal_branco.png';
     })();
   </script>
 
@@ -1101,8 +1101,8 @@
   document.getElementById('kuruk-logo-empresa')?.addEventListener('error', function () {
     this.classList.remove('logo-empresa');
     this.src = document.documentElement.getAttribute('data-theme') === 'dark'
-      ? '/logo_kuruk-horizontal_branco.svg'
-      : '/logo_kuruk-horizontal.svg';
+      ? '/logo_kuruk-horizontal_branco.png'
+      : '/logo_kuruk-horizontal.png';
   }, { once: true });
 
   // Toast global — sempre no #toast-container, nunca dentro de um <dialog>. Dialogs

@@ -35,8 +35,8 @@ FUNDO = (22, 24, 29)
 
 # (fonte, destino, (largura, altura), descrição)
 ALVOS = [
-    ('installer-sidebar.png', 'installer-sidebar.bmp', (164, 314), 'barra lateral (boas-vindas/fim)'),
-    ('installer-header.png', 'installer-header.bmp', (150, 57), 'faixa do topo das telas internas'),
+    ('banner_vertical.png', 'installer-sidebar.bmp', (164, 314), 'barra lateral (boas-vindas/fim)'),
+    ('banner_horizontal.png', 'installer-header.bmp', (150, 57), 'faixa do topo das telas internas'),
 ]
 
 

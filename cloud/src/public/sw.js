@@ -19,7 +19,7 @@ const PRECACHE = [
   OFFLINE_URL,
   '/css/mobile.css',
   '/css/mobile-pro.css',
-  '/logo_kuruk-icon.svg',
+  '/logo_kuruk-icon.png',
   '/img/icon-192.png',
   '/img/icon-512.png',
 ];

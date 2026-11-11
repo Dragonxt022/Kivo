@@ -239,10 +239,13 @@ header.nav {
   z-index: 100;
 }
 header.nav img.logo {
-  width: 150px;
-  height: 25px;
+  width: auto;
+  height: 34px;
+  max-width: 150px;
+  object-fit: contain;
+  object-position: left center;
 }
-/* A nossa logo é um SVG na proporção exata; a do lojista pode vir quadrada, alta ou
+/* A nossa logo é um PNG na proporção exata; a do lojista pode vir quadrada, alta ou
    muito larga. `contain` encaixa qualquer uma na faixa sem distorcer, e a largura vira
    um TETO (não uma medida fixa) para que uma logo quadrada não fique esticada. */
 header.nav img.logo-empresa {

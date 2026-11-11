@@ -5,7 +5,7 @@
   <%- include('partials/theme-init') %>
   <title>Kuruk — Ativação</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
+  <link rel="icon" type="image/png" href="/logo_kuruk-icon.png" />
   <link rel="stylesheet" href="/css/app.css" />
   <style>
     body { display: grid; place-items: center; min-height: 100vh; }
@@ -59,7 +59,7 @@
 </head>
 <body>
   <div class="activation-card" x-data="activationPage()">
-    <img class="logo" :src="theme === 'dark' ? '/logo_kuruk-horizontal_branco.svg' : '/logo_kuruk-horizontal.svg'" alt="Kuruk" />
+    <img class="logo" :src="theme === 'dark' ? '/logo_kuruk-horizontal_branco.png' : '/logo_kuruk-horizontal.png'" alt="Kuruk" />
     <h1>Ativar o Kuruk</h1>
 
     <template x-if="mode === 'choice'">

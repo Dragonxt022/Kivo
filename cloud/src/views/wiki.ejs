@@ -5,7 +5,7 @@
   <%- include('partials/theme-init') %>
   <title>Kuruk — Wiki</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
+  <link rel="icon" type="image/png" href="/logo_kuruk-icon.png">
   <%- include('partials/styles') %>
   <link rel="stylesheet" href="/css/wiki.css">
 </head>
@@ -17,7 +17,7 @@
     <!-- Sidebar TOC -->
     <nav class="wiki-sidebar" id="wiki-sidebar">
       <div class="wiki-sidebar-brand">
-        <img id="wiki-logo" src="/logo_kuruk-icon.svg" alt="Kuruk" />
+        <img id="wiki-logo" src="/logo_kuruk-icon.png" alt="Kuruk" />
         <span>Kuruk Wiki</span>
       </div>
 
@@ -116,7 +116,7 @@
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <a href="/wiki" class="brand">
-            <img id="wiki-nav-logo" src="/logo_kuruk-icon.svg" alt="Kuruk" />
+            <img id="wiki-nav-logo" src="/logo_kuruk-icon.png" alt="Kuruk" />
             Wiki Kuruk
           </a>
           <div class="wiki-search">
@@ -139,7 +139,7 @@
         <!-- ============================================================ -->
         <div class="wiki-section" id="boas-vindas">
           <div class="wiki-hero">
-            <img id="wiki-hero-logo" src="/logo_kuruk-icon.svg" alt="Kuruk" />
+            <img id="wiki-hero-logo" src="/logo_kuruk-icon.png" alt="Kuruk" />
             <h1>Bem-vindo ao Kuruk</h1>
             <p>Guia completo de como usar cada funcionalidade da plataforma. Navegue pelo sumário ao lado para encontrar o bloco que precisa.</p>
           </div>
@@ -1606,7 +1606,7 @@
         var dark = root.getAttribute('data-theme') === 'dark';
         sun.style.display = dark ? 'none' : 'block';
         moon.style.display = dark ? 'block' : 'none';
-        var src = dark ? '/logo_kuruk-icon_branco.svg' : '/logo_kuruk-icon.svg';
+        var src = dark ? '/logo_kuruk-icon_branco.png' : '/logo_kuruk-icon.png';
         logos.forEach(function (img) { if (img) img.src = src; });
       }
       applyIcons();
