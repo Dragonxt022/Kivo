@@ -38,24 +38,23 @@ O script:
 ## Nginx (`old-home`)
 
 O arquivo persistente fica em `/opt/old-home/default.conf` e é montado no
-container via `/opt/old-home/compose.yaml`. A regra é “estático primeiro, cloud
-como fallback”: o `index.html` do site continua na raiz e todo o resto (API,
-admin, pagamento, cardápio, app mobile, `/css`, `/js`, `/img`) vai para o cloud.
+container via `/opt/old-home/compose.yaml`. A raiz `/` agora é a landing page
+do próprio cloud; o site estático antigo não é mais servido. Só o arquivo
+`/health` continua estático, porque a infraestrutura usa esse caminho.
 
 ```nginx
-location / {
+location = /health {
     root   /usr/share/nginx/html;
-    index  index.html index.htm;
-    try_files $uri $uri/ @cloud;
 }
 
-location @cloud {
+location / {
     proxy_pass http://kuruk-cloud:3003;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
     proxy_set_header Connection "";
     proxy_buffering off;
     proxy_read_timeout 3600s;
@@ -64,15 +63,22 @@ location @cloud {
 }
 ```
 
-## Banco novo x banco antigo
+## Banco de dados
 
-Este deploy criou um banco **novo** (`kuruk_cloud`). As empresas, licenças e
-cobranças que já existiam continuam no backend antigo
-(`https://kivo.buscamais.org`, banco `kivo_cloud`). Para migrar os dados, é
-preciso um dump do MySQL antigo e importar em `kuruk_cloud` (ou apontar o
-`CLOUD_DB_NAME`/host do container para o banco antigo). Enquanto isso não for
-feito, instalações existentes que já apontam para o backend antigo continuam
-funcionando; instalações novas usam `https://kuruk.com.br`.
+O banco `kuruk_cloud` foi populado a partir do dump `kivo.sql` e rebrandado:
+
+- 5 empresas, 2 administradores (`admin` e `admin2`), 3 planos, 1 tema e 54
+  migrations;
+- hashes, licenças, UUIDs e o nome histórico da migration `0019_kivo_web`
+  foram preservados de propósito (renomear a migration faria o migrator
+  reaplicá-la);
+- textos visíveis, domínios e caminhos foram trocados para Kuruk;
+- backup pós-importação em `/opt/apps/kuruk-cloud/backups/`.
+
+Os registros antigos de `cloud_backups.storage_path` apontam para
+`/opt/apps/kuruk-cloud/cloud/storage/backups/...`, mas os arquivos `.gz` não
+foram copiados do servidor antigo. O download desses backups só funciona depois
+de copiar os arquivos correspondentes.
 
 ## Variáveis do cloud
 
