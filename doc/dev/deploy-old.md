@@ -75,10 +75,16 @@ O banco `kuruk_cloud` foi populado a partir do dump `kivo.sql` e rebrandado:
 - textos visíveis, domínios e caminhos foram trocados para Kuruk;
 - backup pós-importação em `/opt/apps/kuruk-cloud/backups/`.
 
-Os registros antigos de `cloud_backups.storage_path` apontam para
-`/opt/apps/kuruk-cloud/cloud/storage/backups/...`, mas os arquivos `.gz` não
-foram copiados do servidor antigo. O download desses backups só funciona depois
-de copiar os arquivos correspondentes.
+O conteúdo de `storage/` foi importado de `archive.zip`:
+
+- `storage/backups` — 8 arquivos `.gz`;
+- `storage/catalog` — 328 imagens;
+- `storage/messages` — 1 imagem;
+- `storage/themes` — 8 arquivos.
+
+As permissões foram ajustadas para o grupo `nodeapps`. O campo
+`cloud_backups.storage_path` usa o caminho visto de dentro do container
+(`/app/storage/backups/...`), e os 7 registros foram conferidos um a um.
 
 ## Variáveis do cloud
 
