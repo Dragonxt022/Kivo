@@ -7,12 +7,11 @@
  *
  * Config por variável de ambiente (ver cloud/.env.example):
  *   KURUK_VPS_HOST, KURUK_VPS_SSH_USER, KURUK_VPS_CLOUD_DIR,
- *   KURUK_VPS_SSH_KEY (opcional), KURUK_VPS_PM2_NAME, KURUK_VPS_PM2_USER,
- *   KURUK_CLOUD_HEALTH_URL
+ *   KURUK_VPS_SSH_KEY (opcional), KURUK_VPS_CONTAINER, KURUK_CLOUD_HEALTH_URL
  *
- * O diretório remoto precisa ser um clone deste repositório (o `cloud/` é um
- * pacote separado dentro do monorepo). No servidor OLD o padrão é
- * `/opt/apps/kuruk-cloud/cloud`, com PM2 rodando como o usuário `nodeapps`.
+ * No servidor OLD o cloud roda em Docker (`kuruk-cloud`), com o diretório
+ * `/opt/apps/kuruk-cloud/cloud` montado em `/app`. O container usa rede host
+ * para alcançar o MySQL em 127.0.0.1:3306.
  */
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -22,11 +21,7 @@ const SSH_USER = process.env.KURUK_VPS_SSH_USER || 'bruno';
 const CLOUD_DIR = process.env.KURUK_VPS_CLOUD_DIR || '/opt/apps/kuruk-cloud/cloud';
 const KEY = process.env.KURUK_VPS_SSH_KEY || '';
 const HEALTH_URL = process.env.KURUK_CLOUD_HEALTH_URL || 'https://kuruk.com.br/api/health';
-const PM2_NAME = process.env.KURUK_VPS_PM2_NAME || 'kuruk-cloud';
-// No servidor OLD o PM2 é gerenciado pelo usuário nodeapps. Deixe vazio para
-// rodar `pm2` diretamente (ex.: quando o deploy já é feito como esse usuário).
-const PM2_USER = process.env.KURUK_VPS_PM2_USER ?? 'nodeapps';
-const PM2 = PM2_USER ? `sudo -iu ${PM2_USER} pm2` : 'pm2';
+const CONTAINER = process.env.KURUK_VPS_CONTAINER || 'kuruk-cloud';
 
 if (KEY && !fs.existsSync(KEY)) {
   console.error(`\n[deploy] Chave SSH não encontrada: ${KEY}`);
@@ -44,7 +39,7 @@ const remote = [
   '# --ff-only: se a VPS tiver commit local, o deploy FALHA em vez de criar merge silencioso.',
   'git pull --ff-only origin main',
   '# --include=dev: o build (tsc) e as migrations (tsx) dependem de devDependencies.',
-  'npm install --include=dev',
+  'npm ci --include=dev --no-audit --no-fund',
   'npm run build',
   'if [ ! -f ./.env ]; then echo "[deploy] ERRO: falta o arquivo .env em ' + CLOUD_DIR + '"; exit 1; fi',
   'set -a',
@@ -52,14 +47,9 @@ const remote = [
   'set +a',
   'npm run migrate',
   'npm run seed:themes',
-  `if ! ${PM2} describe pm2-logrotate >/dev/null 2>&1; then ${PM2} install pm2-logrotate; fi`,
-  `${PM2} set pm2-logrotate:max_size 50M`,
-  `${PM2} set pm2-logrotate:retain 14`,
-  `${PM2} set pm2-logrotate:compress true`,
-  `${PM2} set pm2-logrotate:workerInterval 60`,
-  `${PM2} restart ${PM2_NAME}`,
-  'sleep 2',
-  `${PM2} show ${PM2_NAME} | grep status`,
+  `docker restart ${CONTAINER}`,
+  'sleep 3',
+  `docker ps --filter name=${CONTAINER} --format '{{.Names}} {{.Status}}'`,
 ].join('\n');
 
 const sshArgs = ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new'];
