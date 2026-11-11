@@ -5,19 +5,22 @@ import { getCommercialPlans } from '../plans';
 import { createRateLimiter } from '../rateLimit';
 
 /**
- * Landing page pública de venda do Kivo (rota "/").
+ * Landing page pública de venda do Kuruk (rota "/").
  *
  * O link de download e a versão exibida vêm da release mais recente do GitHub
  * (releases/latest), consultada com cache em memória — publicar uma nova release
  * atualiza o site sozinho, sem redeploy. Se a API falhar (offline, rate limit),
  * cai no último valor conhecido ou no fallback fixo abaixo.
  *
- * KIVO_DOWNLOAD_URL / KIVO_APP_VERSION no ambiente têm precedência sobre tudo
+ * KURUK_DOWNLOAD_URL / KURUK_APP_VERSION no ambiente têm precedência sobre tudo
  * (útil para apontar para um mirror ou congelar uma versão).
  */
-const GITHUB_LATEST_API = 'https://api.github.com/repos/Dragonxt022/kivo/releases/latest';
-const FALLBACK_VERSION = '0.2.5';
-const FALLBACK_URL = `https://github.com/Dragonxt022/kivo/releases/download/v${FALLBACK_VERSION}/Kivo-Setup-${FALLBACK_VERSION}.exe`;
+const GITHUB_LATEST_API = 'https://api.github.com/repos/Dragonxt022/kuruk/releases/latest';
+// Última release publicada ainda usa o nome antigo do instalador. O fallback
+// aponta para ela até existir uma release `Kuruk-Setup-*`; a consulta à API já
+// aceita os dois nomes e passa a preferir a release nova sozinha.
+const FALLBACK_VERSION = '2.1.16';
+const FALLBACK_URL = `https://github.com/Dragonxt022/kuruk/releases/download/v${FALLBACK_VERSION}/Kivo-Setup-${FALLBACK_VERSION}.exe`;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 type ReleaseInfo = { downloadUrl: string; version: string };
@@ -27,7 +30,7 @@ let cachedAt = 0;
 
 async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
   const res = await fetch(GITHUB_LATEST_API, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'kivo-cloud' },
+    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'kuruk-cloud' },
     signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) return null;
@@ -35,17 +38,18 @@ async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
     tag_name?: string;
     assets?: { name: string; browser_download_url: string }[];
   };
-  const asset = (rel.assets ?? []).find((a) => /^(Kivo|Katsu)-Setup-.*\.exe$/i.test(a.name));
+  // Kivo = releases anteriores ao rebrand; Kuruk = releases novas.
+  const asset = (rel.assets ?? []).find((a) => /^(Kuruk|Kivo|Katsu)-Setup-.*\.exe$/i.test(a.name));
   if (!asset) return null;
   const version = String(rel.tag_name ?? '').replace(/^v/, '') || FALLBACK_VERSION;
   return { downloadUrl: asset.browser_download_url, version };
 }
 
 async function getReleaseInfo(): Promise<ReleaseInfo> {
-  if (process.env.KIVO_DOWNLOAD_URL) {
+  if (process.env.KURUK_DOWNLOAD_URL) {
     return {
-      downloadUrl: process.env.KIVO_DOWNLOAD_URL,
-      version: process.env.KIVO_APP_VERSION ?? FALLBACK_VERSION,
+      downloadUrl: process.env.KURUK_DOWNLOAD_URL,
+      version: process.env.KURUK_APP_VERSION ?? FALLBACK_VERSION,
     };
   }
   if (cached && Date.now() - cachedAt < CACHE_TTL_MS) return cached;

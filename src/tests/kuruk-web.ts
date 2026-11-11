@@ -1,5 +1,5 @@
 /**
- * Kivo Web — o que roda NESTA máquina: aplicar o comando vindo do celular e conceder/revogar
+ * Kuruk Web — o que roda NESTA máquina: aplicar o comando vindo do celular e conceder/revogar
  * o acesso por link/QR.
  *
  * O transporte (nuvem MySQL, SSE) fica fora daqui de propósito: `applyCommand` foi separado
@@ -7,9 +7,9 @@
  * `createQuote` — ser testável sem subir Docker. O que este teste protege é a parte que, se
  * quebrar, cria orçamento errado ou no nome da pessoa errada.
  *
- * KIVO_DB_PATH TEM que vir do ambiente (import é hoisted; connection.ts lê a variável antes
+ * KURUK_DB_PATH TEM que vir do ambiente (import é hoisted; connection.ts lê a variável antes
  * de qualquer linha deste arquivo rodar):
- *   node scripts/kivo test:kivo-web
+ *   node scripts/kuruk test:kuruk-web
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,14 +34,14 @@ function check(label: string, ok: boolean, extra = ''): void {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via `node scripts/kivo test:kivo-web`.',
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via `node scripts/kuruk test:kuruk-web`.',
     );
   }
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }
@@ -61,8 +61,8 @@ async function main(): Promise<void> {
 
   try {
     // ─── Gate de plano ───────────────────────────────────────────────────────────
-    check('Kivo Web é exclusivo do Diamante', canUseWebApp('diamante') === true);
-    check('Ouro não libera o Kivo Web', canUseWebApp('ouro') === false);
+    check('Kuruk Web é exclusivo do Diamante', canUseWebApp('diamante') === true);
+    check('Ouro não libera o Kuruk Web', canUseWebApp('ouro') === false);
     check('plano nulo não libera (sem fail-open aqui)', canUseWebApp(null) === false);
 
     // ─── Cenário base ────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
       db.prepare(
         `INSERT INTO users (username, name, password_hash, role_id, active, uuid)
          VALUES ('vendedor', 'Vendedor Externo', ?, ?, 1, ?)`,
-      ).run(hashPassword('Kivo@2026!'), roleId, userUuid).lastInsertRowid,
+      ).run(hashPassword('Kuruk@2026!'), roleId, userUuid).lastInsertRowid,
     );
 
     const prodUuid = randomUUID();
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
     db.prepare(
       `INSERT INTO users (username, name, password_hash, role_id, active, uuid)
        VALUES ('vendedor2', 'Vendedor Dois', ?, ?, 1, ?)`,
-    ).run(hashPassword('Kivo@2026!'), roleVend, vendUuid);
+    ).run(hashPassword('Kuruk@2026!'), roleVend, vendUuid);
     const recSemPerm = applyCommand({ ...receber, id: 15, created_by_user_uuid: vendUuid });
     check('cargo sem finance.receivables.receive → recusa',
       !recSemPerm.ok && recSemPerm.error.includes('não permite receber'),
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
     closeDb();
   }
 
-  console.log(failures === 0 ? '\nKivo Web: TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
+  console.log(failures === 0 ? '\nKuruk Web: TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
   process.exit(failures === 0 ? 0 : 1);
 }
 

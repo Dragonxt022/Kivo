@@ -26,7 +26,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3606);
+const PORT = Number(process.env.KURUK_PORT ?? 3606);
 const SHOTS = snapDir('e2e-mobile-layout');
 
 interface ProdutoRow {
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     }, admin);
 
     browser = await openBrowser();
-    // `mobile: true` é o que faz `(pointer: coarse)` casar: sem isso o kivo-ui aplica o
+    // `mobile: true` é o que faz `(pointer: coarse)` casar: sem isso o kuruk-ui aplica o
     // flatpickr (experiência de desktop) e o teste deixaria de exercitar o campo nativo
     // que o celular/tablet realmente usa.
     const page = await newPage(browser, { viewport: { width: 390, height: 844 }, mobile: true });
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
     // atrapalharia o print e o teste de largura. O tour do PDV já é desligado pelo harness.
     await page.addInitScript(() => {
       try {
-        localStorage.setItem('kivo-tour-produtos-v1', '1');
+        localStorage.setItem('kuruk-tour-produtos-v1', '1');
       } catch {
         // localStorage indisponível (about:blank): sem consequência.
       }
@@ -268,7 +268,7 @@ async function main(): Promise<void> {
       }
 
       if (nome === 'pagar') {
-        // `data-picker` é o campo de data depois do kivo-ui. No celular ele continua
+        // `data-picker` é o campo de data depois do kuruk-ui. No celular ele continua
         // `type=date` nativo (precisa de ~240 px); no desktop o flatpickr o transforma em
         // texto com placeholder dd/mm/aaaa, e 110 px já cabem os 10 caracteres + ícone.
         const campos = await page.locator('.toolbar input[data-picker]:visible').evaluateAll((els) =>

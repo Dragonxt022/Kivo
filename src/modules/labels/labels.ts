@@ -137,7 +137,7 @@ export function getSheet(id: number): LabelSheetRow | undefined {
 }
 
 export function companyName(): string {
-  return settingsRepository.get('empresa.nome') || 'Kivo';
+  return settingsRepository.get('empresa.nome') || 'Kuruk';
 }
 
 /**

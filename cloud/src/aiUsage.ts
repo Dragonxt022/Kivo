@@ -1,7 +1,7 @@
 import { getPool } from './db';
 
 /**
- * Medição de uso da KIVO IA e créditos por empresa.
+ * Medição de uso da KURUK IA e créditos por empresa.
  *
  * O teto (`companies.ai_token_limit`) é em TOKENS; 0 = ilimitado. O consumo zera a cada mês
  * de calendário (`ai_period` = AAAA-MM). O detalhe de cada requisição vai para `ai_usage`,

@@ -79,7 +79,7 @@
   notifRead: [],
   notifDismissed: [],
   notifKey(kind) {
-    return 'kivo-notif-' + kind + ':' + (this.notifUserKey || 'anon');
+    return 'kuruk-notif-' + kind + ':' + (this.notifUserKey || 'anon');
   },
   loadNotifState() {
     try { this.notifRead = JSON.parse(localStorage.getItem(this.notifKey('read')) || '[]'); } catch (e) { this.notifRead = []; }
@@ -88,7 +88,7 @@
   saveNotifState() {
     try { localStorage.setItem(this.notifKey('read'), JSON.stringify(this.notifRead)); } catch (e) {}
     try { localStorage.setItem(this.notifKey('dismissed'), JSON.stringify(this.notifDismissed)); } catch (e) {}
-    window.dispatchEvent(new CustomEvent('kivo-notif-changed'));
+    window.dispatchEvent(new CustomEvent('kuruk-notif-changed'));
   },
   rawNotifications() {
     const list = [];
@@ -101,21 +101,21 @@
       }
     }
     if (this.cashAlert) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
-    // Versão nova do Kivo. O id carrega a versão para que 'lido'/'dispensado' valham só
+    // Versão nova do Kuruk. O id carrega a versão para que 'lido'/'dispensado' valham só
     // para ELA — a próxima versão volta a avisar. Espelhado em views/notifications.ejs.
     if (this.atualizacao && this.atualizacao.versaoDisponivel) {
       var msgAtu = this.atualizacao.status === 'baixado'
-        ? 'Kivo ' + this.atualizacao.versaoDisponivel + ' baixado — clique para instalar'
-        : 'Nova versão do Kivo disponível (' + this.atualizacao.versaoDisponivel + ')';
+        ? 'Kuruk ' + this.atualizacao.versaoDisponivel + ' baixado — clique para instalar'
+        : 'Nova versão do Kuruk disponível (' + this.atualizacao.versaoDisponivel + ')';
       list.push({ id: 'atualizacao-' + this.atualizacao.versaoDisponivel, type: 'atualizacao', message: msgAtu, link: '/admin/configuracoes#atualizacao' });
     }
     if (this.billingAlert && this.billingAlert.count) {
       list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
     }
-    // Empresa recusada pela nuvem (excluída/desativada ou chave trocada): o Kivo segue
+    // Empresa recusada pela nuvem (excluída/desativada ou chave trocada): o Kuruk segue
     // funcionando até a validade local, mas o lojista precisa saber por que o sync parou.
     if (this.licenseStatus && this.licenseStatus.cloudIssue) {
-      list.push({ id: 'licenca-nuvem', type: 'licenca', message: 'Sua empresa não está mais ativa no servidor — o Kivo segue funcionando até a licença vencer', link: '/admin/configuracoes' });
+      list.push({ id: 'licenca-nuvem', type: 'licenca', message: 'Sua empresa não está mais ativa no servidor — o Kuruk segue funcionando até a licença vencer', link: '/admin/configuracoes' });
     }
     if (this.licenseStatus && this.licenseStatus.plan === 'trial' && this.licenseStatus.status !== 'expirada') {
       const d = this.licenseStatus.daysRemaining;
@@ -181,7 +181,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read: true }),
       }).catch(() => {});
     }
-    window.dispatchEvent(new CustomEvent('kivo-messages-changed'));
+    window.dispatchEvent(new CustomEvent('kuruk-messages-changed'));
   },
   checkCloudStatus() {
     fetch('/api/sync/status').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.cloudStatus = data; }).catch(() => { this.cloudStatus = { configured: true, online: false }; });
@@ -211,7 +211,7 @@
   },
   // ─── Abrir no celular (mesma rede local) ───────────────────────────────────
   // O diálogo mora na nav (e não só na home) para o atalho do cabeçalho abrir o QR na
-  // tela em que o usuário está. A home também o aciona pelo evento kivo-open-celular.
+  // tela em que o usuário está. A home também o aciona pelo evento kuruk-open-celular.
   async abrirCelular() {
     const dlg = this.$refs.dlgCelular;
     if (!dlg) return;
@@ -265,7 +265,7 @@
   },
   async copiarTexto(txt) {
     // navigator.clipboard só existe em contexto seguro (localhost/HTTPS). Quando o
-    // próprio Kivo é aberto pelo IP da rede (HTTP), cai no textarea antigo.
+    // próprio Kuruk é aberto pelo IP da rede (HTTP), cai no textarea antigo.
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(txt);
@@ -299,12 +299,12 @@
     }, leve ? 10000 : 1000);
     <% if (user) { %>
     this.loadNotifState();
-    window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
+    window.addEventListener('kuruk-notif-changed', () => this.loadNotifState());
     const jobs = [];
     // Mensagens: busca no boot da página e revalida quando a central avisa que mudou
     // (marcou lida/excluiu) ou quando a página volta do bfcache.
     jobs.push(this.loadMessages());
-    window.addEventListener('kivo-messages-changed', () => this.loadMessages());
+    window.addEventListener('kuruk-messages-changed', () => this.loadMessages());
     // `pageshow` também dispara no carregamento inicial; só interessa quando a página
     // voltou do bfcache (ev.persisted), senão era um fetch duplicado em toda navegação.
     window.addEventListener('pageshow', (ev) => { if (ev.persisted) this.loadMessages(); });
@@ -337,7 +337,7 @@
     window.addEventListener('pageshow', (ev) => { if (ev.persisted) this.loadCashAlert(); });
     // A tela do Caixa avisa quando abre/fecha o turno; revalida o aviso na hora para ele
     // não continuar aberto (ou reaparecer) com o caixa já fechado.
-    window.addEventListener('kivo-cash-changed', () => this.loadCashAlert());
+    window.addEventListener('kuruk-cash-changed', () => this.loadCashAlert());
     <% } %>
     <% if (user && (user.permissions.has('finance.payables.view') || user.permissions.has('finance.receivables.view'))) { %>
     jobs.push(fetch('/api/finance/reports/upcoming-bills').then((r) => r.ok ? r.json() : null).then((data) => { if (data) this.upcomingBills = data; }).catch(() => {}));
@@ -352,10 +352,10 @@
   toggleTheme() {
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', this.theme);
-    try { localStorage.setItem('kivo-theme', this.theme); } catch (e) {}
+    try { localStorage.setItem('kuruk-theme', this.theme); } catch (e) {}
     if (document.documentElement.getAttribute('data-color-theme') === 'custom') {
-      var c = window.__kivoColor && window.__kivoColor.custom;
-      if (c) window.__kivoApplyCustomColor(c);
+      var c = window.__kurukColor && window.__kurukColor.custom;
+      if (c) window.__kurukApplyCustomColor(c);
     }
   },
   currentPath: location.pathname,
@@ -385,7 +385,7 @@
   toggleSidebar() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
     document.documentElement.setAttribute('data-sidebar-collapsed', this.sidebarCollapsed ? '1' : '0');
-    try { localStorage.setItem('kivo-sidebar-collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
+    try { localStorage.setItem('kuruk-sidebar-collapsed', this.sidebarCollapsed ? '1' : '0'); } catch (e) {}
   },
 }">
 <header class="nav">
@@ -400,7 +400,7 @@
     <% if (user) { %>
     <%# Voltar. Nasce escondido e é revelado pelo script do rodapé só fora da tela inicial —
         ao contrário de x-show, não pisca na tela antes do Alpine iniciar. %>
-    <button type="button" class="btn-icon nav-back-btn" id="kivo-voltar" hidden
+    <button type="button" class="btn-icon nav-back-btn" id="kuruk-voltar" hidden
             title="Voltar" aria-label="Voltar para a tela anterior">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
@@ -422,19 +422,19 @@
         do segundo computador da loja: a URL chega pelo sync, o arquivo não, e sem isso
         apareceria o ícone de imagem quebrada no cabeçalho de todas as telas. %>
     <% if (typeof empresaLogoUrl !== 'undefined' && empresaLogoUrl) { %>
-      <img class="logo logo-empresa" id="kivo-logo-empresa" src="<%= empresaLogoUrl %>" alt="<%= (typeof empresaNome !== 'undefined' && empresaNome) ? empresaNome : 'Logo da empresa' %>" />
+      <img class="logo logo-empresa" id="kuruk-logo-empresa" src="<%= empresaLogoUrl %>" alt="<%= (typeof empresaNome !== 'undefined' && empresaNome) ? empresaNome : 'Logo da empresa' %>" />
     <% } else { %>
       <%# `src` estático (e não só `:src`): sem ele, o <img> nasce sem fonte e o navegador
           pisca o ícone de imagem quebrada a cada troca de página, até o Alpine rodar. %>
-      <img class="logo" id="kivo-logo" src="/logo_kivo-horizontal.svg" alt="Kivo"
-           :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" />
+      <img class="logo" id="kuruk-logo" src="/logo_kuruk-horizontal.svg" alt="Kuruk"
+           :src="theme === 'dark' ? '/logo_kuruk-horizontal_branco.svg' : '/logo_kuruk-horizontal.svg'" />
     <% } %>
   </a>
   <script nonce="<%= cspNonce %>">
     // Corrige o logo do tema escuro JÁ na primeira pintura (o Alpine é `defer` e chegaria tarde).
     (function () {
-      var l = document.getElementById('kivo-logo');
-      if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kivo-horizontal_branco.svg';
+      var l = document.getElementById('kuruk-logo');
+      if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kuruk-horizontal_branco.svg';
     })();
   </script>
 
@@ -459,17 +459,17 @@
 
     <% if (user.permissions.has('settings.view')) { %>
     <button type="button" class="btn-icon nav-celular-btn" title="Abrir no celular"
-            aria-label="Abrir o Kivo no celular ou tablet" @click="abrirCelular()">
+            aria-label="Abrir o Kuruk no celular ou tablet" @click="abrirCelular()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
       </svg>
     </button>
     <% } %>
 
-    <%# Instalar no celular / tela cheia. Só aparece no layout estreito: no desktop o Kivo
+    <%# Instalar no celular / tela cheia. Só aparece no layout estreito: no desktop o Kuruk
         já é o aplicativo Electron, e um ícone a mais no cabeçalho só polui. %>
-    <button type="button" class="btn-icon nav-install-btn" id="kivo-mobile-app-btn-header"
-            title="Instalar o Kivo no celular" aria-label="Instalar o Kivo no celular">
+    <button type="button" class="btn-icon nav-install-btn" id="kuruk-mobile-app-btn-header"
+            title="Instalar o Kuruk no celular" aria-label="Instalar o Kuruk no celular">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
         <path d="M12 6v5"/><path d="m9.5 8.5 2.5 2.5 2.5-2.5"/>
@@ -596,7 +596,7 @@
 
 <% if (user) { %>
 <%# Aviso de empresa recusada pela nuvem. Fica abaixo do aviso de cobrança (se houver os
-    dois) e é dispensável só na sessão: o estado continua no servidor. O Kivo segue
+    dois) e é dispensável só na sessão: o estado continua no servidor. O Kuruk segue
     operando até a validade local — ver core/license/service.ts. %>
 <div x-show="licenseStatus && licenseStatus.cloudIssue && !cloudIssueDismissed" x-cloak
      style="position:fixed;top:calc(var(--header-height) + 56px);left:50%;transform:translateX(-50%);z-index:40;
@@ -604,7 +604,7 @@
             display:flex;align-items:center;gap:.75rem;font-size:.88rem;box-shadow:var(--shadow-sm);max-width:92vw">
   <span>
     ⚠ <span x-text="licenseStatus && licenseStatus.cloudIssue === 'empresa_removida' ? 'Sua empresa não existe mais no servidor (excluída ou desativada).' : 'A chave de licença não é mais aceita pelo servidor.'"></span>
-    <template x-if="licenseStatus && licenseStatus.validUntil"><span> O Kivo segue funcionando até <strong x-text="fmtDueDate(licenseStatus.validUntil)"></strong>.</span></template>
+    <template x-if="licenseStatus && licenseStatus.validUntil"><span> O Kuruk segue funcionando até <strong x-text="fmtDueDate(licenseStatus.validUntil)"></strong>.</span></template>
   </span>
   <a href="/admin/configuracoes" style="color:inherit;font-weight:600;text-decoration:underline">ver</a>
   <button @click="cloudIssueDismissed = true" class="btn-reset" style="font-size:1rem;line-height:1" aria-label="Fechar">&times;</button>
@@ -620,7 +620,7 @@
             background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:10px;padding:.7rem 1rem;
             display:flex;align-items:center;gap:.75rem;font-size:.9rem;box-shadow:var(--shadow-lg);max-width:92vw">
   <span>
-    ⚠ Licença vencida — o Kivo será bloqueado em
+    ⚠ Licença vencida — o Kuruk será bloqueado em
     <strong x-text="licenseStatus ? (licenseStatus.daysUntilBlock ?? 0) : 0"></strong> dia(s)
     <template x-if="licenseStatus && licenseStatus.blockAt"><span>(<strong x-text="fmtDueDate(licenseStatus.blockAt)"></strong>)</span></template>.
     Renove para não parar.
@@ -652,7 +652,7 @@
         Você pode continuar com <strong>mais 1 mês grátis</strong> ou escolher um plano para renovar.
       </span>
       <span x-show="!licenseStatus || licenseStatus.plan !== 'trial'">
-        Sua licença expirou. Escolha abaixo o plano para renovar e liberar novamente o acesso ao Kivo.
+        Sua licença expirou. Escolha abaixo o plano para renovar e liberar novamente o acesso ao Kuruk.
       </span>
     </p>
     <p class="renew-support" x-show="licenseStatus && (licenseStatus.supportPhone || licenseStatus.supportEmail)">
@@ -754,8 +754,8 @@
 
 <% if (user && user.permissions.has('settings.view')) { %>
 <%# Diálogo "Abrir no celular" global: o atalho do cabeçalho abre o QR sem navegar
-    para a home. A home também o aciona pelo evento kivo-open-celular. %>
-<dialog x-ref="dlgCelular" class="dlg-celular" @kivo-open-celular.window="abrirCelular()">
+    para a home. A home também o aciona pelo evento kuruk-open-celular. %>
+<dialog x-ref="dlgCelular" class="dlg-celular" @kuruk-open-celular.window="abrirCelular()">
   <div class="celular-topo">
     <span class="celular-topo-icone">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22" aria-hidden="true">
@@ -785,7 +785,7 @@
       <div>
         <p class="hint mt-0">
           O acesso pela rede local está <strong>desligado</strong>. Ao ativar, o celular ou
-          tablet na mesma rede passa a abrir o Kivo — não é acesso pela internet.
+          tablet na mesma rede passa a abrir o Kuruk — não é acesso pela internet.
         </p>
         <% if (user.permissions.has('settings.edit')) { %>
         <button type="button" class="btn" :disabled="celular.ativando" @click="ativarCelular()"
@@ -798,14 +798,14 @@
 
     <template x-if="celular.info.lanAtivo !== false">
       <div>
-        <p class="hint mt-0" x-show="celular.info.lanAtivo"><span class="badge ok">Ativo</span> Outros aparelhos da mesma rede já conseguem abrir o Kivo.</p>
+        <p class="hint mt-0" x-show="celular.info.lanAtivo"><span class="badge ok">Ativo</span> Outros aparelhos da mesma rede já conseguem abrir o Kuruk.</p>
         <p class="hint mt-0" x-show="!celular.info.lanAtivo" x-cloak>
           Não foi possível confirmar o estado da rede agora. Se o endereço abaixo não abrir no
           celular, verifique o firewall do Windows ou as configurações de rede local.
         </p>
         <template x-for="u in celular.info.urls" :key="u.url">
           <div class="celular-url">
-            <img :src="u.qr" width="92" height="92" alt="QR code do endereço do Kivo" />
+            <img :src="u.qr" width="92" height="92" alt="QR code do endereço do Kuruk" />
             <div class="celular-url-info">
               <code x-text="u.url"></code>
               <button type="button" class="btn secondary small" @click="copiarCelular(u.url)"
@@ -846,7 +846,7 @@
       </svg>
       Trocar senha
     </button>
-    <button type="button" id="kivo-mobile-app-btn-user" @click="userOpen = false" class="menu-item"
+    <button type="button" id="kuruk-mobile-app-btn-user" @click="userOpen = false" class="menu-item"
             @mouseenter="$el.style.background='var(--surface-hover)'" @mouseleave="$el.style.background='transparent'">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
         <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
@@ -899,18 +899,18 @@
   <nav class="apps-drawer-list">
     <%# Instalação no celular e aviso sonoro de pedido pronto ficam no topo do menu "Mais":
         são configurações do aparelho, não destinos de navegação. %>
-    <button type="button" class="apps-drawer-item" id="kivo-mobile-app-btn">
+    <button type="button" class="apps-drawer-item" id="kuruk-mobile-app-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
       </svg>
       Instalar no celular / tela cheia
     </button>
     <% if (user.permissions.has('comandas.view') || user.permissions.has('store.sales.view') || user.permissions.has('foodservice.kitchen.view')) { %>
-    <button type="button" class="apps-drawer-item" id="kivo-ready-sound-btn" aria-pressed="true">
+    <button type="button" class="apps-drawer-item" id="kuruk-ready-sound-btn" aria-pressed="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
       </svg>
-      Avisos de pedido pronto: <strong id="kivo-ready-sound-state">ligados</strong>
+      Avisos de pedido pronto: <strong id="kuruk-ready-sound-state">ligados</strong>
     </button>
     <% } %>
     <div class="apps-drawer-divider"></div>
@@ -948,7 +948,7 @@
     <% } %>
 
     <div class="apps-drawer-divider"></div>
-    <a :href="(cloudStatus.url || 'https://kivo.buscamais.org') + '/wiki'" target="_blank" class="apps-drawer-item" @click="appsOpen = false">
+    <a :href="(cloudStatus.url || 'https://kuruk.com.br') + '/wiki'" target="_blank" class="apps-drawer-item" @click="appsOpen = false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
       </svg>
@@ -1006,7 +1006,7 @@
         </template>
       </div>
     </template>
-    <a :href="(cloudStatus.url || 'https://kivo.buscamais.org') + '/wiki'" target="_blank" class="app-sidebar-item" @click="appsOpen = false" :title="sidebarCollapsed ? 'Wiki' : null">
+    <a :href="(cloudStatus.url || 'https://kuruk.com.br') + '/wiki'" target="_blank" class="app-sidebar-item" @click="appsOpen = false" :title="sidebarCollapsed ? 'Wiki' : null">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
       </svg>
@@ -1052,7 +1052,7 @@
 
   // ─── Botão Voltar do cabeçalho ───
   //
-  // `history.back()` só é seguro se a tela anterior for do próprio Kivo. Quem abriu o app
+  // `history.back()` só é seguro se a tela anterior for do próprio Kuruk. Quem abriu o app
   // direto numa tela interna (atalho na área de trabalho, link aberto no celular, aba nova)
   // seria jogado para FORA do sistema ao clicar em Voltar.
   //
@@ -1060,49 +1060,49 @@
   // `document.referrer`: o referrer some em navegações legítimas (aba nova, política de
   // referrer, alguns redirecionamentos), e aí a seta mandava para a tela inicial quem tinha
   // sim de onde voltar. `history.length` também não serve — conta o histórico da ABA
-  // inteira, incluindo o que veio antes do Kivo.
+  // inteira, incluindo o que veio antes do Kuruk.
   //
-  // Profundidade 1 = primeira tela do Kivo nesta aba: não há para onde voltar dentro do app.
+  // Profundidade 1 = primeira tela do Kuruk nesta aba: não há para onde voltar dentro do app.
   (function () {
     var st = history.state || {};
-    if (st.kivoDepth == null) {
+    if (st.kurukDepth == null) {
       // Entrada nova: um nível abaixo da última que visitamos nesta aba.
       var anterior = 0;
-      try { anterior = Number(sessionStorage.getItem('kivo-nav-depth') || 0); } catch (e) {}
+      try { anterior = Number(sessionStorage.getItem('kuruk-nav-depth') || 0); } catch (e) {}
       var d = anterior + 1;
-      st.kivoDepth = d;
+      st.kurukDepth = d;
       history.replaceState(st, '');
-      try { sessionStorage.setItem('kivo-nav-depth', String(d)); } catch (e) {}
+      try { sessionStorage.setItem('kuruk-nav-depth', String(d)); } catch (e) {}
     } else {
       // Entrada já conhecida (o lojista usou voltar/avançar): reancora o contador nela.
-      try { sessionStorage.setItem('kivo-nav-depth', String(st.kivoDepth)); } catch (e) {}
+      try { sessionStorage.setItem('kuruk-nav-depth', String(st.kurukDepth)); } catch (e) {}
     }
 
-    var b = document.getElementById('kivo-voltar');
+    var b = document.getElementById('kuruk-voltar');
     // Na tela inicial não há para onde voltar: mostrar a seta ali só ensinaria que ela
     // às vezes não faz nada.
     if (b && location.pathname !== '/') b.hidden = false;
   })();
 
-  window.kivoVoltar = function () {
-    var d = (history.state || {}).kivoDepth || 1;
+  window.kurukVoltar = function () {
+    var d = (history.state || {}).kurukDepth || 1;
     if (d > 1) history.back();
     else location.href = '/';
   };
 
   // Por addEventListener: a CSP recusa `onclick`/`onerror` no HTML — o nonce vale para a
   // tag `script`, nunca para atributo de evento.
-  document.getElementById('kivo-voltar')?.addEventListener('click', window.kivoVoltar);
+  document.getElementById('kuruk-voltar')?.addEventListener('click', window.kurukVoltar);
 
   // Fallback da logo da empresa: se o arquivo sumiu (troca de máquina, backup restaurado),
-  // volta para a marca do Kivo em vez de deixar o ícone quebrado no cabeçalho de TODAS as
+  // volta para a marca do Kuruk em vez de deixar o ícone quebrado no cabeçalho de TODAS as
   // telas. `once` no lugar do antigo `this.onerror = null` para não entrar em laço se o
   // próprio fallback falhar.
-  document.getElementById('kivo-logo-empresa')?.addEventListener('error', function () {
+  document.getElementById('kuruk-logo-empresa')?.addEventListener('error', function () {
     this.classList.remove('logo-empresa');
     this.src = document.documentElement.getAttribute('data-theme') === 'dark'
-      ? '/logo_kivo-horizontal_branco.svg'
-      : '/logo_kivo-horizontal.svg';
+      ? '/logo_kuruk-horizontal_branco.svg'
+      : '/logo_kuruk-horizontal.svg';
   }, { once: true });
 
   // Toast global — sempre no #toast-container, nunca dentro de um <dialog>. Dialogs
@@ -1198,14 +1198,14 @@
   // ─── Atalhos flutuantes de páginas recentes (preferência deste computador) ───
   // Registra a página atual e mostra balões no canto inferior direito com as últimas
   // páginas visitadas (exceto a home/lançador e a própria página atual). Máx. 3.
-  var STORAGE = 'kivo:recent', ENABLED = 'kivo:recent-enabled', SHOW_MAX = 3, STORE_MAX = 12, APPEAR_DELAY = 3000, STAGGER = 220;
+  var STORAGE = 'kuruk:recent', ENABLED = 'kuruk:recent-enabled', SHOW_MAX = 3, STORE_MAX = 12, APPEAR_DELAY = 3000, STAGGER = 220;
   // Desativado por padrão: o balão flutuante é um extra, não parte da navegação.
   function enabled(){ try { return localStorage.getItem(ENABLED) === '1'; } catch(e){ return false; } }
   function read(){ try { return JSON.parse(localStorage.getItem(STORAGE) || '[]'); } catch(e){ return []; } }
   function write(l){ try { localStorage.setItem(STORAGE, JSON.stringify(l)); } catch(e){} }
   function here(){ return location.pathname + location.search; }
   function pageLabel(){
-    var t = (document.title || '').replace(/^\s*Kivo\s*[—–-]\s*/i, '').trim();
+    var t = (document.title || '').replace(/^\s*Kuruk\s*[—–-]\s*/i, '').trim();
     return t || location.pathname;
   }
   // "não a home dos módulos": pula o lançador (/) e páginas sem sessão.

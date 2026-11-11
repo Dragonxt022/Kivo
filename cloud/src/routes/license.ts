@@ -15,7 +15,7 @@ interface CompanyLicenseRow {
   recovery_secret: string | null;
   /** Versão mínima exigida pelo suporte (painel). NULL = sem exigência. */
   licensed_version: string | null;
-  // Perfil da empresa — desce na ativação e preenche as configurações do Kivo local.
+  // Perfil da empresa — desce na ativação e preenche as configurações do Kuruk local.
   name: string | null;
   legal_name: string | null;
   document: string | null;
@@ -62,9 +62,9 @@ async function ensureRecoverySecret(companyUuid: string, current: string | null)
  * múltiplos trials no mesmo hardware.
  */
 router.post('/request-trial', async (req, res) => {
-  const machineId = req.header('X-Kivo-Machine-Id');
+  const machineId = req.header('X-Kuruk-Machine-Id');
   if (!machineId) {
-    res.status(400).json({ error: 'Cabeçalho obrigatório: X-Kivo-Machine-Id.' });
+    res.status(400).json({ error: 'Cabeçalho obrigatório: X-Kuruk-Machine-Id.' });
     return;
   }
 
@@ -73,14 +73,14 @@ router.post('/request-trial', async (req, res) => {
   //
   // Instaladores antigos não mandam esses campos nem o header de versão. Eles continuam
   // conseguindo pedir teste (senão a base atual ficaria sem ativação), mas qualquer cliente
-  // que já manda `X-Kivo-App-Version` PRECISA informar nome e celular.
-  const versaoCliente = (req.header('X-Kivo-App-Version') ?? '').trim();
+  // que já manda `X-Kuruk-App-Version` PRECISA informar nome e celular.
+  const versaoCliente = (req.header('X-Kuruk-App-Version') ?? '').trim();
   const exigeIdentificacao = !!versaoCliente;
   let contactName = String(req.body?.contactName ?? '').trim();
   const phoneRaw = String(req.body?.phone ?? '').trim();
   const phoneDigits = phoneRaw.replace(/\D/g, '');
   if (exigeIdentificacao && (contactName.length < 2 || contactName.length > 160)) {
-    res.status(400).json({ error: 'Informe o nome do responsável que vai usar o Kivo.' });
+    res.status(400).json({ error: 'Informe o nome do responsável que vai usar o Kuruk.' });
     return;
   }
   if (exigeIdentificacao && (phoneDigits.length < 10 || phoneDigits.length > 15)) {
@@ -221,7 +221,7 @@ router.post('/resolve', async (req, res) => {
 });
 
 /**
- * Serve tanto a ativação inicial quanto a revalidação periódica (Kivo local). Registra
+ * Serve tanto a ativação inicial quanto a revalidação periódica (Kuruk local). Registra
  * o dispositivo (machine_id) na primeira vez que o vê, dentro do limite `max_devices`
  * da empresa; uma máquina já conhecida nunca é recontada contra o limite — só uma
  * máquina NOVA é que compara. Um dispositivo removido pelo suporte (`removed_at`) é
@@ -229,13 +229,13 @@ router.post('/resolve', async (req, res) => {
  * ter mais vaga (`device_limit_exceeded`).
  */
 router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
-  const machineId = req.header('X-Kivo-Machine-Id');
+  const machineId = req.header('X-Kuruk-Machine-Id');
   if (!machineId) {
-    res.status(400).json({ error: 'Cabeçalho obrigatório: X-Kivo-Machine-Id.' });
+    res.status(400).json({ error: 'Cabeçalho obrigatório: X-Kuruk-Machine-Id.' });
     return;
   }
   // Versão que o desktop está rodando (opcional) — alimenta a tela de versões do painel.
-  const appVersion = (req.header('X-Kivo-App-Version') ?? '').trim().slice(0, 24) || null;
+  const appVersion = (req.header('X-Kuruk-App-Version') ?? '').trim().slice(0, 24) || null;
 
   const pool = getPool();
   const conn = await pool.getConnection();
@@ -288,7 +288,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
     // diferente de `[]` (configurado explicitamente como "nenhum módulo"), que bloqueia tudo.
     const modules = company.modules == null ? null : typeof company.modules === 'string' ? JSON.parse(company.modules) : company.modules;
 
-    // Contato de suporte é global (do fornecedor Kivo), não por empresa — mesmo valor para todas.
+    // Contato de suporte é global (do fornecedor Kuruk), não por empresa — mesmo valor para todas.
     const [settingsRows] = await pool.query(
       "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('support_phone','support_email')",
     );
@@ -307,7 +307,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
       // Nome comercial do plano (para a tela de licença funcionar com planos criados no
       // painel, cuja chave crua não diz nada ao lojista). Nulo em valor legado desconhecido.
       planLabel: company.plan === 'trial' ? 'Teste (15 dias)' : plano?.label ?? null,
-      // Funcionalidades efetivas do plano (nuvem, Kivo Web, QR mesa), da tabela `plans`.
+      // Funcionalidades efetivas do plano (nuvem, Kuruk Web, QR mesa), da tabela `plans`.
       // O desktop usa para liberar recursos sem regra fixa por chave — permite planos
       // criados no painel. Nuvem antiga não manda o campo: o desktop mantém a regra fixa.
       planFeatures: planFeaturesFor(company.plan),
@@ -321,7 +321,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
       supportPhone: settingsMap.support_phone ?? null,
       supportEmail: settingsMap.support_email ?? null,
       recoverySecret,
-      // Perfil da empresa cadastrado no painel — o Kivo local usa para preencher as
+      // Perfil da empresa cadastrado no painel — o Kuruk local usa para preencher as
       // configurações (nome/documento/endereço do cupom) na ativação, só se vazias.
       company: {
         name: company.name,
@@ -338,7 +338,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
         city: company.city,
         state: company.state,
       },
-      // Alimenta o watermark anti-retrocesso de relógio no Kivo local — o cliente não
+      // Alimenta o watermark anti-retrocesso de relógio no Kuruk local — o cliente não
       // deve confiar no próprio relógio pra isso, só no horário que o servidor confirma.
       serverTime: new Date().toISOString(),
     });
@@ -351,7 +351,7 @@ router.get('/validate', requireCompanyAuth, async (req: AuthedRequest, res) => {
 });
 
 /**
- * Perfil do negócio respondido no assistente de boas-vindas do Kivo local (migration 0021).
+ * Perfil do negócio respondido no assistente de boas-vindas do Kuruk local (migration 0021).
  *
  * Só preenche o que veio: o app manda os três campos juntos, mas uma versão futura que
  * mandar só um não pode zerar os outros dois. `name` cai em `companies.name` (nome

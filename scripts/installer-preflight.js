@@ -4,9 +4,9 @@
  *
  * Os dois problemas que este script evita acontecem ANTES de o instalador NSIS rodar:
  *
- * 1) Um `Kivo.exe` (ou o instalador anterior) ainda em execução segura arquivos do diretório
- *    de instalação. O NSIS então para em "Não é possível fechar o Kivo / Feche a janela do
- *    Kivo e clique em Repetir" — a caixa que trava o instalador no meio do caminho. Um Kivo
+ * 1) Um `Kuruk.exe` (ou o instalador anterior) ainda em execução segura arquivos do diretório
+ *    de instalação. O NSIS então para em "Não é possível fechar o Kuruk / Feche a janela do
+ *    Kuruk e clique em Repetir" — a caixa que trava o instalador no meio do caminho. Um Kuruk
  *    em erro de boot é o pior caso: sem janela visível, sem log para o lojista, e ainda
  *    segurando o processo. Encerrar antes é o que faz o instalador seguir sozinho.
  *
@@ -18,7 +18,7 @@
  */
 const { spawnSync } = require('node:child_process');
 
-const EXECUTAVEIS = ['Kivo.exe', 'Kivo Setup.exe', 'Kivo-Setup-2.1.1.exe'];
+const EXECUTAVEIS = ['Kuruk.exe', 'Kuruk Setup.exe', 'Kuruk-Setup-2.1.1.exe'];
 
 /** Mesmo caminho que o `build/installer.nsh` usa: `tasklist`, sem plugin nativo. */
 function processoEmExecucao(imagem) {
@@ -53,7 +53,7 @@ if (encerrou > 0) {
   }
   console.log(`[preflight] ${encerrou} processo(s) encerrado(s).`);
 } else {
-  console.log('[preflight] nenhum Kivo em execução. OK.');
+  console.log('[preflight] nenhum Kuruk em execução. OK.');
 }
 
 // Aviso, não bloqueio: o `verify:native` é quem falha de verdade. Aqui só queremos que o

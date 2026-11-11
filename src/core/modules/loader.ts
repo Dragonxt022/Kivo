@@ -151,7 +151,7 @@ export function collectMenu(modules: LoadedModule[]): ModuleMenuItem[] {
 /**
  * Filtra `app.locals.moduleMenu` (todos os módulos compatíveis, sempre carregados)
  * pelo entitlement ATUAL a cada requisição — troca de plano/módulo aparece no
- * próximo clique, sem precisar reiniciar o Kivo.
+ * próximo clique, sem precisar reiniciar o Kuruk.
  *
  * Itens que declaram `capability` também somem enquanto o recurso está desligado: é o
  * que faz um beta nascer invisível, em vez de aparecer no menu e só barrar no clique.

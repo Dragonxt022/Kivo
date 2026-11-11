@@ -27,7 +27,7 @@ const manifest: ModuleManifest = {
     { label: 'Vendas', href: '/app/store/vendas', permission: 'store.sales.view', description: 'Histórico e relatório do dia.', icon: 'receipt' },
     { label: 'Orçamentos', href: '/app/store/orcamentos', permission: 'store.quotes.view', description: 'Cotações com validade; converta em venda.', icon: 'clipboard' },
   ],
-  // Fase 6a — motor de sincronização (KIVO_PLANO.md §6).
+  // Fase 6a — motor de sincronização (KURUK_PLANO.md §6).
   // user_id/canceled_by referenciam `users`, que não sincroniza nesta sub-fase.
   syncTables: [
     {

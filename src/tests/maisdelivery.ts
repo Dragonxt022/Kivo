@@ -5,7 +5,7 @@
  * gravação dos segredos no cofre, páginas, montagem do corpo das operações,
  * normalização das respostas (inclusive envelope) e tratamento de erro HTTP.
  *
- * KIVO_DB_PATH TEM que vir do ambiente:
+ * KURUK_DB_PATH TEM que vir do ambiente:
  *   node scripts/test-isolated.js src/tests/maisdelivery.ts
  */
 import fs from 'node:fs';
@@ -32,7 +32,7 @@ import {
 } from '../modules/maisdelivery/client';
 import { saveMaisDeliveryConfig } from '../modules/maisdelivery/settings';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3893);
+const PORT = Number(process.env.KURUK_PORT ?? 3893);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -54,15 +54,15 @@ async function api(p: string, opts: RequestInit = {}): Promise<Response> {
 }
 
 function assertBancoDescartavel(): string {
-  const target = process.env.KIVO_DB_PATH;
+  const target = process.env.KURUK_DB_PATH;
   if (!target) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
         '`node scripts/test-isolated.js src/tests/maisdelivery.ts`.',
     );
   }
-  if (path.resolve(target) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(target) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return target;
 }
@@ -79,7 +79,7 @@ let lastRequest: MockRequest | null = null;
 /**
  * Substitui apenas a chamada externa ao Mais Delivery. As requisições HTTP do teste para
  * o servidor local continuam usando o fetch original — sem isso, `api()` também seria
- * interceptado e nenhuma rota do Kivo poderia ser exercitada depois do mock.
+ * interceptado e nenhuma rota do Kuruk poderia ser exercitada depois do mock.
  */
 function mockApi(
   handler: (body: Record<string, unknown>) => { status?: number; json: unknown },
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
   fs.mkdirSync(path.dirname(TMP_DB), { recursive: true });
   fs.rmSync(TMP_DB, { force: true });
 
-  // O cofre fica em `storage/` (fora do banco) e o caminho deriva de KIVO_DB_PATH; nos
+  // O cofre fica em `storage/` (fora do banco) e o caminho deriva de KURUK_DB_PATH; nos
   // testes isolados ele cai no temp compartilhado. Limpa as chaves desta integração para
   // a execução não herdar credenciais de uma rodada anterior.
   deleteSecret('maisdelivery.access_token');
@@ -171,8 +171,8 @@ async function main(): Promise<void> {
       method: 'POST',
       body: JSON.stringify({ username: 'admin', password: 'admin' }),
     });
-    const match = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = match ? `kivo_session=${match[1]}` : '';
+    const match = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = match ? `kuruk_session=${match[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 
@@ -587,7 +587,7 @@ async function main(): Promise<void> {
       apiError instanceof MaisDeliveryError && apiError.message === 'Token inválido',
     );
     check(
-      'erro de auth não vira 401 do Kivo',
+      'erro de auth não vira 401 do Kuruk',
       apiError instanceof MaisDeliveryError && apiError.statusCode === 400,
     );
 

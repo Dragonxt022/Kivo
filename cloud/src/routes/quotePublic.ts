@@ -1,5 +1,5 @@
 /**
- * Página pública do orçamento — o que o CLIENTE da loja abre, fora do Kivo Web.
+ * Página pública do orçamento — o que o CLIENTE da loja abre, fora do Kuruk Web.
  *
  * Sem autenticação, por desenho: o vendedor manda o link pelo WhatsApp e o cliente
  * precisa abrir sem instalar nem entrar em lugar nenhum. O que segura a porta é o

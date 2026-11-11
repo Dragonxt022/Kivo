@@ -1,14 +1,15 @@
 import { cloudBaseUrl, cloudAuthHeaders } from '../catalog/submissionQueue';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 
 /**
- * KIVO IA — ponte com o Kivo Web.
+ * KURUK IA — ponte com o Kuruk Web.
  *
  * O app é offline-first e a CSP do navegador é `connect-src 'self'`: o navegador NUNCA fala
- * com a nuvem. Então quem chama o Kivo Web é ESTE servidor local, com as credenciais de
- * licença; o Kivo Web escolhe o provedor de IA e chama a API correspondente.
+ * com a nuvem. Então quem chama o Kuruk Web é ESTE servidor local, com as credenciais de
+ * licença; o Kuruk Web escolhe o provedor de IA e chama a API correspondente.
  *
  * O assistente de SUPORTE está sempre disponível: não há ativação nem configuração no app.
- * Provedores, chaves, instruções e limites são definidos pelo time do Kivo no painel do Cloud.
+ * Provedores, chaves, instruções e limites são definidos pelo time do Kuruk no painel do Cloud.
  */
 
 export interface AiChatMessage {
@@ -47,23 +48,23 @@ export interface AiStatus {
   providers?: AiProviderInfo[];
   credits?: AiCredits | null;
   error?: string;
-  /** Motivo local (antes mesmo de falar com a nuvem): IA desligada, Kivo Web sem config. */
+  /** Motivo local (antes mesmo de falar com a nuvem): IA desligada, Kuruk Web sem config. */
   localError?: string;
 }
 
-/** Consulta o Kivo Web para a tela montar o seletor de agente e mostrar o status. */
+/** Consulta o Kuruk Web para a tela montar o seletor de agente e mostrar o status. */
 export async function aiStatus(): Promise<AiStatus> {
   const base = cloudBaseUrl();
   const headers = cloudAuthHeaders();
   if (!base || !headers) {
-    return { online: false, localError: 'Kivo Web não configurado (licença ou servidor ausente).' };
+    return { online: false, localError: 'Kuruk Web não configurado (licença ou servidor ausente).' };
   }
   try {
     const r = await fetch(`${base}/api/ai/status`, { headers, signal: AbortSignal.timeout(8000) });
-    if (!r.ok) return { online: false, localError: `Kivo Web respondeu ${r.status}.` };
+    if (!r.ok) return { online: false, localError: `Kuruk Web respondeu ${r.status}.` };
     return (await r.json()) as AiStatus;
   } catch (e) {
-    return { online: false, localError: `Não foi possível falar com o Kivo Web: ${e instanceof Error ? e.message : String(e)}` };
+    return { online: false, localError: `Não foi possível falar com o Kuruk Web: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
 
@@ -77,7 +78,7 @@ export interface AiLink {
 /**
  * Traduz erro técnico do provedor/cloud para algo amigável ao lojista, guardando o texto
  * original em `detail` (a tela mostra o amigável e um "exibir erro" discreto). Aplicado aqui
- * também para funcionar mesmo com um Kivo Web mais antigo que ainda devolva o erro cru.
+ * também para funcionar mesmo com um Kuruk Web mais antigo que ainda devolva o erro cru.
  */
 function friendlyAiError(raw: string): { error: string; detail?: string } {
   const r = raw || '';
@@ -121,14 +122,14 @@ export interface AiToolInfo {
   status: AiToolStatus | null;
 }
 
-/** Lista as ferramentas pagas e a cota do dia (para a tela de Configurações › KIVO IA). */
+/** Lista as ferramentas pagas e a cota do dia (para a tela de Configurações › KURUK IA). */
 export async function aiTools(): Promise<{ tools: AiToolInfo[] }> {
   const base = cloudBaseUrl();
   const headers = cloudAuthHeaders();
   if (!base || !headers) return { tools: [] };
   try {
     const r = await fetch(`${base}/api/ai/tools`, {
-      headers: { ...headers, 'X-Kivo-Tz': localTimezone() },
+      headers: withLegacyBrandHeaders({ ...headers, 'X-Kuruk-Tz': localTimezone() }),
       signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) return { tools: [] };
@@ -150,18 +151,18 @@ function localTimezone(): string {
 }
 
 /**
- * Ferramenta paga "gerar descrição de produto". Cobra 1 uso da cota diária no Kivo Web; se a
+ * Ferramenta paga "gerar descrição de produto". Cobra 1 uso da cota diária no Kuruk Web; se a
  * cota acabou, o cloud devolve 402 com a mensagem amigável (a tela mostra e sugere esperar a
  * renovação à meia-noite).
  */
 export async function aiProductDescription(input: { name: string; category?: string; keywords?: string }): Promise<AiToolResult> {
   const base = cloudBaseUrl();
   const headers = cloudAuthHeaders();
-  if (!base || !headers) return { ok: false, error: 'Kivo Web não configurado (licença ou servidor ausente).' };
+  if (!base || !headers) return { ok: false, error: 'Kuruk Web não configurado (licença ou servidor ausente).' };
   try {
     const r = await fetch(`${base}/api/ai/tools/product-description`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers, 'X-Kivo-Tz': localTimezone() },
+      headers: withLegacyBrandHeaders({ 'Content-Type': 'application/json', ...headers, 'X-Kuruk-Tz': localTimezone() }),
       body: JSON.stringify(input),
       signal: AbortSignal.timeout(150000),
     });
@@ -169,7 +170,7 @@ export async function aiProductDescription(input: { name: string; category?: str
       description?: string; status?: AiToolStatus; error?: string; detail?: string; code?: string;
     };
     if (!r.ok) {
-      const friendly = friendlyAiError(body.error ?? `Kivo Web respondeu ${r.status}.`);
+      const friendly = friendlyAiError(body.error ?? `Kuruk Web respondeu ${r.status}.`);
       return { ok: false, error: friendly.error, detail: body.detail || friendly.detail, code: body.code };
     }
     return { ok: true, description: body.description ?? '', status: body.status };
@@ -198,17 +199,17 @@ export interface SalesInsightsInput {
 
 /**
  * Ferramenta paga "insights de vendas". O app monta o resumo do período com os dados locais e
- * manda para o Kivo Web, que injeta no prompt e cobra 1 uso da cota diária. Se a cota acabou, o
+ * manda para o Kuruk Web, que injeta no prompt e cobra 1 uso da cota diária. Se a cota acabou, o
  * cloud devolve 402 (`ai_quota_exhausted`) com a mensagem amigável.
  */
 export async function aiSalesInsights(input: SalesInsightsInput): Promise<AiSalesInsightsResult> {
   const base = cloudBaseUrl();
   const headers = cloudAuthHeaders();
-  if (!base || !headers) return { ok: false, error: 'Kivo Web não configurado (licença ou servidor ausente).' };
+  if (!base || !headers) return { ok: false, error: 'Kuruk Web não configurado (licença ou servidor ausente).' };
   try {
     const r = await fetch(`${base}/api/ai/tools/sales-insights`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers, 'X-Kivo-Tz': localTimezone() },
+      headers: withLegacyBrandHeaders({ 'Content-Type': 'application/json', ...headers, 'X-Kuruk-Tz': localTimezone() }),
       body: JSON.stringify(input),
       signal: AbortSignal.timeout(150000),
     });
@@ -216,7 +217,7 @@ export async function aiSalesInsights(input: SalesInsightsInput): Promise<AiSale
       insight?: string; status?: AiToolStatus; error?: string; detail?: string; code?: string;
     };
     if (!r.ok) {
-      const friendly = friendlyAiError(body.error ?? `Kivo Web respondeu ${r.status}.`);
+      const friendly = friendlyAiError(body.error ?? `Kuruk Web respondeu ${r.status}.`);
       return { ok: false, error: friendly.error, detail: body.detail || friendly.detail, code: body.code };
     }
     return { ok: true, insight: body.insight ?? '', status: body.status };
@@ -228,9 +229,9 @@ export async function aiSalesInsights(input: SalesInsightsInput): Promise<AiSale
 }
 
 /**
- * Envia um chat para o Kivo Web, que injeta a documentação do Kivo e chama o provedor. O
+ * Envia um chat para o Kuruk Web, que injeta a documentação do Kuruk e chama o provedor. O
  * assistente de suporte está sempre disponível: provedor, instruções e limites são definidos
- * pela Kivo no painel — o app não ativa nem configura nada. `userName` entra no contexto para
+ * pela Kuruk no painel — o app não ativa nem configura nada. `userName` entra no contexto para
  * a IA tratar a pessoa pelo nome.
  */
 export async function aiChat(
@@ -243,7 +244,7 @@ export async function aiChat(
   const base = cloudBaseUrl();
   const headers = cloudAuthHeaders();
   if (!base || !headers) {
-    return { ok: false, error: 'Kivo Web não configurado (licença ou servidor ausente).' };
+    return { ok: false, error: 'Kuruk Web não configurado (licença ou servidor ausente).' };
   }
 
   try {
@@ -266,7 +267,7 @@ export async function aiChat(
       detail?: string;
     };
     if (!r.ok) {
-      const friendly = friendlyAiError(body.error ?? `Kivo Web respondeu ${r.status}.`);
+      const friendly = friendlyAiError(body.error ?? `Kuruk Web respondeu ${r.status}.`);
       return { ok: false, error: friendly.error, detail: body.detail || friendly.detail };
     }
     return {

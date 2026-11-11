@@ -18,7 +18,7 @@ import { getKitchenSituations, getMaisDeliveryConfig, isMaisDeliveryConfigured, 
  * Ponte cozinha ⇆ Mais Delivery.
  *
  * O botão "Enviar p/ cozinha" da tela de pedidos cria um ticket real no KDS com os
- * itens TEXTUAIS do pedido do marketplace (sem casar com produtos do Kivo) e já
+ * itens TEXTUAIS do pedido do marketplace (sem casar com produtos do Kuruk) e já
  * atualiza a situação lá no Mais Delivery ("em preparo"). Quando a cozinha marca
  * "pronto" no KDS, a situação lá fora volta a acompanhar (`onTicketStatusChange`).
  *
@@ -230,7 +230,7 @@ export async function sendOrderToKitchen(req: Request, orderId: number): Promise
       result.warning = 'Pedido na cozinha, mas não achei a situação "em preparo" no Mais Delivery — escolha manualmente no modal de detalhes.';
       return result;
     }
-    await changeOrderStatus(orderId, Number(situacao.id), 'Pedido enviado para a cozinha do Kivo');
+    await changeOrderStatus(orderId, Number(situacao.id), 'Pedido enviado para a cozinha do Kuruk');
     result.statusChanged = true;
     result.statusName = situacao.name;
     result.statusId = Number(situacao.id);
@@ -299,7 +299,7 @@ export async function createTestOrder(req: Request): Promise<{
     orderId: String(sourceId),
     customer: 'PEDIDO TESTE',
     deliveryType: 'Sandbox',
-    origin: 'Kivo (teste)',
+    origin: 'Kuruk (teste)',
     items: TEST_ORDER_ITEMS.map((item) => ({ name: item.name, qty: String(item.qty) })),
     itemCount: TEST_ORDER_ITEMS.length,
     totalCents,
@@ -326,7 +326,7 @@ export async function onTicketStatusChange(req: Request, orderId: number, ticket
       });
       return;
     }
-    await changeOrderStatus(orderId, Number(situacao.id), 'Pedido pronto na cozinha do Kivo');
+    await changeOrderStatus(orderId, Number(situacao.id), 'Pedido pronto na cozinha do Kuruk');
   } catch (error) {
     audit(req, 'sincronizar_status_delivery', 'maisdelivery_order', orderId, null, {
       ticketStatus,

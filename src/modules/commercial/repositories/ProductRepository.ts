@@ -18,7 +18,7 @@ export interface ProductRow extends Row {
   purchase_unit: string | null;
   purchase_unit_qty: number | null;
   image_url: string | null;
-  /** Id da foto no banco de imagens do Kivo Cloud (catalog_images.id), quando vinculada. */
+  /** Id da foto no banco de imagens do Kuruk Cloud (catalog_images.id), quando vinculada. */
   catalog_image_id: number | null;
   product_type: string;
   parent_product_id: number | null;

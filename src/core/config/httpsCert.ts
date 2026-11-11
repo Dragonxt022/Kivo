@@ -5,13 +5,13 @@ import forge from 'node-forge';
 /**
  * HTTPS opcional com certificado PRÓPRIO do lojista.
  *
- * O Kivo continua servindo HTTP na porta normal (retrocompatível com os atalhos já
+ * O Kuruk continua servindo HTTP na porta normal (retrocompatível com os atalhos já
  * criados). Se encontrar um certificado nesta pasta, sobe TAMBÉM um listener HTTPS —
  * é o endereço que o tablet deve abrir para o Chrome liberar PWA/notificações e o
  * Screen Wake Lock.
  *
  * Formatos aceitos em `<raiz de dados>/certificados/`:
- *   https.pfx                    (PKCS#12; senha em https.pfx.senha ou KIVO_HTTPS_PFX_PASSPHRASE)
+ *   https.pfx                    (PKCS#12; senha em https.pfx.senha ou KURUK_HTTPS_PFX_PASSPHRASE)
  *   https.crt + https.key        (PEM)
  *
  * O certificado PRECISA ser válido para o hostname que o tablet usa. Certificado
@@ -44,13 +44,13 @@ export interface HttpsDescription {
 }
 
 /** Raiz de dados (mesma regra de core/config/env.ts): pasta que contém database/ e storage/. */
-export function kivoDataRoot(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+export function kurukDataRoot(): string {
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.dirname(path.dirname(dbPath));
 }
 
 export function httpsCertDir(): string {
-  return path.join(kivoDataRoot(), 'certificados');
+  return path.join(kurukDataRoot(), 'certificados');
 }
 
 function readOptional(file: string): string | undefined {
@@ -63,7 +63,7 @@ function readOptional(file: string): string | undefined {
 }
 
 export function httpsPort(): number {
-  const port = Number(process.env.KIVO_HTTPS_PORT ?? DEFAULT_HTTPS_PORT);
+  const port = Number(process.env.KURUK_HTTPS_PORT ?? DEFAULT_HTTPS_PORT);
   return Number.isInteger(port) && port > 0 && port <= 65535 ? port : DEFAULT_HTTPS_PORT;
 }
 
@@ -76,7 +76,7 @@ export function findHttpsFiles(): HttpsFiles | null {
     return {
       pfxPath,
       passphrase:
-        process.env.KIVO_HTTPS_PFX_PASSPHRASE ??
+        process.env.KURUK_HTTPS_PFX_PASSPHRASE ??
         readOptional(path.join(dir, 'https.pfx.senha')),
       port,
       dir,
@@ -177,13 +177,13 @@ export function ensureHttpsDir(): void {
       fs.writeFileSync(
         readme,
         [
-          'HTTPS com certificado próprio — Kivo',
+          'HTTPS com certificado próprio — Kuruk',
           '',
           'Coloque nesta pasta UM dos formatos:',
-          '  https.pfx                (PKCS#12; senha em https.pfx.senha ou KIVO_HTTPS_PFX_PASSPHRASE)',
+          '  https.pfx                (PKCS#12; senha em https.pfx.senha ou KURUK_HTTPS_PFX_PASSPHRASE)',
           '  https.crt + https.key     (PEM)',
           '',
-          `Depois reinicie o Kivo. O HTTPS sobe na porta ${httpsPort()}.`,
+          `Depois reinicie o Kuruk. O HTTPS sobe na porta ${httpsPort()}.`,
           '',
           'O certificado precisa ser válido para o endereço que o tablet vai abrir.',
           'Certificado autoassinado/CA local não é aceito de forma confiável pelo Chrome Android',

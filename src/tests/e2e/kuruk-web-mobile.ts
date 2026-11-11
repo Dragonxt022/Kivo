@@ -1,15 +1,15 @@
 /**
- * QA E2E (Playwright) — Kivo Web no celular.
+ * QA E2E (Playwright) — Kuruk Web no celular.
  *
  * Sobe a nuvem (MySQL) + o desktop, concede acesso remoto pelo painel e abre o link no
- * viewport de um celular real. Confere que cada tela do Kivo Web carrega sem erro de JS e
+ * viewport de um celular real. Confere que cada tela do Kuruk Web carrega sem erro de JS e
  * que a barra de ação do orçamento é alcançável e tocável — o defeito que já deixou o botão
  * "Enviar" escondido atrás da navegação inferior.
  *
- * Requer o MySQL do docker-compose no ar (mesma dependência de fase6a/kivo-web-e2e):
+ * Requer o MySQL do docker-compose no ar (mesma dependência de fase6a/kuruk-web-e2e):
  *   docker compose -f cloud/docker-compose.yml up -d
- *   npm run kivo cloud:migrate
- *   node scripts/test-isolated.js src/tests/e2e/kivo-web-mobile.ts
+ *   npm run kuruk cloud:migrate
+ *   node scripts/test-isolated.js src/tests/e2e/kuruk-web-mobile.ts
  *
  * Sem o MySQL acessível o teste sai como SKIP (código 0), para a suíte não ficar vermelha
  * numa máquina sem Docker.
@@ -23,19 +23,19 @@ import path from 'node:path';
 import { Reporter, snapDir, snap, unwrap } from './harness';
 
 const TSX = path.resolve('node_modules/tsx/dist/cli.mjs');
-const CLOUD_PORT = Number(process.env.KIVO_WEB_CLOUD_PORT ?? 4134);
-const DESK_PORT = Number(process.env.KIVO_WEB_DESK_PORT ?? 3134);
+const CLOUD_PORT = Number(process.env.KURUK_WEB_CLOUD_PORT ?? 4134);
+const DESK_PORT = Number(process.env.KURUK_WEB_DESK_PORT ?? 3134);
 const CLOUD = `http://127.0.0.1:${CLOUD_PORT}`;
 const DESK = `http://127.0.0.1:${DESK_PORT}`;
 const DB = path.resolve('database', 'qa-mobile.db');
-const SHOTS = snapDir('e2e-kivo-web-mobile');
+const SHOTS = snapDir('e2e-kuruk-web-mobile');
 
 const CLOUD_ENV: Record<string, string> = {
   CLOUD_DB_HOST: process.env.CLOUD_DB_HOST ?? '127.0.0.1',
   CLOUD_DB_PORT: process.env.CLOUD_DB_PORT ?? '3307',
   CLOUD_DB_USER: process.env.CLOUD_DB_USER ?? 'root',
-  CLOUD_DB_PASSWORD: process.env.CLOUD_DB_PASSWORD ?? 'kivo',
-  CLOUD_DB_NAME: process.env.CLOUD_DB_NAME ?? 'kivo_cloud',
+  CLOUD_DB_PASSWORD: process.env.CLOUD_DB_PASSWORD ?? 'kuruk',
+  CLOUD_DB_NAME: process.env.CLOUD_DB_NAME ?? 'kuruk_cloud',
   CLOUD_PORT: String(CLOUD_PORT),
 };
 
@@ -71,13 +71,13 @@ function waitForHealth(url: string, timeoutMs = 60000): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const reporter = new Reporter('Kivo Web (mobile)');
+  const reporter = new Reporter('Kuruk Web (mobile)');
 
   if (!(await mysqlReachable())) {
     console.log(
-      `\nSKIP  Kivo Web (mobile) — MySQL não acessível em ${CLOUD_ENV.CLOUD_DB_HOST}:${CLOUD_ENV.CLOUD_DB_PORT}.`,
+      `\nSKIP  Kuruk Web (mobile) — MySQL não acessível em ${CLOUD_ENV.CLOUD_DB_HOST}:${CLOUD_ENV.CLOUD_DB_PORT}.`,
     );
-    console.log('      docker compose -f cloud/docker-compose.yml up -d && npm run kivo cloud:migrate');
+    console.log('      docker compose -f cloud/docker-compose.yml up -d && npm run kuruk cloud:migrate');
     process.exit(0);
   }
 
@@ -119,10 +119,10 @@ async function main(): Promise<void> {
     deskProc = spawn(process.execPath, [TSX, 'src/dev.ts'], {
       env: {
         ...process.env,
-        KIVO_DB_PATH: DB,
-        KIVO_PORT: String(DESK_PORT),
-        KIVO_SYNC_SERVER_URL: CLOUD,
-        KIVO_MACHINE_ID: 'qa-mobile-e2e',
+        KURUK_DB_PATH: DB,
+        KURUK_PORT: String(DESK_PORT),
+        KURUK_SYNC_SERVER_URL: CLOUD,
+        KURUK_MACHINE_ID: 'qa-mobile-e2e',
       },
       stdio: 'ignore',
     });
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'admin', password: 'admin' }),
     });
-    const cookie = (login.headers.get('set-cookie') ?? '').match(/kivo_session=[^;]+/)?.[0] ?? '';
+    const cookie = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=[^;]+/)?.[0] ?? '';
     reporter.check('login admin no desktop', login.ok && cookie.length > 0);
 
     const dk = (route: string, opts: RequestInit = {}) =>
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
     reporter.check('token do QR não fica na URL', !page.url().includes('token'), page.url());
     await snap(page, SHOTS, 'entrada-mobile');
 
-    reporter.section('Telas do Kivo Web');
+    reporter.section('Telas do Kuruk Web');
     const telas: [string, string][] = [
       ['inicio', '/m'],
       ['analiticos', '/m/analiticos'],
@@ -272,7 +272,7 @@ async function main(): Promise<void> {
 
     reporter.check('nenhum erro de JS nas telas do celular', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
   } catch (e) {
-    console.error('[e2e-kivo-web-mobile] erro fatal:', e);
+    console.error('[e2e-kuruk-web-mobile] erro fatal:', e);
     reporter.check('execução sem exceção', false, (e as Error).message);
   } finally {
     await browser.close().catch(() => {});

@@ -7,12 +7,13 @@ import { getSqlite, closeDb } from '../database/connection';
 import { getLicenseCredentials, machineId, validateLicense } from '../license/service';
 import { canSaveToCloud } from '../license/plans';
 import { getCloudServerUrl } from '../config/cloud';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 import { createLogger } from '../logger';
 
 const log = createLogger('backup');
 
 /**
- * Backup local (KIVO_PLANO.md §8):
+ * Backup local (KURUK_PLANO.md §8):
  * compacta o SQLite (gzip), calcula checksum sha256 e registra no histórico.
  * Destino configurável via setting `backup.dir`. Restauração validada por checksum.
  * Fase 6c: se houver licença configurada, o backup também sobe para o cloud/
@@ -21,7 +22,7 @@ const log = createLogger('backup');
 
 /**
  * Destino padrão desta instalação: `storage/backups` ao lado da MESMA raiz de dados do
- * banco (`KIVO_DB_PATH`) — em dev a pasta do repositório, no app empacotado o `userData`
+ * banco (`KURUK_DB_PATH`) — em dev a pasta do repositório, no app empacotado o `userData`
  * do usuário do Windows. Derivado, nunca gravado no banco: assim cada máquina cai no
  * próprio espaço sozinha, e um banco restaurado de outra máquina/outro perfil não arrasta
  * junto um caminho absoluto que não existe (ou, pior, que existe e é de outra instalação).
@@ -33,7 +34,7 @@ const log = createLogger('backup');
  * `core/license/service.ts`.
  */
 export function defaultBackupDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.join(path.dirname(path.dirname(dbPath)), 'storage', 'backups');
 }
 
@@ -99,7 +100,7 @@ export function getBackupSettings(): BackupSettings {
 export async function runBackup(trigger: 'manual' | 'agendado' = 'manual'): Promise<BackupResult> {
   const db = getSqlite();
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const tmpDb = path.join(backupDir(), `kivo-${stamp}.db`);
+  const tmpDb = path.join(backupDir(), `kuruk-${stamp}.db`);
   const finalPath = `${tmpDb}.gz`;
 
   await db.backup(tmpDb); // cópia consistente mesmo com o banco em uso
@@ -228,7 +229,7 @@ function cloudBaseUrl(): string | null {
 function cloudAuthHeaders(): Record<string, string> | null {
   const { companyUuid, licenseKey } = getLicenseCredentials();
   if (!companyUuid || !licenseKey) return null;
-  return { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey };
+  return withLegacyBrandHeaders({ 'X-Kuruk-Company': companyUuid, 'X-Kuruk-License-Key': licenseKey });
 }
 
 /** Envia um backup já gravado localmente para o cloud/. Não faz nada se não houver licença/URL configurados. */
@@ -244,13 +245,13 @@ export async function uploadBackupToCloud(backupId: number): Promise<void> {
 
   const res = await fetch(`${base}/api/backup/upload`, {
     method: 'POST',
-    headers: {
+    headers: withLegacyBrandHeaders({
       ...auth,
       'Content-Type': 'application/gzip',
-      'X-Kivo-Backup-Uuid': row.uuid,
-      'X-Kivo-Backup-Checksum': row.checksum,
-      'X-Kivo-Machine-Id': machineId(),
-    },
+      'X-Kuruk-Backup-Uuid': row.uuid,
+      'X-Kuruk-Backup-Checksum': row.checksum,
+      'X-Kuruk-Machine-Id': machineId(),
+    }),
     body: fs.readFileSync(row.file_path),
   });
   if (!res.ok) throw new Error(`Upload de backup falhou: ${res.status} ${await res.text()}`);
@@ -299,14 +300,15 @@ export async function downloadCloudBackup(cloudUuid: string): Promise<BackupResu
 
   const res = await fetch(`${base}/api/backup/${cloudUuid}/download`, { headers: auth });
   if (!res.ok) throw new Error(`Falha ao baixar backup da nuvem: ${res.status} ${await res.text()}`);
-  const expectedChecksum = res.headers.get('X-Kivo-Backup-Checksum');
+  const expectedChecksum =
+    res.headers.get('X-Kuruk-Backup-Checksum') ?? res.headers.get('X-Kivo-Backup-Checksum');
   const compressed = Buffer.from(await res.arrayBuffer());
   const checksum = sha256(compressed);
   if (expectedChecksum && checksum !== expectedChecksum) {
     throw new Error('Checksum inválido — backup da nuvem corrompido, download rejeitado.');
   }
 
-  const finalPath = path.join(backupDir(), `kivo-nuvem-${cloudUuid}.gz`);
+  const finalPath = path.join(backupDir(), `kuruk-nuvem-${cloudUuid}.gz`);
   fs.writeFileSync(finalPath, compressed);
 
   const db = getSqlite();

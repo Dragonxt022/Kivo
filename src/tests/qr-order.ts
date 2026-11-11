@@ -29,12 +29,12 @@ function check(label: string, ok: boolean, extra = ''): void {
 }
 
 function assertDiscardable(): void {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
-    throw new Error('KIVO_DB_PATH não definida. Rode via scripts/test-isolated.js.');
+    throw new Error('KURUK_DB_PATH não definida. Rode via scripts/test-isolated.js.');
   }
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
 }
 
@@ -246,7 +246,7 @@ async function main(): Promise<void> {
   }
 
   // ─── Publicação do menu (Trial não tem sync; o QR usa esta rota) ────────────
-  process.env.KIVO_SYNC_SERVER_URL = 'https://kivo.exemplo.test';
+  process.env.KURUK_SYNC_SERVER_URL = 'https://kuruk.exemplo.test';
   interface PublishBody {
     enabled?: boolean;
     items?: {

@@ -334,7 +334,7 @@ main.content {
 .navbar .brand:hover {
   text-decoration: none;
 }
-/* A marca do Kivo é horizontal (proporção ~4.9:1). Antes ela era espremida num
+/* A marca do Kuruk é horizontal (proporção ~4.9:1). Antes ela era espremida num
    quadrado de 26×26, o que a deixava minúscula e distorcida. Aqui a altura manda
    e a largura acompanha, com um teto para não empurrar a busca. */
 .navbar .brand img {

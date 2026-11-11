@@ -1,4 +1,4 @@
-# Atualização do Kivo — interface mais rápida e PDV com periféricos
+# Atualização do Kuruk — interface mais rápida e PDV com periféricos
 
 > Rascunho de mensagem de atualização para o usuário final. Pode ser enviado por
 > WhatsApp, e-mail, aviso no app ou publicado na wiki. A versão curta é a primeira;
@@ -6,7 +6,7 @@
 
 ## Versão curta (WhatsApp / aviso rápido)
 
-**Chegou uma atualização do Kivo! 🎉**
+**Chegou uma atualização do Kuruk! 🎉**
 
 Agora ficou mais rápido trabalhar no dia a dia:
 
@@ -44,7 +44,7 @@ aparece o botão **Ler balança** (somente no aplicativo desktop). O peso vai di
 a quantidade, na unidade do produto (kg, g, L ou ml).
 
 **Impressão térmica sem diálogo.** Com uma impressora ESC/POS configurada, o cupom sai
-direto na térmica ao finalizar a venda. Sem impressora configurada, o Kivo continua
+direto na térmica ao finalizar a venda. Sem impressora configurada, o Kuruk continua
 abrindo a impressão normal do Windows, como antes.
 
 ### Como configurar (só no aplicativo desktop)
@@ -63,7 +63,7 @@ equipamentos e o notebook do escritório não.
 ### O que continua igual
 
 - Login, permissões, sincronização e dados da loja: sem mudança.
-- Quem usa o Kivo pelo navegador ou pelo celular continua com a impressão normal e o
+- Quem usa o Kuruk pelo navegador ou pelo celular continua com a impressão normal e o
   peso digitado à mão; a balança e a térmica são recursos do aplicativo desktop.
 - O “Modo leve” continua disponível para computadores mais fracos.
 
@@ -72,14 +72,14 @@ equipamentos e o notebook do escritório não.
 ## Notas para o suporte
 
 - **Versão de destino:** 2.2.0 (sugestão; ajustar antes do release).
-- **Arquivos de interface:** `src/public/js/kivo-ui.js` e `src/public/css/kivo-ui.css`
+- **Arquivos de interface:** `src/public/js/kuruk-ui.js` e `src/public/css/kuruk-ui.css`
   carregam as bibliotecas sob demanda; não há bundler novo.
 - **Balança:** protocolo genérico espera linha de texto com peso em kg (ex.: `1,235 kg`);
-  sem separador decimal, o Kivo interpreta como gramas. Toledo lê o frame de 6 dígitos.
+  sem separador decimal, o Kuruk interpreta como gramas. Toledo lê o frame de 6 dígitos.
 - **Impressora:** o texto do cupom é montado no próprio EJS (`store-receipt.ejs`) e
-  enviado em ESC/POS; se a impressora não responder em 8 s, o Kivo cai no diálogo normal.
+  enviado em ESC/POS; se a impressora não responder em 8 s, o Kuruk cai no diálogo normal.
 - **Diagnóstico:** erros de balança/impressora aparecem na própria tela de configuração
-  (Testar leitura / Imprimir teste) e em `storage/logs/kivo-AAAA-MM-DD.log`.
+  (Testar leitura / Imprimir teste) e em `storage/logs/kuruk-AAAA-MM-DD.log`.
 - **Publicação do aviso no app:** para exibir a versão completa no modal de novidades,
-  atualize o conteúdo e o `KIVO_NOVIDADE_ID` em `src/views/partials/novidade.ejs` — trocar
+  atualize o conteúdo e o `KURUK_NOVIDADE_ID` em `src/views/partials/novidade.ejs` — trocar
   o id reabre o aviso para todos, sem migration.

@@ -1,9 +1,9 @@
-<!-- Tutorial do Kivo Odonto (mesmo motor do PDV e do estoque: /js/tour.js).
+<!-- Tutorial do Kuruk Odonto (mesmo motor do PDV e do estoque: /js/tour.js).
      Aparece UMA vez por máquina, na primeira tela do módulo que a pessoa abrir, e pode ser
      revisto pelo botão fixo no canto. Um só texto explica o fluxo inteiro; os passos cujo alvo
      não existe nesta tela são pulados pelo motor, então vale para todas as telas. -->
 <script nonce="<%= cspNonce %>" src="/js/tour.js"></script>
-<button type="button" class="odonto-tour-btn" title="Rever o tutorial do Kivo Odonto">
+<button type="button" class="odonto-tour-btn" title="Rever o tutorial do Kuruk Odonto">
   Rever tutorial
 </button>
 <script nonce="<%= cspNonce %>">
@@ -13,10 +13,10 @@
         // Primeiro passo com alvo que existe em TODA tela (`<main>`): é o que explica o módulo
         // inteiro para quem entra pela primeira vez — e o motor desiste se o primeiro alvo faltar.
         el: '#tour-odonto-conteudo',
-        title: 'Como o Kivo Odonto funciona',
+        title: 'Como o Kuruk Odonto funciona',
         body: 'O caminho é sempre o mesmo: cadastre o PACIENTE → responda a ANAMNESE → agende na '
           + 'AGENDA → registre o atendimento na EVOLUÇÃO (prontuário) → marque o ODONTOGRAMA → monte o '
-          + 'PLANO de tratamento e gere a COBRANÇA (que cai no Financeiro do Kivo) → emita os '
+          + 'PLANO de tratamento e gere a COBRANÇA (que cai no Financeiro do Kuruk) → emita os '
           + 'DOCUMENTOS. No fim do dia, o PAINEL mostra os números. Este tutorial explica cada parte; '
           + 'dá para revê-lo no botão "Rever tutorial", no canto inferior esquerdo.',
       },
@@ -42,7 +42,7 @@
       {
         el: '#tour-odonto-pacientes',
         title: 'Comece pelo paciente',
-        body: 'Cadastre o paciente (nome, CPF, telefone e nascimento). Ele vira um cliente do Kivo, '
+        body: 'Cadastre o paciente (nome, CPF, telefone e nascimento). Ele vira um cliente do Kuruk, '
           + 'então a cobrança e o financeiro já funcionam sem cadastro duplicado.',
       },
       {
@@ -80,7 +80,7 @@
         el: '#tour-odonto-planos',
         title: 'Plano de tratamento',
         body: 'Monte o plano com procedimento, dente, valor e quantidade. Aprovado o plano, gere a '
-          + 'cobrança: ela cai no Financeiro do Kivo, parcelada, no nome do cliente — o Odonto não tem '
+          + 'cobrança: ela cai no Financeiro do Kuruk, parcelada, no nome do cliente — o Odonto não tem '
           + 'financeiro próprio.',
       },
       {
@@ -113,9 +113,9 @@
     }
 
     window.startOdontoTour = function () {
-      if (!window.KivoTour) return;
+      if (!window.KurukTour) return;
       var lista = passosDaTela();
-      if (lista.length) window.KivoTour.start(lista, { celebrate: CELEBRACAO });
+      if (lista.length) window.KurukTour.start(lista, { celebrate: CELEBRACAO });
     };
 
     // O botão é ligado por listener, não por `onclick=`: o CSP da aplicação bloqueia handler
@@ -129,8 +129,8 @@
     function iniciarTutorial() {
       ligarBotao();
       var lista = passosDaTela();
-      if (window.KivoTour && window.KivoTour.autoStart && lista.length) {
-        window.KivoTour.autoStart('kivo-tour-odonto-v1', lista, { celebrate: CELEBRACAO });
+      if (window.KurukTour && window.KurukTour.autoStart && lista.length) {
+        window.KurukTour.autoStart('kuruk-tour-odonto-v1', lista, { celebrate: CELEBRACAO });
       }
     }
 

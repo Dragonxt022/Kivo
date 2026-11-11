@@ -55,7 +55,7 @@
             if (n && 'Notification' in window && Notification.permission === 'granted') {
               new Notification('Novo ticket de suporte', {
                 body: (n.company_name || 'Empresa') + ': ' + n.subject,
-                icon: '/logo_kivo-icon.svg',
+                icon: '/logo_kuruk-icon.svg',
               });
             }
           }
@@ -64,7 +64,7 @@
             if (l && 'Notification' in window && Notification.permission === 'granted') {
               new Notification('Novo lead', {
                 body: l.name + ' · ' + l.whatsapp,
-                icon: '/logo_kivo-icon.svg',
+                icon: '/logo_kuruk-icon.svg',
               });
             }
           }

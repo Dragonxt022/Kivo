@@ -5,7 +5,7 @@
 --
 -- NENHUMA tabela deste módulo entra em `syncTables` nesta versão: dado clínico fica na
 -- máquina que o produziu. A decisão está registrada em
--- doc/KIVO_ODONTO_ARCHITECTURE_AUDIT.md (seções 10 e 19) — sincronizar prontuário exige
+-- doc/KURUK_ODONTO_ARCHITECTURE_AUDIT.md (seções 10 e 19) — sincronizar prontuário exige
 -- antes resolver conflito de escrita e exposição do dado no MySQL do cloud.
 
 -- Paciente do consultório. É SEMPRE ancorado num cliente (`customers`): a cobrança do
@@ -53,7 +53,7 @@ CREATE TABLE odonto_patient_clinical (
 );
 
 -- Profissional que atende: dentista ou auxiliar. `user_id` liga ao usuário do sistema quando
--- ele também opera o Kivo; o CRO é o dado profissional exigido pela PR §24.5 e vai assinar
+-- ele também opera o Kuruk; o CRO é o dado profissional exigido pela PR §24.5 e vai assinar
 -- evolução e documento nas fases seguintes.
 CREATE TABLE odonto_professionals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

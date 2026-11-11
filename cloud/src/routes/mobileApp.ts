@@ -13,7 +13,7 @@ import { createRateLimiter } from '../rateLimit';
 import { clientTimezone, dateInTz } from '../tz';
 
 /**
- * Kivo Web — o app que o lojista abre no celular. Montado em `/m`.
+ * Kuruk Web — o app que o lojista abre no celular. Montado em `/m`.
  *
  * Só leitura, exceto o orçamento (que vira comando para o desktop executar — ver
  * routes/mobileCommands.ts). Todo dado vem de `sync_records`, ou seja, do último sync do
@@ -21,7 +21,7 @@ import { clientTimezone, dateInTz } from '../tz';
  */
 const router = Router();
 
-/** Hoje no fuso do DISPOSITIVO (cookie `kivo_tz`), não num fixo. */
+/** Hoje no fuso do DISPOSITIVO (cookie `kuruk_tz`), não num fixo. */
 function hojeISO(req: MobileRequest): string {
   return dateInTz(clientTimezone(req));
 }
@@ -68,7 +68,7 @@ function mensagemCobranca(opts: {
  *
  * Vem dos cabeçalhos do proxy reverso (`X-Forwarded-*`) e não de uma constante: em
  * desenvolvimento isto roda em `http://localhost:4000` e em produção atrás do HTTPS de
- * `kivo.buscamais.org`. Fixar o domínio faria o link do celular apontar para o lugar
+ * `kuruk.com.br`. Fixar o domínio faria o link do celular apontar para o lugar
  * errado em um dos dois.
  */
 function baseUrl(req: MobileRequest): string {
@@ -86,7 +86,7 @@ async function baseLocals(req: MobileRequest) {
 // Antes de qualquer `requireMobileAuth`: é justamente o que cria a sessão.
 
 /**
- * Freio nas duas rotas públicas do Kivo Web. O token do link é longo o bastante para não
+ * Freio nas duas rotas públicas do Kuruk Web. O token do link é longo o bastante para não
  * ser adivinhado, mas o limite evita que alguém martele a rota e encha o log/banco de
  * tentativas. Por IP, não por token: é a única identidade que existe antes do login.
  */

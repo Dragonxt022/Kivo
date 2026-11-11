@@ -1,6 +1,6 @@
 -- 0091_user_startup — abertura personalizada POR USUÁRIO.
 --
--- Quando ligada, ao abrir o Kivo (ou depois do login) o usuário vai direto para o
+-- Quando ligada, ao abrir o Kuruk (ou depois do login) o usuário vai direto para o
 -- módulo escolhido e, opcionalmente, entra em tela cheia. É o caso do tablet fixo na
 -- cozinha ou do terminal que só usa Mesas: esconde a tela inicial e economiza cliques.
 --
@@ -18,7 +18,7 @@ CREATE TABLE user_startup (
   fullscreen INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-  comment TEXT NOT NULL DEFAULT 'Preferência POR USUÁRIO: abrir o Kivo direto em um módulo (e em tela cheia) ao iniciar. Desligada por padrão.'
+  comment TEXT NOT NULL DEFAULT 'Preferência POR USUÁRIO: abrir o Kuruk direto em um módulo (e em tela cheia) ao iniciar. Desligada por padrão.'
 );
 
 CREATE INDEX idx_user_startup_enabled ON user_startup (enabled) WHERE enabled = 1;

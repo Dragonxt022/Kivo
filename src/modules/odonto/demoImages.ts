@@ -3,7 +3,7 @@ import zlib from 'node:zlib';
 /**
  * Imagens e laudo da demonstração do Odonto.
  *
- * Por que desenhar em código em vez de guardar arquivos no repositório: o Kivo é instalado por
+ * Por que desenhar em código em vez de guardar arquivos no repositório: o Kuruk é instalado por
  * um `.exe` de ~96MB e não precisa carregar mais alguns MB de radiografia fictícia. Aqui as
  * imagens nascem na hora, em memória, a partir de formas geométricas — o suficiente para a
  * galeria de exames abrir com conteúdo de verdade (miniatura, zoom, download, impressão) em vez
@@ -307,7 +307,7 @@ export function laudoRadiograficoPdf(): Buffer {
   const linhas = [
     'LAUDO RADIOLOGICO - DOCUMENTO DE EXEMPLO',
     '',
-    'Este arquivo foi gerado pelo Kivo apenas para demonstracao.',
+    'Este arquivo foi gerado pelo Kuruk apenas para demonstracao.',
     'Nao corresponde a nenhum paciente real e nao tem valor clinico.',
     '',
     'Exame: radiografia panoramica',

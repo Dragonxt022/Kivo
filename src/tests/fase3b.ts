@@ -34,8 +34,8 @@ async function api(base: string, p: string, opts: RequestInit = {}, cookie?: str
 async function loginAs(base: string, u: string, p: string): Promise<string | null> {
   const r = await api(base, '/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ async function phase1(): Promise<void> {
   runSeeds();
   // Sem licença ativada, `requireActivation` (core/server.ts) responde antes de qualquer
   // rota — inclusive /api/auth/login. Faltava aqui, e a parte 1 inteira falhava logo no
-  // login em qualquer banco novo; só passava em máquina cujo kivo.db já estivesse ativado.
+  // login em qualquer banco novo; só passava em máquina cujo kuruk.db já estivesse ativado.
   activateTestLicense();
   const { app } = await createServer();
   const server = app.listen(PORT);
@@ -185,8 +185,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo',
-  CLOUD_DB_NAME: 'kivo_cloud',
+  CLOUD_DB_PASSWORD: 'kuruk',
+  CLOUD_DB_NAME: 'kuruk_cloud',
 };
 
 interface Machine { name: string; base: string; proc: ChildProcess; cookie?: string }
@@ -248,10 +248,10 @@ async function phase2(): Promise<void> {
   }
 
   const a: Machine = { name: 'A', base: `http://localhost:${portA}`, proc: spawnProc('machineA', 'src/dev.ts', {
-    KIVO_DB_PATH: path.join(SCRATCH, 'machineA.db'), KIVO_PORT: String(portA), KIVO_SYNC_SERVER_URL: cloudUrl, KIVO_MACHINE_ID: 'test-machine-a-3b',
+    KURUK_DB_PATH: path.join(SCRATCH, 'machineA.db'), KURUK_PORT: String(portA), KURUK_SYNC_SERVER_URL: cloudUrl, KURUK_MACHINE_ID: 'test-machine-a-3b',
   }) };
   const b: Machine = { name: 'B', base: `http://localhost:${portB}`, proc: spawnProc('machineB', 'src/dev.ts', {
-    KIVO_DB_PATH: path.join(SCRATCH, 'machineB.db'), KIVO_PORT: String(portB), KIVO_SYNC_SERVER_URL: cloudUrl, KIVO_MACHINE_ID: 'test-machine-b-3b',
+    KURUK_DB_PATH: path.join(SCRATCH, 'machineB.db'), KURUK_PORT: String(portB), KURUK_SYNC_SERVER_URL: cloudUrl, KURUK_MACHINE_ID: 'test-machine-b-3b',
   }) };
   await Promise.all([waitForHealth(`${a.base}/api/health`), waitForHealth(`${b.base}/api/health`)]);
 

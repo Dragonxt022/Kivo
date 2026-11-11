@@ -40,18 +40,18 @@ async function autenticar(browser) {
   if (await page.locator('#setup-user').count()) {
     await page.fill('#setup-name', 'QA');
     await page.fill('#setup-user', 'qaadmin');
-    await page.fill('#setup-pass', 'Kivo@2026');
-    await page.fill('#setup-pass2', 'Kivo@2026');
+    await page.fill('#setup-pass', 'Kuruk@2026');
+    await page.fill('#setup-pass2', 'Kuruk@2026');
     await page.click('.login-card button[type="submit"]');
   } else {
     await page.fill('#login-user', 'qaadmin');
-    await page.fill('#login-pass', 'Kivo@2026');
+    await page.fill('#login-pass', 'Kuruk@2026');
     await page.click('.login-card button[type="submit"]');
   }
   await page.waitForTimeout(2200);
   const estado = await ctx.storageState();
   await ctx.close();
-  if (!estado.cookies.some((c) => c.name === 'kivo_session')) throw new Error('login não completou');
+  if (!estado.cookies.some((c) => c.name === 'kuruk_session')) throw new Error('login não completou');
   return estado;
 }
 
@@ -65,7 +65,7 @@ async function main() {
       viewport: { width: c.width, height: c.height },
       storageState: estado,
     });
-    await ctx.addInitScript(() => localStorage.setItem('kivo-interface', 'cards'));
+    await ctx.addInitScript(() => localStorage.setItem('kuruk-interface', 'cards'));
     const page = await ctx.newPage();
     await page.goto(BASE, { waitUntil: 'networkidle' });
     await page.waitForTimeout(800);

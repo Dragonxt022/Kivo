@@ -8,7 +8,7 @@ import { getSecret } from '../secrets/service';
  * Provedor: Brave Search API (endpoint de imagens). É a camada "externa" do sugestor — o
  * app local chama a API direto (a chave fica no cofre local, ver core/secrets/service.ts)
  * e, se ela falhar/não estiver configurada, o cadastro cai no sugestor local que já existe:
- * o banco de imagens do Kivo Cloud (ver submissionQueue.ts / cloud/src/routes/catalog.ts).
+ * o banco de imagens do Kuruk Cloud (ver submissionQueue.ts / cloud/src/routes/catalog.ts).
  *
  * Por que Brave e não Google CSE: o Google encerrou a Custom Search JSON API para NOVOS
  * clientes (fórum oficial, 2026; clientes antigos têm até 01/01/2027). Como a chave/cx deste
@@ -16,14 +16,14 @@ import { getSecret } from '../secrets/service';
  * the access to Custom Search JSON API". A Brave tem busca de imagens, tier gratuito
  * recorrente e uma API JSON simples — daí a troca.
  *
- * A chave também pode vir de `KIVO_BRAVE_SEARCH_API_KEY` (padrão de fábrica/instalador);
+ * A chave também pode vir de `KURUK_BRAVE_SEARCH_API_KEY` (padrão de fábrica/instalador);
  * a UI (cofre) tem prioridade.
  */
 
 /** Chave no cofre local. */
 export const BRAVE_API_KEY_SECRET = 'brave.search_api_key';
-/** Variável de ambiente aceita como padrão de fábrica (mesmo padrão de KIVO_SYNC_SERVER_URL). */
-export const BRAVE_API_KEY_ENV = 'KIVO_BRAVE_SEARCH_API_KEY';
+/** Variável de ambiente aceita como padrão de fábrica (mesmo padrão de KURUK_SYNC_SERVER_URL). */
+export const BRAVE_API_KEY_ENV = 'KURUK_BRAVE_SEARCH_API_KEY';
 
 const API_ENDPOINT = 'https://api.search.brave.com/res/v1/images/search';
 const REQUEST_TIMEOUT_MS = 8000;

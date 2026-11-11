@@ -1,6 +1,6 @@
 # Download do Instalador e Leads — Regras de Negócio
 
-Cadastro obrigatório antes de baixar o instalador do Kivo. O objetivo é duplo: liberar o
+Cadastro obrigatório antes de baixar o instalador do Kuruk. O objetivo é duplo: liberar o
 download para o visitante e registrar quem está testando, para o suporte conseguir ajudar
 durante o período de teste.
 
@@ -37,9 +37,9 @@ mesmo. O token expirado, porém, volta para o formulário.
 
 `getReleaseInfo` resolve a versão e a URL nesta ordem:
 
-1. `KIVO_DOWNLOAD_URL` / `KIVO_APP_VERSION` no ambiente (mirror ou versão congelada);
+1. `KURUK_DOWNLOAD_URL` / `KURUK_APP_VERSION` no ambiente (mirror ou versão congelada);
 2. release mais recente do GitHub (`releases/latest`), procurando um asset
-   `Kivo-Setup-*.exe` (ou `Katsu-Setup-*.exe`);
+   `Kuruk-Setup-*.exe` (ou `Kivo-Setup-*.exe`, das releases anteriores ao rebrand);
 3. último valor conhecido em cache (TTL de 30 minutos);
 4. fallback fixo definido no código.
 

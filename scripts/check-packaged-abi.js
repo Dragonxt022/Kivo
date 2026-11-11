@@ -8,7 +8,7 @@
  * deixa `better_sqlite3.node` compilado para o ABI do Node; o próximo `dist:win` empacota
  * esse binário e o instalador sai quebrado — o app instalado morre no boot com
  * "NODE_MODULE_VERSION divergente" e o lojista vê dois sintomas que parecem não ter relação
- * (o Kivo não abre e o instalador fica preso em "não é possível fechar o Kivo", porque o
+ * (o Kuruk não abre e o instalador fica preso em "não é possível fechar o Kuruk", porque o
  * erro de boot segura o processo).
  *
  * A verificação aqui é a única que olha o artefato final: carrega o `.node` que está DENTRO

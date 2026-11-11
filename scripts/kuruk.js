@@ -1,11 +1,11 @@
 /**
- * kivo CLI — entry point for all project commands.
+ * kuruk CLI — entry point for all project commands.
  *
  * Usage:
- *   node scripts/kivo              list commands
- *   node scripts/kivo <name>       run command
- *   node scripts/kivo test         run all tests
- *   node scripts/kivo test:fase1   run specific test
+ *   node scripts/kuruk              list commands
+ *   node scripts/kuruk <name>       run command
+ *   node scripts/kuruk test         run all tests
+ *   node scripts/kuruk test:fase1   run specific test
  */
 
 const { execSync } = require('child_process');
@@ -25,8 +25,8 @@ function shell() {
  * PATH com `node_modules/.bin` na frente.
  *
  * Os comandos de commands.json chamam os binários pelo nome (`tsx`, `eslint`, `prettier`,
- * `electron-builder`). Quando o CLI roda por `npm run kivo`, o npm já põe `.bin` no PATH e
- * tudo resolve; rodando `node scripts/kivo <cmd>` — que o README documenta como forma
+ * `electron-builder`). Quando o CLI roda por `npm run kuruk`, o npm já põe `.bin` no PATH e
+ * tudo resolve; rodando `node scripts/kuruk <cmd>` — que o README documenta como forma
  * válida — não põe, e o comando morre com "'tsx' não é reconhecido". As duas formas
  * precisam se comportar igual.
  */
@@ -123,7 +123,7 @@ function listCommands() {
       'test:e2e:pdv',
       'test:e2e:caixa',
       'test:e2e:compras',
-      'test:e2e:kivo-web-mobile',
+      'test:e2e:kuruk-web-mobile',
       'test:e2e:mobile',
       'test:e2e:tela',
       'test:e2e:tipo-pedido',
@@ -137,7 +137,7 @@ function listCommands() {
   };
 
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8'));
-  console.log(`kivo CLI v${pkg.version}\n`);
+  console.log(`kuruk CLI v${pkg.version}\n`);
 
   for (const [group, names] of Object.entries(groups)) {
     console.log(`  ${group}:`);
@@ -150,8 +150,8 @@ function listCommands() {
     console.log();
   }
 
-  console.log(`  Dica: node scripts/kivo <comando>`);
-  console.log(`        npm run kivo <comando>\n`);
+  console.log(`  Dica: node scripts/kuruk <comando>`);
+  console.log(`        npm run kuruk <comando>\n`);
 }
 
 function runTestAll() {
@@ -165,14 +165,14 @@ function runTestAll() {
  * TODO teste que abre banco morre com ERR_DLOPEN_FAILED — 41 de 48, num relatório que
  * parece o projeto inteiro quebrado em vez de um binário no ABI errado.
  *
- * `dev` já se protegia com este mesmo pre-hook; `test`/`smoke` não, porque `kivo test` é
+ * `dev` já se protegia com este mesmo pre-hook; `test`/`smoke` não, porque `kuruk test` é
  * tratado antes do dispatch por commands.json e os `test:*` não declaravam `pre`. Fica
  * aqui, num ponto só, cobrindo as duas rotas. Sem rebuild se o ABI já estiver certo.
  */
 function ensureNodeAbi() {
   run(`node ${JSON.stringify(join(__dirname, 'ensure-native-abi.js'))} node`, 'pre');
   // O test-runner refaz a sondagem quando chamado direto; já conferimos aqui.
-  process.env.KIVO_ABI_OK = '1';
+  process.env.KURUK_ABI_OK = '1';
 }
 
 function needsNodeAbi(arg) {
@@ -203,7 +203,7 @@ async function main() {
   const cmd = commands[arg];
   if (!cmd) {
     console.error(`Comando desconhecido: "${arg}"`);
-    console.error(`Execute "node scripts/kivo" para listar os comandos disponíveis.`);
+    console.error(`Execute "node scripts/kuruk" para listar os comandos disponíveis.`);
     process.exit(1);
   }
 

@@ -1,7 +1,7 @@
 # PDV e Mercado Pago — maquininha (Point) e pagamentos no ponto de venda
 
 Plano de integração para receber pagamentos com cartão (via **maquininha Mercado Pago Point**) nos
-fluxos de venda do Kivo (PDV, comanda, balcão e orçamento convertido em venda).
+fluxos de venda do Kuruk (PDV, comanda, balcão e orçamento convertido em venda).
 
 Complementa:
 
@@ -40,11 +40,11 @@ Complementa:
 
 Permitir que o operador feche vendas no PDV com cartão via maquininha Mercado Pago Point, de modo que:
 
-1. Ao finalizar a venda com cartão, o Kivo **crie uma ordem/intenção de pagamento no Mercado Pago** e a
+1. Ao finalizar a venda com cartão, o Kuruk **crie uma ordem/intenção de pagamento no Mercado Pago** e a
    **carregue no terminal**;
 2. O comprador paga no terminal (débito/crédito/pré-pago, chip/NFC) ;
-3. O Mercado Pago **notifica o Kivo** do status ;
-4. O Kivo **baixa a venda** (marca paga, registra comissão, estende o que for devido) de forma
+3. O Mercado Pago **notifica o Kuruk** do status ;
+4. O Kuruk **baixa a venda** (marca paga, registra comissão, estende o que for devido) de forma
    idempotente;
 5. Estornos/reembolsos e cancelamentos voltem para o fluxo de devoluções/cancelamento.
 
@@ -79,7 +79,7 @@ contato e SWIFT; operação no modo **PDV**.
 Pré-requisitos de negócio (fora do código): terminal Point adquirido, app Mercado Pago no celular do
 operador, conta de vendedor, conta MP da empresa (app `App-Assinaturas-20261030-c1a6c75cc8` já criado).
 
-## 4. Arquitetura proposta dentro do Kivo
+## 4. Arquitetura proposta dentro do Kuruk
 
 1. **Fronteira app ↔ cloud mantida**: o app não fala com o Mercado Pago; o cloud é o único ponto
    (`MP_API_BASE`, Access Token) — mesmo critério de `assinatura.md`.
@@ -144,7 +144,7 @@ fluxo PDV.
    in_person_payments`, product `point`), terminal, homologação via MCP (`create_application`,
    `form_homologation`, `save_webhook`, `quality_checklist`, `quality_evaluation`).
 2. **Fase 1 — Cloud**: gateway de orders + endpoints + webhook (reutilizando `mpRequest`/`X-Idempotency-Key`).
-3. **Fase 2 — Fluxo venda → order**: criar order vinculada à venda; persistir IDs no Kivo.
+3. **Fase 2 — Fluxo venda → order**: criar order vinculada à venda; persistir IDs no Kuruk.
 4. **Fase 3 — Fluxo PDV**: no final da venda com cartão, disparar criação da order; aguardar status
    (webhook/polling) e baixar a venda.
 5. **Fase 4 — Estorno/cancelamento**: reembolso → devolução/cancelamento conforme regras existentes.

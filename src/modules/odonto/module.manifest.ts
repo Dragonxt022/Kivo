@@ -1,7 +1,7 @@
 import type { ModuleManifest } from '../../core/modules/types';
 
 /**
- * Módulo odonto — Kivo Odonto: gestão de consultórios e clínicas odontológicas.
+ * Módulo odonto — Kuruk Odonto: gestão de consultórios e clínicas odontológicas.
  *
  * Filosofia da plataforma ("ligue somente o que você precisa"): o módulo NÃO duplica o que o
  * Core já entrega. Paciente é um cliente (`customers`) + ficha clínica; procedimento pode
@@ -9,7 +9,7 @@ import type { ModuleManifest } from '../../core/modules/types';
  * existente; material e medicamento usam o estoque com lote/validade do commercial.
  *
  * A auditoria que fundamenta estas escolhas está em
- * `doc/KIVO_ODONTO_ARCHITECTURE_AUDIT.md` (arquivo:linha de cada decisão).
+ * `doc/KURUK_ODONTO_ARCHITECTURE_AUDIT.md` (arquivo:linha de cada decisão).
  *
  * Fase atual (fases 1 a 7): pacientes, profissionais, procedimentos, anamnese versionada, agenda
  * de atendimentos, prontuário com retificação, odontograma, plano de tratamento com cobrança no

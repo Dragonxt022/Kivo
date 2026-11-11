@@ -1,5 +1,5 @@
 /**
- * Documentação técnica (regras de negócio por módulo) servida no painel do Kivo Cloud,
+ * Documentação técnica (regras de negócio por módulo) servida no painel do Kuruk Cloud,
  * em /admin/documentacao. É o mesmo conteúdo Markdown do app local (`src/docs/dev/*.md`),
  * para suporte e treinamento de agentes de IA.
  *

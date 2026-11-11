@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Cozinha</title>
+  <title>Kuruk — Cozinha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -661,7 +661,7 @@
       body > main {
         display: flex;
         flex-direction: column;
-        /* 64px = barra do topo no celular; o restante evita a barra inferior do Kivo. */
+        /* 64px = barra do topo no celular; o restante evita a barra inferior do Kuruk. */
         height: calc(100vh - 64px - var(--mobile-nav-height) - env(safe-area-inset-bottom) - 8px);
         height: calc(100dvh - 64px - var(--mobile-nav-height) - env(safe-area-inset-bottom) - 8px);
         min-height: 0;
@@ -878,21 +878,21 @@
             if (!document.hidden) this.load();
           });
           // Estado do "tela acesa" vem do parcial global; o botão só reflete/alterna.
-          if (window.KivoKeepAwake) {
-            this.telaLigada = window.KivoKeepAwake.isEnabled();
-            this.telaAtiva = window.KivoKeepAwake.isActive();
-            window.addEventListener('kivo:keep-awake', (e) => {
+          if (window.KurukKeepAwake) {
+            this.telaLigada = window.KurukKeepAwake.isEnabled();
+            this.telaAtiva = window.KurukKeepAwake.isActive();
+            window.addEventListener('kuruk:keep-awake', (e) => {
               this.telaLigada = !!(e && e.detail && e.detail.enabled);
               this.telaAtiva = !!(e && e.detail && e.detail.active);
             });
           }
         },
         toggleTelaLigada() {
-          if (!window.KivoKeepAwake) {
+          if (!window.KurukKeepAwake) {
             showToast('Este navegador não permite manter a tela ligada.', 'error');
             return;
           }
-          this.telaLigada = window.KivoKeepAwake.toggle();
+          this.telaLigada = window.KurukKeepAwake.toggle();
           showToast(
             this.telaLigada
               ? 'Tentando manter a tela acesa...'
@@ -902,8 +902,8 @@
           // A ativação é assíncrona (Wake Lock/vídeo). Se o navegador recusar, avisa em
           // vez de deixar o botão mentindo "Tela acesa".
           setTimeout(() => {
-            if (!window.KivoKeepAwake) return;
-            this.telaAtiva = window.KivoKeepAwake.isActive();
+            if (!window.KurukKeepAwake) return;
+            this.telaAtiva = window.KurukKeepAwake.isActive();
             if (this.telaLigada && !this.telaAtiva) {
               showToast(
                 'Este navegador não liberou manter a tela acesa. Ajuste o tempo de tela do aparelho ou use HTTPS.',
@@ -977,26 +977,26 @@
             if (this.somCancelAtivo) this.playSomCancel();
             const labels = cancelados.map((t) => this.ticketLabel(t)).join(', ');
             showToast('Pedido cancelado: ' + labels + '.', 'error');
-            if (document.hidden && window.KivoReadyAlerts && window.KivoReadyAlerts.notify) {
-              window.KivoReadyAlerts.notify(
+            if (document.hidden && window.KurukReadyAlerts && window.KurukReadyAlerts.notify) {
+              window.KurukReadyAlerts.notify(
                 'Pedido cancelado na cozinha',
                 labels + ' — toque para abrir.',
                 '/app/foodservice/cozinha',
-                'kivo-cancel-' + cancelados[0].id,
+                'kuruk-cancel-' + cancelados[0].id,
               );
             }
           }
 
           // Com a tela apagada ou a aba escondida, o som pode não tocar: o aviso do
           // sistema (quando o navegador permite) garante que o pedido não passe batido.
-          if (novos.length && document.hidden && window.KivoReadyAlerts && window.KivoReadyAlerts.notify) {
+          if (novos.length && document.hidden && window.KurukReadyAlerts && window.KurukReadyAlerts.notify) {
             const t = visiveis.find((x) => x.id === novos[0]);
             const label = t ? this.ticketLabel(t) : 'Novo pedido';
-            window.KivoReadyAlerts.notify(
+            window.KurukReadyAlerts.notify(
               'Novo pedido na cozinha',
               label + ' — toque para abrir.',
               '/app/foodservice/cozinha',
-              'kivo-kitchen-' + novos[0],
+              'kuruk-kitchen-' + novos[0],
             );
           }
           this.knownIds = ids;

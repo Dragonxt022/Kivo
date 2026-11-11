@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — <%= comandasLabels.plural %></title>
+  <title>Kuruk — <%= comandasLabels.plural %></title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
@@ -625,7 +625,7 @@
         somProntoAtivo: localStorage.getItem('mesas-som-pronto') !== '0',
         // Som escolhido para o aviso de pedido pronto. A lista vem de public/sons e a
         // escolha vive no canal global (ready-alerts), que também avisa nas outras telas.
-        somArquivo: localStorage.getItem('kivo-ready-som-arquivo') || 'pedido.mp3',
+        somArquivo: localStorage.getItem('kuruk-ready-som-arquivo') || 'pedido.mp3',
         pendenteSom: '',
         previewAudio: null,
         sons: <%- JSON.stringify(sons) %>,
@@ -646,18 +646,18 @@
           if (this.started) return;
           this.started = true;
           // O canal global pode ter uma preferência mais nova (menu "Mais" de outra tela).
-          if (window.KivoReadyAlerts) {
-            this.somProntoAtivo = window.KivoReadyAlerts.isSoundOn();
-            this.somArquivo = window.KivoReadyAlerts.getSoundFile();
+          if (window.KurukReadyAlerts) {
+            this.somProntoAtivo = window.KurukReadyAlerts.isSoundOn();
+            this.somArquivo = window.KurukReadyAlerts.getSoundFile();
           }
-          if (window.KivoKeepAwake) {
-            this.telaLigada = window.KivoKeepAwake.isEnabled();
-            this.telaAtiva = window.KivoKeepAwake.isActive();
+          if (window.KurukKeepAwake) {
+            this.telaLigada = window.KurukKeepAwake.isEnabled();
+            this.telaAtiva = window.KurukKeepAwake.isActive();
             this.onKeepAwake = (e) => {
               this.telaLigada = !!(e && e.detail && e.detail.enabled);
               this.telaAtiva = !!(e && e.detail && e.detail.active);
             };
-            window.addEventListener('kivo:keep-awake', this.onKeepAwake);
+            window.addEventListener('kuruk:keep-awake', this.onKeepAwake);
           }
           this.connectEvents();
           // Reserva do SSE: se a conexão cair, a grade ainda se atualiza sozinha.
@@ -695,7 +695,7 @@
             window.removeEventListener('focus', this.onVisible);
           }
           if (this.onKeepAwake) {
-            window.removeEventListener('kivo:keep-awake', this.onKeepAwake);
+            window.removeEventListener('kuruk:keep-awake', this.onKeepAwake);
             this.onKeepAwake = null;
           }
         },
@@ -816,11 +816,11 @@
           setTimeout(() => document.body.classList.remove('printing-qr'), 800);
         },
         toggleTelaLigada() {
-          if (!window.KivoKeepAwake) {
+          if (!window.KurukKeepAwake) {
             showToast('Este navegador não permite manter a tela ligada.', 'error');
             return;
           }
-          this.telaLigada = window.KivoKeepAwake.toggle();
+          this.telaLigada = window.KurukKeepAwake.toggle();
           showToast(
             this.telaLigada
               ? 'Tentando manter a tela acesa...'
@@ -828,8 +828,8 @@
             'info',
           );
           setTimeout(() => {
-            if (!window.KivoKeepAwake) return;
-            this.telaAtiva = window.KivoKeepAwake.isActive();
+            if (!window.KurukKeepAwake) return;
+            this.telaAtiva = window.KurukKeepAwake.isActive();
             if (this.telaLigada && !this.telaAtiva) {
               showToast(
                 'Este navegador não liberou manter a tela acesa. Ajuste o tempo de tela do aparelho ou use HTTPS.',
@@ -848,10 +848,10 @@
         previewSom(file) {
           try {
             this.stopPreview();
-            this.previewAudio = window.KivoReadyAlerts
-              ? window.KivoReadyAlerts.previewSound(file)
+            this.previewAudio = window.KurukReadyAlerts
+              ? window.KurukReadyAlerts.previewSound(file)
               : new Audio('/sons/' + file);
-            if (this.previewAudio && !window.KivoReadyAlerts) {
+            if (this.previewAudio && !window.KurukReadyAlerts) {
               this.previewAudio.play().catch(() => showToast('Não foi possível tocar o áudio.', 'error'));
             }
           } catch {
@@ -869,18 +869,18 @@
         salvarSom() {
           this.stopPreview();
           if (this.pendenteSom) {
-            if (window.KivoReadyAlerts) {
-              window.KivoReadyAlerts.setSoundFile(this.pendenteSom);
-              window.KivoReadyAlerts.setSoundEnabled(true);
+            if (window.KurukReadyAlerts) {
+              window.KurukReadyAlerts.setSoundFile(this.pendenteSom);
+              window.KurukReadyAlerts.setSoundEnabled(true);
             } else {
-              localStorage.setItem('kivo-ready-som-arquivo', this.pendenteSom);
+              localStorage.setItem('kuruk-ready-som-arquivo', this.pendenteSom);
               localStorage.setItem('mesas-som-pronto', '1');
             }
             this.somArquivo = this.pendenteSom;
             this.somProntoAtivo = true;
             showToast('Som de pedido pronto ativado: ' + this.somLabel(this.somArquivo) + '.', 'success');
           } else {
-            if (window.KivoReadyAlerts) window.KivoReadyAlerts.setSoundEnabled(false);
+            if (window.KurukReadyAlerts) window.KurukReadyAlerts.setSoundEnabled(false);
             else localStorage.setItem('mesas-som-pronto', '0');
             this.somProntoAtivo = false;
             showToast('Aviso de pedido pronto silenciado.', 'info');

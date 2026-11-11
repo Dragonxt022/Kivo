@@ -25,7 +25,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3622);
+const PORT = Number(process.env.KURUK_PORT ?? 3622);
 const SHOTS = snapDir('sons-e-entrega');
 
 interface Ticket {
@@ -194,10 +194,10 @@ async function main(): Promise<void> {
     await page.waitForTimeout(400);
     const mesasSom = await page.evaluate(() => {
       const api = (window as unknown as {
-        KivoReadyAlerts?: { getSoundFile(): string };
-      }).KivoReadyAlerts;
+        KurukReadyAlerts?: { getSoundFile(): string };
+      }).KurukReadyAlerts;
       return {
-        arquivo: localStorage.getItem('kivo-ready-som-arquivo'),
+        arquivo: localStorage.getItem('kuruk-ready-som-arquivo'),
         api: api ? api.getSoundFile() : null,
       };
     });

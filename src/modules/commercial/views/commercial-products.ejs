@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Produtos</title>
+  <title>Kuruk — Produtos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -13,7 +13,7 @@
   <%- include('partials/nav', { user, page: '/app/commercial/produtos' }) %>
   <main x-data="productsPage()" x-init="load()">
     <h1>Produtos</h1>
-    <p class="hint" x-show="!KIVO_ESTOQUE_ATIVO" x-cloak>
+    <p class="hint" x-show="!KURUK_ESTOQUE_ATIVO" x-cloak>
       O controle de quantidade está <strong>desligado</strong> em Configurações › Estoque.
       Nenhum produto baixa ou entra saldo até você religar a chave geral.
     </p>
@@ -140,13 +140,13 @@
                 <span x-text="p.name"></span>
               </span>
               <div class="muted text-xs" x-show="p.barcode" :title="p.barcode" style="font-family:var(--font-mono,monospace)" x-text="p.barcode"></div>
-              <span class="badge off" x-show="p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
-              <span class="badge off" x-show="p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty >= 0 && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
+              <span class="badge off" x-show="p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty < 0" style="margin-left:.4rem">estoque negativo</span>
+              <span class="badge off" x-show="p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty >= 0 && p.stock_qty <= p.min_stock" style="margin-left:.4rem">estoque baixo</span>
             </td>
             <td class="muted" x-text="p.category ?? '—'"></td>
             <td x-text="brl(p.price_cents)"></td>
             <td class="muted" x-text="brl(p.cost_cents)"></td>
-            <td :style="p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="p.track_stock && KIVO_ESTOQUE_ATIVO ? p.stock_qty : '—'"></td>
+            <td :style="p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty < 0 ? 'color:var(--danger);font-weight:700' : ''" x-text="p.track_stock && KURUK_ESTOQUE_ATIVO ? p.stock_qty : '—'"></td>
             <td class="muted" x-text="p.unit"></td>
             <td @click.stop style="width:1%">
               <% if (user.permissions.has('commercial.products.edit')) { %>
@@ -175,7 +175,7 @@
                 </button>
                 <div class="dropdown-menu" x-show="openMenu === p.id" x-cloak @click.outside="openMenu = null">
                   <% if (user.permissions.has('commercial.stock.move')) { %>
-                    <button x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" @click="openMenu = null; openMove(p)">
+                    <button x-show="p.track_stock && KURUK_ESTOQUE_ATIVO" @click="openMenu = null; openMove(p)">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                       Estoque
                     </button>
@@ -226,7 +226,7 @@
                   <span>Descrição / Ingredientes (cardápio online)</span>
                   <button type="button" class="btn secondary small" @click="generateDescription()"
                           :disabled="aiDesc.loading || !(form.name || '').trim()"
-                          title="Gera a descrição com a Kivo IA (consome créditos)">
+                          title="Gera a descrição com a Kuruk IA (consome créditos)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg>
                     <span x-text="aiDesc.loading ? 'Gerando…' : 'Gerar com IA'"></span>
                   </button>
@@ -360,7 +360,7 @@
                 <span class="muted text-xs" x-show="!stockLocked && form.noStockControl">
                   Vende sem baixar saldo - use para digitais e para kits cujo estoque está nos componentes.
                 </span>
-                <span class="muted text-xs" x-show="!KIVO_ESTOQUE_ATIVO">
+                <span class="muted text-xs" x-show="!KURUK_ESTOQUE_ATIVO">
                   A chave geral de estoque está desligada em Configurações › Estoque; este produto não
                   movimenta saldo enquanto isso, independentemente da opção acima.
                 </span>
@@ -484,7 +484,7 @@
               </div>
 
               <label class="label-checkbox-sm" x-show="form.pendingImageBase64" style="margin-top:.5rem">
-                <input type="checkbox" x-model="form.submitToCatalog" /> Contribuir esta foto com o banco de imagens do Kivo Cloud
+                <input type="checkbox" x-model="form.submitToCatalog" /> Contribuir esta foto com o banco de imagens do Kuruk Cloud
               </label>
 
               <div class="pm-image-suggestions">
@@ -592,12 +592,12 @@
                       <td><input type="text" x-model="v.sku" class="inline-edit" @change="updateVariantField(v, 'sku')" style="width:70px" /></td>
                       <%# Único campo de dinheiro do sistema que estava sem `maskMoney`: aqui
                           "1250" ficava valendo mil duzentos e cinquenta reais em vez de
-                          R$ 12,50, ao contrário de todo o resto do Kivo (preço do produto,
+                          R$ 12,50, ao contrário de todo o resto do Kuruk (preço do produto,
                           caixa, compras) onde os dígitos entram como centavos. %>
                       <td><input type="text" inputmode="numeric" x-model="v.priceDisplay" class="inline-edit"
                                  @input="v.priceDisplay = maskMoney(v.priceDisplay)"
                                  @change="updateVariantPrice(v)" style="width:76px" /></td>
-                      <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock || !KIVO_ESTOQUE_ATIVO" /></td>
+                      <td><input type="number" step="any" x-model="v.stock_qty" class="inline-edit" @change="updateVariantStock(v)" style="width:50px" :disabled="!v.track_stock || !KURUK_ESTOQUE_ATIVO" /></td>
                       <td @click.stop>
                         <button class="icon-btn" @click="deleteVariant(v)" title="Excluir variante">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -1683,7 +1683,7 @@
         sortGetters: {
           name: (p) => p.name, category: (p) => p.category ?? '',
           price: (p) => p.price_cents, cost: (p) => p.cost_cents,
-          stock: (p) => (p.track_stock && KIVO_ESTOQUE_ATIVO ? p.stock_qty : -Infinity), unit: (p) => p.unit,
+          stock: (p) => (p.track_stock && KURUK_ESTOQUE_ATIVO ? p.stock_qty : -Infinity), unit: (p) => p.unit,
         },
         // Aba "Complementos" mostra só produtos usados como adicional (is_complement);
         // "Produtos" mostra o restante (o que se vende avulso/montado), sem misturar.
@@ -1954,7 +1954,7 @@
           if (s.ok) this.appSettings = await s.json();
           if (pt.ok) this.typeConfigs = await pt.json();
           // Avisa o tour guiado que a lista carregou (ver o script no fim desta página).
-          window.dispatchEvent(new Event('kivo-products-loaded'));
+          window.dispatchEvent(new Event('kuruk-products-loaded'));
         },
         /**
          * Prévia da imagem da categoria escolhida.
@@ -2044,9 +2044,9 @@
         async fillMissingImages() {
           const rotulo = this.fillScope() === 'complementos' ? 'os complementos' : 'os produtos';
           if (!await window.confirmDlg(
-            `Buscar imagens para ${rotulo} sem foto? O Kivo reaproveita a foto de um ` +
+            `Buscar imagens para ${rotulo} sem foto? O Kuruk reaproveita a foto de um ` +
             'item igual (mesmo código de barras/SKU/nome) e, com internet, usa o banco ' +
-            'de imagens do Kivo Cloud — funciona em qualquer plano.',
+            'de imagens do Kuruk Cloud — funciona em qualquer plano.',
           )) return;
           this.fillImgsLoading = true;
           try {
@@ -2114,7 +2114,7 @@
             this.form.submitToCatalog = false; // já veio de uma sugestão — reenviar não tem sentido
             const nome = (this.form.name || '').trim();
             // Aprende a escolha (anônima) para melhorar as próximas sugestões. O catálogo do
-            // Kivo aprende um alias; a imagem da web alimenta o ranking global no Cloud —
+            // Kuruk aprende um alias; a imagem da web alimenta o ranking global no Cloud —
             // imagens que mais deram certo sobem na frente para todo mundo. Best-effort.
             if (nome.length >= 3) {
               if (r.source === 'web') {
@@ -2299,7 +2299,7 @@
           if (r.ok) { this.$refs.dlg.close(); this.load(); showToast(isEdit ? 'Produto atualizado.' : 'Produto criado.', 'success'); }
           else { this.dlgError = (await r.json()).error ?? 'Erro ao salvar.'; showToast(this.dlgError, 'error'); }
         },
-        /** Ferramenta paga: gera a descrição com a Kivo IA (consome 1 crédito da cota diária). */
+        /** Ferramenta paga: gera a descrição com a Kuruk IA (consome 1 crédito da cota diária). */
         async generateDescription() {
           const name = String(this.form.name || '').trim();
           if (!name) { this.aiDesc.error = 'Informe o nome do produto primeiro.'; return; }
@@ -2822,7 +2822,7 @@
     // botão de ajuda na barra. Passos cujo alvo não existe — sem permissão, lista vazia —
     // são pulados pelo próprio motor.
     (function () {
-      var TOUR_KEY = 'kivo-tour-produtos-v1';
+      var TOUR_KEY = 'kuruk-tour-produtos-v1';
 
       function produtosTourSteps() {
         return [
@@ -2838,20 +2838,20 @@
       }
 
       function startProductsTour() {
-        if (!window.KivoTour) return;
-        window.KivoTour.start(produtosTourSteps());
+        if (!window.KurukTour) return;
+        window.KurukTour.start(produtosTourSteps());
       }
       window.startProductsTour = startProductsTour;
 
       var rever = document.getElementById('tour-rever');
       if (rever) rever.addEventListener('click', startProductsTour);
 
-      window.addEventListener('kivo-products-loaded', function () {
+      window.addEventListener('kuruk-products-loaded', function () {
         setTimeout(function () {
-          if (!window.KivoTour || window.KivoTour.isActive()) return;
+          if (!window.KurukTour || window.KurukTour.isActive()) return;
           // Não disputa a camada superior com um modal aberto (novidade/assistente).
           if (document.querySelector('dialog[open]')) return;
-          window.KivoTour.autoStart(TOUR_KEY, produtosTourSteps(), {
+          window.KurukTour.autoStart(TOUR_KEY, produtosTourSteps(), {
             celebrate: {
               title: 'Estoque na mão! 🎉',
               body: 'Cadastro, busca, importação e etiquetas: o catálogo está sob controle. Qualquer dúvida, é só rever o tutorial.',

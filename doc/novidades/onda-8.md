@@ -105,7 +105,7 @@
 - Painel: `/admin/downloads` (admin) com cadastros, downloads, últimos 7 dias, testes em
   andamento, link de WhatsApp e lista de trials/máquinas.
 - **Mudança de empacotamento:** o build portátil foi descontinuado; o download oficial é o
-  instalador NSIS (`Kivo-Setup-*.exe`). A versão exibida vem de `KIVO_APP_VERSION` ou da
+  instalador NSIS (`Kuruk-Setup-*.exe`). A versão exibida vem de `KURUK_APP_VERSION` ou da
   release mais recente do GitHub.
 
 ### Caixa, Vendas e Usuários
@@ -117,7 +117,7 @@
   o resumo mostra totais do dia por forma de pagamento e o consolidado do período.
 - Abertura por usuário: `user_startup` guarda módulo e tela cheia, é desligada por padrão,
   não sincroniza e é revalidada contra as permissões a cada abertura. Se o usuário perder
-  acesso ao módulo, o Kivo abre na tela inicial.
+  acesso ao módulo, o Kuruk abre na tela inicial.
 
 ### Migrations e compatibilidade
 

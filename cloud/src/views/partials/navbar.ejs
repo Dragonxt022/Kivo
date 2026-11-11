@@ -13,8 +13,8 @@
     </div>
   </div>
   <a href="/admin" class="brand">
-    <img id="brand-logo" class="logo-light" src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" />
-    <img id="brand-logo-dark" class="logo-dark" src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" style="display:none" />
+    <img id="brand-logo" class="logo-light" src="/img/landing/logo_kuruk-horizontal.svg" alt="Kuruk" />
+    <img id="brand-logo-dark" class="logo-dark" src="/img/landing/logo_kuruk-horizontal_branco.svg" alt="Kuruk" style="display:none" />
   </a>
   <div class="right">
     <div class="user-menu">
@@ -79,7 +79,7 @@
     document.getElementById('theme-toggle').addEventListener('click', function () {
       var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
       root.setAttribute('data-theme', next);
-      try { localStorage.setItem('kivo-theme', next); } catch (e) {}
+      try { localStorage.setItem('kuruk-theme', next); } catch (e) {}
       applyIcons();
     });
 

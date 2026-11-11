@@ -1,5 +1,5 @@
 <%#
-  Topo de toda tela do Kivo Web. Sem engine de layout no projeto, o par head/foot é o
+  Topo de toda tela do Kuruk Web. Sem engine de layout no projeto, o par head/foot é o
   padrão EJS puro — mesma abordagem do resto da nuvem.
 
   Espera nos locals: `titulo`, `grant`, `fresh`.
@@ -17,14 +17,14 @@
     (function () {
       try {
         var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (tz && document.cookie.indexOf('kivo_tz=') === -1) {
-          document.cookie = 'kivo_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; SameSite=Lax';
+        if (tz && document.cookie.indexOf('kuruk_tz=') === -1) {
+          document.cookie = 'kuruk_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; SameSite=Lax';
         }
       } catch (e) {}
     })();
   </script>
-  <title><%= titulo %> — Kivo</title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <title><%= titulo %> — Kuruk</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <%# Instalável na tela inicial: o manifest deixa o painel abrir em tela cheia, sem a
       barra do navegador, com ícone e cor próprios. O service worker (escopo /m/) só
       acelera CSS/imagens — HTML autenticado nunca é cacheado. %>
@@ -32,7 +32,7 @@
   <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Kivo">
+  <meta name="apple-mobile-web-app-title" content="Kuruk">
   <%- include('styles') %>
   <link rel="stylesheet" href="/css/mobile.css">
   <%# Camada de componentes (KPI, folha inferior, stepper, barra de ação). Arquivo à
@@ -83,19 +83,19 @@
 
   <script>
     // Profundidade da navegação gravada na própria entrada do histórico. Serve para o
-    // Voltar saber se existe tela ANTERIOR DENTRO do Kivo Web: quem abriu o app pelo link
+    // Voltar saber se existe tela ANTERIOR DENTRO do Kuruk Web: quem abriu o app pelo link
     // do WhatsApp já cai numa tela interna, e um history.back() cru o mandaria de volta
     // para a conversa, para fora do app. Profundidade 1 = primeira tela desta aba.
     (function () {
       var st = history.state || {};
       if (st.mDepth == null) {
         var anterior = 0;
-        try { anterior = Number(sessionStorage.getItem('kivo-m-depth') || 0); } catch (e) {}
+        try { anterior = Number(sessionStorage.getItem('kuruk-m-depth') || 0); } catch (e) {}
         st.mDepth = anterior + 1;
         history.replaceState(st, '');
-        try { sessionStorage.setItem('kivo-m-depth', String(st.mDepth)); } catch (e) {}
+        try { sessionStorage.setItem('kuruk-m-depth', String(st.mDepth)); } catch (e) {}
       } else {
-        try { sessionStorage.setItem('kivo-m-depth', String(st.mDepth)); } catch (e) {}
+        try { sessionStorage.setItem('kuruk-m-depth', String(st.mDepth)); } catch (e) {}
       }
       var b = document.getElementById('m-voltar');
       if (b && location.pathname !== '/m' && location.pathname !== '/m/') b.hidden = false;

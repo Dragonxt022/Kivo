@@ -3,7 +3,7 @@
  *
  * Por que não e-mail: o `password_hash` mora no SQLite desta máquina. Um link de
  * recuperação chegaria no celular do lojista e teria que alcançar um servidor em
- * `localhost:3123`, atrás de NAT — o mesmo motivo pelo qual o Kivo Web usa SSE em vez de
+ * `localhost:3123`, atrás de NAT — o mesmo motivo pelo qual o Kuruk Web usa SSE em vez de
  * webhook. Além disso o PDV precisa se recuperar com a internet caída, que é justamente
  * quando e-mail não chega.
  *
@@ -14,7 +14,7 @@
  * - O segredo é POR EMPRESA, entregue pela nuvem e guardado no cofre (`core/secrets`).
  *   Não existe chave mestra no instalador — com "Rede local" ligada o app escuta em
  *   0.0.0.0 (ver `electron/main.ts`), então uma chave extraída do binário destravaria
- *   qualquer Kivo alcançável pela rede da loja. Este segredo só vale para esta empresa,
+ *   qualquer Kuruk alcançável pela rede da loja. Este segredo só vale para esta empresa,
  *   e para lê-lo já é preciso ter acesso ao disco da máquina.
  * - A resposta tem 48 bits. O que segura a força bruta é o limite de tentativas por
  *   desafio somado ao rate limit da rota — não o tamanho do código, que precisa caber

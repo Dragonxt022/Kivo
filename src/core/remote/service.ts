@@ -8,7 +8,7 @@ import { validateLicense } from '../license/service';
 import { canUseWebApp } from '../license/plans';
 
 /**
- * Acesso ao Kivo Web (celular) por link/QR.
+ * Acesso ao Kuruk Web (celular) por link/QR.
  *
  * O login remoto NÃO usa a senha do PDV: `users` não sincroniza, e o `password_hash` fica só
  * nesta máquina de propósito. Em vez disso, o admin gera aqui um token aleatório por usuário;
@@ -63,7 +63,7 @@ type GrantResult =
 export async function grantRemoteAccess(req: Request, userId: number, label?: string): Promise<GrantResult> {
   const lic = validateLicense();
   if (!canUseWebApp(lic.plan)) {
-    return { ok: false, error: 'O acesso pelo celular (Kivo Web) não está incluído no plano contratado. Contate o suporte para liberar.' };
+    return { ok: false, error: 'O acesso pelo celular (Kuruk Web) não está incluído no plano contratado. Contate o suporte para liberar.' };
   }
   const base = cloudBaseUrl();
   const auth = cloudAuthHeaders();

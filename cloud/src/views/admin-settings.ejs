@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Kivo Cloud — Configurações</title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <title>Kuruk Cloud — Configurações</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <%- include('partials/styles') %>
   <style>
     /* Submenu de configurações: abas na lateral esquerda, painéis à direita. */
@@ -46,7 +46,7 @@
               <button type="button" class="settings-nav-item" data-settings-tab="contato">Contato de suporte</button>
               <button type="button" class="settings-nav-item" data-settings-tab="email">E-mail (SMTP)</button>
               <button type="button" class="settings-nav-item" data-settings-tab="imagens">Busca de imagens</button>
-              <button type="button" class="settings-nav-item" data-settings-tab="ia">KIVO IA</button>
+              <button type="button" class="settings-nav-item" data-settings-tab="ia">KURUK IA</button>
               <button type="button" class="settings-nav-item" data-settings-tab="maisdelivery">Mais Delivery</button>
             </nav>
 
@@ -59,13 +59,13 @@
                 <label>Telefone</label>
                 <input type="text" name="supportPhone" value="<%= settings.support_phone || '' %>" placeholder="(11) 99999-9999">
                 <label>E-mail</label>
-                <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@kivo.com.br">
+                <input type="email" name="supportEmail" value="<%= settings.support_email || '' %>" placeholder="suporte@kuruk.com.br">
               </div>
 
               <div class="card settings-panel" data-settings-panel="email" hidden>
                 <h2>Servidor de e-mail (SMTP)</h2>
                 <p class="field-hint" style="margin-top:0">
-                  Usado pelo Kivo Cloud para enviar e-mails. Exemplo Gmail:
+                  Usado pelo Kuruk Cloud para enviar e-mails. Exemplo Gmail:
                   <strong>smtp.gmail.com</strong>, porta <strong>587</strong>, segurança <strong>STARTTLS</strong>,
                   usuário <strong>seu_email@gmail.com</strong> e uma <strong>senha de app de 16 dígitos</strong>
                   (não é a senha normal da conta — gere em Conta Google &rarr; Segurança &rarr; Senhas de app).
@@ -96,10 +96,10 @@
                 </p>
 
                 <label>Nome do remetente</label>
-                <input type="text" name="smtpFromName" value="<%= settings.smtp_from_name || '' %>" placeholder="Kivo Cloud">
+                <input type="text" name="smtpFromName" value="<%= settings.smtp_from_name || '' %>" placeholder="Kuruk Cloud">
 
                 <label>E-mail do remetente</label>
-                <input type="email" name="smtpFromEmail" value="<%= settings.smtp_from_email || '' %>" placeholder="no-reply@kivo.com.br">
+                <input type="email" name="smtpFromEmail" value="<%= settings.smtp_from_email || '' %>" placeholder="no-reply@kuruk.com.br">
                 <p class="field-hint">Se ficar em branco, usamos o usuário acima como remetente.</p>
 
                 <hr style="border:none;border-top:1px solid var(--border-light);margin:1.25rem 0">
@@ -174,20 +174,20 @@
               </div>
 
               <div class="card settings-panel" data-settings-panel="ia" hidden>
-                <h2>KIVO IA (provedores)</h2>
+                <h2>KURUK IA (provedores)</h2>
                 <p class="field-hint" style="margin-top:0">
-                  Centraliza a IA do Kivo: configurando aqui, os clientes usam o assistente
+                  Centraliza a IA do Kuruk: configurando aqui, os clientes usam o assistente
                   <strong>sem chave própria</strong>. O <strong>Ollama</strong> roda na VPS;
                   OpenAI/DeepSeek/Anthropic só entram na lista quando têm chave. As chaves ficam
                   guardadas no servidor e nunca são exibidas de volta.
                 </p>
                 <label style="display:flex;align-items:center;gap:8px;">
                   <input type="checkbox" name="aiEnabled" value="1" <%= ai.enabled ? 'checked' : '' %> style="width:auto;">
-                  Ativar a KIVO IA
+                  Ativar a KURUK IA
                 </label>
                 <label>Provedor padrão</label>
                 <select name="aiDefaultProvider">
-                  <option value="ollama" <%= ai.defaultProvider === 'ollama' ? 'selected' : '' %>>Ollama (servidor Kivo)</option>
+                  <option value="ollama" <%= ai.defaultProvider === 'ollama' ? 'selected' : '' %>>Ollama (servidor Kuruk)</option>
                   <option value="openai" <%= ai.defaultProvider === 'openai' ? 'selected' : '' %>>OpenAI (ChatGPT)</option>
                   <option value="deepseek" <%= ai.defaultProvider === 'deepseek' ? 'selected' : '' %>>DeepSeek</option>
                   <option value="anthropic" <%= ai.defaultProvider === 'anthropic' ? 'selected' : '' %>>Anthropic (Claude)</option>
@@ -226,7 +226,7 @@
                 </p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <select id="ai-test-provider" style="max-width:230px">
-                    <option value="ollama">Ollama (servidor Kivo)</option>
+                    <option value="ollama">Ollama (servidor Kuruk)</option>
                     <option value="openai">OpenAI (ChatGPT)</option>
                     <option value="deepseek">DeepSeek</option>
                     <option value="anthropic">Anthropic (Claude)</option>
@@ -277,7 +277,7 @@
 
                 <p class="field-hint" style="margin-top:1rem">
                   <strong>Fluxo:</strong> o administrador salva estas credenciais aqui na VPS.
-                  O franqueado abre o Kivo, entra em Integrações &rarr; Mais Delivery &rarr; Configurar,
+                  O franqueado abre o Kuruk, entra em Integrações &rarr; Mais Delivery &rarr; Configurar,
                   e preenche apenas o <strong>código de integração</strong> da sua loja.
                 </p>
               </div>

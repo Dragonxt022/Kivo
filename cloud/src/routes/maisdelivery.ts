@@ -4,12 +4,12 @@ import { requireCompanyAuth, type AuthedRequest } from '../auth';
 
 /**
  * Fornece as credenciais da sede do Mais Delivery para a instalação local do cliente.
- * Autenticado por licença da empresa (X-Kivo-Company / X-Kivo-License-Key).
+ * Autenticado por licença da empresa (X-Kuruk-Company / X-Kuruk-License-Key).
  * O cliente usa estas credenciais e preenche apenas o código de integração localmente.
  *
  * Este router MORA em `/api/maisdelivery` (montado no server.ts). Não mocks ele para
  * `admin.ts`: lá o router é montado sob `/admin`, e a rota viraria
- * `/admin/api/maisdelivery/credentials` — mas o Kivo chama `/api/maisdelivery/credentials`.
+ * `/admin/api/maisdelivery/credentials` — mas o Kuruk chama `/api/maisdelivery/credentials`.
  */
 const router = Router();
 

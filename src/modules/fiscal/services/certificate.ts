@@ -38,7 +38,7 @@ export interface CertificateInfo {
 }
 
 export function certsDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dir = path.join(path.dirname(path.dirname(dbPath)), 'storage', 'fiscal', 'certs');
   fs.mkdirSync(dir, { recursive: true });
   return dir;

@@ -11,7 +11,7 @@ import type { ModuleMenuItem } from '../modules/types';
  *
  * O href nunca é executado como veio do banco: ao salvar e de novo ao abrir, ele é
  * conferido contra o menu que o usuário realmente enxerga. Assim, perder uma permissão
- * (ou o módulo sair do plano) só faz o Kivo abrir normal, sem quebrar o login.
+ * (ou o módulo sair do plano) só faz o Kuruk abrir normal, sem quebrar o login.
  */
 
 export interface StartupPref {
@@ -133,7 +133,7 @@ export function startupLocals(req: Request, res: Response, next: NextFunction): 
       };
     }
   } catch {
-    // Sem a coluna/tabela (instalação no meio de migration) o Kivo abre normal.
+    // Sem a coluna/tabela (instalação no meio de migration) o Kuruk abre normal.
   }
   next();
 }

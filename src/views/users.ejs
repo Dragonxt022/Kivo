@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Usuários</title>
+  <title>Kuruk — Usuários</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
@@ -198,9 +198,9 @@
               Abrir direto em um módulo ao iniciar
             </label>
             <p class="hint" style="margin:.35rem 0 .55rem">
-              Desligado por padrão. Vale <strong>só para este usuário</strong>: ao abrir o Kivo
+              Desligado por padrão. Vale <strong>só para este usuário</strong>: ao abrir o Kuruk
               (ou depois do login), ele vai direto para o módulo escolhido em vez da tela inicial.
-              Se o usuário perder acesso ao módulo, o Kivo abre normalmente.
+              Se o usuário perder acesso ao módulo, o Kuruk abre normalmente.
             </p>
             <div x-show="startup.enabled" x-cloak>
               <label>Módulo</label>
@@ -243,7 +243,7 @@
           <div class="variant-guide" style="margin:.5rem 0">
             <p style="margin:0 0 .35rem"><strong>Disponível no plano Diamante.</strong></p>
             <p class="muted text-xs" style="margin:0">
-              O Kivo Web deixa acompanhar a loja e montar orçamento pelo celular. Seu plano atual:
+              O Kuruk Web deixa acompanhar a loja e montar orçamento pelo celular. Seu plano atual:
               <span x-text="remote.plan ?? '—'"></span>.
             </p>
           </div>
@@ -252,7 +252,7 @@
         <template x-if="remote.available && !remote.url">
           <div>
             <p class="hint">
-              Gera um link exclusivo deste usuário. Quem abrir o link entra no Kivo Web com o
+              Gera um link exclusivo deste usuário. Quem abrir o link entra no Kuruk Web com o
               <strong>cargo e as permissões que ele já tem</strong> aqui — sem senha nova.
             </p>
             <template x-if="remote.existing">
@@ -314,7 +314,7 @@
         // Quantas pessoas conseguem redefinir a senha de outra (permissão users.edit).
         // `null` enquanto não carregou, para o aviso não piscar em toda abertura da tela.
         resetters: null,
-        soloDismissed: localStorage.getItem('kivo-solo-admin-ok') === '1',
+        soloDismissed: localStorage.getItem('kuruk-solo-admin-ok') === '1',
         remote: { user: null, available: false, plan: null, existing: null, url: '', qr: '', error: '', saving: false, copied: false },
         sortGetters: {
           name: (u) => u.name, username: (u) => u.username, role: (u) => u.role ?? '',
@@ -348,9 +348,9 @@
         },
         dismissSolo() {
           this.soloDismissed = true;
-          localStorage.setItem('kivo-solo-admin-ok', '1');
+          localStorage.setItem('kuruk-solo-admin-ok', '1');
         },
-        // ─── Acesso pelo celular (Kivo Web) ───
+        // ─── Acesso pelo celular (Kuruk Web) ───
         async openRemote(u) {
           this.remote = { user: u, available: false, plan: null, existing: null, url: '', qr: '', error: '', saving: false, copied: false };
           this.$refs.remoteDlg.showModal();

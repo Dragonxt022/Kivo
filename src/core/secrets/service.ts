@@ -26,6 +26,9 @@ import { createLogger } from '../logger';
 const log = createLogger('secrets');
 
 const FILE_VERSION = 1;
+// Mantido com o valor antigo de propósito: mudar o pepper invalidaria todo segredo
+// já cifrado no fallback AES (fora do Electron). É um identificador de protocolo,
+// não uma marca visível — trocá-lo exigiria reencriptar o cofre de cada instalação.
 const PEPPER = 'kivo-secrets-v1-3d9b7e02';
 
 type Scheme = 'safeStorage' | 'aes-256-gcm';
@@ -46,7 +49,7 @@ interface VaultFile {
 
 /** `storage/secrets.json` ao lado da raiz de dados — nunca dentro do banco. */
 export function secretsFilePath(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dir = path.join(path.dirname(path.dirname(dbPath)), 'storage');
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, 'secrets.json');

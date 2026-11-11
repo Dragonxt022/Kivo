@@ -11,7 +11,7 @@
  *     (`BUSINESS_TYPES`) — divergência em qualquer direção falha;
  *  2. percorrer todos os ramos pelo endpoint de provisionamento, conferindo que nenhum responde 400.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/onboarding-ramos.ts
  */
 import { readFileSync } from 'node:fs';
@@ -24,7 +24,7 @@ import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 import { BUSINESS_TYPES, EMPLOYEE_RANGES } from '../core/onboarding/service';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3854);
+const PORT = Number(process.env.KURUK_PORT ?? 3854);
 const base = `http://localhost:${PORT}`;
 const ROTA = '/api/onboarding/provision';
 
@@ -45,8 +45,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 /** Ramos que a TELA oferece (o assistente é Alpine e carrega a lista em public/js/onboarding.js). */
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
         body: JSON.stringify({
           usage: 'balcao',
           businessType: ramo,
-          businessName: 'Kivo - Sistemas',
+          businessName: 'Kuruk - Sistemas',
           employeeRange: EMPLOYEE_RANGES[0],
           activePaymentMethodIds: [],
           // Dados de demonstração só no ramo do consultório: aqui o alvo é a VALIDAÇÃO do ramo.

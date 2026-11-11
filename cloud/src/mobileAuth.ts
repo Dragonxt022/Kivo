@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { getPool } from './db';
 import { canUseWebApp } from './plans';
 
-export const MOBILE_COOKIE = 'kivo_m';
+export const MOBILE_COOKIE = 'kuruk_m';
 /** 30 dias: o dono não quer reparear o celular toda semana. Revogar é imediato mesmo assim. */
 const COOKIE_MAX_AGE_MS = 30 * 24 * 3600e3;
 
@@ -26,7 +26,7 @@ export interface MobileRequest extends Request {
 }
 
 /**
- * Sessão do Kivo Web SEM tabela de sessão: o cookie guarda o próprio token do link/QR e cada
+ * Sessão do Kuruk Web SEM tabela de sessão: o cookie guarda o próprio token do link/QR e cada
  * requisição revalida o hash contra `company_mobile_grants`.
  *
  * A alternativa (token de sessão separado, como no painel admin) exigiria invalidar sessões

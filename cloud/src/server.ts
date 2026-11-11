@@ -1,5 +1,7 @@
 import 'dotenv/config';
+import './legacyEnv';
 import path from 'node:path';
+import { legacyHeaderAliases } from './legacyHeaders';
 import express from 'express';
 import { getPool } from './db';
 import syncRoutes from './routes/sync';
@@ -42,7 +44,7 @@ import { loadPlanCatalog } from './plans';
 const PORT = Number(process.env.CLOUD_PORT ?? 4000);
 
 /**
- * Retenção de dados operacionais que crescem para sempre. Os comandos do Kivo Web ficam só
+ * Retenção de dados operacionais que crescem para sempre. Os comandos do Kuruk Web ficam só
  * como histórico do que já foi aplicado; sem limpeza a tabela vira lixo de anos. Roda no
  * boot e a cada 24h. (Os relatórios de erro têm retenção própria em routes/telemetry.ts.)
  */
@@ -103,6 +105,8 @@ export function createCloudServer() {
   app.use(express.static(path.resolve(__dirname, 'public')));
   app.use(express.json({ limit: '8mb' }));
   app.use(express.urlencoded({ extended: true }));
+  // Clientes anteriores ao rebrand ainda mandam X-Kivo-*; copia para X-Kuruk-*.
+  app.use(legacyHeaderAliases);
   // Helpers de data/hora disponíveis em toda view renderizada no servidor (formato BR).
   app.use((_req, res, next) => {
     res.locals.fmtDateBr = fmtDateBr;
@@ -111,7 +115,7 @@ export function createCloudServer() {
     res.locals.maxPdfMb = Math.round(MAX_CONTRACT_PDF_BYTES / 1048576);
     next();
   });
-  app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'kivo-cloud' }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'kuruk-cloud' }));
   // Página pública de pagamento da assinatura: é o link que o lojista manda ao cliente
   // (WhatsApp/e-mail). Fica antes da landing porque `/pagar/<token>` não é página do site.
   app.use('/pagar', publicPayRoutes);
@@ -140,7 +144,7 @@ export function createCloudServer() {
   // Central de mensagens: o servidor local busca a caixa de entrada e a imagem de destaque
   // com as credenciais de licença (o navegador não fala com a nuvem — a CSP do app é 'self').
   app.use('/api/messages', messageRoutes);
-  // Kivo Web. As concessões e a fila vista pelo celular vivem em /api/mobile (cookie de
+  // Kuruk Web. As concessões e a fila vista pelo celular vivem em /api/mobile (cookie de
   // acesso); o lado do desktop fica em /api/commands (credenciais de licença).
   app.use('/api/mobile', mobileGrantsRoutes);
   app.use('/api/mobile', mobileCommandsRoutes);
@@ -151,11 +155,11 @@ export function createCloudServer() {
   app.use('/', quotePublicRoutes);
   app.use('/api/support', supportRoutes);
   app.use('/api/telemetry', telemetryRoutes);
-  // KIVO IA: o app local manda a requisição com as credenciais de licença e o cloud
+  // KURUK IA: o app local manda a requisição com as credenciais de licença e o cloud
   // encaminha para o Ollama local da VPS (OLLAMA_URL).
   app.use('/api/ai', aiRoutes);
   // Credenciais da sede do Mais Delivery para as instalações locais (autenticado por
-  // licença). Vive fora de /admin de propósito: o Kivo chama /api/maisdelivery direto.
+  // licença). Vive fora de /admin de propósito: o Kuruk chama /api/maisdelivery direto.
   app.use('/api/maisdelivery', maisdeliveryRoutes);
   // Webhook do gateway de pagamento (Mercado Pago). Público de propósito: quem autentica é a
   // assinatura HMAC do Mercado Pago, e o status é sempre reconferido na API deles — a
@@ -206,5 +210,5 @@ if (require.main === module) {
     purgeExpiredPasswordResets();
     purgeExpiredAffiliateSessions();
   }, 6 * 3600e3).unref?.();
-  app.listen(PORT, () => console.log(`[kivo-cloud] ouvindo em http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`[kuruk-cloud] ouvindo em http://localhost:${PORT}`));
 }

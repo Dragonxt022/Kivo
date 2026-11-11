@@ -4,21 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Kivo — Assinatura</title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <title>Kuruk — Assinatura</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <link rel="stylesheet" href="/css/app.css?v=20261102-1">
 </head>
 <body class="subscription-public">
   <main class="subscription-public-card">
     <div class="subscription-public-brand">
-      <img src="/img/landing/logo_kivo-horizontal.svg" alt="Kivo" class="logo-light">
-      <img src="/img/landing/logo_kivo-horizontal_branco.svg" alt="Kivo" class="logo-dark">
+      <img src="/img/landing/logo_kuruk-horizontal.svg" alt="Kuruk" class="logo-light">
+      <img src="/img/landing/logo_kuruk-horizontal_branco.svg" alt="Kuruk" class="logo-dark">
     </div>
 
     <% if (notFound) { %>
       <span class="badge cancelada">Link inválido</span>
       <h1>Não encontramos esta assinatura.</h1>
-      <p class="muted">Confirme o link com o suporte do Kivo. Se você já pagou, nenhuma cobrança será feita por esta página.</p>
+      <p class="muted">Confirme o link com o suporte do Kuruk. Se você já pagou, nenhuma cobrança será feita por esta página.</p>
     <% } else { %>
       <%
         var statusLabel = {
@@ -35,7 +35,7 @@
         <img class="subscription-public-seal" src="<%= sealPath %>" alt="Selo do plano">
       <% } %>
       <span class="badge <%= statusClass %>"><%= statusLabel %></span>
-      <h1>Assinatura Kivo</h1>
+      <h1>Assinatura Kuruk</h1>
       <p class="subscription-public-company"><%= companyName || 'Sua empresa' %></p>
 
       <div class="subscription-public-summary">
@@ -62,20 +62,20 @@
           Autorizar assinatura no Mercado Pago
         </a>
         <p class="muted text-xs" style="margin-top:10px">
-          Você será levado ao ambiente seguro do Mercado Pago. O Kivo não armazena os dados do cartão.
+          Você será levado ao ambiente seguro do Mercado Pago. O Kuruk não armazena os dados do cartão.
         </p>
       <% } else if (sub.status === 'autorizada') { %>
         <p class="subscription-public-text">
           Tudo certo. O cartão está autorizado e o Mercado Pago fará as próximas cobranças
-          automaticamente. Cada pagamento aprovado renova a licença do Kivo.
+          automaticamente. Cada pagamento aprovado renova a licença do Kuruk.
         </p>
       <% } else if (sub.status === 'pausada') { %>
-        <p class="subscription-public-text">A assinatura está pausada. Fale com o suporte do Kivo para retomar as cobranças.</p>
+        <p class="subscription-public-text">A assinatura está pausada. Fale com o suporte do Kuruk para retomar as cobranças.</p>
       <% } else if (sub.status === 'cancelada' || sub.status === 'encerrada') { %>
         <p class="subscription-public-text">Esta assinatura não está mais ativa. Os meses já pagos continuam valendo até a data de validade da licença.</p>
       <% } else { %>
         <p class="subscription-public-text">
-          Não foi possível gerar o link de autorização. Fale com o suporte do Kivo para concluir a assinatura.
+          Não foi possível gerar o link de autorização. Fale com o suporte do Kuruk para concluir a assinatura.
         </p>
       <% } %>
 
@@ -86,7 +86,7 @@
 
     <footer class="subscription-public-footer">
       <span>Pagamento processado pelo Mercado Pago</span>
-      <span>Kivo</span>
+      <span>Kuruk</span>
     </footer>
   </main>
 </body>

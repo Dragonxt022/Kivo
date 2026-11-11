@@ -17,7 +17,7 @@ import { closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3830);
+const PORT = Number(process.env.KURUK_PORT ?? 3830);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -36,8 +36,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string): Promi
 async function loginAs(username: string, password: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface StartupResponse {

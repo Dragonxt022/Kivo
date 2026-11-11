@@ -1,5 +1,5 @@
 <%
-  /* Mockup em CSS de uma tela do Kivo Odonto (não usa imagem). Variantes:
+  /* Mockup em CSS de uma tela do Kuruk Odonto (não usa imagem). Variantes:
        'painel', 'agenda', 'odontograma', 'planos'.
      O `.tilt-stage[data-motion-media]` faz a moldura ganhar o tilt 3D via site-motion.js.
      Todo o conteúdo é decorativo (aria-hidden): é uma ilustração, não dado real. */
@@ -22,7 +22,7 @@
     <div class="bar"><i></i><i></i><i></i></div>
     <div class="odonto-mock" aria-hidden="true">
       <aside class="odonto-side">
-        <span class="odo-logo">Kivo <b>Odonto</b></span>
+        <span class="odo-logo">Kuruk <b>Odonto</b></span>
         <% menu.forEach(function (item) { %>
           <span class="<%= item[0] === active ? 'on' : '' %>"><%= item[1] %></span>
         <% }); %>

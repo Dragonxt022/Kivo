@@ -12,7 +12,7 @@
  *    vinculado tem de ser do mesmo paciente (PR §24.2);
  *  - auditoria registra o ato sem copiar o conteúdo clínico.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-prontuario.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -22,7 +22,7 @@ import { createServer } from '../core/server';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3847);
+const PORT = Number(process.env.KURUK_PORT ?? 3847);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 const OBSERVACAO = 'Sensibilidade relatada no dente 26; anestesia aplicada sem intercorrência.';
@@ -45,8 +45,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface Note {

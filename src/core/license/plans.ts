@@ -1,13 +1,13 @@
 import { settingsRepository } from '../repositories/SettingsRepository';
 
 /**
- * Planos comerciais do Kivo. Atualização automática passou a valer para TODOS os planos —
+ * Planos comerciais do Kuruk. Atualização automática passou a valer para TODOS os planos —
  * inclusive trial e Prata — porque ela carrega correções de segurança e é obrigatória.
  *
  * O catálogo DE planos (quais existem, preço, o que cada um inclui) é gerenciado no
  * painel do cloud (tabela `plans`) e NÃO vive aqui: o desktop nunca é a fonte
  * da verdade sobre o que está à venda. O que o desktop precisa saber — se o plano da
- * empresa inclui sync/nuvem, Kivo Web e pedido por QR — chega no `/api/license/validate`
+ * empresa inclui sync/nuvem, Kuruk Web e pedido por QR — chega no `/api/license/validate`
  * (campo `planFeatures`) e é guardado localmente em `setPlanFeatures`. Enquanto a nuvem
  * não mandar esse campo (cloud antiga, ou instalação sem online ainda), valem as regras
  * fixas por chave abaixo, que eram o modelo anterior.
@@ -37,7 +37,7 @@ const RESTRICTED_PLANS = new Set<string>(['trial', 'prata']);
 /**
  * Funcionalidades que o plano pode liberar — espelham os checkboxes do painel do cloud:
  *  - `cloud_sync`: sync/backup em nuvem (engine de sync, upload de backup, reset com envio).
- *  - `web_app`: Kivo Web (painel/orçamento pelo celular, concessões de acesso).
+ *  - `web_app`: Kuruk Web (painel/orçamento pelo celular, concessões de acesso).
  *  - `qr_order`: cardápio online + pedido pela mesa via QR Code.
  */
 export interface PlanFeatures {
@@ -151,7 +151,7 @@ export function canSaveToCloud(plan: string | null): boolean {
 }
 
 /**
- * Kivo Web (acompanhar a loja e fazer orçamento pelo celular). Com plano vindo do cloud,
+ * Kuruk Web (acompanhar a loja e fazer orçamento pelo celular). Com plano vindo do cloud,
  * a decisão é a funcionalidade marcada no painel; com chave legado (sem registro), a
  * regra antiga — só o plano explicitamente Diamante entra. Vale junto com a capability
  * `app.online`.

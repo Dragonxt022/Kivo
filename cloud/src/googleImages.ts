@@ -9,9 +9,9 @@ import type { ExternalImage } from './imageApi';
  * quebra a cada mudança de layout. A API devolve as mesmas imagens do índice do Google,
  * com o parâmetro `rights=cc_use_commercially` (Creative Commons com uso comercial).
  *
- * A chave e o `cx` (ID do mecanismo de busca) ficam no Kivo Cloud, em Configurações.
+ * A chave e o `cx` (ID do mecanismo de busca) ficam no Kuruk Cloud, em Configurações.
  * O mecanismo precisa estar configurado para buscar a web inteira e permitir imagens.
- * Também aceita `KIVO_GOOGLE_CSE_KEY` / `KIVO_GOOGLE_CSE_CX` por ambiente.
+ * Também aceita `KURUK_GOOGLE_CSE_KEY` / `KURUK_GOOGLE_CSE_CX` por ambiente.
  */
 
 export interface GoogleImagesConfig {
@@ -25,7 +25,7 @@ const CACHE_TTL_MS = 7 * 24 * 3600e3;
 const REQUEST_TIMEOUT_MS = 8000;
 
 function apiBase(): string {
-  return (process.env.KIVO_GOOGLE_IMAGES_BASE || 'https://www.googleapis.com/customsearch/v1').replace(/\/$/, '');
+  return (process.env.KURUK_GOOGLE_IMAGES_BASE || 'https://www.googleapis.com/customsearch/v1').replace(/\/$/, '');
 }
 
 export async function loadGoogleImagesConfig(): Promise<GoogleImagesConfig | null> {
@@ -35,8 +35,8 @@ export async function loadGoogleImagesConfig(): Promise<GoogleImagesConfig | nul
   const map = Object.fromEntries(
     (rows as { setting_key: string; setting_value: string | null }[]).map((r) => [r.setting_key, r.setting_value]),
   );
-  const apiKey = String(map.image_google_api_key ?? '').trim() || String(process.env.KIVO_GOOGLE_CSE_KEY ?? '').trim();
-  const cx = String(map.image_google_cx ?? '').trim() || String(process.env.KIVO_GOOGLE_CSE_CX ?? '').trim();
+  const apiKey = String(map.image_google_api_key ?? '').trim() || String(process.env.KURUK_GOOGLE_CSE_KEY ?? '').trim();
+  const cx = String(map.image_google_cx ?? '').trim() || String(process.env.KURUK_GOOGLE_CSE_CX ?? '').trim();
   if (!apiKey || !cx) return null;
   return { apiKey, cx };
 }

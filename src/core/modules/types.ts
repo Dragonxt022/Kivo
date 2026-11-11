@@ -20,7 +20,7 @@ export interface ModuleMenuItem {
   moduleName?: string;
 }
 
-/** Contrato do module.manifest.ts (KIVO_PLANO.md §4). */
+/** Contrato do module.manifest.ts (KURUK_PLANO.md §4). */
 export interface ModuleManifest {
   id: string;
   name: string;
@@ -49,7 +49,7 @@ export interface ModuleManifest {
   /** Módulo de SISTEMA: ignora o entitlement do plano e fica sempre acessível (ex.: o
    *  Painel). Continua respeitando permissão (`permissions`) e capability, se houver. */
   alwaysEnabled?: boolean;
-  /** Tabelas sincronizáveis deste módulo (motor de sync da Fase 6a, KIVO_PLANO.md §6). */
+  /** Tabelas sincronizáveis deste módulo (motor de sync da Fase 6a, KURUK_PLANO.md §6). */
   syncTables?: SyncTableSpec[];
 }
 

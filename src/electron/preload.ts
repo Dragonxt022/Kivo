@@ -7,7 +7,7 @@ import { contextBridge, ipcRenderer } from 'electron';
  * `fs` ou acesso direto ao banco. Só o que está nesta lista atravessa — e cada canal
  * valida o próprio payload em `electron/hardware.ts`.
  */
-contextBridge.exposeInMainWorld('kivo', {
+contextBridge.exposeInMainWorld('kuruk', {
   version: '0.1.0',
   /**
    * Controles da janela que a página usa na abertura personalizada (ir direto para um

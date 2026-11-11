@@ -12,7 +12,7 @@ export const CORE_PERMISSIONS: { key: string; description: string }[] = [
   { key: 'users.create', description: 'Criar usuários' },
   { key: 'users.edit', description: 'Editar usuários' },
   { key: 'users.delete', description: 'Excluir usuários' },
-  { key: 'users.remote.manage', description: 'Conceder e revogar acesso pelo celular (Kivo Web)' },
+  { key: 'users.remote.manage', description: 'Conceder e revogar acesso pelo celular (Kuruk Web)' },
   { key: 'roles.view', description: 'Visualizar cargos e permissões' },
   { key: 'roles.edit', description: 'Editar cargos e permissões' },
   { key: 'audit.view', description: 'Visualizar log de auditoria' },
@@ -135,7 +135,7 @@ export function runSeeds(): void {
     'sync.intervalo_minutos',
     '3',
     randomUUID(),
-    'Intervalo em minutos do ciclo automático de sincronização com a nuvem. "0" desliga (só sincroniza no clique manual). É o que mantém atual o acompanhamento pelo celular (Kivo Web).',
+    'Intervalo em minutos do ciclo automático de sincronização com a nuvem. "0" desliga (só sincroniza no clique manual). É o que mantém atual o acompanhamento pelo celular (Kuruk Web).',
   );
 
   db.prepare(
@@ -162,7 +162,7 @@ export function runSeeds(): void {
   );
   for (const [key, value, comment] of pdvSettings) insertSetting.run(key, value, randomUUID(), comment);
 
-  // Chave geral do estoque: ligada de fábrica. Desligá-la faz o Kivo tratar todos os
+  // Chave geral do estoque: ligada de fábrica. Desligá-la faz o Kuruk tratar todos os
   // produtos como "sem controle de quantidade" sem alterar o cadastro de cada um.
   insertSetting.run(
     'estoque.controlar_quantidade',
@@ -171,14 +171,14 @@ export function runSeeds(): void {
     'Controla a quantidade de estoque de todos os produtos. "1" = ligado (padrão); "0" = desligado para todos, sem mexer no cadastro individual.',
   );
 
-  // Acesso pela rede local: ligado de fábrica para o celular/tablet já abrir o Kivo.
+  // Acesso pela rede local: ligado de fábrica para o celular/tablet já abrir o Kuruk.
   // Se a máquina não conseguir escutar em 0.0.0.0, o boot cai para localhost sozinho
   // (ver electron/main.ts).
   insertSetting.run(
     'rede.acesso_local',
     '1',
     randomUUID(),
-    'Permite abrir o Kivo pelo celular/tablet na mesma rede. "1" = ligado (padrão); "0" = somente este computador.',
+    'Permite abrir o Kuruk pelo celular/tablet na mesma rede. "1" = ligado (padrão); "0" = somente este computador.',
   );
 
   // Padrões do cadastro de produtos. Ficam explícitos aqui (e não só no código) para a
@@ -223,10 +223,10 @@ export function runSeeds(): void {
     'Método de custo do estoque: "medio" (média ponderada móvel — padrão) ou "fifo" (custo do lote consumido).',
   );
 
-  // KIVO IA (Configurações › KIVO IA): o app local manda as requisições para o Kivo Web, que
-  // injeta a documentação do Kivo e chama o provedor configurado no painel. O assistente de
+  // KURUK IA (Configurações › KURUK IA): o app local manda as requisições para o Kuruk Web, que
+  // injeta a documentação do Kuruk e chama o provedor configurado no painel. O assistente de
   // suporte está SEMPRE disponível — não depende de ativação nem de créditos.
-  insertSetting.run('ia.ativo', '1', randomUUID(), 'Liga a KIVO IA. "1" = ligada (padrão); "0" = desligada.');
+  insertSetting.run('ia.ativo', '1', randomUUID(), 'Liga a KURUK IA. "1" = ligada (padrão); "0" = desligada.');
 
   // Rótulo do módulo de comandas: a loja que atende só no balcão vê "Balcão" (e outro
   // ícone) no lugar de "Mesas". O assistente grava conforme a resposta; aqui fica o padrão.
@@ -238,12 +238,12 @@ export function runSeeds(): void {
   );
 
   // Cor de destaque da empresa. Fica na tabela `settings` (e não no localStorage) para
-  // valer em qualquer aparelho que abra este Kivo pela rede local.
+  // valer em qualquer aparelho que abra este Kuruk pela rede local.
   insertSetting.run(
     'interface.cor_destaque',
     'orange',
     randomUUID(),
-    'Cor de destaque da empresa: blue, green, orange, pink, black ou custom. Vale em todos os aparelhos que abrem este Kivo.',
+    'Cor de destaque da empresa: blue, green, orange, pink, black ou custom. Vale em todos os aparelhos que abrem este Kuruk.',
   );
   insertSetting.run(
     'interface.cor_custom',
@@ -277,7 +277,7 @@ export function runSeeds(): void {
       ).run(
         'sync.intervalo_minutos',
         randomUUID(),
-        'Intervalo em minutos do ciclo automático de sincronização com a nuvem. "0" desliga (só sincroniza no clique manual). É o que mantém atual o acompanhamento pelo celular (Kivo Web).',
+        'Intervalo em minutos do ciclo automático de sincronização com a nuvem. "0" desliga (só sincroniza no clique manual). É o que mantém atual o acompanhamento pelo celular (Kuruk Web).',
       );
     }
     db.prepare(
@@ -289,12 +289,12 @@ export function runSeeds(): void {
     );
   }
 
-  // Pacote de ícones (tema visual) da empresa. Vazio = conjunto padrão do Kivo. Os arquivos
+  // Pacote de ícones (tema visual) da empresa. Vazio = conjunto padrão do Kuruk. Os arquivos
   // ficam em storage/peck-icon/<pacote>/; a resolução é por requisição em core/icons/service.ts.
   insertSetting.run(
     'interface.pacote_icones',
     '',
     randomUUID(),
-    'Pacote de ícones (tema visual) aplicado em todo o sistema. Vazio = conjunto padrão do Kivo. Os pacotes ficam em storage/peck-icon/<pacote>/.',
+    'Pacote de ícones (tema visual) aplicado em todo o sistema. Vazio = conjunto padrão do Kuruk. Os pacotes ficam em storage/peck-icon/<pacote>/.',
   );
 }

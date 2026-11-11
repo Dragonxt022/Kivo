@@ -39,9 +39,9 @@ export function parseEnv(content: string): Record<string, string> {
   return out;
 }
 
-/** Raiz de dados (pasta que contém `database/` e `storage/`), conforme `KIVO_DB_PATH`. */
+/** Raiz de dados (pasta que contém `database/` e `storage/`), conforme `KURUK_DB_PATH`. */
 function dataRoot(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.dirname(path.dirname(dbPath));
 }
 
@@ -49,7 +49,7 @@ let loaded = false;
 
 /**
  * Lê os `.env` candidatos uma única vez. Deve ser chamado no boot, ANTES dos módulos que
- * leem `process.env` no topo (ex.: `core/database/connection.ts` lê `KIVO_DB_PATH`).
+ * leem `process.env` no topo (ex.: `core/database/connection.ts` lê `KURUK_DB_PATH`).
  * Variáveis já presentes no ambiente são preservadas.
  */
 export function loadEnvFiles(): void {
@@ -71,5 +71,26 @@ export function loadEnvFiles(): void {
     for (const [key, value] of Object.entries(parsed)) {
       if (process.env[key] === undefined) process.env[key] = value;
     }
+  }
+
+  applyLegacyEnvAliases();
+}
+
+const LEGACY_ENV_PREFIX = 'KIVO_';
+const CURRENT_ENV_PREFIX = 'KURUK_';
+
+/**
+ * Compatibilidade de transição Kivo → Kuruk.
+ *
+ * Instalações e `.env` antigos ainda podem definir `KIVO_DB_PATH`, `KIVO_PORT`,
+ * `KIVO_SYNC_SERVER_URL` etc. Copiamos cada valor legado para o nome novo
+ * (`KURUK_*`) somente quando o nome novo não foi definido — o ambiente atual
+ * sempre tem precedência e as variáveis antigas podem ser removidas aos poucos.
+ */
+export function applyLegacyEnvAliases(): void {
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined || !key.startsWith(LEGACY_ENV_PREFIX)) continue;
+    const current = CURRENT_ENV_PREFIX + key.slice(LEGACY_ENV_PREFIX.length);
+    if (process.env[current] === undefined) process.env[current] = value;
   }
 }

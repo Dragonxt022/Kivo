@@ -5,13 +5,14 @@ import { getService, hasService } from '../services/registry';
 import { createLogger } from '../logger';
 import { flushTelemetry, getMachineInventory } from '../telemetry/service';
 import { machineId } from '../license/service';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 import { settingsRepository } from '../repositories/SettingsRepository';
 import { forcarAtualizacaoSilenciosa, getUpdateState } from '../updater';
 
 const log = createLogger('commands');
 
 /**
- * Executa, no desktop, os comandos que chegaram do Kivo Web.
+ * Executa, no desktop, os comandos que chegaram do Kuruk Web.
  *
  * Por que a intenção vem pela fila em vez de o celular escrever direto na nuvem: o pull do
  * sync insere linhas direto nas tabelas, sem passar pelos services de domínio. Um orçamento
@@ -263,7 +264,7 @@ const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {
     };
   },
   // "Forçar atualização": baixa a versão nova em silêncio e deixa o instalador rodar quando o
-  // Kivo for fechado (sem reiniciar no meio de uma venda). O download é longo, então confirma o
+  // Kuruk for fechado (sem reiniciar no meio de uma venda). O download é longo, então confirma o
   // comando na hora — mas com a verdade: "agendado", não "atualizado". O DESFECHO real (versão
   // baixada ou o erro) vai depois para a nuvem por `reportarDesfecho`, senão o painel ficava
   // mostrando sucesso para sempre enquanto a máquina seguia na versão antiga.
@@ -274,8 +275,8 @@ const HANDLERS: Record<string, (cmd: PendingCommand) => HandlerResult> = {
     }
     void forcarAtualizacaoSilenciosa().then(async (r) => {
       if (r.ok) {
-        log.info(`atualização ${r.versao ?? ''} baixada; será instalada ao fechar o Kivo.`);
-        await reportarDesfecho(cmd.id, { ok: true, result: { baixada: r.versao ?? null, agendado: false, instalacao: 'ao fechar o Kivo' } });
+        log.info(`atualização ${r.versao ?? ''} baixada; será instalada ao fechar o Kuruk.`);
+        await reportarDesfecho(cmd.id, { ok: true, result: { baixada: r.versao ?? null, agendado: false, instalacao: 'ao fechar o Kuruk' } });
       } else {
         log.error('atualização forçada falhou', { erro: r.error });
         await reportarDesfecho(cmd.id, { ok: false, result: { error: r.error } });
@@ -326,7 +327,7 @@ export async function reportarDesfecho(
 export function applyCommand(cmd: PendingCommand): HandlerResult {
   const handler = HANDLERS[cmd.kind];
   if (!handler) {
-    return { ok: false, error: `Esta versão do Kivo não conhece o comando "${cmd.kind}". Atualize o sistema.` };
+    return { ok: false, error: `Esta versão do Kuruk não conhece o comando "${cmd.kind}". Atualize o sistema.` };
   }
   try {
     return handler(cmd);
@@ -357,7 +358,7 @@ export async function drainCommands(): Promise<{ aplicados: number; erros: numbe
   try {
     const r = await fetch(`${base}/api/commands/pending`, {
       // A nuvem usa o machine id para entregar comandos com alvo (ex.: forçar atualização).
-      headers: { ...auth, 'X-Kivo-Machine-Id': machineId() },
+      headers: withLegacyBrandHeaders({ ...auth, 'X-Kuruk-Machine-Id': machineId() }),
       signal: AbortSignal.timeout(10000),
     });
     if (!r.ok) return null;

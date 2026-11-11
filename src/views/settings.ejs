@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Configurações</title>
+  <title>Kuruk — Configurações</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css?v=20261102-1" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -36,7 +36,7 @@
       <% } %>
       <button :class="{ active: tab === 'ia' }" @click="setTab('ia')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg>
-        KIVO IA
+        KURUK IA
       </button>
       <button :class="{ active: tab === 'sales' }" @click="setTab('sales')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -107,7 +107,7 @@
             </p>
           </div>
         </div>
-        <%# Empresa recusada pela nuvem: explica por que o sync/telemetria pararam. O Kivo
+        <%# Empresa recusada pela nuvem: explica por que o sync/telemetria pararam. O Kuruk
             continua operando até a validade local — ver core/license/service.ts. %>
         <div x-show="license.cloudIssue" x-cloak
              style="background:#fef3c7;color:#92400e;border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.9rem">
@@ -162,7 +162,7 @@
       <section class="panel">
         <h2>Logo da empresa</h2>
         <p class="hint mt-0">
-          Substitui a marca do Kivo no topo do sistema. PNG com fundo transparente fica melhor.
+          Substitui a marca do Kuruk no topo do sistema. PNG com fundo transparente fica melhor.
           Máximo 2MB.
         </p>
         <div class="logo-uploader">
@@ -391,13 +391,13 @@
     </div>
     <% } %>
 
-    <!-- ═══════ ABA: KIVO IA ═══════ -->
+    <!-- ═══════ ABA: KURUK IA ═══════ -->
     <div x-show="tab === 'ia'" x-cloak>
       <section class="panel">
-        <h2>KIVO IA</h2>
+        <h2>KURUK IA</h2>
         <p class="hint mt-0">
-          Assistente de suporte do Kivo, sempre disponível — não precisa ativar nem configurar nada
-          aqui. Provedores, instruções e limites são definidos pelo time do Kivo no painel.
+          Assistente de suporte do Kuruk, sempre disponível — não precisa ativar nem configurar nada
+          aqui. Provedores, instruções e limites são definidos pelo time do Kuruk no painel.
         </p>
         <div class="field">
           <label>Status</label>
@@ -459,7 +459,7 @@
         <p class="hint mt-0">
           Define como o módulo de comandas aparece no menu e na tela inicial. Uma loja que
           atende só no balcão usa "Balcão" (com outro ícone) no lugar de "Mesas". Vale para
-          todos os aparelhos que abrem este Kivo pela rede.
+          todos os aparelhos que abrem este Kuruk pela rede.
         </p>
         <div class="field">
           <label>Como chamar</label>
@@ -571,10 +571,10 @@
           </label>
         </div>
         <p class="hint" x-show="modoLeve" x-cloak>
-          A aceleração de vídeo só é desligada de fato no <strong>próximo início</strong> do Kivo.
+          A aceleração de vídeo só é desligada de fato no <strong>próximo início</strong> do Kuruk.
         </p>
         <p class="hint">
-          O Kivo liga isto sozinho na primeira execução quando detecta pouca memória, poucos núcleos
+          O Kuruk liga isto sozinho na primeira execução quando detecta pouca memória, poucos núcleos
           ou vídeo sem aceleração. Depois que você escolhe aqui, a detecção não mexe mais.
         </p>
         <p class="error" x-show="erro" x-cloak x-text="erro"></p>
@@ -615,7 +615,7 @@
         <h2>Entrada rápida pela rede local</h2>
         <p class="hint mt-0">
           Os balões de entrada sem senha foram feitos para o teclado deste computador. Ative
-          esta opção se quiser que eles também apareçam no celular/tablet que acessa este Kivo
+          esta opção se quiser que eles também apareçam no celular/tablet que acessa este Kuruk
           pela rede local.
         </p>
         <p class="hint" style="color:var(--warning-text)">
@@ -634,7 +634,7 @@
       <% } %>
 
       <%# Balança e impressora térmica: hardware do PDV, configuração POR MÁQUINA.
-          A ponte só existe no app desktop (window.kivo.hardware); no navegador a
+          A ponte só existe no app desktop (window.kuruk.hardware); no navegador a
           seção explica isso em vez de mostrar campos que não fariam nada. %>
       <section class="panel" x-data="perifericosPanel()" x-init="init()">
         <h2>Periféricos do PDV</h2>
@@ -643,7 +643,7 @@
           o PDV do balcão pode ter os equipamentos e o notebook do escritório não.
         </p>
         <p class="hint" x-show="!desktop" x-cloak>
-          Esta configuração só funciona no <strong>Kivo instalado</strong> (aplicativo desktop).
+          Esta configuração só funciona no <strong>Kuruk instalado</strong> (aplicativo desktop).
           No acesso pelo navegador ou pelo celular, continue usando a impressão normal e
           digite o peso manualmente.
         </p>
@@ -664,8 +664,8 @@
                 <div class="toolbar" x-show="balanca.enabled" x-cloak style="align-items:flex-end;flex-wrap:wrap">
                   <div class="field" style="margin:0">
                     <label>Porta serial</label>
-                    <input class="input input-narrow-lg" x-model="balanca.path" list="kivo-serial-ports" placeholder="COM3" />
-                    <datalist id="kivo-serial-ports">
+                    <input class="input input-narrow-lg" x-model="balanca.path" list="kuruk-serial-ports" placeholder="COM3" />
+                    <datalist id="kuruk-serial-ports">
                       <template x-for="p in ports" :key="p.path">
                         <option :value="p.path" x-text="p.label"></option>
                       </template>
@@ -746,16 +746,16 @@
       </section>
 
       <section class="panel" x-data="{
-        enabled: (function(){ try { return localStorage.getItem('kivo:recent-enabled') === '1'; } catch(e){ return false; } })(),
+        enabled: (function(){ try { return localStorage.getItem('kuruk:recent-enabled') === '1'; } catch(e){ return false; } })(),
         cleared: false,
         toggle() {
           this.enabled = !this.enabled;
-          try { localStorage.setItem('kivo:recent-enabled', this.enabled ? '1' : '0'); } catch(e) {}
+          try { localStorage.setItem('kuruk:recent-enabled', this.enabled ? '1' : '0'); } catch(e) {}
           // Some com o balão já visível na hora ao desligar (sem esperar recarregar).
           if (!this.enabled) { var fab = document.querySelector('.recent-fab'); if (fab) fab.remove(); }
         },
         clear() {
-          try { localStorage.removeItem('kivo:recent'); } catch(e) {}
+          try { localStorage.removeItem('kuruk:recent'); } catch(e) {}
           this.cleared = true; setTimeout(() => this.cleared = false, 2500);
         }
       }">
@@ -785,13 +785,13 @@
         setInterfaceMode(v) {
           if (v === this.interfaceMode) return;
           this.interfaceMode = v;
-          try { localStorage.setItem('kivo-interface', v); } catch (e) {}
+          try { localStorage.setItem('kuruk-interface', v); } catch (e) {}
           location.reload();
         },
         colorTheme: document.documentElement.getAttribute('data-color-theme') || 'orange',
-        customColor: (window.__kivoColor && window.__kivoColor.custom) || '#ff8000',
+        customColor: (window.__kurukColor && window.__kurukColor.custom) || '#ff8000',
         // A cor de destaque é configuração da EMPRESA (tabela `settings`): grava no servidor
-        // para valer em todos os aparelhos que abrem este Kivo — inclusive pelo celular na
+        // para valer em todos os aparelhos que abrem este Kuruk — inclusive pelo celular na
         // rede local. Antes ficava só no localStorage e o celular mostrava o laranja padrão.
         async persistColor(key, value) {
           try {
@@ -807,14 +807,14 @@
           s.removeProperty('--primary'); s.removeProperty('--icon-color');
           s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
           document.documentElement.setAttribute('data-color-theme', id);
-          if (window.__kivoColor) window.__kivoColor.theme = id;
+          if (window.__kurukColor) window.__kurukColor.theme = id;
           this.persistColor('interface.cor_destaque', id);
         },
         setCustomColor(hex) {
           this.customColor = hex; this.colorTheme = 'custom';
           document.documentElement.setAttribute('data-color-theme', 'custom');
-          window.__kivoApplyCustomColor(hex);
-          window.__kivoColor = { theme: 'custom', custom: hex };
+          window.__kurukApplyCustomColor(hex);
+          window.__kurukColor = { theme: 'custom', custom: hex };
           this.persistColor('interface.cor_custom', hex);
           this.persistColor('interface.cor_destaque', 'custom');
         },
@@ -839,7 +839,7 @@
         <div class="field">
           <label>Cor de destaque</label>
           <div class="color-swatch-row">
-            <template x-for="p in KIVO_COLOR_PRESETS" :key="p.id">
+            <template x-for="p in KURUK_COLOR_PRESETS" :key="p.id">
               <button type="button" class="color-swatch" :class="colorTheme === p.id ? 'selected' : ''" :style="{ background: p.hex }" @click="setColorTheme(p.id)" :title="p.id"></button>
             </template>
             <input type="color" class="color-swatch color-swatch-custom" :value="customColor" @input="setCustomColor($event.target.value)" title="Cor personalizada" />
@@ -892,7 +892,7 @@
                   <img :src="p.cover" :alt="'Capa do pacote ' + p.name" loading="lazy" @error="p.cover = null" />
                 </template>
                 <div class="icon-pack-cover-fallback" x-show="!p.cover">
-                  <span>Kivo</span>
+                  <span>Kuruk</span>
                 </div>
                 <span class="icon-pack-badge" x-show="p.id === packId" x-cloak>Ativado</span>
               </div>
@@ -918,7 +918,7 @@
       <section class="panel" x-data="themeStore()" x-init="load()">
         <h2>Loja de temas</h2>
         <p class="hint mt-0">
-          Temas prontos do Kivo Cloud. Os <strong>grátis</strong> você baixa e usa na hora; os
+          Temas prontos do Kuruk Cloud. Os <strong>grátis</strong> você baixa e usa na hora; os
           <strong>pagos</strong> ficam bloqueados até o suporte liberar para a sua empresa.
         </p>
         <p class="hint" x-show="!loading && !themes.length" x-cloak>
@@ -1044,7 +1044,7 @@
       <section class="panel">
         <h2>Acesso pela rede local (Wi-Fi/cabo)</h2>
         <p class="hint mt-0">
-          Permite abrir o Kivo no navegador de outro aparelho — celular do garçom pra
+          Permite abrir o Kuruk no navegador de outro aparelho — celular do garçom pra
           lançar pedidos nas comandas, tablet fixo na cozinha pro painel de produção —
           desde que esteja na mesma rede local (Wi-Fi ou cabo) desta máquina. Nenhum dado
           sai da rede local; não é acesso pela internet.
@@ -1060,9 +1060,9 @@
             Permitir acesso pela rede local
           </label>
           <p class="hint">
-            <strong>Ligado por padrão</strong> para o celular/tablet da loja já conseguir abrir o Kivo.
+            <strong>Ligado por padrão</strong> para o celular/tablet da loja já conseguir abrir o Kuruk.
             <strong>Não precisa salvar</strong> - a chave grava sozinha ao marcar e passa a valer na
-            hora, <strong>sem reiniciar o Kivo</strong>.
+            hora, <strong>sem reiniciar o Kuruk</strong>.
           </p>
           <p class="hint" x-show="redeSaved" x-cloak x-text="redeSaved"></p>
         </div>
@@ -1072,7 +1072,7 @@
             o servidor reabre) ou indica que o firewall recusou a porta. %>
         <div class="field" x-show="networkInfo.lanAtivo !== null && networkInfo.lanAtivo !== undefined" x-cloak>
           <template x-if="rede.acessoLocal && networkInfo.lanAtivo">
-            <p class="hint mt-0"><span class="badge ok">Ativo agora</span> Outros aparelhos da mesma rede já conseguem abrir o Kivo nos endereços abaixo.</p>
+            <p class="hint mt-0"><span class="badge ok">Ativo agora</span> Outros aparelhos da mesma rede já conseguem abrir o Kuruk nos endereços abaixo.</p>
           </template>
           <template x-if="rede.acessoLocal && !networkInfo.lanAtivo">
             <p class="hint mt-0"><span class="badge neutral">Ativando…</span> Aplicando o acesso pela rede. Se continuar assim, verifique o firewall do Windows.</p>
@@ -1081,7 +1081,7 @@
             <p class="hint mt-0"><span class="badge neutral">Desligando…</span> Fechando o acesso pela rede.</p>
           </template>
           <template x-if="!rede.acessoLocal && !networkInfo.lanAtivo">
-            <p class="hint mt-0"><span class="badge off">Desligado</span> Só este computador consegue abrir o Kivo.</p>
+            <p class="hint mt-0"><span class="badge off">Desligado</span> Só este computador consegue abrir o Kuruk.</p>
           </template>
         </div>
         <div x-show="networkInfo.urls && networkInfo.urls.length" style="margin-top:1.25rem">
@@ -1105,7 +1105,7 @@
             <div>
               <p class="hint mt-0">
                 <span class="badge ok">HTTPS ativo</span>
-                Abra este endereço no tablet para instalar o Kivo como aplicativo:
+                Abra este endereço no tablet para instalar o Kuruk como aplicativo:
               </p>
               <div class="flex-row" style="align-items:center;gap:.5rem;margin-bottom:.5rem">
                 <code x-text="networkInfo.https.url" style="font-size:1rem;padding:.3rem .6rem;background:var(--surface-hover);border-radius:6px"></code>
@@ -1121,7 +1121,7 @@
           <template x-if="networkInfo.https?.configurado && !networkInfo.https?.ativo">
             <p class="hint mt-0">
               <span class="badge off">HTTPS não subiu</span>
-              <span x-text="networkInfo.https.erro || 'Confira o certificado e reinicie o Kivo.'"></span>
+              <span x-text="networkInfo.https.erro || 'Confira o certificado e reinicie o Kuruk.'"></span>
             </p>
           </template>
           <template x-if="networkInfo.https && !networkInfo.https.configurado">
@@ -1137,7 +1137,7 @@
               </div>
               <p class="hint">
                 Use <strong>https.pfx</strong> (senha em <code>https.pfx.senha</code>) ou
-                <strong>https.crt</strong> + <strong>https.key</strong>. Depois reinicie o Kivo.
+                <strong>https.crt</strong> + <strong>https.key</strong>. Depois reinicie o Kuruk.
                 O certificado precisa ser de uma CA confiável e valer para o domínio que o tablet abre —
                 IP privado não recebe certificado público.
               </p>
@@ -1156,14 +1156,14 @@
         </p>
       </section>
 
-      <%# O ciclo automático é o que mantém o painel do Kivo Web atual — sem ele o celular
+      <%# O ciclo automático é o que mantém o painel do Kuruk Web atual — sem ele o celular
           mostra o que sobrou do último clique em "Sincronizar agora". %>
       <section class="panel">
         <h2>Sincronização automática com a nuvem</h2>
         <p class="hint mt-0">
-          De quanto em quanto tempo o Kivo envia o movimento desta máquina para a nuvem e busca o
+          De quanto em quanto tempo o Kuruk envia o movimento desta máquina para a nuvem e busca o
           que veio das outras. É isto que mantém atualizado o acompanhamento pelo celular
-          (<strong>Kivo Web</strong>) e o backup do dia. Fechar uma venda também dispara um envio
+          (<strong>Kuruk Web</strong>) e o backup do dia. Fechar uma venda também dispara um envio
           alguns segundos depois, sem esperar o ciclo. <strong>Já vem ligado a cada 3 minutos</strong>
           de fábrica.
         </p>
@@ -1193,7 +1193,7 @@
         <h2>Privacidade e diagnóstico</h2>
         <p class="hint mt-0">
           Envia <strong>erros anônimos</strong> e um <strong>inventário técnico da máquina</strong>
-          (sistema, CPU, memória, GPU, tela e versões) para o suporte do Kivo. Não enviamos nome,
+          (sistema, CPU, memória, GPU, tela e versões) para o suporte do Kuruk. Não enviamos nome,
           documento, usuário nem dados dos seus clientes — só dado técnico, para corrigir falhas e
           melhorar a compatibilidade com computadores diferentes.
         </p>
@@ -1224,7 +1224,7 @@
         <h2>Cardápio online</h2>
         <p class="hint mt-0">
           Página pública, sem login, com os produtos que você escolher — pra clientes verem o
-          cardápio pelo celular antes de vir na loja. Fica hospedada na nuvem do Kivo, separada
+          cardápio pelo celular antes de vir na loja. Fica hospedada na nuvem do Kuruk, separada
           do app (não depende do computador estar ligado).
         </p>
         <p class="hint">
@@ -1311,18 +1311,18 @@
     <!-- ═══════ ABA: AVANÇADO ═══════ -->
     <% if (user.permissions.has('settings.edit')) { %>
     <%# ═══════ ABA: ATUALIZAÇÃO ═══════
-        Atualização obrigatória: o Kivo verifica de hora em hora, baixa sozinho e mostra o
+        Atualização obrigatória: o Kuruk verifica de hora em hora, baixa sozinho e mostra o
         aviso no canto inferior direito ("Atualizar agora" / "Adiar 15 min"). Os controles
         abaixo continuam servindo para conferir o estado e forçar uma verificação manual.
         O estado real vem de /api/updates/status — ver core/updater. %>
     <div x-show="tab === 'atualizacao'" x-cloak>
       <section class="panel">
-        <h2>Atualização do Kivo</h2>
+        <h2>Atualização do Kuruk</h2>
         <p class="hint mt-0">
           Versão instalada nesta máquina: <strong x-text="atualizacao.versaoAtual"></strong>
         </p>
         <p class="hint">
-          As atualizações são obrigatórias: o Kivo verifica a cada hora, baixa em segundo
+          As atualizações são obrigatórias: o Kuruk verifica a cada hora, baixa em segundo
           plano e pede para instalar no canto da tela. Elas incluem correções e melhorias
           de segurança.
         </p>
@@ -1371,7 +1371,7 @@
                 </p>
                 <p class="hint" x-show="atualizacao.notas" x-cloak x-text="atualizacao.notas" style="white-space:pre-wrap"></p>
                 <p class="hint">
-                  Baixar não interrompe nada: o Kivo continua funcionando normalmente enquanto
+                  Baixar não interrompe nada: o Kuruk continua funcionando normalmente enquanto
                   o download acontece. O reinício só ocorre quando você mandar.
                 </p>
                 <div class="toolbar">
@@ -1387,7 +1387,7 @@
               <div>
                 <p class="hint">
                   <span class="badge neutral">Baixando</span>
-                  Versão <strong x-text="atualizacao.versaoDisponivel"></strong> — pode continuar usando o Kivo.
+                  Versão <strong x-text="atualizacao.versaoDisponivel"></strong> — pode continuar usando o Kuruk.
                 </p>
                 <div class="update-bar" role="progressbar" :aria-valuenow="Math.round(pct)" aria-valuemin="0" aria-valuemax="100">
                   <div class="update-bar-fill" :style="'width:' + pct + '%'"></div>
@@ -1403,7 +1403,7 @@
                   A versão <strong x-text="atualizacao.versaoDisponivel"></strong> já está baixada nesta máquina.
                 </p>
                 <p class="hint">
-                  Ao clicar em Atualizar, o Kivo fecha, instala sozinho (sem nenhuma tela de
+                  Ao clicar em Atualizar, o Kuruk fecha, instala sozinho (sem nenhuma tela de
                   instalação) e volta a abrir. Leva menos de um minuto —
                   <strong>feche a venda em aberto antes</strong>.
                 </p>
@@ -1417,7 +1417,7 @@
                 </template>
                 <template x-if="atualizacao.confirmando">
                   <div class="toolbar">
-                    <span class="muted">Fechar o Kivo agora e instalar?</span>
+                    <span class="muted">Fechar o Kuruk agora e instalar?</span>
                     <button class="btn" @click="instalarAtualizacao()" :disabled="atualizacao.ocupado">
                       <span x-text="atualizacao.ocupado ? 'Reiniciando…' : 'Sim, atualizar agora'"></span>
                     </button>
@@ -1433,7 +1433,7 @@
                   <span class="badge off">Falhou</span>
                   <span x-text="atualizacao.erro || 'Não foi possível concluir.'"></span>
                 </p>
-                <p class="hint">Costuma ser internet instável. Nada foi alterado no Kivo instalado.</p>
+                <p class="hint">Costuma ser internet instável. Nada foi alterado no Kuruk instalado.</p>
                 <div class="toolbar">
                   <button class="btn secondary" @click="procurarAtualizacao()" :disabled="atualizacao.ocupado">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
@@ -1452,7 +1452,7 @@
         <h2>Servidor de sincronização (cloud)</h2>
         <div class="field">
           <label>URL do servidor</label>
-          <input class="input" type="text" x-model="cloudUrlForm.value" placeholder="https://kivo.buscamais.org (padrão do instalador)">
+          <input class="input" type="text" x-model="cloudUrlForm.value" placeholder="https://kuruk.com.br (padrão do instalador)">
           <p class="hint">Deixe em branco para usar o padrão do instalador. Muda na hora — não precisa gerar novo instalador.</p>
         </div>
         <div class="toolbar">
@@ -1464,12 +1464,12 @@
       </section>
 
       <%# Sugestão de imagens no cadastro: busca externa (Brave Search) com fallback para o
-          banco de imagens do Kivo. A chave nunca aparece de volta na tela. %>
+          banco de imagens do Kuruk. A chave nunca aparece de volta na tela. %>
       <section class="panel">
         <h2>Imagens de produtos (Brave Search)</h2>
         <p class="hint mt-0">
-          Ao cadastrar um produto o Kivo sugere até 6 fotos. Com a API Key abaixo ele busca
-          na web (Brave); sem ela — ou se a busca falhar — usa só o banco de imagens do Kivo.
+          Ao cadastrar um produto o Kuruk sugere até 6 fotos. Com a API Key abaixo ele busca
+          na web (Brave); sem ela — ou se a busca falhar — usa só o banco de imagens do Kuruk.
         </p>
         <div class="field">
           <label>API Key da Brave Search</label>
@@ -1494,7 +1494,7 @@
           Chave configurada. O campo em branco mantém a chave atual.
         </p>
         <p class="muted text-xs" x-show="imgCfg.source === 'env'" x-cloak>
-          Chave definida por variável de ambiente (<code>KIVO_BRAVE_SEARCH_API_KEY</code>).
+          Chave definida por variável de ambiente (<code>KURUK_BRAVE_SEARCH_API_KEY</code>).
           Colar uma chave aqui tem prioridade sobre ela; “Remover chave” volta para a do ambiente.
         </p>
       </section>
@@ -1544,7 +1544,7 @@
               computador.
             </p>
             <p class="hint">
-              Antes de apagar, o Kivo tira um <strong>backup automático</strong> — se você se
+              Antes de apagar, o Kuruk tira um <strong>backup automático</strong> — se você se
               arrepender, dá para voltar por <a href="/admin/backup">Backup</a>.
               Os dados também são apagados da nuvem, senão a sincronização traria tudo de
               volta em poucos minutos.
@@ -1792,12 +1792,12 @@
      * Balança + impressora térmica (Configurações › Interface).
      *
      * Lê e grava `machine-prefs.json` pelo mesmo endpoint do modo leve. A leitura de
-     * teste e a impressão de teste chamam a ponte do Electron (`window.kivo.hardware`);
+     * teste e a impressão de teste chamam a ponte do Electron (`window.kuruk.hardware`);
      * sem ela (navegador), a seção mostra o aviso e não renderiza os campos.
      */
     function perifericosPanel() {
       return {
-        desktop: !!(window.kivo && window.kivo.hardware && window.kivo.hardware.listPorts),
+        desktop: !!(window.kuruk && window.kuruk.hardware && window.kuruk.hardware.listPorts),
         loading: true,
         saving: false,
         erro: '',
@@ -1813,7 +1813,7 @@
           if (!this.desktop) { this.loading = false; return; }
           await this.load();
           try {
-            const r = await window.kivo.hardware.listPorts();
+            const r = await window.kuruk.hardware.listPorts();
             if (r && r.ok) this.ports = r.ports || [];
           } catch (e) { /* sem permissão/porta: o campo continua digitável */ }
         },
@@ -1854,7 +1854,7 @@
           this.scaleMsg = '';
           try {
             // Testa os valores do formulário, mesmo antes de salvar.
-            const r = await window.kivo.hardware.readScale({
+            const r = await window.kuruk.hardware.readScale({
               path: this.balanca.path,
               baudRate: this.balanca.baudRate,
               protocol: this.balanca.protocol,
@@ -1872,8 +1872,8 @@
           this.testPrinting = true;
           this.printerMsg = '';
           try {
-            const r = await window.kivo.hardware.print({
-              text: 'KIVO\nTeste de impressao\n' + new Date().toLocaleString('pt-BR') + '\n\n',
+            const r = await window.kuruk.hardware.print({
+              text: 'KURUK\nTeste de impressao\n' + new Date().toLocaleString('pt-BR') + '\n\n',
               config: {
                 type: this.impressora.type,
                 interface: this.impressora.interface,
@@ -1998,7 +1998,7 @@
           if (v === 'atualizacao') this.lerAtualizacao();
           if (v === 'ia') { this.loadIaStatus(); this.loadIaTools(); }
           // Preserva history.state: o botão Voltar do cabeçalho guarda a profundidade da
-          // navegação ali (kivoDepth, ver partials/nav.ejs), e passar `null` a apagaria —
+          // navegação ali (kurukDepth, ver partials/nav.ejs), e passar `null` a apagaria —
           // fazendo a seta achar que esta é a primeira tela da aba.
           try { history.replaceState(history.state, '', location.pathname + location.search + '#' + v); }
           catch (e) { location.hash = v; }
@@ -2153,7 +2153,7 @@
           }
         },
         async removerLogo() {
-          if (!await window.confirmDlg('Remover a logo e voltar a exibir a marca do Kivo?')) return;
+          if (!await window.confirmDlg('Remover a logo e voltar a exibir a marca do Kuruk?')) return;
           this.logo.enviando = true;
           this.logo.erro = '';
           try {
@@ -2298,7 +2298,7 @@
           this.stockSaved = results.every((r) => r.ok) ? 'Salvo.' : 'Falha ao salvar.';
           // As outras telas leem a flag no carregamento; aqui ela já reflete o novo
           // estado sem precisar recarregar Configurações.
-          window.KIVO_ESTOQUE_ATIVO = this.stock.controlarQuantidade;
+          window.KURUK_ESTOQUE_ATIVO = this.stock.controlarQuantidade;
           const r = await fetch('/api/settings');
           if (r.ok) { this.settings = await r.json(); this.syncSettings(); }
         },
@@ -2310,7 +2310,7 @@
             const d = await r.json();
             this.iaCredits = d.credits || null;
             if (d.localError) this.iaStatusText = d.localError;
-            else if (d.enabled === false) this.iaStatusText = 'A KIVO IA está desativada no servidor.';
+            else if (d.enabled === false) this.iaStatusText = 'A KURUK IA está desativada no servidor.';
             else if (d.online) this.iaStatusText = `IA no ar (${d.model || 'modelo padrão'}).`;
             else this.iaStatusText = `IA indisponível${d.error ? ': ' + d.error : ''}.`;
           } catch { this.iaStatusText = 'Não foi possível verificar o status.'; }
@@ -2430,7 +2430,7 @@
             });
             if (!r.ok) throw new Error('falhou');
             this.redeSaved = alvo
-              ? 'Ligado. Já está valendo — outros aparelhos da mesma rede podem abrir o Kivo.'
+              ? 'Ligado. Já está valendo — outros aparelhos da mesma rede podem abrir o Kuruk.'
               : 'Desligado. O acesso pela rede já foi encerrado.';
             showToast(this.redeSaved, 'success');
             // A troca do host roda no servidor logo depois desta resposta; relê o estado
@@ -2538,7 +2538,7 @@
             }
             // Não zera `ocupado`: o app fecha em seguida, e reabilitar o botão só daria
             // margem a um segundo clique enquanto a janela ainda está na tela.
-            showToast('Atualizando… o Kivo vai fechar e abrir sozinho.', 'success');
+            showToast('Atualizando… o Kuruk vai fechar e abrir sozinho.', 'success');
           } catch (e) {
             this.atualizacao.ocupado = false;
             showToast('Não foi possível instalar agora.', 'error');

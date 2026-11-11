@@ -16,7 +16,7 @@ import { getSqlite, closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3864);
+const PORT = Number(process.env.KURUK_PORT ?? 3864);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 function check(label: string, ok: boolean, extra = '') {
@@ -33,10 +33,10 @@ async function api(p: string, opts: RequestInit = {}): Promise<Response> {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
-  if (!alvo) throw new Error('KIVO_DB_PATH não definida — rode via scripts/test-isolated.js.');
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  const alvo = process.env.KURUK_DB_PATH;
+  if (!alvo) throw new Error('KURUK_DB_PATH não definida — rode via scripts/test-isolated.js.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }
@@ -54,8 +54,8 @@ async function main(): Promise<void> {
 
   try {
     const login = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin' }) });
-    const m = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = m ? `kivo_session=${m[1]}` : '';
+    const m = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = m ? `kuruk_session=${m[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 
@@ -93,13 +93,13 @@ async function main(): Promise<void> {
     const html = await cfg.text();
     check('Configurações renderiza a aba Tipos de produto',
       cfg.status === 200 && html.includes('tipos-produto') && html.includes('Tipos de produto'), `status=${cfg.status}`);
-    check('Configurações renderiza a aba KIVO IA',
-      html.includes("tab === 'ia'") && html.includes('KIVO IA'));
+    check('Configurações renderiza a aba KURUK IA',
+      html.includes("tab === 'ia'") && html.includes('KURUK IA'));
 
-    // KIVO IA desligada por padrão: a rota recusa com mensagem clara (não tenta falar com a nuvem).
+    // KURUK IA desligada por padrão: a rota recusa com mensagem clara (não tenta falar com a nuvem).
     const ia = await api('/api/ai/chat', { method: 'POST', body: JSON.stringify({ prompt: 'oi' }) });
     const iaBody = await ia.json().catch(() => ({})) as { error?: string };
-    check('KIVO IA desligada recusa o chat', ia.status === 400 && !!iaBody.error, `${ia.status} ${iaBody.error ?? ''}`);
+    check('KURUK IA desligada recusa o chat', ia.status === 400 && !!iaBody.error, `${ia.status} ${iaBody.error ?? ''}`);
 
     // Os UUIDs semeados são fixos (o sync casa a mesma linha entre máquinas).
     const uuids = db.prepare('SELECT uuid FROM product_type_config ORDER BY sort_order').all() as { uuid: string }[];

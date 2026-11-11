@@ -6,7 +6,7 @@ import { sha256, validateCatalogImage, type ImageFormat } from './catalogValidat
 /**
  * Busca de imagens externa CENTRALIZADA (provedor: Pexels).
  *
- * A chave fica no Kivo Cloud (Configurações) — o cliente não configura nada. O endpoint
+ * A chave fica no Kuruk Cloud (Configurações) — o cliente não configura nada. O endpoint
  * público /api/catalog/external-search usa este módulo.
  *
  * Cuidados com a API gratuita (200 req/h, 20.000/mês):
@@ -32,9 +32,9 @@ const REQUEST_TIMEOUT_MS = 8000;
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
 
-/** Base do provedor. Trocável em teste (`KIVO_IMAGE_API_BASE`). */
+/** Base do provedor. Trocável em teste (`KURUK_IMAGE_API_BASE`). */
 function apiBase(): string {
-  return (process.env.KIVO_IMAGE_API_BASE || 'https://api.pexels.com').replace(/\/$/, '');
+  return (process.env.KURUK_IMAGE_API_BASE || 'https://api.pexels.com').replace(/\/$/, '');
 }
 
 export interface ExternalImage {

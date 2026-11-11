@@ -20,10 +20,10 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3601);
+const PORT = Number(process.env.KURUK_PORT ?? 3601);
 const SHOTS = snapDir('e2e-login');
 
-const NOVA_SENHA = 'Kivo@2026';
+const NOVA_SENHA = 'Kuruk@2026';
 
 async function wait(page: Page, ms = 400): Promise<void> {
   await page.waitForTimeout(ms);

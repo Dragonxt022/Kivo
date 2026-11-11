@@ -30,7 +30,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3620);
+const PORT = Number(process.env.KURUK_PORT ?? 3620);
 const SHOTS = snapDir('responsivo-3-telas');
 const TOUCH_ARGS = [
   '--blink-settings=primaryHoverType=1,availableHoverTypes=1,primaryPointerType=2,availablePointerTypes=2',
@@ -67,7 +67,7 @@ async function abrirPagina(browser: Browser, caso: Caso, base: string, cookie: s
   });
   const value = cookie.split(';')[0].split('=').slice(1).join('=');
   await page.context().addCookies([{
-    name: 'kivo_session',
+    name: 'kuruk_session',
     value,
     domain: new URL(base).hostname,
     path: '/',

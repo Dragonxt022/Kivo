@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Importar NF-e</title>
+  <title>Kuruk — Importar NF-e</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -90,7 +90,7 @@
           <div class="nfe-head-sub">
             <span class="muted text-xs" x-text="preview ? ('CNPJ ' + preview.supplier.cnpj) : ''"></span>
             <span class="badge neutral nfe-badge-info" x-show="preview && !preview.supplier.exists"
-                  title="O fornecedor ainda não existe no Kivo. Ele será cadastrado automaticamente com os dados da nota (razão social, CNPJ, IE e endereço).">
+                  title="O fornecedor ainda não existe no Kuruk. Ele será cadastrado automaticamente com os dados da nota (razão social, CNPJ, IE e endereço).">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
               Fornecedor novo — será cadastrado
             </span>
@@ -159,7 +159,7 @@
           <tr>
             <th>#</th>
             <th>Item da nota</th>
-            <th>Produto no Kivo / ação</th>
+            <th>Produto no Kuruk / ação</th>
             <th>Qtd. e conversão</th>
             <th>Custo</th>
             <th>Preço de venda</th>

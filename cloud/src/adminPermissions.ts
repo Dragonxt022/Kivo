@@ -52,7 +52,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   {
     key: 'usage',
     label: 'Uso das empresas',
-    description: 'Quanto cada empresa sincroniza e usa o Kivo.',
+    description: 'Quanto cada empresa sincroniza e usa o Kuruk.',
     href: '/admin/usage',
     category: 'Visão geral',
     icon: 'usage',
@@ -79,7 +79,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   {
     key: 'versions',
     label: 'Versões',
-    description: 'Distribuição das versões do Kivo instaladas.',
+    description: 'Distribuição das versões do Kuruk instaladas.',
     href: '/admin/versions',
     category: 'Visão geral',
     icon: 'versions',
@@ -88,7 +88,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   {
     key: 'leads',
     label: 'Leads',
-    description: 'Contatos interessados no Kivo e acompanhamento comercial.',
+    description: 'Contatos interessados no Kuruk e acompanhamento comercial.',
     href: '/admin/leads',
     category: 'Comercial',
     icon: 'leads',
@@ -196,7 +196,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   {
     key: 'themes',
     label: 'Temas',
-    description: 'Temas visuais disponíveis para personalizar o Kivo.',
+    description: 'Temas visuais disponíveis para personalizar o Kuruk.',
     href: '/admin/themes',
     category: 'Conteúdo',
     icon: 'themes',
@@ -204,7 +204,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   },
   {
     key: 'ai',
-    label: 'KIVO IA',
+    label: 'KURUK IA',
     description: 'Provedores, limites e uso da inteligência artificial.',
     href: '/admin/ai',
     category: 'Sistema',
@@ -214,7 +214,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   {
     key: 'documentacao',
     label: 'Documentação',
-    description: 'Documentação técnica e regras de negócio do Kivo.',
+    description: 'Documentação técnica e regras de negócio do Kuruk.',
     href: '/admin/documentacao',
     category: 'Sistema',
     icon: 'docs',
@@ -241,7 +241,7 @@ export const ADMIN_BLOCKS: AdminBlock[] = [
   {
     key: 'hardware',
     label: 'Inventário',
-    description: 'Hardware das máquinas que usam o Kivo.',
+    description: 'Hardware das máquinas que usam o Kuruk.',
     href: '/admin/hardware',
     category: 'Sistema',
     icon: 'hardware',

@@ -5,6 +5,7 @@ import {
 } from './settings';
 import { getCloudServerUrl } from '../../core/config/cloud';
 import { getLicenseCredentials } from '../../core/license/service';
+import { withLegacyBrandHeaders } from '../../core/http/brandHeaders';
 
 /**
  * Cliente da API pública do Mais Delivery.
@@ -648,10 +649,10 @@ async function fetchCloudMdCredentials(): Promise<CloudMdCredentials | null> {
   if (!companyUuid || !licenseKey || !cloudUrl) return null;
   try {
     const res = await fetch(`${cloudUrl.replace(/\/$/, '')}/api/maisdelivery/credentials`, {
-      headers: {
-        'X-Kivo-Company': companyUuid,
-        'X-Kivo-License-Key': licenseKey,
-      },
+      headers: withLegacyBrandHeaders({
+        'X-Kuruk-Company': companyUuid,
+        'X-Kuruk-License-Key': licenseKey,
+      }),
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;

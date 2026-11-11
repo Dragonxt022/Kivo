@@ -533,7 +533,7 @@ export function createSale(
     } catch (e) { log.error('falha ao notificar', e); }
   }
   // Empurra a venda para a nuvem em segundos, não no próximo ciclo: é o que faz o painel do
-  // Kivo Web mostrar o movimento de hoje. Agrupado e sem `await` — o caixa não espera a rede.
+  // Kuruk Web mostrar o movimento de hoje. Agrupado e sem `await` — o caixa não espera a rede.
   scheduleSyncSoon();
   return { ok: true, id: saleId, totalCents: total, changeCents: totalChange, feeCents: totalFee, receivableId };
 }

@@ -20,7 +20,7 @@
     { id: 'fiscal', label: 'Fiscal (notas fiscais)' },
     { id: 'nfe', label: 'Importação de NF-e (XML)' },
     { id: 'labels', label: 'Gerador de Etiquetas (produto em folha A4)' },
-    { id: 'odonto', label: 'Kivo Odonto (consultórios e clínicas odontológicas)' },
+    { id: 'odonto', label: 'Kuruk Odonto (consultórios e clínicas odontológicas)' },
     { id: 'maisdelivery', label: 'Mais Delivery (pedidos do marketplace)' },
   ];
 
@@ -52,7 +52,7 @@
   var ramo = typeof businessType !== 'undefined' && businessType ? String(businessType) : '';
 %>
 <label>Perfil do segmento</label>
-<select id="segment-profile" onchange="kivoApplySegmentProfile(this.value)">
+<select id="segment-profile" onchange="kurukApplySegmentProfile(this.value)">
   <% SEGMENT_PROFILES.forEach(function(p) { %>
   <option value="<%= p.id %>"><%= p.label %></option>
   <% }) %>
@@ -82,7 +82,7 @@
     // Pré-marca os módulos do perfil escolhido. Só o painel decide módulos: os recursos
     // finos (capabilities) são ligados dentro do app, em Configurações › Recursos, ou
     // pelo assistente de boas-vindas na primeira execução.
-    window.kivoApplySegmentProfile = function (id) {
+    window.kurukApplySegmentProfile = function (id) {
       var perfil = null;
       for (var i = 0; i < PERFIS.length; i++) if (PERFIS[i].id === id) perfil = PERFIS[i];
       if (!perfil) return;

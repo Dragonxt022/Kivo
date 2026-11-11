@@ -25,8 +25,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo',
-  CLOUD_DB_NAME: 'kivo_cloud',
+  CLOUD_DB_PASSWORD: 'kuruk',
+  CLOUD_DB_NAME: 'kuruk_cloud',
 };
 const CLOUD_PORT = 4660;
 const STUB_PORT = 4661;
@@ -275,16 +275,16 @@ async function main(): Promise<void> {
     await waitForHealth(`${CLOUD_URL}/api/health`);
 
     const login = await form('/admin/login', { username: ADMIN_USER, password: ADMIN_PASS });
-    const cookie = (login.headers.get('set-cookie') ?? '').match(/kivo_admin_session=([^;]+)/)?.[1];
+    const cookie = (login.headers.get('set-cookie') ?? '').match(/kuruk_admin_session=([^;]+)/)?.[1];
     check('login no painel', login.status === 302 && !!cookie, String(login.status));
-    const admin = `kivo_admin_session=${cookie}`;
+    const admin = `kuruk_admin_session=${cookie}`;
 
     // ── Credenciais ────────────────────────────────────────────────────────
     const salvar = await form('/admin/payments', {
       enabled: '1',
       accessToken: 'TEST-00000000-0000-0000-0000-000000000000',
       webhookSecret: SEGREDO_WEBHOOK,
-      payerEmail: 'financeiro@kivo.test',
+      payerEmail: 'financeiro@kuruk.test',
     }, admin);
     check('salvar credenciais do gateway', salvar.status === 302, String(salvar.status));
 
@@ -305,17 +305,17 @@ async function main(): Promise<void> {
     companyUuid = uuid!;
 
     await form(`/admin/companies/${companyUuid}/charges`, {
-      description: 'Mensalidade Kivo — teste de pagamento',
+      description: 'Mensalidade Kuruk — teste de pagamento',
       amount: '129,90',
       dueDate: '2026-12-10',
       instructions: 'Pagamento pelo link',
-      payerEmail: 'cliente@kivo.test',
+      payerEmail: 'cliente@kuruk.test',
       extendsDays: '30',
     }, admin);
 
     let detalhe = await (await api(`/admin/companies/${companyUuid}`, {}, admin)).text();
     const cobrancas = chargesFromDetail(detalhe);
-    const cobranca = cobrancas.find((c) => c.description.includes('Mensalidade Kivo'));
+    const cobranca = cobrancas.find((c) => c.description.includes('Mensalidade Kuruk'));
     check('cobrança criada e listada no painel', !!cobranca, JSON.stringify(cobrancas.map((c) => c.description)));
     check('validade inicial gravada', validadeFromDetail(detalhe) === VALIDADE_INICIAL, String(validadeFromDetail(detalhe)));
 
@@ -324,7 +324,7 @@ async function main(): Promise<void> {
     const publica = await fetch(`${CLOUD_URL}/pagar/${token}`);
     const htmlPublico = await publica.text();
     check('página pública responde 200', publica.status === 200, String(publica.status));
-    check('página pública mostra descrição e valor', htmlPublico.includes('Mensalidade Kivo') && htmlPublico.includes('129,90'));
+    check('página pública mostra descrição e valor', htmlPublico.includes('Mensalidade Kuruk') && htmlPublico.includes('129,90'));
     check('página pública oferece Pix, boleto e cartão',
       htmlPublico.includes('value="pix"') && htmlPublico.includes('value="boleto"') && htmlPublico.includes('value="card"'));
 
@@ -416,7 +416,7 @@ async function main(): Promise<void> {
 
     // A empresa também vê tudo pelo app (rota autenticada pela licença).
     const validacao = await fetch(`${CLOUD_URL}/api/license/validate`, {
-      headers: { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': chave!, 'X-Kivo-Machine-Id': 'teste-pagamento' },
+      headers: { 'X-Kuruk-Company': companyUuid, 'X-Kuruk-License-Key': chave!, 'X-Kuruk-Machine-Id': 'teste-pagamento' },
     });
     const corpoValidacao = (await validacao.json()) as { validUntil?: string };
     check('o app enxerga a licença pela mesma empresa do pagamento',

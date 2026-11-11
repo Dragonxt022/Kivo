@@ -4,7 +4,7 @@
  * O `cloud/` é um deployable separado e enxuto (Express + MySQL), sem `express-rate-limit`.
  * Para frear endpoints públicos — tentativa de acesso pelo link do celular, formulário de
  * contato — um contador por IP na memória do processo basta. O mesmo padrão já existe em
- * `routes/landing.ts`; extraído aqui para o Kivo Web usar sem duplicar a lógica.
+ * `routes/landing.ts`; extraído aqui para o Kuruk Web usar sem duplicar a lógica.
  *
  * Limitação assumida: com mais de um processo atrás do balanceador, cada um tem seu próprio
  * contador. Para um VPS único (o cenário atual) o efeito é o esperado.

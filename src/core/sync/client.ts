@@ -1,5 +1,6 @@
 import { getLicenseCredentials } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 import type { OutgoingRecord, IncomingRecord } from './types';
 
 export interface PullPage {
@@ -12,7 +13,7 @@ export interface PullPage {
  *  - `company_not_found`: a empresa foi excluída/desativada no painel cloud (404).
  *  - `invalid_credentials`: a chave de licença mudou/rotacionou (401).
  *
- * Quem captura isto deve tratar como aviso ao lojista — o Kivo segue operando até a
+ * Quem captura isto deve tratar como aviso ao lojista — o Kuruk segue operando até a
  * validade local vencer — e não como falha genérica de sincronização.
  */
 export class CloudAuthError extends Error {
@@ -36,13 +37,13 @@ async function throwFromResponse(prefix: string, res: Response): Promise<never> 
   if (res.status === 404 || body.code === 'company_not_found') {
     throw new CloudAuthError(
       'company_not_found',
-      'A empresa desta licença não existe mais no servidor (foi excluída ou desativada). O Kivo continua funcionando até a licença vencer. Contate o suporte para reativar.',
+      'A empresa desta licença não existe mais no servidor (foi excluída ou desativada). O Kuruk continua funcionando até a licença vencer. Contate o suporte para reativar.',
     );
   }
   if (res.status === 401 || body.code === 'invalid_credentials') {
     throw new CloudAuthError(
       'invalid_credentials',
-      'A chave de licença não é mais aceita pelo servidor (pode ter sido alterada). O Kivo continua funcionando até a licença vencer. Contate o suporte.',
+      'A chave de licença não é mais aceita pelo servidor (pode ter sido alterada). O Kuruk continua funcionando até a licença vencer. Contate o suporte.',
     );
   }
   throw new Error(`${prefix}: ${res.status}${body.error ? ` ${body.error}` : ''}`);
@@ -59,11 +60,11 @@ function authHeaders(): Record<string, string> {
   if (!companyUuid || !licenseKey) {
     throw new Error('Licença não configurada (company_uuid/license_key ausentes) — configure em /api/license.');
   }
-  return {
+  return withLegacyBrandHeaders({
     'Content-Type': 'application/json',
-    'X-Kivo-Company': companyUuid,
-    'X-Kivo-License-Key': licenseKey,
-  };
+    'X-Kuruk-Company': companyUuid,
+    'X-Kuruk-License-Key': licenseKey,
+  });
 }
 
 /** Envia um lote de registros alterados localmente para o cloud/ (idempotente). */

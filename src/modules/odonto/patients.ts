@@ -166,7 +166,7 @@ export function createPatient(req: Request, input: PatientInput): Result<{ id: n
   });
 
   // A auditoria registra QUEM criou e o que mudou, sem copiar o conteúdo clínico para o log
-  // (minimização de dado sensível — ver doc/KIVO_ODONTO_ARCHITECTURE_AUDIT.md §6 e §19).
+  // (minimização de dado sensível — ver doc/KURUK_ODONTO_ARCHITECTURE_AUDIT.md §6 e §19).
   audit(req, 'criar', 'odonto_patient', id, null, {
     name,
     document: input.document ?? null,

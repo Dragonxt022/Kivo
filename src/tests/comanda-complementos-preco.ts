@@ -6,7 +6,7 @@
  * valor diferente do override), a linha entrava zerada/errada e o total do PDV e do
  * cupom não batia com o que o garçom viu na tela.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
+ * KURUK_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
  *   node scripts/test-isolated.js src/tests/comanda-complementos-preco.ts
  */
 import fs from 'node:fs';
@@ -20,7 +20,7 @@ import { getSqlite, closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3827);
+const PORT = Number(process.env.KURUK_PORT ?? 3827);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -39,12 +39,12 @@ async function api(p: string, opts: RequestInit = {}): Promise<Response> {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
-    throw new Error('KIVO_DB_PATH não definida. Rode via `node scripts/test-isolated.js src/tests/comanda-complementos-preco.ts`.');
+    throw new Error('KURUK_DB_PATH não definida. Rode via `node scripts/test-isolated.js src/tests/comanda-complementos-preco.ts`.');
   }
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }
@@ -81,8 +81,8 @@ async function main(): Promise<void> {
 
   try {
     const login = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin' }) });
-    const m = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = m ? `kivo_session=${m[1]}` : '';
+    const m = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = m ? `kuruk_session=${m[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 

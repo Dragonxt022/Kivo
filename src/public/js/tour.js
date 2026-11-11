@@ -1,5 +1,5 @@
 /**
- * Tour guiado do Kivo — spotlight com balões, sem dependência externa.
+ * Tour guiado do Kuruk — spotlight com balões, sem dependência externa.
  *
  * Como funciona o "holofote": um retângulo posicionado exatamente sobre o elemento-alvo
  * recebe `box-shadow: 0 0 0 9999px <escuro>`, o que escurece tudo ao redor sem precisar
@@ -7,8 +7,8 @@
  * balão; o balão e seus botões ficam acima dela.
  *
  * Uso:
- *   KivoTour.start([{ el: '#botao', title: '...', body: '...' }], { onDone });
- *   KivoTour.autoStart('chave-localStorage', steps);
+ *   KurukTour.start([{ el: '#botao', title: '...', body: '...' }], { onDone });
+ *   KurukTour.autoStart('chave-localStorage', steps);
  *
  * `el` aceita seletor CSS ou o próprio elemento. Passos cujo alvo não existe na hora são
  * pulados — assim o mesmo tour serve para quem tem ou não permissão, e para lista vazia.
@@ -45,19 +45,19 @@
 
   function build() {
     root = document.createElement('div');
-    root.className = 'kivo-tour';
+    root.className = 'kuruk-tour';
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
     root.setAttribute('aria-label', 'Tour guiado');
 
     var capture = document.createElement('div');
-    capture.className = 'kivo-tour-capture';
+    capture.className = 'kuruk-tour-capture';
 
     mask = document.createElement('div');
-    mask.className = 'kivo-tour-mask';
+    mask.className = 'kuruk-tour-mask';
 
     pop = document.createElement('div');
-    pop.className = 'kivo-tour-pop';
+    pop.className = 'kuruk-tour-pop';
 
     pop.addEventListener('click', function (e) {
       var b = e.target.closest('[data-tour]');
@@ -79,28 +79,28 @@
     var ultimo = index === total - 1;
     var primeiro = index === 0;
     pop.innerHTML =
-      '<div class="kivo-tour-count"></div>' +
-      '<h3 class="kivo-tour-title"></h3>' +
-      '<p class="kivo-tour-body"></p>' +
-      '<div class="kivo-tour-progress"><i></i></div>' +
-      '<div class="kivo-tour-actions">' +
+      '<div class="kuruk-tour-count"></div>' +
+      '<h3 class="kuruk-tour-title"></h3>' +
+      '<p class="kuruk-tour-body"></p>' +
+      '<div class="kuruk-tour-progress"><i></i></div>' +
+      '<div class="kuruk-tour-actions">' +
       '<button type="button" class="btn secondary small" data-tour="skip">Pular</button>' +
-      '<span class="kivo-tour-spacer"></span>' +
+      '<span class="kuruk-tour-spacer"></span>' +
       (primeiro ? '' : '<button type="button" class="btn secondary small" data-tour="prev">Anterior</button>') +
       '<button type="button" class="btn small" data-tour="next">' +
       (ultimo ? 'Concluir 🎉' : 'Próximo') +
       '</button>' +
       '</div>';
-    pop.querySelector('.kivo-tour-count').textContent = 'Passo ' + (index + 1) + ' de ' + total;
-    pop.querySelector('.kivo-tour-title').textContent = step.title || '';
-    pop.querySelector('.kivo-tour-body').textContent = step.body || '';
+    pop.querySelector('.kuruk-tour-count').textContent = 'Passo ' + (index + 1) + ' de ' + total;
+    pop.querySelector('.kuruk-tour-title').textContent = step.title || '';
+    pop.querySelector('.kuruk-tour-body').textContent = step.body || '';
     // Barra de progresso: mostra o quanto falta, sem precisar ler o contador.
-    var barra = pop.querySelector('.kivo-tour-progress > i');
+    var barra = pop.querySelector('.kuruk-tour-progress > i');
     if (barra) barra.style.width = Math.round(((index + 1) / total) * 100) + '%';
     // Reanima a entrada do balão a cada passo (a classe é removida e recolocada no próximo frame).
-    pop.classList.remove('kivo-tour-pop--in');
+    pop.classList.remove('kuruk-tour-pop--in');
     void pop.offsetWidth;
-    if (!reduced()) pop.classList.add('kivo-tour-pop--in');
+    if (!reduced()) pop.classList.add('kuruk-tour-pop--in');
     var primario = pop.querySelector('[data-tour="next"]');
     if (primario) primario.focus();
   }
@@ -127,7 +127,7 @@
     pl = Math.max(12, Math.min(window.innerWidth - pw - 12, pl));
     pop.style.top = pt + 'px';
     pop.style.left = pl + 'px';
-    pop.classList.toggle('kivo-tour-pop--acima', !abaixo);
+    pop.classList.toggle('kuruk-tour-pop--acima', !abaixo);
   }
 
   function render() {
@@ -155,7 +155,7 @@
       function () {
         fill(step);
         position(target);
-        root.classList.add('kivo-tour--pronto');
+        root.classList.add('kuruk-tour--pronto');
       },
       reduced() ? 0 : 280,
     );
@@ -231,17 +231,17 @@
     cfg = cfg || {};
     limparFinal();
     var final = document.createElement('div');
-    final.className = 'kivo-tour-final';
+    final.className = 'kuruk-tour-final';
     final.innerHTML =
-      '<div class="kivo-tour-final-emoji">' + (cfg.emoji || '🎉') + '</div>' +
+      '<div class="kuruk-tour-final-emoji">' + (cfg.emoji || '🎉') + '</div>' +
       '<h3></h3><p></p>' +
-      '<div class="kivo-tour-actions">' +
+      '<div class="kuruk-tour-actions">' +
       '<button type="button" class="btn secondary small" data-final="close">Fechar</button>' +
       '<button type="button" class="btn small" data-final="again">Ver de novo</button>' +
       '</div>';
     final.querySelector('h3').textContent = cfg.title || 'Tutorial concluído!';
     final.querySelector('p').textContent = cfg.body
-      || 'Pronto: você já conhece esta parte do Kivo. O tutorial fica disponível no botão "Rever tutorial".';
+      || 'Pronto: você já conhece esta parte do Kuruk. O tutorial fica disponível no botão "Rever tutorial".';
     final.addEventListener('click', function (e) {
       var b = e.target.closest('[data-final]');
       if (!b) return;
@@ -265,7 +265,7 @@
   function limparFinal() {
     if (cartaoFinal && cartaoFinal.parentNode) cartaoFinal.parentNode.removeChild(cartaoFinal);
     cartaoFinal = null;
-    var c = document.querySelector('.kivo-tour-confetti');
+    var c = document.querySelector('.kuruk-tour-confetti');
     if (c && c.parentNode) c.parentNode.removeChild(c);
   }
 
@@ -276,7 +276,7 @@
   function soltarConfete(cfg) {
     if (reduced()) return;
     var canvas = document.createElement('canvas');
-    canvas.className = 'kivo-tour-confetti';
+    canvas.className = 'kuruk-tour-confetti';
     document.body.appendChild(canvas);
     var ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -391,7 +391,7 @@
     return true;
   }
 
-  window.KivoTour = {
+  window.KurukTour = {
     start: start,
     autoStart: autoStart,
     celebrate: function (cfg) {

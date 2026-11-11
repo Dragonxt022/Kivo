@@ -13,9 +13,9 @@ import { activateTestLicense, exitFirstRunState } from './resetTestDb';
 import { unwrap } from './testUtils';
 import { iconPacksDir } from '../core/icons/service';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3791);
+const PORT = Number(process.env.KURUK_PORT ?? 3791);
 const base = `http://localhost:${PORT}`;
-const MARKER = 'KIVO-PACK-MARKER';
+const MARKER = 'KURUK-PACK-MARKER';
 let failures = 0;
 
 function check(label: string, ok: boolean, extra = '') {
@@ -33,8 +33,8 @@ async function api(pathname: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 async function main() {
@@ -53,7 +53,7 @@ async function main() {
     fs.mkdirSync(packDir, { recursive: true });
     fs.writeFileSync(
       path.join(packDir, 'cart.svg'),
-      `<svg viewBox="0 0 24 24" data-kivo="${MARKER}"><path d="M1 1"/></svg>`,
+      `<svg viewBox="0 0 24 24" data-kuruk="${MARKER}"><path d="M1 1"/></svg>`,
     );
 
     const lista = await unwrap<{ packs: { id: string }[]; current: string }>(

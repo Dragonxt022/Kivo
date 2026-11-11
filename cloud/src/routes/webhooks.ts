@@ -52,7 +52,7 @@ router.post('/mercadopago', async (req, res) => {
   }
   const tiposAceitos = new Set(['payment', 'subscription_preapproval', 'subscription_authorized_payment']);
   if (tipo && !tiposAceitos.has(tipo)) {
-    log(`evento "${tipo}" não é tratado pelo Kivo — ignorado`, { dataId });
+    log(`evento "${tipo}" não é tratado pelo Kuruk — ignorado`, { dataId });
     res.sendStatus(200);
     return;
   }
@@ -84,7 +84,7 @@ router.post('/mercadopago', async (req, res) => {
     if (tipo === 'subscription_preapproval') {
       const sub = await getSubscriptionByPreapprovalId(dataId);
       if (!sub) {
-        log('assinatura sem cadastro correspondente no Kivo — ignorada', { preapproval: dataId });
+        log('assinatura sem cadastro correspondente no Kuruk — ignorada', { preapproval: dataId });
         res.sendStatus(200);
         return;
       }
@@ -112,7 +112,7 @@ router.post('/mercadopago', async (req, res) => {
     const charge = porPagamento ?? (idDaReferencia ? await getCharge(idDaReferencia) : null);
 
     if (!charge) {
-      log('pagamento sem cobrança correspondente no Kivo — ignorado', {
+      log('pagamento sem cobrança correspondente no Kuruk — ignorado', {
         pagamento: snapshot.paymentId, referencia: snapshot.externalReference,
       });
       res.sendStatus(200);

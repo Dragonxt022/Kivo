@@ -7,7 +7,7 @@ import { treatmentPlanRepository } from './repositories/TreatmentPlanRepository'
 import type { Result } from './permissions';
 
 /**
- * Painel e relatórios do Kivo Odonto (fase 9, PR §21 e §27).
+ * Painel e relatórios do Kuruk Odonto (fase 9, PR §21 e §27).
  *
  * Princípio que vale para tudo aqui: o painel CONTA e SOMA, nunca mostra texto clínico. Quem lê
  * evolução, anamnese ou documento é a tela do prontuário, com `odonto.clinical.view`. Um painel
@@ -239,7 +239,7 @@ export function report(req: Request, tipo: string, inicio?: unknown, fim?: unkno
   }
 }
 
-/** CSV do relatório (o "exportar" do sistema é CSV, como no resto do Kivo). */
+/** CSV do relatório (o "exportar" do sistema é CSV, como no resto do Kuruk). */
 export function reportCsv(dados: ReportOutput): string {
   const dinheiro = (cents: number) => (cents / 100).toFixed(2).replace('.', ',');
   const cabecalho = dados.colunas.map((c) => c.label).join(';');

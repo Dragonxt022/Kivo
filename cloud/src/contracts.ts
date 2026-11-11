@@ -6,7 +6,7 @@ import { getPool } from './db';
 import { affiliateDiscountFor } from './affiliates';
 
 /**
- * Contratos do Kivo Cloud.
+ * Contratos do Kuruk Cloud.
  *
  * O caminho comercial é: instala e ativa o teste → 15 dias de uso → contrato assinado. O
  * contrato guarda o que foi combinado (número, prazo em meses, valor mensal, PDF assinado) e
@@ -68,7 +68,7 @@ const SUMMARY_COLS = `${CONTRACT_COLS},
 // ─────────────────────────────── Números e datas ───────────────────────────────
 
 /**
- * Próximo número no formato `KIVO-<ano>-<0000>`. A sequência vive em tabela própria e é
+ * Próximo número no formato `KURUK-<ano>-<0000>`. A sequência vive em tabela própria e é
  * incrementada dentro da transação do contrato: dois cadastros ao mesmo tempo não repetem.
  */
 export async function nextContractNumber(conn: PoolConnection, ano: number): Promise<string> {
@@ -78,7 +78,7 @@ export async function nextContractNumber(conn: PoolConnection, ano: number): Pro
   );
   const [rows] = await conn.query('SELECT ultimo FROM contract_number_seq WHERE ano = ?', [ano]);
   const ultimo = Number((rows as { ultimo: number }[])[0]?.ultimo ?? 1);
-  return `KIVO-${ano}-${String(ultimo).padStart(4, '0')}`;
+  return `KURUK-${ano}-${String(ultimo).padStart(4, '0')}`;
 }
 
 /**
@@ -118,7 +118,7 @@ export interface NewContractInput {
   payerEmail?: string | null;
   signedOn?: string | null;
   notes?: string | null;
-  /** Número digitado à mão; em branco gera KIVO-<ano>-<seq>. */
+  /** Número digitado à mão; em branco gera KURUK-<ano>-<seq>. */
   contractNumber?: string | null;
 }
 
@@ -135,7 +135,7 @@ export interface CreatedContract {
 
 /** Descrição da parcela: é o que o cliente lê na tela de Cobranças do programa. */
 export function installmentDescription(title: string | null, numero: number, total: number): string {
-  const base = (title ?? '').trim() || 'Assinatura Kivo';
+  const base = (title ?? '').trim() || 'Assinatura Kuruk';
   return `${base} — parcela ${numero}/${total}`;
 }
 

@@ -1,5 +1,5 @@
 /**
- * Municípios do IBGE — o `cMun` é obrigatório no XML da nota e o Kivo não tinha essa
+ * Municípios do IBGE — o `cMun` é obrigatório no XML da nota e o Kuruk não tinha essa
  * informação em lugar nenhum (só `empresa.cidade`, texto livre).
  *
  * A lista vem da API pública do IBGE, uma UF por vez (~100 a 850 municípios), e fica em
@@ -27,7 +27,7 @@ const CACHE_TTL_MS = 180 * 24 * 3600 * 1000; // 6 meses — a lista quase nunca 
 const FETCH_TIMEOUT_MS = 8000;
 
 function cacheDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dir = path.join(path.dirname(path.dirname(dbPath)), 'storage', 'fiscal', 'ibge');
   fs.mkdirSync(dir, { recursive: true });
   return dir;

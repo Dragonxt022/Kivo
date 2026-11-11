@@ -37,12 +37,12 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: kivo
-          MYSQL_DATABASE: kivo_cloud
+          MYSQL_ROOT_PASSWORD: kuruk
+          MYSQL_DATABASE: kuruk_cloud
         ports:
           - 3307:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -pkivo"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pkuruk"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -50,8 +50,8 @@ jobs:
       CLOUD_DB_HOST: 127.0.0.1
       CLOUD_DB_PORT: '3307'
       CLOUD_DB_USER: root
-      CLOUD_DB_PASSWORD: kivo
-      CLOUD_DB_NAME: kivo_cloud
+      CLOUD_DB_PASSWORD: kuruk
+      CLOUD_DB_NAME: kuruk_cloud
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -81,23 +81,23 @@ jobs:
       - name: Navegador do Playwright
         run: npx playwright install --with-deps chromium
       - name: E2E — cadastro de produtos
-        run: node scripts/kivo test:e2e
+        run: node scripts/kuruk test:e2e
       - name: E2E — comandas e mesas
-        run: node scripts/kivo test:e2e:comandas
+        run: node scripts/kuruk test:e2e:comandas
       - name: QA — login e primeiro acesso
-        run: node scripts/kivo test:e2e:login
+        run: node scripts/kuruk test:e2e:login
       - name: QA — PDV e vendas
-        run: node scripts/kivo test:e2e:pdv
+        run: node scripts/kuruk test:e2e:pdv
       - name: QA — caixa
-        run: node scripts/kivo test:e2e:caixa
+        run: node scripts/kuruk test:e2e:caixa
       - name: QA — compras e estoque
-        run: node scripts/kivo test:e2e:compras
+        run: node scripts/kuruk test:e2e:compras
       - name: QA — layout mobile
-        run: node scripts/kivo test:e2e:mobile
+        run: node scripts/kuruk test:e2e:mobile
       - name: QA — responsivo de vendas e caixa
-        run: node scripts/kivo test:e2e:responsivo-vendas
+        run: node scripts/kuruk test:e2e:responsivo-vendas
       - name: QA — abertura personalizada por usuário
-        run: node scripts/kivo test:e2e:user-startup
+        run: node scripts/kuruk test:e2e:user-startup
       - name: Screenshots da execução
         if: always()
         uses: actions/upload-artifact@v4
@@ -108,20 +108,20 @@ jobs:
           retention-days: 7
 
   e2e-mobile:
-    name: E2E Kivo Web (mobile)
+    name: E2E Kuruk Web (mobile)
     runs-on: ubuntu-latest
     services:
-      # O Kivo Web é testado ponta a ponta (desktop → nuvem → celular), então precisa do
+      # O Kuruk Web é testado ponta a ponta (desktop → nuvem → celular), então precisa do
       # MySQL do cloud/ — mesma porta do docker-compose local.
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: kivo
-          MYSQL_DATABASE: kivo_cloud
+          MYSQL_ROOT_PASSWORD: kuruk
+          MYSQL_DATABASE: kuruk_cloud
         ports:
           - 3307:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -pkivo"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pkuruk"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -129,8 +129,8 @@ jobs:
       CLOUD_DB_HOST: 127.0.0.1
       CLOUD_DB_PORT: '3307'
       CLOUD_DB_USER: root
-      CLOUD_DB_PASSWORD: kivo
-      CLOUD_DB_NAME: kivo_cloud
+      CLOUD_DB_PASSWORD: kuruk
+      CLOUD_DB_NAME: kuruk_cloud
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -144,8 +144,8 @@ jobs:
         run: npm --prefix cloud run migrate
       - name: Navegador do Playwright
         run: npx playwright install --with-deps chromium
-      - name: QA — Kivo Web no celular
-        run: node scripts/kivo test:e2e:kivo-web-mobile
+      - name: QA — Kuruk Web no celular
+        run: node scripts/kuruk test:e2e:kuruk-web-mobile
       - name: Screenshots da execução
         if: always()
         uses: actions/upload-artifact@v4

@@ -4,6 +4,7 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 import { listCapabilities, setCapabilityEnabled } from '../capabilities/service';
 import { isModuleEntitled, getLicenseCredentials } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 import { storeTableRepository } from '../../modules/comandas/repositories/StoreTableRepository';
 import { paymentMethodRepository } from '../../modules/finance/repositories/PaymentMethodRepository';
 import { createLogger } from '../logger';
@@ -31,7 +32,7 @@ export type OnboardingUsage = 'balcao' | 'mesas' | 'ambos';
  * quais produtos de exemplo o assistente cria.
  *
  * Os demais entraram para a lista servir de pesquisa: com só três opções, quase toda loja
- * caía em "outro" e o dado não dizia nada sobre quem usa o Kivo.
+ * caía em "outro" e o dado não dizia nada sobre quem usa o Kuruk.
  */
 /**
  * Ramos oferecidos no assistente de boas-vindas — **fonte única**.
@@ -245,11 +246,11 @@ async function enviarPerfilParaNuvem(perfil: {
     if (!base) return;
     const res = await fetch(`${base}/api/license/business-profile`, {
       method: 'PUT',
-      headers: {
+      headers: withLegacyBrandHeaders({
         'Content-Type': 'application/json',
-        'X-Kivo-Company': companyUuid,
-        'X-Kivo-License-Key': licenseKey,
-      },
+        'X-Kuruk-Company': companyUuid,
+        'X-Kuruk-License-Key': licenseKey,
+      }),
       body: JSON.stringify(perfil),
     });
     if (!res.ok) {

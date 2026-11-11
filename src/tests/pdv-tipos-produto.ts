@@ -13,8 +13,8 @@
  *   VENDA   — fechar a venda e conferir o que ela fez no estoque (kit explode em
  *             componentes, produzido consome a ficha técnica, serviço não mexe).
  *
- * KIVO_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
- *   node scripts/kivo test:pdv-tipos    ← use o comando
+ * KURUK_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
+ *   node scripts/kuruk test:pdv-tipos    ← use o comando
  *   npx tsx src/tests/pdv-tipos-produto.ts   ← NÃO: apagaria o banco de dev
  * (`import` é hoisted; setar a env var dentro do arquivo roda tarde demais, depois de
  * connection.ts já ter fixado o caminho. A trava abaixo é a rede de segurança.)
@@ -30,7 +30,7 @@ import { getSqlite, closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3812);
+const PORT = Number(process.env.KURUK_PORT ?? 3812);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -54,15 +54,15 @@ interface ApiProduct {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
-      '`node scripts/kivo test:pdv-tipos`, que aponta para um arquivo temporário.',
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
+      '`node scripts/kuruk test:pdv-tipos`, que aponta para um arquivo temporário.',
     );
   }
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }
@@ -81,8 +81,8 @@ async function main(): Promise<void> {
 
   try {
     const login = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin' }) });
-    const m = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = m ? `kivo_session=${m[1]}` : '';
+    const m = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = m ? `kuruk_session=${m[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 

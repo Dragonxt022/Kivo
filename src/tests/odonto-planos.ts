@@ -11,7 +11,7 @@
  *        módulo financeiro (do cliente que ancora o paciente), com número de parcela, e que o
  *        Odonto não guardou dinheiro nenhum em tabela própria.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-planos.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -22,7 +22,7 @@ import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 import { vencimentosParcelas } from '../modules/odonto/treatmentPlans';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3849);
+const PORT = Number(process.env.KURUK_PORT ?? 3849);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 
@@ -43,8 +43,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface PlanItem {
@@ -230,11 +230,11 @@ async function main(): Promise<void> {
     check('parcelas com vencimento mensal (dia 31 ajustado)',
       resultado.due_dates.join(',') === '2026-01-31,2026-02-28,2026-03-31', resultado.due_dates.join(','));
 
-    // O dinheiro foi para o FINANCEIRO do Kivo, não para uma tabela do Odonto.
+    // O dinheiro foi para o FINANCEIRO do Kuruk, não para uma tabela do Odonto.
     const contas = db.prepare(
       'SELECT * FROM receivables WHERE id IN (?, ?, ?) ORDER BY due_date',
     ).all(...resultado.receivable_ids) as unknown as Receivable[];
-    check('as contas existem em receivables (financeiro do Kivo)', contas.length === 3, String(contas.length));
+    check('as contas existem em receivables (financeiro do Kuruk)', contas.length === 3, String(contas.length));
     check('conta a receber é do cliente do paciente',
       contas.every((c) => c.customer_id === clienteDoPaciente.customer_id), JSON.stringify(contas.map((c) => c.customer_id)));
     check('a soma das parcelas fecha o total do plano',

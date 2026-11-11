@@ -1,7 +1,7 @@
 /**
  * QA E2E (Playwright) — Tela sempre acesa nos painéis.
  *
- * O que protege: no tablet/celular ligado pela rede local o Kivo abre por
+ * O que protege: no tablet/celular ligado pela rede local o Kuruk abre por
  * `http://192.168...` (contexto inseguro), onde a Screen Wake Lock API não existe. Sem o
  * fallback de vídeo mudo em loop, a tela apagava no tempo máximo do Android e o som do
  * pedido novo parava junto.
@@ -24,7 +24,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3616);
+const PORT = Number(process.env.KURUK_PORT ?? 3616);
 
 interface KeepAwakeState {
   hasApi: boolean;
@@ -53,8 +53,8 @@ async function main(): Promise<void> {
 
     const state = (): Promise<KeepAwakeState> => page.evaluate(() => {
       const api = (window as unknown as {
-        KivoKeepAwake?: { isEnabled(): boolean; isActive(): boolean; method(): string };
-      }).KivoKeepAwake;
+        KurukKeepAwake?: { isEnabled(): boolean; isActive(): boolean; method(): string };
+      }).KurukKeepAwake;
       return {
         hasApi: !!api,
         enabled: !!api && api.isEnabled(),
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     // ── Cozinha ───────────────────────────────────────────────────────────
     await page.goto(`${server.base}/app/foodservice/cozinha`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => {
-      const api = (window as unknown as { KivoKeepAwake?: { isActive(): boolean } }).KivoKeepAwake;
+      const api = (window as unknown as { KurukKeepAwake?: { isActive(): boolean } }).KurukKeepAwake;
       return !!api && api.isActive();
     }, undefined, { timeout: 10000 }).catch(() => {});
 
@@ -80,7 +80,7 @@ async function main(): Promise<void> {
     reporter.check('cozinha usa Wake Lock ou vídeo de fallback', ['wake-lock', 'video'].includes(kds.method), kds.method);
     reporter.check('cozinha tem o botão de tela', kds.button);
 
-    // O navegador pausa o vídeo com a aba em segundo plano. Ao voltar, o Kivo tem de
+    // O navegador pausa o vídeo com a aba em segundo plano. Ao voltar, o Kuruk tem de
     // perceber e pedir de novo — foi o caso que deixava a tela apagar depois de um tempo.
     if (kds.method === 'video') {
       await page.evaluate(() => document.querySelector('video')?.pause());
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
     reporter.check('desligar solta a proteção', !off.enabled && !off.active, `${off.enabled}/${off.active}`);
     reporter.check(
       'preferência gravada no aparelho',
-      await page.evaluate(() => localStorage.getItem('kivo:keep-awake')) === '0',
+      await page.evaluate(() => localStorage.getItem('kuruk:keep-awake')) === '0',
     );
     reporter.check('botão passa a "Tela apaga"', (await page.locator('button', { hasText: 'Tela apaga' }).count()) > 0);
 
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
     // ── Mesas ─────────────────────────────────────────────────────────────
     await page.goto(`${server.base}/app/comandas/mesas`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => {
-      const api = (window as unknown as { KivoKeepAwake?: { isActive(): boolean } }).KivoKeepAwake;
+      const api = (window as unknown as { KurukKeepAwake?: { isActive(): boolean } }).KurukKeepAwake;
       return !!api && api.isActive();
     }, undefined, { timeout: 10000 }).catch(() => {});
     const mesas = await state();
@@ -128,7 +128,7 @@ async function main(): Promise<void> {
 
     // ── Só os painéis recebem o script ────────────────────────────────────
     await page.goto(`${server.base}/app/store/vendas`, { waitUntil: 'domcontentloaded' });
-    const other = await page.evaluate(() => 'KivoKeepAwake' in window);
+    const other = await page.evaluate(() => 'KurukKeepAwake' in window);
     reporter.check('outras telas não carregam o keep-awake', !other);
 
     await teardown(server.server, browser);

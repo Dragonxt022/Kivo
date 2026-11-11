@@ -1,7 +1,7 @@
 {
-  "name": "kivo-cloud",
+  "name": "kuruk-cloud",
   "version": "0.1.0",
-  "description": "Kivo Cloud — motor de sincronização (Fase 6a). Serviço deployável separado (VPS), Node + Express + MySQL.",
+  "description": "Kuruk Cloud — motor de sincronização (Fase 6a). Serviço deployável separado (VPS), Node + Express + MySQL.",
   "private": true,
   "main": "dist/server.js",
   "scripts": {

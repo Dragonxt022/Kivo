@@ -3,7 +3,7 @@ import { loadAuthUser, type AuthUser } from './service';
 
 /**
  * Contexto de execução para código que roda FORA de uma requisição HTTP — o agendador de
- * sync e a fila de comandos vinda do Kivo Web.
+ * sync e a fila de comandos vinda do Kuruk Web.
  *
  * Os services de domínio recebem um `Request` porque é dele que saem duas coisas:
  * `assertAuth` (shared/auth.ts) exige `req.user`, e `audit` (core/audit/service.ts) lê
@@ -17,7 +17,7 @@ import { loadAuthUser, type AuthUser } from './service';
  * leitura honesta de "isto não foi ninguém que clicou".
  */
 export function systemRequest(): Request {
-  return { ip: 'kivo-sistema', headers: {} } as unknown as Request;
+  return { ip: 'kuruk-sistema', headers: {} } as unknown as Request;
 }
 
 /**
@@ -28,7 +28,7 @@ export function systemRequest(): Request {
  * Devolve `null` se o usuário não existe mais, está inativo ou foi excluído: nesse caso o
  * comando falha em vez de rodar com privilégio de outra pessoa.
  */
-export function impersonate(userId: number, ip = 'kivo-web'): (Request & { user: AuthUser }) | null {
+export function impersonate(userId: number, ip = 'kuruk-web'): (Request & { user: AuthUser }) | null {
   const user = loadAuthUser(userId);
   if (!user) return null;
   return { ip, user, headers: {} } as unknown as Request & { user: AuthUser };

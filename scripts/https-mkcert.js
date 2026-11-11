@@ -1,9 +1,9 @@
 /**
- * Gera o certificado HTTPS local com mkcert e deixa os arquivos na pasta que o Kivo lê.
+ * Gera o certificado HTTPS local com mkcert e deixa os arquivos na pasta que o Kuruk lê.
  *
  * Uso:
- *   npm run kivo https:mkcert
- *   npm run kivo https:mkcert -- kivo.minhaloja.local 10.1.1.31
+ *   npm run kuruk https:mkcert
+ *   npm run kuruk https:mkcert -- kuruk.minhaloja.local 10.1.1.31
  *
  * Sem argumentos, inclui localhost, 127.0.0.1 e todos os IPv4 da máquina (o tablet pode
  * abrir por qualquer um deles, desde que o certificado tenha o SAN correspondente).
@@ -20,7 +20,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 function dataRoot() {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.dirname(path.dirname(dbPath));
 }
 
@@ -84,7 +84,7 @@ console.log('[https:mkcert] pronto:');
 console.log(`  certificado: ${cert}`);
 console.log(`  chave:       ${key}`);
 console.log('');
-console.log('Reinicie o Kivo. O HTTPS sobe na porta 3443 (ou KIVO_HTTPS_PORT).');
+console.log('Reinicie o Kuruk. O HTTPS sobe na porta 3443 (ou KURUK_HTTPS_PORT).');
 console.log('No tablet, abra https://<host-do-certificado>:3443 e instale o aplicativo.');
 console.log(`Instale também a CA ${caFile} no Android: Configurações → Segurança →`);
 console.log('Criptografia e credenciais → Instalar certificado → Certificado de CA.');

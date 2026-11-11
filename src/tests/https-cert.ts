@@ -28,14 +28,14 @@ function selfSigned(): { cert: string; key: string } {
   cert.serialNumber = '01';
   cert.validity.notBefore = new Date(Date.now() - 60_000);
   cert.validity.notAfter = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const attrs = [{ name: 'commonName', value: 'kivo.test' }];
+  const attrs = [{ name: 'commonName', value: 'kuruk.test' }];
   cert.setSubject(attrs);
   cert.setIssuer(attrs);
   cert.setExtensions([
     {
       name: 'subjectAltName',
       altNames: [
-        { type: 2, value: 'kivo.test' },
+        { type: 2, value: 'kuruk.test' },
         { type: 7, ip: '127.0.0.1' },
       ],
     },
@@ -48,11 +48,11 @@ function selfSigned(): { cert: string; key: string } {
 }
 
 async function main(): Promise<void> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kivo-https-'));
-  process.env.KIVO_DB_PATH = path.join(root, 'database', 'kivo.db');
-  process.env.KIVO_HTTPS_PORT = '3443';
-  delete process.env.KIVO_HTTPS_CERT;
-  delete process.env.KIVO_HTTPS_KEY;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kuruk-https-'));
+  process.env.KURUK_DB_PATH = path.join(root, 'database', 'kuruk.db');
+  process.env.KURUK_HTTPS_PORT = '3443';
+  delete process.env.KURUK_HTTPS_CERT;
+  delete process.env.KURUK_HTTPS_KEY;
 
   try {
     const dir = httpsCertDir();
@@ -64,14 +64,14 @@ async function main(): Promise<void> {
     const files = findHttpsFiles();
     check('encontra https.crt + https.key', !!files && files.port === 3443);
     const described = describeHttps();
-    check('lê o hostname do certificado', described.host === 'kivo.test', String(described.host));
-    check('monta a URL HTTPS', described.url === 'https://kivo.test:3443/', String(described.url));
+    check('lê o hostname do certificado', described.host === 'kuruk.test', String(described.host));
+    check('monta a URL HTTPS', described.url === 'https://kuruk.test:3443/', String(described.url));
     check('não reporta erro de leitura', !described.erro, described.erro ?? '');
 
     const options = tlsOptions(files!);
     const server = https.createServer(options, (_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end('kivo-https-ok');
+      res.end('kuruk-https-ok');
     });
     const port = await new Promise<number>((resolve) => {
       server.listen(0, '127.0.0.1', () => {
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
         })
         .on('error', reject);
     });
-    check('servidor HTTPS responde com o certificado', body === 'kivo-https-ok', body);
+    check('servidor HTTPS responde com o certificado', body === 'kuruk-https-ok', body);
     await new Promise<void>((resolve) => server.close(() => resolve()));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

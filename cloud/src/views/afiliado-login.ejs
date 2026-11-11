@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Kivo Afiliados — Entrar</title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <title>Kuruk Afiliados — Entrar</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <%- include('partials/styles') %>
   <link rel="stylesheet" href="/css/login.css">
 </head>
 <body>
   <div class="card login-card">
-    <div class="brand"><img id="brand-logo" src="/logo_kivo-icon.svg" alt=""> Kivo Afiliados</div>
+    <div class="brand"><img id="brand-logo" src="/logo_kuruk-icon.svg" alt=""> Kuruk Afiliados</div>
     <% if (error) { %><p class="error-banner"><%= error %></p><% } %>
     <form method="post" action="/afiliado/login">
       <label>Usuário</label>
@@ -32,13 +32,13 @@
       <button type="submit" class="btn">Entrar</button>
     </form>
     <p class="field-hint" style="text-align:center; margin-top:14px">
-      Acesso fornecido pelo administrador Kivo.
+      Acesso fornecido pelo administrador Kuruk.
     </p>
   </div>
   <script src="/js/password-toggle.js" defer></script>
   <script>
     if (document.documentElement.getAttribute('data-theme') === 'dark') {
-      document.getElementById('brand-logo').src = '/logo_kivo-icon_branco.svg';
+      document.getElementById('brand-logo').src = '/logo_kuruk-icon_branco.svg';
     }
   </script>
 </body>

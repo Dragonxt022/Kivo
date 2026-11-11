@@ -5,7 +5,7 @@ import { commercialPlan } from './plans';
 import type { PaymentSnapshot } from './gateway';
 
 /**
- * Cobranças do Kivo Cloud — o que a empresa paga pela assinatura.
+ * Cobranças do Kuruk Cloud — o que a empresa paga pela assinatura.
  *
  * Este módulo é o ponto único de BAIXA: marcar uma cobrança como paga (na mão, pelo painel,
  * ou pelo webhook do Mercado Pago) passa por `settleCharge`, que também lança a comissão do

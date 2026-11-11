@@ -6,7 +6,7 @@ NF-e.
 
 ## Visão geral
 
-O estoque do Kivo é **derivado de um livro-razão** (ledger). O saldo de um produto
+O estoque do Kuruk é **derivado de um livro-razão** (ledger). O saldo de um produto
 (`products.stock_qty`) nunca é editado direto: ele é a consequência das linhas de
 `stock_movements`. Produtos podem ou não controlar estoque (`products.track_stock`).
 

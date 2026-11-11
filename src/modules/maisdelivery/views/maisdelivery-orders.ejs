@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Pedidos Mais Delivery</title>
+  <title>Kuruk — Pedidos Mais Delivery</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <%- include('partials/maisdelivery-styles') %>
   <script nonce="<%= cspNonce %>" src="/js/datetime.js"></script>
@@ -1065,7 +1065,7 @@
               phone: '',
               address: 'Pedido de teste — modo sandbox',
               deliveryType: data.deliveryType || 'Sandbox',
-              origin: data.origin || 'Kivo (teste)',
+              origin: data.origin || 'Kuruk (teste)',
               createdAtIso: new Date().toISOString(),
               totalCents: data.totalCents ?? null,
               totalRaw: data.totalRaw || '',
@@ -1073,7 +1073,7 @@
               items: data.items || [],
               status: 'Pendente',
               statusId: '1',
-              notes: 'Pedido de teste criado no Kivo (sandbox).',
+              notes: 'Pedido de teste criado no Kuruk (sandbox).',
               customerIsNew: false,
             });
             this.page = 1;

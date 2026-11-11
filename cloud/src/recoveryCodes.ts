@@ -1,5 +1,5 @@
 /**
- * Gêmeo de `src/core/recovery/codes.ts` (Kivo desktop) — ver lá a explicação do formato.
+ * Gêmeo de `src/core/recovery/codes.ts` (Kuruk desktop) — ver lá a explicação do formato.
  *
  * São deploys separados, e a duplicação é a regra do projeto. A nuvem só precisa GERAR a
  * resposta que o suporte dita; quem verifica é o desktop. Os dois lados têm que produzir
@@ -17,6 +17,7 @@
 import { createHmac } from 'node:crypto';
 
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+// Identificador de protocolo compartilhado com o desktop; ver src/core/recovery/codes.ts.
 const DOMAIN = 'kivo-resgate-v1|';
 const RESPONSE_BYTES = 6;
 

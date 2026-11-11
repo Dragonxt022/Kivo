@@ -14,14 +14,14 @@ export interface AuthedRequest extends Request {
 
 /**
  * Autenticação mínima da 6a: par company_uuid + license_key (o mesmo já guardado
- * localmente em `license` no Kivo). Sessão/JWT de verdade fica para a 6b.
+ * localmente em `license` no Kuruk). Sessão/JWT de verdade fica para a 6b.
  */
 export async function requireCompanyAuth(req: AuthedRequest, res: Response, next: NextFunction): Promise<void> {
-  const companyUuid = req.header('X-Kivo-Company');
-  const licenseKey = req.header('X-Kivo-License-Key');
+  const companyUuid = req.header('X-Kuruk-Company');
+  const licenseKey = req.header('X-Kuruk-License-Key');
   if (!companyUuid || !licenseKey) {
     res.status(401).json({
-      error: 'Credenciais ausentes (X-Kivo-Company / X-Kivo-License-Key).',
+      error: 'Credenciais ausentes (X-Kuruk-Company / X-Kuruk-License-Key).',
       code: 'credentials_missing',
     });
     return;

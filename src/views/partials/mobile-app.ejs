@@ -1,7 +1,7 @@
 <%#
-  Diálogo "Kivo no celular": instalação como aplicativo, tela cheia e notificações.
+  Diálogo "Kuruk no celular": instalação como aplicativo, tela cheia e notificações.
 
-  O Kivo é aberto no celular pelo navegador (rede local ou Kivo Web). Instalado na tela
+  O Kuruk é aberto no celular pelo navegador (rede local ou Kuruk Web). Instalado na tela
   inicial, o manifest abre em modo standalone — sem a barra de endereço. Quando o
   navegador não oferece instalação (Android em http:// da rede local), este diálogo
   orienta o caminho do menu e oferece "tela cheia" como alternativa imediata.
@@ -9,89 +9,89 @@
   Incluído pelo nav em todas as telas; os gatilhos (ícone do topo, menu "Mais" e menu do
   usuário) estão no próprio nav.
 -%>
-<dialog id="kivo-app-dlg" class="kivo-app-dlg">
-  <div class="kivo-app-head">
-    <span class="kivo-app-head-icon">
+<dialog id="kuruk-app-dlg" class="kuruk-app-dlg">
+  <div class="kuruk-app-head">
+    <span class="kuruk-app-head-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
         <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
       </svg>
     </span>
-    <div class="kivo-app-head-text">
-      <h2>Kivo no celular</h2>
+    <div class="kuruk-app-head-text">
+      <h2>Kuruk no celular</h2>
       <p>Use sem a barra do navegador e receba os avisos de pedido pronto.</p>
     </div>
-    <button type="button" class="btn-icon" id="kivo-app-close" aria-label="Fechar">
+    <button type="button" class="btn-icon" id="kuruk-app-close" aria-label="Fechar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
     </button>
   </div>
 
-  <p class="kivo-app-status" id="kivo-app-status"></p>
+  <p class="kuruk-app-status" id="kuruk-app-status"></p>
 
-  <div class="kivo-app-actions">
-    <button type="button" class="btn" id="kivo-app-install" hidden>
+  <div class="kuruk-app-actions">
+    <button type="button" class="btn" id="kuruk-app-install" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
       </svg>
       Instalar aplicativo
     </button>
-    <button type="button" class="btn secondary" id="kivo-app-fullscreen" hidden>
+    <button type="button" class="btn secondary" id="kuruk-app-fullscreen" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
         <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
       </svg>
-      <span id="kivo-app-fullscreen-label">Usar em tela cheia</span>
+      <span id="kuruk-app-fullscreen-label">Usar em tela cheia</span>
     </button>
-    <button type="button" class="btn secondary" id="kivo-app-notify" hidden>Ativar notificações</button>
+    <button type="button" class="btn secondary" id="kuruk-app-notify" hidden>Ativar notificações</button>
   </div>
 
-  <div class="kivo-app-help" id="kivo-app-help"></div>
-  <p class="kivo-app-note" id="kivo-app-note" hidden></p>
+  <div class="kuruk-app-help" id="kuruk-app-help"></div>
+  <p class="kuruk-app-note" id="kuruk-app-note" hidden></p>
 
-  <div class="kivo-app-foot">
-    <button type="button" class="btn secondary" id="kivo-app-done">Fechar</button>
+  <div class="kuruk-app-foot">
+    <button type="button" class="btn secondary" id="kuruk-app-done">Fechar</button>
   </div>
 </dialog>
 
 <script nonce="<%= cspNonce %>">
 (function () {
   'use strict';
-  if (window.KivoMobileApp) return;
+  if (window.KurukMobileApp) return;
 
-  var dlg = document.getElementById('kivo-app-dlg');
+  var dlg = document.getElementById('kuruk-app-dlg');
   if (!dlg) return;
 
   var ua = navigator.userAgent || '';
   var iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var android = /Android/i.test(ua);
   var mobile = android || iOS || (window.matchMedia && window.matchMedia('(max-width: 820px)').matches);
-  var standalone = document.documentElement.classList.contains('kivo-standalone');
+  var standalone = document.documentElement.classList.contains('kuruk-standalone');
 
   function $(id) { return document.getElementById(id); }
 
   function render() {
-    var status = $('kivo-app-status');
-    var help = $('kivo-app-help');
-    var note = $('kivo-app-note');
-    var install = $('kivo-app-install');
-    var fullscreen = $('kivo-app-fullscreen');
-    var fullscreenLabel = $('kivo-app-fullscreen-label');
+    var status = $('kuruk-app-status');
+    var help = $('kuruk-app-help');
+    var note = $('kuruk-app-note');
+    var install = $('kuruk-app-install');
+    var fullscreen = $('kuruk-app-fullscreen');
+    var fullscreenLabel = $('kuruk-app-fullscreen-label');
 
     if (status) {
       status.textContent = standalone
-        ? 'Você já está usando o Kivo como aplicativo.'
+        ? 'Você já está usando o Kuruk como aplicativo.'
         : (mobile
           ? (window.isSecureContext
-            ? 'No celular, instale o Kivo para abrir em tela cheia.'
-            : 'No celular, crie um atalho do Kivo. Instalação como aplicativo e notificação com a tela apagada exigem HTTPS.')
-          : 'Abra o Kivo no celular para instalar como aplicativo.');
+            ? 'No celular, instale o Kuruk para abrir em tela cheia.'
+            : 'No celular, crie um atalho do Kuruk. Instalação como aplicativo e notificação com a tela apagada exigem HTTPS.')
+          : 'Abra o Kuruk no celular para instalar como aplicativo.');
     }
 
     if (install) {
       // O prompt nativo existe apenas em navegadores que aceitam instalar este endereço
       // (HTTPS/localhost). Em http:// da rede local ele não dispara — aí ficam as
       // instruções do menu e o botão de tela cheia.
-      install.hidden = standalone || !window.__kivoInstallPrompt;
+      install.hidden = standalone || !window.__kurukInstallPrompt;
     }
 
     if (fullscreen) {
@@ -113,11 +113,11 @@
           ? '<p><strong>Android (Chrome):</strong> toque no menu <strong>⋮</strong> no canto do '
             + 'navegador e escolha <strong>Instalar aplicativo</strong> (ou <strong>Adicionar à tela inicial</strong>).</p>'
           : '<p><strong>Android (Chrome):</strong> toque no menu <strong>⋮</strong> e escolha '
-            + '<strong>Criar atalho</strong> (ou <strong>Adicionar à tela inicial</strong>): o Kivo abre em tela cheia. '
+            + '<strong>Criar atalho</strong> (ou <strong>Adicionar à tela inicial</strong>): o Kuruk abre em tela cheia. '
             + 'A opção <strong>Instalar aplicativo</strong> e a notificação com a tela desligada só aparecem quando o '
-            + 'Kivo é acessado por <strong>HTTPS</strong>.</p>';
+            + 'Kuruk é acessado por <strong>HTTPS</strong>.</p>';
       } else {
-        help.innerHTML = '<p>No computador o Kivo já roda como aplicativo. Este guia serve para o celular ou tablet.</p>';
+        help.innerHTML = '<p>No computador o Kuruk já roda como aplicativo. Este guia serve para o celular ou tablet.</p>';
       }
     }
 
@@ -125,7 +125,7 @@
       if (!window.isSecureContext) {
         note.hidden = false;
         note.textContent = iOS
-          ? 'No iPhone/iPad, use Compartilhar → Adicionar à Tela de Início: o Kivo abre sem a barra do navegador mesmo neste endereço local. Notificação do sistema exige HTTPS. Nos painéis de Cozinha e Mesas o Kivo mantém a tela acesa para o som não parar; se você desligar a tela no botão do aparelho, o aviso só volta ao reabrir.'
+          ? 'No iPhone/iPad, use Compartilhar → Adicionar à Tela de Início: o Kuruk abre sem a barra do navegador mesmo neste endereço local. Notificação do sistema exige HTTPS. Nos painéis de Cozinha e Mesas o Kuruk mantém a tela acesa para o som não parar; se você desligar a tela no botão do aparelho, o aviso só volta ao reabrir.'
           : 'Este acesso é por http:// na rede local: use "Criar atalho" no menu do Chrome para abrir sem a barra do navegador. Instalação como aplicativo e notificação com a tela apagada exigem HTTPS. Nos painéis de Cozinha e Mesas o botão "Tela acesa" mantém a tela ligada para o som continuar tocando; se você desligar no botão do aparelho, o aviso só volta ao reabrir.';
       } else if (iOS && !standalone) {
         note.hidden = false;
@@ -139,9 +139,9 @@
   }
 
   function renderNotify() {
-    var btn = $('kivo-app-notify');
+    var btn = $('kuruk-app-notify');
     if (!btn) return;
-    var api = window.KivoReadyAlerts;
+    var api = window.KurukReadyAlerts;
     var status = api ? api.notificationPermission() : 'unsupported';
     if (status === 'default') {
       btn.hidden = false;
@@ -170,9 +170,9 @@
     try { dlg.close(); } catch (e) { dlg.removeAttribute('open'); }
   }
 
-  window.KivoMobileApp = { open: open, close: close, render: render };
+  window.KurukMobileApp = { open: open, close: close, render: render };
 
-  var openers = ['kivo-mobile-app-btn', 'kivo-mobile-app-btn-header', 'kivo-mobile-app-btn-user'];
+  var openers = ['kuruk-mobile-app-btn', 'kuruk-mobile-app-btn-header', 'kuruk-mobile-app-btn-user'];
   openers.forEach(function (id) {
     var el = $(id);
     if (el) el.addEventListener('click', function (ev) {
@@ -181,23 +181,23 @@
     });
   });
 
-  $('kivo-app-close')?.addEventListener('click', close);
-  $('kivo-app-done')?.addEventListener('click', close);
+  $('kuruk-app-close')?.addEventListener('click', close);
+  $('kuruk-app-done')?.addEventListener('click', close);
 
-  $('kivo-app-install')?.addEventListener('click', function () {
-    var prompt = window.__kivoInstallPrompt;
+  $('kuruk-app-install')?.addEventListener('click', function () {
+    var prompt = window.__kurukInstallPrompt;
     if (!prompt) { render(); return; }
     prompt.prompt();
     prompt.userChoice.then(function (choice) {
       if (choice && choice.outcome === 'accepted') {
-        window.__kivoInstallPrompt = null;
+        window.__kurukInstallPrompt = null;
         close();
       }
       render();
     }).catch(function () { render(); });
   });
 
-  $('kivo-app-fullscreen')?.addEventListener('click', function () {
+  $('kuruk-app-fullscreen')?.addEventListener('click', function () {
     try {
       if (document.fullscreenElement) {
         document.exitFullscreen?.();
@@ -211,20 +211,20 @@
     }
   });
 
-  $('kivo-app-notify')?.addEventListener('click', function () {
-    var api = window.KivoReadyAlerts;
+  $('kuruk-app-notify')?.addEventListener('click', function () {
+    var api = window.KurukReadyAlerts;
     if (!api) return;
     api.requestPermission().then(function () { render(); });
   });
 
   document.addEventListener('fullscreenchange', render);
-  window.addEventListener('kivo-install-available', render);
-  window.addEventListener('kivo-app-installed', function () {
-    document.documentElement.classList.add('kivo-standalone');
+  window.addEventListener('kuruk-install-available', render);
+  window.addEventListener('kuruk-app-installed', function () {
+    document.documentElement.classList.add('kuruk-standalone');
     standalone = true;
     render();
   });
-  window.addEventListener('kivo-ready-notify-changed', renderNotify);
+  window.addEventListener('kuruk-ready-notify-changed', renderNotify);
 
   // Se o diálogo já estiver aberto quando o prompt de instalação chegar, mostra o botão.
   if (dlg.open) render();

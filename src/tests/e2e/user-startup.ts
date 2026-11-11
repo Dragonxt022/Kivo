@@ -21,7 +21,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3622);
+const PORT = Number(process.env.KURUK_PORT ?? 3622);
 
 async function main(): Promise<void> {
   const reporter = new Reporter('Abertura personalizada por usuário');
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     const cookie = admin.split(';')[0];
     const value = cookie.split('=').slice(1).join('=');
     await page.context().addCookies([{
-      name: 'kivo_session', value, domain: new URL(base).hostname, path: '/',
+      name: 'kuruk_session', value, domain: new URL(base).hostname, path: '/',
     }]);
 
     // Primeira abertura da janela: home redireciona para o módulo escolhido.
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
     await page.waitForURL((url) => url.pathname === alvo.href, { timeout: 10000 });
     reporter.check('primeira abertura vai direto para o módulo', new URL(page.url()).pathname === alvo.href, page.url());
     const marcador = await page.evaluate(() => {
-      try { return sessionStorage.getItem('kivo-startup-open'); } catch { return null; }
+      try { return sessionStorage.getItem('kuruk-startup-open'); } catch { return null; }
     });
     reporter.check('marca a abertura para não redirecionar de novo', marcador === '1', String(marcador));
 
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
     }, admin);
     const page2 = await newPage(browser, { viewport: { width: 1366, height: 768 } });
     await page2.context().addCookies([{
-      name: 'kivo_session', value, domain: new URL(base).hostname, path: '/',
+      name: 'kuruk_session', value, domain: new URL(base).hostname, path: '/',
     }]);
     await page2.goto(base + '/', { waitUntil: 'domcontentloaded', timeout: 20000 });
     await page2.waitForTimeout(700);

@@ -52,7 +52,7 @@ router.post(
   validateBody(maisDeliveryOrderStatusSchema),
   maisDeliveryController.updateStatus,
 );
-// Enviar para a cozinha cria produção no Kivo E muda a situação no marketplace —
+// Enviar para a cozinha cria produção no Kuruk E muda a situação no marketplace —
 // por isso usa a mesma permissão da troca de situação, não apenas a de leitura.
 router.post(
   '/orders/:id/enviar-cozinha',

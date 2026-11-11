@@ -4,10 +4,11 @@ import path from 'node:path';
 import { getSqlite } from '../database/connection';
 import { getLicenseCredentials, machineId } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 import type { ImageFormat } from './imageValidation';
 
 /**
- * Banco de imagens do Kivo Cloud (ecossistema descrito em conversa com o usuário):
+ * Banco de imagens do Kuruk Cloud (ecossistema descrito em conversa com o usuário):
  * quando um produto ganha uma foto, ela é salva localmente (funciona 100% offline) e,
  * best-effort, entra numa fila para ser enviada ao cloud/ e passar por curadoria manual
  * do admin. Aprovada, vira sugestão de busca para outras empresas cadastrarem produtos
@@ -20,14 +21,14 @@ const MIME_BY_FORMAT: Record<ImageFormat, string> = {
 };
 
 /**
- * Relativo à mesma raiz de dados do banco (`KIVO_DB_PATH`), não a `process.cwd()`:
+ * Relativo à mesma raiz de dados do banco (`KURUK_DB_PATH`), não a `process.cwd()`:
  * em produção o cwd de um app Electron empacotado não é confiável (varia conforme
  * de onde o processo foi lançado) — sem isso, as fotos ficavam fora de
  * `userData`/, então "remover todos os dados" na desinstalação não as alcançava.
  * Mesmo padrão já usado por `fallbackMachineIdPath()` em `core/license/service.ts`.
  */
 export function productImagesDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dataRoot = path.dirname(path.dirname(dbPath));
   const dir = path.join(dataRoot, 'storage', 'product-images');
   fs.mkdirSync(dir, { recursive: true });
@@ -35,7 +36,7 @@ export function productImagesDir(): string {
 }
 
 export function categoryImagesDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dataRoot = path.dirname(path.dirname(dbPath));
   const dir = path.join(dataRoot, 'storage', 'category-images');
   fs.mkdirSync(dir, { recursive: true });
@@ -96,7 +97,7 @@ export function cloudBaseUrl(): string | null {
 export function cloudAuthHeaders(): Record<string, string> | null {
   const { companyUuid, licenseKey } = getLicenseCredentials();
   if (!companyUuid || !licenseKey) return null;
-  return { 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey };
+  return withLegacyBrandHeaders({ 'X-Kuruk-Company': companyUuid, 'X-Kuruk-License-Key': licenseKey });
 }
 
 interface PendingRow {
@@ -137,14 +138,14 @@ export async function trySubmitPending(): Promise<void> {
     try {
       const res = await fetch(`${base}/api/catalog/submit`, {
         method: 'POST',
-        headers: {
+        headers: withLegacyBrandHeaders({
           ...auth,
           'Content-Type': contentType,
-          'X-Kivo-Product-Name': row.product_name,
-          'X-Kivo-Submission-Uuid': randomUUID(),
-          'X-Kivo-Machine-Id': machineId(),
-          ...(row.barcode ? { 'X-Kivo-Product-Barcode': row.barcode } : {}),
-        },
+          'X-Kuruk-Product-Name': row.product_name,
+          'X-Kuruk-Submission-Uuid': randomUUID(),
+          'X-Kuruk-Machine-Id': machineId(),
+          ...(row.barcode ? { 'X-Kuruk-Product-Barcode': row.barcode } : {}),
+        }),
         body: buf,
         signal: AbortSignal.timeout(15000),
       });

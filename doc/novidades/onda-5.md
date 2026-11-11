@@ -29,7 +29,7 @@
 A escolha fica guardada por venda/aba do PDV: trocar de aba ou recarregar a página não perde
 o tipo. Ao limpar o carrinho ou concluir a venda, volta para **Consumir aqui**. Se trocar o
 tipo **depois** de já ter enviado itens, o que está na cozinha mantém o tipo anterior — o
-Kivo avisa, e só os próximos itens vão com a nova escolha.
+Kuruk avisa, e só os próximos itens vão com a nova escolha.
 
 ### Comandas de mesa
 Toda comanda enviada pelo garçom entra como **Local**. Pedidos de entrega devem ser lançados
@@ -46,7 +46,7 @@ não procurar uma mesa que não existe.
   (`createSale`). A comanda envia `local` fixo.
 - O KDS usa `service_type` no selo/ícone; tickets antigos (sem a coluna) são tratados como
   `local`.
-- Teste de regressão: `npm run kivo test:e2e:tipo-pedido`.
+- Teste de regressão: `npm run kuruk test:e2e:tipo-pedido`.
 - Limitação atual: o módulo **Mais Delivery** é somente leitura e não gera ticket de cozinha;
   os pedidos de entrega precisam ser lançados pelo PDV para aparecerem no KDS com a motinha.
   Se quiser a integração direta do marketplace com a cozinha, é uma próxima etapa.

@@ -19,7 +19,7 @@ import { getSqlite, closeDb } from '../../core/database/connection';
 import { createServer } from '../../core/server';
 import { resetTestDb, activateTestLicense, exitFirstRunState } from '../resetTestDb';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3599);
+const PORT = Number(process.env.KURUK_PORT ?? 3599);
 const BASE = `http://localhost:${PORT}`;
 const SCREENSHOT_DIR = path.resolve(process.cwd(), '.qa-screenshots', 'e2e-products');
 
@@ -535,13 +535,13 @@ async function main() {
   try {
     browser = await chromium.launch({ headless: true });
     const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
-    // Tour guiado da tela de produtos (kivo-tour-produtos-v1) e aviso de novidade cobrem a
+    // Tour guiado da tela de produtos (kuruk-tour-produtos-v1) e aviso de novidade cobrem a
     // página e interceptam o clique em "Novo produto" — sem desligá-los o teste trava
     // esperando um clique que nunca chega ao botão.
     await ctx.addInitScript(() => {
       try {
-        localStorage.setItem('kivo-tour-produtos-v1', '1');
-        localStorage.setItem('kivo-novidade-seen', 'web-v1');
+        localStorage.setItem('kuruk-tour-produtos-v1', '1');
+        localStorage.setItem('kuruk-novidade-seen', 'web-v1');
       } catch {
         /* localStorage indisponível: sem consequência para o teste */
       }

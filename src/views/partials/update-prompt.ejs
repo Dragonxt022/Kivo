@@ -1,7 +1,7 @@
 <%#
   Aviso de atualização obrigatória — canto inferior direito, no estilo do Windows.
 
-  Aparece em qualquer tela do Kivo (é incluído por partials/nav.ejs) assim que o
+  Aparece em qualquer tela do Kuruk (é incluído por partials/nav.ejs) assim que o
   electron-updater termina de baixar uma versão nova. "Atualizar agora" fecha, instala e
   reabre; "Adiar por 15 minutos" esconde o cartão apenas por 15 minutos e ele volta
   sozinho. Não existe "dispensar para sempre" — é o que mantém a loja em dia com as
@@ -13,9 +13,9 @@
   começa o ciclo do zero.
 %>
 <% if (user && user.permissions.has('settings.edit')) { %>
-<div x-data="kivoUpdatePrompt()" x-cloak>
+<div x-data="kurukUpdatePrompt()" x-cloak>
   <section class="update-prompt update-downloading" x-show="baixando" aria-live="polite"
-           aria-label="Baixando atualização do Kivo">
+           aria-label="Baixando atualização do Kuruk">
     <div class="update-prompt-head">
       <span class="update-prompt-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -24,7 +24,7 @@
         </svg>
       </span>
       <div class="update-prompt-title">
-        <strong>Baixando atualização do Kivo</strong>
+        <strong>Baixando atualização do Kuruk</strong>
         <p>Versão <span x-text="estado && estado.versaoDisponivel"></span> — pode continuar usando o sistema.</p>
       </div>
     </div>
@@ -44,7 +44,7 @@
   </section>
 
   <section class="update-prompt" x-show="visivel" role="alertdialog" aria-live="assertive"
-           aria-label="Atualização obrigatória do Kivo">
+           aria-label="Atualização obrigatória do Kuruk">
     <div class="update-prompt-head">
       <span class="update-prompt-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -52,13 +52,13 @@
         </svg>
       </span>
       <div class="update-prompt-title">
-        <strong>Atualização obrigatória do Kivo</strong>
+        <strong>Atualização obrigatória do Kuruk</strong>
         <p>Versão <span x-text="estado && estado.versaoDisponivel"></span> pronta para instalar.</p>
       </div>
     </div>
 
     <p class="update-prompt-text">
-      São correções e melhorias de segurança. O Kivo fecha, instala sozinho e abre de novo
+      São correções e melhorias de segurança. O Kuruk fecha, instala sozinho e abre de novo
       em menos de um minuto. <strong>Feche a venda em aberto antes.</strong>
     </p>
 
@@ -75,7 +75,7 @@
   </section>
 
   <div class="update-install-overlay" x-show="instalando" role="alertdialog" aria-live="assertive"
-       aria-label="Instalando atualização do Kivo">
+       aria-label="Instalando atualização do Kuruk">
     <div class="update-install-card">
       <div class="update-install-spinner" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -83,14 +83,14 @@
         </svg>
       </div>
       <h2>Instalando atualização</h2>
-      <p>O Kivo está fechando, aplicando a nova versão e vai abrir de novo sozinho.</p>
+      <p>O Kuruk está fechando, aplicando a nova versão e vai abrir de novo sozinho.</p>
       <p class="update-install-warning">Não desligue o computador nem feche esta janela.</p>
       <div class="update-install-bar"><i></i></div>
     </div>
   </div>
 </div>
 <script nonce="<%= cspNonce %>">
-  function kivoUpdatePrompt() {
+  function kurukUpdatePrompt() {
     return {
       estado: null,
       instalando: false,
@@ -143,7 +143,7 @@
 
       chaveAdiamento() {
         const versao = this.estado && this.estado.versaoDisponivel;
-        return versao ? 'kivo-update-adiado:' + versao : '';
+        return versao ? 'kuruk-update-adiado:' + versao : '';
       },
 
       lerAdiamento() {
@@ -201,11 +201,11 @@
             this.instalando = false;
             return;
           }
-          // O processo principal fecha o Kivo logo depois de responder. Se algo travar do
+          // O processo principal fecha o Kuruk logo depois de responder. Se algo travar do
           // outro lado, o botão não fica "Reiniciando…" para sempre.
           setTimeout(() => { this.instalando = false; }, 30000);
         } catch (e) {
-          this.erro = 'Sem conexão com o Kivo local. Tente de novo em instantes.';
+          this.erro = 'Sem conexão com o Kuruk local. Tente de novo em instantes.';
           this.instalando = false;
         }
       },

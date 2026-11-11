@@ -8,7 +8,7 @@
  *  - sincronia de volta: cozinha marca "pronto" no KDS → situação do marketplace;
  *  - cancelamento do pedido no marketplace derruba o ticket da cozinha.
  *
- * KIVO_DB_PATH TEM que vir do ambiente:
+ * KURUK_DB_PATH TEM que vir do ambiente:
  *   node scripts/test-isolated.js src/tests/maisdelivery-kitchen.ts
  */
 import fs from 'node:fs';
@@ -28,7 +28,7 @@ import {
 } from '../modules/maisdelivery/kitchenBridge';
 import type { StatusOption } from '../modules/maisdelivery/client';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3895);
+const PORT = Number(process.env.KURUK_PORT ?? 3895);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -140,15 +140,15 @@ function marketplaceHandler(body: Record<string, unknown>): { json: unknown } {
 }
 
 function assertBancoDescartavel(): string {
-  const target = process.env.KIVO_DB_PATH;
+  const target = process.env.KURUK_DB_PATH;
   if (!target) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
         '`node scripts/test-isolated.js src/tests/maisdelivery-kitchen.ts`.',
     );
   }
-  if (path.resolve(target) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(target) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return target;
 }
@@ -203,8 +203,8 @@ async function main(): Promise<void> {
       method: 'POST',
       body: JSON.stringify({ username: 'admin', password: 'admin' }),
     });
-    const match = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = match ? `kivo_session=${match[1]}` : '';
+    const match = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = match ? `kuruk_session=${match[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 

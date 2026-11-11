@@ -1,32 +1,38 @@
 /**
- * Deploy do cloud/ (Kivo Web) para a VPS — versão MULTIPLATAFORMA.
+ * Deploy do cloud/ (Kuruk Web) para a VPS — versão MULTIPLATAFORMA.
  *
  * O `deploy-cloud.sh` só roda em Linux/macOS/Git Bash; no Windows o `bash` do PATH cai no
  * WSL (sem distro) e o comando falha. Este script faz o mesmo via Node + `ssh`, então
- * `npm run kivo cloud:deploy` funciona também no PowerShell.
+ * `npm run kuruk cloud:deploy` funciona também no PowerShell.
  *
  * Config por variável de ambiente (ver cloud/.env.example):
- *   KIVO_VPS_HOST, KIVO_VPS_SSH_USER, KIVO_VPS_SITE_USER, KIVO_VPS_CLOUD_DIR,
- *   KIVO_VPS_SSH_KEY, KIVO_VPS_PM2_NAME, KIVO_CLOUD_HEALTH_URL
+ *   KURUK_VPS_HOST, KURUK_VPS_SSH_USER, KURUK_VPS_CLOUD_DIR,
+ *   KURUK_VPS_SSH_KEY (opcional), KURUK_VPS_PM2_NAME, KURUK_VPS_PM2_USER,
+ *   KURUK_CLOUD_HEALTH_URL
+ *
+ * O diretório remoto precisa ser um clone deste repositório (o `cloud/` é um
+ * pacote separado dentro do monorepo). No servidor OLD o padrão é
+ * `/opt/apps/kuruk-cloud/cloud`, com PM2 rodando como o usuário `nodeapps`.
  */
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 
-const HOST = process.env.KIVO_VPS_HOST || '187.77.251.231';
-const SSH_USER = process.env.KIVO_VPS_SSH_USER || 'root';
-const SITE_USER = process.env.KIVO_VPS_SITE_USER || 'buscamais-kivo';
-const CLOUD_DIR = process.env.KIVO_VPS_CLOUD_DIR || `/home/${SITE_USER}/htdocs/kivo.buscamais.org/cloud`;
-const KEY = process.env.KIVO_VPS_SSH_KEY || path.join(os.homedir(), '.ssh', 'kivo_vps_deploy');
-const HEALTH_URL = process.env.KIVO_CLOUD_HEALTH_URL || 'https://kivo.buscamais.org/api/health';
-const PM2_NAME = process.env.KIVO_VPS_PM2_NAME || 'kivo-cloud';
+const HOST = process.env.KURUK_VPS_HOST || '100.87.5.89';
+const SSH_USER = process.env.KURUK_VPS_SSH_USER || 'bruno';
+const CLOUD_DIR = process.env.KURUK_VPS_CLOUD_DIR || '/opt/apps/kuruk-cloud/cloud';
+const KEY = process.env.KURUK_VPS_SSH_KEY || '';
+const HEALTH_URL = process.env.KURUK_CLOUD_HEALTH_URL || 'https://kuruk.com.br/api/health';
+const PM2_NAME = process.env.KURUK_VPS_PM2_NAME || 'kuruk-cloud';
+// No servidor OLD o PM2 é gerenciado pelo usuário nodeapps. Deixe vazio para
+// rodar `pm2` diretamente (ex.: quando o deploy já é feito como esse usuário).
+const PM2_USER = process.env.KURUK_VPS_PM2_USER ?? 'nodeapps';
+const PM2 = PM2_USER ? `sudo -iu ${PM2_USER} pm2` : 'pm2';
 
-if (!fs.existsSync(KEY)) {
+if (KEY && !fs.existsSync(KEY)) {
   console.error(`\n[deploy] Chave SSH não encontrada: ${KEY}`);
   console.error('  Gere uma:  ssh-keygen -t ed25519 -f "' + KEY + '"');
   console.error('  Copie a pública:  ssh-copy-id -i "' + KEY + '.pub" ' + SSH_USER + '@' + HOST);
-  console.error('  (ou defina KIVO_VPS_SSH_KEY apontando para a chave correta)\n');
+  console.error('  (ou defina KURUK_VPS_SSH_KEY; sem ela o ssh usa ~/.ssh/config e o agente)\n');
   process.exit(1);
 }
 
@@ -46,24 +52,24 @@ const remote = [
   'set +a',
   'npm run migrate',
   'npm run seed:themes',
-  'if ! pm2 describe pm2-logrotate >/dev/null 2>&1; then pm2 install pm2-logrotate; fi',
-  'pm2 set pm2-logrotate:max_size 50M',
-  'pm2 set pm2-logrotate:retain 14',
-  'pm2 set pm2-logrotate:compress true',
-  'pm2 set pm2-logrotate:workerInterval 60',
-  `pm2 restart ${PM2_NAME}`,
+  `if ! ${PM2} describe pm2-logrotate >/dev/null 2>&1; then ${PM2} install pm2-logrotate; fi`,
+  `${PM2} set pm2-logrotate:max_size 50M`,
+  `${PM2} set pm2-logrotate:retain 14`,
+  `${PM2} set pm2-logrotate:compress true`,
+  `${PM2} set pm2-logrotate:workerInterval 60`,
+  `${PM2} restart ${PM2_NAME}`,
   'sleep 2',
-  `pm2 show ${PM2_NAME} | grep status`,
+  `${PM2} show ${PM2_NAME} | grep status`,
 ].join('\n');
+
+const sshArgs = ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new'];
+if (KEY) sshArgs.push('-i', KEY);
+sshArgs.push(`${SSH_USER}@${HOST}`, remote);
 
 console.log(`[deploy] conectando em ${SSH_USER}@${HOST}...`);
 try {
-  execFileSync(
-    'ssh',
-    ['-i', KEY, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', `${SSH_USER}@${HOST}`, remote],
-    { stdio: 'inherit' },
-  );
-} catch (e) {
+  execFileSync('ssh', sshArgs, { stdio: 'inherit' });
+} catch {
   console.error('\n[deploy] A conexão/execução remota falhou. Veja a saída acima.');
   process.exit(1);
 }

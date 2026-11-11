@@ -25,12 +25,12 @@ import {
 const router = Router();
 
 /**
- * Cobranças da própria empresa (o Kivo instalado consome isto).
+ * Cobranças da própria empresa (o Kuruk instalado consome isto).
  *
  * A tela de Cobranças do app mostra a lista e, quando o gateway está configurado, oferece o
  * pagamento: Pix (QR + copia e cola), boleto (link) e cartão (link do Checkout Pro). O app
  * NUNCA fala com o Mercado Pago — só com estas rotas, autenticadas pela licença da empresa
- * (mesmo par X-Kivo-Company / X-Kivo-License-Key de /api/sync e /api/backup).
+ * (mesmo par X-Kuruk-Company / X-Kuruk-License-Key de /api/sync e /api/backup).
  */
 router.get('/charges', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const [rows] = await getPool().query(
@@ -151,7 +151,7 @@ router.post('/subscription', requireCompanyAuth, async (req: AuthedRequest, res)
     const sub = await createCompanySubscription({
       companyUuid,
       planKey: plan.key,
-      reason: `Kivo — Plano ${plan.label}`,
+      reason: `Kuruk — Plano ${plan.label}`,
       amountCents: plan.priceCents,
       extendsDays: plan.extendsDays,
       frequency: 1,
@@ -207,7 +207,7 @@ router.post('/upfront', requireCompanyAuth, async (req: AuthedRequest, res) => {
      VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE(), 'pendente', ?, ?, ?, ?)`,
     [
       companyUuid,
-      `Kivo — Plano ${plan.label} (à vista)`,
+      `Kuruk — Plano ${plan.label} (à vista)`,
       `Pagamento à vista referente a ${plan.extendsDays} dias de licença.`,
       netAmountCents,
       plan.priceCents,

@@ -1,18 +1,18 @@
 /**
- * Limpa residuos de instalacoes anteriores do Kivo antes de instalar/empacotar.
+ * Limpa residuos de instalacoes anteriores do Kuruk antes de instalar/empacotar.
  *
  * O defeito que isto resolve (custou um dia inteiro de diagnostico):
  *
  * O instalador do electron-builder guarda o caminho da instalacao em
  * `HKCU\Software\{APP_GUID}` -> `InstallLocation`. Quando alguem apaga a pasta
- * `%LOCALAPPDATA%\Programs\Kivo` NA MAO -- em vez de desinstalar pelo Painel de Controle --
+ * `%LOCALAPPDATA%\Programs\Kuruk` NA MAO -- em vez de desinstalar pelo Painel de Controle --
  * a chave fica para tras apontando para uma pasta que nao existe mais. Na instalacao
  * seguinte o instalador le essa chave, conclui que "ja existe uma instalacao", tenta
- * desinstalar a versao anterior primeiro, nao encontra o `Uninstall Kivo.exe`, e o laco de
+ * desinstalar a versao anterior primeiro, nao encontra o `Uninstall Kuruk.exe`, e o laco de
  * tentativas termina nas duas caixas que o lojista ve:
  *
- *   1. "Nao e possivel fechar o Kivo. Feche a janela do Kivo e clique em Repetir."
- *   2. "Erro ao abrir o arquivo para gravacao: ...\Uninstall Kivo.exe"
+ *   1. "Nao e possivel fechar o Kuruk. Feche a janela do Kuruk e clique em Repetir."
+ *   2. "Erro ao abrir o arquivo para gravacao: ...\Uninstall Kuruk.exe"
  *
  * Nao e permissao de pasta (a pasta e gravavel) e nao e o app rodando (nao ha processo):
  * e o estado fantasma no registro. Este script remove esse estado.
@@ -25,7 +25,7 @@ const { execFileSync } = require('node:child_process');
 
 const APLICAR = process.argv.includes('--apply');
 
-/** GUID fixo do electron-builder (mesmo `appId`-derivado em todas as instalacoes do Kivo). */
+/** GUID fixo do electron-builder (mesmo `appId`-derivado em todas as instalacoes do Kuruk). */
 const GUID = '441dbd0e-faad-5973-853f-e0ee9d98c769';
 const CHAVE_APP = `HKCU\\Software\\${GUID}`;
 const CHAVE_DESINSTALAR = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${GUID}`;
@@ -55,7 +55,7 @@ function pastaExiste(caminho) {
 }
 
 function desinstaladorExiste(caminho) {
-  return caminho ? require('node:fs').existsSync(require('node:path').join(caminho, 'Uninstall Kivo.exe')) : false;
+  return caminho ? require('node:fs').existsSync(require('node:path').join(caminho, 'Uninstall Kuruk.exe')) : false;
 }
 
 const local = installLocation();
@@ -65,7 +65,7 @@ if (local) {
   if (!pastaExiste(local)) {
     problemas.push(`InstallLocation aponta para uma pasta que NAO existe: ${local}`);
   } else if (!desinstaladorExiste(local)) {
-    problemas.push(`a pasta existe mas o desinstalador sumiu: ${local}\\Uninstall Kivo.exe`);
+    problemas.push(`a pasta existe mas o desinstalador sumiu: ${local}\\Uninstall Kuruk.exe`);
   }
 }
 
@@ -81,10 +81,10 @@ if (!APLICAR) {
   process.exit(0);
 }
 
-// Encerra qualquer Kivo pendurado ANTES de mexer no registro: um processo em erro de boot
+// Encerra qualquer Kuruk pendurado ANTES de mexer no registro: um processo em erro de boot
 // segura arquivos da pasta e faz a proxima instalacao falhar na gravacao.
 try {
-  execFileSync('taskkill', ['/F', '/IM', 'Kivo.exe', '/T'], { stdio: 'ignore' });
+  execFileSync('taskkill', ['/F', '/IM', 'Kuruk.exe', '/T'], { stdio: 'ignore' });
 } catch {
   // sem processo rodando: nada a fazer
 }

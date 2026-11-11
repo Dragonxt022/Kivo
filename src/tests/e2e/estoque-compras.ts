@@ -22,7 +22,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3604);
+const PORT = Number(process.env.KURUK_PORT ?? 3604);
 const SHOTS = snapDir('e2e-compras');
 const ESTOQUE_INICIAL = 10;
 const QTD_COMPRA = 20;

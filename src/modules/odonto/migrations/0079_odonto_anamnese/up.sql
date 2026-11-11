@@ -10,7 +10,7 @@
 --     respondido quando é dado clínico e não pode ser reescrito (PR §24.3).
 --
 -- Como o resto do módulo, nada aqui entra em `syncTables`: dado clínico fica na máquina que
--- o produziu (doc/KIVO_ODONTO_ARCHITECTURE_AUDIT.md §10 e §19).
+-- o produziu (doc/KURUK_ODONTO_ARCHITECTURE_AUDIT.md §10 e §19).
 CREATE TABLE odonto_anamnesis_templates (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,

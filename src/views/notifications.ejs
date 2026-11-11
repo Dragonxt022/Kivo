@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Notificações</title>
+  <title>Kuruk — Notificações</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
@@ -127,7 +127,7 @@
         </template>
 
         <template x-if="!loading && active !== 'sistema'">
-          <%# SortableJS (carregado sob demanda por /js/kivo-ui.js) no lugar do arraste
+          <%# SortableJS (carregado sob demanda por /js/kuruk-ui.js) no lugar do arraste
               nativo do HTML5: aquele não funciona no toque, e a maioria dos lojistas
               abre as notificações pelo celular. %>
           <div x-ref="msgList" x-init="initSortable()" x-effect="syncSortable()">
@@ -247,7 +247,7 @@
           await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/read', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read }),
           }).catch(() => {});
-          window.dispatchEvent(new CustomEvent('kivo-messages-changed'));
+          window.dispatchEvent(new CustomEvent('kuruk-messages-changed'));
         },
         async markAllRead() {
           for (const m of this.messages) if (!m.read) await this.setRead(m, true);
@@ -264,7 +264,7 @@
           this.messages = this.messages.filter((x) => x.uuid !== m.uuid);
           if (this.openMessage && this.openMessage.uuid === m.uuid) { this.openMessage = null; this.$refs.readDlg.close(); }
           await fetch('/api/messages/' + encodeURIComponent(m.uuid) + '/dismiss', { method: 'POST' }).catch(() => {});
-          window.dispatchEvent(new CustomEvent('kivo-messages-changed'));
+          window.dispatchEvent(new CustomEvent('kuruk-messages-changed'));
         },
         async assignCategory(m) {
           if (!m) return;
@@ -294,8 +294,8 @@
         },
         initSortable() {
           const host = this.$refs.msgList;
-          if (!host || !window.KivoUI) return;
-          window.KivoUI.sortable(host, {
+          if (!host || !window.KurukUI) return;
+          window.KurukUI.sortable(host, {
             handle: '.msg-drag',
             draggable: '.msg-card',
             animation: 150,
@@ -309,7 +309,7 @@
         },
         syncSortable() {
           const host = this.$refs.msgList;
-          if (host && host._kivoSortable) host._kivoSortable.option('disabled', this.active !== 'all');
+          if (host && host._kurukSortable) host._kurukSortable.option('disabled', this.active !== 'all');
         },
         async persistSortableOrder() {
           const host = this.$refs.msgList;
@@ -334,7 +334,7 @@
           const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ''));
           return m ? `${m[3]}/${m[2]}/${m[1]}` : String(raw || '');
         },
-        notifKey(kind) { return 'kivo-notif-' + kind + ':' + (this.notifUserKey || 'anon'); },
+        notifKey(kind) { return 'kuruk-notif-' + kind + ':' + (this.notifUserKey || 'anon'); },
         loadNotifState() {
           try { this.notifRead = JSON.parse(localStorage.getItem(this.notifKey('read')) || '[]'); } catch (e) { this.notifRead = []; }
           try { this.notifDismissed = JSON.parse(localStorage.getItem(this.notifKey('dismissed')) || '[]'); } catch (e) { this.notifDismissed = []; }
@@ -342,7 +342,7 @@
         saveNotifState() {
           try { localStorage.setItem(this.notifKey('read'), JSON.stringify(this.notifRead)); } catch (e) {}
           try { localStorage.setItem(this.notifKey('dismissed'), JSON.stringify(this.notifDismissed)); } catch (e) {}
-          window.dispatchEvent(new CustomEvent('kivo-notif-changed'));
+          window.dispatchEvent(new CustomEvent('kuruk-notif-changed'));
         },
         rawSystem() {
           const list = [];
@@ -356,7 +356,7 @@
           const renovando = lic && ['tolerancia', 'expirada', 'bloqueada'].includes(lic.status);
           if (this.cashAlert && !renovando) list.push({ id: 'cash', type: 'cash', message: 'Caixa aberto há mais de 24h', link: '/app/finance/caixa' });
           if (this.atualizacao && this.atualizacao.versaoDisponivel) {
-            const msgAtu = this.atualizacao.status === 'baixado' ? `Kivo ${this.atualizacao.versaoDisponivel} baixado — clique para instalar` : `Nova versão do Kivo disponível (${this.atualizacao.versaoDisponivel})`;
+            const msgAtu = this.atualizacao.status === 'baixado' ? `Kuruk ${this.atualizacao.versaoDisponivel} baixado — clique para instalar` : `Nova versão do Kuruk disponível (${this.atualizacao.versaoDisponivel})`;
             list.push({ id: 'atualizacao-' + this.atualizacao.versaoDisponivel, type: 'atualizacao', message: msgAtu, link: '/admin/configuracoes#atualizacao' });
           }
           if (this.billingAlert && this.billingAlert.count) list.push({ id: 'billing', type: 'billing', message: `${this.billingAlert.count} cobrança(s) da licença vencendo`, link: '/admin/cobrancas' });
@@ -384,7 +384,7 @@
 
         async init() {
           this.loadNotifState();
-          window.addEventListener('kivo-notif-changed', () => this.loadNotifState());
+          window.addEventListener('kuruk-notif-changed', () => this.loadNotifState());
           const jobs = [this.load()];
           <% if (user.permissions.has('billing.view')) { %>
           jobs.push(fetch('/api/billing/alert').then((r) => r.ok ? r.json() : null).then((d) => { if (d && d.count) this.billingAlert = d; }).catch(() => {}));

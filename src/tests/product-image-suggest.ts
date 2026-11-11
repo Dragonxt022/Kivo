@@ -12,7 +12,7 @@
  * O `fetch` global é interceptado: chamadas ao Google e às imagens externas viram dados
  * de teste; o resto (o próprio servidor local) passa direto.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
+ * KURUK_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
  *   node scripts/test-isolated.js src/tests/product-image-suggest.ts
  */
 import fs from 'node:fs';
@@ -26,7 +26,7 @@ import { parseEnv } from '../core/config/env';
 import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3827);
+const PORT = Number(process.env.KURUK_PORT ?? 3827);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -45,15 +45,15 @@ async function api(p: string, opts: RequestInit = {}): Promise<Response> {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
       '`node scripts/test-isolated.js src/tests/product-image-suggest.ts`.',
     );
   }
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }
@@ -102,17 +102,17 @@ async function main(): Promise<void> {
   fs.mkdirSync(path.dirname(TMP_DB), { recursive: true });
   fs.rmSync(TMP_DB, { force: true });
   // Hermético: o padrão por variável de ambiente (se existir na máquina) mudaria o teste.
-  delete process.env.KIVO_BRAVE_SEARCH_API_KEY;
+  delete process.env.KURUK_BRAVE_SEARCH_API_KEY;
 
   // Parser do `.env` (core/config/env.ts) — o carregador do padrão de fábrica.
   const parsed = parseEnv([
     '# comentário',
-    'KIVO_BRAVE_SEARCH_API_KEY="chave-entre-aspas"',
+    'KURUK_BRAVE_SEARCH_API_KEY="chave-entre-aspas"',
     'export OUTRA_CHAVE=valor',
     'linha sem igual',
     '= sem-chave',
   ].join('\n'));
-  check('parseEnv lê valor entre aspas', parsed.KIVO_BRAVE_SEARCH_API_KEY === 'chave-entre-aspas');
+  check('parseEnv lê valor entre aspas', parsed.KURUK_BRAVE_SEARCH_API_KEY === 'chave-entre-aspas');
   check('parseEnv aceita "export"', parsed.OUTRA_CHAVE === 'valor');
   check('parseEnv ignora linhas inválidas', !('linha sem igual' in parsed) && Object.keys(parsed).length === 2);
 
@@ -125,8 +125,8 @@ async function main(): Promise<void> {
 
   try {
     const login = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin' }) });
-    const m = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = m ? `kivo_session=${m[1]}` : '';
+    const m = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = m ? `kuruk_session=${m[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 
@@ -205,13 +205,13 @@ async function main(): Promise<void> {
     check('sem chave de novo, a web não é consultada', s2.results.length === 0);
 
     // 8. Padrão por variável de ambiente (sem tocar no cofre) liga a busca.
-    process.env.KIVO_BRAVE_SEARCH_API_KEY = 'chave-ambiente';
+    process.env.KURUK_BRAVE_SEARCH_API_KEY = 'chave-ambiente';
     const envCfg = await unwrap<{ configured: boolean; source: string | null }>(
       await api('/api/settings/image-search-config'),
     );
     check('variável de ambiente serve de padrão',
       envCfg.configured === true && envCfg.source === 'env', JSON.stringify(envCfg));
-    delete process.env.KIVO_BRAVE_SEARCH_API_KEY;
+    delete process.env.KURUK_BRAVE_SEARCH_API_KEY;
 
     // 9. A tela de produtos renderiza a grade de sugestões.
     const pagina = await api('/app/commercial/produtos');

@@ -1,4 +1,4 @@
-# Kivo
+# Kuruk
 
 Plataforma comercial modular desktop-first — PDV, estoque, financeiro, DRE.
 
@@ -11,8 +11,8 @@ Plataforma comercial modular desktop-first — PDV, estoque, financeiro, DRE.
 ```sh
 npm install
 npm run build
-npm run kivo db:migrate
-npm run kivo db:seed:demo
+npm run kuruk db:migrate
+npm run kuruk db:seed:demo
 npm run dev
 ```
 
@@ -37,7 +37,7 @@ npm run dev:electron
 ## Scripts principais
 
 ```sh
-npm run kivo              # listar todos os comandos
+npm run kuruk              # listar todos os comandos
 npm run dev                # servidor Express
 npm run build              # compilar TypeScript
 npm run test               # rodar todos os testes
@@ -45,17 +45,17 @@ npm run lint               # ESLint
 npm run format             # Prettier
 ```
 
-A lista completa de comandos está em `scripts/commands.json`. Execute `npm run kivo` para vê-los todos.
+A lista completa de comandos está em `scripts/commands.json`. Execute `npm run kuruk` para vê-los todos.
 
 ### Testes
 
 `npm test` roda a suíte de integração. Oito arquivos falam com o `cloud/` (sync, licença,
-backup, Kivo Web); sem o MySQL do docker-compose no ar eles entram como **SKIP**, e a
+backup, Kuruk Web); sem o MySQL do docker-compose no ar eles entram como **SKIP**, e a
 execução continua sendo verde-ou-vermelho de verdade. Para rodar tudo:
 
 ```sh
 docker compose -f cloud/docker-compose.yml up -d
-npm run kivo cloud:migrate
+npm run kuruk cloud:migrate
 npm test
 ```
 
@@ -63,14 +63,14 @@ Os testes de navegador (Playwright) ficam fora da suíte porque levam minutos �
 e têm job próprio no CI:
 
 ```sh
-npm run kivo test:e2e            # cadastro de produtos
-npm run kivo test:e2e:comandas   # comandas e mesas
+npm run kuruk test:e2e            # cadastro de produtos
+npm run kuruk test:e2e:comandas   # comandas e mesas
 ```
 
 ### Logs
 
-Toda operação registrada vai para `storage/logs/kivo-AAAA-MM-DD.log` (14 dias de retenção),
-ao lado do banco — é o arquivo que o lojista anexa num chamado. `KIVO_LOG_LEVEL=debug`
+Toda operação registrada vai para `storage/logs/kuruk-AAAA-MM-DD.log` (14 dias de retenção),
+ao lado do banco — é o arquivo que o lojista anexa num chamado. `KURUK_LOG_LEVEL=debug`
 aumenta o detalhe.
 
 ---
@@ -100,7 +100,7 @@ Cada módulo segue **Controller → Service → Repository**. Módulos comunicam
 
 **All Rights Reserved.** Este software é proprietário. Não é permitido copiar, modificar, distribuir ou sublicenciar sem autorização expressa do autor.
 
-© Kivo — Bruno Da Silva Pissinatti
+© Kuruk — Bruno Da Silva Pissinatti
 
 ---
 
@@ -114,6 +114,6 @@ Se você encontrou um bug ou tem uma sugestão, abra uma issue no repositório o
 
 ## Documentação
 
-- `doc/KIVO_PLANO.md` — plano de desenvolvimento e arquitetura detalhada
+- `doc/KURUK_PLANO.md` — plano de desenvolvimento e arquitetura detalhada
 - `doc/auditoria/` — relatórios de auditoria técnica (fases F1–F12)
 - `agente.md` — perfil de programação do autor (contexto para assistentes de IA)

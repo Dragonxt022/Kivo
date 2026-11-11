@@ -43,7 +43,7 @@ async function load(token: string): Promise<PublicCharge | null> {
   const charge = await getChargeByToken(token);
   if (!charge) return null;
   const empresa = await companyPayerData(charge.company_uuid);
-  return { charge, companyName: empresa.name || 'Kivo' };
+  return { charge, companyName: empresa.name || 'Kuruk' };
 }
 
 function payerEmailOf(charge: ChargeRow, companyEmail: string, fallback: string): string {
@@ -90,14 +90,14 @@ router.post('/:token/gateway', async (req, res) => {
 
   const settings = await loadSettings();
   if (!isConfigured(settings)) {
-    voltar('error', 'O pagamento online ainda não está disponível. Fale com o suporte do Kivo.');
+    voltar('error', 'O pagamento online ainda não está disponível. Fale com o suporte do Kuruk.');
     return;
   }
 
   const empresa = await companyPayerData(charge.company_uuid);
   const payerEmail = payerEmailOf(charge, empresa.email, settings.payerEmail);
   if (!payerEmail) {
-    voltar('error', 'Não foi possível identificar o e-mail do pagador. Fale com o suporte do Kivo.');
+    voltar('error', 'Não foi possível identificar o e-mail do pagador. Fale com o suporte do Kuruk.');
     return;
   }
 

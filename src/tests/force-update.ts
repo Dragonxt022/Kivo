@@ -1,6 +1,6 @@
 /**
  * Atualização forçada pelo suporte (comando `support.force_update`): verifica, baixa em
- * silêncio e deixa o instalador rodar ao fechar o Kivo — sem reiniciar no meio do uso.
+ * silêncio e deixa o instalador rodar ao fechar o Kuruk — sem reiniciar no meio do uso.
  * Usa um driver falso, então não depende do Electron nem de rede.
  */
 import { applyCommand } from '../core/sync/commands';

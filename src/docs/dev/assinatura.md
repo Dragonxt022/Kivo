@@ -1,6 +1,6 @@
-# Assinatura do Kivo — cobrança e pagamento online
+# Assinatura do Kuruk — cobrança e pagamento online
 
-Como o lojista paga o Kivo. A cobrança é registrada no **painel do cloud** (por empresa) e o
+Como o lojista paga o Kuruk. A cobrança é registrada no **painel do cloud** (por empresa) e o
 pagamento sai pelo **Mercado Pago** (Pix, boleto ou cartão). O app instalado só mostra e
 oferece o pagamento — ele nunca fala com o Mercado Pago.
 
@@ -18,7 +18,7 @@ oferece o pagamento — ele nunca fala com o Mercado Pago.
 
 1. **A notificação não é a fonte da verdade.** O webhook só diz "olhe o pagamento X"; o status
    é reconferido em `GET /v1/payments/{id}` com o Access Token. Notificação forjada não baixa
-   cobrança. Sem o segredo configurado o Kivo aceita a notificação, mas continua reconferindo.
+   cobrança. Sem o segredo configurado o Kuruk aceita a notificação, mas continua reconferindo.
 2. **A baixa tem um caminho só** (`cloud/src/charges.ts` → `settleCharge`): marca paga **só**
    se estava pendente, lança a comissão do afiliado e estende a validade quando a cobrança tem
    `extends_days`. Botão manual, webhook e "verificar agora" passam todos por ali.
@@ -36,7 +36,7 @@ oferece o pagamento — ele nunca fala com o Mercado Pago.
 Os planos comerciais vivem na tabela `plans` do cloud (migration `0054`) e são gerenciados
 pelo painel em **Planos e preços** (`/admin/plans`): cadastrar, editar (nome, descrição,
 preço, dispositivos, dias por pagamento), **pausar/reativar a venda** e marcar as
-funcionalidades (backup/sync em nuvem, Kivo Web, cardápio/QR mesa).
+funcionalidades (backup/sync em nuvem, Kuruk Web, cardápio/QR mesa).
 
 | Peça | Onde | Papel |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ Regras:
 
 ## Contratos (o caminho comercial)
 
-O Kivo é vendido assim: instala e ativa o teste → o cliente usa os 15 dias → vai lá com o
+O Kuruk é vendido assim: instala e ativa o teste → o cliente usa os 15 dias → vai lá com o
 contrato → assina por 12 meses. O painel registra esse contrato e **gera o bloco de cobranças
 de uma vez**.
 
@@ -82,7 +82,7 @@ de uma vez**.
 
 O que o contrato faz quando é criado:
 
-1. Guarda número (`KIVO-<ano>-<seq>`, sequência própria por ano — dois cadastros ao mesmo
+1. Guarda número (`KURUK-<ano>-<seq>`, sequência própria por ano — dois cadastros ao mesmo
    tempo não repetem), prazo em meses, valor mensal, data de assinatura e o PDF assinado
    (validado pela assinatura `%PDF-`, até 5 MB, em `storage/contracts/`).
 2. Gera **N parcelas mensais** (`charges` com `contract_id` e `installment_number`), a
@@ -102,12 +102,12 @@ Ciclo de vida:
 
 ## Teste automatizado
 
-`node scripts/test-isolated.js src/tests/billing-gateway.ts` (ou `npm run kivo test:billing-gateway`)
+`node scripts/test-isolated.js src/tests/billing-gateway.ts` (ou `npm run kuruk test:billing-gateway`)
 cobre o **lado do cloud**: credenciais, criação da cobrança com link, página pública, Pix
 (QR + copia e cola), boleto, cartão (Checkout Pro), confirmação por status, webhook com
 assinatura válida/inválida e idempotência.
 
-`node scripts/test-isolated.js src/tests/billing-app-pix.ts` (ou `npm run kivo test:billing-app-pix`)
+`node scripts/test-isolated.js src/tests/billing-app-pix.ts` (ou `npm run kuruk test:billing-app-pix`)
 cobre o **lado do programa**: lista de Cobranças, geração do Pix pelo app, QR chegando à
 tela, "já paguei?" baixando a cobrança, licença estendida e a recusa de gerar pagamento
 para cobrança já paga.
@@ -116,7 +116,7 @@ Os dois sobem um **Mercado Pago de mentira** dentro do próprio teste e apontam 
 ele com `MP_API_BASE`, então rodam sem internet, sem credencial real e sem dinheiro. Requerem
 o MySQL do `cloud/docker-compose.yml` no ar (`npm test` os marca como **SKIP** sem ele).
 
-`node scripts/test-isolated.js src/tests/contracts.ts` (ou `npm run kivo test:contracts`)
+`node scripts/test-isolated.js src/tests/contracts.ts` (ou `npm run kuruk test:contracts`)
 cobre o **contrato**: criação com PDF, bloco de 12 parcelas com os vencimentos certos
 (inclusive 31/01 → 28/02), numeração, download do PDF, pagamento de uma parcela estendendo a
 licença, cancelamento (cai o aberto, fica o pago) e a recusa de apagar contrato com parcela

@@ -1,7 +1,7 @@
 /*
-  Service worker do Kivo servido pela máquina da loja.
+  Service worker do Kuruk servido pela máquina da loja.
 
-  A função principal é deixar o Kivo instalável como aplicativo (tela cheia, sem a barra
+  A função principal é deixar o Kuruk instalável como aplicativo (tela cheia, sem a barra
   do navegador) quando ele é aberto por HTTPS ou por localhost. Em acesso pela rede local
   via http:// o navegador nem registra o worker — e o app continua funcionando igual.
 
@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
    direto para a rede: não intercepta, não cacheia. */
 self.addEventListener('fetch', () => {});
 
-/* Clique no aviso de "pedido pronto" (ou em qualquer notificação do Kivo): foca a aba
+/* Clique no aviso de "pedido pronto" (ou em qualquer notificação do Kuruk): foca a aba
    já aberta e leva para a tela de mesas. Sem aba aberta, abre uma nova. */
 self.addEventListener('notificationclick', (event) => {
   const target = (event.notification && event.notification.data && event.notification.data.url) || '/app/comandas/mesas';

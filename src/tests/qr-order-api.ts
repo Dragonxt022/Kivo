@@ -14,7 +14,7 @@ import { createServer } from '../core/server';
 import { hasService } from '../core/services/registry';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3827);
+const PORT = Number(process.env.KURUK_PORT ?? 3827);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 function check(label: string, ok: boolean, extra = ''): void {
@@ -23,10 +23,10 @@ function check(label: string, ok: boolean, extra = ''): void {
 }
 
 function assertDiscardable(): void {
-  const alvo = process.env.KIVO_DB_PATH;
-  if (!alvo) throw new Error('KIVO_DB_PATH não definida. Rode via scripts/test-isolated.js.');
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  const alvo = process.env.KURUK_DB_PATH;
+  if (!alvo) throw new Error('KURUK_DB_PATH não definida. Rode via scripts/test-isolated.js.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
 }
 
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
      ON CONFLICT(key) DO UPDATE SET enabled = 1`,
   ).run();
 
-  process.env.KIVO_SYNC_SERVER_URL = 'https://kivo.exemplo.test';
+  process.env.KURUK_SYNC_SERVER_URL = 'https://kuruk.exemplo.test';
   let publishBody: unknown = null;
   const originalFetch = global.fetch;
   (global as unknown as { fetch: typeof fetch }).fetch = (async (url: string, init?: RequestInit) => {
@@ -84,8 +84,8 @@ async function main(): Promise<void> {
     const login = await api('/api/auth/login', {
       method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin' }),
     });
-    const m = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = m ? `kivo_session=${m[1]}` : '';
+    const m = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = m ? `kuruk_session=${m[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 
@@ -99,7 +99,7 @@ async function main(): Promise<void> {
     });
     const qr = await unwrap<{ url: string; qr: string }>(generated);
     check('gera QR', generated.status === 201, `status=${generated.status}`);
-    check('link aponta para a página pública', /^https:\/\/kivo\.exemplo\.test\/pedido\/[a-f0-9]{64}$/.test(qr.url), qr.url);
+    check('link aponta para a página pública', /^https:\/\/kuruk\.exemplo\.test\/pedido\/[a-f0-9]{64}$/.test(qr.url), qr.url);
     check('imagem do QR é PNG data URL', qr.qr.startsWith('data:image/png;base64,'));
 
     const row = db.prepare('SELECT qr_token FROM store_tables WHERE id = ?').get(table.id) as { qr_token: string };

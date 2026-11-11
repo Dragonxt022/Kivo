@@ -1,5 +1,5 @@
 /*
-  Service worker do Kivo Web.
+  Service worker do Kuruk Web.
 
   Escopo restrito a /m/ (a concessão é registrada com `{ scope: '/m/' }`), então o painel
   admin e as rotas de API ficam fora daqui por construção.
@@ -13,13 +13,13 @@
     mostra dado financeiro. Sem rede, cai numa tela de "sem conexão" genérica.
   - /api/: nunca cacheado. A resposta carrega dado da empresa.
 */
-const CACHE = 'kivo-m-v1';
+const CACHE = 'kuruk-m-v1';
 const OFFLINE_URL = '/m-offline.html';
 const PRECACHE = [
   OFFLINE_URL,
   '/css/mobile.css',
   '/css/mobile-pro.css',
-  '/logo_kivo-icon.svg',
+  '/logo_kuruk-icon.svg',
   '/img/icon-192.png',
   '/img/icon-512.png',
 ];

@@ -4,7 +4,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { getPool } from './db';
 import { blockForPath, loadAdminAccess, type AdminAccess } from './adminPermissions';
 
-export const ADMIN_SESSION_COOKIE = 'kivo_admin_session';
+export const ADMIN_SESSION_COOKIE = 'kuruk_admin_session';
 const SESSION_TTL_MS = 12 * 3600e3; // 12h
 /** "Manter conectado": mesmo prazo do login do app desktop (30 dias). */
 const REMEMBER_TTL_MS = 30 * 24 * 3600e3;

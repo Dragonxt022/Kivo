@@ -39,7 +39,7 @@ export interface FinanceReceivablesService {
     installmentCount?: number;
   }): number;
   listBySale(saleId: number): ReceivableRow[];
-  /** Recebe o total pelo tipo da forma de pagamento (usado pelo Kivo Web). */
+  /** Recebe o total pelo tipo da forma de pagamento (usado pelo Kuruk Web). */
   settleFull(req: Request, id: number, input: { paymentMethodType?: string; settledAt?: string }): SettleBillResult;
 }
 

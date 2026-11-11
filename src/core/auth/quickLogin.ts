@@ -9,7 +9,7 @@
  * ── O limite que isto tem, e por quê ────────────────────────────────────────────────────
  * Entrar sem senha é uma decisão consciente do dono da loja: quem alcança o TECLADO daquele
  * computador entra como aquele usuário. O que NÃO pode acontecer é isso valer para quem não
- * está na máquina — com "Acesso pela rede local" ligado o Kivo escuta em 0.0.0.0, e sem a
+ * está na máquina — com "Acesso pela rede local" ligado o Kuruk escuta em 0.0.0.0, e sem a
  * checagem de loopback abaixo qualquer celular no Wi-Fi da loja entraria como o dono só
  * abrindo o endereço. Por isso:
  *

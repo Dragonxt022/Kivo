@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Kivo Cloud — Temas</title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <title>Kuruk Cloud — Temas</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
   <style>
@@ -269,7 +269,7 @@
   </dialog>
 
   <script>
-    window.KIVO_THEMES = <%- JSON.stringify(themes.map(function (t) {
+    window.KURUK_THEMES = <%- JSON.stringify(themes.map(function (t) {
       return { id: t.id, name: t.name, description: t.description || '', price_cents: t.price_cents, cover: t.cover_path ? ('/admin/themes/' + t.id + '/cover') : null };
     })) %>;
     // Aceita "19,90" e "19.90" sem ambiguidade: se há vírgula, ela é o decimal e os pontos
@@ -358,7 +358,7 @@
     }
 
     function openEditTheme(id) {
-      const t = (window.KIVO_THEMES || []).find((x) => x.id === id);
+      const t = (window.KURUK_THEMES || []).find((x) => x.id === id);
       if (!t) return;
       document.getElementById('edit-theme-id').value = t.id;
       document.getElementById('edit-theme-name').value = t.name;

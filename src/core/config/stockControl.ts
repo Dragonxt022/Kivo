@@ -4,7 +4,7 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 /**
  * Chave geral do controle de quantidade.
  *
- * Nasce LIGADA (`'1'`). Com `'0'`, o Kivo trata todos os produtos como "não controla
+ * Nasce LIGADA (`'1'`). Com `'0'`, o Kuruk trata todos os produtos como "não controla
  * estoque" — sem baixar/entrar saldo, sem alerta de mínimo e sem movimentação manual —
  * sem precisar desmarcar produto por produto no cadastro. O `track_stock` de cada
  * produto continua gravado: religar a chave devolve o comportamento anterior.

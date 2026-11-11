@@ -1,10 +1,10 @@
 /**
  * Datas/horas no banco são sempre UTC (datetime('now') do SQLite) — necessário pra
  * sincronização entre máquinas. A EXIBIÇÃO usa o fuso da MÁQUINA (de quem está usando):
- * o Kivo roda no computador da loja, então o fuso do navegador é o do usuário. Espelhado
+ * o Kuruk roda no computador da loja, então o fuso do navegador é o do usuário. Espelhado
  * em `shared/datetime.ts` do lado servidor.
  */
-const KIVO_TIMEZONE = (function () {
+const KURUK_TIMEZONE = (function () {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Porto_Velho';
   } catch (_e) {
@@ -18,7 +18,7 @@ function fmtDateTime(raw) {
   const d = new Date(String(raw).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z');
   if (isNaN(d.getTime())) return String(raw);
   return d.toLocaleString('pt-BR', {
-    timeZone: KIVO_TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: KURUK_TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).replace(',', '');
 }
 
@@ -46,7 +46,7 @@ function fmtDateTimeLocal(raw) {
 
 /** "Hoje" no fuso da loja, formato YYYY-MM-DD — para filtros de dia (ex.: relatório de vendas). */
 function todayLocal() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: KIVO_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: KURUK_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
 /**

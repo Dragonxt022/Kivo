@@ -1,7 +1,7 @@
 /**
  * Parser XML mínimo e sem dependência, focado em NF-e 4.00.
  *
- * Motivação: o Kivo é offline-first e não tem biblioteca XML (e não convém adicionar
+ * Motivação: o Kuruk é offline-first e não tem biblioteca XML (e não convém adicionar
  * uma dependência nativa só para importar nota). O que a NF-e precisa é um DOM leve com:
  *  - nomes de tag sem namespace (prefixos `nfe:` ignorados na comparação);
  *  - atributos (caso preservado; leitura é case-insensitive);

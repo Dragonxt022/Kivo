@@ -1,11 +1,11 @@
-# Módulo Kivo Odonto — Regras de Negócio
+# Módulo Kuruk Odonto — Regras de Negócio
 
 Gestão de consultórios e clínicas odontológicas. Reaproveita o Core em vez de duplicar:
 paciente é um **cliente** (`customers`) + ficha clínica; procedimento pode apontar para um
 produto/serviço do catálogo; a cobrança do tratamento usa o financeiro existente.
 
 A auditoria que fundamenta cada decisão (com `arquivo:linha`) está em
-`doc/KIVO_ODONTO_ARCHITECTURE_AUDIT.md`.
+`doc/KURUK_ODONTO_ARCHITECTURE_AUDIT.md`.
 
 ## Visão geral
 
@@ -51,8 +51,8 @@ usa. Três coisas passaram a ser regra, com teste que impede a volta (`odonto-in
 
 **Tutorial** (`views/partials/odonto-tour.ejs`, mesmo motor do PDV e do estoque: `/js/tour.js`):
 12 passos explicando o fluxo inteiro — paciente → anamnese → agenda → evolução → odontograma →
-plano → cobrança → documentos → painel. Roda **uma vez por máquina** (`KivoTour.autoStart` com a
-chave `kivo-tour-odonto-v1`) na primeira tela do módulo que a pessoa abrir, e pode ser revisto no
+plano → cobrança → documentos → painel. Roda **uma vez por máquina** (`KurukTour.autoStart` com a
+chave `kuruk-tour-odonto-v1`) na primeira tela do módulo que a pessoa abrir, e pode ser revisto no
 botão fixo "Rever tutorial".
 
 Dois detalhes que custaram para acertar e ficam registrados:
@@ -93,7 +93,7 @@ texto.
 
 **"Exportar em PDF"** é a tela de impressão (`/app/odonto/documentos/:id/imprimir`, folha A4) e o
 "Salvar como PDF" do navegador — o mesmo caminho de impressão do cupom, do orçamento e do carnê.
-O Electron do Kivo não expõe `printToPDF` (o `preload.ts` está vazio): gerar arquivo `.pdf`
+O Electron do Kuruk não expõe `printToPDF` (o `preload.ts` está vazio): gerar arquivo `.pdf`
 sozinho exigiria uma ponte nova no shell, e não vale ter dois caminhos de impressão no sistema.
 
 | Método | Rota | Permissão |
@@ -424,7 +424,7 @@ do Comercial só é necessária para o atalho "Financeiro do paciente" na ficha.
 
 ## Ambiente de teste: a clínica de exemplo
 
-O dentista que instala o Kivo não tem como avaliar o módulo com as telas vazias — e o catálogo de
+O dentista que instala o Kuruk não tem como avaliar o módulo com as telas vazias — e o catálogo de
 demonstração do assistente de boas-vindas cria só PRODUTOS (procedimentos e material). Por isso
 existe um gerador da clínica inteira:
 

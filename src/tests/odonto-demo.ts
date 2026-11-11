@@ -13,7 +13,7 @@
  *    possível seria anexar consulta e exame fictícios na ficha de um paciente de verdade;
  *  - o reset de fábrica (e o helper que ele usa) tira os arquivos de exame do disco.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-demo.ts
  */
 import { existsSync, readdirSync } from 'node:fs';
@@ -31,7 +31,7 @@ import { EXAM_URL_PREFIX, clearExamFilesDir, examFilePath, examFilesDir } from '
 import { createCustomer } from '../modules/commercial/customers';
 import { createDemoCatalog } from '../core/onboarding/demoCatalog';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3861);
+const PORT = Number(process.env.KURUK_PORT ?? 3861);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 
@@ -55,8 +55,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 /** Lê o PNG como o navegador leria: assinatura, tamanho do IHDR e IDAT que descomprime inteiro. */

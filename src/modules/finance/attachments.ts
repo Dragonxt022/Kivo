@@ -22,7 +22,7 @@ export const BILL_ATTACHMENT_URL_PREFIX = '/uploads/bills/';
  * cwd varia conforme de onde o processo foi lançado. Mesmo padrão de `companyLogoDir()`.
  */
 export function billAttachmentsDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dataRoot = path.dirname(path.dirname(dbPath));
   const dir = path.join(dataRoot, 'storage', 'bill-attachments');
   fs.mkdirSync(dir, { recursive: true });

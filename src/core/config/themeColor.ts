@@ -4,7 +4,7 @@ import { settingsRepository } from '../repositories/SettingsRepository';
 /**
  * Cor de destaque da empresa. Deixou de ser uma preferência de navegador (localStorage) e
  * passou a ser configuração da empresa: o valor mora na tabela `settings` e é aplicado no
- * servidor, então vale em qualquer aparelho que abra este Kivo — inclusive pelo celular na
+ * servidor, então vale em qualquer aparelho que abra este Kuruk — inclusive pelo celular na
  * rede local (ver `themeColorLocals` e partials/theme-init.ejs).
  */
 export const COLOR_KEY = 'interface.cor_destaque';

@@ -1,8 +1,8 @@
 /**
- * Provedores de IA da KIVO IA.
+ * Provedores de IA da KURUK IA.
  *
- * Quem configura os provedores e as chaves é o time do Kivo, no painel do Kivo Cloud
- * (Configurações › KIVO IA) — o cliente NÃO vê chave nenhuma. Este módulo é puro: recebe a
+ * Quem configura os provedores e as chaves é o time do Kuruk, no painel do Kuruk Cloud
+ * (Configurações › KURUK IA) — o cliente NÃO vê chave nenhuma. Este módulo é puro: recebe a
  * configuração já carregada (`AiConfig`, ver `aiConfig.ts`) e sabe conversar com cada API.
  *
  * Ollama é o padrão (roda na VPS, não exige chave). OpenAI/DeepSeek/Anthropic só entram na
@@ -30,7 +30,7 @@ export interface ChatMessage {
 
 /** Configuração resolvida (banco + variáveis de ambiente). Ver aiConfig.ts. */
 export interface AiConfig {
-  /** Liga/desliga a KIVO IA no servidor. */
+  /** Liga/desliga a KURUK IA no servidor. */
   enabled: boolean;
   defaultProvider: ProviderId;
   keys: Record<ProviderId, string | null>;
@@ -86,7 +86,7 @@ export const STATIC_MODELS: Record<Exclude<ProviderId, 'ollama'>, AiModelInfo[]>
 };
 
 export const PROVIDER_LABELS: Record<ProviderId, string> = {
-  ollama: 'Ollama (servidor Kivo)',
+  ollama: 'Ollama (servidor Kuruk)',
   openai: 'OpenAI (ChatGPT)',
   deepseek: 'DeepSeek',
   anthropic: 'Anthropic (Claude)',

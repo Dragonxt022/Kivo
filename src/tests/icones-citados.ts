@@ -1,7 +1,7 @@
 /**
  * Guarda dos ícones citados pelos módulos.
  *
- * O Kivo resolve ícone por NOME DE ARQUIVO em `public/icons` (ver `core/icons/service.ts`). Se um
+ * O Kuruk resolve ícone por NOME DE ARQUIVO em `public/icons` (ver `core/icons/service.ts`). Se um
  * manifesto ou uma view cita um ícone que não existe, `svgIcon()` cai no conjunto padrão e a tela
  * mostra um ícone genérico — ou o mesmo ícone em vários lugares — sem erro nenhum no console.
  *

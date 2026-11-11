@@ -7,7 +7,7 @@
  * o horário, as situações andam na ordem certa (atendido é final) e quem não tem permissão de
  * agenda não vê nem mexe.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-agenda.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -17,7 +17,7 @@ import { createServer } from '../core/server';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3846);
+const PORT = Number(process.env.KURUK_PORT ?? 3846);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 const DIA = '2026-11-10';
@@ -39,8 +39,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface Appointment {

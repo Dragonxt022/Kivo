@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Kivo Cloud — Mercado Pago</title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <title>Kuruk Cloud — Mercado Pago</title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <%- include('partials/styles') %>
   <style>
     .pay-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
@@ -63,7 +63,7 @@
           <div class="gateway-alert">
             <div>
               <strong>Credenciais salvas, mas o pagamento online está desligado.</strong>
-              <p>O token e a chave do webhook já estão no servidor. Falta apenas ativar o gateway para o Kivo gerar cobranças.</p>
+              <p>O token e a chave do webhook já estão no servidor. Falta apenas ativar o gateway para o Kuruk gerar cobranças.</p>
             </div>
             <form method="post" action="/admin/payments/enable">
               <input type="hidden" name="enabled" value="1">
@@ -97,7 +97,7 @@
               <% if (gateway.accessTokenSet) { %>
                 <p class="field-hint"><strong>Salvo no servidor:</strong> <code><%= gateway.accessTokenPreview %></code> — em branco mantém esta credencial.</p>
               <% } else { %>
-                <p class="field-hint">Começa com <code>APP_USR-</code> em produção e <code>TEST-</code> no sandbox. Só o servidor do Kivo usa esta chave; ela nunca é enviada ao programa do cliente.</p>
+                <p class="field-hint">Começa com <code>APP_USR-</code> em produção e <code>TEST-</code> no sandbox. Só o servidor do Kuruk usa esta chave; ela nunca é enviada ao programa do cliente.</p>
               <% } %>
 
               <label>Assinatura secreta do webhook</label>
@@ -106,7 +106,7 @@
                      placeholder="<%= gateway.webhookSecretSet ? 'Deixe em branco para manter a assinatura salva' : 'Chave gerada pelo Mercado Pago ao salvar os webhooks' %>">
               <p class="field-hint">
                 <% if (gateway.webhookSecretSet) { %><strong>Assinatura secreta salva no servidor.</strong> <% } %>
-                Sem ela o Kivo ainda confirma o pagamento (reconsulta na API), mas não consegue provar que a notificação veio do Mercado Pago.
+                Sem ela o Kuruk ainda confirma o pagamento (reconsulta na API), mas não consegue provar que a notificação veio do Mercado Pago.
               </p>
 
               <label>E-mail do pagador (padrão)</label>
@@ -129,12 +129,12 @@
               </li>
               <li>
                 <strong>Crie uma aplicação</strong> (ou abra a existente). É ela que assina a integração
-                e gera as chaves. Sugestão de nome: <code>Kivo — assinaturas</code>.
+                e gera as chaves. Sugestão de nome: <code>Kuruk — assinaturas</code>.
               </li>
               <li>
                 No menu da esquerda, entre em <strong>Produção › Credenciais de produção</strong>.
                 Preencha <strong>Ramo/Indústria</strong>, o <strong>Site</strong> (use o endereço do
-                Kivo Cloud), aceite os termos e clique em <strong>Ativar credenciais de produção</strong>.
+                Kuruk Cloud), aceite os termos e clique em <strong>Ativar credenciais de produção</strong>.
               </li>
               <li>
                 Copie o <strong>Access Token</strong> (começa com <code>APP_USR-</code>) e cole no campo
@@ -151,7 +151,7 @@
               </li>
               <li>
                 Ao salvar, o Mercado Pago mostra a <strong>assinatura secreta</strong>. Copie e cole no
-                campo acima — é o que permite ao Kivo provar que a notificação veio deles.
+                campo acima — é o que permite ao Kuruk provar que a notificação veio deles.
               </li>
               <% if (gateway.environment !== 'producao') { %>
               <li>
@@ -180,7 +180,7 @@
               O cliente também paga <strong>de dentro do programa</strong>, na tela Cobranças.
             </li>
             <li>
-              Quando o pagamento é aprovado, o Mercado Pago avisa o Kivo (webhook) e o Kivo
+              Quando o pagamento é aprovado, o Mercado Pago avisa o Kuruk (webhook) e o Kuruk
               <strong>reconfere o pagamento na API deles</strong> antes de dar baixa — notificação
               sozinha não marca cobrança como paga.
             </li>

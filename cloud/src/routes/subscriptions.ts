@@ -110,7 +110,7 @@ adminSubscriptionsRouter.post('/companies/:uuid/subscriptions', requireAdminAuth
   const frequency = Math.max(1, Number(body.frequency) || 1);
   const frequencyType = body.frequencyType === 'days' ? 'days' : 'months';
   const extendsDays = Math.max(1, Number(body.extendsDays) || 30);
-  const reason = String(body.reason ?? '').trim() || `Assinatura Kivo — ${company.name || 'cliente'}`;
+  const reason = String(body.reason ?? '').trim() || `Assinatura Kuruk — ${company.name || 'cliente'}`;
   const payerEmail = String(body.payerEmail ?? '').trim() || company.email || '';
 
   try {

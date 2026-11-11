@@ -9,9 +9,9 @@
  * nonce é recusado pelo navegador sem erro visível no servidor, e só quem abrir aquela
  * tela específica descobre. Este teste varre TODAS as páginas e falha antes disso.
  *
- * KIVO_DB_PATH TEM que vir do ambiente (`import` é hoisted e connection.ts lê a variável
+ * KURUK_DB_PATH TEM que vir do ambiente (`import` é hoisted e connection.ts lê a variável
  * antes de qualquer linha daqui rodar):
- *   node scripts/kivo test:csp    ← use o comando
+ *   node scripts/kuruk test:csp    ← use o comando
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,7 +22,7 @@ import { createServer } from '../core/server';
 import { closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3843);
+const PORT = Number(process.env.KURUK_PORT ?? 3843);
 const base = `http://localhost:${PORT}`;
 
 let failures = 0;
@@ -33,16 +33,16 @@ function check(label: string, ok: boolean, extra = ''): void {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
-      '`node scripts/kivo test:csp`, que aponta para um arquivo temporário.',
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
+      '`node scripts/kuruk test:csp`, que aponta para um arquivo temporário.',
     );
   }
-  const devDb = path.resolve(process.cwd(), 'database', 'kivo.db');
+  const devDb = path.resolve(process.cwd(), 'database', 'kuruk.db');
   if (path.resolve(alvo) === devDb) {
-    throw new Error(`Recusado: KIVO_DB_PATH aponta para o banco de dev (${devDb}).`);
+    throw new Error(`Recusado: KURUK_DB_PATH aponta para o banco de dev (${devDb}).`);
   }
   return alvo;
 }

@@ -14,8 +14,8 @@
  *                 sobrava no menu de uma loja de roupas.
  *   FORÇA BRUTA — o bloqueio por senha errada durava 1 minuto, travando o caixa.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
- *   node scripts/kivo test:onboarding        ← use o comando
+ * KURUK_DB_PATH TEM que vir do ambiente — este teste recria o banco que usar:
+ *   node scripts/kuruk test:onboarding        ← use o comando
  *   npx tsx src/tests/onboarding-permissoes.ts    ← NÃO: apagaria o banco de dev
  */
 import fs from 'node:fs';
@@ -29,7 +29,7 @@ import { activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 import { ROLE_PRESETS } from '../core/roles/presets';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3814);
+const PORT = Number(process.env.KURUK_PORT ?? 3814);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -48,15 +48,15 @@ async function api(p: string, opts: RequestInit = {}): Promise<Response> {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
-      '`node scripts/kivo test:onboarding`, que aponta para um arquivo temporário.',
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
+      '`node scripts/kuruk test:onboarding`, que aponta para um arquivo temporário.',
     );
   }
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }
@@ -78,8 +78,8 @@ async function main(): Promise<void> {
 
   try {
     const login = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: 'admin', password: 'admin' }) });
-    const m = (login.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-    cookie = m ? `kivo_session=${m[1]}` : '';
+    const m = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+    cookie = m ? `kuruk_session=${m[1]}` : '';
     check('login admin', cookie !== '');
     if (!cookie) return;
 

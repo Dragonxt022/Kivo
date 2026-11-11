@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Comanda</title>
+  <title>Kuruk — Comanda</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -441,8 +441,8 @@
             <span class="prod-meta">
               <span class="muted text-sm" x-show="p.category" x-text="p.category"></span>
               <span class="prod-stock"
-                    :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
-                    x-show="p.track_stock && KIVO_ESTOQUE_ATIVO"
+                    :class="{ low: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                    x-show="p.track_stock && KURUK_ESTOQUE_ATIVO"
                     x-text="'Est: ' + p.stock_qty"></span>
             </span>
             <span class="prod-price" x-text="brl(p.price_cents)"></span>
@@ -467,10 +467,10 @@
               </span>
               <span class="prod-list-meta">
                 <span x-show="p.category" x-text="p.category"></span>
-                <span x-show="p.category && p.track_stock && KIVO_ESTOQUE_ATIVO">·</span>
+                <span x-show="p.category && p.track_stock && KURUK_ESTOQUE_ATIVO">·</span>
                 <span class="prod-stock"
-                      :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
-                      x-show="p.track_stock && KIVO_ESTOQUE_ATIVO"
+                      :class="{ low: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                      x-show="p.track_stock && KURUK_ESTOQUE_ATIVO"
                       x-text="'Est: ' + p.stock_qty"></span>
               </span>
             </span>
@@ -1182,7 +1182,7 @@
             await this.load();
             showToast(tinhaObs ? 'Observação salva — vai para a cozinha no "Enviar p/ cozinha".' : 'Observação removida.', 'success');
           } catch {
-            showToast('Sem conexão com o Kivo. Tente de novo.', 'error');
+            showToast('Sem conexão com o Kuruk. Tente de novo.', 'error');
           } finally {
             this.salvandoObs = false;
           }
@@ -1213,7 +1213,7 @@
             // Sem recarregar, os selos continuariam "a enviar" até o próximo poll.
             await this.load().catch(() => {});
           } catch {
-            showToast('Sem conexão com o Kivo. Tente de novo.', 'error');
+            showToast('Sem conexão com o Kuruk. Tente de novo.', 'error');
           } finally {
             this.enviandoCozinha = false;
           }
@@ -1249,7 +1249,7 @@
             if (r.ok) this.transferTables = await r.json();
             else this.dlgError = 'Não foi possível carregar as mesas.';
           } catch {
-            this.dlgError = 'Sem conexão com o Kivo. Tente de novo.';
+            this.dlgError = 'Sem conexão com o Kuruk. Tente de novo.';
           }
           this.$refs.transferDlg.showModal();
         },
@@ -1342,7 +1342,7 @@
             await this.load();
             showToast('Caixa avisado — leve a comanda para o cliente pagar.', 'success');
           } catch (e) {
-            showToast('Sem conexão com o Kivo. Tente de novo.', 'error');
+            showToast('Sem conexão com o Kuruk. Tente de novo.', 'error');
           } finally {
             this.chamandoCaixa = false;
           }

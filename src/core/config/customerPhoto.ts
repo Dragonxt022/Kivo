@@ -27,7 +27,7 @@ const EXT_BY_FORMAT: Record<ImageFormat, string> = {
 };
 
 function dataRoot(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.dirname(path.dirname(dbPath));
 }
 

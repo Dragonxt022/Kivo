@@ -1,5 +1,5 @@
 /**
- * Insights de vendas (KIVO IA) de ponta a ponta: desktop → nuvem → modelo.
+ * Insights de vendas (KURUK IA) de ponta a ponta: desktop → nuvem → modelo.
  *
  * Sobe um Ollama SIMULADO, uma empresa e o cloud apontando para ele, e o desktop apontando para
  * o cloud. Depois insere vendas no banco do desktop e chama `POST /api/ai/sales-insights`.
@@ -11,7 +11,7 @@
  *   4. sem vendas não cobra; esgotada a cota, responde 402.
  *
  * Exige o MySQL do cloud no ar (docker compose):
- *   docker compose -f cloud/docker-compose.yml up -d && CLOUD_DB_PORT=3307 npm run kivo cloud:migrate
+ *   docker compose -f cloud/docker-compose.yml up -d && CLOUD_DB_PORT=3307 npm run kuruk cloud:migrate
  *   node scripts/test-isolated.js src/tests/ai-sales-insights-e2e.ts
  */
 import fs from 'node:fs';
@@ -30,7 +30,7 @@ const DESK = `http://127.0.0.1:${DESK_PORT}`;
 const SCRATCH = path.resolve(ROOT, 'storage', 'temp', 'ai-insights-e2e');
 const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1', CLOUD_DB_PORT: '3307', CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo', CLOUD_DB_NAME: process.env.CLOUD_DB_NAME ?? 'kivo_cloud',
+  CLOUD_DB_PASSWORD: 'kuruk', CLOUD_DB_NAME: process.env.CLOUD_DB_NAME ?? 'kuruk_cloud',
   CLOUD_PORT: String(CLOUD_PORT),
 };
 
@@ -112,8 +112,8 @@ async function main(): Promise<void> {
     await waitForHealth(`${CLOUD}/api/health`);
 
     deskProc = spawnProc('desktop', 'src/dev.ts', {
-      KIVO_DB_PATH: dbPath, KIVO_PORT: String(DESK_PORT),
-      KIVO_SYNC_SERVER_URL: CLOUD, KIVO_MACHINE_ID: 'ai-insights-e2e',
+      KURUK_DB_PATH: dbPath, KURUK_PORT: String(DESK_PORT),
+      KURUK_SYNC_SERVER_URL: CLOUD, KURUK_MACHINE_ID: 'ai-insights-e2e',
     });
     await waitForHealth(`${DESK}/api/health`);
 
@@ -125,7 +125,7 @@ async function main(): Promise<void> {
     const login = await fetch(`${DESK}/api/auth/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'admin' }),
     });
-    const cookie = (login.headers.get('set-cookie') ?? '').match(/kivo_session=[^;]+/)?.[0] ?? '';
+    const cookie = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=[^;]+/)?.[0] ?? '';
     check('login no desktop', !!cookie);
 
     const dk = (p: string, init: RequestInit = {}) =>
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
     const mysql = cloudRequire('mysql2/promise') as {
       createPool(cfg: Record<string, unknown>): { query(sql: string, params?: unknown[]): Promise<unknown>; end(): Promise<void> };
     };
-    const pool = mysql.createPool({ host: '127.0.0.1', port: 3307, user: 'root', password: 'kivo', database: process.env.CLOUD_DB_NAME ?? 'kivo_cloud' });
+    const pool = mysql.createPool({ host: '127.0.0.1', port: 3307, user: 'root', password: 'kuruk', database: process.env.CLOUD_DB_NAME ?? 'kuruk_cloud' });
     await pool.query(
       `INSERT INTO company_ai_quotas (company_uuid, feature, daily_limit, used, period_day) VALUES (?, 'sales_insights', 1, 1, ?)
        ON DUPLICATE KEY UPDATE daily_limit = 1, used = 1, period_day = VALUES(period_day)`,

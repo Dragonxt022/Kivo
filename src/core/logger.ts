@@ -1,11 +1,11 @@
 /**
- * Log estruturado do Kivo.
+ * Log estruturado do Kuruk.
  *
- * O motivo é o suporte, não a elegância: o Kivo roda instalado na máquina do lojista, e
+ * O motivo é o suporte, não a elegância: o Kuruk roda instalado na máquina do lojista, e
  * quando algo falha às 19h de sexta o que existia era `console.log` num terminal que
  * ninguém vê — o app empacotado não tem console aberto. Diagnosticar virava pedir print
  * de tela por telefone. Agora toda linha vai também para um arquivo em
- * `storage/logs/kivo-AAAA-MM-DD.log`, que o lojista consegue anexar num chamado.
+ * `storage/logs/kuruk-AAAA-MM-DD.log`, que o lojista consegue anexar num chamado.
  *
  * O formato mantém o prefixo por área que o código já usava (`[license]`, `[sync]`,
  * `[backup]`), agora como escopo de verdade: `createLogger('license')`. Continua saindo no
@@ -28,12 +28,12 @@ const RETENTION_DAYS = 14;
 /**
  * Teto por arquivo do dia. A retenção por idade não impede um único dia patológico (um erro
  * em laço) de encher o disco; ao passar do teto, o arquivo vira `...1.log` e começa outro.
- * Configurável por `KIVO_LOG_MAX_MB` (padrão 50 MB).
+ * Configurável por `KURUK_LOG_MAX_MB` (padrão 50 MB).
  */
-const MAX_FILE_BYTES = Math.max(1, Number(process.env.KIVO_LOG_MAX_MB ?? 50)) * 1024 * 1024;
+const MAX_FILE_BYTES = Math.max(1, Number(process.env.KURUK_LOG_MAX_MB ?? 50)) * 1024 * 1024;
 
 function nivelConfigurado(): LogLevel {
-  const bruto = String(process.env.KIVO_LOG_LEVEL ?? '').toLowerCase();
+  const bruto = String(process.env.KURUK_LOG_LEVEL ?? '').toLowerCase();
   return bruto in LEVEL_ORDER ? (bruto as LogLevel) : 'info';
 }
 
@@ -58,17 +58,17 @@ export function setErrorSink(fn: ErrorSink | null): void {
 
 /**
  * Mesma raiz de `storage/` usada por backups e imagens: o diretório do banco, dois níveis
- * acima. Resolver a partir de KIVO_DB_PATH (e não de process.cwd()) é o que faz o app
+ * acima. Resolver a partir de KURUK_DB_PATH (e não de process.cwd()) é o que faz o app
  * empacotado escrever ao lado dos dados do cliente, e não dentro de Program Files.
  */
 function logsDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dataRoot = path.dirname(path.dirname(dbPath));
   return path.join(dataRoot, 'storage', 'logs');
 }
 
 function arquivoDoDia(agora: Date): string {
-  return path.join(logsDir(), `kivo-${agora.toISOString().slice(0, 10)}.log`);
+  return path.join(logsDir(), `kuruk-${agora.toISOString().slice(0, 10)}.log`);
 }
 
 /** Se o arquivo do dia passou do teto, guarda uma geração (`.1.log`) e recomeça do zero. */
@@ -98,7 +98,7 @@ function limparAntigos(): void {
     const dir = logsDir();
     const limite = agora - RETENTION_DAYS * 24 * 3600e3;
     for (const nome of fs.readdirSync(dir)) {
-      if (!nome.startsWith('kivo-') || !nome.endsWith('.log')) continue;
+      if (!nome.startsWith('kuruk-') || !nome.endsWith('.log')) continue;
       const completo = path.join(dir, nome);
       if (fs.statSync(completo).mtimeMs < limite) fs.unlinkSync(completo);
     }

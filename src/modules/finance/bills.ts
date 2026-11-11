@@ -186,7 +186,7 @@ export type SettleBillResult =
 /**
  * Liquida uma conta (a pagar ou a receber).
  *
- * Extraído da rota para o Kivo Web poder receber pelo celular: a intenção chega como comando
+ * Extraído da rota para o Kuruk Web poder receber pelo celular: a intenção chega como comando
  * e roda no desktop pelo MESMO caminho da tela — caixa, rolagem de saldo e auditoria
  * inclusive. Duplicar essa lógica no handler seria criar uma segunda verdade para dinheiro.
  */

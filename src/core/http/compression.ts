@@ -4,7 +4,7 @@ import { brotliCompressSync, constants as zlibConstants, gzipSync } from 'node:z
 /**
  * Compressão de resposta para o acesso pela rede local.
  *
- * O Kivo é servido pela máquina da loja (Electron/Express), e o celular/tablet acessa
+ * O Kuruk é servido pela máquina da loja (Electron/Express), e o celular/tablet acessa
  * pelo Wi-Fi. Nesse caminho, o HTML do PDV (~170 KB), o app.css (~220 KB) e o Alpine
  * viajam SEM compressão hoje — é o que faz a navegação no celular parecer lenta mesmo
  * com a rede funcionando. Este middleware responde com brotli (ou gzip, para clientes

@@ -2,9 +2,9 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { getPool } from './db';
 
 /**
- * Gateway de pagamento do Kivo Cloud — Mercado Pago.
+ * Gateway de pagamento do Kuruk Cloud — Mercado Pago.
  *
- * O Kivo cobra a assinatura do lojista (tabela `charges`) e o lojista paga por Pix, boleto
+ * O Kuruk cobra a assinatura do lojista (tabela `charges`) e o lojista paga por Pix, boleto
  * ou cartão. Toda a conversa com o Mercado Pago passa por aqui: credenciais guardadas em
  * `app_settings` (nunca vão para o app do cliente), criação do pagamento, leitura do status
  * e validação da assinatura do webhook.
@@ -150,12 +150,12 @@ export async function saveSettings(body: Record<string, unknown>): Promise<void>
 
 /** URL pública que o Mercado Pago chama. Derivada do domínio configurado no cloud. */
 export function notificationUrl(): string {
-  const base = (process.env.CLOUD_PUBLIC_URL ?? 'https://kivo.buscamais.org').replace(/\/+$/, '');
+  const base = (process.env.CLOUD_PUBLIC_URL ?? 'https://kuruk.com.br').replace(/\/+$/, '');
   return `${base}/api/webhooks/mercadopago`;
 }
 
 export function publicPayUrl(token: string): string {
-  const base = (process.env.CLOUD_PUBLIC_URL ?? 'https://kivo.buscamais.org').replace(/\/+$/, '');
+  const base = (process.env.CLOUD_PUBLIC_URL ?? 'https://kuruk.com.br').replace(/\/+$/, '');
   return `${base}/pagar/${token}`;
 }
 
@@ -297,7 +297,7 @@ export interface CreatedPreference {
 }
 
 /**
- * Cartão pelo Checkout Pro: em vez de tratar cartão dentro do Kivo (o que exigiria PCI e
+ * Cartão pelo Checkout Pro: em vez de tratar cartão dentro do Kuruk (o que exigiria PCI e
  * checkout próprio), criamos uma preferência e mandamos o cliente para a página do Mercado
  * Pago. O webhook de `payment` continua sendo o que fecha o ciclo.
  */
@@ -322,7 +322,7 @@ export async function createCardPreference(
       notification_url: notificationUrl(),
       back_urls: backUrls,
       auto_return: 'approved',
-      statement_descriptor: 'KIVO',
+      statement_descriptor: 'KURUK',
     },
   });
   const initPoint = r.init_point ?? r.sandbox_init_point ?? '';
@@ -379,7 +379,7 @@ export interface SubscriptionCreationInput {
   payerEmail: string;
   frequency: number;
   frequencyType: 'days' | 'months';
-  /** Página pública do Kivo para onde o Mercado Pago volta depois da autorização. */
+  /** Página pública do Kuruk para onde o Mercado Pago volta depois da autorização. */
   backUrl: string;
 }
 
@@ -413,7 +413,7 @@ interface MpPreapprovalResponse {
  *
  * `notification_url` é obrigatório AQUI: a documentação de Assinaturas não permite configurar
  * webhook só pelo painel do Mercado Pago para esse produto. Sem ele, os pagamentos recorrentes
- * não chegariam ao Kivo.
+ * não chegariam ao Kuruk.
  */
 export async function createSubscription(
   input: SubscriptionCreationInput,
@@ -592,7 +592,7 @@ export async function getPayment(paymentId: string, settings: GatewaySettings): 
   };
 }
 
-/** Status do Mercado Pago → o que o Kivo faz com a cobrança. */
+/** Status do Mercado Pago → o que o Kuruk faz com a cobrança. */
 export function mapPaymentStatus(mpStatus: string): 'paga' | 'pendente' | 'nao_mexe' {
   switch (mpStatus) {
     case 'approved':

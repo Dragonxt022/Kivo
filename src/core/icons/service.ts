@@ -3,7 +3,7 @@ import path from 'node:path';
 import { settingsRepository } from '../repositories/SettingsRepository';
 
 /**
- * Pacotes de ícones (temas visuais) do Kivo.
+ * Pacotes de ícones (temas visuais) do Kuruk.
  *
  * O app sempre usou um único conjunto de SVGs em public/icons, resolvido por `svgIcon()`.
  * Aqui os nomes desses arquivos viram o CONTRATO: cada pacote é uma pasta em
@@ -20,11 +20,11 @@ export const ICON_PACK_SETTING = 'interface.pacote_icones';
 /**
  * Id do pacote padrão. É um valor REAL (e não string vazia) de propósito: `<option value="">`
  * faz o navegador devolver o TEXTO da opção como valor do select, então "voltar ao padrão"
- * mandava "Padrão Kivo (36 ícones)" para a API e era recusado. Vazio continua aceito na
+ * mandava "Padrão Kuruk (36 ícones)" para a API e era recusado. Vazio continua aceito na
  * leitura (instalações antigas/semeadas) e é normalizado para este id.
  */
 export const DEFAULT_PACK_ID = 'padrao';
-const DEFAULT_PACK_NAME = 'Padrão Kivo';
+const DEFAULT_PACK_NAME = 'Padrão Kuruk';
 
 /** Vazio, o id reservado ou lixo → conjunto padrão. */
 function isDefaultPack(id: string): boolean {
@@ -35,7 +35,7 @@ const DEFAULT_ICONS_DIR = path.resolve(__dirname, '..', '..', 'public', 'icons')
 
 /** Mesma raiz de dados de backups/imagens: o diretório do banco, dois níveis acima. */
 export function iconPacksDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.join(path.dirname(path.dirname(dbPath)), 'storage', 'peck-icon');
 }
 

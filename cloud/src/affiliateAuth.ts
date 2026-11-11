@@ -8,10 +8,10 @@ import { getPool } from './db';
  *
  * O afiliado é um representante externo: ele enxerga apenas as empresas que indicou, os
  * créditos de comissão e os pedidos de pagamento dele. O cookie é próprio
- * (`kivo_affiliate_session`) e a sessão vive no banco (`affiliate_sessions`), mesmo padrão
+ * (`kuruk_affiliate_session`) e a sessão vive no banco (`affiliate_sessions`), mesmo padrão
  * de `adminAuth.ts` — assim um deploy/restart não desloga ninguém.
  */
-export const AFFILIATE_SESSION_COOKIE = 'kivo_affiliate_session';
+export const AFFILIATE_SESSION_COOKIE = 'kuruk_affiliate_session';
 const SESSION_TTL_MS = 12 * 3600e3; // 12h
 /** "Manter conectado": mesmo prazo do login do app desktop (30 dias). */
 const REMEMBER_TTL_MS = 30 * 24 * 3600e3;

@@ -1,4 +1,4 @@
--- Central de mensagens do Kivo (suporte -> loja). Três tabelas locais:
+-- Central de mensagens do Kuruk (suporte -> loja). Três tabelas locais:
 --   cloud_messages            cache das mensagens publicadas para esta empresa (puxadas da nuvem);
 --   cloud_message_state       estado POR USUÁRIO: lida, favorita, excluída, categoria própria e ordem;
 --   cloud_message_categories  categorias criadas pelo usuário para guardar mensagens.
@@ -19,7 +19,7 @@ CREATE TABLE cloud_messages (
   remote_updated_at TEXT,
   fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  comment TEXT NOT NULL DEFAULT 'Cache local das mensagens publicadas pelo suporte/Kivo Cloud para esta empresa. Alimentada por pull em /api/messages/inbox.'
+  comment TEXT NOT NULL DEFAULT 'Cache local das mensagens publicadas pelo suporte/Kuruk Cloud para esta empresa. Alimentada por pull em /api/messages/inbox.'
 );
 CREATE INDEX idx_cloud_messages_published ON cloud_messages(published_at);
 

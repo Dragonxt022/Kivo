@@ -1,7 +1,7 @@
 /**
  * Teste do contrato do cliente — o caminho comercial inteiro pelo painel.
  *
- * Sobe o Kivo Cloud (MySQL do docker-compose) e um Mercado Pago de mentira, e percorre:
+ * Sobe o Kuruk Cloud (MySQL do docker-compose) e um Mercado Pago de mentira, e percorre:
  * cria a empresa → cria o contrato de 12 meses com PDF anexado → confere o bloco de parcelas
  * gerado (vencimentos, valores, numeração) → o cliente paga a primeira parcela por Pix →
  * a licença é estendida e o contrato passa a mostrar 1/12 → cancela o contrato (as parcelas
@@ -21,8 +21,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo',
-  CLOUD_DB_NAME: 'kivo_cloud',
+  CLOUD_DB_PASSWORD: 'kuruk',
+  CLOUD_DB_NAME: 'kuruk_cloud',
 };
 
 const MP_PORT = 4261;
@@ -151,13 +151,13 @@ async function main(): Promise<void> {
     check('cloud no ar', await esperar(`${CLOUD_URL}/api/health`));
 
     const login = await form('/admin/login', { username: ADMIN_USER, password: ADMIN_PASS });
-    const cookie = (login.headers.get('set-cookie') ?? '').match(/kivo_admin_session=([^;]+)/)?.[1];
+    const cookie = (login.headers.get('set-cookie') ?? '').match(/kuruk_admin_session=([^;]+)/)?.[1];
     check('login no painel', login.status === 302 && !!cookie, String(login.status));
-    const admin = `kivo_admin_session=${cookie}`;
+    const admin = `kuruk_admin_session=${cookie}`;
 
     // Gateway ligado: a parcela do contrato precisa poder virar Pix.
     await form('/admin/payments', {
-      enabled: '1', accessToken: 'TEST-contrato', webhookSecret: 'segredo-contrato', payerEmail: 'financeiro@kivo.test',
+      enabled: '1', accessToken: 'TEST-contrato', webhookSecret: 'segredo-contrato', payerEmail: 'financeiro@kuruk.test',
     }, admin);
 
     // ── Empresa ────────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ async function main(): Promise<void> {
     const contrato = await api('/admin/contracts', {
       method: 'POST',
       body: JSON.stringify({
-        companyUuid, title: 'Assinatura Kivo — teste', months: MESES, monthlyAmount: '199,90',
+        companyUuid, title: 'Assinatura Kuruk — teste', months: MESES, monthlyAmount: '199,90',
         firstDueDate: PRIMEIRO_VENCIMENTO, extendsDays: DIAS_POR_PARCELA,
         payerEmail: 'cliente@contrato.test', signedOn: '2026-01-15', notes: 'combinado no teste',
         documentName: 'contrato-assinado.pdf', documentBase64: PDF.toString('base64'),
@@ -179,8 +179,8 @@ async function main(): Promise<void> {
     }, admin);
     const destino = decodeURIComponent(contrato.headers.get('location') ?? '');
     check('contrato criado pelo painel', contrato.status === 302 && /ok=/.test(destino), `${contrato.status} ${destino.slice(0, 120)}`);
-    const numero = destino.match(/KIVO-\d{4}-\d{4}/)?.[0] ?? '';
-    check('número gerado no padrão KIVO-<ano>-<seq>', /^KIVO-\d{4}-\d{4}$/.test(numero), numero);
+    const numero = destino.match(/KURUK-\d{4}-\d{4}/)?.[0] ?? '';
+    check('número gerado no padrão KURUK-<ano>-<seq>', /^KURUK-\d{4}-\d{4}$/.test(numero), numero);
 
     const [contratos] = await conn.query('SELECT * FROM contracts WHERE company_uuid = ?', [companyUuid]);
     const linha = contratos[0] as Record<string, unknown>;

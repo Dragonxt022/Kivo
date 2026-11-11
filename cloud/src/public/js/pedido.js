@@ -75,7 +75,7 @@
   }
 
   // ─── Histórico local (por loja, no navegador do cliente) ───────────────────
-  var HISTORY_KEY = 'kivo:pedido-historico:v1:' + (cfg.companyUuid || 'loja');
+  var HISTORY_KEY = 'kuruk:pedido-historico:v1:' + (cfg.companyUuid || 'loja');
 
   function makeLineKey(item, notes, takeaway, complements) {
     return item.productUuid + '|' + (takeaway ? '1' : '0') + '|' + (notes || '') + '|' +
@@ -297,7 +297,7 @@
   // ─── Rascunho do carrinho (sobrevive a recarregar a página) ────────────────
   // Quando o cardápio muda e a gente pede para atualizar, o cliente não pode
   // perder o que já escolheu. Guardamos no sessionStorage e revalidamos no load.
-  var CART_KEY = 'kivo:pedido-carrinho:v1:' + token;
+  var CART_KEY = 'kuruk:pedido-carrinho:v1:' + token;
 
   function readCartDraft() {
     try {

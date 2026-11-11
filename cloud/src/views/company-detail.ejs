@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
-  <title>Kivo Cloud — <%= company.name || company.company_uuid %></title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <title>Kuruk Cloud — <%= company.name || company.company_uuid %></title>
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <%- include('partials/styles') %>
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
@@ -96,7 +96,7 @@
           <form method="post" action="/admin/companies/<%= company.company_uuid %>/profile">
             <div class="card">
               <h2>Dados da empresa</h2>
-              <p class="card-intro">Estes dados descem automaticamente para o Kivo do cliente na ativação da licença e preenchem o cadastro dele (nome no cupom, documento e endereço) — sem sobrescrever o que ele já tiver ajustado.</p>
+              <p class="card-intro">Estes dados descem automaticamente para o Kuruk do cliente na ativação da licença e preenchem o cadastro dele (nome no cupom, documento e endereço) — sem sobrescrever o que ele já tiver ajustado.</p>
 
               <div class="form-section">
                 <div class="form-section-head">
@@ -238,25 +238,25 @@
             <button type="button" class="btn danger" onclick="window.document.getElementById('modal-rotate-key').showModal()">Gerar nova chave de licença</button>
           </div>
 
-          <%# Resgate de senha do Kivo local. O lojista liga, dita o código que aparece na
+          <%# Resgate de senha do Kuruk local. O lojista liga, dita o código que aparece na
               tela dele, e o atendente devolve a resposta gerada aqui. O segredo da empresa
               nunca é exibido — só o código derivado, que vale para UM desafio só. %>
           <div class="card" id="resgate-senha">
             <h2>Resgate de senha do cliente</h2>
             <p class="field-hint" style="margin-top:0">
-              Use quando o cliente perdeu a senha do Kivo e <strong>não tem outro
+              Use quando o cliente perdeu a senha do Kuruk e <strong>não tem outro
               administrador</strong> para redefini-la. Ele clica em "Esqueci minha senha"
               na tela de login, dita o código que aparecer, e você devolve a resposta abaixo.
               <br>
               <strong>Confirme antes quem está do outro lado da linha.</strong> Este código
-              troca a senha de um usuário do sistema dele — o Kivo registra a troca na
+              troca a senha de um usuário do sistema dele — o Kuruk registra a troca na
               auditoria, mas quem valida a identidade de quem ligou é você.
             </p>
             <% if (!company.recovery_secret) { %>
               <p class="field-hint" style="color: var(--danger)">
                 Esta empresa ainda não tem segredo de resgate. Ele é criado sozinho na
-                próxima vez que o Kivo do cliente validar a licença (até 4h, ou na próxima
-                abertura do programa). Peça para ele abrir o Kivo conectado à internet.
+                próxima vez que o Kuruk do cliente validar a licença (até 4h, ou na próxima
+                abertura do programa). Peça para ele abrir o Kuruk conectado à internet.
               </p>
             <% } else { %>
             <form method="post" action="/admin/companies/<%= company.company_uuid %>/recovery-code">
@@ -571,7 +571,7 @@
                 <button type="submit" class="btn secondary">Pedir diagnóstico</button>
               </form>
               <form method="post" action="/admin/companies/<%= company.company_uuid %>/commands"
-                    onsubmit="return confirm('Enviar a atualização para todas as máquinas desta empresa? Elas baixam em silêncio e aplicam ao fechar o Kivo.');">
+                    onsubmit="return confirm('Enviar a atualização para todas as máquinas desta empresa? Elas baixam em silêncio e aplicam ao fechar o Kuruk.');">
                 <input type="hidden" name="kind" value="support.force_update" />
                 <button type="submit" class="btn secondary">Forçar atualização</button>
               </form>
@@ -674,11 +674,11 @@
       </div>
       <div class="modal-body">
         <label>Descrição do contrato</label>
-        <input type="text" id="c-titulo" maxlength="160" placeholder="Ex.: Assinatura Kivo — plano Diamante">
+        <input type="text" id="c-titulo" maxlength="160" placeholder="Ex.: Assinatura Kuruk — plano Diamante">
         <p class="field-hint">Aparece na descrição de cada parcela, na tela de Cobranças do cliente.</p>
 
         <label>Número do contrato</label>
-        <input type="text" id="c-numero" maxlength="40" placeholder="deixe em branco para gerar (KIVO-2026-0001)">
+        <input type="text" id="c-numero" maxlength="40" placeholder="deixe em branco para gerar (KURUK-2026-0001)">
 
         <label>Prazo (meses)</label>
         <input type="number" id="c-meses" min="1" max="120" value="12" oninput="preverContratoEmpresa()">
@@ -775,7 +775,7 @@
         <p class="field-hint">Aparece para o cliente na tela de Cobranças do app instalado.</p>
         <label>E-mail do pagador (opcional)</label>
         <input type="email" name="payerEmail" placeholder="cliente@email.com">
-        <p class="field-hint">O Pix exige um e-mail. Em branco, o Kivo usa o e-mail do cadastro da empresa.</p>
+        <p class="field-hint">O Pix exige um e-mail. Em branco, o Kuruk usa o e-mail do cadastro da empresa.</p>
         <label>Estende a licença em (dias)</label>
         <input type="number" name="extendsDays" min="0" max="3650" placeholder="ex.: 30">
         <p class="field-hint">Quando o pagamento cair, a validade da empresa avança esses dias (contando de hoje se já venceu). Em branco, a baixa é só financeira.</p>

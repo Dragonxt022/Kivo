@@ -47,7 +47,7 @@ function documentFilters(req: Request): { whereSql: string; params: unknown[]; f
 
 /** Raiz de dados (onde vive `storage/`), ao lado do banco. */
 function dataRoot(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.dirname(path.dirname(dbPath));
 }
 

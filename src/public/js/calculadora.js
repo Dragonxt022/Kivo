@@ -1,5 +1,5 @@
 /**
- * Calculadora do Kivo — ferramenta rápida, disponível em qualquer tela.
+ * Calculadora do Kuruk — ferramenta rápida, disponível em qualquer tela.
  *
  * Vanilla de propósito, e não um componente Alpine: ela é aberta de dentro de escopos
  * Alpine diferentes (o PDV, o formulário de produto) e às vezes de dentro de um <dialog>

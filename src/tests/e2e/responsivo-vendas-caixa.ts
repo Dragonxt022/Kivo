@@ -26,7 +26,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3621);
+const PORT = Number(process.env.KURUK_PORT ?? 3621);
 const SHOTS = snapDir('responsivo-vendas-caixa');
 const TOUCH_ARGS = [
   '--blink-settings=primaryHoverType=1,availableHoverTypes=1,primaryPointerType=2,availablePointerTypes=2',
@@ -52,7 +52,7 @@ async function abrirPagina(browser: Browser, caso: Caso, base: string, cookie: s
   const page = await newPage(browser, { viewport: { width: caso.width, height: caso.height }, mobile: caso.touch });
   const value = cookie.split(';')[0].split('=').slice(1).join('=');
   await page.context().addCookies([{
-    name: 'kivo_session',
+    name: 'kuruk_session',
     value,
     domain: new URL(base).hostname,
     path: '/',
@@ -172,7 +172,7 @@ async function main(): Promise<void> {
 
       reporter.check(`caixa não estoura a largura${at}`, (await overflowX(page)) <= 0, String(await overflowX(page)));
       // O período agora vive no botão "Filtros" (a barra do topo não mistura mais o
-      // período com os botões do turno). No desktop o kivo-ui troca o campo nativo por
+      // período com os botões do turno). No desktop o kuruk-ui troca o campo nativo por
       // um texto do flatpickr; contar os inputs (sem exigir type=date) serve nos dois modos.
       await page.locator('.cash-filter-btn').click();
       const periodDlg = page.locator('dialog[x-ref="periodDlg"][open]');

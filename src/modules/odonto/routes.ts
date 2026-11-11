@@ -315,7 +315,7 @@ router.delete('/plans/:id', requirePermission('odonto.plans.manage'), (req, res)
   send(res, removePlan(req, Number(req.params.id)));
 });
 
-// A cobrança NÃO mora aqui: o serviço cria contas a receber no financeiro do Kivo (PR §12).
+// A cobrança NÃO mora aqui: o serviço cria contas a receber no financeiro do Kuruk (PR §12).
 router.post('/plans/:id/charge', requirePermission('odonto.plans.charge'), validateBody(chargePlanSchema), (req, res) => {
   send(res, chargePlan(req, Number(req.params.id), req.body), 201);
 });
@@ -390,7 +390,7 @@ router.get('/reports/:tipo', requirePermission('odonto.reports.view'), (req, res
   send(res, report(req, String(req.params.tipo), req.query.from, req.query.to));
 });
 
-// CSV: o "exportar" do Kivo (mesmo caminho do resto do sistema).
+// CSV: o "exportar" do Kuruk (mesmo caminho do resto do sistema).
 router.get('/reports/:tipo/csv', requirePermission('odonto.reports.view'), (req, res) => {
   const resultado = report(req, String(req.params.tipo), req.query.from, req.query.to);
   if (!resultado.ok) {

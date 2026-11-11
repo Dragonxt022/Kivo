@@ -15,9 +15,9 @@ import {
 } from '../affiliateAuth';
 
 /**
- * Tela ÚNICA de login do Kivo Cloud (`/login`).
+ * Tela ÚNICA de login do Kuruk Cloud (`/login`).
  *
- * Antes havia dois formulários separados — `/admin/login` (equipe Kivo) e `/afiliado/login`
+ * Antes havia dois formulários separados — `/admin/login` (equipe Kuruk) e `/afiliado/login`
  * (representantes). Agora existe um só: o controller tenta as credenciais na base de
  * administradores e, se não bater, tenta na de afiliados, redirecionando para o painel certo
  * (`/admin` ou `/afiliado`). As duas sessões continuam independentes (cookies/tabelas
@@ -54,7 +54,7 @@ router.post('/login', async (req, res) => {
   const pass = String(password ?? '');
 
   if (user && pass) {
-    // 1) Equipe Kivo (painel admin).
+    // 1) Equipe Kuruk (painel admin).
     if (await verifyAdminCredentials(user, pass)) {
       const session = await createAdminSession(user, remember);
       res.cookie(ADMIN_SESSION_COOKIE, session.token, {

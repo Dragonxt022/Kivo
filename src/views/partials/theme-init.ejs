@@ -1,4 +1,4 @@
-<%# Instalável na tela inicial: o manifest deixa o Kivo abrir em tela cheia, sem a
+<%# Instalável na tela inicial: o manifest deixa o Kuruk abrir em tela cheia, sem a
     barra do navegador. Os metadados da Apple cobrem o iPhone/iPad, que não lê o
     manifest para o modo standalone. O service worker é registrado no fim deste
     partial, e só em contexto seguro (HTTPS/localhost) — no acesso por http:// da
@@ -8,12 +8,23 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-<meta name="apple-mobile-web-app-title" content="Kivo" />
+<meta name="apple-mobile-web-app-title" content="Kuruk" />
 <meta name="theme-color" content="#ff8000" />
 <script nonce="<%= cspNonce %>">
 (function () {
   try {
-    var t = localStorage.getItem('kivo-theme');
+    // Migração única das preferências locais do rebrand Kivo → Kuruk. Sem isto,
+    // tema, layout do PDV, sidebar e avisos voltariam ao padrão na atualização.
+    var antigas = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var chave = localStorage.key(i);
+      if (chave && chave.indexOf('kivo') === 0) antigas.push(chave);
+    }
+    for (var j = 0; j < antigas.length; j++) {
+      var nova = 'kuruk' + antigas[j].slice('kivo'.length);
+      if (localStorage.getItem(nova) === null) localStorage.setItem(nova, localStorage.getItem(antigas[j]));
+    }
+    var t = localStorage.getItem('kuruk-theme');
     if (t !== 'light' && t !== 'dark') {
       t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
     }
@@ -22,17 +33,17 @@
 })();
 </script>
 <!--
-  Este partial é o gancho "roda em toda página" do Kivo: está no <head> de todas as telas,
+  Este partial é o gancho "roda em toda página" do Kuruk: está no <head> de todas as telas,
   antes do Alpine (que é `defer`). Por isso os globais de boot moram aqui — o tema acima,
   o desembrulho do envelope abaixo, e `window.brl`, que as telas usam para formatar
   dinheiro. Script externo (e não inline) para o navegador poder cachear.
 -->
-<link rel="stylesheet" href="/css/kivo-ui.css" />
+<link rel="stylesheet" href="/css/kuruk-ui.css" />
 <script nonce="<%= cspNonce %>" src="/js/money.js"></script>
 <%# Camada de interface compartilhada: calendário, select com busca, tooltip e gráfico.
-    Carrega as bibliotecas sob demanda (ver /js/kivo-ui.js) — a página que não usa não
+    Carrega as bibliotecas sob demanda (ver /js/kuruk-ui.js) — a página que não usa não
     paga o download. É `defer` para não atrasar a primeira pintura. %>
-<script nonce="<%= cspNonce %>" defer src="/js/kivo-ui.js"></script>
+<script nonce="<%= cspNonce %>" defer src="/js/kuruk-ui.js"></script>
 <script nonce="<%= cspNonce %>">
 // Todo JSON do servidor vem embrulhado em { success, data } ou { success: false, error }
 // (ver src/shared/responseEnvelope.ts), mas as telas foram escritas esperando o corpo "cru"
@@ -57,7 +68,7 @@
 (function () {
   'use strict';
   try {
-    var KEY = 'kivo-device-id';
+    var KEY = 'kuruk-device-id';
     var id = localStorage.getItem(KEY);
     if (!id) {
       id = (window.crypto && window.crypto.randomUUID)
@@ -65,7 +76,7 @@
         : ('dev-' + Date.now() + '-' + Math.random().toString(36).slice(2));
       localStorage.setItem(KEY, id);
     }
-    window.KIVO_DEVICE_ID = id;
+    window.KURUK_DEVICE_ID = id;
     var originalFetch = window.fetch;
     if (typeof originalFetch !== 'function') return;
     window.fetch = function (input, init) {
@@ -74,6 +85,8 @@
         var sameOrigin = !/^[a-z]+:/i.test(url) || url.indexOf(location.origin) === 0;
         if (sameOrigin) {
           var headers = new Headers(init && init.headers ? init.headers : (input && input.headers));
+          if (!headers.has('X-Kuruk-Device')) headers.set('X-Kuruk-Device', id);
+          // Compatibilidade com cloud anterior ao rebrand.
           if (!headers.has('X-Kivo-Device')) headers.set('X-Kivo-Device', id);
           init = init || {};
           init.headers = headers;
@@ -87,10 +100,10 @@
 <script nonce="<%= cspNonce %>">
 (function () {
   try {
-    var mode = localStorage.getItem('kivo-interface');
+    var mode = localStorage.getItem('kuruk-interface');
     document.documentElement.setAttribute('data-interface', mode === 'sidebar' ? 'sidebar' : 'cards');
 
-    var collapsed = localStorage.getItem('kivo-sidebar-collapsed') === '1';
+    var collapsed = localStorage.getItem('kuruk-sidebar-collapsed') === '1';
     document.documentElement.setAttribute('data-sidebar-collapsed', collapsed ? '1' : '0');
 
     // Modo leve: desliga blur, sombra e animação (ver :root[data-lite] em app.css). Vem do
@@ -101,9 +114,9 @@
     // Chave geral do estoque (Configurações › Estoque). As telas checam esta flag junto
     // com o `track_stock` do produto para não mostrar saldo/alerta quando o controle
     // de quantidade está desligado para toda a loja.
-    window.KIVO_ESTOQUE_ATIVO = <%= typeof estoqueAtivo !== "undefined" && estoqueAtivo ? "true" : "false" %>;
+    window.KURUK_ESTOQUE_ATIVO = <%= typeof estoqueAtivo !== "undefined" && estoqueAtivo ? "true" : "false" %>;
 
-    window.KIVO_COLOR_PRESETS = [
+    window.KURUK_COLOR_PRESETS = [
       { id: 'blue', hex: '#2563eb' },
       { id: 'green', hex: '#16a34a' },
       { id: 'orange', hex: '#ff8000' },
@@ -111,7 +124,7 @@
       { id: 'black', hex: '#18181b' },
     ];
 
-    window.__kivoApplyCustomColor = function (hex) {
+    window.__kurukApplyCustomColor = function (hex) {
       var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       var s = document.documentElement.style;
       s.setProperty('--primary', hex);
@@ -122,15 +135,15 @@
 
     var colorTheme = <%- JSON.stringify(typeof corDestaque !== 'undefined' && corDestaque ? corDestaque : 'orange') %>;
     var customHex = <%- JSON.stringify(typeof corCustom !== 'undefined' && corCustom ? corCustom : '#ff8000') %>;
-    window.__kivoColor = { theme: colorTheme, custom: customHex };
+    window.__kurukColor = { theme: colorTheme, custom: customHex };
 
     // Cor de destaque: configuração da EMPRESA, aplicada no servidor (res.locals.corDestaque/
     // corCustom — ver core/config/themeColor.ts) para valer em qualquer aparelho que abra
-    // este Kivo, inclusive pelo celular na rede local. Antes vivia só no localStorage e o
+    // este Kuruk, inclusive pelo celular na rede local. Antes vivia só no localStorage e o
     // celular mostrava o laranja padrão, ignorando a escolha da loja.
     if (colorTheme === 'custom') {
       document.documentElement.setAttribute('data-color-theme', 'custom');
-      window.__kivoApplyCustomColor(customHex);
+      window.__kurukApplyCustomColor(customHex);
     } else {
       document.documentElement.setAttribute('data-color-theme', colorTheme);
     }
@@ -143,7 +156,7 @@
 
     // Marca o modo "aplicativo instalado" para o CSS/JS esconder dicas de instalação.
     if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
-      document.documentElement.classList.add('kivo-standalone');
+      document.documentElement.classList.add('kuruk-standalone');
     }
   } catch (e) {}
 })();
@@ -151,7 +164,7 @@
 <%# Abertura personalizada POR USUÁRIO (core/users/startup.ts). Roda no <head> de todas
     as telas, antes do corpo pintar, para o redirecionamento não piscar a home.
     - Primeira abertura desta janela/sessão: vai para o módulo configurado.
-    - O destino recebe ?kivo_startup=1 e chama a tela cheia (Electron via preload; no
+    - O destino recebe ?kuruk_startup=1 e chama a tela cheia (Electron via preload; no
       navegador tenta a Fullscreen API e, se o navegador exigir gesto, tenta no primeiro
       toque).
     - Desligado por padrão: no login `startup` é null e nada acontece. %>
@@ -164,15 +177,15 @@
     var params = new URLSearchParams(location.search);
     // `?login=1` é o pedido explícito de trocar de usuário; não sequestrar essa tela.
     if (params.get('login') === '1') return;
-    var viaStartup = params.get('kivo_startup') === '1';
+    var viaStartup = params.get('kuruk_startup') === '1';
     if (viaStartup) {
       // Tira a marca da URL antes de qualquer navegação para um F5 não repetir o efeito.
-      params.delete('kivo_startup');
+      params.delete('kuruk_startup');
       var rest = params.toString();
       history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
     }
 
-    var MARK = 'kivo-startup-open';
+    var MARK = 'kuruk-startup-open';
     var first = false;
     try {
       first = sessionStorage.getItem(MARK) !== '1';
@@ -185,8 +198,8 @@
     if (!first && !viaStartup) return;
 
     function entrarTelaCheia() {
-      if (window.kivo && window.kivo.window && typeof window.kivo.window.setFullscreen === 'function') {
-        try { window.kivo.window.setFullscreen(true); } catch (e) {}
+      if (window.kuruk && window.kuruk.window && typeof window.kuruk.window.setFullscreen === 'function') {
+        try { window.kuruk.window.setFullscreen(true); } catch (e) {}
         return;
       }
       var el = document.documentElement;
@@ -210,7 +223,7 @@
     var cur = location.pathname.replace(/\/+$/, '') + location.search + location.hash;
     var dst = target.pathname.replace(/\/+$/, '') + target.search + target.hash;
     if (first && cur !== dst) {
-      target.searchParams.set('kivo_startup', '1');
+      target.searchParams.set('kuruk_startup', '1');
       location.replace(target.pathname + target.search + target.hash);
       return;
     }
@@ -220,15 +233,15 @@
 </script>
 <script nonce="<%= cspNonce %>">
 // O prompt nativo de instalação do Chrome só pode ser chamado no mesmo gesto em que
-// foi capturado; guardamos o evento e o diálogo "Kivo no celular" usa depois.
+// foi capturado; guardamos o evento e o diálogo "Kuruk no celular" usa depois.
 window.addEventListener('beforeinstallprompt', function (e) {
   e.preventDefault();
-  window.__kivoInstallPrompt = e;
-  window.dispatchEvent(new Event('kivo-install-available'));
+  window.__kurukInstallPrompt = e;
+  window.dispatchEvent(new Event('kuruk-install-available'));
 });
 window.addEventListener('appinstalled', function () {
-  window.__kivoInstallPrompt = null;
-  window.dispatchEvent(new Event('kivo-app-installed'));
+  window.__kurukInstallPrompt = null;
+  window.dispatchEvent(new Event('kuruk-app-installed'));
 });
 
 // PWA: apenas em contexto seguro. Em http:// na rede local o Chrome/Android não

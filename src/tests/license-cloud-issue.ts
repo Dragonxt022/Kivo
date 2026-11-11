@@ -1,7 +1,7 @@
 /**
  * Testes da situação da empresa na nuvem (core/license/service.ts):
  * quando o servidor recusa a empresa — excluída/desativada (404) ou chave trocada (401) —
- * o Kivo registra o motivo para a tela explicar, mas NÃO derruba a licença local: o app
+ * o Kuruk registra o motivo para a tela explicar, mas NÃO derruba a licença local: o app
  * segue com o `valid_until` já conhecido até vencer. Um 200 posterior (empresa restaurada)
  * limpa o aviso e atualiza a validade.
  *
@@ -11,9 +11,9 @@ import path from 'node:path';
 
 // Antes de qualquer módulo de runtime abrir a conexão — mesmo padrão de
 // license-company-profile.ts.
-process.env.KIVO_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'license-cloud-issue.db');
-process.env.KIVO_SYNC_SERVER_URL = 'https://cloud.test';
-process.env.KIVO_MACHINE_ID = 'test-machine-cloud-issue';
+process.env.KURUK_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'license-cloud-issue.db');
+process.env.KURUK_SYNC_SERVER_URL = 'https://cloud.test';
+process.env.KURUK_MACHINE_ID = 'test-machine-cloud-issue';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { migrateUp } = require('../core/database/migrator');

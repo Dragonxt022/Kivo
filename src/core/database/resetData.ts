@@ -23,7 +23,7 @@ const KEEP_INTACT = new Set([
  *
  *  - `capabilities` sobrevive. As linhas são o catálogo de recursos, recriado por
  *    `registerCapabilities()` só no boot dos módulos: esvaziar a tabela com o processo no ar
- *    deixaria todo `requireCapability` sem referência até alguém reiniciar o Kivo.
+ *    deixaria todo `requireCapability` sem referência até alguém reiniciar o Kuruk.
  *  - `backups` sobrevive, com os arquivos. É a única forma de desfazer um reset feito por
  *    engano — e o reset tira um backup automático antes de começar, justamente para isso.
  *  - `sessions` sobrevive na linha de quem está resetando (ver `factoryReset`), senão o

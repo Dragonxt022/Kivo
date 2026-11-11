@@ -20,7 +20,7 @@ import type { OnboardingBusinessType } from './service';
  * teste coerente com ele — categorias + produtos que cobrem os TIPOS de cadastro que
  * aquele ramo usa de verdade, em vez de despejar "produto simples" genérico em todo mundo.
  *
- * A intenção é o lojista conseguir testar o Kivo sem cadastrar nada: abrir o PDV, lançar
+ * A intenção é o lojista conseguir testar o Kuruk sem cadastrar nada: abrir o PDV, lançar
  * num cardápio com complementos, vender um combo que explode nos componentes, ver o
  * pedido cair no painel da cozinha, ou uma ficha técnica consumindo insumo. Cada tipo de
  * produto nasce aqui do mesmo jeito que a tela criaria (mesmas tabelas, mesmas regras),

@@ -44,7 +44,7 @@ function statusesAheadOf(status: KitchenActionableStatus): KitchenActionableStat
 
 /** Identificador do aparelho que fez a requisição (ver theme-init.ejs). */
 function actorDevice(req: Request): string | null {
-  const raw = req.headers['x-kivo-device'];
+  const raw = req.headers['x-kuruk-device'];
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (typeof value !== 'string') return null;
   const clean = value.trim().slice(0, 80);

@@ -1,13 +1,13 @@
-# KIVO IA — Regras de Negócio
+# KURUK IA — Regras de Negócio
 
-Assistente de IA do Kivo, usado principalmente como **chat de suporte**: responde dúvidas do
-lojista com base na documentação técnica e na wiki, e cada conversa vira um chamado no Kivo
+Assistente de IA do Kuruk, usado principalmente como **chat de suporte**: responde dúvidas do
+lojista com base na documentação técnica e na wiki, e cada conversa vira um chamado no Kuruk
 Web para o suporte humano acompanhar depois.
 
 ## Arquitetura
 
 ```
-App local (navegador) → servidor local → Kivo Web (cloud) → provedor de IA
+App local (navegador) → servidor local → Kuruk Web (cloud) → provedor de IA
                                                              ├── Ollama (VPS)
                                                              ├── OpenAI (ChatGPT)
                                                              ├── DeepSeek
@@ -16,10 +16,10 @@ App local (navegador) → servidor local → Kivo Web (cloud) → provedor de IA
 
 - O navegador só fala com o próprio servidor local (CSP `connect-src 'self'`). Quem chama a
   nuvem é o **servidor local**, com as credenciais de licença.
-- O cloud valida a licença (`requireCompanyAuth`), injeta o conhecimento do Kivo e chama o
+- O cloud valida a licença (`requireCompanyAuth`), injeta o conhecimento do Kuruk e chama o
   provedor configurado.
-- **Quem configura provedores e chaves é o time do Kivo**, no painel do Cloud
-  (Configurações › KIVO IA). O cliente não vê chave nenhuma — é a Kivo que revende o serviço.
+- **Quem configura provedores e chaves é o time do Kuruk**, no painel do Cloud
+  (Configurações › KURUK IA). O cliente não vê chave nenhuma — é a Kuruk que revende o serviço.
 
 ## Provedores (seletor de agente)
 
@@ -47,11 +47,11 @@ vetorial nem dependência nova). O trecho entra no prompt de sistema, com instru
 não inventar: se não estiver na documentação, ela avisa e oferece o atendimento humano. As
 fontes usadas voltam em `sources`.
 
-## Configuração no painel (Kivo Cloud › Configurações › KIVO IA)
+## Configuração no painel (Kuruk Cloud › Configurações › KURUK IA)
 
 | Chave em `app_settings` | Efeito |
 | --- | --- |
-| `ai_enabled` | Liga/desliga a KIVO IA no servidor |
+| `ai_enabled` | Liga/desliga a KURUK IA no servidor |
 | `ai_default_provider` | Provedor padrão: `ollama`, `openai`, `deepseek` ou `anthropic` |
 | `ai_ollama_url` | URL do Ollama (padrão `OLLAMA_URL` ou `http://127.0.0.1:11434`) |
 | `ai_ollama_model` | Modelo padrão do Ollama (padrão `llama3.2`) |
@@ -64,17 +64,17 @@ configurada"). Há um botão **Testar IA** no painel.
 
 No app **não há o que configurar**: o assistente de suporte está **sempre disponível** (não
 precisa ativar) e não tem seleção de modelo/provedor — tudo isso é definido aqui no painel.
-Configurações › KIVO IA mostra apenas o **status** e o **consumo** do mês (com barra de
+Configurações › KURUK IA mostra apenas o **status** e o **consumo** do mês (com barra de
 progresso quando há teto).
 
 ## Chat de suporte
 
-O widget de ajuda (tela inicial) tem a opção **Falar com a Kivo IA**. Ao enviar a primeira
+O widget de ajuda (tela inicial) tem a opção **Falar com a Kuruk IA**. Ao enviar a primeira
 mensagem:
 
-1. O desktop **abre um chamado automaticamente** no Kivo Web (assunto `Kivo IA — <pergunta>`),
+1. O desktop **abre um chamado automaticamente** no Kuruk Web (assunto `Kuruk IA — <pergunta>`),
    com a pergunta do usuário como primeira mensagem.
-2. A pergunta vai para o KIVO IA, que responde com o conhecimento do Kivo.
+2. A pergunta vai para o KURUK IA, que responde com o conhecimento do Kuruk.
 3. A resposta é gravada **no mesmo chamado**, com `sender = 'ia'` (a conversa inteira fica na
    trilha do atendimento; o suporte vê e assume quando precisar).
 
@@ -128,7 +128,7 @@ hoje") e o ajuste do limite diário de cada ferramenta (vazio = padrão da ferra
 - `companies.ai_token_limit` é o teto mensal de tokens (0 = ilimitado) para os recursos que
   cobram crédito; `ai_tokens_used` + `ai_period` (AAAA-MM) zeram todo dia 1º.
 
-## Painel de uso (Kivo Web › KIVO IA)
+## Painel de uso (Kuruk Web › KURUK IA)
 
 Em `/admin/ai` o painel mostra KPIs do mês, tokens por dia (14 dias), uso por empresa e a
 tabela de créditos com o teto editável (tokens/mês).
@@ -153,7 +153,7 @@ tabela de créditos com o teto editável (tokens/mês).
 - `POST /api/ai/tools/product-description` — reserva 1 uso, gera a descrição e devolve a cota.
 - `POST /api/ai/tools/sales-insights` — reserva 1 uso, monta o prompt com o resumo e devolve a análise.
 
-**Painel admin** (sessão de admin): `GET/POST /admin/settings` (bloco KIVO IA) e
+**Painel admin** (sessão de admin): `GET/POST /admin/settings` (bloco KURUK IA) e
 `POST /admin/settings/ai/test`.
 
 ## Variáveis de ambiente (cloud)
@@ -173,10 +173,10 @@ Os `*_BASE_URL` permitem apontar para proxies/gateways compatíveis.
 
 ## Erros comuns
 
-- "A KIVO IA está desligada." — ligue em Configurações › KIVO IA (app).
-- "A KIVO IA está desativada no servidor." — o admin precisa ligar no painel Cloud.
+- "A KURUK IA está desligada." — ligue em Configurações › KURUK IA (app).
+- "A KURUK IA está desativada no servidor." — o admin precisa ligar no painel Cloud.
 - "Este provedor de IA não está configurado no servidor." — falta chave no painel.
-- "Kivo Web não configurado." — falta licença/URL do servidor.
+- "Kuruk Web não configurado." — falta licença/URL do servidor.
 - "Falha ao falar com o Ollama." — o serviço do Ollama está fora na VPS (checar `OLLAMA_URL`).
 - "Muitas requisições de IA." — rate limit; aguardar um instante.
 
@@ -188,11 +188,11 @@ Os `*_BASE_URL` permitem apontar para proxies/gateways compatíveis.
 - `cloud/src/routes/ai.ts` — status/chat com injeção de conhecimento e créditos.
 - `cloud/src/aiUsage.ts` — período, teto e registro de tokens.
 - `cloud/src/aiQuota.ts` — cota diária das ferramentas (reserva atômica, refund, override por empresa).
-- `cloud/src/routes/admin.ts` + `cloud/src/views/admin-settings.ejs` — bloco KIVO IA do painel.
+- `cloud/src/routes/admin.ts` + `cloud/src/views/admin-settings.ejs` — bloco KURUK IA do painel.
 - `cloud/src/routes/support.ts` — tickets, incluindo mensagens com `sender = 'ia'`.
 - `cloud/src/views/ai-usage.ejs` — painel de uso.
-- `src/core/ai/service.ts` — preferências locais e chamada ao Kivo Web.
+- `src/core/ai/service.ts` — preferências locais e chamada ao Kuruk Web.
 - `src/core/ai/salesSummary.ts` — monta o resumo de vendas local para os insights.
 - `src/core/ai/routes.ts` — rotas locais (status, chat, ferramentas).
-- `src/views/settings.ejs` — aba KIVO IA (preferências do lojista).
-- `src/views/home.ejs` — widget de suporte com o chat da KIVO IA.
+- `src/views/settings.ejs` — aba KURUK IA (preferências do lojista).
+- `src/views/home.ejs` — widget de suporte com o chat da KURUK IA.

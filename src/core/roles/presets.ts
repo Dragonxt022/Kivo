@@ -1,5 +1,5 @@
 /**
- * Cargos prontos do Kivo — fonte única da verdade.
+ * Cargos prontos do Kuruk — fonte única da verdade.
  *
  * O mesmo objeto alimenta duas coisas que antes viviam separadas e divergiam:
  *  - `runSeeds()` (core/database/seeds.ts), que cria os cargos de fábrica; e
@@ -131,7 +131,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     permissions: ['foodservice.kitchen.view', 'foodservice.kitchen.manage'],
   },
   /**
-   * Cargos do Kivo Odonto. O que organiza a clínica é separar CADASTRO de CLÍNICA: a
+   * Cargos do Kuruk Odonto. O que organiza a clínica é separar CADASTRO de CLÍNICA: a
    * Recepção agenda, cadastra e cobra sem enxergar prontuário. Por isso o conteúdo clínico
    * (alergias, histórico, medicações) tem permissão própria — `odonto.clinical.*` — e ela
    * NÃO entra no cargo de Recepção.

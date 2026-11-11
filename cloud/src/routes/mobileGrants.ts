@@ -4,7 +4,7 @@ import { requireCompanyAuth, type AuthedRequest } from '../auth';
 import { canUseWebApp } from '../plans';
 
 /**
- * Concessões de acesso ao Kivo Web, criadas e revogadas PELO DESKTOP (autenticado por
+ * Concessões de acesso ao Kuruk Web, criadas e revogadas PELO DESKTOP (autenticado por
  * licença, não pelo celular). O token em claro nunca passa por aqui: o desktop gera, mostra
  * uma vez no QR e envia só o sha256.
  */
@@ -13,7 +13,7 @@ const router = Router();
 /** Gate de plano na concessão. A revalidação por requisição fica em `mobileAuth.ts`. */
 function requireWebAppPlan(req: AuthedRequest, res: import('express').Response, next: import('express').NextFunction): void {
   if (!canUseWebApp(req.companyPlan)) {
-    res.status(403).json({ error: 'O acesso pelo celular (Kivo Web) não está incluído no plano atual desta empresa.' });
+    res.status(403).json({ error: 'O acesso pelo celular (Kuruk Web) não está incluído no plano atual desta empresa.' });
     return;
   }
   next();

@@ -143,8 +143,8 @@ export async function loginApi(
     body: JSON.stringify({ username: user, password: pass }),
   });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 /** Desembrulha o envelope { success, data } — mesma ideia do testUtils dos testes de API. */
@@ -169,9 +169,9 @@ export async function openBrowser(): Promise<Browser> {
 /**
  * Cria um contexto já com os avisos de primeira visita desligados.
  *
- * Sem isto, três overlays atrapalham os testes: o tour guiado do PDV (`kivo-tour-pdv-v1`),
- * o aviso de novidade (`kivo-novidade-seen`) e a preferência de interface. O tour em
- * especial cobre a tela inteira com `kivo-tour-capture` e intercepta TODO clique — foi
+ * Sem isto, três overlays atrapalham os testes: o tour guiado do PDV (`kuruk-tour-pdv-v1`),
+ * o aviso de novidade (`kuruk-novidade-seen`) e a preferência de interface. O tour em
+ * especial cobre a tela inteira com `kuruk-tour-capture` e intercepta TODO clique — foi
  * exatamente o que quebrou o E2E de comandas quando o tour entrou em produção.
  */
 export async function newContext(
@@ -190,9 +190,9 @@ export async function newContext(
   );
   await context.addInitScript(() => {
     try {
-      localStorage.setItem('kivo-tour-pdv-v1', '1');
-      localStorage.setItem('kivo-novidade-seen', 'web-v1');
-      localStorage.setItem('kivo-interface', 'cards');
+      localStorage.setItem('kuruk-tour-pdv-v1', '1');
+      localStorage.setItem('kuruk-novidade-seen', 'web-v1');
+      localStorage.setItem('kuruk-interface', 'cards');
     } catch {
       // localStorage indisponível (about:blank): sem consequência.
     }

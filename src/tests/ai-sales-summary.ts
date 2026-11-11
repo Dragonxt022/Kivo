@@ -1,5 +1,5 @@
 /**
- * Teste: resumo local de vendas para a ferramenta "Insights de vendas" (KIVO IA).
+ * Teste: resumo local de vendas para a ferramenta "Insights de vendas" (KURUK IA).
  *
  * Monta um banco descartável com produtos, vendas (no período e no anterior), itens e formas de
  * pagamento, e confere o que `buildSalesInsightsInput` produz: totais, ticket médio, ranking,
@@ -22,10 +22,10 @@ function check(label: string, ok: boolean, extra = ''): void {
 }
 
 function main(): void {
-  const tmp = process.env.KIVO_DB_PATH;
-  if (!tmp) throw new Error('KIVO_DB_PATH não definida. Rode via scripts/test-isolated.js.');
-  if (path.resolve(tmp) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  const tmp = process.env.KURUK_DB_PATH;
+  if (!tmp) throw new Error('KURUK_DB_PATH não definida. Rode via scripts/test-isolated.js.');
+  if (path.resolve(tmp) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   fs.mkdirSync(path.dirname(tmp), { recursive: true });
   fs.rmSync(tmp, { force: true });

@@ -4,7 +4,7 @@
  * O que protege: desligar a chave tem de parar baixa/entrada de saldo e os alertas
  * SEM apagar o `track_stock` de cada produto. Religar devolve o comportamento anterior.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/stock-control.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -14,7 +14,7 @@ import { createServer } from '../core/server';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3879);
+const PORT = Number(process.env.KURUK_PORT ?? 3879);
 const base = `http://localhost:${PORT}`;
 
 let failures = 0;
@@ -34,8 +34,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 async function setChave(cookie: string, value: '0' | '1') {
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
     check('desliga a chave', (await setChave(admin!, '0')).status === 200);
 
     const htmlOff = await paginaProdutos(admin!);
-    check('página marca KIVO_ESTOQUE_ATIVO=false', /KIVO_ESTOQUE_ATIVO\s*=\s*false/.test(htmlOff));
+    check('página marca KURUK_ESTOQUE_ATIVO=false', /KURUK_ESTOQUE_ATIVO\s*=\s*false/.test(htmlOff));
 
     const blocked = await api(
       '/api/commercial/stock/move',
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     check('religa a chave', (await setChave(admin!, '1')).status === 200);
 
     const htmlOn = await paginaProdutos(admin!);
-    check('página marca KIVO_ESTOQUE_ATIVO=true', /KIVO_ESTOQUE_ATIVO\s*=\s*true/.test(htmlOn));
+    check('página marca KURUK_ESTOQUE_ATIVO=true', /KURUK_ESTOQUE_ATIVO\s*=\s*true/.test(htmlOn));
 
     const entrada2 = await api(
       '/api/commercial/stock/move',

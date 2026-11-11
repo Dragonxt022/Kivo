@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 /**
- * Arquivos de exame do Kivo Odonto — radiografia, tomografia, fotografia clínica, documento.
+ * Arquivos de exame do Kuruk Odonto — radiografia, tomografia, fotografia clínica, documento.
  *
  * Mesmo desenho do anexo do financeiro (`finance/attachments.ts`): o arquivo vive no disco
  * (`storage/odonto-exams`) e no banco fica só a referência (nome no disco, nome original, mime e
@@ -18,7 +18,7 @@ export const EXAM_URL_PREFIX = '/uploads/odonto-exams/';
 
 /** Relativo à raiz de dados do banco (o cwd varia num Electron empacotado). */
 export function examFilesDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dir = path.join(path.dirname(path.dirname(dbPath)), 'storage', 'odonto-exams');
   fs.mkdirSync(dir, { recursive: true });
   return dir;

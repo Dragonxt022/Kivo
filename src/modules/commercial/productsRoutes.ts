@@ -95,7 +95,7 @@ function variantCapabilityError(productType: unknown): string | null {
  * em `PUT /attributes/:attrId/values/:id` — lá o sintoma que o lojista via era "não
  * consigo editar o valor, só apagar e criar de novo".
  *
- * Regra geral para updates parciais no Kivo: campo ausente é campo NÃO TOCADO. Só mande
+ * Regra geral para updates parciais no Kuruk: campo ausente é campo NÃO TOCADO. Só mande
  * `null` quando a intenção for realmente apagar o valor da coluna.
  */
 function qtyAndOrderPatch(body: unknown): Record<string, unknown> | null {
@@ -258,7 +258,7 @@ function webImageProxyUrl(u: string): string {
   return `/api/commercial/products/web-image?u=${encodeURIComponent(u)}`;
 }
 
-/** Busca as imagens aprovadas do banco de imagens do Kivo Cloud (o "sugestor local"). */
+/** Busca as imagens aprovadas do banco de imagens do Kuruk Cloud (o "sugestor local"). */
 async function fetchCloudCatalog(
   base: string, auth: Record<string, string>, q: string, barcode?: string,
 ): Promise<ImageSuggestion[]> {
@@ -343,7 +343,7 @@ router.get('/products/image-search', requirePermission('commercial.products.view
   const auth = cloudAuthHeaders();
   const hasCloud = !!(base && auth);
 
-  // Camada 1+2 — sugestor local (banco de imagens do Kivo Cloud): catálogo aprovado e
+  // Camada 1+2 — sugestor local (banco de imagens do Kuruk Cloud): catálogo aprovado e
   // escolhas da web já registradas, ambas já ranqueadas por popularidade no servidor.
   let catalog: ImageSuggestion[] = [];
   let webCached: ImageSuggestion[] = [];
@@ -372,7 +372,7 @@ router.get('/products/image-search', requirePermission('commercial.products.view
       merged.push(s);
     }
   };
-  // Curadoria do Kivo e escolhas comprovadas primeiro; a busca externa preenche o resto.
+  // Curadoria do Kuruk e escolhas comprovadas primeiro; a busca externa preenche o resto.
   add(catalog);
   add(webCached);
 

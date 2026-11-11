@@ -14,7 +14,7 @@ const log = createLogger('sync');
  *
  * Até aqui o sync só acontecia por clique em "Sincronizar agora" (`POST /api/sync/run`, com
  * permissão `sync.run`) — o comentário na rota registrava que o agendamento ficaria para
- * depois. Passou a ser obrigatório com o Kivo Web: o painel no celular lê o que a nuvem tem,
+ * depois. Passou a ser obrigatório com o Kuruk Web: o painel no celular lê o que a nuvem tem,
  * então sem ciclo automático o dono da loja vê número velho achando que é de agora.
  *
  * `runSync` já se protege sozinho — devolve `{ skipped: true }` quando o plano não inclui

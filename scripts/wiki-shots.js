@@ -1,12 +1,12 @@
 /**
- * Captura as telas reais do Kivo para a Wiki (cloud/src/public/img/wiki).
+ * Captura as telas reais do Kuruk para a Wiki (cloud/src/public/img/wiki).
  *
  * Sobe contra o app desktop em dev (`npm run dev`), loga, e tira um screenshot
  * claro e um escuro de cada rota mapeada, em JPEG (viewport 1440x900) — bem mais
  * leve que PNG para versionar no repositório.
  *
  * Pré-requisitos (para as telas de Fiscal/NF-e aparecerem, e não a home):
- *   npm run kivo db:seed:demo   # ~30 dias de operação simulada (dados reais na tela)
+ *   npm run kuruk db:seed:demo   # ~30 dias de operação simulada (dados reais na tela)
  *   # habilite as capabilities fiscal.nfce e nfe.import em Configurações → Recursos
  *   npm run dev                 # em outro terminal (porta 3123)
  *
@@ -86,7 +86,7 @@ async function login(page) {
 async function captureTheme(browser, theme) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
   await context.addInitScript((t) => {
-    try { localStorage.setItem('kivo-theme', t); } catch (e) { /* sem storage */ }
+    try { localStorage.setItem('kuruk-theme', t); } catch (e) { /* sem storage */ }
   }, theme);
   const page = await context.newPage();
   await login(page);

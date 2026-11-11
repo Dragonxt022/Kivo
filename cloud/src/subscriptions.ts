@@ -17,7 +17,7 @@ import {
 } from './gateway';
 
 /**
- * Assinaturas recorrentes do Kivo (produto Assinaturas do Mercado Pago).
+ * Assinaturas recorrentes do Kuruk (produto Assinaturas do Mercado Pago).
  *
  * O fluxo tem três estados de interesse:
  *  - `pendente`: assinatura criada no Mercado Pago, link gerado, cliente ainda não autorizou.
@@ -92,7 +92,7 @@ export function subscriptionIsCurrent(sub: SubscriptionRow | null): boolean {
 
 /** URL pública que o admin manda ao cliente (a mesma que o Mercado Pago usa como back_url). */
 export function publicSubscriptionUrl(token: string): string {
-  const base = (process.env.CLOUD_PUBLIC_URL ?? 'https://kivo.buscamais.org').replace(/\/+$/, '');
+  const base = (process.env.CLOUD_PUBLIC_URL ?? 'https://kuruk.com.br').replace(/\/+$/, '');
   return `${base}/assinar/${token}`;
 }
 
@@ -250,7 +250,7 @@ export async function syncSubscription(id: number): Promise<SubscriptionRow | nu
 
 /**
  * Reconciliação manual: relê a assinatura, busca as parcelas no Mercado Pago e processa as
- * que ainda não viraram cobrança no Kivo. É a rede de segurança para webhook perdido/atrasado
+ * que ainda não viraram cobrança no Kuruk. É a rede de segurança para webhook perdido/atrasado
  * (e o único jeito de validar a extensão da licença no ambiente de teste, onde notificações
  * de pagamento de teste podem não ser enviadas).
  */
@@ -321,7 +321,7 @@ export async function recordAuthorizedPayment(authorizedPaymentId: string): Prom
   if (!parcela.preapprovalId) throw new Error('Cobrança recorrente sem preapproval_id.');
   const sub = await getSubscriptionByPreapprovalId(parcela.preapprovalId);
   if (!sub) {
-    return { processed: false, reason: `Assinatura ${parcela.preapprovalId} não encontrada no Kivo.` };
+    return { processed: false, reason: `Assinatura ${parcela.preapprovalId} não encontrada no Kuruk.` };
   }
 
   // O status que importa é o do PAGAMENTO. A parcela pode estar `processed` com pagamento
@@ -334,7 +334,7 @@ export async function recordAuthorizedPayment(authorizedPaymentId: string): Prom
     return { processed: false, reason: `Pagamento ainda não aprovado (${parcela.paymentStatus ?? parcela.status}).` };
   }
 
-  const descricao = `Assinatura Kivo — ${sub.reason}`.slice(0, 255);
+  const descricao = `Assinatura Kuruk — ${sub.reason}`.slice(0, 255);
   const valor = parcela.amountCents ?? sub.amount_cents;
   let chargeId: number;
   try {
@@ -371,7 +371,7 @@ export async function recordAuthorizedPayment(authorizedPaymentId: string): Prom
   const baixa = await settleCharge(chargeId);
 
   // Pagamento aprovado também ativa o plano contratado. Sem isso a licença venceria mais
-  // tarde, mas a empresa continuaria como trial (sem nuvem/Kivo Web, por exemplo).
+  // tarde, mas a empresa continuaria como trial (sem nuvem/Kuruk Web, por exemplo).
   const plano = commercialPlan(sub.plan_key);
   if (plano) {
     await pool.query(
@@ -404,7 +404,7 @@ const REMOVABLE_STATUSES: SubscriptionStatus[] = ['erro', 'cancelada', 'encerrad
 /**
  * Remove a assinatura do painel. Só aceita estados terminais: uma assinatura ativa ou
  * pendente precisa ser cancelada antes, senão o Mercado Pago continuaria cobrando sem que
- * o Kivo tivesse o vínculo local para reconciliar.
+ * o Kuruk tivesse o vínculo local para reconciliar.
  *
  * As cobranças já registradas são preservadas — a FK `charges.subscription_id` é
  * ON DELETE SET NULL —, então o histórico financeiro da empresa não desaparece.

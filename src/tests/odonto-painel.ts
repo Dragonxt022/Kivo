@@ -1,5 +1,5 @@
 /**
- * Teste de integração do painel e dos relatórios do Kivo Odonto (fase 9, PR §21 e §27).
+ * Teste de integração do painel e dos relatórios do Kuruk Odonto (fase 9, PR §21 e §27).
  *
  * O que este teste protege:
  *  - os números do painel são CONTAGENS E SOMAS conferidas contra os dados semeados;
@@ -9,7 +9,7 @@
  *  - a auditoria é a do Core (`audit.view`), e enxerga as entidades `odonto_*`;
  *  - sem `odonto.reports.view` não há painel nem relatório.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-painel.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -19,7 +19,7 @@ import { createServer } from '../core/server';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3851);
+const PORT = Number(process.env.KURUK_PORT ?? 3851);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 const OBSERVACAO = 'Paciente relatou dor intensa à mastigação no lado direito (texto que não pode vazar no painel).';
@@ -42,8 +42,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface Dashboard {

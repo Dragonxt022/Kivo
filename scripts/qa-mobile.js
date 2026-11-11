@@ -1,5 +1,5 @@
 /**
- * Screenshots das telas do Kivo Web num viewport de celular real, para conferir o que o
+ * Screenshots das telas do Kuruk Web num viewport de celular real, para conferir o que o
  * lojista vê. Sobe a nuvem + o desktop reaproveitando o mesmo caminho do e2e.
  *
  * Uso: node qa-mobile.js  (requer o MySQL do docker no ar)
@@ -18,7 +18,7 @@ const OUT = path.resolve('.qa-screenshots');
 
 const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1', CLOUD_DB_PORT: '3307', CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo', CLOUD_DB_NAME: 'kivo_cloud', CLOUD_PORT: '4133',
+  CLOUD_DB_PASSWORD: 'kuruk', CLOUD_DB_NAME: 'kuruk_cloud', CLOUD_PORT: '4133',
 };
 
 function esperar(url, ms = 60000) {
@@ -45,8 +45,8 @@ async function main() {
   const cloudProc = spawn(process.execPath, [TSX, 'cloud/src/server.ts'], { env: { ...process.env, ...CLOUD_ENV }, stdio: 'ignore' });
   const deskProc = spawn(process.execPath, [TSX, 'src/dev.ts'], {
     env: {
-      ...process.env, KIVO_DB_PATH: DB, KIVO_PORT: '3133',
-      KIVO_SYNC_SERVER_URL: CLOUD, KIVO_MACHINE_ID: 'qa-mobile',
+      ...process.env, KURUK_DB_PATH: DB, KURUK_PORT: '3133',
+      KURUK_SYNC_SERVER_URL: CLOUD, KURUK_MACHINE_ID: 'qa-mobile',
     }, stdio: 'ignore',
   });
 
@@ -68,7 +68,7 @@ async function main() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'admin', password: 'admin' }),
     });
-    global.cookie = (login.headers.get('set-cookie') || '').match(/kivo_session=[^;]+/)?.[0] || '';
+    global.cookie = (login.headers.get('set-cookie') || '').match(/kuruk_session=[^;]+/)?.[0] || '';
     console.log('login desktop:', login.status);
 
     // Catálogo + clientes + uma venda, para as telas não ficarem vazias.

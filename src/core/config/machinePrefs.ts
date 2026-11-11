@@ -13,7 +13,7 @@ import path from 'node:path';
  * Electron precisa ler `modoLeve` ANTES de `app.whenReady()`, para poder desligar a aceleração
  * de vídeo, e nesse instante nem o banco foi migrado nem existe janela.
  *
- * O caminho deriva de `KIVO_DB_PATH` pelo mesmo motivo — e do mesmo jeito — que
+ * O caminho deriva de `KURUK_DB_PATH` pelo mesmo motivo — e do mesmo jeito — que
  * `machine-id.local` em core/license/service.ts: acompanha a instalação, não o processo.
  */
 export interface ScalePrefs {
@@ -78,7 +78,7 @@ const DEFAULTS: MachinePrefs = {
 let cache: MachinePrefs | null = null;
 
 function prefsPath(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.join(path.dirname(dbPath), 'machine-prefs.json');
 }
 

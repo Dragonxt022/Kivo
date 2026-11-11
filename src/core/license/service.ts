@@ -7,6 +7,7 @@ import { getCloudServerUrl } from '../config/cloud';
 import { settingsRepository } from '../repositories/SettingsRepository';
 import { createLogger } from '../logger';
 import { versaoInstalada } from '../updater';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 
 const log = createLogger('license');
 // ⚠ Ciclo consciente: `core/secrets` importa `machineId` daqui para derivar a chave do
@@ -18,7 +19,7 @@ import { getSecret, setSecret } from '../secrets/service';
 import { setPlanFeatures, setPlanLabel, type PlanFeatures } from './plans';
 
 /**
- * Licenciamento (KIVO_PLANO.md §7): Machine ID + Empresa UUID + License Key.
+ * Licenciamento (KURUK_PLANO.md §7): Machine ID + Empresa UUID + License Key.
  * Ativação online obrigatória na primeira vez (ver activationRoutes.ts); depois disso,
  * opera offline com tolerância configurável. Reforços contra uso indevido: trava de
  * máquina (machineId real, não hostname) e assinatura de integridade da linha local —
@@ -37,7 +38,7 @@ export type LicenseStatus = 'valida' | 'tolerancia' | 'expirada' | 'sem_licenca'
  *  - `empresa_removida`: a empresa não existe mais lá (excluída/desativada) — 404.
  *  - `credenciais_invalidas`: a chave não confere mais (trocada/rotacionada) — 401.
  *
- * Não bloqueia nada por si só: o Kivo segue operando com a validade local (`valid_until`)
+ * Não bloqueia nada por si só: o Kuruk segue operando com a validade local (`valid_until`)
  * até vencer. Serve para explicar ao lojista por que o sync/telemetria pararam de funcionar.
  */
 export type CloudIssue = 'empresa_removida' | 'credenciais_invalidas';
@@ -54,7 +55,7 @@ export interface LicenseInfo {
   daysRemaining: number | null;
   /** Dias até o bloqueio efetivo (vencimento + tolerância). */
   daysUntilBlock: number | null;
-  /** Data (YYYY-MM-DD) em que o Kivo será bloqueado. */
+  /** Data (YYYY-MM-DD) em que o Kuruk será bloqueado. */
   blockAt: string | null;
   supportPhone: string | null;
   supportEmail: string | null;
@@ -73,6 +74,8 @@ const MACHINE_ID_VERSION = 2;
  * "pepper" que impede que a assinatura de integridade seja recalculada por quem só
  * edita o SQLite na mão sem também descompilar o app.
  */
+// Mantido com o valor antigo de propósito: mudar o pepper invalidaria a assinatura
+// de integridade das licenças já ativadas. É um identificador de protocolo.
 const INTEGRITY_PEPPER = 'kivo-license-integrity-v1-8f2c6a41';
 
 /** Folga para diferença de fuso/NTP antes de reancorar o watermark de relógio. */
@@ -81,7 +84,7 @@ const CLOCK_TOLERANCE_MS = 5 * 60_000;
 let cachedMachineId: string | null = null;
 
 function fallbackMachineIdPath(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.join(path.dirname(dbPath), 'machine-id.local');
 }
 
@@ -112,10 +115,10 @@ function fallbackMachineId(): string {
  * ID real da instalação (GUID nativo do SO via `node-machine-id`: MachineGuid do
  * registro no Windows, IOPlatformUUID no mac, /etc/machine-id no Linux) — estável
  * mesmo se o hostname mudar, ao contrário do hash de hostname/CPU usado antes.
- * `KIVO_MACHINE_ID` permite forçar um valor (testes com múltiplas "máquinas").
+ * `KURUK_MACHINE_ID` permite forçar um valor (testes com múltiplas "máquinas").
  */
 export function machineId(): string {
-  if (process.env.KIVO_MACHINE_ID) return process.env.KIVO_MACHINE_ID;
+  if (process.env.KURUK_MACHINE_ID) return process.env.KURUK_MACHINE_ID;
   if (cachedMachineId) return cachedMachineId;
   let raw: string;
   try {
@@ -301,7 +304,7 @@ function formatDay(s: string | null): string | null {
 /** Explicação, em português claro, de por que a nuvem não atende mais esta instalação. */
 function cloudIssueMessage(issue: CloudIssue, validUntil: string | null): string {
   const ate = formatDay(validUntil);
-  const prazo = ate ? ` O Kivo continua funcionando normalmente até ${ate}.` : '';
+  const prazo = ate ? ` O Kuruk continua funcionando normalmente até ${ate}.` : '';
   if (issue === 'empresa_removida') {
     return `A empresa desta licença não existe mais no servidor (foi excluída ou desativada).${prazo} Contate o suporte para reativar.`;
   }
@@ -352,7 +355,7 @@ interface CloudValidateResponse {
   /** Nome comercial do plano (tela de licença); ausente em cloud antigo. */
   planLabel?: string | null;
   /**
-   * Funcionalidades do plano por chave (nuvem, Kivo Web, QR mesa), da tabela `plans`
+   * Funcionalidades do plano por chave (nuvem, Kuruk Web, QR mesa), da tabela `plans`
    * do cloud. Ausente em cloud antigo: `storePlanFeatures` preserva o que já havia.
    */
   planFeatures?: Record<string, PlanFeatures> | null;
@@ -461,7 +464,7 @@ export function composeAddress(c: CloudCompanyProfile): string {
 }
 
 /**
- * Preenche as configurações da empresa no Kivo local a partir do perfil cadastrado no
+ * Preenche as configurações da empresa no Kuruk local a partir do perfil cadastrado no
  * cloud — SÓ os campos que ainda estão vazios, pra nunca sobrescrever o que o lojista
  * editou à mão. Chamado na ativação (e nas revalidações, de forma idempotente).
  */
@@ -516,12 +519,12 @@ export async function requestTrial(contactName: string, phone: string): Promise<
   try {
     res = await fetch(`${url.replace(/\/$/, '')}/api/license/request-trial`, {
       method: 'POST',
-      headers: {
+      headers: withLegacyBrandHeaders({
         'Content-Type': 'application/json',
-        'X-Kivo-Machine-Id': machineId(),
+        'X-Kuruk-Machine-Id': machineId(),
         // A nuvem usa este header para saber que o cliente é novo e exigir nome/celular.
-        'X-Kivo-App-Version': versaoInstalada(),
-      },
+        'X-Kuruk-App-Version': versaoInstalada(),
+      }),
       body: JSON.stringify({ contactName: contactName.trim(), phone: phone.trim() }),
       signal: AbortSignal.timeout(8000),
     });
@@ -584,12 +587,12 @@ async function resolveCompanyUuid(url: string, licenseKey: string): Promise<stri
 
 /** Cabeçalhos do /license/validate — inclui a versão instalada (tela de versões do painel). */
 function validateHeaders(companyUuid: string, licenseKey: string): Record<string, string> {
-  return {
-    'X-Kivo-Company': companyUuid,
-    'X-Kivo-License-Key': licenseKey,
-    'X-Kivo-Machine-Id': machineId(),
-    'X-Kivo-App-Version': versaoInstalada(),
-  };
+  return withLegacyBrandHeaders({
+    'X-Kuruk-Company': companyUuid,
+    'X-Kuruk-License-Key': licenseKey,
+    'X-Kuruk-Machine-Id': machineId(),
+    'X-Kuruk-App-Version': versaoInstalada(),
+  });
 }
 
 export async function activateLicense(companyUuid: string | null, licenseKey: string): Promise<ActivateResult> {
@@ -701,7 +704,7 @@ export async function refreshLicenseFromCloud(): Promise<void> {
       }
       // 404/401 também são autoritativos: a empresa não existe mais ou a chave mudou.
       // Marca a situação para a tela explicar — mas NÃO mexe em `valid_until`, para o
-      // Kivo continuar operando (offline) até a validade local vencer.
+      // Kuruk continuar operando (offline) até a validade local vencer.
       if (res.status === 404) {
         markCloudIssue('empresa_removida');
         return;
@@ -819,10 +822,10 @@ export function validateLicense(): LicenseInfo {
       return {
         ...base,
         status: 'tolerancia',
-        message: `Licença vencida — o Kivo será bloqueado em ${d} dia${d === 1 ? '' : 's'}. Renove para não parar.`,
+        message: `Licença vencida — o Kuruk será bloqueado em ${d} dia${d === 1 ? '' : 's'}. Renove para não parar.`,
       };
     }
-    return { ...base, status: 'expirada', message: 'Licença expirada. Renove para continuar usando o Kivo.' };
+    return { ...base, status: 'expirada', message: 'Licença expirada. Renove para continuar usando o Kuruk.' };
   }
 
   return {

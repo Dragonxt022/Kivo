@@ -145,15 +145,15 @@
   </div>
   <script nonce="<%= cspNonce %>">
     /*
-      Ordem de impressão: ESC/POS primeiro (quando o Kivo está no desktop e a térmica
+      Ordem de impressão: ESC/POS primeiro (quando o Kuruk está no desktop e a térmica
       está ligada em Configurações › Periféricos), diálogo do navegador como reserva.
-      A ponte `window.kivo` só existe no Electron; no celular pela rede local cai
+      A ponte `window.kuruk` só existe no Electron; no celular pela rede local cai
       direto no window.print(), como antes.
     */
     (function () {
       async function imprimir() {
         var pre = document.getElementById('cupom-thermal');
-        var hw = window.kivo && window.kivo.hardware;
+        var hw = window.kuruk && window.kuruk.hardware;
         if (hw && pre && typeof hw.print === 'function') {
           try {
             var r = await hw.print({ text: pre.textContent || '' });

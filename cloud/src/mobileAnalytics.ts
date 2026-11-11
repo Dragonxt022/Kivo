@@ -1,5 +1,5 @@
 /**
- * Analíticos do Kivo Web — os números que respondem "como vai o negócio".
+ * Analíticos do Kuruk Web — os números que respondem "como vai o negócio".
  *
  * Tudo é calculado a partir de `sync_records`, a mesma fonte do resto do painel (ver
  * mobileData.ts): não há tabela de agregação nem job noturno. Para o volume de uma loja
@@ -25,7 +25,7 @@ export const PERIODOS: { chave: Periodo; rotulo: string; dias: number }[] = [
 ];
 
 /**
- * O Kivo trabalha no fuso de Porto Velho (UTC-4), mesmo relógio do desktop. Usar UTC aqui
+ * O Kuruk trabalha no fuso de Porto Velho (UTC-4), mesmo relógio do desktop. Usar UTC aqui
  * jogaria as vendas da noite para o dia seguinte no relatório.
  */
 const FUSO_MS = 4 * 3600e3;

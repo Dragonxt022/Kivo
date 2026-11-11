@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo</title>
+  <title>Kuruk</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
   <style>
@@ -161,7 +161,7 @@
       transition: color var(--transition), border-color var(--transition), background var(--transition);
     }
     .home-personalizar:hover { color: var(--primary); border-color: var(--primary); background: var(--surface-hover); }
-    /* Atalho para abrir o Kivo no celular/tablet da mesma rede. Fica na barra da home,
+    /* Atalho para abrir o Kuruk no celular/tablet da mesma rede. Fica na barra da home,
        ao lado da busca, porque antes só existia dentro de Configurações › Rede local. */
     .home-celular {
       flex: none; display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
@@ -209,12 +209,12 @@
     <!-- ─── Overlay de login (quando não autenticado ou ?login=1) ─── -->
     <div class="login-overlay" x-show="showLogin" x-cloak>
       <div class="login-card" :class="recovery.open ? 'wide' : ''">
-        <img class="logo" id="kivo-login-logo" src="/logo_kivo-horizontal.svg" alt="Kivo"
-             :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" />
+        <img class="logo" id="kuruk-login-logo" src="/logo_kuruk-horizontal.svg" alt="Kuruk"
+             :src="theme === 'dark' ? '/logo_kuruk-horizontal_branco.svg' : '/logo_kuruk-horizontal.svg'" />
         <script nonce="<%= cspNonce %>">
           (function () {
-            var l = document.getElementById('kivo-login-logo');
-            if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kivo-horizontal_branco.svg';
+            var l = document.getElementById('kuruk-login-logo');
+            if (l && document.documentElement.getAttribute('data-theme') === 'dark') l.src = '/logo_kuruk-horizontal_branco.svg';
           })();
         </script>
 
@@ -282,7 +282,7 @@
 
         <template x-if="!firstRun && !recovery.open && !quickProfiles.length">
           <div>
-            <h1>Entrar no Kivo</h1>
+            <h1>Entrar no Kuruk</h1>
             <form @submit.prevent="login">
               <label for="login-user">Usuário</label>
               <input id="login-user" type="text" x-model="loginUser" autocomplete="username"
@@ -309,7 +309,7 @@
         <%# Volta para a criação do acesso. Quem clicou em "Já tenho um usuário" e descobriu
             que ainda não tem nenhum ficaria preso no login: enquanto o servidor disser que a
             instalação continua de fábrica, a tela "Crie seu acesso" volta a um clique — sem
-            precisar fechar e abrir o Kivo. %>
+            precisar fechar e abrir o Kuruk. %>
         <template x-if="firstRunPending && !firstRun && !recovery.open">
           <button type="button" class="link-btn" @click="reabrirPrimeiroAcesso()">
             Ainda não tenho usuário — criar meu acesso
@@ -329,7 +329,7 @@
                 <div class="recovery-primary">
                   <strong>Peça a outro administrador</strong>
                   <p>
-                    Quem tem acesso de administrador entra no Kivo, abre
+                    Quem tem acesso de administrador entra no Kuruk, abre
                     <strong>Usuários</strong>, clica no seu nome e define uma senha nova.
                     É o caminho mais rápido e não depende de internet nem do suporte.
                   </p>
@@ -358,7 +358,7 @@
                   <p class="recovery-warn">
                     O resgate por código ainda não está disponível neste computador: ele
                     precisa se conectar à internet uma vez para receber o código de
-                    segurança da sua licença. Deixe o Kivo aberto e conectado por alguns
+                    segurança da sua licença. Deixe o Kuruk aberto e conectado por alguns
                     minutos e volte aqui.
                   </p>
                 </template>
@@ -529,7 +529,7 @@
             </div>
             <%# uPlot desenha as barras em canvas; no toque o mesmo gráfico responde ao
                 dedo (o CSS puro antigo só tinha hover de mouse). A altura e as cores
-                saem de /js/kivo-ui.js, que lê as variáveis do tema. %>
+                saem de /js/kuruk-ui.js, que lê as variáveis do tema. %>
             <div class="trend-chart" x-ref="trendChart" role="img"
                  aria-label="Evolução das vendas no período selecionado"></div>
           </div>
@@ -545,7 +545,7 @@
         <input type="text" placeholder="Buscar aplicativo…" x-model="q" @input="filter" />
       </div>
       <% if (user && user.permissions.has('settings.view')) { %>
-      <button type="button" class="home-celular" data-tip="Abrir o Kivo no celular ou tablet" aria-label="Abrir o Kivo no celular ou tablet" @click="$dispatch('kivo-open-celular')">
+      <button type="button" class="home-celular" data-tip="Abrir o Kuruk no celular ou tablet" aria-label="Abrir o Kuruk no celular ou tablet" @click="$dispatch('kuruk-open-celular')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true">
           <rect x="6" y="2.5" width="12" height="19" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/>
         </svg>
@@ -803,10 +803,10 @@
         // O card de "Evolução do negócio" some inteiro; o olho que o reabre vive na barra
         // da home, ao lado do botão de personalizar. Fica no escopo da home (e não no
         // homeDashboard) para os dois lados lerem o mesmo estado.
-        chartHidden: (function () { try { return localStorage.getItem('kivo-dash-chart-hidden') === '1'; } catch { return false; } })(),
+        chartHidden: (function () { try { return localStorage.getItem('kuruk-dash-chart-hidden') === '1'; } catch { return false; } })(),
         toggleChart() {
           this.chartHidden = !this.chartHidden;
-          try { localStorage.setItem('kivo-dash-chart-hidden', this.chartHidden ? '1' : '0'); } catch {}
+          try { localStorage.setItem('kuruk-dash-chart-hidden', this.chartHidden ? '1' : '0'); } catch {}
         },
         iconSvg(name) { return SVG_ICONS[name] || ''; },
 
@@ -814,7 +814,7 @@
 
         // A ordem NÃO mora mais no navegador: vem do servidor (`settings`), igual à cor de
         // destaque e ao logo. Assim a arrumação vale no computador da loja, no tablet, no celular
-        // na rede local e em qualquer navegador que abra este Kivo.
+        // na rede local e em qualquer navegador que abra este Kuruk.
         loadOrder(items) {
           const ordem = ORDEM_CARDS;
           if (ordem.length) {
@@ -1047,7 +1047,7 @@
           // Atalho do cabeçalho (?celular=1): o diálogo do QR vive na nav (global) e é
           // aberto por evento, para não precisar navegar nem ter duas cópias do modal.
           if (isAuthed && !this.showLogin && /[?&]celular=1(?:&|$)/.test(window.location.search)) {
-            this.$nextTick(() => window.dispatchEvent(new CustomEvent('kivo-open-celular')));
+            this.$nextTick(() => window.dispatchEvent(new CustomEvent('kuruk-open-celular')));
           }
         },
 
@@ -1075,7 +1075,7 @@
               return;
             }
             // Novo login = nova abertura: deixa a preferência de abertura do usuário valer.
-            try { sessionStorage.removeItem('kivo-startup-open'); } catch (e) {}
+            try { sessionStorage.removeItem('kuruk-startup-open'); } catch (e) {}
             window.location.href = '/';
           } catch (e) {
             this.quickError = 'Erro de conexão.';
@@ -1142,7 +1142,7 @@
               }),
             });
             if (r.ok) {
-              try { sessionStorage.removeItem('kivo-startup-open'); } catch (e) {}
+              try { sessionStorage.removeItem('kuruk-startup-open'); } catch (e) {}
               window.location.href = '/';
             } else {
               const data = await r.json();
@@ -1182,7 +1182,7 @@
               }),
             });
             if (r.ok) {
-              try { sessionStorage.removeItem('kivo-startup-open'); } catch (e) {}
+              try { sessionStorage.removeItem('kuruk-startup-open'); } catch (e) {}
               window.location.href = '/';
             } else {
               const data = await r.json();
@@ -1353,10 +1353,10 @@
         trend: [],
         brl(c) { return window.brl(c); },
         drawTrend() {
-          // KivoUI é carregado com `defer` em todas as páginas; se a instalação estiver
+          // KurukUI é carregado com `defer` em todas as páginas; se a instalação estiver
           // incompleta, o card fica vazio em vez de derrubar a home.
-          if (!window.KivoUI || !this.$refs.trendChart) return;
-          window.KivoUI.trendChart(this.$refs.trendChart, this.trend);
+          if (!window.KurukUI || !this.$refs.trendChart) return;
+          window.KurukUI.trendChart(this.$refs.trendChart, this.trend);
         },
         async loadTrend() {
           const r = await fetch('/api/store/reports/revenue-trend?period=' + this.period);

@@ -104,7 +104,7 @@ PDV de reenvio por rede/duplo clique).
 - Auditoria (`venda`).
 - Notifica a cozinha (KDS) — pulado no fechamento de comanda (`skipKitchenNotify`), que já
   enviou os itens um a um.
-- Agenda sincronização com a nuvem (`scheduleSyncSoon`) — o painel do Kivo Web mostra o
+- Agenda sincronização com a nuvem (`scheduleSyncSoon`) — o painel do Kuruk Web mostra o
   movimento de hoje sem esperar o ciclo.
 
 ## Cancelamento de venda

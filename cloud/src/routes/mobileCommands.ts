@@ -76,7 +76,7 @@ mobileSide.get('/events', requireMobileAuth, (req: MobileRequest, res) => {
  * "Sincronizar agora" pelo celular. Não é uma escrita de domínio: só enfileira o mesmo
  * `support.sync_now` que o suporte já dispara (`commands.ts` no desktop), que apenas agenda
  * um ciclo de sync. Por isso não passa pela tabela de permissões de comando — qualquer
- * acesso ao Kivo Web pode pedir, e pedir não altera dado nenhum.
+ * acesso ao Kuruk Web pode pedir, e pedir não altera dado nenhum.
  *
  * Se já existe um pedido pendente, devolve o mesmo em vez de empilhar: o botão da tela pode
  * ser tocado várias vezes enquanto o desktop ainda não respondeu.
@@ -97,7 +97,7 @@ mobileSide.post('/sync-now', requireMobileAuth, async (req: MobileRequest, res) 
   const [result] = await getPool().query(
     `INSERT INTO company_commands (company_uuid, kind, payload, created_by_user_uuid)
      VALUES (?, 'support.sync_now', CAST(? AS JSON), ?)`,
-    [company, JSON.stringify({ origem: 'kivo-web' }), req.grant!.userUuid],
+    [company, JSON.stringify({ origem: 'kuruk-web' }), req.grant!.userUuid],
   );
   const id = (result as { insertId: number }).insertId;
   emitToCompany(company, 'command', { id, kind: 'support.sync_now' });
@@ -112,7 +112,7 @@ desktopSide.get('/pending', requireCompanyAuth, async (req: AuthedRequest, res) 
   // `target_machine_id` isola comandos disparados para uma máquina específica (ex.: forçar
   // atualização, que vira uma linha por dispositivo). Sem o cabeçalho — versão antiga do
   // desktop — só os comandos sem alvo são entregues, o que é a degradação correta.
-  const machineId = (req.header('X-Kivo-Machine-Id') ?? '').trim();
+  const machineId = (req.header('X-Kuruk-Machine-Id') ?? '').trim();
   const [rows] = await getPool().query(
     `SELECT id, kind, payload, created_by_user_uuid
        FROM company_commands

@@ -11,7 +11,7 @@ import {
 /**
  * Profissionais que atendem no consultório (PR §24.5).
  *
- * O CRO vive aqui, não em `users`: nem todo profissional tem login no Kivo (auxiliar,
+ * O CRO vive aqui, não em `users`: nem todo profissional tem login no Kuruk (auxiliar,
  * técnico) e nem todo usuário atende (recepção, administrador). `user_id` é o vínculo
  * opcional quando o profissional também opera o sistema.
  */

@@ -48,7 +48,7 @@ import {
  */
 
 /** Marca que separa o que é nosso do que é do consultório. Vai em `notes`, que a ficha mostra. */
-export const DEMO_MARK = 'Paciente de exemplo — dados fictícios criados pelo Kivo para demonstração.';
+export const DEMO_MARK = 'Paciente de exemplo — dados fictícios criados pelo Kuruk para demonstração.';
 
 export interface OdontoDemoSummary {
   profissionais: number;
@@ -281,7 +281,7 @@ const DOCUMENTOS: DemoDocumento[] = [
       '',
       `Profissional responsável: ${prof} — CRO ${cro}`,
       '',
-      'Documento de exemplo, gerado pela demonstração do Kivo.',
+      'Documento de exemplo, gerado pela demonstração do Kuruk.',
     ].join('\n'),
   },
   {
@@ -299,7 +299,7 @@ const DOCUMENTOS: DemoDocumento[] = [
       '',
       `Profissional responsável: ${prof} — CRO ${cro}`,
       '',
-      'Documento de exemplo, gerado pela demonstração do Kivo.',
+      'Documento de exemplo, gerado pela demonstração do Kuruk.',
     ].join('\n'),
   },
   {
@@ -317,7 +317,7 @@ const DOCUMENTOS: DemoDocumento[] = [
       '',
       'Total: R$ 1.270,00 — em até 6x sem juros.',
       '',
-      'Documento de exemplo, gerado pela demonstração do Kivo.',
+      'Documento de exemplo, gerado pela demonstração do Kuruk.',
     ].join('\n'),
   },
   {
@@ -327,13 +327,13 @@ const DOCUMENTOS: DemoDocumento[] = [
       'CONTRATO DE PRESTAÇÃO DE SERVIÇOS ODONTOLÓGICOS',
       '',
       `Contratante: ${p}`,
-      'Contratada: clínica de exemplo (demonstração do Kivo)',
+      'Contratada: clínica de exemplo (demonstração do Kuruk)',
       `Responsável técnico: ${prof} — CRO ${cro}`,
       '',
       'Objeto: instalação de implante unitário e coroa em cerâmica na região do dente 14.',
       'Valor total: R$ 4.300,00, em 10 parcelas mensais.',
       '',
-      'Documento de exemplo, gerado pela demonstração do Kivo.',
+      'Documento de exemplo, gerado pela demonstração do Kuruk.',
     ].join('\n'),
   },
   {
@@ -350,7 +350,7 @@ const DOCUMENTOS: DemoDocumento[] = [
       '',
       `Profissional responsável: ${prof} — CRO ${cro}`,
       '',
-      'Documento de exemplo, gerado pela demonstração do Kivo.',
+      'Documento de exemplo, gerado pela demonstração do Kuruk.',
     ].join('\n'),
   },
   {
@@ -364,7 +364,7 @@ const DOCUMENTOS: DemoDocumento[] = [
       '',
       `Profissional responsável: ${prof} — CRO ${cro}`,
       '',
-      'Documento de exemplo, gerado pela demonstração do Kivo.',
+      'Documento de exemplo, gerado pela demonstração do Kuruk.',
     ].join('\n'),
   },
   {
@@ -377,7 +377,7 @@ const DOCUMENTOS: DemoDocumento[] = [
       '',
       `Profissional responsável: ${prof} — CRO ${cro}`,
       '',
-      'Documento de exemplo, gerado pela demonstração do Kivo.',
+      'Documento de exemplo, gerado pela demonstração do Kuruk.',
     ].join('\n'),
   },
 ];
@@ -656,7 +656,7 @@ function garantirAnamnese(patientId: number, templateId: number, templateVersion
     anticoagulante: 'nao',
     cirurgia_recente: 'nao',
     ultima_consulta: dia(-400),
-    observacoes: 'Respostas fictícias criadas pela demonstração do Kivo.',
+    observacoes: 'Respostas fictícias criadas pela demonstração do Kuruk.',
   };
   anamnesisRepository.createForm({
     patient_id: patientId, template_id: templateId, template_version: templateVersion,

@@ -9,7 +9,7 @@
 
 - 🔊 **Som ligado por padrão** no painel da Cozinha e no aviso de pedido pronto do Garçom.
 - ☁️ **Sincronização com a nuvem já ligada**, a cada 3 minutos.
-- 📶 **Acesso pela rede local já ligado** — o celular/tablet da loja abre o Kivo sem configurar.
+- 📶 **Acesso pela rede local já ligado** — o celular/tablet da loja abre o Kuruk sem configurar.
 - 🧭 **Atalhos de páginas recentes desligados por padrão** (ativáveis em Configurações → Interface).
 - 📦 **Controle de estoque ligado por padrão**, com uma **chave geral** para desligar a quantidade de todos os produtos de uma vez, sem mexer no cadastro item por item.
 
@@ -29,7 +29,7 @@ Nada muda no login, nas permissões ou nos dados já cadastrados.
 ### Sincronização e conectividade
 - **Sincronização em nuvem:** intervalo padrão de **3 minutos**, já ativo. Fechar uma venda
   continua disparando um envio imediato, sem esperar o ciclo.
-- **Acesso pela rede local:** já vem **ligado**. Se o Windows/firewall recusar a porta, o Kivo
+- **Acesso pela rede local:** já vem **ligado**. Se o Windows/firewall recusar a porta, o Kuruk
   volta sozinho para “somente este computador” e avisa na tela de Configurações → Rede.
 
 ### Interface
@@ -41,7 +41,7 @@ Nada muda no login, nas permissões ou nos dados já cadastrados.
 - **Nova chave geral em Configurações → Estoque:** “Controlar a quantidade de estoque dos
   produtos”.
   - **Ligada (padrão):** cada produto segue o próprio cadastro (`controla estoque` ou não).
-  - **Desligada:** o Kivo para de baixar/entrar saldo e de mostrar alertas de estoque
+  - **Desligada:** o Kuruk para de baixar/entrar saldo e de mostrar alertas de estoque
     mínimo/validade para **todos** os produtos — sem precisar desmarcar um por um.
   - O cadastro individual de cada produto é **preservado**; ao religar a chave, o
     comportamento anterior volta.

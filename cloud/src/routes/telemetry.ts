@@ -10,8 +10,8 @@ import { requireCompanyAuth, type AuthedRequest } from '../auth';
  * cloud já conhece via `company_devices`. O desktop agrega os erros por fingerprint
  * antes de enviar; aqui a gente acumula por (empresa, máquina, fingerprint).
  *
- * Autenticação: mesmas credenciais de licença do resto da API (X-Kivo-Company +
- * X-Kivo-License-Key) + X-Kivo-Machine-Id, como em /api/license/validate.
+ * Autenticação: mesmas credenciais de licença do resto da API (X-Kuruk-Company +
+ * X-Kuruk-License-Key) + X-Kuruk-Machine-Id, como em /api/license/validate.
  */
 const router = Router();
 router.use(requireCompanyAuth);
@@ -54,7 +54,7 @@ function jsonOrNull(v: unknown, max = 20_000): string | null {
 }
 
 function machineOf(req: AuthedRequest): string {
-  return clip(req.header('X-Kivo-Machine-Id'), 64) ?? '';
+  return clip(req.header('X-Kuruk-Machine-Id'), 64) ?? '';
 }
 
 router.post('/errors', async (req: AuthedRequest, res: Response) => {
@@ -65,7 +65,7 @@ router.post('/errors', async (req: AuthedRequest, res: Response) => {
   }
   const machine = machineOf(req);
   if (!machine) {
-    res.status(400).json({ error: 'X-Kivo-Machine-Id ausente.' });
+    res.status(400).json({ error: 'X-Kuruk-Machine-Id ausente.' });
     return;
   }
   const list = Array.isArray(req.body?.errors) ? (req.body.errors as unknown[]).slice(0, 100) : [];
@@ -118,7 +118,7 @@ router.post('/machine', async (req: AuthedRequest, res: Response) => {
   }
   const machine = machineOf(req);
   if (!machine) {
-    res.status(400).json({ error: 'X-Kivo-Machine-Id ausente.' });
+    res.status(400).json({ error: 'X-Kuruk-Machine-Id ausente.' });
     return;
   }
   const data = jsonOrNull(req.body?.data);

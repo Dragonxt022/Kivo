@@ -1,5 +1,5 @@
 /*
-  Estilos das bibliotecas de interface carregadas por /js/kivo-ui.js.
+  Estilos das bibliotecas de interface carregadas por /js/kuruk-ui.js.
   Ficam num arquivo separado (e não no app.css) porque só valem quando a página
   realmente usa calendário, busca em select, tooltip ou gráfico.
 
@@ -8,7 +8,7 @@
 */
 
 /* ─── Tooltip (Floating UI) ─── */
-.kivo-tip {
+.kuruk-tip {
   position: fixed;
   z-index: 10050;
   top: 0;
@@ -24,7 +24,7 @@
   box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
-.kivo-tip[hidden] {
+.kuruk-tip[hidden] {
   display: none;
 }
 
@@ -34,14 +34,14 @@
   width: 100%;
   height: 190px;
 }
-.trend-chart.kivo-chart-empty {
+.trend-chart.kuruk-chart-empty {
   display: grid;
   place-items: center;
   color: var(--text-muted);
   font-size: 0.85rem;
   border-bottom: 1px solid var(--border-light);
 }
-.kivo-chart-tip {
+.kuruk-chart-tip {
   position: absolute;
   z-index: 3;
   padding: 0.25rem 0.5rem;
@@ -54,7 +54,7 @@
   box-shadow: var(--shadow-xs);
   pointer-events: none;
 }
-.kivo-chart-tip[hidden] {
+.kuruk-chart-tip[hidden] {
   display: none;
 }
 .uplot {
@@ -135,8 +135,8 @@ span.flatpickr-weekday {
   cursor: pointer;
 }
 /* O calendário é filho do <dialog> (para ficar na top layer); o overflow padrão do
-   diálogo cortaria o calendário. A classe é posta/removida pelo kivo-ui.js. */
-dialog.kivo-fp-host {
+   diálogo cortaria o calendário. A classe é posta/removida pelo kuruk-ui.js. */
+dialog.kuruk-fp-host {
   overflow: visible !important;
 }
 

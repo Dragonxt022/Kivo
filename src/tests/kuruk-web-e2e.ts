@@ -1,7 +1,7 @@
 /**
- * Kivo Web de ponta a ponta: desktop ↔ nuvem ↔ celular, com MySQL de verdade.
+ * Kuruk Web de ponta a ponta: desktop ↔ nuvem ↔ celular, com MySQL de verdade.
  *
- * O `kivo-web.ts` cobre o miolo local (aplicar o comando, personificar, hashear o token). Aqui
+ * O `kuruk-web.ts` cobre o miolo local (aplicar o comando, personificar, hashear o token). Aqui
  * o que se prova é o caminho inteiro, que nenhum teste unitário alcança:
  *
  *   1. o desktop concede o acesso e a nuvem aceita (só no plano Diamante);
@@ -10,8 +10,8 @@
  *   4. o orçamento pedido no celular vira comando, o desktop aplica e o celular vê o número.
  *
  * Exige a nuvem no ar (mesmo pré-requisito de fase6a):
- *   docker compose -f cloud/docker-compose.yml up -d && CLOUD_DB_PORT=3307 npm run kivo cloud:migrate
- *   node scripts/kivo test:kivo-web-e2e
+ *   docker compose -f cloud/docker-compose.yml up -d && CLOUD_DB_PORT=3307 npm run kuruk cloud:migrate
+ *   node scripts/kuruk test:kuruk-web-e2e
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,13 +30,13 @@ const CLOUD_PORT = 4123;
 const DESK_PORT = 3798;
 const CLOUD = `http://127.0.0.1:${CLOUD_PORT}`;
 const DESK = `http://127.0.0.1:${DESK_PORT}`;
-const SCRATCH = path.resolve(ROOT, 'storage', 'temp', 'kivo-web-e2e');
+const SCRATCH = path.resolve(ROOT, 'storage', 'temp', 'kuruk-web-e2e');
 // CLOUD_DB_NAME sai do ambiente quando informado: é assim que se roda este mesmo teste
 // contra um banco com o collation da VPS (utf8mb4_general_ci), diferente do default do
 // servidor MySQL — a divergência que derrubou a migration 0019 no primeiro deploy.
 const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1', CLOUD_DB_PORT: '3307', CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo', CLOUD_DB_NAME: process.env.CLOUD_DB_NAME ?? 'kivo_cloud',
+  CLOUD_DB_PASSWORD: 'kuruk', CLOUD_DB_NAME: process.env.CLOUD_DB_NAME ?? 'kuruk_cloud',
   CLOUD_PORT: String(CLOUD_PORT),
 };
 
@@ -92,8 +92,8 @@ async function main(): Promise<void> {
 
     // ── Desktop: banco próprio, apontando para a nuvem local ──────────────────
     const deskEnv = {
-      KIVO_DB_PATH: dbPath, KIVO_PORT: String(DESK_PORT),
-      KIVO_SYNC_SERVER_URL: CLOUD, KIVO_MACHINE_ID: 'e2e-machine',
+      KURUK_DB_PATH: dbPath, KURUK_PORT: String(DESK_PORT),
+      KURUK_SYNC_SERVER_URL: CLOUD, KURUK_MACHINE_ID: 'e2e-machine',
     };
     deskProc = spawnProc('desktop', 'src/dev.ts', deskEnv);
     await waitForHealth(`${DESK}/api/health`);
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'admin', password: 'admin' }),
     });
-    const cookie = (login.headers.get('set-cookie') ?? '').match(/kivo_session=[^;]+/)?.[0] ?? '';
+    const cookie = (login.headers.get('set-cookie') ?? '').match(/kuruk_session=[^;]+/)?.[0] ?? '';
     check('login no desktop', !!cookie);
 
     const dk = (p: string, init: RequestInit = {}) =>
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
     const pair = await fetch(`${CLOUD}/m/acesso/${token}`, { redirect: 'manual' });
     check('link do QR redireciona (tirando o token da URL)', pair.status === 302 && pair.headers.get('location') === '/m',
       `${pair.status} ${pair.headers.get('location')}`);
-    const mCookie = (pair.headers.get('set-cookie') ?? '').match(/kivo_m=[^;]+/)?.[0] ?? '';
+    const mCookie = (pair.headers.get('set-cookie') ?? '').match(/kuruk_m=[^;]+/)?.[0] ?? '';
     check('sessão do celular criada em cookie httpOnly',
       !!mCookie && (pair.headers.get('set-cookie') ?? '').includes('HttpOnly'));
 
@@ -246,7 +246,7 @@ async function main(): Promise<void> {
 
       // ── Página pública: o que o cliente abre pelo link ──────────────────────
       const publico = `${CLOUD}/orcamento/${companyUuid}/${quoteUuid}`;
-      // SEM cookie de propósito: o cliente da loja não tem acesso ao Kivo Web.
+      // SEM cookie de propósito: o cliente da loja não tem acesso ao Kuruk Web.
       const pub = await fetch(publico);
       const pubHtml = await pub.text();
       check('página pública abre sem autenticação', pub.status === 200, String(pub.status));
@@ -286,7 +286,7 @@ async function main(): Promise<void> {
     cloudProc?.kill();
   }
 
-  console.log(failures === 0 ? '\nKivo Web (e2e): TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
+  console.log(failures === 0 ? '\nKuruk Web (e2e): TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
   process.exit(failures === 0 ? 0 : 1);
 }
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <%- include('partials/theme-init') %>
   <title><%= notFound ? 'Cobrança não encontrada' : ('Pagar — ' + companyName) %></title>
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg">
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg">
   <%- include('partials/styles') %>
   <style>
     .pay-page { max-width: 620px; margin: 0 auto; padding: 24px 16px 48px; }
@@ -39,7 +39,7 @@
       </div>
     <% } else { %>
       <div class="pay-head">
-        <div class="brand"><img src="/logo_kivo-icon.svg" alt="" width="22" height="22"> <%= companyName %></div>
+        <div class="brand"><img src="/logo_kuruk-icon.svg" alt="" width="22" height="22"> <%= companyName %></div>
         <p class="pay-amount">R$ <%= (charge.amount_cents / 100).toFixed(2).replace('.', ',') %></p>
         <div class="pay-meta">Vencimento: <%= fmtDateBr(charge.due_date) %></div>
         <div class="pay-desc"><%= charge.description %></div>
@@ -58,7 +58,7 @@
           <h2>Pagamento confirmado</h2>
           <p class="field-hint" style="margin-top:0">
             Recebemos o pagamento em <%= fmtDateTimeBr(charge.paid_at) %>. Nada mais a fazer por aqui —
-            a licença do Kivo é atualizada automaticamente.
+            a licença do Kuruk é atualizada automaticamente.
           </p>
         </div>
       <% } else if (charge.status === 'cancelada') { %>
@@ -71,7 +71,7 @@
           <% if (!gatewayOn) { %>
             <h2>Pagamento online indisponível</h2>
             <p class="field-hint" style="margin-top:0">
-              O pagamento por aqui ainda não está ativo. Fale com o suporte do Kivo para combinar a forma de pagamento.
+              O pagamento por aqui ainda não está ativo. Fale com o suporte do Kuruk para combinar a forma de pagamento.
             </p>
             <% if (charge.instructions) { %>
               <label>Instruções</label>

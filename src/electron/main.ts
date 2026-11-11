@@ -99,11 +99,11 @@ app.on('second-instance', () => {
   janela.focus();
 });
 
-const PORT = Number(process.env.KIVO_PORT ?? 3123);
+const PORT = Number(process.env.KURUK_PORT ?? 3123);
 
 // Mesmo par light/dark já usado na logo da tela de login (home.ejs) — reaproveitado
 // aqui pro ícone da janela/taskbar acompanhar o tema do Windows em tempo real.
-const ICON_LIGHT = path.resolve(__dirname, '..', 'public', 'kivo_logo.png');
+const ICON_LIGHT = path.resolve(__dirname, '..', 'public', 'kuruk_logo.png');
 const ICON_DARK = path.resolve(__dirname, '..', 'public', 'logo_marca_branco.png');
 
 function currentIconPath(): string {
@@ -127,7 +127,7 @@ function reportFatalBootError(err: unknown): void {
     // se nem isso funcionar, ao menos tenta mostrar o diálogo abaixo.
   }
   appendErrorLog(`[boot-error] ${message}`);
-  dialog.showErrorBox('Kivo — falha ao iniciar', message);
+  dialog.showErrorBox('Kuruk — falha ao iniciar', message);
   app.quit();
 }
 
@@ -141,11 +141,11 @@ function reportFatalBootError(err: unknown): void {
  * plano (inclusive teste e Prata), porque o pacote carrega correções de segurança. O app
  * verifica de hora em hora enquanto houver internet, baixa sozinho e avisa no canto
  * inferior direito com "Atualizar agora" ou "Adiar por 15 minutos" — o adiamento volta a
- * cobrar a cada 15 minutos, nunca dispensa em definitivo. Fechar o Kivo também instala o
+ * cobrar a cada 15 minutos, nunca dispensa em definitivo. Fechar o Kuruk também instala o
  * que já foi baixado (`autoInstallOnAppQuit`), então a máquina não fica semanas atrasada.
  *
  * O estado de cada etapa vive em core/updater (ver o porquê lá) e chega à tela pela API
- * HTTP local, porque a interface do Kivo é uma página servida pelo Express, não uma
+ * HTTP local, porque a interface do Kuruk é uma página servida pelo Express, não uma
  * renderer com IPC.
  */
 function setupAutoUpdater(win: BrowserWindow): void {
@@ -154,7 +154,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
   if (!app.isPackaged) {
     patchUpdateState({
       suportado: false,
-      motivo: 'A atualização automática só funciona no Kivo instalado (aqui você está rodando em modo de desenvolvimento).',
+      motivo: 'A atualização automática só funciona no Kuruk instalado (aqui você está rodando em modo de desenvolvimento).',
     });
     return;
   }
@@ -169,7 +169,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
     }
   };
 
-  /** Aviso na própria tela do Kivo. `showToast` não existe na tela de login/ativação — daí a guarda. */
+  /** Aviso na própria tela do Kuruk. `showToast` não existe na tela de login/ativação — daí a guarda. */
   const avisarNaTela = (msg: string, tipo: 'info' | 'success') => {
     win.webContents
       .executeJavaScript(`window.showToast && window.showToast(${JSON.stringify(msg)}, ${JSON.stringify(tipo)})`)
@@ -178,11 +178,11 @@ function setupAutoUpdater(win: BrowserWindow): void {
       });
   };
 
-  // O Kivo BAIXA a versão nova sozinho e instala quando o programa fecha (ver
+  // O Kuruk BAIXA a versão nova sozinho e instala quando o programa fecha (ver
   // `autoInstallOnAppQuit` logo abaixo). Atualização é obrigatória: não há mais o caminho
   // "só avisar e esperar o lojista clicar em Baixar".
   autoUpdater.autoDownload = false;
-  // Depois de baixada, a atualização entra sozinha quando o Kivo fecha (isSilent, sem
+  // Depois de baixada, a atualização entra sozinha quando o Kuruk fecha (isSilent, sem
   // reabrir) — é o "instalar ao fechar" do comando de atualização forçada do suporte.
   // Continua valendo para o fluxo manual: baixar e fechar atualiza do mesmo jeito.
   autoUpdater.autoInstallOnAppQuit = true;
@@ -213,7 +213,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
     // terminar, o cartão no canto inferior direito pede "Atualizar agora" ou "Adiar 15 min".
     if (primeiraVez) {
       avisarNaTela(
-        `Nova versão do Kivo (${info.version}) sendo baixada. A instalação acontece quando você fechar o Kivo.`,
+        `Nova versão do Kuruk (${info.version}) sendo baixada. A instalação acontece quando você fechar o Kuruk.`,
         'info',
       );
     }
@@ -253,7 +253,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
       erro: null,
     });
     avisarNaTela(
-      `Kivo ${info.version} baixado. Atualize agora ou adie por 15 minutos no aviso do canto da tela — o Kivo também instala ao fechar.`,
+      `Kuruk ${info.version} baixado. Atualize agora ou adie por 15 minutos no aviso do canto da tela — o Kuruk também instala ao fechar.`,
       'success',
     );
   });
@@ -279,7 +279,7 @@ function setupAutoUpdater(win: BrowserWindow): void {
     },
     instalar: () => {
       logUpdate('instalando e reiniciando...');
-      // (silencioso, reabre depois): o instalador NSIS roda sem telas e o Kivo volta
+      // (silencioso, reabre depois): o instalador NSIS roda sem telas e o Kuruk volta
       // sozinho — para o lojista é só o app piscar, que é o pedido original.
       autoUpdater.quitAndInstall(true, true);
     },
@@ -336,16 +336,16 @@ function splashHtml(escuro: boolean): string {
     -webkit-user-select: none; user-select: none; overflow: hidden;
   }
   .logo { width: 66px; height: 66px; color: ${marca};
-    animation: kivo-pop .5s cubic-bezier(.2,.8,.3,1) both; }
+    animation: kuruk-pop .5s cubic-bezier(.2,.8,.3,1) both; }
   .logo svg { width: 100%; height: 100%; display: block; }
   .nome { font-size: 1.05rem; font-weight: 700; letter-spacing: .02em; opacity: .92;
-    animation: kivo-fade .6s .08s both; }
+    animation: kuruk-fade .6s .08s both; }
   .barra { width: 176px; height: 5px; border-radius: 99px; background: ${trilha}; overflow: hidden; }
   .barra i { display: block; width: 42%; height: 100%; border-radius: 99px; background: #FF8000;
-    animation: kivo-correr 1.1s ease-in-out infinite; }
-  @keyframes kivo-correr { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
-  @keyframes kivo-pop { from { transform: scale(.82); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  @keyframes kivo-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: .92; transform: none; } }
+    animation: kuruk-correr 1.1s ease-in-out infinite; }
+  @keyframes kuruk-correr { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+  @keyframes kuruk-pop { from { transform: scale(.82); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes kuruk-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: .92; transform: none; } }
   @media (prefers-reduced-motion: reduce) {
     .logo, .nome { animation: none; }
     .barra i { animation: none; width: 100%; }
@@ -353,7 +353,7 @@ function splashHtml(escuro: boolean): string {
 </style></head>
 <body>
   <div class="logo">${SPLASH_ICONE}</div>
-  <div class="nome">Kivo</div>
+  <div class="nome">Kuruk</div>
   <div class="barra"><i></i></div>
 </body></html>`;
 }
@@ -394,23 +394,23 @@ async function boot() {
    * desmonte do Node (`node::FreePlatform`), o que ainda escondia a causa atrás de um stack de
    * V8. Agora a recusa vira linha no `error.log` e uma caixa explicando o que fazer.
    *
-   * `KIVO_IGNORAR_TRAVA_INSTANCIA=1` pula a trava: serve para provar, numa máquina onde o app
+   * `KURUK_IGNORAR_TRAVA_INSTANCIA=1` pula a trava: serve para provar, numa máquina onde o app
    * "não abre", se o problema é a trava recusando a instância (canal do Windows bloqueado, ou
-   * um Kivo.exe órfão segurando a trava) ou outra coisa.
+   * um Kuruk.exe órfão segurando a trava) ou outra coisa.
    */
-  const ignorarTrava = process.env.KIVO_IGNORAR_TRAVA_INSTANCIA === '1';
+  const ignorarTrava = process.env.KURUK_IGNORAR_TRAVA_INSTANCIA === '1';
   if (!ignorarTrava && !app.requestSingleInstanceLock()) {
-    bootLog('[instancia] trava de instância única recusada — já existe um Kivo rodando');
+    bootLog('[instancia] trava de instância única recusada — já existe um Kuruk rodando');
     appendErrorLog(
-      '[instancia] trava de instância única recusada: já existe um Kivo rodando (ou o Windows ' +
+      '[instancia] trava de instância única recusada: já existe um Kuruk rodando (ou o Windows ' +
       'recusou o canal). Esta cópia vai encerrar sem abrir janela.',
     );
     try {
       dialog.showErrorBox(
-        'Kivo já está aberto',
-        'Já existe um Kivo em execução neste computador.\n\n' +
-        'Se você não vê a janela dele, feche o Kivo pelo Gerenciador de Tarefas ' +
-        '(aba Detalhes, processo Kivo.exe) e abra o Kivo de novo.',
+        'Kuruk já está aberto',
+        'Já existe um Kuruk em execução neste computador.\n\n' +
+        'Se você não vê a janela dele, feche o Kuruk pelo Gerenciador de Tarefas ' +
+        '(aba Detalhes, processo Kuruk.exe) e abra o Kuruk de novo.',
       );
     } catch {
       // Sem interface (sessão sem desktop): o log acima é a única pista possível.
@@ -472,7 +472,7 @@ async function boot() {
       gpu,
     };
   });
-  // O destino dos backups NÃO é semeado no banco: `backupDir()` deriva de `KIVO_DB_PATH`
+  // O destino dos backups NÃO é semeado no banco: `backupDir()` deriva de `KURUK_DB_PATH`
   // (userData no app empacotado) a cada uso. Gravar o caminho absoluto aqui fazia ele
   // viajar junto num banco restaurado em outra máquina/outro perfil do Windows.
   // Antes de carregar os módulos (que decidem o que habilitar a partir do cache
@@ -568,7 +568,7 @@ async function boot() {
   bootLog(`boot: escutando em ${lanAtivo ? '0.0.0.0' : '127.0.0.1'}:${PORT}`);
 
   /**
-   * Troca o host do servidor em execução, sem reiniciar o Kivo. Chamado pela rota
+   * Troca o host do servidor em execução, sem reiniciar o Kuruk. Chamado pela rota
    * `PUT /api/settings/rede.acesso_local` depois de responder ao cliente: fecha o
    * servidor atual (e as conexões keep-alive pendentes) e reabre no host novo.
    * Devolve `true` quando o novo host entrou no ar.
@@ -622,7 +622,7 @@ async function boot() {
   win.maximize();
 
   // Tela cheia da abertura personalizada: F11 alterna para o operador conseguir sair sem
-  // fechar o Kivo. O PDV já tem o botão próprio; nas outras telas não havia como voltar.
+  // fechar o Kuruk. O PDV já tem o botão próprio; nas outras telas não havia como voltar.
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && input.key === 'F11') {
       event.preventDefault();
@@ -634,9 +634,9 @@ async function boot() {
    * Janelas abertas por `window.open` (cupom, orçamento, relatório de caixa).
    *
    * O padrão do Electron NÃO herda o preload na janela filha. Sem isto, o cupom abria
-   * sem `window.kivo` — a impressora térmica caía no diálogo do Windows e a balança
+   * sem `window.kuruk` — a impressora térmica caía no diálogo do Windows e a balança
    * desaparecia justamente na tela de impressão. Links externos (billing, planos)
-   * passam a abrir no navegador do sistema, com a sessão do Kivo intacta.
+   * passam a abrir no navegador do sistema, com a sessão do Kuruk intacta.
    */
   win.webContents.setWindowOpenHandler(({ url, features }) => {
     let destino: URL;

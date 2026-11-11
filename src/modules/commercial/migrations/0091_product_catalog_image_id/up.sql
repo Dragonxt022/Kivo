@@ -1,4 +1,4 @@
--- 0091_product_catalog_image_id — guarda QUAL foto do banco de imagens do Kivo Cloud
+-- 0091_product_catalog_image_id — guarda QUAL foto do banco de imagens do Kuruk Cloud
 -- representa o produto. Antes o cardápio online só conseguia casar a foto pelo NOME do
 -- produto, o que falhava para qualquer imagem vinda das sugestões automáticas (busca no
 -- banco compartilhado) e para produtos renomeados.

@@ -16,7 +16,7 @@ export interface ReadyAlertEvent extends ReadyAlert {
   /** Quem marcou como pronto (informativo; o filtro é por aparelho). */
   actorUserId: number | null;
   /**
-   * Aparelho que marcou como pronto (`X-Kivo-Device`). É ESTE que o cliente compara para
+   * Aparelho que marcou como pronto (`X-Kuruk-Device`). É ESTE que o cliente compara para
    * ignorar o próprio alerta — comparar por usuário silenciava cozinha e celular quando
    * os dois estavam logados no mesmo login, que é o padrão numa loja pequena.
    */

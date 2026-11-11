@@ -2,7 +2,7 @@
  * Estado da atualização do app, compartilhado entre o processo principal do Electron
  * (quem fala com o `electron-updater`) e a API HTTP que a tela de Configurações consome.
  *
- * Por que um módulo com estado em memória, e não IPC pelo preload: a interface do Kivo
+ * Por que um módulo com estado em memória, e não IPC pelo preload: a interface do Kuruk
  * não é uma renderer comum — é uma página servida pelo Express local, a mesma que o
  * celular do garçom abre pela rede. Nada nela pode depender de `window.electron`. Como o
  * servidor roda DENTRO do processo principal (ver electron/main.ts), um singleton de
@@ -177,7 +177,7 @@ function esperarStatus(alvos: UpdateStatus[], timeoutMs: number): Promise<Update
 
 /**
  * Atualização forçada pelo suporte, em silêncio: verifica, baixa e deixa o instalador rodar
- * sozinho quando o Kivo for fechado (electron-updater com `autoInstallOnAppQuit`, `isSilent`).
+ * sozinho quando o Kuruk for fechado (electron-updater com `autoInstallOnAppQuit`, `isSilent`).
  * Não reinicia a máquina no meio de uma venda — o lojista escolhe a hora de fechar.
  *
  * Roda em fire-and-forget: o download leva minutos e não pode segurar o ack do comando.

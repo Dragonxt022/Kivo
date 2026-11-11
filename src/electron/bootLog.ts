@@ -17,9 +17,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** Raiz de dados: `KIVO_DB_PATH` manda; sem ele, o cwd (modo dev). */
+/** Raiz de dados: `KURUK_DB_PATH` manda; sem ele, o cwd (modo dev). */
 function bootLogPath(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   return path.join(path.dirname(path.dirname(dbPath)), 'boot.log');
 }
 

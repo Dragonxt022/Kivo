@@ -7,7 +7,7 @@
 import path from 'node:path';
 
 // Diretório próprio para o machine-prefs.json deste teste não vazar para os outros.
-process.env.KIVO_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'quick-login-network', 'test.db');
+process.env.KURUK_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'quick-login-network', 'test.db');
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { getMachinePrefs, setMachinePrefs } = require('../core/config/machinePrefs');

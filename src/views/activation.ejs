@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Ativação</title>
+  <title>Kuruk — Ativação</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <style>
     body { display: grid; place-items: center; min-height: 100vh; }
@@ -59,8 +59,8 @@
 </head>
 <body>
   <div class="activation-card" x-data="activationPage()">
-    <img class="logo" :src="theme === 'dark' ? '/logo_kivo-horizontal_branco.svg' : '/logo_kivo-horizontal.svg'" alt="Kivo" />
-    <h1>Ativar o Kivo</h1>
+    <img class="logo" :src="theme === 'dark' ? '/logo_kuruk-horizontal_branco.svg' : '/logo_kuruk-horizontal.svg'" alt="Kuruk" />
+    <h1>Ativar o Kuruk</h1>
 
     <template x-if="mode === 'choice'">
       <div>
@@ -69,7 +69,7 @@
         <div class="trial-contact">
           <label for="trial-name">Seu nome</label>
           <input id="trial-name" type="text" x-model="contactName" maxlength="160"
-                 autocomplete="name" placeholder="Nome de quem vai usar o Kivo" />
+                 autocomplete="name" placeholder="Nome de quem vai usar o Kuruk" />
           <label for="trial-phone">Celular / WhatsApp</label>
           <input id="trial-phone" type="tel" x-model="phone" maxlength="30"
                  autocomplete="tel" placeholder="(11) 99999-9999" />
@@ -141,7 +141,7 @@
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
         <h1>Teste iniciado com sucesso!</h1>
-        <p class="subtitle">Bem-vindo ao Kivo. Você tem 15 dias para testar todos os recursos.</p>
+        <p class="subtitle">Bem-vindo ao Kuruk. Você tem 15 dias para testar todos os recursos.</p>
         <p class="subtitle" style="margin-bottom:0">Redirecionando…</p>
       </div>
     </template>
@@ -200,7 +200,7 @@
           }
         },
         viewPlans() {
-          window.open('https://kivo.buscamais.org/#planos', '_blank');
+          window.open('https://kuruk.com.br/#planos', '_blank');
         },
       };
     }

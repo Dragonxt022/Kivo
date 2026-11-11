@@ -13,7 +13,7 @@ export interface StoreSalesService {
   cancelSale: typeof cancelSale;
 }
 /**
- * Exposto para a fila de comandos do Kivo Web (core/sync/commands.ts) criar orçamento pedido
+ * Exposto para a fila de comandos do Kuruk Web (core/sync/commands.ts) criar orçamento pedido
  * pelo celular. O Core não pode importar um módulo direto — o contrato é sempre getService.
  */
 export interface StoreQuotesService {

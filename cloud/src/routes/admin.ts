@@ -391,7 +391,7 @@ router.get('/companies/export.csv', requireAdminAuth, async (_req, res) => {
   res.send('\uFEFF' + lines.join('\r\n'));
 });
 
-// ─── KIVO IA: uso, créditos e gráficos ─────────────────────────────────────────
+// ─── KURUK IA: uso, créditos e gráficos ─────────────────────────────────────────
 const AI_PIE_COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899'];
 
 router.get('/ai', requireAdminAuth, async (_req: AdminRequest, res) => {
@@ -667,7 +667,7 @@ router.get('/dashboard', requireAdminAuth, async (_req, res) => {
   }
 
   if (kpis.total_companies === 0) {
-    alerts.push({ type: 'info', icon: 'plus', title: 'Bem-vindo ao Kivo Cloud!', detail: 'Comece cadastrando sua primeira empresa.' });
+    alerts.push({ type: 'info', icon: 'plus', title: 'Bem-vindo ao Kuruk Cloud!', detail: 'Comece cadastrando sua primeira empresa.' });
   }
 
   // ─── Alertas extras: inatividade, licenças vencidas e erros recentes ───
@@ -1178,7 +1178,7 @@ function safeJson(s: string): unknown {
  *
  * TODA tabela que referencia `companies` precisa aparecer aqui: `menu_items` tem FK e ficou
  * de fora até a 0.3.1; `company_mobile_grants`/`company_commands` (0019) também; e `ai_usage`
- * (0037) entrou depois — sem apagá-la, excluir uma empresa que usou a KIVO IA estourava a FK
+ * (0037) entrou depois — sem apagá-la, excluir uma empresa que usou a KURUK IA estourava a FK
  * e virava um "Erro interno do servidor." genérico. `client_error_reports` e
  * `client_machine_inventory` (telemetria) e `message_targets` (central de mensagens) não têm
  * FK, mas guardam `company_uuid` e sairiam órfãos.
@@ -2003,7 +2003,7 @@ router.get('/settings', requireAdminAuth, async (req, res) => {
   settings.image_api_key = '';
   const imageGoogleKeySet = Boolean(settings.image_google_api_key);
   settings.image_google_api_key = '';
-  // KIVO IA: provedores e chaves ficam aqui (o cliente não configura nada). As chaves não
+  // KURUK IA: provedores e chaves ficam aqui (o cliente não configura nada). As chaves não
   // voltam para a tela — só o sinalizador de "já configurada".
   const ai = await loadAiSettingsForView();
   // Mais Delivery: credenciais da sede (não devolvemos os segredos brutos, só sinalizadores).
@@ -2051,7 +2051,7 @@ router.post('/settings', requireAdminAuth, async (req, res) => {
     upsert('image_api_enabled', b.imageApiEnabled ? '1' : '0'),
     upsert('image_api_provider', 'pexels'),
     upsert('image_google_cx', String(b.imageGoogleCx ?? '').trim() || null),
-    // KIVO IA: provedor padrão e endpoint do Ollama.
+    // KURUK IA: provedor padrão e endpoint do Ollama.
     upsert('ai_enabled', b.aiEnabled ? '1' : '0'),
     upsert('ai_default_provider', isProviderId(b.aiDefaultProvider) ? b.aiDefaultProvider : 'ollama'),
     upsert('ai_ollama_url', String(b.aiOllamaUrl ?? '').trim() || null),
@@ -2907,7 +2907,7 @@ async function findDemandImageSuggestions(query: string, limit = 12): Promise<De
   }
 
   const parts: string[] = [];
-  if (webResults.length) parts.push('imagens já escolhidas por lojas do Kivo');
+  if (webResults.length) parts.push('imagens já escolhidas por lojas do Kuruk');
   if (googleResults.length) parts.push('Google Imagens (Creative Commons)');
   if (pexelsResults.length) parts.push('fotos fornecidas por Pexels');
 
@@ -3292,8 +3292,8 @@ router.post('/catalog/delete-all', requireAdminAuth, async (req: AdminRequest, r
  * então o formulário no catalog-queue.ejs é 100% orientado a `fetch`, sem <form> nativo.
  */
 router.post('/catalog/manual', rawCatalogImage, requireAdminAuth, async (req: AdminRequest, res) => {
-  const productName = req.header('X-Kivo-Product-Name');
-  const barcode = String(req.header('X-Kivo-Product-Barcode') ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, 64) || null;
+  const productName = req.header('X-Kuruk-Product-Name');
+  const barcode = String(req.header('X-Kuruk-Product-Barcode') ?? '').replace(/[^0-9A-Za-z]/g, '').slice(0, 64) || null;
   const body = req.body as Buffer;
 
   if (!productName || !Buffer.isBuffer(body) || !body.length) {

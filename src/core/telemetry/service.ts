@@ -11,6 +11,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { getSqlite } from '../database/connection';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 import { settingsRepository } from '../repositories/SettingsRepository';
 import { getLicenseCredentials, machineId, hasCloudIssue } from '../license/service';
 import { getCloudServerUrl } from '../config/cloud';
@@ -48,7 +49,7 @@ export function getMachineInventory(): MachineInventory {
 
 function appVersion(): string | null {
   if (cachedAppVersion === undefined) {
-    cachedAppVersion = inventoryProvider?.().appVersion ?? process.env.KIVO_APP_VERSION ?? null;
+    cachedAppVersion = inventoryProvider?.().appVersion ?? process.env.KURUK_APP_VERSION ?? null;
   }
   return cachedAppVersion;
 }
@@ -106,12 +107,12 @@ export function recordError(scope: string, message: string, context?: unknown, l
 }
 
 function authHeaders(companyUuid: string, licenseKey: string): Record<string, string> {
-  return {
+  return withLegacyBrandHeaders({
     'Content-Type': 'application/json',
-    'X-Kivo-Company': companyUuid,
-    'X-Kivo-License-Key': licenseKey,
-    'X-Kivo-Machine-Id': machineId(),
-  };
+    'X-Kuruk-Company': companyUuid,
+    'X-Kuruk-License-Key': licenseKey,
+    'X-Kuruk-Machine-Id': machineId(),
+  });
 }
 
 function safeParse(s: unknown): unknown {

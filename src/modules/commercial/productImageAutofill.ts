@@ -16,7 +16,7 @@ import { productRepository } from './repositories/ProductRepository';
  *      mesma regra do auto-preenchimento do cadastro, aplicada retroativamente — típico de
  *      catálogo importado/duplicado em que o "mesmo" item entrou mais de uma vez.
  *   2. NUVEM (best-effort, quando há internet + empresa ativada) — consulta o banco de
- *      imagens do Kivo Cloud pelo NOME do produto e, achando uma foto aprovada, baixa e
+ *      imagens do Kuruk Cloud pelo NOME do produto e, achando uma foto aprovada, baixa e
  *      salva localmente (fica disponível offline depois). A busca na nuvem NÃO tem gate de
  *      plano (ver cloud/src/routes/catalog.ts): funciona em trial/qualquer assinatura, só
  *      exige empresa autenticada — ou seja, independe do usuário ter plano pago.

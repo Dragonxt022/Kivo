@@ -15,7 +15,7 @@
  *  - receita/atestado não emitem sem profissional com CRO;
  *  - auditoria registra o ato SEM copiar o texto do documento.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-documentos.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -26,7 +26,7 @@ import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 import { extractVariables, idadeDe, render } from '../modules/odonto/documents';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3850);
+const PORT = Number(process.env.KURUK_PORT ?? 3850);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 const TEXTO = 'Declaro que recebi as orientações de cuidado pós-operatório (teste).';
@@ -48,8 +48,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface Template {

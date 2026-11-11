@@ -1,3 +1,4 @@
+import './legacyEnv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getPool, closePool } from './db';

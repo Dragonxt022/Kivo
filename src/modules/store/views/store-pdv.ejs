@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — PDV</title>
+  <title>Kuruk — PDV</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <link rel="stylesheet" href="/css/pdv.css" />
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
@@ -107,8 +107,8 @@
                   <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
                 </span>
                 <span class="price" x-text="brl(p.price_cents)"></span>
-                <span class="stock" :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
-                      x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
+                <span class="stock" :class="{ low: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                      x-show="p.track_stock && KURUK_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
               </div>
             </template>
           </div>
@@ -492,8 +492,8 @@
             <span class="prod-meta">
               <span class="muted text-sm" x-show="p.category" x-text="p.category"></span>
               <span class="prod-stock"
-                    :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
-                    x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
+                    :class="{ low: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                    x-show="p.track_stock && KURUK_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
             </span>
             <span class="prod-price" x-text="brl(p.price_cents)"></span>
           </button>
@@ -513,8 +513,8 @@
               <span class="kitchen-tag" x-show="p.goes_to_kitchen" x-cloak>Cozinha</span>
             </span>
             <span class="price" x-text="brl(p.price_cents)"></span>
-            <span class="stock" :class="{ low: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KIVO_ESTOQUE_ATIVO && p.stock_qty < 0 }"
-                  x-show="p.track_stock && KIVO_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
+            <span class="stock" :class="{ low: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty <= 3 && p.stock_qty >= 0, negative: p.track_stock && KURUK_ESTOQUE_ATIVO && p.stock_qty < 0 }"
+                  x-show="p.track_stock && KURUK_ESTOQUE_ATIVO" x-text="'Est: ' + p.stock_qty"></span>
           </div>
         </template>
         <p class="pdv-empty" x-show="!browseFiltered().length">Nenhum produto encontrado.</p>
@@ -1255,7 +1255,7 @@
         noteDlg: { idx: null, text: '' },
         qtyDlg: { idx: null, name: '', unit: 'un', fractional: false, raw: '', error: '' },
         // Ponte com o processo principal (só existe no Electron — ver preload.ts).
-        hwScale: !!(window.kivo && window.kivo.hardware),
+        hwScale: !!(window.kuruk && window.kuruk.hardware),
         quoteForm: { validUntil: '', notes: '', error: '', saving: false },
 
         // ─── Complementos ───
@@ -1394,11 +1394,11 @@
 
         // ─── Vendas simultâneas + persistência ───
         persistSlots() {
-          try { localStorage.setItem('kivo:pdv:slots', JSON.stringify({ slots: this.slots, activeSlot: this.activeSlot })); } catch (e) {}
+          try { localStorage.setItem('kuruk:pdv:slots', JSON.stringify({ slots: this.slots, activeSlot: this.activeSlot })); } catch (e) {}
         },
         restoreSlots() {
           try {
-            const raw = localStorage.getItem('kivo:pdv:slots');
+            const raw = localStorage.getItem('kuruk:pdv:slots');
             if (!raw) return;
             const saved = JSON.parse(raw);
             if (Array.isArray(saved?.slots) && saved.slots.length) {
@@ -1977,7 +1977,7 @@
          * A balança sempre devolve kg; item em g/ml/L usa a mesma escala (1 kg ≈ 1 L).
          */
         async lerBalanca() {
-          const hw = window.kivo && window.kivo.hardware;
+          const hw = window.kuruk && window.kuruk.hardware;
           if (!hw || !hw.readScale) return;
           this.qtyDlg.error = '';
           try {
@@ -3002,7 +3002,7 @@
     // reaberto pelo botão "Rever tour" no rodapé. Passos cujo alvo não existe — botão sem
     // permissão, por exemplo — são pulados pelo próprio motor.
     (function () {
-      var TOUR_KEY = 'kivo-tour-pdv-v1';
+      var TOUR_KEY = 'kuruk-tour-pdv-v1';
 
       function pdvTourSteps() {
         return [
@@ -3016,8 +3016,8 @@
       }
 
       function startPdvTour() {
-        if (!window.KivoTour) return;
-        window.KivoTour.start(pdvTourSteps());
+        if (!window.KurukTour) return;
+        window.KurukTour.start(pdvTourSteps());
       }
       window.startPdvTour = startPdvTour;
 
@@ -3027,9 +3027,9 @@
       // Os alvos do tour são estáticos (barra, busca, resumo), então não precisa esperar o
       // init() carregar dados — só um respiro para a tela pintar.
       setTimeout(function () {
-        if (!window.KivoTour || window.KivoTour.isActive()) return;
+        if (!window.KurukTour || window.KurukTour.isActive()) return;
         if (document.querySelector('dialog[open]')) return;
-        window.KivoTour.autoStart(TOUR_KEY, pdvTourSteps(), {
+        window.KurukTour.autoStart(TOUR_KEY, pdvTourSteps(), {
           // Fim do tutorial: confete e parabéns (motor em /js/tour.js).
           celebrate: {
             title: 'Venda dominada! 🎉',

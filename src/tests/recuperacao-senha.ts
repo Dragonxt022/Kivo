@@ -8,9 +8,9 @@
  *  - `x-data="…"` nas views sem aspa dupla solta no meio — foi assim que o nav inteiro
  *    virou texto cru na tela do lojista.
  *
- * KIVO_DB_PATH TEM que vir do ambiente (`import` é hoisted e connection.ts lê a variável
+ * KURUK_DB_PATH TEM que vir do ambiente (`import` é hoisted e connection.ts lê a variável
  * antes deste arquivo rodar):
- *   node scripts/kivo test:recuperacao-senha    ← use o comando
+ *   node scripts/kuruk test:recuperacao-senha    ← use o comando
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,7 +43,7 @@ const cloudCodes = require('../../cloud/src/recoveryCodes') as {
 };
 const cloudExpectedResponse = cloudCodes.expectedResponse;
 
-const PORT = Number(process.env.KIVO_PORT ?? 3719);
+const PORT = Number(process.env.KURUK_PORT ?? 3719);
 const base = `http://localhost:${PORT}`;
 const SEGREDO = 'a'.repeat(64);
 let failures = 0;
@@ -54,16 +54,16 @@ function check(label: string, ok: boolean, extra = ''): void {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
     throw new Error(
-      'KIVO_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
-      '`node scripts/kivo test:recuperacao-senha`, que aponta para um arquivo temporário.',
+      'KURUK_DB_PATH não definida. Este teste APAGA o banco que usar — rode via ' +
+      '`node scripts/kuruk test:recuperacao-senha`, que aponta para um arquivo temporário.',
     );
   }
-  const devDb = path.resolve(process.cwd(), 'database', 'kivo.db');
+  const devDb = path.resolve(process.cwd(), 'database', 'kuruk.db');
   if (path.resolve(alvo) === devDb) {
-    throw new Error(`Recusado: KIVO_DB_PATH aponta para o banco de dev (${devDb}).`);
+    throw new Error(`Recusado: KURUK_DB_PATH aponta para o banco de dev (${devDb}).`);
   }
   return alvo;
 }
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
   const TMP_DB = assertBancoDescartavel();
   fs.mkdirSync(path.dirname(TMP_DB), { recursive: true });
   fs.rmSync(TMP_DB, { force: true });
-  // O cofre vive ao lado da raiz de dados; com KIVO_DB_PATH temporário ele também é
+  // O cofre vive ao lado da raiz de dados; com KURUK_DB_PATH temporário ele também é
   // temporário, mas limpar evita herdar segredo de uma execução anterior.
   fs.rmSync(secretsFilePath(), { force: true });
 

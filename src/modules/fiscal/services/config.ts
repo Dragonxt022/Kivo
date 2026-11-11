@@ -187,7 +187,7 @@ export function hasProviderToken(): boolean {
 
 /**
  * Troca para produção. Só passa com uma emissão de teste autorizada registrada — é a trava
- * do beta: enquanto o lojista não viu uma nota ser aceita em homologação, o Kivo não deixa
+ * do beta: enquanto o lojista não viu uma nota ser aceita em homologação, o Kuruk não deixa
  * mandar nada com valor fiscal.
  */
 export function promoteToProduction(): { ok: true } | { ok: false; error: string } {

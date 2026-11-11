@@ -19,7 +19,7 @@ function runCheck(): void {
 }
 
 /**
- * Agendador do fechamento mensal de convênio: como o Kivo não fica sempre aberto,
+ * Agendador do fechamento mensal de convênio: como o Kuruk não fica sempre aberto,
  * não há garantia de rodar exatamente no dia de fechamento — por isso verifica no
  * boot (catch-up de qualquer fechamento perdido) e periodicamente depois.
  */

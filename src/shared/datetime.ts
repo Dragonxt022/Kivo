@@ -1,6 +1,6 @@
 /**
  * Fuso horário do sistema: o da MÁQUINA de quem está usando (Windows/navegador), em vez de
- * um fixo. Como o Kivo roda no computador da loja, o fuso do SO é exatamente o do usuário.
+ * um fixo. Como o Kuruk roda no computador da loja, o fuso do SO é exatamente o do usuário.
  *
  * O banco guarda tudo em UTC (`datetime('now')`) para sincronizar entre máquinas; o fuso só
  * entra na EXIBIÇÃO e no agrupamento por dia ("hoje" = dia local). Espelhado em

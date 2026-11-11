@@ -1,5 +1,5 @@
 /*
-  Camada de interface compartilhada do Kivo.
+  Camada de interface compartilhada do Kuruk.
 
   As telas são EJS + Alpine, sem bundler. Em vez de importar uma biblioteca em cada
   página, este arquivo carrega o que a página realmente usa (script/CSS sob demanda,
@@ -8,7 +8,7 @@
     <input type="date" data-picker>        → calendário (flatpickr) no desktop
     <select data-search>                   → busca digitável (Tom Select)
     <button data-tip="Texto">              → tooltip (Floating UI)
-    KivoUI.trendChart(el, buckets)         → gráfico de barras (uPlot)
+    KurukUI.trendChart(el, buckets)         → gráfico de barras (uPlot)
 
   Regras deliberadas:
   - Tudo é progressivo: sem JS, o input nativo e o <select> continuam funcionando.
@@ -152,14 +152,14 @@
               // <dialog> tem `overflow: auto` no padrão do navegador e cortaria o
               // calendário no rodapé. A classe libera só enquanto ele está aberto.
               opcoes.onClose = function () {
-                host.classList.remove('kivo-fp-host');
+                host.classList.remove('kuruk-fp-host');
               };
               // O flatpickr chama `position(instância, elemento)` — não passa o DOM do
               // calendário. O elemento de referência é o próprio input.
               opcoes.position = function (inst) {
                 var cal = inst.calendarContainer;
                 if (!cal) return;
-                host.classList.add('kivo-fp-host');
+                host.classList.add('kuruk-fp-host');
                 var r = el.getBoundingClientRect();
                 var d = host.getBoundingClientRect();
                 var altura = cal.offsetHeight || 320;
@@ -331,7 +331,7 @@
   function ensureTooltip() {
     if (tipEl) return tipEl;
     tipEl = document.createElement('div');
-    tipEl.className = 'kivo-tip';
+    tipEl.className = 'kuruk-tip';
     tipEl.setAttribute('role', 'tooltip');
     tipEl.hidden = true;
     document.body.appendChild(tipEl);
@@ -401,21 +401,21 @@
   function renderTrend(el, buckets) {
     if (!el) return;
     var rows = Array.isArray(buckets) ? buckets : [];
-    el._kivoTrendData = rows.slice();
+    el._kurukTrendData = rows.slice();
 
     // Destrói antes de limpar o container: o uPlot guarda referências ao próprio DOM
     // (canvas/over). Limpar primeiro deixaria listeners e observers órfãos.
-    if (el._kivoUplot) {
+    if (el._kurukUplot) {
       try {
-        el._kivoUplot.destroy();
+        el._kurukUplot.destroy();
       } catch {}
-      el._kivoUplot = null;
+      el._kurukUplot = null;
     }
     el.textContent = '';
 
     if (!rows.length) {
       el.textContent = 'Sem vendas no período.';
-      el.classList.add('kivo-chart-empty');
+      el.classList.add('kuruk-chart-empty');
       return;
     }
 
@@ -425,7 +425,7 @@
     ])
       .then(function () {
         if (!window.uPlot) return;
-        el.classList.remove('kivo-chart-empty');
+        el.classList.remove('kuruk-chart-empty');
 
         var labels = rows.map(function (b) {
           return String(b.label || '');
@@ -441,7 +441,7 @@
           // Período sem venda: um gráfico plano com cinco "R$ 0" no eixo confunde mais
           // do que explica. Mostra o mesmo vazio das listas.
           el.textContent = 'Sem vendas no período.';
-          el.classList.add('kivo-chart-empty');
+          el.classList.add('kuruk-chart-empty');
           return;
         }
         var primary = cssVar('--primary', '#ff8000');
@@ -449,7 +449,7 @@
         var muted = cssVar('--text-muted', '#8a8a98');
 
         var tip = document.createElement('div');
-        tip.className = 'kivo-chart-tip';
+        tip.className = 'kuruk-chart-tip';
         tip.hidden = true;
 
         var tooltipPlugin = {
@@ -545,30 +545,30 @@
         };
 
         try {
-          el._kivoUplot = new window.uPlot(opts, [xs, values], el);
+          el._kurukUplot = new window.uPlot(opts, [xs, values], el);
         } catch {
           el.textContent = 'Não foi possível desenhar o gráfico.';
-          el.classList.add('kivo-chart-empty');
+          el.classList.add('kuruk-chart-empty');
           return;
         }
 
         // Recalcula na troca de tema (as cores saem das variáveis CSS) e no resize.
-        if (!el._kivoResize) {
+        if (!el._kurukResize) {
           var pending = null;
-          el._kivoResize = new ResizeObserver(function () {
+          el._kurukResize = new ResizeObserver(function () {
             if (pending) cancelAnimationFrame(pending);
             pending = requestAnimationFrame(function () {
-              var u = el._kivoUplot;
+              var u = el._kurukUplot;
               if (!u) return;
               u.setSize({ width: Math.max(240, el.clientWidth), height: 190 });
             });
           });
-          el._kivoResize.observe(el);
+          el._kurukResize.observe(el);
         }
       })
       .catch(function () {
         el.textContent = 'Gráfico indisponível.';
-        el.classList.add('kivo-chart-empty');
+        el.classList.add('kuruk-chart-empty');
       });
   }
 
@@ -579,13 +579,13 @@
     return loadScript(VENDOR + 'sortablejs/Sortable.min.js')
       .then(function () {
         if (!window.Sortable) return null;
-        if (el._kivoSortable) {
+        if (el._kurukSortable) {
           try {
-            el._kivoSortable.destroy();
+            el._kurukSortable.destroy();
           } catch {}
         }
-        el._kivoSortable = new window.Sortable(el, options || {});
-        return el._kivoSortable;
+        el._kurukSortable = new window.Sortable(el, options || {});
+        return el._kurukSortable;
       })
       .catch(function () {
         return null;
@@ -637,12 +637,12 @@
     new MutationObserver(function () {
       var charts = document.querySelectorAll('.trend-chart');
       for (var i = 0; i < charts.length; i++) {
-        if (charts[i]._kivoTrendData) renderTrend(charts[i], charts[i]._kivoTrendData);
+        if (charts[i]._kurukTrendData) renderTrend(charts[i], charts[i]._kurukTrendData);
       }
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
 
-  window.KivoUI = {
+  window.KurukUI = {
     enhance: enhanceAll,
     sortable: sortable,
     trendChart: renderTrend,

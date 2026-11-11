@@ -1,16 +1,16 @@
 /**
- * KIVO IA — ponte entre o app local e os provedores de IA.
+ * KURUK IA — ponte entre o app local e os provedores de IA.
  *
  * O app local (offline-first, CSP `connect-src 'self'`) não fala com a IA direto: ele manda
  * a requisição para cá, com as credenciais de licença, e o cloud chama o provedor escolhido.
- * Quem configura provedores e chaves é o time do Kivo, no painel (Configurações › KIVO IA) —
+ * Quem configura provedores e chaves é o time do Kuruk, no painel (Configurações › KURUK IA) —
  * o cliente nunca vê chave. O padrão é o Ollama da VPS.
  *
  * Antes de chamar o modelo, o cloud injeta os trechos mais relevantes da documentação técnica
  * e da wiki (`aiKnowledge`) no prompt de sistema, para a IA responder com o conteúdo oficial
- * do Kivo em vez de inventar.
+ * do Kuruk em vez de inventar.
  *
- * Autenticação: `requireCompanyAuth` (X-Kivo-Company / X-Kivo-License-Key), o mesmo par já
+ * Autenticação: `requireCompanyAuth` (X-Kuruk-Company / X-Kuruk-License-Key), o mesmo par já
  * usado pelo sync. Rate limit por IP para uma empresa não consumir a GPU de todo mundo.
  */
 import { Router } from 'express';
@@ -93,7 +93,7 @@ router.get('/status', requireCompanyAuth, async (req: AuthedRequest, res) => {
   });
 });
 
-/** Chat (não-streaming): recebe mensagens, injeta o contexto do Kivo e devolve a resposta. */
+/** Chat (não-streaming): recebe mensagens, injeta o contexto do Kuruk e devolve a resposta. */
 router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
   if (limit(req.ip ?? 'unknown')) {
     res.status(429).json({ error: 'Muitas requisições de IA. Aguarde um instante.' });
@@ -156,7 +156,7 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
   const userName = typeof body.userName === 'string' ? body.userName.trim().slice(0, 80) : '';
   if (userName) {
     systemParts.push(
-      `Você está atendendo ${userName} pelo suporte do Kivo. Trate a pessoa pelo nome quando fizer sentido `
+      `Você está atendendo ${userName} pelo suporte do Kuruk. Trate a pessoa pelo nome quando fizer sentido `
       + 'e mantenha o fio da conversa: lembre-se do que já foi dito e não peça de novo o que já foi informado.',
     );
   }
@@ -167,7 +167,7 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
       sources = kb.sources;
       links = kb.links;
       systemParts.push(
-        'Use a documentação oficial do Kivo abaixo para responder. Se a resposta não estiver nela, '
+        'Use a documentação oficial do Kuruk abaixo para responder. Se a resposta não estiver nela, '
         + 'diga que não encontrou e ofereça encaminhar para o atendimento humano. Cite o nome da seção '
         + `quando ajudar.\n\n${kb.context}`,
       );
@@ -208,7 +208,7 @@ router.post('/chat', requireCompanyAuth, async (req: AuthedRequest, res) => {
 
 /** Fuso do cliente: cabeçalho do desktop ou cookie do navegador (fallback Porto Velho). */
 function reqTimezone(req: AuthedRequest): string {
-  const h = String((req.headers['x-kivo-tz'] as string) ?? '').trim();
+  const h = String((req.headers['x-kuruk-tz'] as string) ?? '').trim();
   return h || clientTimezone(req);
 }
 

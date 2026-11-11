@@ -1,7 +1,7 @@
 import { getPool } from './db';
 
 /**
- * Planos comerciais do Kivo. A origem da verdade é a tabela `plans` no banco
+ * Planos comerciais do Kuruk. A origem da verdade é a tabela `plans` no banco
  * (migration 0054): cadastrar/editar/pausar planos e marcar as funcionalidades de
  * cada um é operação do painel, sem precisar de release. O estado fica em memória
  * (mesmo padrão do antigo cache de preços) e é recarregado no boot e a cada gravação.
@@ -45,7 +45,7 @@ export interface PlanFeatures {
 /** Metadados das funcionalidades — usados pelo painel para renderizar os checkboxes. */
 export const PLAN_FEATURES: { key: PlanFeatureKey; label: string; hint: string }[] = [
   { key: 'cloud_sync', label: 'Backup e sync em nuvem', hint: 'Sincronização, backup online e cardápio salvo no servidor.' },
-  { key: 'web_app', label: 'Kivo Web (celular)', hint: 'Acesso pelo celular: painel web, orçamentos e concessões de acesso.' },
+  { key: 'web_app', label: 'Kuruk Web (celular)', hint: 'Acesso pelo celular: painel web, orçamentos e concessões de acesso.' },
   { key: 'qr_order', label: 'Cardápio online e pedido pela mesa (QR)', hint: 'Publica o cardápio público e permite pedido pelo QR Code da mesa.' },
 ];
 
@@ -95,7 +95,7 @@ const SETTING_PROMOS_KEY = 'plan_pricing';
 /**
  * Regra antiga, vira fallback só para empresas de tabela antiga (uma empresa cuja
  * coluna `companies.plan` tem um valor que não existe na `plans`). Por conta disso o
- * padrão é fail-open (tudo que NÃO for trial/prata salva na nuvem) e o Kivo Web
+ * padrão é fail-open (tudo que NÃO for trial/prata salva na nuvem) e o Kuruk Web
  * continua fail-closed (só o Diamante explícito).
  */
 export function legacyFeaturesFor(key: string): PlanFeatures {
@@ -116,7 +116,7 @@ function legacyDefinitions(): PlanDefinition[] {
   const defs = [
     { key: 'prata', label: 'Prata', description: 'PDV, estoque, financeiro e relatórios.', priceCents: 15000, extendsDays: 30, maxDevices: 1, position: 1, active: true },
     { key: 'ouro', label: 'Ouro', description: 'Tudo do Prata + nuvem, backup e cardápio online.', priceCents: 20000, extendsDays: 30, maxDevices: 3, position: 2, active: true },
-    { key: 'diamante', label: 'Diamante', description: 'Operação completa + Kivo Web e mesas/cozinha.', priceCents: 25000, extendsDays: 30, maxDevices: 10, position: 3, active: true },
+    { key: 'diamante', label: 'Diamante', description: 'Operação completa + Kuruk Web e mesas/cozinha.', priceCents: 25000, extendsDays: 30, maxDevices: 10, position: 3, active: true },
   ];
   return defs.map((d) => ({ ...d, features: legacyFeaturesFor(d.key) }));
 }

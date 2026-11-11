@@ -152,7 +152,7 @@ function logoDaEmpresa(req: Request, res: Response, next: NextFunction): void {
     res.locals.empresaLogoUrl = linha?.value || null;
   } catch {
     // Banco ainda sem a tabela (instalação nova, antes das migrations): sem logo, e a
-    // página renderiza com a marca do Kivo em vez de estourar.
+    // página renderiza com a marca do Kuruk em vez de estourar.
     res.locals.empresaLogoUrl = null;
   }
   next();
@@ -195,7 +195,7 @@ function requireActivation(req: Request, res: Response, next: NextFunction): voi
   res.redirect('/ativacao');
 }
 
-export interface KivoServer {
+export interface KurukServer {
   app: Express;
   modules: LoadedModule[];
 }
@@ -212,7 +212,7 @@ function page(view: string, permission?: string) {
 }
 
 /** Cria a API local (Express 5) + views EJS e carrega os módulos via manifesto. */
-export async function createServer(): Promise<KivoServer> {
+export async function createServer(): Promise<KurukServer> {
   const app = express();
   // Relativo a __dirname (não process.cwd()): dev resolve para src/views|public; app
   // empacotado resolve para dist/views|public (ver scripts/copy-build-assets.js).
@@ -327,7 +327,7 @@ export async function createServer(): Promise<KivoServer> {
 
   // Imagens/áudio públicos têm nome fixo e raramente mudam: guardar uma semana evita
   // rebaixar tudo a cada navegação no celular. CSS/JS ficam com revalidação (ETag), para
-  // uma atualização do Kivo aparecer sem o lojista precisar limpar o cache do navegador.
+  // uma atualização do Kuruk aparecer sem o lojista precisar limpar o cache do navegador.
   app.use(
     express.static(path.resolve(__dirname, '..', 'public'), {
       setHeaders: (res, filePath) => {
@@ -345,7 +345,7 @@ export async function createServer(): Promise<KivoServer> {
   app.use('/uploads/categories', express.static(categoryImagesDir(), uploadCache));
   app.use('/uploads/company', express.static(companyLogoDir(), uploadCache));
   app.use('/uploads/bills', express.static(billAttachmentsDir(), uploadCache));
-  // Exames e imagens do Kivo Odonto (radiografia, tomografia, fotografia clínica).
+  // Exames e imagens do Kuruk Odonto (radiografia, tomografia, fotografia clínica).
   app.use('/uploads/odonto-exams', express.static(examFilesDir(), uploadCache));
   // Foto de identificação do cliente (o paciente do Odonto lê a mesma foto).
   app.use('/uploads/customers', express.static(customerImagesDir(), uploadCache));
@@ -359,7 +359,7 @@ export async function createServer(): Promise<KivoServer> {
   // mesmo motivo da cor — precisa valer também no navegador (outro aparelho), não só nesta máquina.
   app.use(homeCardsLocals);
   // Chave geral do controle de quantidade (Configurações › Estoque). As telas usam
-  // `window.KIVO_ESTOQUE_ATIVO` para esconder saldo/alerta quando ela está desligada.
+  // `window.KURUK_ESTOQUE_ATIVO` para esconder saldo/alerta quando ela está desligada.
   app.use(stockControlLocals);
 
   // Envelope de resposta padronizado: { success, data/error } em todas as rotas JSON
@@ -368,7 +368,7 @@ export async function createServer(): Promise<KivoServer> {
   // Health check e tela de ativação: alcançáveis mesmo numa instalação ainda não
   // ativada (é o próprio propósito da tela). O gate abaixo bloqueia todo o resto.
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, name: 'kivo', ts: new Date().toISOString() });
+    res.json({ ok: true, name: 'kuruk', ts: new Date().toISOString() });
   });
   app.use(activationRoutes);
   app.use(requireActivation);
@@ -395,13 +395,13 @@ export async function createServer(): Promise<KivoServer> {
 
   // API do Core (auth + RBAC por rota)
   app.use('/api/users', requireAuth, usersRoutes);
-  // Acesso pelo celular (Kivo Web): concessão/revogação por usuário. Fora de `usersRoutes`
+  // Acesso pelo celular (Kuruk Web): concessão/revogação por usuário. Fora de `usersRoutes`
   // porque conversa com a nuvem e tem permissão própria (`users.remote.manage`).
   app.use('/api/remote', requireAuth, remoteRoutes);
   app.use('/api/roles', requireAuth, rolesRoutes);
   app.use('/api/audit', requireAuth, auditRoutes);
   app.use('/api/settings', requireAuth, settingsRoutes);
-  // KIVO IA: configuração e teste; o servidor local é quem fala com o Kivo Web.
+  // KURUK IA: configuração e teste; o servidor local é quem fala com o Kuruk Web.
   app.use('/api/ai', requireAuth, aiRoutes);
   app.use('/api/backup', requireAuth, backupRoutes);
   app.use('/api/license', requireAuth, licenseRoutes);
@@ -498,7 +498,7 @@ export async function createServer(): Promise<KivoServer> {
   logLicenca.info(`${lic.status}: ${lic.message}`);
   startBackupScheduler();
   startLicenseRevalidationScheduler();
-  // Sync periódico: o painel do Kivo Web lê o que a nuvem tem, então parar de depender do
+  // Sync periódico: o painel do Kuruk Web lê o que a nuvem tem, então parar de depender do
   // clique manual em "Sincronizar agora" é pré-requisito para o dado no celular ser atual.
   startSyncScheduler();
   // Menu público do pedido via QR: o Trial não tem sync, então o snapshot sai por uma

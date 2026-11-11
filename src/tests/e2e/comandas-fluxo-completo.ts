@@ -22,7 +22,7 @@ import { createServer } from '../../core/server';
 import { resetTestDb, activateTestLicense, exitFirstRunState } from '../resetTestDb';
 import { unwrap } from '../testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3600);
+const PORT = Number(process.env.KURUK_PORT ?? 3600);
 const BASE = `http://localhost:${PORT}`;
 
 let failures = 0;
@@ -42,8 +42,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
@@ -125,8 +125,8 @@ async function main() {
   // que nunca chega ao botão. Mesma proteção do harness dos QAs novos.
   await page.addInitScript(() => {
     try {
-      localStorage.setItem('kivo-tour-pdv-v1', '1');
-      localStorage.setItem('kivo-novidade-seen', 'web-v1');
+      localStorage.setItem('kuruk-tour-pdv-v1', '1');
+      localStorage.setItem('kuruk-novidade-seen', 'web-v1');
     } catch {
       /* localStorage indisponível: sem consequência para o teste */
     }

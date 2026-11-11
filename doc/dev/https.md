@@ -1,8 +1,8 @@
 # HTTPS com certificado próprio
 
-O Kivo continua servindo **HTTP** na porta `3123` para os atalhos já criados. Se houver
+O Kuruk continua servindo **HTTP** na porta `3123` para os atalhos já criados. Se houver
 certificado, ele sobe **também** HTTPS na porta `3443` (configurável por
-`KIVO_HTTPS_PORT`). É esse endereço que o tablet deve abrir para o Chrome liberar
+`KURUK_HTTPS_PORT`). É esse endereço que o tablet deve abrir para o Chrome liberar
 instalação como aplicativo e Screen Wake Lock.
 
 ## Onde colocar os arquivos
@@ -16,10 +16,10 @@ A pasta é mostrada em **Configurações → Rede → HTTPS**. Em uma instalaç�
 Formatos aceitos:
 
 - `https.pfx` — PKCS#12; senha em `https.pfx.senha` (primeira linha) ou em
-  `KIVO_HTTPS_PFX_PASSPHRASE`;
+  `KURUK_HTTPS_PFX_PASSPHRASE`;
 - `https.crt` + `https.key` — PEM.
 
-Depois de colocar os arquivos, **reinicie o Kivo**. A tela de Configurações mostra o
+Depois de colocar os arquivos, **reinicie o Kuruk**. A tela de Configurações mostra o
 endereço HTTPS e o hostname extraído do certificado.
 
 ## Gerando com mkcert
@@ -27,9 +27,9 @@ endereço HTTPS e o hostname extraído do certificado.
 O comando abaixo gera o certificado com o nome/IP desta máquina e copia a CA para a pasta:
 
 ```bash
-npm run kivo https:mkcert
+npm run kuruk https:mkcert
 # ou, escolhendo os nomes/IPs:
-npm run kivo https:mkcert -- kivo.minhaloja.local 10.1.1.31
+npm run kuruk https:mkcert -- kuruk.minhaloja.local 10.1.1.31
 ```
 
 Requisitos no tablet:
@@ -38,7 +38,7 @@ Requisitos no tablet:
    **Configurações → Segurança → Criptografia e credenciais → Instalar certificado →
    Certificado de CA**;
 2. abrir `https://<nome-ou-ip-do-certificado>:3443`;
-3. instalar o Kivo como aplicativo.
+3. instalar o Kuruk como aplicativo.
 
 ## Limite importante
 
@@ -49,7 +49,7 @@ a instalação como aplicativo **não é garantida** com CA local.
 Para garantir instalação + notificação:
 
 - use um **domínio com certificado de CA pública**;
-- aponte o domínio para a máquina do Kivo (DNS local/split-horizon) ou use um
+- aponte o domínio para a máquina do Kuruk (DNS local/split-horizon) ou use um
   **Cloudflare Tunnel/reverse proxy**;
 - coloque o certificado/chave na mesma pasta (ou deixe o túnel terminar o TLS).
 

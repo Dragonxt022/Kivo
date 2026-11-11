@@ -72,12 +72,12 @@ router.get('/', requirePermission('settings.view'), (_req, res) => {
 });
 
 /** Endereços IPv4 desta máquina na rede local — para a tela de Configurações
- * mostrar ao admin como o celular do garçom/tablet da cozinha alcançam o Kivo.
+ * mostrar ao admin como o celular do garçom/tablet da cozinha alcançam o Kuruk.
  * O QR de cada endereço é gerado aqui (server-side, lib `qrcode` pura-JS, sem
  * dependência nativa nem CDN) para não precisar vendorizar mais um bundle
  * client-side — mesmo espírito 100% offline do resto do app. */
 router.get('/network-info', requirePermission('settings.view'), async (req, res) => {
-  const port = Number(process.env.KIVO_PORT ?? 3123);
+  const port = Number(process.env.KURUK_PORT ?? 3123);
   const candidatos: { iface: string; address: string }[] = [];
   for (const [nome, addrs] of Object.entries(os.networkInterfaces())) {
     // Adaptadores virtuais (VMware, VirtualBox, Hyper-V/WSL, Docker, VPNs…) aparecem como
@@ -565,7 +565,7 @@ router.put('/:key', requirePermission('settings.edit'), validateBody(setSettingS
  * Ordem dos cards da tela inicial (preferência da EMPRESA, guardada em `settings`).
  *
  * Fica no servidor de propósito: assim a arrumação vale no computador da loja, no celular na rede
- * local e em qualquer navegador que abra este Kivo — antes vivia em `localStorage`, e cada
+ * local e em qualquer navegador que abra este Kuruk — antes vivia em `localStorage`, e cada
  * aparelho mostrava uma ordem diferente.
  */
 router.get('/interface/cards', requirePermission('settings.view'), (_req, res) => {

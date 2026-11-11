@@ -11,7 +11,7 @@
  */
 import { createHash } from 'node:crypto';
 
-const NAMESPACE = 'kivo';
+const NAMESPACE = 'kuruk';
 
 export function stableUuid(name: string): string {
   const hash = createHash('sha1').update(`${NAMESPACE}:${name}`).digest();

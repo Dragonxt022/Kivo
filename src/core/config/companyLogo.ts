@@ -9,7 +9,7 @@
  *
  * A consequência honesta desse desenho: num segundo computador da mesma loja a URL chega
  * pelo sync mas o arquivo não — por isso quem exibe usa `onerror` para cair na marca do
- * Kivo, e a tela de Configurações avisa que a logo é enviada por computador.
+ * Kuruk, e a tela de Configurações avisa que a logo é enviada por computador.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,7 +29,7 @@ export const LOGO_URL_PREFIX = '/uploads/company/';
  * cwd varia conforme de onde o processo foi lançado. Mesmo padrão de `productImagesDir()`.
  */
 export function companyLogoDir(): string {
-  const dbPath = process.env.KIVO_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kivo.db');
+  const dbPath = process.env.KURUK_DB_PATH ?? path.resolve(process.cwd(), 'database', 'kuruk.db');
   const dataRoot = path.dirname(path.dirname(dbPath));
   const dir = path.join(dataRoot, 'storage', 'company-logo');
   fs.mkdirSync(dir, { recursive: true });

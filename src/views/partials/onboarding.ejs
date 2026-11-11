@@ -13,7 +13,7 @@
         <div class="wizard-icon">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 4.1L6 9l4.1 1.9L12 15l1.9-4.1L18 9l-4.1-1.9L12 3Z"/><path d="M5 3v4M3 5h4M19 17v4M17 19h4"/></svg>
         </div>
-        <h2 class="wizard-title">Bem-vindo(a) ao Kivo! 🎉</h2>
+        <h2 class="wizard-title">Bem-vindo(a) ao Kuruk! 🎉</h2>
         <p class="wizard-subtitle">
           Vamos deixar o sistema do seu jeito antes de começar — leva menos de um minuto
           e já preparamos um ambiente pronto pra você testar.
@@ -76,7 +76,7 @@
 
       <!-- 3: onde vai usar -->
       <div class="wizard-step">
-        <h2 class="wizard-title">Onde você vai usar o Kivo?</h2>
+        <h2 class="wizard-title">Onde você vai usar o Kuruk?</h2>
         <p class="wizard-subtitle">Isso ajuda a deixar as telas certas em destaque pra você.</p>
         <div class="choice-grid">
           <button type="button" class="choice-card" :class="answers.usage === 'balcao' ? 'selected' : ''" @click="chooseUsage('balcao')">
@@ -118,7 +118,7 @@
           Sugerimos uma cor para o ramo que você escolheu — pode trocar à vontade.
         </p>
         <div class="color-swatch-row">
-          <template x-for="p in KIVO_COLOR_PRESETS" :key="p.id">
+          <template x-for="p in KURUK_COLOR_PRESETS" :key="p.id">
             <button type="button" class="color-swatch" :class="uiColorTheme === p.id ? 'selected' : ''" :style="{ background: p.hex }" @click="chooseColorPreset(p.id)"></button>
           </template>
           <input type="color" class="color-swatch color-swatch-custom" :value="uiCustomColor" @input="chooseCustomColor($event.target.value)" />
@@ -138,7 +138,7 @@
                   <template x-if="p.cover">
                     <img :src="p.cover" :alt="'Capa do tema ' + p.name" loading="lazy" @error="p.cover = null" />
                   </template>
-                  <span class="icon-pack-cover-fallback" x-show="!p.cover"><span>Kivo</span></span>
+                  <span class="icon-pack-cover-fallback" x-show="!p.cover"><span>Kuruk</span></span>
                   <span class="icon-pack-badge" x-show="p.id === iconPackId" x-cloak>Ativado</span>
                 </span>
                 <span class="icon-pack-info">

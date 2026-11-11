@@ -1,7 +1,7 @@
 -- 0096_maisdelivery_delivery_tickets — pedidos do marketplace (Mais Delivery) entram na cozinha.
 -- 1) O ticket de cozinha passa a aceitar source_type='delivery': um ticket por pedido do
 --    marketplace (source_id = idPedido), com os itens originais — sem roteamento por produto,
---    porque produtos do marketplace não são o catálogo do Kivo.
+--    porque produtos do marketplace não são o catálogo do Kuruk.
 -- 2) `kitchen_ticket_items.product_id` fica NULLABLE pela mesma razão (produtos do marketplace não são catálogo).
 -- CHECK constraint no SQLite só muda com rebuild de tabela (mesmo padrão da 0062).
 

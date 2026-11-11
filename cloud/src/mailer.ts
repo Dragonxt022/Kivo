@@ -2,7 +2,7 @@ import nodemailer, { type Transporter } from 'nodemailer';
 import { getPool } from './db';
 
 /**
- * Envio de e-mail do Kivo Cloud via SMTP configurado no painel (Configurações).
+ * Envio de e-mail do Kuruk Cloud via SMTP configurado no painel (Configurações).
  *
  * As credenciais ficam em `app_settings` (chaves `smtp_*`) — o mesmo armazenamento chave/valor
  * já usado pelo contato de suporte. A senha nunca volta para a tela; para trocá-la, basta
@@ -106,12 +106,12 @@ export async function sendTestEmail(to: string, cfg: SmtpConfig): Promise<void> 
   await transporter.sendMail({
     from: formatFrom(cfg),
     to,
-    subject: 'Kivo Cloud — teste de SMTP',
+    subject: 'Kuruk Cloud — teste de SMTP',
     text:
-      'Este é um e-mail de teste enviado pelas Configurações do Kivo Cloud.\n\n' +
+      'Este é um e-mail de teste enviado pelas Configurações do Kuruk Cloud.\n\n' +
       'Se você recebeu esta mensagem, o servidor SMTP está configurado corretamente.',
     html:
-      '<p>Este é um e-mail de teste enviado pelas <strong>Configurações do Kivo Cloud</strong>.</p>' +
+      '<p>Este é um e-mail de teste enviado pelas <strong>Configurações do Kuruk Cloud</strong>.</p>' +
       '<p>Se você recebeu esta mensagem, o servidor SMTP está configurado corretamente.</p>',
   });
 }
@@ -120,14 +120,14 @@ export async function sendTestEmail(to: string, cfg: SmtpConfig): Promise<void> 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
   await sendMail({
     to,
-    subject: 'Kivo Cloud — redefinição de senha',
+    subject: 'Kuruk Cloud — redefinição de senha',
     text:
-      'Recebemos um pedido para redefinir a senha do painel do Kivo Cloud.\n\n' +
+      'Recebemos um pedido para redefinir a senha do painel do Kuruk Cloud.\n\n' +
       'Abra o link abaixo (válido por 1 hora) para criar uma nova senha:\n' +
       `${resetUrl}\n\n` +
       'Se não foi você, ignore este e-mail — sua senha continua a mesma.',
     html:
-      '<p>Recebemos um pedido para redefinir a senha do painel do <strong>Kivo Cloud</strong>.</p>' +
+      '<p>Recebemos um pedido para redefinir a senha do painel do <strong>Kuruk Cloud</strong>.</p>' +
       `<p><a href="${resetUrl}">Criar uma nova senha</a> — link válido por 1 hora.</p>` +
       '<p>Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>',
   });

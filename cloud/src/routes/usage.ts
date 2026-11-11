@@ -3,7 +3,7 @@ import { getPool } from '../db';
 import { requireAdminAuth } from '../adminAuth';
 
 /**
- * Uso do sistema por empresa, para o suporte enxergar quem está realmente usando o Kivo:
+ * Uso do sistema por empresa, para o suporte enxergar quem está realmente usando o Kuruk:
  * última atividade, frequência de sincronização, horários, módulos mais sincronizados e
  * dispositivos. Lê `sync_records` (registros sincronizados) e `company_devices`
  * (validações de licença), sem expor payload — só metadados.

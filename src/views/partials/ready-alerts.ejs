@@ -19,17 +19,17 @@
 <script nonce="<%= cspNonce %>">
 (function () {
   'use strict';
-  if (window.KivoReadyAlerts) return;
+  if (window.KurukReadyAlerts) return;
 
   var USER_KEY = <%- JSON.stringify(user.username) %>;
   // Identidade do aparelho, criada em theme-init. O aviso é ignorado só na tela que
   // marcou o pedido como pronto — e não mais em todo usuário igual (cozinha + celular).
-  var DEVICE_ID = window.KIVO_DEVICE_ID || '';
-  var SEEN_KEY = 'kivo-ready-seen:' + USER_KEY;
-  var SOM_KEY = 'kivo-ready-som:' + USER_KEY;
+  var DEVICE_ID = window.KURUK_DEVICE_ID || '';
+  var SEEN_KEY = 'kuruk-ready-seen:' + USER_KEY;
+  var SOM_KEY = 'kuruk-ready-som:' + USER_KEY;
   // Arquivo escolhido no diálogo de Mesas (ou no menu). Fica no aparelho, como o som.
-  var SOM_FILE_KEY = 'kivo-ready-som-arquivo';
-  var TITLE_BASE = document.title || 'Kivo';
+  var SOM_FILE_KEY = 'kuruk-ready-som-arquivo';
+  var TITLE_BASE = document.title || 'Kuruk';
   var STALE_MS = 24 * 60 * 60 * 1000;
 
   var seen = null;
@@ -92,9 +92,9 @@
   }
 
   function updateSoundUi() {
-    var state = document.getElementById('kivo-ready-sound-state');
+    var state = document.getElementById('kuruk-ready-sound-state');
     if (state) state.textContent = soundOn ? 'ligados' : 'desligados';
-    var btn = document.getElementById('kivo-ready-sound-btn');
+    var btn = document.getElementById('kuruk-ready-sound-btn');
     if (btn) btn.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
   }
 
@@ -162,7 +162,7 @@
       body: body,
       icon: '/img/icon-192.png',
       badge: '/img/icon-192.png',
-      tag: tag || ('kivo-' + Date.now()),
+      tag: tag || ('kuruk-' + Date.now()),
       data: { url: target },
       vibrate: [200, 100, 200],
     };
@@ -191,7 +191,7 @@
       'Pedido pronto',
       (alert && alert.label ? alert.label : 'Pedido') + ' — toque para abrir.',
       target,
-      'kivo-ready-' + (alert && alert.id != null ? alert.id : Date.now()),
+      'kuruk-ready-' + (alert && alert.id != null ? alert.id : Date.now()),
     );
   }
 
@@ -314,7 +314,7 @@
       return Promise.resolve(status);
     }
     if (status === 'insecure') {
-      toast('Para aviso do sistema fora do app é preciso abrir o Kivo por HTTPS. Neste acesso local, o som e o título da aba continuam avisando.', 'info');
+      toast('Para aviso do sistema fora do app é preciso abrir o Kuruk por HTTPS. Neste acesso local, o som e o título da aba continuam avisando.', 'info');
       return Promise.resolve(status);
     }
     if (status === 'denied') {
@@ -326,7 +326,7 @@
       return Promise.resolve(status);
     }
     return Notification.requestPermission().then(function (permission) {
-      window.dispatchEvent(new Event('kivo-ready-notify-changed'));
+      window.dispatchEvent(new Event('kuruk-ready-notify-changed'));
       if (permission === 'granted') {
         toast('Notificações ativadas.', 'success');
         showSystemNotification({ id: 'teste', label: 'Teste de aviso' });
@@ -351,7 +351,7 @@
     return soundOn;
   }
 
-  window.KivoReadyAlerts = {
+  window.KurukReadyAlerts = {
     isSoundOn: function () { return soundOn; },
     toggleSound: toggleSound,
     setSoundEnabled: function (on) {
@@ -385,7 +385,7 @@
     soundOn = readSound();
     soundFile = readSoundFile();
     updateSoundUi();
-    var btn = document.getElementById('kivo-ready-sound-btn');
+    var btn = document.getElementById('kuruk-ready-sound-btn');
     if (btn) btn.addEventListener('click', toggleSound);
     connect();
     // Com a tela ligada, 15 s é o bastante para o poll cobrir uma queda do SSE sem
@@ -421,13 +421,13 @@
     });
 
     // Uma dica única no celular: o botão de instalar fica no topo e no menu "Mais".
-    if (!document.documentElement.classList.contains('kivo-standalone') && window.matchMedia && window.matchMedia('(max-width: 820px)').matches) {
+    if (!document.documentElement.classList.contains('kuruk-standalone') && window.matchMedia && window.matchMedia('(max-width: 820px)').matches) {
       try {
-        var lastTip = Number(localStorage.getItem('kivo-app-tip-at') || 0);
+        var lastTip = Number(localStorage.getItem('kuruk-app-tip-at') || 0);
         if (Date.now() - lastTip > 7 * 24 * 60 * 60 * 1000) {
           setTimeout(function () {
-            toast('Dica: instale o Kivo na tela inicial para usar sem a barra do navegador. Toque no ícone de celular no topo.', 'info');
-            try { localStorage.setItem('kivo-app-tip-at', String(Date.now())); } catch (e) {}
+            toast('Dica: instale o Kuruk na tela inicial para usar sem a barra do navegador. Toque no ícone de celular no topo.', 'info');
+            try { localStorage.setItem('kuruk-app-tip-at', String(Date.now())); } catch (e) {}
           }, 3500);
         }
       } catch (e) {}

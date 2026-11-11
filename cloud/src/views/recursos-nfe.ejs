@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <%- include('partials/site/head', {
-    title: 'Importação de NF-e por XML no Kivo — a nota do fornecedor vira estoque',
-    description: 'Envie o XML da NF-e (modelo 55, versão 4.00) e o Kivo lê produtos, fornecedor, quantidades e custos. Confira linha por linha, crie ou vincule produtos, e a compra entra no estoque com custo médio. Reversível a qualquer momento.'
+    title: 'Importação de NF-e por XML no Kuruk — a nota do fornecedor vira estoque',
+    description: 'Envie o XML da NF-e (modelo 55, versão 4.00) e o Kuruk lê produtos, fornecedor, quantidades e custos. Confira linha por linha, crie ou vincule produtos, e a compra entra no estoque com custo médio. Reversível a qualquer momento.'
   }) %>
 </head>
 <body>
@@ -14,7 +14,7 @@
       <div class="crumb"><a href="/">Início</a> <span>›</span> <a href="/recursos">Recursos</a> <span>›</span> <span>Importação de NF-e</span></div>
       <h1>A nota do fornecedor <br /><em>vira estoque sem digitação.</em></h1>
       <p>
-        Recebeu a mercadoria? Envie o XML da NF-e e o Kivo lê os produtos, o
+        Recebeu a mercadoria? Envie o XML da NF-e e o Kuruk lê os produtos, o
         fornecedor, as quantidades e os custos. Você só confere e confirma —
         nada entra no estoque antes da sua revisão.
       </p>
@@ -23,7 +23,7 @@
 
   <section class="sec-tight">
     <div class="wrap">
-      <%- include('partials/site/shot', { name: 'compras', alt: 'Compras do Kivo com a mercadoria recebida do fornecedor e os itens da nota' }) %>
+      <%- include('partials/site/shot', { name: 'compras', alt: 'Compras do Kuruk com a mercadoria recebida do fornecedor e os itens da nota' }) %>
     </div>
   </section>
 
@@ -41,7 +41,7 @@
         </div>
         <div class="step">
           <h3>Confira a leitura</h3>
-          <p>O Kivo mostra fornecedor, número, total e cada item já com uma sugestão de vínculo ou cadastro.</p>
+          <p>O Kuruk mostra fornecedor, número, total e cada item já com uma sugestão de vínculo ou cadastro.</p>
         </div>
         <div class="step">
           <h3>Confirme</h3>
@@ -69,7 +69,7 @@
           <div class="detail-grid">
             <div class="detail-item">
               <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Reconhecimento automático</h3>
-              <p>O Kivo casa o item com o produto existente por código de barras, SKU ou nome e já sugere o vínculo.</p>
+              <p>O Kuruk casa o item com o produto existente por código de barras, SKU ou nome e já sugere o vínculo.</p>
             </div>
             <div class="detail-item">
               <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Avisos de divergência</h3>
@@ -85,7 +85,7 @@
             </div>
           </div>
         </div>
-        <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kivo com custo, preço e estoque atualizados pela compra' }) %>
+        <%- include('partials/site/shot', { name: 'produtos', alt: 'Catálogo de produtos do Kuruk com custo, preço e estoque atualizados pela compra' }) %>
       </div>
     </div>
   </section>

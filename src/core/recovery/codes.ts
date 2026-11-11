@@ -16,7 +16,12 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
-/** Prefixo do payload assinado: versiona o esquema e impede reuso do HMAC noutro contexto. */
+/**
+ * Prefixo do payload assinado: versiona o esquema e impede reuso do HMAC noutro contexto.
+ * Mantido como `kivo-resgate-v1|` de propósito — é um identificador de protocolo
+ * compartilhado com o cloud. Mudar aqui faria instalações em campo recusarem o código
+ * gerado pelo suporte.
+ */
 const DOMAIN = 'kivo-resgate-v1|';
 
 /** 10 bytes (80 bits) no desafio: colisão entre desafios abertos é impensável. */

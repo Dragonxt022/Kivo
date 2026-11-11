@@ -3,6 +3,7 @@ import { validateBody } from '../../shared/validateBody';
 import { supportTicketSchema, supportMessageSchema } from '../../shared/schemas';
 import { getLicenseCredentials } from '../license/service';
 import { getCloudServerUrl, PRODUCTION_CLOUD_URL } from '../config/cloud';
+import { withLegacyBrandHeaders } from '../http/brandHeaders';
 
 /**
  * Chat de suporte — proxy autenticado para a API de tickets do cloud.
@@ -22,11 +23,11 @@ function cloudBase(): string | null {
 function authHeaders(): Record<string, string> | null {
   const { companyUuid, licenseKey } = getLicenseCredentials();
   if (!companyUuid || !licenseKey) return null;
-  return {
+  return withLegacyBrandHeaders({
     'Content-Type': 'application/json',
-    'X-Kivo-Company': companyUuid,
-    'X-Kivo-License-Key': licenseKey,
-  };
+    'X-Kuruk-Company': companyUuid,
+    'X-Kuruk-License-Key': licenseKey,
+  });
 }
 
 /** Repassa a chamada ao cloud preservando status e corpo JSON. */

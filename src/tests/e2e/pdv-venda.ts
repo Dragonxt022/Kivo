@@ -23,7 +23,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3602);
+const PORT = Number(process.env.KURUK_PORT ?? 3602);
 const SHOTS = snapDir('e2e-pdv');
 const PRECO_CENTS = 700;
 const FUNDO_CENTS = 10000;

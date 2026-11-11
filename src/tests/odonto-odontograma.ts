@@ -8,7 +8,7 @@
  * A regra que o teste protege com mais cuidado: mudar a situação NÃO sobrescreve — grava uma
  * linha nova; "desfazer" revela o estado anterior sem apagar o registro.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-odontograma.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -18,7 +18,7 @@ import { createServer } from '../core/server';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3848);
+const PORT = Number(process.env.KURUK_PORT ?? 3848);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 const NOTA = 'Cárie oclusal profunda, sem exposição pulpar (teste)';
@@ -40,8 +40,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface Condition { id: number; code: string; name: string; color: string; applies_to: string; is_neutral: boolean; active: boolean }

@@ -24,7 +24,7 @@ import {
   type E2EServer,
 } from './harness';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3614);
+const PORT = Number(process.env.KURUK_PORT ?? 3614);
 const SHOTS = snapDir('e2e-cozinha-voltar');
 
 interface Ticket {

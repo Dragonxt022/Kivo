@@ -1,4 +1,4 @@
--- 0054_remote_access — acesso ao Kivo Web (celular) por link/QR, concedido por usuário.
+-- 0054_remote_access — acesso ao Kuruk Web (celular) por link/QR, concedido por usuário.
 --
 -- Guarda SÓ o sha256 do token; o valor em claro existe uma única vez, no diálogo que mostra
 -- o QR. Quem tiver acesso ao banco não consegue montar o link de volta.
@@ -22,7 +22,7 @@ CREATE TABLE remote_access (
   deleted_at TEXT,
   synced_at TEXT,
   origin_machine TEXT,
-  comment TEXT NOT NULL DEFAULT 'Concessões de acesso ao Kivo Web (celular) por link/QR. Guarda apenas o hash do token; nunca o token em claro nem a senha do usuário.'
+  comment TEXT NOT NULL DEFAULT 'Concessões de acesso ao Kuruk Web (celular) por link/QR. Guarda apenas o hash do token; nunca o token em claro nem a senha do usuário.'
 );
 
 CREATE INDEX idx_remote_access_user ON remote_access (user_id) WHERE deleted_at IS NULL;

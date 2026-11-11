@@ -54,10 +54,10 @@ function onboardingWizard() {
     // Layout (cartões/menu lateral) é preferência deste computador (localStorage) e nunca
     // vai em `answers` nem no POST de /api/onboarding/provision. Já a COR de destaque é
     // configuração da empresa (tabela `settings`) e é aplicada no servidor — ver
-    // partials/theme-init.ejs — para valer em todos os aparelhos que abrem este Kivo.
-    uiInterface: (function(){ try { return localStorage.getItem('kivo-interface') || 'cards'; } catch { return 'cards'; } })(),
-    uiColorTheme: (window.__kivoColor && window.__kivoColor.theme) || 'orange',
-    uiCustomColor: (window.__kivoColor && window.__kivoColor.custom) || '#ff8000',
+    // partials/theme-init.ejs — para valer em todos os aparelhos que abrem este Kuruk.
+    uiInterface: (function(){ try { return localStorage.getItem('kuruk-interface') || 'cards'; } catch { return 'cards'; } })(),
+    uiColorTheme: (window.__kurukColor && window.__kurukColor.theme) || 'orange',
+    uiCustomColor: (window.__kurukColor && window.__kurukColor.custom) || '#ff8000',
     // Tema dos ícones (pacote). Único ajuste deste passo que vai para `settings` (vale para
     // a empresa) em vez do localStorage; os cards são os mesmos de Configurações › Interface.
     iconPacks: [],
@@ -70,7 +70,7 @@ function onboardingWizard() {
     colorTouched: false,
     chooseInterface(v) {
       this.uiInterface = v;
-      try { localStorage.setItem('kivo-interface', v); } catch {}
+      try { localStorage.setItem('kuruk-interface', v); } catch {}
     },
     // Grava a cor no servidor (settings). Fire-and-forget: o assistente não pode travar
     // por causa disso e a cor já foi aplicada na tela.
@@ -95,15 +95,15 @@ function onboardingWizard() {
       s.removeProperty('--primary'); s.removeProperty('--icon-color');
       s.removeProperty('--primary-hover'); s.removeProperty('--primary-bg');
       document.documentElement.setAttribute('data-color-theme', id);
-      window.__kivoColor = { theme: id, custom: this.uiCustomColor };
+      window.__kurukColor = { theme: id, custom: this.uiCustomColor };
       this.persistColor(id);
     },
     chooseCustomColor(hex) {
       this.colorTouched = true;
       this.uiCustomColor = hex; this.uiColorTheme = 'custom';
       document.documentElement.setAttribute('data-color-theme', 'custom');
-      window.__kivoApplyCustomColor(hex);
-      window.__kivoColor = { theme: 'custom', custom: hex };
+      window.__kurukApplyCustomColor(hex);
+      window.__kurukColor = { theme: 'custom', custom: hex };
       this.persistColor('custom', hex);
     },
     /**
@@ -139,13 +139,13 @@ function onboardingWizard() {
       if (m.theme === 'custom') {
         this.uiColorTheme = 'custom'; this.uiCustomColor = m.hex;
         document.documentElement.setAttribute('data-color-theme', 'custom');
-        window.__kivoApplyCustomColor(m.hex);
-        window.__kivoColor = { theme: 'custom', custom: m.hex };
+        window.__kurukApplyCustomColor(m.hex);
+        window.__kurukColor = { theme: 'custom', custom: m.hex };
         this.persistColor('custom', m.hex);
       } else {
         this.uiColorTheme = m.theme;
         document.documentElement.setAttribute('data-color-theme', m.theme);
-        window.__kivoColor = { theme: m.theme, custom: this.uiCustomColor };
+        window.__kurukColor = { theme: m.theme, custom: this.uiCustomColor };
         this.persistColor(m.theme);
       }
     },

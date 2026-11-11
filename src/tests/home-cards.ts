@@ -10,7 +10,7 @@
  * teste prova isso do jeito que importa: **uma sessao diferente** (outro usuario, sem localStorage
  * nenhum) recebe a mesma ordem na pagina inicial.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/home-cards.ts
  */
 import { migrateUp } from '../core/database/migrator';
@@ -21,7 +21,7 @@ import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 import { applyPriority, applySavedOrder, priorityForBusinessType } from '../core/config/homeCards';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3852);
+const PORT = Number(process.env.KURUK_PORT ?? 3852);
 const base = `http://localhost:${PORT}`;
 const ROTA = '/api/settings/interface/cards';
 
@@ -42,8 +42,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 /** Extrai a ordem injetada na pagina inicial (e ela que o navegador aplica). */

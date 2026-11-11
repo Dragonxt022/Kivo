@@ -83,7 +83,7 @@
   },
   "test": {
     "description": "Rodar todos os testes de integração",
-    "run": "kivo test:all"
+    "run": "kuruk test:all"
   },
   "coverage": {
     "description": "Cobertura de código (c8 + tsx) — executa teste informado via ARGS",
@@ -97,13 +97,13 @@
     "description": "Testes: importação/exportação de produtos (parser + rotas)",
     "run": "tsx src/tests/products-import.ts && node scripts/test-isolated.js src/tests/products-import-api.ts"
   },
-  "test:kivo-web-e2e": {
-    "description": "Testes: Kivo Web ponta a ponta (desktop + nuvem + celular; exige Docker)",
-    "run": "node scripts/test-isolated.js src/tests/kivo-web-e2e.ts"
+  "test:kuruk-web-e2e": {
+    "description": "Testes: Kuruk Web ponta a ponta (desktop + nuvem + celular; exige Docker)",
+    "run": "node scripts/test-isolated.js src/tests/kuruk-web-e2e.ts"
   },
-  "test:kivo-web": {
-    "description": "Testes: Kivo Web (comando de orçamento do celular + concessão de acesso)",
-    "run": "node scripts/test-isolated.js src/tests/kivo-web.ts"
+  "test:kuruk-web": {
+    "description": "Testes: Kuruk Web (comando de orçamento do celular + concessão de acesso)",
+    "run": "node scripts/test-isolated.js src/tests/kuruk-web.ts"
   },
   "test:variantes-api": {
     "description": "Testes: variantes pelo fluxo de rotas (capability, atributos, geração, PDV)",
@@ -298,19 +298,19 @@
     "run": "node scripts/test-isolated.js src/tests/contracts.ts"
   },
   "test:odonto-agenda": {
-    "description": "Testes: agenda do Kivo Odonto (horários, sobreposição, encaixe, situações e permissões)",
+    "description": "Testes: agenda do Kuruk Odonto (horários, sobreposição, encaixe, situações e permissões)",
     "run": "node scripts/test-isolated.js src/tests/odonto-agenda.ts"
   },
   "test:odonto-painel": {
-    "description": "Testes: painel e relatórios do Kivo Odonto",
+    "description": "Testes: painel e relatórios do Kuruk Odonto",
     "run": "node scripts/test-isolated.js src/tests/odonto-painel.ts"
   },
   "test:odonto-documentos": {
-    "description": "Testes: documentos e modelos com variáveis do Kivo Odonto",
+    "description": "Testes: documentos e modelos com variáveis do Kuruk Odonto",
     "run": "node scripts/test-isolated.js src/tests/odonto-documentos.ts"
   },
   "test:odonto-exames": {
-    "description": "Testes: exames e imagens do Kivo Odonto (arquivo no disco, fases e permissões)",
+    "description": "Testes: exames e imagens do Kuruk Odonto (arquivo no disco, fases e permissões)",
     "run": "node scripts/test-isolated.js src/tests/odonto-exames.ts"
   },
   "test:onboarding-ramos": {
@@ -326,7 +326,7 @@
     "run": "node scripts/test-isolated.js src/tests/icones-citados.ts"
   },
   "test:odonto-interface": {
-    "description": "Testes: interface do Kivo Odonto (campos com estilo, subtítulos, vazios e tutorial)",
+    "description": "Testes: interface do Kuruk Odonto (campos com estilo, subtítulos, vazios e tutorial)",
     "run": "node scripts/test-isolated.js src/tests/odonto-interface.ts"
   },
   "test:alpine-expressoes": {
@@ -334,15 +334,15 @@
     "run": "node scripts/test-isolated.js src/tests/alpine-expressoes.ts"
   },
   "test:odonto-planos": {
-    "description": "Testes: planos de tratamento do Kivo Odonto e cobrança no financeiro",
+    "description": "Testes: planos de tratamento do Kuruk Odonto e cobrança no financeiro",
     "run": "node scripts/test-isolated.js src/tests/odonto-planos.ts"
   },
   "test:odonto-odontograma": {
-    "description": "Testes: odontograma do Kivo Odonto (dentes, faces, situações e histórico)",
+    "description": "Testes: odontograma do Kuruk Odonto (dentes, faces, situações e histórico)",
     "run": "node scripts/test-isolated.js src/tests/odonto-odontograma.ts"
   },
   "test:odonto-prontuario": {
-    "description": "Testes: prontuário do Kivo Odonto (evolução clínica e retificação versionada)",
+    "description": "Testes: prontuário do Kuruk Odonto (evolução clínica e retificação versionada)",
     "run": "node scripts/test-isolated.js src/tests/odonto-prontuario.ts"
   },
   "test:odonto-anamnese": {
@@ -350,7 +350,7 @@
     "run": "node scripts/test-isolated.js src/tests/odonto-anamnese.ts"
   },
   "test:odonto-patients": {
-    "description": "Testes: Kivo Odonto — pacientes ancorados no cliente, ficha clínica com permissão própria, profissionais e procedimentos",
+    "description": "Testes: Kuruk Odonto — pacientes ancorados no cliente, ficha clínica com permissão própria, profissionais e procedimentos",
     "run": "node scripts/test-isolated.js src/tests/odonto-patients.ts"
   },
   "test:comanda-qty": {
@@ -389,9 +389,9 @@
     "description": "QA E2E (Playwright): compras — lançar, receber e entrada no estoque",
     "run": "node scripts/test-isolated.js src/tests/e2e/estoque-compras.ts"
   },
-  "test:e2e:kivo-web-mobile": {
-    "description": "QA E2E (Playwright): Kivo Web no celular (exige MySQL do docker)",
-    "run": "node scripts/test-isolated.js src/tests/e2e/kivo-web-mobile.ts"
+  "test:e2e:kuruk-web-mobile": {
+    "description": "QA E2E (Playwright): Kuruk Web no celular (exige MySQL do docker)",
+    "run": "node scripts/test-isolated.js src/tests/e2e/kuruk-web-mobile.ts"
   },
   "test:e2e:mobile": {
     "description": "QA E2E (Playwright): layout mobile - telas não estouram a largura em 390px",
@@ -426,7 +426,7 @@
     "run": "node scripts/test-isolated.js src/tests/e2e/complementos-cozinha.ts"
   },
   "https:mkcert": {
-    "description": "Gera certificado HTTPS local com mkcert para a pasta que o Kivo lê",
+    "description": "Gera certificado HTTPS local com mkcert para a pasta que o Kuruk lê",
     "run": "node scripts/https-mkcert.js"
   },
   "test:https": {

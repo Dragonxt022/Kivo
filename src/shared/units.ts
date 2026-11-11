@@ -1,5 +1,5 @@
 /**
- * Unidades de medida do catálogo (Kivo).
+ * Unidades de medida do catálogo (Kuruk).
  *
  * O formulário de produto usa um conjunto fixo de unidades (ver o `<select>` em
  * commercial-products.ejs). Importadores (CSV e NF-e) recebem a unidade do fornecedor

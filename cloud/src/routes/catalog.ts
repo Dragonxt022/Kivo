@@ -8,7 +8,7 @@ import { downloadExternalImage, loadImageApiConfig, searchExternalCached, conten
 import { createRateLimiter } from '../rateLimit';
 
 /**
- * Banco de imagens do Kivo Cloud: qualquer empresa pode contribuir uma foto de produto
+ * Banco de imagens do Kuruk Cloud: qualquer empresa pode contribuir uma foto de produto
  * (POST /submit) — best-effort, sem custo de storage relevante, cresce o catálogo pra
  * todo mundo. Só entra no catálogo pesquisável depois de aprovada por um admin em
  * /admin/catalog (ver routes/admin.ts).
@@ -69,12 +69,12 @@ interface CatalogImageRow {
 }
 
 router.post('/submit', rawImage, requireCompanyAuth, async (req: AuthedRequest, res) => {
-  const productName = req.header('X-Kivo-Product-Name');
-  const submissionUuid = req.header('X-Kivo-Submission-Uuid');
-  const barcode = sanitizeBarcode(req.header('X-Kivo-Product-Barcode')) || null;
+  const productName = req.header('X-Kuruk-Product-Name');
+  const submissionUuid = req.header('X-Kuruk-Submission-Uuid');
+  const barcode = sanitizeBarcode(req.header('X-Kuruk-Product-Barcode')) || null;
   const body = req.body as Buffer;
   if (!productName || !submissionUuid || !Buffer.isBuffer(body) || !body.length) {
-    res.status(400).json({ error: 'Cabeçalhos obrigatórios: X-Kivo-Product-Name, X-Kivo-Submission-Uuid, corpo binário (imagem).' });
+    res.status(400).json({ error: 'Cabeçalhos obrigatórios: X-Kuruk-Product-Name, X-Kuruk-Submission-Uuid, corpo binário (imagem).' });
     return;
   }
 

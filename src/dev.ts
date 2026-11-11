@@ -24,7 +24,7 @@ process.on('uncaughtException', (err) => {
   log.error('exceção não capturada', err);
 });
 
-const PORT = Number(process.env.KIVO_PORT ?? 3123);
+const PORT = Number(process.env.KURUK_PORT ?? 3123);
 const smoke = process.argv.includes('--smoke');
 
 async function main() {
@@ -41,7 +41,7 @@ async function main() {
   // reinício que aqui não muda nada. No app empacotado quem decide é electron/main.ts.
   app.locals.lanAtivo = true;
   const server = app.listen(PORT, () => {
-    console.log(`[kivo] API local em http://localhost:${PORT} — módulos: ${modules.length}`);
+    console.log(`[kuruk] API local em http://localhost:${PORT} — módulos: ${modules.length}`);
   });
 
   if (smoke) {
@@ -54,6 +54,9 @@ async function main() {
     console.log('[smoke] /api/commercial/products sem login (esperado 401):', anon.status);
     server.close();
     closeDb();
+    // `server.close()` não derruba os timers de sync/telemetria/licença; sem saída
+    // explícita o comando de smoke fica vivo para sempre e o CI/terminal espera.
+    process.exit(0);
   }
 }
 

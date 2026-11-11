@@ -13,7 +13,7 @@ import { getSqlite, closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3199);
+const PORT = Number(process.env.KURUK_PORT ?? 3199);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -40,8 +40,8 @@ async function loginAs(username: string, password: string): Promise<string | nul
   });
   if (!r.ok) return null;
   const setCookie = r.headers.get('set-cookie') ?? '';
-  const m = setCookie.match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = setCookie.match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 async function main() {

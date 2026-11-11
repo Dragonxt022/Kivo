@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Base de conhecimento da KIVO IA.
+ * Base de conhecimento da KURUK IA.
  *
  * A IA de suporte responde a partir de duas fontes que já existem no produto:
  *  - a documentação técnica (`src/docs/dev/*.md`), a mesma servida em /admin/documentacao;
@@ -16,7 +16,7 @@ import path from 'node:path';
  * segurança) — em produção a documentação só muda em deploy.
  */
 
-/** Botão de navegação sugerido no chat: leva o usuário direto para a tela do Kivo. */
+/** Botão de navegação sugerido no chat: leva o usuário direto para a tela do Kuruk. */
 export interface KnowledgeLink {
   label: string;
   route: string;
@@ -28,7 +28,7 @@ interface IndexedChunk {
   /** Rótulo legível da origem, exibido como fonte ("Wiki › Clientes"). */
   source: string;
   text: string;
-  /** Tela do Kivo relacionada a este trecho (quando há uma). */
+  /** Tela do Kuruk relacionada a este trecho (quando há uma). */
   link?: KnowledgeLink;
   /** Frequência de cada termo normalizado dentro do trecho. */
   terms: Map<string, number>;

@@ -2,10 +2,10 @@
  * Teste do pagamento por Pix **de dentro do programa** — o caminho que o lojista usa.
  *
  *   tela Cobranças (app) → /api/billing/charges/:id/payment (app, licença da empresa)
- *     → Kivo Cloud → Mercado Pago → QR na tela → "já pagou?" → cobrança baixada + licença
+ *     → Kuruk Cloud → Mercado Pago → QR na tela → "já pagou?" → cobrança baixada + licença
  *     estendida.
  *
- * Sobe três processos: um Mercado Pago de mentira (HTTP, dentro do teste), o Kivo Cloud
+ * Sobe três processos: um Mercado Pago de mentira (HTTP, dentro do teste), o Kuruk Cloud
  * apontado para ele (`MP_API_BASE`) e uma instalação do app com banco descartável. Roda sem
  * internet, sem credencial real e sem dinheiro.
  *
@@ -26,8 +26,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo',
-  CLOUD_DB_NAME: 'kivo_cloud',
+  CLOUD_DB_PASSWORD: 'kuruk',
+  CLOUD_DB_NAME: 'kuruk_cloud',
 };
 
 // Portas fora da faixa usada pelos outros testes (ver scripts/test-runner.js).
@@ -40,7 +40,7 @@ const APP_URL = `http://127.0.0.1:${APP_PORT}`;
 
 const COMPANY = crypto.randomUUID();
 const LICENSE_KEY = crypto.randomBytes(24).toString('hex');
-const DESCRICAO = 'Assinatura Kivo — E2E Pix';
+const DESCRICAO = 'Assinatura Kuruk — E2E Pix';
 const VALOR_CENTAVOS = 19990;
 const DIAS = 30;
 
@@ -216,18 +216,18 @@ async function main(): Promise<void> {
     // ── Instalação do cliente (mesma licença), apontando para este cloud ─────
     // Banco descartável preparado ANTES do boot: o gate de ativação barra o login até a
     // ativação existir no banco (mesmo padrão da Fase 6d).
-    // O banco fica em `<raiz>/database/kivo.db`: imagens e outros dados derivam dessa raiz
+    // O banco fica em `<raiz>/database/kuruk.db`: imagens e outros dados derivam dessa raiz
     // (ver productImagesDir). Um arquivo solto em /tmp faria a raiz virar `/` no Linux.
-    const dataRoot = path.join(os.tmpdir(), `kivo-billing-app-pix-${process.pid}`);
-    dbPath = path.join(dataRoot, 'database', 'kivo.db');
+    const dataRoot = path.join(os.tmpdir(), `kuruk-billing-app-pix-${process.pid}`);
+    dbPath = path.join(dataRoot, 'database', 'kuruk.db');
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) fs.rmSync(f, { force: true });
     execFileSync(process.execPath, [TSX, 'scripts/prepare-machine-db.ts', dbPath], { cwd: ROOT, stdio: 'pipe' });
 
     appProc = subir('app', 'src/dev.ts', {
-      KIVO_SYNC_SERVER_URL: CLOUD_URL,
-      KIVO_PORT: String(APP_PORT),
-      KIVO_DB_PATH: dbPath,
+      KURUK_SYNC_SERVER_URL: CLOUD_URL,
+      KURUK_PORT: String(APP_PORT),
+      KURUK_DB_PATH: dbPath,
     });
     check('app do cliente no ar', await esperar(`${APP_URL}/api/health`, 60));
 

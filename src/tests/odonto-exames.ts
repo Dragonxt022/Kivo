@@ -14,7 +14,7 @@
  *  - a auditoria registra o ato e o TAMANHO, nunca o conteúdo do arquivo;
  *  - exames são dado clínico: sem `odonto.exams.view` não se vê, sem `manage` não se anexa.
  *
- * KIVO_DB_PATH TEM que vir do ambiente — rode com
+ * KURUK_DB_PATH TEM que vir do ambiente — rode com
  *   node scripts/test-isolated.js src/tests/odonto-exames.ts
  */
 import { existsSync } from 'node:fs';
@@ -26,7 +26,7 @@ import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 import { examFilePath } from '../modules/odonto/examFiles';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3853);
+const PORT = Number(process.env.KURUK_PORT ?? 3853);
 const base = `http://localhost:${PORT}`;
 const O = '/api/odonto';
 
@@ -52,8 +52,8 @@ async function api(path: string, opts: RequestInit = {}, cookie?: string) {
 async function loginAs(u: string, p: string): Promise<string | null> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
   if (!r.ok) return null;
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : null;
 }
 
 interface Exam {

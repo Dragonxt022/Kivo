@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    Tela inicial do painel Cloud — os itens do antigo menu lateral viraram cards.
-   Mantém a linguagem visual do Kivo desktop: grade de aplicativos, busca ampla,
+   Mantém a linguagem visual do Kuruk desktop: grade de aplicativos, busca ampla,
    favoritos no topo (até 4) e botão de estrela em cada card.
    ───────────────────────────────────────────────────────────────────────────── */
 
@@ -11,7 +11,7 @@
   display: none !important;
 }
 
-/* O Kivo desktop usa a mesma largura para o navbar e para o conteúdo. O Cloud tinha
+/* O Kuruk desktop usa a mesma largura para o navbar e para o conteúdo. O Cloud tinha
    o conteúdo em 1280px e a barra em 1100px, então as bordas não se encontravam. */
 .page:not(.page-wide),
 .page-wide {
@@ -800,7 +800,7 @@ body::before {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Navbar flutuante de vidro — mesmo desenho do Kivo desktop.
+   Navbar flutuante de vidro — mesmo desenho do Kuruk desktop.
    O container não ocupa a largura toda: fica centralizado, com 12px de respiro no
    topo, 56px de altura e a logo no centro geométrico da barra.
    ───────────────────────────────────────────────────────────────────────────── */

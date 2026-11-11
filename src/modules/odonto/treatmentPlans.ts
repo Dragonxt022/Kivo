@@ -514,7 +514,7 @@ export interface ChargePlanOutput {
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Gera a cobrança do plano aprovado no FINANCEIRO do Kivo (PR §12). Uma parcela vira uma conta
+ * Gera a cobrança do plano aprovado no FINANCEIRO do Kuruk (PR §12). Uma parcela vira uma conta
  * a receber, do cliente que ancora o paciente — nada de tabela de cobrança paralela aqui.
  */
 export function chargePlan(req: Request, id: number, input: ChargePlanInput): Result<ChargePlanOutput> {
@@ -548,7 +548,7 @@ export function chargePlan(req: Request, id: number, input: ChargePlanInput): Re
   if (!hasService('finance.receivables')) {
     return {
       ok: false, status: 400,
-      error: 'O módulo Financeiro não está ligado nesta empresa: sem ele o plano não gera cobrança (o Kivo não tem financeiro próprio do Odonto).',
+      error: 'O módulo Financeiro não está ligado nesta empresa: sem ele o plano não gera cobrança (o Kuruk não tem financeiro próprio do Odonto).',
     };
   }
   const finance = getService<FinanceReceivablesService>('finance.receivables');
@@ -572,7 +572,7 @@ export function chargePlan(req: Request, id: number, input: ChargePlanInput): Re
         amountCents: valor,
         dueDate: datas[i],
         customerId: paciente.customer_id,
-        notes: `Gerado pelo Kivo Odonto (plano #${id}).`,
+        notes: `Gerado pelo Kuruk Odonto (plano #${id}).`,
         installmentNo: parcelas > 1 ? i + 1 : undefined,
         installmentCount: parcelas > 1 ? parcelas : undefined,
       }));

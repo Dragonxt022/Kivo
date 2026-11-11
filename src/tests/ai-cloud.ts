@@ -1,5 +1,5 @@
 /**
- * KIVO IA — ponte do Kivo Web para o Ollama, medição de uso e créditos.
+ * KURUK IA — ponte do Kuruk Web para o Ollama, medição de uso e créditos.
  *
  * Sobe um Ollama SIMULADO (HTTP local), provisiona uma empresa + admin e sobe o cloud
  * apontando `OLLAMA_URL` para o mock. Valida: autenticação, encaminhamento da resposta,
@@ -21,8 +21,8 @@ const CLOUD_ENV = {
   CLOUD_DB_HOST: '127.0.0.1',
   CLOUD_DB_PORT: '3307',
   CLOUD_DB_USER: 'root',
-  CLOUD_DB_PASSWORD: 'kivo',
-  CLOUD_DB_NAME: 'kivo_cloud',
+  CLOUD_DB_PASSWORD: 'kuruk',
+  CLOUD_DB_NAME: 'kuruk_cloud',
 };
 
 let failures = 0;
@@ -91,12 +91,12 @@ async function loginAdmin(base: string, user: string, pass: string): Promise<str
     body: new URLSearchParams({ username: user, password: pass }).toString(),
     redirect: 'manual',
   });
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_admin_session=([^;]+)/);
-  return m ? `kivo_admin_session=${m[1]}` : null;
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_admin_session=([^;]+)/);
+  return m ? `kuruk_admin_session=${m[1]}` : null;
 }
 
 async function main(): Promise<void> {
-  if (!process.env.KIVO_DB_PATH) throw new Error('KIVO_DB_PATH não definida — rode via scripts/test-isolated.js.');
+  if (!process.env.KURUK_DB_PATH) throw new Error('KURUK_DB_PATH não definida — rode via scripts/test-isolated.js.');
   fs.mkdirSync(SCRATCH, { recursive: true });
 
   const mock = await startMockOllama();
@@ -118,7 +118,7 @@ async function main(): Promise<void> {
   });
   await waitForHealth(`${cloudUrl}/api/health`);
 
-  const headers = { 'Content-Type': 'application/json', 'X-Kivo-Company': companyUuid, 'X-Kivo-License-Key': licenseKey };
+  const headers = { 'Content-Type': 'application/json', 'X-Kuruk-Company': companyUuid, 'X-Kuruk-License-Key': licenseKey };
 
   try {
     // Sem credenciais → 401.
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
     check('admin logado', !!admin);
     const dash = await fetch(`${cloudUrl}/admin/ai`, { headers: { cookie: admin! } });
     const dashHtml = await dash.text();
-    check('painel KIVO IA renderiza com gráficos', dash.status === 200 && dashHtml.includes('Tokens por dia') && dashHtml.includes('Uso por empresa'), String(dash.status));
+    check('painel KURUK IA renderiza com gráficos', dash.status === 200 && dashHtml.includes('Tokens por dia') && dashHtml.includes('Uso por empresa'), String(dash.status));
 
     // Define o teto em 1 token: o suporte NÃO pode ser barrado por créditos (sempre disponível).
     const setLimit = await fetch(`${cloudUrl}/admin/ai/${companyUuid}/limit`, {
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
     mock.server.close();
   }
 
-  console.log(failures === 0 ? '\nKIVO IA (cloud): TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
+  console.log(failures === 0 ? '\nKURUK IA (cloud): TODOS OS TESTES PASSARAM' : `\n${failures} falha(s)`);
   process.exit(failures === 0 ? 0 : 1);
 }
 

@@ -6,7 +6,7 @@ import type { ModuleManifest } from '../../core/modules/types';
  * A API tem um único endpoint POST e opera por `nrOperacao`. O módulo lê pedidos do
  * marketplace, permite alterar a situação lá fora e tem a PONTE DE COZINHA
  * (`kitchenBridge.ts`): "Enviar p/ cozinha" cria um ticket de produção no KDS
- * (source_type='delivery', itens textuais — sem loja de catálogo/venda do Kivo) e
+ * (source_type='delivery', itens textuais — sem loja de catálogo/venda do Kuruk) e
  * sincroniza a etapa da cozinha com a situação do pedido no marketplace.
  *
  * As credenciais (Access token e Basic Auth) podem ficar no cofre local

@@ -3,11 +3,11 @@ import { aiStatus, aiChat, aiTools, aiProductDescription, aiSalesInsights, type 
 import { buildSalesInsightsInput } from './salesSummary';
 import { listCapabilities } from '../capabilities/service';
 
-/** Rotas da KIVO IA (status e chat de suporte). Montadas em /api/ai. */
+/** Rotas da KURUK IA (status e chat de suporte). Montadas em /api/ai. */
 const router = Router();
 
 /**
- * Status do assistente + consumo da empresa (via Kivo Web). O suporte está sempre disponível;
+ * Status do assistente + consumo da empresa (via Kuruk Web). O suporte está sempre disponível;
  * isto serve para a tela mostrar se a IA está no ar e quanto já foi usado.
  *
  * Sem `settings.view`: o chat de suporte é aberto por qualquer usuário.
@@ -47,7 +47,7 @@ router.post('/chat', async (req, res) => {
   res.json(result);
 });
 
-/** Ferramentas pagas + cota do dia (para Configurações › KIVO IA). */
+/** Ferramentas pagas + cota do dia (para Configurações › KURUK IA). */
 router.get('/tools', async (_req, res) => {
   res.json(await aiTools());
 });

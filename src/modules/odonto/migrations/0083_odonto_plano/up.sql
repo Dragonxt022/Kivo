@@ -34,7 +34,7 @@ CREATE TABLE odonto_treatment_plans (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   deleted_at TEXT,
-  comment TEXT NOT NULL DEFAULT 'Plano de tratamento odontológico: itens com procedimento, dente, valor e quantidade, com situação (planejado, apresentado, aprovado, em andamento, concluído, cancelado). O plano aprovado gera contas a receber no financeiro existente do Kivo, com parcelamento — o módulo não tem financeiro próprio.'
+  comment TEXT NOT NULL DEFAULT 'Plano de tratamento odontológico: itens com procedimento, dente, valor e quantidade, com situação (planejado, apresentado, aprovado, em andamento, concluído, cancelado). O plano aprovado gera contas a receber no financeiro existente do Kuruk, com parcelamento — o módulo não tem financeiro próprio.'
 );
 CREATE INDEX idx_odonto_plans_patient ON odonto_treatment_plans(patient_id, status);
 

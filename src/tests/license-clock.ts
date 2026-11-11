@@ -1,7 +1,7 @@
 /**
  * Testes do relógio na licença (core/license/service.ts).
  *
- * Regressão real: o Kivo era instalado num PC com a hora errada/adiantada e, ao corrigir
+ * Regressão real: o Kuruk era instalado num PC com a hora errada/adiantada e, ao corrigir
  * o relógio do Windows, a licença caía em `bloqueada` — o lojista via o modal de comprar
  * nova licença e não conseguia usar o sistema. O watermark de relógio continua sendo
  * gravado, mas não bloqueia mais; quando está no futuro ele é reancorado no horário atual.
@@ -13,8 +13,8 @@
  */
 import path from 'node:path';
 
-process.env.KIVO_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'license-clock.db');
-process.env.KIVO_MACHINE_ID = 'test-machine-license-clock';
+process.env.KURUK_DB_PATH = path.resolve(process.cwd(), 'storage', 'temp', 'license-clock.db');
+process.env.KURUK_MACHINE_ID = 'test-machine-license-clock';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { migrateUp } = require('../core/database/migrator');

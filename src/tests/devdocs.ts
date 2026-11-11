@@ -11,7 +11,7 @@ import { createServer } from '../core/server';
 import { getSqlite, closeDb } from '../core/database/connection';
 import { activateTestLicense } from './resetTestDb';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3866);
+const PORT = Number(process.env.KURUK_PORT ?? 3866);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 function check(label: string, ok: boolean, extra = '') {
@@ -28,15 +28,15 @@ async function api(p: string, opts: RequestInit = {}, cookie = ''): Promise<Resp
 
 async function login(u: string, p: string): Promise<string> {
   const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: u, password: p }) });
-  const m = (r.headers.get('set-cookie') ?? '').match(/kivo_session=([^;]+)/);
-  return m ? `kivo_session=${m[1]}` : '';
+  const m = (r.headers.get('set-cookie') ?? '').match(/kuruk_session=([^;]+)/);
+  return m ? `kuruk_session=${m[1]}` : '';
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
-  if (!alvo) throw new Error('KIVO_DB_PATH não definida — rode via scripts/test-isolated.js.');
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  const alvo = process.env.KURUK_DB_PATH;
+  if (!alvo) throw new Error('KURUK_DB_PATH não definida — rode via scripts/test-isolated.js.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     check('menu lista vendas', html.includes('/admin/documentacao?doc=vendas'));
 
     // Todos os documentos de módulo renderizam.
-    const slugs = ['estoque', 'vendas', 'financeiro', 'fiscal', 'comandas', 'cardapio-online', 'downloads', 'foodservice', 'etiquetas', 'dre', 'painel', 'comercial', 'nfe', 'kivo-ia'];
+    const slugs = ['estoque', 'vendas', 'financeiro', 'fiscal', 'comandas', 'cardapio-online', 'downloads', 'foodservice', 'etiquetas', 'dre', 'painel', 'comercial', 'nfe', 'kuruk-ia'];
     let rendered = 0;
     for (const slug of slugs) {
       const r = await api(`/admin/documentacao?doc=${slug}`, {}, admin);

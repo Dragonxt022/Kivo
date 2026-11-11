@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <%- include('partials/theme-init') %>
-  <title>Kivo — Profissionais</title>
+  <title>Kuruk — Profissionais</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="icon" type="image/svg+xml" href="/logo_kivo-icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/logo_kuruk-icon.svg" />
   <link rel="stylesheet" href="/css/app.css" />
   <%- include('partials/odonto-ui') %>
   <script nonce="<%= cspNonce %>" defer src="/vendor/alpine.min.js"></script>
@@ -14,7 +14,7 @@
   <%- include('partials/nav', { user, page: '/app/odonto/profissionais' }) %>
   <main id="tour-odonto-conteudo" x-data="professionalsPage()" x-init="load()">
     <h1>Profissionais</h1>
-    <p class="page-subtitle">Quem atende no consultório, com o CRO. Nem todo profissional tem login no Kivo — o CRO fica aqui e assina os documentos clínicos.</p>
+    <p class="page-subtitle">Quem atende no consultório, com o CRO. Nem todo profissional tem login no Kuruk — o CRO fica aqui e assina os documentos clínicos.</p>
     <div class="toolbar" id="tour-odonto-toolbar">
       <% if (user.permissions.has('odonto.professionals.manage')) { %>
         <button class="btn" @click="openNew()">
@@ -82,7 +82,7 @@
           <option :value="true">Ativo</option>
           <option :value="false">Inativo</option>
         </select>
-        <span class="muted text-xs">O vínculo com um usuário do sistema é opcional e pode ser definido depois — nem todo profissional tem login no Kivo.</span>
+        <span class="muted text-xs">O vínculo com um usuário do sistema é opcional e pode ser definido depois — nem todo profissional tem login no Kuruk.</span>
         <div class="error" x-text="dlgError"></div>
       </div>
       <div class="actions">

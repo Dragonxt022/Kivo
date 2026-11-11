@@ -25,13 +25,13 @@ Regras de negócio por módulo, para suporte e treinamento de agentes de IA. É 
 | [Food Service](/admin/documentacao?doc=foodservice) | Cozinha (KDS) e roteamento de produção |
 | [Download do instalador](/admin/documentacao?doc=downloads) | Cadastro obrigatório, token de download, leads e painel |
 | [Etiquetas](/admin/documentacao?doc=etiquetas) | Gerador de etiquetas de produto |
-| [Kivo Odonto](/admin/documentacao?doc=odonto) | Pacientes, ficha clínica, profissionais e procedimentos |
+| [Kuruk Odonto](/admin/documentacao?doc=odonto) | Pacientes, ficha clínica, profissionais e procedimentos |
 | [Perfis por segmento](/admin/documentacao?doc=segmentos) | O que ligar em cada ramo (módulos, recursos e cargos) |
 | [Assinatura](/admin/documentacao?doc=assinatura) | Cobrança e pagamento online (Pix, boleto, cartão) via Mercado Pago |
 | [DRE](/admin/documentacao?doc=dre) | Demonstrativo de resultado |
 | [Painel](/admin/documentacao?doc=painel) | Painel de controle (KPIs) |
 | [NF-e](/admin/documentacao?doc=nfe) | Importação de NF-e de compra |
-| [KIVO IA](/admin/documentacao?doc=kivo-ia) | Chat de suporte com IA (Ollama/OpenAI/DeepSeek/Claude) sobre a documentação e a wiki |
+| [KURUK IA](/admin/documentacao?doc=kuruk-ia) | Chat de suporte com IA (Ollama/OpenAI/DeepSeek/Claude) sobre a documentação e a wiki |
 
 ## Arquitetura e dependências
 
@@ -71,7 +71,7 @@ compra / NF-e  ─►  estoque (ledger + lotes)  ─►  venda  ─►  caixa
 - **Recursos (capabilities)**: módulos/funcionalidades opcionais nascem desligados e são
   ativados em Configurações › Recursos.
 - **Abertura por usuário**: `user_startup` guarda, por usuário, um módulo e a opção de tela
-  cheia para abrir o Kivo direto nele. Configurada em Usuários › Editar, desligada por
+  cheia para abrir o Kuruk direto nele. Configurada em Usuários › Editar, desligada por
   padrão e revalidada contra as permissões do usuário a cada abertura; não sincroniza.
 - **Segredos**: chaves sensíveis ficam no cofre (`core/secrets`), nunca na tabela `settings`.
 - **Sincronização**: tabelas declaram `syncTables`; FKs viram UUIDs; conflitos por

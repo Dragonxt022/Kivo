@@ -6,7 +6,7 @@ import type { ModuleMenuItem } from '../modules/types';
  * Rótulo do módulo de comandas. Uma loja que atende "só no balcão" (resposta do
  * assistente) não deveria ver "Mesas" no menu: chamamos de "Balcão" e trocamos o ícone.
  * A escolha é uma configuração da empresa (tabela `settings`), então vale para todos os
- * aparelhos que abrem este Kivo — inclusive pelo celular na rede local.
+ * aparelhos que abrem este Kuruk — inclusive pelo celular na rede local.
  */
 export type ComandasRotulo = 'mesa' | 'balcao';
 

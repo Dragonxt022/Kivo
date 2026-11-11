@@ -2,9 +2,9 @@ import { getPool } from './db';
 import { isProviderId, type AiConfig, type ProviderId } from './aiProviders';
 
 /**
- * Configuração da KIVO IA no Kivo Cloud (painel › Configurações › KIVO IA).
+ * Configuração da KURUK IA no Kuruk Cloud (painel › Configurações › KURUK IA).
  *
- * Quem configura provedor e chaves é o time do Kivo — o cliente só usa. Por isso tudo vive em
+ * Quem configura provedor e chaves é o time do Kuruk — o cliente só usa. Por isso tudo vive em
  * `app_settings` (mesma tabela da busca de imagens), editável no painel admin. As chaves são
  * segredos de servidor: nunca voltam para a tela, só um sinalizador de "já configurada".
  *

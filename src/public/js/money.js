@@ -1,5 +1,5 @@
 /**
- * Dinheiro no navegador (Kivo) — cópia client-side de shared/money (sem bundler),
+ * Dinheiro no navegador (Kuruk) — cópia client-side de shared/money (sem bundler),
  * no mesmo espírito de barcode.js.
  *
  * Existia uma cópia de `brl()` dentro de CADA tela — 24 no total — e duas já tinham

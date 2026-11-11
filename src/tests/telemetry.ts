@@ -2,7 +2,7 @@
  * Teste da telemetria do desktop: inventário de hardware, agregação local de erros por
  * fingerprint, o liga/desliga e o flush como no-op sem licença.
  *
- * KIVO_DB_PATH TEM que vir do ambiente:
+ * KURUK_DB_PATH TEM que vir do ambiente:
  *   node scripts/test-isolated.js src/tests/telemetry.ts
  */
 import fs from 'node:fs';
@@ -22,12 +22,12 @@ function check(label: string, ok: boolean, extra = ''): void {
 }
 
 function assertBancoDescartavel(): string {
-  const alvo = process.env.KIVO_DB_PATH;
+  const alvo = process.env.KURUK_DB_PATH;
   if (!alvo) {
-    throw new Error('KIVO_DB_PATH não definida. Rode via `node scripts/test-isolated.js src/tests/telemetry.ts`.');
+    throw new Error('KURUK_DB_PATH não definida. Rode via `node scripts/test-isolated.js src/tests/telemetry.ts`.');
   }
-  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kivo.db')) {
-    throw new Error('Recusado: KIVO_DB_PATH aponta para o banco de dev.');
+  if (path.resolve(alvo) === path.resolve(process.cwd(), 'database', 'kuruk.db')) {
+    throw new Error('Recusado: KURUK_DB_PATH aponta para o banco de dev.');
   }
   return alvo;
 }

@@ -61,7 +61,7 @@ router.post('/download', requirePermission('settings.edit'), async (_req, res) =
 });
 
 /**
- * Instalar fecha o Kivo desta máquina. Por isso só vale do próprio computador: quem
+ * Instalar fecha o Kuruk desta máquina. Por isso só vale do próprio computador: quem
  * abriu a tela pelo celular na rede local (ver "Acesso pela rede local") derrubaria o
  * PDV do caixa no meio de uma venda sem nem estar perto dele. Mesma régua do login
  * rápido em core/auth/quickLogin.ts.
@@ -69,7 +69,7 @@ router.post('/download', requirePermission('settings.edit'), async (_req, res) =
 router.post('/install', requirePermission('settings.edit'), (req, res) => {
   if (!isLoopback(req)) {
     res.status(403).json({
-      error: 'A instalação precisa ser feita no próprio computador onde o Kivo está instalado.',
+      error: 'A instalação precisa ser feita no próprio computador onde o Kuruk está instalado.',
     });
     return;
   }

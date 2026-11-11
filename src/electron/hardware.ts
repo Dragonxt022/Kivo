@@ -8,7 +8,7 @@ import { createLogger } from '../core/logger';
  *
  * As duas bibliotecas são `optionalDependencies` de propósito. `serialport` carrega
  * binário nativo e pode não ter build para uma arquitetura; `node-thermal-printer` é JS
- * puro, mas também não deve impedir o Kivo de abrir se faltar. O `require` é feito
+ * puro, mas também não deve impedir o Kuruk de abrir se faltar. O `require` é feito
  * dentro de try/catch e a tela recebe um erro explicando o que instalar — em vez de o
  * boot morrer com MODULE_NOT_FOUND.
  *
@@ -124,7 +124,7 @@ function readScale(
   if (!mod) {
     return Promise.resolve({
       ok: false,
-      error: 'Módulo da balança não está instalado nesta versão do Kivo.',
+      error: 'Módulo da balança não está instalado nesta versão do Kuruk.',
     });
   }
 
@@ -250,7 +250,7 @@ async function printEscPos(payload: PrintPayload): Promise<{ ok: boolean; error?
 
   const mod = loadThermal();
   if (!mod)
-    return { ok: false, error: 'Módulo da impressora não está instalado nesta versão do Kivo.' };
+    return { ok: false, error: 'Módulo da impressora não está instalado nesta versão do Kuruk.' };
 
   const cols = prefs.width === 58 ? 32 : 48;
   const type = mod.types[String(prefs.type).toUpperCase()] ?? mod.types.EPSON;
@@ -310,7 +310,7 @@ export function registerHardwareIpc(): void {
   );
 }
 
-/** Usado pela tela de Configurações para saber se o Kivo está rodando no desktop. */
+/** Usado pela tela de Configurações para saber se o Kuruk está rodando no desktop. */
 export function hardwareAvailable(): boolean {
   return !!loadSerial() || !!loadThermal();
 }

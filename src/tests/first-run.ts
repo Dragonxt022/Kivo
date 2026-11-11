@@ -13,7 +13,7 @@ import { closeDb } from '../core/database/connection';
 import { resetTestDb, activateTestLicense } from './resetTestDb';
 import { unwrap } from './testUtils';
 
-const PORT = Number(process.env.KIVO_PORT ?? 3801);
+const PORT = Number(process.env.KURUK_PORT ?? 3801);
 const base = `http://localhost:${PORT}`;
 let failures = 0;
 
@@ -65,7 +65,7 @@ async function main() {
   });
   check('cria o acesso do dono (200)', setup.status === 200);
   // Já entra logado: o objetivo é não devolver o lojista para a tela de login.
-  check('primeiro acesso já devolve sessão', (setup.headers.get('set-cookie') ?? '').includes('kivo_session='));
+  check('primeiro acesso já devolve sessão', (setup.headers.get('set-cookie') ?? '').includes('kuruk_session='));
   const setupUser = (await unwrap<{ user: { username: string; role: string } }>(setup)).user;
   check('usuário é normalizado para minúsculas', setupUser.username === 'maria');
   check('herda o cargo de administrador', setupUser.role === 'administrador', `role=${setupUser.role}`);

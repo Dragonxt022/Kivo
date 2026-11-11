@@ -72,7 +72,7 @@ router.post('/login', loginLimiter, validateBody(loginSchema), (req, res) => {
  *
  * Públicas por necessidade (não existe sessão antes de entrar) e restritas ao LOOPBACK por
  * padrão: a troca vale para quem está no teclado daquele computador, não para quem alcança o
- * Kivo pela rede. Com "Acesso pela rede local" ligado o app escuta em 0.0.0.0, e sem esta
+ * Kuruk pela rede. Com "Acesso pela rede local" ligado o app escuta em 0.0.0.0, e sem esta
  * guarda qualquer celular no Wi-Fi da loja entraria como o dono só abrindo o endereço.
  *
  * O dono pode liberar a rede conscientemente em Configurações › Interface

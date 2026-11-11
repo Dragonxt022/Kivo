@@ -712,7 +712,7 @@ export const requestTrialSchema = z.object({
     .max(30, 'Telefone muito longo.'),
 });
 
-// O corpo destas duas é repassado à nuvem. Os limites existem para o Kivo não virar o
+// O corpo destas duas é repassado à nuvem. Os limites existem para o Kuruk não virar o
 // caminho por onde se empurra conteúdo grande para o servidor de suporte.
 export const supportTicketSchema = z.object({
   subject: z.string().trim().min(1, 'Informe o assunto.').max(200, 'Assunto muito longo.'),
@@ -724,7 +724,7 @@ export const supportTicketSchema = z.object({
 export const supportMessageSchema = z.object({
   body: z.string().trim().min(1, 'Escreva sua mensagem.').max(8000, 'Mensagem muito longa.'),
   attachment: z.string().max(8_000_000, 'Anexo grande demais.').nullable().optional(),
-  // Mensagem da KIVO IA dentro do ticket: entra como sender 'ia' (o suporte assume depois).
+  // Mensagem da KURUK IA dentro do ticket: entra como sender 'ia' (o suporte assume depois).
   ai: z.boolean().optional(),
 });
 

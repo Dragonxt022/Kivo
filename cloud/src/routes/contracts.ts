@@ -14,7 +14,7 @@ import {
  * Contratos no painel do cloud.
  *
  * Fluxo comercial: instala e ativa o teste → cliente usa os 15 dias → contrato assinado. Aqui
- * o admin registra o contrato (número, prazo, valor mensal, PDF assinado) e o Kivo gera o
+ * o admin registra o contrato (número, prazo, valor mensal, PDF assinado) e o Kuruk gera o
  * **bloco de cobranças** de uma vez — 12 meses viram 12 parcelas, cada uma com seu vencimento
  * e já valendo Pix/boleto/cartão na tela de Cobranças do cliente.
  *

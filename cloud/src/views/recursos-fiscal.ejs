@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <%- include('partials/site/head', {
-    title: 'Nota fiscal do consumidor (NFC-e) no Kivo — emita pelo PDV',
+    title: 'Nota fiscal do consumidor (NFC-e) no Kuruk — emita pelo PDV',
     description: 'Emita NFC-e direto do PDV: certificado A1, série e ambiente configurados uma vez. Fila de envio, consulta de notas emitidas e cancelamento com regras. Recurso em avaliação (beta).'
   }) %>
 </head>
@@ -27,7 +27,7 @@
 
   <section class="sec-tight">
     <div class="wrap">
-      <%- include('partials/site/shot', { name: 'vendas', alt: 'Histórico de vendas do Kivo que originam as notas fiscais emitidas' }) %>
+      <%- include('partials/site/shot', { name: 'vendas', alt: 'Histórico de vendas do Kuruk que originam as notas fiscais emitidas' }) %>
     </div>
   </section>
 
@@ -38,7 +38,7 @@
           <div class="kicker">Emissão</div>
           <h2>A venda termina e a nota já foi</h2>
           <p style="color:var(--muted); font-size:1.05rem">
-            Você fecha a venda no caixa e o Kivo cuida do documento: monta a NFC-e,
+            Você fecha a venda no caixa e o Kuruk cuida do documento: monta a NFC-e,
             envia para a SEFAZ e guarda o retorno. Se a conexão falhar, a nota entra
             na fila e é reenviada — nada de perder venda por causa de internet.
           </p>
@@ -61,7 +61,7 @@
             </div>
           </div>
         </div>
-        <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kivo onde a venda é fechada e a NFC-e é emitida' }) %>
+        <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kuruk onde a venda é fechada e a NFC-e é emitida' }) %>
       </div>
     </div>
   </section>
@@ -105,7 +105,7 @@
 
   <%- include('partials/site/cta', {
     downloadUrl: downloadUrl, appVersion: appVersion,
-    ctaTitle: 'Teste a emissão de NFC-e no Kivo',
+    ctaTitle: 'Teste a emissão de NFC-e no Kuruk',
     ctaText: 'Disponível no teste grátis para avaliar em homologação. A gente te ajuda a configurar certificado e ambiente sem dor de cabeça.'
   }) %>
   <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>

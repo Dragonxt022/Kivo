@@ -1,5 +1,5 @@
 /**
- * Test Runner — interface de progresso para a suíte de testes do Kivo.
+ * Test Runner — interface de progresso para a suíte de testes do Kuruk.
  *
  * Uso:
  *   node scripts/test-runner.js                   roda a suíte inteira (mesma lista do `npm test`)
@@ -33,7 +33,7 @@ const TTY = !FORCE_PLAIN && Boolean(process.stdout.isTTY);
 /**
  * Testes puros (sem banco): rodam direto, sem o custo de criar um SQLite descartável.
  * Todo o resto passa pelo `test-isolated.js` (banco descartável por teste, para nunca
- * tocar no `database/kivo.db` de desenvolvimento).
+ * tocar no `database/kuruk.db` de desenvolvimento).
  */
 const PURE_TESTS = new Set(['shared.ts', 'testUtils.ts', 'products-import.ts']);
 
@@ -56,7 +56,7 @@ const CLOUD_TESTS = new Set([
   'fase6d.ts',
   'fase7c.ts',
   'fase7d.ts',
-  'kivo-web-e2e.ts',
+  'kuruk-web-e2e.ts',
   'ai-cloud.ts',
   'ai-sales-insights-e2e.ts',
   'billing-gateway.ts',
@@ -108,7 +108,7 @@ function flagValue(name) {
 
 function testFiles() {
   // `e2e` fica de fora desta suíte de propósito: sobe Chromium e leva minutos, enquanto
-  // aqui a graça é a volta rápida. Não são órfãos — rodam por `kivo test:e2e` /
+  // aqui a graça é a volta rápida. Não são órfãos — rodam por `kuruk test:e2e` /
   // `test:e2e:comandas` e têm job próprio no CI (.github/workflows/ci.yml). Ficaram MESES
   // quebrados justamente por não terem nenhum dos dois.
   let files = readdirSync(join(ROOT, 'src', 'tests'))
@@ -291,7 +291,7 @@ function printSummary(state) {
   const skipped = state.skipped ?? [];
   for (const t of skipped) {
     console.log(
-      `  ${dye('—', C.yellow)} ${t.file.padEnd(28)} ${dye('SKIP', C.yellow)}  ${dye('precisa do Kivo Cloud', C.dim)}`,
+      `  ${dye('—', C.yellow)} ${t.file.padEnd(28)} ${dye('SKIP', C.yellow)}  ${dye('precisa do Kuruk Cloud', C.dim)}`,
     );
   }
   if (skipped.length) {
@@ -299,7 +299,7 @@ function printSummary(state) {
       `\n  ${dye(`${skipped.length} teste(s) pulados`, C.yellow + C.bold)} — dependem do MySQL do cloud/ em ${CLOUD_DB_HOST}:${CLOUD_DB_PORT}.`,
     );
     console.log(dye('    docker compose -f cloud/docker-compose.yml up -d', C.gray));
-    console.log(dye('    npm run kivo cloud:migrate', C.gray));
+    console.log(dye('    npm run kuruk cloud:migrate', C.gray));
   }
 
   if (failed.length > 0) {
@@ -359,7 +359,7 @@ async function runAll() {
     spin: 0,
     aborted: false,
   };
-  if (!TTY) console.log(`Testes Kivo — ${files.length} arquivos\n`);
+  if (!TTY) console.log(`Testes Kuruk — ${files.length} arquivos\n`);
 
   let child = null;
   const tick = () => TTY && renderLive(state);
@@ -452,12 +452,12 @@ async function runAll() {
 }
 
 /**
- * Mesmo motivo do `ensureNodeAbi` em scripts/kivo.js: rodando este arquivo direto (sem
+ * Mesmo motivo do `ensureNodeAbi` em scripts/kuruk.js: rodando este arquivo direto (sem
  * passar pelo CLI) o binário nativo pode estar no ABI do Electron e a suíte inteira cai
- * em ERR_DLOPEN_FAILED. O CLI marca KIVO_ABI_OK para não pagar a sondagem duas vezes.
+ * em ERR_DLOPEN_FAILED. O CLI marca KURUK_ABI_OK para não pagar a sondagem duas vezes.
  */
 function ensureNodeAbi() {
-  if (process.env.KIVO_ABI_OK === '1') return;
+  if (process.env.KURUK_ABI_OK === '1') return;
   const r = spawnSync(process.execPath, [join(__dirname, 'ensure-native-abi.js'), 'node'], {
     stdio: 'inherit',
   });

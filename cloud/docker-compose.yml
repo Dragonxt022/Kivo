@@ -3,13 +3,13 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: kivo
-      MYSQL_DATABASE: kivo_cloud
+      MYSQL_ROOT_PASSWORD: kuruk
+      MYSQL_DATABASE: kuruk_cloud
     ports:
       - '3307:3306'
     volumes:
-      - kivo_cloud_mysql:/var/lib/mysql
+      - kuruk_cloud_mysql:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
 volumes:
-  kivo_cloud_mysql:
+  kuruk_cloud_mysql:

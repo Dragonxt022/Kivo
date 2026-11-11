@@ -9,7 +9,7 @@
  *
  * Este script faz exatamente o que o `activateTestLicense()` faz nos testes
  * in-process, mas num processo separado (por isso é um script e não um helper
- * importado): `connection.ts` lê `KIVO_DB_PATH` no topo do módulo, então a variável
+ * importado): `connection.ts` lê `KURUK_DB_PATH` no topo do módulo, então a variável
  * precisa estar no ambiente ANTES de qualquer `import` estático — que é hoisted.
  * Usamos `import()` dinâmico para garantir essa ordem.
  *
@@ -20,7 +20,7 @@
  *
  * Uso: node scripts/prepare-machine-db.ts <caminho-do-db>
  */
-process.env.KIVO_DB_PATH = process.argv[2];
+process.env.KURUK_DB_PATH = process.argv[2];
 
 async function main(): Promise<void> {
   const { migrateUp } = await import('../src/core/database/migrator');

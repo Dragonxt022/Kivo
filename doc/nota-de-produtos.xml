@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  NF-e DE TESTE — sem validade fiscal. Fixture de simulação da importação no Kivo.
+  NF-e DE TESTE — sem validade fiscal. Fixture de simulação da importação no Kuruk.
 
   Cenários cobertos por item (nItem):
     1  UN  com EAN de unidade válido
@@ -47,7 +47,7 @@
       <ns0:indFinal>1</ns0:indFinal>
       <ns0:indPres>1</ns0:indPres>
       <ns0:procEmi>0</ns0:procEmi>
-      <ns0:verProc>Kivo Teste 1.0</ns0:verProc>
+      <ns0:verProc>Kuruk Teste 1.0</ns0:verProc>
     </ns0:ide>
     <ns0:emit>
       <ns0:CNPJ>12345678000199</ns0:CNPJ>
@@ -605,7 +605,7 @@
       </ns0:detPag>
     </ns0:pag>
     <ns0:infAdic>
-      <ns0:infCpl>DOCUMENTO DE TESTE - SEM VALIDADE FISCAL. Fixture de simulacao da importacao no Kivo: itens 1-6 UN com/sem EAN; itens 7-8 compra em CX com conversao para UN via uTrib (1 CX = 12 UN) e EAN de caixa; itens 9/18/19 PCT; itens 10/11 KG fracionado; item 13 FD; item 14 RL; item 15 L; item 16 DZ; itens 17/20 UN com EAN.</ns0:infCpl>
+      <ns0:infCpl>DOCUMENTO DE TESTE - SEM VALIDADE FISCAL. Fixture de simulacao da importacao no Kuruk: itens 1-6 UN com/sem EAN; itens 7-8 compra em CX com conversao para UN via uTrib (1 CX = 12 UN) e EAN de caixa; itens 9/18/19 PCT; itens 10/11 KG fracionado; item 13 FD; item 14 RL; item 15 L; item 16 DZ; itens 17/20 UN com EAN.</ns0:infCpl>
     </ns0:infAdic>
   </ns0:infNFe>
 </ns0:NFe>

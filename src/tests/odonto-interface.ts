@@ -1,5 +1,5 @@
 /**
- * Guarda de interface do Kivo Odonto.
+ * Guarda de interface do Kuruk Odonto.
  *
  * Existe porque o módulo cresceu em 14 telas escritas em momentos diferentes, e o resultado foi
  * visível para quem usa: campos sem estilo (o sistema estiliza `.pm-field input` e `.input`, e
@@ -80,7 +80,7 @@ check('os estilos trazem a caixa de vazio', ui.includes('.odonto-vazio'));
 
 // ─────────────────────── Tutorial ───────────────────────
 check('o tutorial usa o motor do PDV/estoque', tour.includes('/js/tour.js'));
-check('o tutorial roda sozinho na primeira entrada', /KivoTour\.autoStart\('kivo-tour-odonto-v1'/.test(tour));
+check('o tutorial roda sozinho na primeira entrada', /KurukTour\.autoStart\('kuruk-tour-odonto-v1'/.test(tour));
 check('o tutorial pode ser revisto depois', /startOdontoTour/.test(tour) && /Rever tutorial/.test(tour));
 const blocoPassos = /var PASSOS = \[([\s\S]*?)\n {4}\];/.exec(tour)?.[1] ?? '';
 const passos = [...blocoPassos.matchAll(/title: '([^']+)'/g)].map((m) => m[1]);
@@ -98,13 +98,13 @@ check('o script do tutorial respeita o CSP', (tour.match(/<script nonce="<%= csp
 // CSS, os três módulos perdem o confete e o cartão de parabéns — por isso a guarda mora aqui.
 const motor = readFileSync(path.resolve(RAIZ_PUBLIC, 'js', 'tour.js'), 'utf8');
 const css = readFileSync(path.resolve(RAIZ_PUBLIC, 'css', 'app.css'), 'utf8');
-check('o motor anima o holofote', css.includes('kivo-tour-pulse'));
-check('o motor tem barra de progresso', motor.includes('kivo-tour-progress') && css.includes('.kivo-tour-progress'));
+check('o motor anima o holofote', css.includes('kuruk-tour-pulse'));
+check('o motor tem barra de progresso', motor.includes('kuruk-tour-progress') && css.includes('.kuruk-tour-progress'));
 check('o fim do tutorial comemora', motor.includes('function parabenizar') && motor.includes('function soltarConfete'));
-check('o confete tem estilo próprio', css.includes('.kivo-tour-confetti'));
+check('o confete tem estilo próprio', css.includes('.kuruk-tour-confetti'));
 check('pular o tutorial NÃO comemora',
   motor.includes("var celebrar = reason === 'finish'") && motor.includes('if (celebrar) parabenizar'));
-check('quem pediu menos movimento não recebe animação', /prefers-reduced-motion[\s\S]{0,200}kivo-tour/.test(css));
+check('quem pediu menos movimento não recebe animação', /prefers-reduced-motion[\s\S]{0,200}kuruk-tour/.test(css));
 check('os três módulos dizem o que celebrar',
   conteudo.get('odonto-patients.ejs')!.includes("include('partials/odonto-tour')") || tour.includes('CELEBRACAO'));
 const celebraram = [motor, tour].join(' ');

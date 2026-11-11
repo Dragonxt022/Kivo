@@ -25,7 +25,7 @@
 
 - Sons 6, 7 e 8 adicionados em `public/sons`; a lista é lida da pasta, então novos arquivos
   aparecem sozinhos.
-- Chaves de som no aparelho: `kds-som*` (Cozinha) e `kivo-ready-som*` (Mesas/pedido pronto).
+- Chaves de som no aparelho: `kds-som*` (Cozinha) e `kuruk-ready-som*` (Mesas/pedido pronto).
 - O cancelamento é detectado pelo polling do KDS (status `cancelado` no ticket); toca o som
   configurado e mostra “Pedido cancelado: …”.
 - Complementos: migration `0089_kitchen_item_complements` adiciona
@@ -33,8 +33,8 @@
   A comanda agrupa pelo `line_group_uuid` mesmo quando o banco devolve grupos intercalados.
 - A comanda envia `serviceType` em `POST /api/comandas/comandas/:id/enviar-cozinha`; sem
   escolha, `local`.
-- HTTPS: pasta `%APPDATA%\Kivo\certificados` (ou a mostrada em Configurações), formatos
+- HTTPS: pasta `%APPDATA%\Kuruk\certificados` (ou a mostrada em Configurações), formatos
   `https.pfx` (senha em `https.pfx.senha`) ou `https.crt` + `https.key`; porta 3443.
   Ajuda: `doc/dev/https.md`. CA local (mkcert) pode ser recusada pelo Chrome Android para
   instalação de PWA; para garantia, use certificado público de um domínio.
-- Construtor: `npm run dist:win` gera `dist-installer/Kivo-Setup-2.1.11.exe` e o portátil.
+- Construtor: `npm run dist:win` gera `dist-installer/Kuruk-Setup-2.1.11.exe` e o portátil.
