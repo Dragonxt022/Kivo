@@ -1,0 +1,70 @@
+<%
+  /* Gráfico de crescimento em SVG gerado no servidor.
+     Espera: months (array de GrowthPoint), idSuffix (opcional, para IDs únicos).
+     Sem biblioteca de gráficos: a página continua funcionando offline e o desenho
+     é acessível (title/desc) e responsivo (viewBox). */
+  var _points = (typeof months !== 'undefined' && Array.isArray(months)) ? months : [];
+  var _suffix = typeof idSuffix !== 'undefined' ? String(idSuffix) : 'main';
+  var _W = 640;
+  var _H = 240;
+  var _pad = { top: 24, right: 20, bottom: 34, left: 42 };
+  var _innerW = _W - _pad.left - _pad.right;
+  var _innerH = _H - _pad.top - _pad.bottom;
+  var _rawMax = 1;
+  _points.forEach(function (p) { if (Number(p.totalCompanies) > _rawMax) _rawMax = Number(p.totalCompanies); });
+  var _step = Math.max(1, Math.ceil(_rawMax / 4));
+  var _max = _step * 4;
+  var _n = _points.length;
+  var _xs = [];
+  var _ys = [];
+  var _baseY = _pad.top + _innerH;
+  for (var _i = 0; _i < _n; _i++) {
+    _xs.push(_n <= 1 ? _pad.left + _innerW / 2 : _pad.left + (_i * _innerW) / (_n - 1));
+    _ys.push(_pad.top + _innerH - (Number(_points[_i].totalCompanies) / _max) * _innerH);
+  }
+  var _line = '';
+  for (var _j = 0; _j < _n; _j++) {
+    _line += (_j === 0 ? 'M' : ' L') + _xs[_j].toFixed(1) + ' ' + _ys[_j].toFixed(1);
+  }
+  var _area = _n
+    ? _line + ' L ' + _xs[_n - 1].toFixed(1) + ' ' + _baseY.toFixed(1) +
+      ' L ' + _xs[0].toFixed(1) + ' ' + _baseY.toFixed(1) + ' Z'
+    : '';
+  var _last = _n ? _points[_n - 1] : null;
+  var _fmt = function (v) { return new Intl.NumberFormat('pt-BR').format(Number(v) || 0); };
+%>
+<% if (_n) { %>
+<figure class="growth-chart">
+  <svg viewBox="0 0 <%= _W %> <%= _H %>" role="img" aria-labelledby="growth-title-<%= _suffix %> growth-desc-<%= _suffix %>">
+    <title id="growth-title-<%= _suffix %>">Crescimento de clientes do Kuruk</title>
+    <desc id="growth-desc-<%= _suffix %>">
+      Total acumulado de negócios cadastrados no Kuruk Cloud nos últimos <%= _n %> meses.
+      Último mês: <%= _last ? _fmt(_last.totalCompanies) : '0' %> negócios.
+    </desc>
+    <defs>
+      <linearGradient id="growth-fill-<%= _suffix %>" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" class="growth-stop-a" />
+        <stop offset="100%" class="growth-stop-b" />
+      </linearGradient>
+    </defs>
+
+    <% for (var _g = 0; _g <= 4; _g++) { var _gv = _step * _g; var _gy = _baseY - (_gv / _max) * _innerH; %>
+      <line class="growth-grid" x1="<%= _pad.left %>" y1="<%= _gy.toFixed(1) %>" x2="<%= (_W - _pad.right) %>" y2="<%= _gy.toFixed(1) %>" />
+      <text class="growth-axis" x="<%= (_pad.left - 10) %>" y="<%= (_gy + 4).toFixed(1) %>" text-anchor="end"><%= _fmt(_gv) %></text>
+    <% } %>
+
+    <path class="growth-area" d="<%= _area %>" fill="url(#growth-fill-<%= _suffix %>)" />
+    <path class="growth-line" d="<%= _line %>" pathLength="1" />
+
+    <% for (var _k = 0; _k < _n; _k++) { var _p = _points[_k]; %>
+      <g class="growth-point">
+        <circle class="growth-dot<%= _k === _n - 1 ? ' is-last' : '' %>" cx="<%= _xs[_k].toFixed(1) %>" cy="<%= _ys[_k].toFixed(1) %>" r="<%= _k === _n - 1 ? 6 : 4.5 %>">
+          <title><%= _p.label %>: <%= _fmt(_p.totalCompanies) %> negócios</title>
+        </circle>
+        <text class="growth-label" x="<%= _xs[_k].toFixed(1) %>" y="<%= (_H - 12) %>" text-anchor="middle"><%= _p.label %></text>
+        <text class="growth-value" x="<%= _xs[_k].toFixed(1) %>" y="<%= (_ys[_k] - 14).toFixed(1) %>" text-anchor="middle"><%= _fmt(_p.totalCompanies) %></text>
+      </g>
+    <% } %>
+  </svg>
+</figure>
+<% } %>

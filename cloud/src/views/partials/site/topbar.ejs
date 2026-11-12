@@ -1,9 +1,12 @@
 <%
   /* Barra de navegação do site público.
      Espera: page (slug da página ativa), downloadUrl.
-     O menu "Recursos" abre no hover/foco em telas grandes e vira lista simples
-     no mobile — sem JS, só CSS, pra não pesar a página. */
+     "Produtos" reúne as linhas de produto; "Recursos" continua listando os
+     módulos do sistema. Os menus abrem no hover/foco em telas grandes e viram
+     listas simples no mobile — sem JS, só CSS, pra não pesar a página. */
   var nav = typeof page !== 'undefined' ? page : '';
+  var productPages = ['lojas', 'farmacias', 'restaurantes', 'servicos', 'odonto'];
+  var isProduct = productPages.indexOf(nav) >= 0;
 %>
 <header class="topbar">
   <div class="wrap topbar-in">
@@ -19,6 +22,20 @@
 
     <nav class="nav">
       <div class="nav-drop">
+        <a href="/#produtos" class="<%= isProduct ? 'on' : '' %>">Produtos
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </a>
+        <div class="nav-menu">
+          <a href="/lojas" class="<%= nav === 'lojas' ? 'on' : '' %>"><strong>Kuruk Lojas</strong><span>Moda, variedades e presentes</span></a>
+          <a href="/farmacias" class="<%= nav === 'farmacias' ? 'on' : '' %>"><strong>Kuruk Farmácias</strong><span>Lote, validade, convênios e fiado</span></a>
+          <a href="/restaurantes" class="<%= nav === 'restaurantes' ? 'on' : '' %>"><strong>Kuruk Restaurantes</strong><span>Mesas, cozinha e cardápio online</span></a>
+          <a href="/servicos" class="<%= nav === 'servicos' ? 'on' : '' %>"><strong>Kuruk Serviços</strong><span>Orçamento, ordem de serviço e peças</span></a>
+          <a href="/odonto" class="<%= nav === 'odonto' ? 'on' : '' %>"><strong>Kuruk Odonto</strong><span>Agenda, prontuário e odontograma</span></a>
+          <a href="/recursos" class="nav-menu-all">Ver todos os módulos →</a>
+        </div>
+      </div>
+
+      <div class="nav-drop">
         <a href="/recursos" class="<%= nav.indexOf('recursos') === 0 ? 'on' : '' %>">Recursos
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </a>
@@ -26,19 +43,15 @@
           <a href="/recursos/pdv"><strong>PDV &amp; Vendas</strong><span>Frente de caixa, atalhos, pagamentos</span></a>
           <a href="/recursos/estoque"><strong>Estoque &amp; Compras</strong><span>Custo médio, fornecedores, reposição</span></a>
           <a href="/recursos/importacao-nfe"><strong>Importação de NF-e</strong><span>XML do fornecedor vira estoque</span></a>
-          <a href="/recursos/etiquetas"><strong>Gerador de Etiquetas</strong><span>Código de barras e preço em folha A4</span></a>
           <a href="/recursos/financeiro"><strong>Financeiro &amp; DRE</strong><span>Caixa, contas, fluxo e lucro real</span></a>
           <a href="/recursos/fiscal"><strong>Fiscal (NFC-e)</strong><span>Nota do consumidor pelo PDV · beta</span></a>
-          <a href="/recursos/restaurante"><strong>Restaurante</strong><span>Mesas, comandas, garçom e cozinha</span></a>
+          <a href="/recursos/restaurante"><strong>Mesas &amp; Cozinha</strong><span>Comandas, garçom e painel de cozinha</span></a>
           <a href="/recursos/cardapio-online"><strong>Cardápio online</strong><span>Página pública com QR code</span></a>
-          <a href="/recursos" class="nav-menu-all">Ver todos os módulos →</a>
+          <a href="/recursos" class="nav-menu-all">Ver todos os recursos →</a>
         </div>
       </div>
-      <a href="/lojas" class="<%= nav === 'lojas' ? 'on' : '' %>">Lojas</a>
-      <a href="/farmacias" class="<%= nav === 'farmacias' ? 'on' : '' %>">Farmácias</a>
-      <a href="/restaurantes" class="<%= nav === 'restaurantes' ? 'on' : '' %>">Restaurantes</a>
-      <a href="/servicos" class="<%= nav === 'servicos' ? 'on' : '' %>">Serviços</a>
-      <a href="/odonto" class="<%= nav === 'odonto' ? 'on' : '' %>">Odonto</a>
+
+      <a href="/#historia" class="<%= nav === 'home' ? 'on' : '' %>">Empresa</a>
       <a href="/planos" class="<%= nav === 'planos' ? 'on' : '' %>">Planos</a>
       <a href="/wiki">Wiki</a>
       <a href="/contato" class="<%= nav === 'contato' ? 'on' : '' %>">Contato</a>

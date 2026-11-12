@@ -3,6 +3,7 @@ import { Router, type Request } from 'express';
 import { getPool } from '../db';
 import { getCommercialPlans } from '../plans';
 import { createRateLimiter } from '../rateLimit';
+import { getSiteStats } from '../siteStats';
 
 /**
  * Landing page pública de venda do Kuruk (rota "/").
@@ -271,7 +272,22 @@ router.get('/baixar/arquivo', async (req, res) => {
 
 router.get('/', async (_req, res) => {
   const { version } = await getReleaseInfo();
-  res.render('landing', { downloadUrl: '/baixar', appVersion: version, plans: getCommercialPlans() });
+  const stats = await getSiteStats();
+  res.render('landing', {
+    downloadUrl: '/baixar',
+    appVersion: version,
+    plans: getCommercialPlans(),
+    stats,
+  });
+});
+
+/**
+ * Números públicos agregados (sem dado individual) usados pela landing e pelas
+ * páginas de produto. O cache de 60 s fica em `siteStats.ts`.
+ */
+router.get('/api/site-stats', async (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=60');
+  res.json(await getSiteStats());
 });
 
 /**
@@ -301,7 +317,13 @@ const SITE_PAGES: Record<string, string> = {
 for (const [path, view] of Object.entries(SITE_PAGES)) {
   router.get(path, async (_req, res) => {
     const { version } = await getReleaseInfo();
-    res.render(view, { downloadUrl: '/baixar', appVersion: version, plans: getCommercialPlans() });
+    const stats = await getSiteStats();
+    res.render(view, {
+      downloadUrl: '/baixar',
+      appVersion: version,
+      plans: getCommercialPlans(),
+      stats,
+    });
   });
 }
 

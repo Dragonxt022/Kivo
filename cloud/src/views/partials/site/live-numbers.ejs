@@ -1,0 +1,102 @@
+<%
+  /* Números reais do Kuruk Cloud + gráfico de crescimento.
+     Espera: stats (SiteStats), variant ('landing' | 'strip'), idSuffix.
+     Nunca imprime dados individuais: só totais agregados do banco. */
+  var _s = typeof stats !== 'undefined' ? stats : null;
+  var _variant = typeof variant !== 'undefined' ? variant : 'strip';
+  var _isLanding = _variant === 'landing';
+  var _suffix = typeof idSuffix !== 'undefined' ? String(idSuffix) : (_isLanding ? 'landing' : 'strip');
+  var _fmt = function (n) { return new Intl.NumberFormat('pt-BR').format(Number(n) || 0); };
+  var _growth = _s && Array.isArray(_s.growth) ? _s.growth : [];
+  var _last = _growth.length ? _growth[_growth.length - 1] : null;
+  var _updated = '';
+  if (_s && _s.updatedAt) {
+    try {
+      _updated = new Date(_s.updatedAt).toLocaleTimeString('pt-BR', {
+        timeZone: 'America/Porto_Velho',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (e) {
+      _updated = '';
+    }
+  }
+%>
+
+<section<%- _isLanding ? ' id="numeros"' : '' %> class="<%= _isLanding ? 'brand-numbers' : 'live-strip sec-tight' %>" aria-labelledby="live-title-<%= _suffix %>">
+  <div class="wrap">
+    <% if (_isLanding) { %>
+      <div class="center" data-reveal>
+        <div class="kicker">Kuruk em números</div>
+        <h2 id="live-title-<%= _suffix %>">Quem já está crescendo com a gente.</h2>
+        <p>
+          Números reais, direto do banco de dados do Kuruk Cloud. Sem maquete e sem
+          estimativa: é o retrato de quem está usando o sistema agora.
+        </p>
+      </div>
+    <% } else { %>
+      <div class="live-strip-head" data-reveal>
+        <div class="kicker">Kuruk em números</div>
+        <h2 id="live-title-<%= _suffix %>">Dados reais de quem usa o Kuruk</h2>
+      </div>
+    <% } %>
+
+    <% if (!_s || !_s.live) { %>
+      <div class="live-panel live-panel-offline" data-reveal>
+        <strong>Números indisponíveis agora.</strong>
+        <span>O Kuruk Cloud não respondeu à consulta. Tente novamente em instantes.</span>
+      </div>
+    <% } else { %>
+      <div class="live-panel<%= _isLanding ? ' live-panel-landing' : ' live-panel-strip' %>" data-reveal>
+        <div class="live-top">
+          <span class="live-status"><span class="live-dot" aria-hidden="true"></span> Dados reais do Kuruk Cloud</span>
+          <% if (_updated) { %><span class="live-updated">atualizado às <%= _updated %></span><% } %>
+        </div>
+
+        <div class="live-kpis">
+          <div class="live-kpi">
+            <div class="live-kpi-n" data-count="<%= _s.totalCompanies %>"><%= _fmt(_s.totalCompanies) %></div>
+            <div class="live-kpi-l">negócios cadastrados</div>
+            <div class="live-kpi-s">no banco do Kuruk Cloud</div>
+          </div>
+          <div class="live-kpi">
+            <div class="live-kpi-n" data-count="<%= _s.activeCompanies %>"><%= _fmt(_s.activeCompanies) %></div>
+            <div class="live-kpi-l">usando o sistema</div>
+            <div class="live-kpi-s">ativos nos últimos 30 dias</div>
+          </div>
+          <div class="live-kpi">
+            <div class="live-kpi-n" data-count="<%= _s.syncRecords %>"><%= _fmt(_s.syncRecords) %></div>
+            <div class="live-kpi-l">registros sincronizados</div>
+            <div class="live-kpi-s">vendas, produtos e cadastros</div>
+          </div>
+          <div class="live-kpi">
+            <div class="live-kpi-n" data-count="<%= _s.activeDevices %>"><%= _fmt(_s.activeDevices) %></div>
+            <div class="live-kpi-l">dispositivos ativos</div>
+            <div class="live-kpi-s">computadores conectados</div>
+          </div>
+        </div>
+
+        <div class="live-chart-card">
+          <div class="live-chart-head">
+            <div>
+              <h3>Crescimento de clientes</h3>
+              <p>Total acumulado de negócios cadastrados, mês a mês.</p>
+            </div>
+            <% if (_last) { %>
+              <div class="live-chart-badge">
+                <strong>+<%= _fmt(_last.newCompanies) %></strong>
+                <span>neste mês</span>
+              </div>
+            <% } %>
+          </div>
+          <%- include('growth-chart', { months: _growth, idSuffix: _suffix }) %>
+        </div>
+
+        <p class="live-note">
+          Dados agregados do banco do Kuruk Cloud. Nenhuma informação individual de
+          cliente é exposta.
+        </p>
+      </div>
+    <% } %>
+  </div>
+</section>

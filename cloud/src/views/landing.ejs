@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <%- include('partials/site/head', {
-    title: 'Kuruk — PDV, estoque, financeiro e mesas num só sistema',
-    description: 'Sistema completo para comércio e food service. PDV rápido, gestão de estoque, compras inteligentes, DRE, caixa, mesas e cardápio online. Funciona offline e salva na nuvem. Teste grátis por 15 dias.'
+    title: 'Kuruk — tecnologia que cresce junto com o seu negócio',
+    description: 'Conheça a Kuruk: empresa de tecnologia do Norte do Brasil. A história do nome, a nossa visão e os produtos para lojas, farmácias, restaurantes, serviços e odontologia. Números reais de clientes e crescimento.'
   }) %>
   <%# Esconde o hero só enquanto o GSAP vai animá-lo. Sem JS (ou com "reduzir
       animações") a classe não entra e o conteúdo aparece normalmente. %>
@@ -19,109 +19,277 @@
 <body>
   <%- include('partials/site/topbar', { page: 'home', downloadUrl: downloadUrl }) %>
 
-  <!-- ─── HERO ─── -->
-  <section class="hero" aria-labelledby="hero-title">
+  <!-- ─── HERO DA MARCA ─── -->
+  <section class="hero brand-hero" aria-labelledby="brand-title">
     <div class="hero-bg" aria-hidden="true">
       <span class="hero-orb a"></span>
       <span class="hero-orb b"></span>
     </div>
     <div class="wrap">
-      <p class="kicker" data-hero-fade>PDV · Estoque · Compras · Financeiro · Mesas</p>
-      <h1 id="hero-title">
-        <span class="hero-line"><span class="hero-line-inner" data-hero-line>Vender, controlar o estoque e fechar o caixa</span></span>
-        <span class="hero-line"><span class="hero-line-inner" data-hero-line><em>mesmo sem internet</em></span></span>
+      <p class="kicker" data-hero-fade>Tecnologia do Norte para o Brasil</p>
+
+      <h1 id="brand-title" class="brand-word" data-brand-word aria-label="Kuruk">
+        <span class="brand-letter-wrap" style="--i: 0" aria-hidden="true"><span class="brand-letter" data-brand-letter>K</span></span>
+        <span class="brand-letter-wrap" style="--i: 1" aria-hidden="true"><span class="brand-letter" data-brand-letter>u</span></span>
+        <span class="brand-letter-wrap" style="--i: 2" aria-hidden="true"><span class="brand-letter" data-brand-letter>r</span></span>
+        <span class="brand-letter-wrap" style="--i: 3" aria-hidden="true"><span class="brand-letter" data-brand-letter>u</span></span>
+        <span class="brand-letter-wrap" style="--i: 4" aria-hidden="true"><span class="brand-letter" data-brand-letter>k</span></span>
       </h1>
+      <p class="brand-meaning" data-hero-fade>crescendo juntos</p>
+
       <p class="sub" data-hero-fade>
-        O Kuruk reúne PDV, estoque, compras, financeiro e mesas num só programa para Windows.
-        Roda no seu computador e continua <strong>100% offline</strong> quando a conexão cai.
-        Ao voltar a internet, as informações são sincronizadas com a nuvem automaticamente.
+        Somos uma empresa de tecnologia que constrói software para o comércio de
+        verdade. Nascemos no Norte, ouvindo o balcão, e criamos um sistema que
+        <strong>continua funcionando quando a internet não funciona</strong>.
       </p>
+
       <div class="hero-ctas" data-hero-fade>
-        <a class="btn big" href="<%= downloadUrl %>">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Baixar para Windows — v<%= appVersion %>
+        <a class="btn big" href="#produtos">
+          Conhecer nossos produtos
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
-        <a class="btn big secondary" href="#comece">Escolher por onde começar</a>
+        <a class="btn big secondary" href="#historia">A história do nome</a>
       </div>
-      <p class="hero-note" data-hero-fade>✔ 15 dias grátis, sem cartão de crédito &nbsp;·&nbsp; ✔ Migração de dados inclusa</p>
 
-      <ul class="chips" data-hero-chips>
-        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Funciona 100% offline</li>
-        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sincroniza com a nuvem sozinho</li>
-        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Suporte humano</li>
-        <li class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Wiki documentada</li>
+      <p class="hero-note" data-hero-fade>Software brasileiro &nbsp;·&nbsp; offline-first &nbsp;·&nbsp; suporte humano</p>
+
+      <ul class="brand-traits" data-hero-fade>
+        <li>Feito no Brasil</li>
+        <li>Funciona offline</li>
+        <li>Nuvem quando ela volta</li>
+        <li>Um sistema, vários produtos</li>
       </ul>
+    </div>
+  </section>
 
-      <div class="hero-media-3d" data-hero-media>
-        <%- include('partials/site/shot', { name: 'pdv', alt: 'PDV do Kuruk com carrinho de venda montado', motion: false }) %>
+  <!-- ─── HISTÓRIA / ORIGEM DO NOME ─── -->
+  <section id="historia" class="brand-story">
+    <div class="wrap">
+      <div class="story-grid">
+        <div class="story-copy" data-reveal>
+          <div class="kicker">Nossa origem</div>
+          <h2>Um nome que nasce do encontro.</h2>
+          <p>
+            <strong>Kuruk</strong> é uma palavra de encontro. Nasce da combinação de
+            sonoridades e palavras de povos originários do Norte do Brasil —
+            territórios onde crescer sempre foi um gesto coletivo, de aldeia, de
+            família, de rede.
+          </p>
+          <p>
+            Não é uma tradução literal. É uma homenagem. Kuruk carrega o que
+            acreditamos: <strong>ninguém cresce sozinho</strong>. Um comércio cresce
+            com quem vende, com quem compra, com quem entrega e com quem está do
+            lado na hora difícil.
+          </p>
+          <blockquote class="story-quote">
+            “Crescer sozinho é possível. Crescer junto é Kuruk.”
+          </blockquote>
+        </div>
+
+        <div class="story-card" data-reveal>
+          <div class="story-mark">
+            <img class="logo-light" src="/logo_kuruk-icon.png" alt="" />
+            <img class="logo-dark" src="/logo_kuruk-icon_branco.png" alt="" />
+          </div>
+          <h3>Kuruk</h3>
+          <div class="story-word">crescendo juntos</div>
+          <p class="story-note">
+            Uma homenagem aos povos originários do Norte do Brasil e à força de
+            quem cresce em comunidade.
+          </p>
+        </div>
+      </div>
+
+      <div class="pillars" data-reveal-children>
+        <article class="pillar">
+          <div class="num">01 · ORIGEM</div>
+          <h3>Do Norte, com respeito.</h3>
+          <p>
+            Nossa identidade nasce da cultura e da hospitalidade de quem faz
+            acontecer longe dos grandes centros.
+          </p>
+        </article>
+        <article class="pillar">
+          <div class="num">02 · VISÃO</div>
+          <h3>Tecnologia que aproxima.</h3>
+          <p>
+            Software não deve criar distância. Deve simplificar o dia, respeitar
+            o tempo e caber na realidade do negócio.
+          </p>
+        </article>
+        <article class="pillar">
+          <div class="num">03 · COMPROMISSO</div>
+          <h3>Crescer junto, de verdade.</h3>
+          <p>
+            Suporte humano, migração de dados e treinamento: a gente não entrega
+            um instalador e desaparece.
+          </p>
+        </article>
       </div>
     </div>
   </section>
 
-  <!-- ─── HUB DE ESCOLHA ─── -->
-  <section id="comece">
+  <!-- ─── VISÃO ─── -->
+  <section id="visao">
+    <div class="wrap">
+      <div class="vision-grid">
+        <div class="vision-copy" data-reveal>
+          <div class="kicker">Nossa visão</div>
+          <h2>Somos uma empresa de tecnologia. Mas o que nos move é o balcão.</h2>
+          <p>
+            Acreditamos que a melhor tecnologia é aquela que some no dia a dia:
+            o caixa abre rápido, o estoque bate, o financeiro fecha e a equipe
+            consegue trabalhar sem depender de uma conexão estável.
+          </p>
+          <p>
+            Por isso construímos o Kuruk <strong>offline-first</strong>: o sistema
+            roda no computador da loja e a nuvem é uma aliada, não uma condição.
+            Quando a internet volta, tudo se sincroniza sozinho.
+          </p>
+        </div>
+
+        <div class="vision-list" data-reveal-children>
+          <article class="vision-item">
+            <div class="num">01</div>
+            <div>
+              <h3>Offline de verdade</h3>
+              <p>A venda não espera a nuvem. Se a conexão cair, o atendimento continua.</p>
+            </div>
+          </article>
+          <article class="vision-item">
+            <div class="num">02</div>
+            <div>
+              <h3>Nuvem sem susto</h3>
+              <p>Backup e sincronização automáticos. Seus dados voltam quando a internet volta.</p>
+            </div>
+          </article>
+          <article class="vision-item">
+            <div class="num">03</div>
+            <div>
+              <h3>Gente do lado</h3>
+              <p>Suporte humano, treinamento e migração inclusos em todos os planos.</p>
+            </div>
+          </article>
+          <article class="vision-item">
+            <div class="num">04</div>
+            <div>
+              <h3>Um ecossistema</h3>
+              <p>PDV, estoque, financeiro, fiscal, mesas e cardápio online no mesmo lugar.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PRODUTOS ─── -->
+  <section id="produtos">
     <div class="wrap">
       <div class="center" data-reveal>
-        <div class="kicker">Comece por aqui</div>
-        <h2>O que você vende? A gente mostra o caminho</h2>
+        <div class="kicker">Nossos produtos</div>
+        <h2>Um Kuruk para cada jeito de crescer.</h2>
         <p>
-          O Kuruk serve qualquer comércio. Escolha o seu tipo de negócio para ver as telas
-          e os recursos da sua realidade — ou vá direto ao recurso que você quer conhecer.
+          O mesmo motor, adaptado ao seu tipo de negócio. Entre em qualquer produto
+          para ver todos os recursos, as telas reais e os números de quem já usa.
         </p>
       </div>
 
-      <div class="choose-grid" data-reveal-children>
-        <a class="choose-card" href="/lojas">
-          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
-          <div>
-            <h3>Lojas</h3>
-            <p>Roupas, variedades, acessórios e presentes. Grade de tamanhos, trocas e fidelidade.</p>
-            <span class="go">Ver o Kuruk Lojas →</span>
-          </div>
+      <div class="product-grid" data-reveal-children>
+        <a class="product-card" href="/lojas" style="--product: #2563eb">
+          <span class="product-index">01</span>
+          <div class="product-ico"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
+          <h3>Kuruk Lojas</h3>
+          <p>Varejo de moda, variedades, acessórios e presentes.</p>
+          <ul class="product-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV com grade de tamanhos e cores</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Trocas, crédito de loja e fidelidade</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Estoque separado por variante</li>
+          </ul>
+          <span class="product-go">Ver o produto completo →</span>
         </a>
-        <a class="choose-card" href="/farmacias">
-          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8.5 8.5 7 7"/></svg></div>
-          <div>
-            <h3>Farmácias</h3>
-            <p>Farmácias, drogarias e perfumarias. Lote e validade, convênios e venda a prazo.</p>
-            <span class="go">Ver o Kuruk Farmácias →</span>
-          </div>
+
+        <a class="product-card" href="/farmacias" style="--product: #8e1c3d">
+          <span class="product-index">02</span>
+          <div class="product-ico"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8.5 8.5 7 7"/></svg></div>
+          <h3>Kuruk Farmácias</h3>
+          <p>Farmácias, drogarias e perfumarias com rotina de balcão.</p>
+          <ul class="product-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Lote, validade e controlados</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Convênios e venda a prazo</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV rápido para o balcão</li>
+          </ul>
+          <span class="product-go">Ver o produto completo →</span>
         </a>
-        <a class="choose-card" href="/restaurantes">
-          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
-          <div>
-            <h3>Restaurantes</h3>
-            <p>Restaurantes, lanchonetes, sorveterias e conveniência. Salão, balcão e cozinha.</p>
-            <span class="go">Ver o Kuruk Restaurantes →</span>
-          </div>
+
+        <a class="product-card" href="/restaurantes" style="--product: #e8590c">
+          <span class="product-index">03</span>
+          <div class="product-ico"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
+          <h3>Kuruk Restaurantes</h3>
+          <p>Restaurantes, lanchonetes, sorveterias e conveniência.</p>
+          <ul class="product-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mesas, comandas e painel de cozinha</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Cardápio online com QR code</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Complementos, tamanhos e delivery</li>
+          </ul>
+          <span class="product-go">Ver o produto completo →</span>
         </a>
-        <a class="choose-card" href="/servicos">
-          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
-          <div>
-            <h3>Serviços</h3>
-            <p>Assistência técnica, oficinas e prestadores. Orçamento, ordem de serviço e peças.</p>
-            <span class="go">Ver o Kuruk Serviços →</span>
-          </div>
+
+        <a class="product-card" href="/servicos" style="--product: #0f766e">
+          <span class="product-index">04</span>
+          <div class="product-ico"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+          <h3>Kuruk Serviços</h3>
+          <p>Oficinas, assistência técnica e prestadores de serviço.</p>
+          <ul class="product-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Orçamento e ordem de serviço</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Peças, mão de obra e estoque</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Histórico completo por cliente</li>
+          </ul>
+          <span class="product-go">Ver o produto completo →</span>
         </a>
-        <a class="choose-card" href="/odonto">
-          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5c-1.2-1.6-3-2.5-4.8-2.5A4.7 4.7 0 0 0 2.5 7.7c0 4.3 4.2 6.6 5.1 11.2a2 2 0 0 0 3.9.1l.5-2.6c0-.4.5-.4.5 0l.5 2.6a2 2 0 0 0 3.9-.1c.9-4.6 5.1-6.9 5.1-11.2a4.7 4.7 0 0 0-4.7-4.7c-1.8 0-3.6.9-4.8 2.5Z"/></svg></div>
-          <div>
-            <h3>Odonto</h3>
-            <p>Clínicas e consultórios. Agenda, prontuário, odontograma e planos de tratamento.</p>
-            <span class="go">Ver o Kuruk Odonto →</span>
-          </div>
+
+        <a class="product-card" href="/odonto" style="--product: #0d9488">
+          <span class="product-index">05</span>
+          <div class="product-ico"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5c-1.2-1.6-3-2.5-4.8-2.5A4.7 4.7 0 0 0 2.5 7.7c0 4.3 4.2 6.6 5.1 11.2a2 2 0 0 0 3.9.1l.5-2.6c0-.4.5-.4.5 0l.5 2.6a2 2 0 0 0 3.9-.1c.9-4.6 5.1-6.9 5.1-11.2a4.7 4.7 0 0 0-4.7-4.7c-1.8 0-3.6.9-4.8 2.5Z"/></svg></div>
+          <h3>Kuruk Odonto</h3>
+          <p>Clínicas e consultórios odontológicos.</p>
+          <ul class="product-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Agenda, prontuário e odontograma</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Planos de tratamento e cobrança</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Documentos, exames e imagens</li>
+          </ul>
+          <span class="product-go">Ver o produto completo →</span>
         </a>
-        <a class="choose-card" href="/recursos">
-          <div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M3 9h18"/><path d="M9 22v-6h6v6"/></svg></div>
-          <div>
-            <h3>Outro comércio</h3>
-            <p>Mercados, bares, petshops, materiais e muito mais. Um sistema modular que se adapta.</p>
-            <span class="go">Ver todos os módulos →</span>
-          </div>
+
+        <a class="product-card is-more" href="/recursos">
+          <span class="product-index">06</span>
+          <div class="product-ico"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+          <h3>Todos os módulos</h3>
+          <p>O ecossistema completo por dentro, módulo por módulo.</p>
+          <ul class="product-list">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> PDV, estoque, financeiro e fiscal</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> NF-e, etiquetas e cardápio online</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Permissões, auditoria e backup</li>
+          </ul>
+          <span class="product-go">Ver todos os recursos →</span>
         </a>
       </div>
+    </div>
+  </section>
 
-      <div class="choose-divider">Ou escolha pelo recurso</div>
+  <!-- ─── NÚMEROS REAIS + CRESCIMENTO ─── -->
+  <%- include('partials/site/live-numbers', { stats: stats, variant: 'landing', idSuffix: 'home' }) %>
+
+  <!-- ─── O SISTEMA POR DENTRO ─── -->
+  <section id="sistema">
+    <div class="wrap">
+      <div class="center" data-reveal>
+        <div class="kicker">O sistema por dentro</div>
+        <h2>A base que sustenta cada produto.</h2>
+        <p>
+          Todos os produtos compartilham o mesmo motor modular. Você liga só o que
+          o seu negócio usa — e desliga o resto.
+        </p>
+      </div>
 
       <div class="res-grid" data-reveal-children>
         <a class="res-tile" href="/recursos/pdv">
@@ -164,316 +332,12 @@
     </div>
   </section>
 
-  <!-- ─── MÓDULOS ─── -->
-  <section id="recursos">
-    <div class="wrap">
-      <div class="center" data-reveal>
-        <div class="kicker">Cada recurso por dentro</div>
-        <h2>Um sistema modular: você liga só o que usa</h2>
-        <p>Clique em qualquer módulo para ver as telas reais e como ele funciona no dia a dia do seu negócio.</p>
-      </div>
-
-      <div class="mod-grid" data-reveal-children>
-        <a class="mod-card" href="/recursos/pdv">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
-          <h3>PDV &amp; Vendas</h3>
-          <p>Bipe o código, cobre e chame o próximo. Atalhos de teclado para tudo e várias vendas abertas ao mesmo tempo.</p>
-          <span class="mod-more">Ver o PDV por dentro →</span>
-        </a>
-        <a class="mod-card" href="/recursos/estoque">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
-          <h3>Estoque &amp; Compras</h3>
-          <p>Catálogo com 11 tipos de produto, entrada de compra e custo médio ponderado calculado sozinho.</p>
-          <span class="mod-more">Ver estoque e compras →</span>
-        </a>
-        <a class="mod-card" href="/recursos/importacao-nfe">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          <h3>Importação de NF-e</h3>
-          <p>Envie o XML da nota do fornecedor e o estoque se atualiza sozinho, com conferência item a item e reversão.</p>
-          <span class="mod-more">Ver a importação de NF-e →</span>
-        </a>
-        <a class="mod-card" href="/recursos/etiquetas">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></div>
-          <h3>Gerador de Etiquetas</h3>
-          <p>Imprima etiquetas de produto com código de barras e preço nos modelos Pimaco — e crie o seu modelo de folha.</p>
-          <span class="mod-more">Ver o gerador de etiquetas →</span>
-        </a>
-        <a class="mod-card" href="/recursos/financeiro">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-          <h3>Financeiro &amp; DRE</h3>
-          <p>Caixa conferido no fechamento, contas a pagar e receber, e o lucro real calculado pelo custo de verdade.</p>
-          <span class="mod-more">Ver o financeiro →</span>
-        </a>
-        <a class="mod-card" href="/recursos/fiscal">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg></div>
-          <h3>Fiscal (NFC-e)</h3>
-          <p>Nota fiscal do consumidor emitida direto do PDV, com certificado, fila de envio e cancelamento. Em beta.</p>
-          <span class="mod-more">Ver o módulo fiscal →</span>
-        </a>
-        <a class="mod-card" href="/recursos/restaurante">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></div>
-          <h3>Mesas &amp; Cozinha</h3>
-          <p>Mapa de mesas, comandas que transferem e dividem, e o pedido caindo direto no painel da cozinha.</p>
-          <span class="mod-more">Ver o módulo restaurante →</span>
-        </a>
-        <a class="mod-card" href="/recursos/cardapio-online">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
-          <h3>Cardápio online</h3>
-          <p>Seus produtos viram uma página pública com QR code na mesa. Sem app, sem taxa por pedido.</p>
-          <span class="mod-more">Ver o cardápio online →</span>
-        </a>
-        <a class="mod-card" href="/recursos">
-          <div class="ico"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
-          <h3>E mais</h3>
-          <p>Clientes e fidelidade, convênios, permissões por cargo, auditoria, backup e atualização automática.</p>
-          <span class="mod-more">Ver todos os módulos →</span>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── DESTAQUES COM TELA ─── -->
-  <section>
-    <div class="wrap">
-      <div class="two-col">
-        <div data-reveal>
-          <div class="kicker">Lucro real</div>
-          <h2>Quanto o negócio deu de lucro? O DRE responde</h2>
-          <p style="color:var(--muted); font-size:1.05rem">
-            Receita, CMV e margem calculados automaticamente a partir das vendas e compras
-            que você já lançou — sem planilha e sem esperar o fim do mês.
-          </p>
-          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> CMV pelo custo real de cada item vendido</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Coluna projetada para simular aumento de preço</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Impressão pronta para levar ao contador</li>
-          </ul>
-          <a class="mod-more" href="/recursos/financeiro">Conhecer o financeiro →</a>
-        </div>
-        <%- include('partials/site/shot', { name: 'dre', alt: 'DRE do Kuruk com receita, CMV e lucro bruto calculados' }) %>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="wrap">
-      <div class="two-col flip">
-        <%- include('partials/site/shot', { name: 'cozinha', alt: 'Painel de cozinha do Kuruk com tickets por mesa e estação' }) %>
-        <div data-reveal>
-          <div class="kicker">Food service</div>
-          <h2>O pedido sai da mesa e chega na chapa</h2>
-          <p style="color:var(--muted); font-size:1.05rem">
-            O garçom lança na comanda, a cozinha recebe na tela já separado por estação
-            e o caixa fecha no PDV. Sem papelzinho, sem grito e sem pedido esquecido.
-          </p>
-          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Transferir, dividir e juntar comandas</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Painel de cozinha por estação de preparo</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Preço congelado no momento do pedido</li>
-          </ul>
-          <a class="mod-more" href="/recursos/restaurante">Conhecer o módulo restaurante →</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="wrap">
-      <div class="two-col">
-        <div data-reveal>
-          <div class="kicker">Importação de NF-e</div>
-          <h2>A nota do fornecedor vira estoque sem digitação</h2>
-          <p style="color:var(--muted); font-size:1.05rem">
-            Envie o XML da NF-e e o Kuruk lê os produtos, o fornecedor, as quantidades
-            e os custos. Você confere linha por linha, cria ou vincula os produtos e
-            confirma — a compra entra no estoque com o custo médio atualizado.
-          </p>
-          <ul style="list-style:none; padding:0; margin:1.25rem 0 1.75rem; display:grid; gap:.6rem">
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Chega de redigitar nota de 50 itens</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Reconhecimento automático e avisos de divergência</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Reversível: desfaz estoque e custo quando precisar</li>
-          </ul>
-          <a class="mod-more" href="/recursos/importacao-nfe">Conhecer a importação de NF-e →</a>
-        </div>
-        <%- include('partials/site/shot', { name: 'compras', alt: 'Compras do Kuruk geradas a partir do XML da nota do fornecedor' }) %>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── DIFERENCIAIS ─── -->
-  <section>
-    <div class="wrap">
-      <div class="center" data-reveal>
-        <div class="kicker">Por que o Kuruk</div>
-        <h2>Feito para operar sem sustos</h2>
-      </div>
-      <div class="grid" data-reveal-children>
-        <div class="card">
-          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
-          <h3>Offline primeiro, nuvem sempre</h3>
-          <p>Internet caiu? Continue vendendo normalmente. Voltou? Tudo sincroniza sozinho, sem você fazer nada.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg></div>
-          <h3>Permissões por ação</h3>
-          <p>O caixa vende, o estoquista movimenta, o gerente vê tudo. Permissão por ação, não só por tela.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></div>
-          <h3>Backup e atualização automáticos</h3>
-          <p>Cópia do banco na nuvem e novas versões instaladas sozinhas. Seus dados sempre a salvo.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          <h3>Auditoria completa</h3>
-          <p>Quem cancelou a venda? Quem deu o desconto? Cada ação importante fica registrada com usuário e hora.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-          <h3>Interface do seu jeito</h3>
-          <p>Tema claro ou escuro, cor de destaque personalizada e navegação em cartões ou menu lateral.</p>
-        </div>
-        <div class="card">
-          <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-          <h3>Wiki bem documentada</h3>
-          <p>Dúvida no meio do expediente? A <a href="/wiki">wiki do Kuruk</a> tem passo a passo com imagem de cada tela.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── COMEÇO RÁPIDO ─── -->
-  <section>
-    <div class="wrap">
-      <div class="two-col">
-        <div data-reveal>
-          <div class="kicker">Primeiros passos</div>
-          <h2>Instalou, configurou, vendeu — no mesmo dia</h2>
-          <p style="color:var(--muted); font-size:1.05rem">
-            Nada de manual de 200 páginas. Ao abrir o Kuruk pela primeira vez, um assistente
-            te guia passo a passo: dados da empresa, formas de pagamento e até produtos de
-            exemplo pra você já sair testando o PDV.
-          </p>
-          <ul style="list-style:none; padding:0; margin:1.25rem 0 0; display:grid; gap:.6rem">
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Assistente de configuração inicial guiado</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> <strong>Migração de dados inclusa</strong> — trazemos seus produtos e clientes</li>
-            <li style="display:flex; gap:.6rem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:.25rem"><path d="M20 6 9 17l-5-5"/></svg> Treinamento da equipe e suporte humano</li>
-          </ul>
-        </div>
-        <%- include('partials/site/shot', { name: 'home', alt: 'Tela inicial do Kuruk com todos os módulos organizados' }) %>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── PLANOS (resumo) ─── -->
-  <section id="planos">
-    <div class="wrap">
-      <div class="center" data-reveal>
-        <div class="kicker">Planos</div>
-        <h2>Comece grátis e escolha o plano quando fizer sentido</h2>
-        <p>Todos os planos incluem migração de dados, treinamento e suporte humano (resposta em até 8h úteis).</p>
-      </div>
-      <%
-        var homePlans = {};
-        (plans || []).forEach(function (p) { homePlans[p.key] = p; });
-        function homeReais(cents) {
-          var v = Number(cents || 0) / 100;
-          return v % 1 === 0 ? String(v) : v.toFixed(2).replace('.', ',');
-        }
-        var homeCheck = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-        var homeCross = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-        var homeFeats = [
-          { key: 'cloud_sync', yes: 'Backup e sync em nuvem' },
-          { key: 'qr_order', yes: 'Cardápio online e pedido pela mesa (QR)' },
-          { key: 'web_app', yes: 'Kuruk Web: acesso pelo celular' },
-        ];
-      %>
-      <style>
-        .plan .price { display: flex; align-items: baseline; justify-content: center; gap: 6px; flex-wrap: wrap; }
-        .plan .price del.old-price { font-size: .52em; color: var(--muted); font-weight: 500; }
-        .plan-promo {
-          display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-          margin: 4px auto 0; padding: 2px 8px; border-radius: 999px;
-          background: rgba(255,128,0,.1); color: #b45309;
-          font-size: .68rem; font-weight: 800;
-        }
-        .plan.featured .plan-promo { background: rgba(255,128,0,.16); }
-      </style>
-      <div class="plans" data-reveal-children>
-        <div class="plan">
-          <h3>Teste</h3>
-          <div class="price free">Grátis</div>
-          <div class="tag">15 dias, sem cartão</div>
-          <ul>
-            <li class="yes"><%- homeCheck %> Todos os módulos liberados</li>
-            <li class="yes"><%- homeCheck %> Funciona offline</li>
-            <li class="no"><%- homeCross %> Salvamento em nuvem</li>
-          </ul>
-          <a class="btn secondary" href="<%= downloadUrl %>">Começar grátis</a>
-        </div>
-        <% (plans || []).forEach(function (p) { %>
-        <div class="plan<%= p.promoted ? ' featured' : '' %>">
-          <h3><%= p.label %></h3>
-          <div class="price">
-            <% if (p.promoted) { %><del class="old-price">R$ <%= homeReais(p.originalPriceCents) %></del><% } %>
-            <span class="cur">R$</span><%= homeReais(p.priceCents) %><span class="per">/mês</span>
-          </div>
-          <% if (p.promoted) { %><div class="plan-promo"><%= p.promoLabel || 'Promoção' %></div><% } %>
-          <div class="tag"><%= p.description %></div>
-          <ul>
-            <li class="yes"><%- homeCheck %> PDV, estoque e financeiro completos</li>
-            <li class="yes"><%- homeCheck %> Migração + treinamento + suporte</li>
-            <% homeFeats.forEach(function (f) { var on = p.features && p.features[f.key]; %>
-              <li class="<%= on ? 'yes' : 'no' %>"><%- on ? homeCheck : homeCross %> <%= f.yes %></li>
-            <% }); %>
-          </ul>
-          <a class="btn" href="/contato">Falar com a gente</a>
-        </div>
-        <% }); %>
-      </div>
-      <div class="center" style="margin-top:2rem">
-        <a class="mod-more" href="/planos">Ver comparativo completo, recurso por recurso →</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── FAQ ─── -->
-  <section id="faq">
-    <div class="wrap">
-      <div class="center" data-reveal>
-        <div class="kicker">Dúvidas frequentes</div>
-        <h2>Perguntas que todo mundo faz</h2>
-      </div>
-      <div class="faq" data-reveal-children>
-        <details>
-          <summary>O Kuruk funciona sem internet?</summary>
-          <p>Sim, 100%. O Kuruk roda no seu computador e não depende de conexão para vender, controlar estoque ou fechar o caixa. Quando a internet volta, tudo é sincronizado automaticamente com a nuvem (planos Ouro e Diamante).</p>
-        </details>
-        <details>
-          <summary>Como funciona o teste grátis de 15 dias?</summary>
-          <p>Baixe o instalador, crie sua conta e use todos os módulos por 15 dias — sem cartão de crédito e sem compromisso. Ao final, escolha o plano que faz sentido para o seu negócio.</p>
-        </details>
-        <details>
-          <summary>Consigo trazer meus dados do sistema antigo?</summary>
-          <p>Sim, e sem custo: a migração de dados está inclusa em todos os planos. Nossa equipe importa seus produtos, clientes e fornecedores para você começar com tudo no lugar.</p>
-        </details>
-        <details>
-          <summary>Preciso treinar minha equipe?</summary>
-          <p>Nós treinamos com você. Além do treinamento, o suporte humano responde em até 8 horas úteis (dias úteis, sem feriados) e a <a href="/wiki">wiki</a> documenta cada tela do sistema com passo a passo ilustrado.</p>
-        </details>
-        <details>
-          <summary>Quais os requisitos para instalar?</summary>
-          <p>Um computador com Windows 10 ou superior. O assistente de boas-vindas deixa tudo configurado em poucos minutos.</p>
-        </details>
-        <details>
-          <summary>Serve para restaurante, lanchonete e loja?</summary>
-          <p>Sim. O Kuruk é modular: uma loja de varejo usa PDV + estoque + financeiro; um restaurante liga também mesas, garçom, cozinha e cardápio online. Você ativa só o que precisa.</p>
-        </details>
-      </div>
-    </div>
-  </section>
-
-  <%- include('partials/site/cta', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
+  <%- include('partials/site/cta', {
+    downloadUrl: downloadUrl,
+    appVersion: appVersion,
+    ctaTitle: 'Vamos crescer juntos?',
+    ctaText: 'Conheça o sistema de perto: a gente entende o seu negócio, mostra as telas e ajuda a escolher por onde começar. Sem pressa e sem compromisso.'
+  }) %>
   <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
 
   <%# O GSAP e o site-motion.js vêm do partial de cabeçalho; aqui só a entrada do hero. %>
