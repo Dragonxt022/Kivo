@@ -132,7 +132,14 @@ function listCommands() {
       'test:e2e:complementos',
       'test:https',
     ],
-    Nuvem: ['cloud:install', 'cloud:migrate', 'cloud:dev', 'cloud:deploy'],
+    Nuvem: [
+      'cloud:install',
+      'cloud:migrate',
+      'cloud:dev',
+      'cloud:deploy',
+      'cloud:backup',
+      'cloud:backup:verify',
+    ],
     Utilitário: ['smoke', 'postinstall', 'https:mkcert'],
   };
 

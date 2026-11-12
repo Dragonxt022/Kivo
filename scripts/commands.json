@@ -449,6 +449,14 @@
     "description": "Fazer deploy do cloud/ na VPS (Node; funciona no Windows e no Linux)",
     "run": "node scripts/deploy-cloud.js"
   },
+  "cloud:backup": {
+    "description": "Gerar restore point do cloud (banco, storage, segredos) + cópia offsite",
+    "run": "node scripts/backup-cloud.js"
+  },
+  "cloud:backup:verify": {
+    "description": "Restaurar o backup mais recente em um MySQL descartável e conferir os dados",
+    "run": "node scripts/verify-cloud-backup.js"
+  },
   "postinstall": {
     "description": "Pós-instalação (copiar Alpine.js local)",
     "run": "node -e \"require('fs').cpSync(require.resolve('alpinejs/dist/cdn.min.js'), 'src/public/vendor/alpine.min.js')\""

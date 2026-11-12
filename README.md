@@ -114,6 +114,7 @@ Se você encontrou um bug ou tem uma sugestão, abra uma issue no repositório o
 
 ## Documentação
 
-- `doc/KURUK_PLANO.md` — plano de desenvolvimento e arquitetura detalhada
-- `doc/auditoria/` — relatórios de auditoria técnica (fases F1–F12)
-- `agente.md` — perfil de programação do autor (contexto para assistentes de IA)
+- `doc/dev/deploy-old.md` — deploy do cloud no servidor `old` e nginx
+- `doc/dev/backup-restore.md` — backup, cópia offsite e runbook de restauração
+- `doc/dev/https.md` — certificados HTTPS
+- `doc/novidades/` — notas de versão

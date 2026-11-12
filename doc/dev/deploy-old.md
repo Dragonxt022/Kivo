@@ -86,6 +86,19 @@ As permissões foram ajustadas para o grupo `nodeapps`. O campo
 `cloud_backups.storage_path` usa o caminho visto de dentro do container
 (`/app/storage/backups/...`), e os 7 registros foram conferidos um a um.
 
+## Backup
+
+O banco tem dump diário (03:30) em `/opt/backups/mysql/<data>/`; o storage, os
+segredos e as configs entram num restore point diário (03:50) em
+`~/backups/kuruk-cloud/`, com cópia offsite via rclone e teste de restauração
+semanal. Detalhes, setup do R2 e runbook de desastre em
+[`backup-restore.md`](./backup-restore.md).
+
+```sh
+npm run kuruk cloud:backup          # gera um restore point agora
+npm run kuruk cloud:backup:verify   # prova que o último backup restaura
+```
+
 ## Variáveis do cloud
 
 Arquivo `/opt/apps/kuruk-cloud/cloud/.env` (não versionado):
