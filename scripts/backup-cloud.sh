@@ -211,10 +211,14 @@ if [ -n "$OFFSITE" ]; then
       >>"$LOG" 2>&1 || fail "rclone copy dos dumps do MySQL falhou"
   fi
 
-  "$RCLONE" delete "$REMOTE_BASE" --min-age "${OFFSITE_KEEP_DAYS}d" --rmdirs \
+  # `delete --rmdirs` tenta remover o diretório mesmo com arquivos mais novos que o
+  # --min-age e falha com "directory not empty". Por isso o rmdirs é um passo separado.
+  "$RCLONE" delete "$REMOTE_BASE" --min-age "${OFFSITE_KEEP_DAYS}d" \
     >>"$LOG" 2>&1 || log "AVISO: limpeza remota falhou"
-  "$RCLONE" delete "${OFFSITE%/}/mysql" --min-age "${OFFSITE_KEEP_DAYS}d" --rmdirs \
+  "$RCLONE" rmdirs "$REMOTE_BASE" --leave-root >>"$LOG" 2>&1 || true
+  "$RCLONE" delete "${OFFSITE%/}/mysql" --min-age "${OFFSITE_KEEP_DAYS}d" \
     >>"$LOG" 2>&1 || log "AVISO: limpeza remota (mysql) falhou"
+  "$RCLONE" rmdirs "${OFFSITE%/}/mysql" --leave-root >>"$LOG" 2>&1 || true
   log "offsite OK"
 elif [ "$OFFSITE_REQUIRED" = "1" ]; then
   fail "offsite obrigatório, mas KURUK_BACKUP_OFFSITE_REMOTE está vazio"
