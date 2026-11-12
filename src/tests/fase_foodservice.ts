@@ -65,12 +65,6 @@ async function main() {
   check('liga capability foodservice.cozinha',
     (await api('/api/core/capabilities/foodservice.cozinha', { method: 'PUT', body: JSON.stringify({ enabled: true }) }, admin!)).status === 200);
 
-  // O envio automático ao fechar a venda é opcional e vem DESLIGADO de fábrica. Este
-  // teste exercita o caminho automático, então liga a chave explicitamente.
-  check('envio automático de cozinha vem desligado',
-    (db.prepare("SELECT value FROM settings WHERE key='pdv.cozinha_envio_automatico'").get() as { value: string } | undefined)?.value === '0');
-  db.prepare("UPDATE settings SET value = '1' WHERE key = 'pdv.cozinha_envio_automatico'").run();
-
   // Produtos: 1 vai pra cozinha, o outro fica de fora
   const hamburguer = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Hamburguer', priceCents: 1800 }) }, admin!));
   const refrigerante = await unwrap<{ id: number }>(await api('/api/commercial/products', { method: 'POST', body: JSON.stringify({ name: 'Refrigerante lata', priceCents: 600 }) }, admin!));

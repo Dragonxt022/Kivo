@@ -102,10 +102,10 @@ PDV de reenvio por rede/duplo clique).
 ### 9. Pós-gravação
 
 - Auditoria (`venda`).
-- Notifica a cozinha (KDS) **só quando `pdv.cozinha_envio_automatico = 1`** — o padrão é
-  desligado, então fechar a venda não manda produção sozinho: o operador usa o botão
-  "Enviar para cozinha" do PDV. Também é pulado no fechamento de comanda
-  (`skipKitchenNotify`), que já enviou os itens um a um.
+- Notifica a cozinha (KDS) — pulado no fechamento de comanda (`skipKitchenNotify`), que já
+  enviou os itens um a um, e na **venda direta do PDV** com
+  `pdv.cozinha_envio_automatico = 0` (o padrão): nesse caso a produção só sai pelo botão
+  "Enviar para cozinha". Comandas e demais fluxos não são afetados pela opção.
 - Agenda sincronização com a nuvem (`scheduleSyncSoon`) — o painel do Kuruk Web mostra o
   movimento de hoje sem esperar o ciclo.
 
@@ -172,7 +172,7 @@ enviados à cozinha no lançamento (ticket `comanda` por item).
 | --- | --- |
 | `pdv.som` | Sinal sonoro ao adicionar item/finalizar |
 | `pdv.imprimir_automatico` | Imprime o cupom sem perguntar |
-| `pdv.cozinha_envio_automatico` | Envia a cozinha ao fechar a venda (padrão desligado) |
+| `pdv.cozinha_envio_automatico` | Venda direta do PDV envia a cozinha ao fechar (padrão desligado) |
 | `pdv.desconto_exige_motivo` | Exige motivo no desconto/acréscimo |
 | `pdv.desconto_maximo_percentual` | Acima disso, exige PIN |
 | `pdv.parcelas_max` | Máximo de parcelas na venda a prazo |

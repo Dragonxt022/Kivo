@@ -2917,6 +2917,10 @@
               // tickets, sem criar um segundo pedido na cozinha.
               commonBody.skipKitchenNotify = true;
               commonBody.kitchenDraftId = kitchenDraftId;
+            } else if (!this.kitchenAutoSendEnabled()) {
+              // Venda direta com o envio automático desligado: o servidor também não
+              // pode notificar a cozinha sozinho. Comandas e orçamentos não entram aqui.
+              commonBody.skipKitchenNotify = true;
             }
           }
           if (!comandaId) {

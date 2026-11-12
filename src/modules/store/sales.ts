@@ -514,12 +514,12 @@ export function createSale(
   // skipKitchenNotify: fechamento de comanda passa aqui — os itens JÁ foram para a
   // cozinha um a um (ticket 'comanda' por lançamento, ver comandas/addItem); notificar
   // de novo geraria um ticket 'sale' duplicado com a comanda inteira no KDS.
-  // Fora isso, fechar a venda só manda para a cozinha quando o envio automático está
-  // ligado nas configurações. Com o padrão desligado, o pedido vai só pelo botão
-  // "Enviar para cozinha" do PDV (que usa o rascunho e chega aqui com skipKitchenNotify).
+  // A venda direta do PDV com o envio automático desligado também chega com
+  // skipKitchenNotify (ver store-pdv.ejs) — aí a produção só sai pelo botão
+  // "Enviar para cozinha". Comandas e demais fechamentos seguem o fluxo normal.
   if (!opts.skipKitchenNotify) {
     try {
-      if (settingsRepository.getBool('pdv.cozinha_envio_automatico', false) && hasService('foodservice.kitchen')) {
+      if (hasService('foodservice.kitchen')) {
         const kitchenItems = attachComplements(items, (i) => i.name);
         getService<FoodserviceKitchenService>('foodservice.kitchen').notifyOrder(req, {
           sourceType: 'sale', sourceId: saleId,

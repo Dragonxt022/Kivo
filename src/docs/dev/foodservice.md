@@ -89,9 +89,10 @@ alarme só silencia o som — não marca pedido como visto.
 
 ## Integrações
 
-- Venda (`createSale`) notifica a cozinha após gravar **somente com
-  `pdv.cozinha_envio_automatico = 1`** (padrão desligado: o PDV manda pelo botão). Também é
-  pulado no fechamento de comanda (`skipKitchenNotify`), que já enviou os itens um a um.
+- Venda (`createSale`) notifica a cozinha após gravar, exceto no fechamento de comanda
+  (`skipKitchenNotify`), que já enviou os itens um a um, e na **venda direta do PDV** com
+  `pdv.cozinha_envio_automatico = 0` (padrão), em que só o botão "Enviar para cozinha"
+  manda produção. A opção não afeta comandas.
 - Cancelar venda/comanda chama `cancelTicketsForSource`, marcando os tickets abertos como
   `cancelado` (best-effort) — senão o KDS ficaria com pedido eterno de algo que não existe.
 - Anular um item da comanda remove o item de produção correspondente se ainda `pendente`

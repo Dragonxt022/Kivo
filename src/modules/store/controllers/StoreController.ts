@@ -140,9 +140,10 @@ export const storeController = {
     const hasDraft = Number.isInteger(kitchenDraftId) && kitchenDraftId > 0;
     const result = createSale(req, req.body, {
       allowPriceOverride: canOverridePrice(req),
-      // Só pula o aviso automático quando o PDV enviou os itens por um rascunho — assim
-      // a cozinha não recebe o mesmo pedido duas vezes.
-      skipKitchenNotify: req.body.skipKitchenNotify === true && hasDraft,
+      // O PDV manda `skipKitchenNotify` na venda direta quando o envio automático está
+      // desligado (ou quando os itens já saíram por um rascunho) — assim a cozinha não
+      // recebe o mesmo pedido duas vezes nem recebe sozinha o que não foi solicitado.
+      skipKitchenNotify: req.body.skipKitchenNotify === true,
     });
     if (!result.ok) { res.status(400).json(result); return; }
     if (hasDraft && hasService('foodservice.kitchen')) {
