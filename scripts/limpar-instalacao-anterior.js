@@ -25,8 +25,13 @@ const { execFileSync } = require('node:child_process');
 
 const APLICAR = process.argv.includes('--apply');
 
-/** GUID fixo do electron-builder (mesmo `appId`-derivado em todas as instalacoes do Kuruk). */
-const GUID = '441dbd0e-faad-5973-853f-e0ee9d98c769';
+/**
+ * GUID do appId ATUAL (`com.kuruk.desktop`). O GUID antigo do Kivo
+ * (`441dbd0e-faad-5973-853f-e0ee9d98c769`) é limpo pelo próprio instalador
+ * NSIS (`build/installer.nsh`); aqui não se mexe nele para não atrapalhar
+ * uma atualização que ainda está sendo testada.
+ */
+const GUID = '0e39fafb-067a-55cc-a164-1b99232f7973';
 const CHAVE_APP = `HKCU\\Software\\${GUID}`;
 const CHAVE_DESINSTALAR = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${GUID}`;
 
