@@ -107,18 +107,33 @@ docker run -d --name "$CONTAINER" \
 mexec() { docker exec -i -e MYSQL_PWD="$TMP_PW" "$CONTAINER" "$@"; }
 
 READY=0
-for _ in $(seq 1 120); do
-  # `mysqladmin ping` responde "alive" mesmo antes da senha do root valer (fase de
-  # inicialização do entrypoint). Só uma consulta autenticada prova que o servidor
-  # definitivo está no ar.
-  if mexec mysql -uroot -N -e 'SELECT 1' >/dev/null 2>&1; then READY=1; break; fi
+for _ in $(seq 1 180); do
+  # O entrypoint do MySQL sobe um servidor temporário para inicializar e DEPOIS
+  # reinicia. `SELECT 1` responde durante a fase temporária, e a conexão cai no
+  # reinício. "ready for connections" aparece duas vezes: a segunda é o servidor
+  # definitivo.
+  VEZES="$(docker logs "$CONTAINER" 2>&1 | grep -c 'ready for connections' || true)"
+  if [ "${VEZES:-0}" -ge 2 ] && mexec mysql -uroot -N -e 'SELECT 1' >/dev/null 2>&1; then
+    READY=1
+    break
+  fi
   sleep 1
 done
-[ "$READY" = "1" ] || fail "MySQL descartável não ficou pronto em 120s"
+[ "$READY" = "1" ] || fail "MySQL descartável não ficou pronto em 180s"
 log "MySQL descartável pronto; importando dump ($(manifest_get db_bytes) bytes)"
 
-gzip -dc "$DB_ARCHIVE" | mexec mysql -uroot verify_db 2>>"$LOG" \
-  || fail "falha ao importar o dump"
+# O mysqldump usa DROP TABLE IF EXISTS antes de cada CREATE, então repetir a
+# importação no mesmo banco é seguro.
+IMPORT_OK=0
+for tentativa in 1 2 3; do
+  if gzip -dc "$DB_ARCHIVE" | mexec mysql -uroot verify_db 2>>"$LOG"; then
+    IMPORT_OK=1
+    break
+  fi
+  log "tentativa $tentativa de importação falhou; aguardando 5s"
+  sleep 5
+done
+[ "$IMPORT_OK" = "1" ] || fail "falha ao importar o dump"
 
 q() { mexec mysql -uroot -N -e "$1" 2>/dev/null; }
 
