@@ -185,7 +185,7 @@ router.post('/baixar', async (req, res) => {
     return renderError('Informe um e-mail válido.');
   }
   if (downloadRateLimited(req.ip ?? 'desconhecido')) {
-    return renderError('Muitos cadastros seguidos — tente novamente mais tarde.', 429);
+    return renderError('Muitos cadastros seguidos. Tente novamente mais tarde.', 429);
   }
 
   const origem = clip(b.origem, 80) ?? clip(req.query.origem, 80) ?? origemFromReferer(req);
@@ -379,7 +379,7 @@ router.post('/api/contact', async (req, res) => {
   }
 
   if (contactRateLimited(req.ip ?? 'desconhecido')) {
-    return res.status(429).json({ ok: false, error: 'Muitos envios seguidos — tente novamente mais tarde.' });
+    return res.status(429).json({ ok: false, error: 'Muitos envios seguidos. Tente novamente mais tarde.' });
   }
 
   await getPool().query(

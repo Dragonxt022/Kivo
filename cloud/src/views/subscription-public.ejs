@@ -45,7 +45,7 @@
         </div>
         <div>
           <span class="muted text-xs">Cobrança</span>
-          <strong>a cada <%= sub.frequency %> <%= sub.frequency_type === 'days' ? 'dia(s)' : 'mês(es)' %></strong>
+          <strong>a cada <%= sub.frequency %> <%= sub.frequency_type === 'days' ? (Number(sub.frequency) === 1 ? 'dia' : 'dias') : (Number(sub.frequency) === 1 ? 'mês' : 'meses') %></strong>
         </div>
         <div>
           <span class="muted text-xs">Próxima cobrança</span>

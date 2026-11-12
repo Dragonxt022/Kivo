@@ -131,7 +131,7 @@ router.post('/:token/gateway', async (req, res) => {
     await saveGatewayResult(charge.id, { ...r, method: 'pix' });
     voltar('ok', 'Pix gerado — use o QR ou o copia e cola.');
   } catch (e) {
-    const msg = e instanceof GatewayError ? e.message : 'Falha ao falar com o Mercado Pago.';
+    const msg = e instanceof GatewayError ? e.message : 'Falha na comunicação com o Mercado Pago.';
     console.error('[pagar] erro ao gerar pagamento', { cobranca: charge.id, method, msg });
     voltar('error', msg);
   }

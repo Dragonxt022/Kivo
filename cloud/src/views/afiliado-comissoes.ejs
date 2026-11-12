@@ -62,7 +62,7 @@
             <td><span class="badge <%= b.cls %>"><%= b.label %></span></td>
           </tr>
           <% }); %>
-          <% if (!commissions.length) { %><tr><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma comissão nesse filtro.' }) %></td></tr><% } %>
+          <% if (!commissions.length) { %><tr><td colspan="7"><%- include('partials/empty-state', { message: 'Nenhuma comissão com esse filtro.' }) %></td></tr><% } %>
         </tbody>
       </table>
     </div>

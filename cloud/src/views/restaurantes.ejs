@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <%- include('partials/site/head', {
-    title: 'Kuruk Restaurantes — sistema para restaurante, sorveteria e conveniência',
+    title: 'Kuruk Restaurantes — sistema para restaurantes, sorveterias e conveniência',
     description: 'Mesas, comandas, modo garçom e painel de cozinha (KDS), cardápio online com QR code, complementos e tamanhos para sorveteria, PDV rápido e estoque para conveniência. Funciona offline e salva na nuvem.',
     theme: 'restaurantes',
     themeColor: '#e8590c'
@@ -147,8 +147,8 @@
           <h2>Monte do jeito do cliente, sem errar o preço</h2>
           <p style="color:var(--muted); font-size:1.05rem">
             Tamanhos, sabores, coberturas e adicionais: o que entra no pedido aparece
-            como complemento e já soma no total. Ficha técnica para açaí e sobremesas
-            desconta os insumos do estoque sozinho.
+            como complemento e já entra no total. A ficha técnica de açaí e sobremesas
+            desconta os insumos do estoque automaticamente.
           </p>
           <div class="detail-grid">
             <div class="detail-item">
@@ -194,11 +194,11 @@
             </div>
             <div class="detail-item">
               <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Estoque mínimo</h3>
-              <p>Aviso antes da prateleira esvaziar, com reposição e listas de preço atacado/varejo.</p>
+              <p>Aviso antes da prateleira esvaziar, com reposição e listas de preço de atacado e varejo.</p>
             </div>
             <div class="detail-item">
               <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Fiado e a prazo</h3>
-              <p>O cliente da casa leva fiado com limite e vencimento — vira conta a receber sozinho.</p>
+              <p>O cliente da casa leva fiado com limite e vencimento — o valor vira conta a receber automaticamente.</p>
             </div>
             <div class="detail-item">
               <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Importação de NF-e</h3>
@@ -266,7 +266,7 @@
         </div>
         <div class="step">
           <h3>Atende no salão ou no balcão</h3>
-          <p>O garçom lança na mesa, ou o caixa bipe direto no PDV para sorvete e conveniência.</p>
+          <p>O garçom lança na mesa; no balcão, o caixa bipa direto no PDV para sorvete e conveniência.</p>
         </div>
         <div class="step">
           <h3>Produz e entrega</h3>
@@ -287,7 +287,7 @@
   <%- include('partials/site/cta', {
     downloadUrl: downloadUrl, appVersion: appVersion,
     ctaTitle: 'Coloque o seu negócio no Kuruk',
-    ctaText: 'No teste grátis o assistente já cria mesas e produtos de exemplo com complementos — dá pra simular um serviço inteiro antes de decidir.'
+    ctaText: 'No teste grátis, o assistente já cria mesas e produtos de exemplo com complementos — dá para simular um serviço inteiro antes de decidir.'
   }) %>
   <%- include('partials/site/footer', { downloadUrl: downloadUrl, appVersion: appVersion }) %>
 </body>

@@ -284,7 +284,7 @@ orderApi.post('/:token/orders', async (req, res) => {
     const productUuid = str(raw.productUuid, 36);
     const item = byUuid.get(productUuid);
     if (!item) {
-      res.status(409).json({ error: 'Um item do pedido não está mais no menu. Atualize a página e tente de novo.' });
+      res.status(409).json({ error: 'Um item do pedido não está mais no cardápio. Atualize a página e tente de novo.' });
       return;
     }
     const qty = Math.min(20, Math.max(1, Math.round(Number(raw.qty) || 1)));
@@ -295,7 +295,7 @@ orderApi.post('/:token/orders', async (req, res) => {
     const complements: { productUuid: string; name: string; qty: number; unitPriceCents: number }[] = [];
     const compInputs = Array.isArray(raw.complements) ? raw.complements : [];
     if (compInputs.length > 20) {
-      res.status(400).json({ error: 'Complementos demais em um item.' });
+      res.status(400).json({ error: 'Muitos complementos em um item.' });
       return;
     }
     for (const c of compInputs as { productUuid?: unknown; qty?: unknown }[]) {
@@ -321,11 +321,11 @@ orderApi.post('/:token/orders', async (req, res) => {
     for (const group of item.complements) {
       const selected = selectedByGroup.get(group.groupUuid ?? group.name)?.size ?? 0;
       if (group.minSelect > 0 && selected < group.minSelect) {
-        res.status(400).json({ error: `Escolha ao menos ${group.minSelect} opção(ões) em "${group.name}" (${item.name}).` });
+        res.status(400).json({ error: `Escolha ao menos ${group.minSelect} ${group.minSelect === 1 ? 'opção' : 'opções'} em "${group.name}" (${item.name}).` });
         return;
       }
       if (group.maxSelect != null && selected > group.maxSelect) {
-        res.status(400).json({ error: `Escolha no máximo ${group.maxSelect} opção(ões) em "${group.name}" (${item.name}).` });
+        res.status(400).json({ error: `Escolha no máximo ${group.maxSelect} ${group.maxSelect === 1 ? 'opção' : 'opções'} em "${group.name}" (${item.name}).` });
         return;
       }
     }

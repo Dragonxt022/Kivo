@@ -19,7 +19,7 @@
       <div class="field col-6"><label>Contato</label><div><%= me.contact || '—' %></div></div>
       <div class="field col-6"><label>Documento</label><div><%= me.document || '—' %></div></div>
       <div class="field col-4"><label>Comissão</label><div><strong><%= me.commission_pct %>%</strong></div></div>
-      <div class="field col-4"><label>Desconto p/ cliente</label><div><%= me.discount_pct %>%</div></div>
+      <div class="field col-4"><label>Desconto para cliente</label><div><%= me.discount_pct %>%</div></div>
       <div class="field col-4"><label>Chave PIX</label><div><%= me.pix_key || '—' %></div></div>
       <div class="field col-6"><label>Usuário</label><div><%= me.username || '—' %></div></div>
       <div class="field col-6"><label>Último acesso</label><div><%= me.last_login_at ? fmtDateTimeBr(me.last_login_at) : '—' %></div></div>
