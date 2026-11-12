@@ -506,6 +506,13 @@
         </div>
         <div class="field">
           <label class="label-checkbox">
+            <input type="checkbox" x-model="sales.pdvCozinhaAuto" />
+            Enviar itens de cozinha automaticamente ao fechar a venda
+          </label>
+          <p class="hint">Desligado (padrão), o PDV só manda o pedido para a cozinha pelo botão <strong>Enviar para cozinha</strong>.</p>
+        </div>
+        <div class="field">
+          <label class="label-checkbox">
             <input type="checkbox" x-model="sales.pdvDescontoMotivo" />
             Exigir motivo ao aplicar desconto/acréscimo
           </label>
@@ -1963,7 +1970,7 @@
           return `${Number(s.used || 0).toLocaleString('pt-BR')} de ${Number(s.limit).toLocaleString('pt-BR')} usados hoje — restam ${rest}.${quando}`;
         },
         productTypes: [], savingProductTypes: false, productTypesSaved: '',
-        sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
+        sales: { exibirCupom: true, lembreteCaixa24h: true, pdvSom: true, pdvImprimirAuto: false, pdvCozinhaAuto: false, pdvDescontoMotivo: false, pdvDescontoMax: '0', pdvParcelasMax: 12 }, savingSales: false, salesSaved: '',
         comandas: { rotulo: 'mesa', exigirMesaAberta: true }, savingComandas: false, comandasSaved: '',
         financeiro: { multaAtiva: false, multaPercentual: '2,00', jurosAtivo: false, jurosPercentualDia: '0,033' },
         savingFinanceiro: false, financeiroSaved: '',
@@ -2076,6 +2083,7 @@
           this.sales.lembreteCaixa24h = lembrete?.value !== '0';
           this.sales.pdvSom = this.settings.find(s => s.key === 'pdv.som')?.value !== '0';
           this.sales.pdvImprimirAuto = this.settings.find(s => s.key === 'pdv.imprimir_automatico')?.value === '1';
+          this.sales.pdvCozinhaAuto = this.settings.find(s => s.key === 'pdv.cozinha_envio_automatico')?.value === '1';
           this.sales.pdvDescontoMotivo = this.settings.find(s => s.key === 'pdv.desconto_exige_motivo')?.value === '1';
           this.sales.pdvDescontoMax = this.settings.find(s => s.key === 'pdv.desconto_maximo_percentual')?.value ?? '0';
           this.sales.pdvParcelasMax = Number(this.settings.find(s => s.key === 'pdv.parcelas_max')?.value ?? 12);
@@ -2336,6 +2344,7 @@
             upsert('caixa.lembrete_24h', this.sales.lembreteCaixa24h ? '1' : '0'),
             upsert('pdv.som', this.sales.pdvSom ? '1' : '0'),
             upsert('pdv.imprimir_automatico', this.sales.pdvImprimirAuto ? '1' : '0'),
+            upsert('pdv.cozinha_envio_automatico', this.sales.pdvCozinhaAuto ? '1' : '0'),
             upsert('pdv.desconto_exige_motivo', this.sales.pdvDescontoMotivo ? '1' : '0'),
             upsert('pdv.desconto_maximo_percentual', String(this.sales.pdvDescontoMax || '0').replace(',', '.')),
             upsert('pdv.parcelas_max', String(this.sales.pdvParcelasMax || 12)),

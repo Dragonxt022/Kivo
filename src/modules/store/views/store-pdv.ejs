@@ -1244,6 +1244,8 @@
         pay: { methodId: null, amount: '', split: 2, received: '', editingBackup: null },
         showSplit: false,
         error: '', payError: '', saving: false, sendingKitchen: false, appSettings: [],
+        // Vem do servidor (pages.ts): operador de caixa não lê /api/settings.
+        kitchenAutoSend: <%- JSON.stringify(locals.kitchenAutoSend === true) %>,
         pinInput: '', pinError: '', pendingRemoveIdx: null,
         browseQ: '', browseResults: [], browseCategories: [], browseCategoryId: '', productView: 'grid',
         openRegisterForm: { opening: '', error: '' },
@@ -2057,6 +2059,12 @@
         kitchenSendLabel() {
           return this.hasKitchenPending() ? 'Enviar para cozinha' : 'Cozinha enviada';
         },
+        // Padrão desligado: fechar a venda não manda sozinho para a cozinha — o pedido
+        // só sai pelo botão "Enviar para cozinha". Ligado nas configurações, o fluxo
+        // antigo continua (envia antes de concluir a venda).
+        kitchenAutoSendEnabled() {
+          return this.kitchenAutoSend === true;
+        },
         ensureKitchenDraftId() {
           const slot = this.slots[this.activeSlot];
           if (!slot.kitchenDraftId) {
@@ -2861,8 +2869,9 @@
           const directSale = !this.slots[this.activeSlot].comandaId && !this.slots[this.activeSlot].quoteId;
           // Garante que os itens de cozinha já saíram antes de a venda existir. Se o
           // envio falhar, não fecha a venda: o operador precisa saber que a cozinha
-          // não recebeu o pedido.
-          if (directSale && this.hasKitchenPending()) {
+          // não recebeu o pedido. Só faz isso quando o envio automático está ligado
+          // nas configurações (padrão desligado — o operador usa o botão).
+          if (directSale && this.kitchenAutoSendEnabled() && this.hasKitchenPending()) {
             const okKitchen = await this.sendToKitchen(true);
             if (!okKitchen) {
               this.saving = false;

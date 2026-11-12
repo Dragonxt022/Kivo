@@ -85,6 +85,39 @@ async function main(): Promise<void> {
     });
     check('caixa aberto para a venda', open.status === 201, String(open.status));
 
+    // Padrão de fábrica: fechar a venda NÃO manda sozinho para a cozinha. O pedido só
+    // sai pelo botão "Enviar para cozinha" (fluxo do rascunho abaixo).
+    check('envio automático de cozinha vem desligado',
+      (db.prepare("SELECT value FROM settings WHERE key = 'pdv.cozinha_envio_automatico'").get() as { value: string } | undefined)?.value === '0');
+    const semEnvio = await api('/api/store/sales', {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ productId, qty: 1 }], paymentMethod: 'dinheiro' }),
+    });
+    const semEnvioBody = (await semEnvio.json()) as { success?: boolean; data?: { id?: number } };
+    const semEnvioId = Number(semEnvioBody.data?.id);
+    const semTicket = db.prepare(
+      "SELECT COUNT(*) AS cnt FROM kitchen_tickets WHERE source_type = 'sale' AND source_id = ? AND deleted_at IS NULL",
+    ).get(semEnvioId) as { cnt: number };
+    check('venda sem envio manual não cria ticket', semEnvio.status === 201 && semTicket.cnt === 0,
+      `venda=${semEnvioId} tickets=${semTicket.cnt}`);
+    await api(`/api/store/sales/${semEnvioId}/cancel`, { method: 'POST' });
+
+    // Ligado nas configurações, o fechamento volta a mandar sozinho.
+    db.prepare("UPDATE settings SET value = '1' WHERE key = 'pdv.cozinha_envio_automatico'").run();
+    const comEnvio = await api('/api/store/sales', {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ productId, qty: 1 }], paymentMethod: 'dinheiro' }),
+    });
+    const comEnvioBody = (await comEnvio.json()) as { success?: boolean; data?: { id?: number } };
+    const comEnvioId = Number(comEnvioBody.data?.id);
+    const comTicket = db.prepare(
+      "SELECT COUNT(*) AS cnt FROM kitchen_tickets WHERE source_type = 'sale' AND source_id = ? AND deleted_at IS NULL",
+    ).get(comEnvioId) as { cnt: number };
+    check('com envio automático ligado, a venda cria ticket', comEnvio.status === 201 && comTicket.cnt === 1,
+      `venda=${comEnvioId} tickets=${comTicket.cnt}`);
+    await api(`/api/store/sales/${comEnvioId}/cancel`, { method: 'POST' });
+    db.prepare("UPDATE settings SET value = '0' WHERE key = 'pdv.cozinha_envio_automatico'").run();
+
     const draftId = 424242;
     const send = await api('/api/store/kitchen/send', {
       method: 'POST',

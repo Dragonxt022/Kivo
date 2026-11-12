@@ -148,13 +148,14 @@ export function runSeeds(): void {
     'Envia erros anônimos e inventário de hardware (OS, CPU, RAM, GPU, tela e versões) para o suporte melhorar o sistema. Só dado técnico, sem dado pessoal. "1" = ligado (padrão); "0" = desligado.',
   );
 
-  // Preferências do PDV — todas com padrão "comportamento de hoje", para a atualização não
-  // mudar a operação de quem já usa o caixa.
+  // Preferências do PDV — com padrão "comportamento de hoje", exceto o envio automático
+  // de cozinha, que nasce desligado: fechar a venda só manda produção pelo botão.
   const pdvSettings: [string, string, string][] = [
     ['pdv.som', '1', 'Toca um sinal sonoro no PDV ao adicionar item ou concluir a venda. "1" = ligado (padrão); "0" = desligado.'],
     ['pdv.imprimir_automatico', '0', 'Imprime o cupom automaticamente ao finalizar a venda, sem perguntar. "1" = automático; "0" = perguntar (padrão).'],
     ['pdv.desconto_maximo_percentual', '0', 'Desconto máximo (%) que o operador aplica sem autorização por PIN. "0" = sem limite (padrão).'],
     ['pdv.desconto_exige_motivo', '0', 'Exige um motivo ao aplicar desconto/acréscimo no PDV. "1" = exigir; "0" = opcional (padrão).'],
+    ['pdv.cozinha_envio_automatico', '0', 'Envia os itens de cozinha automaticamente ao fechar a venda no PDV. "1" = envia; "0" = só pelo botão "Enviar para cozinha" (padrão).'],
     ['pdv.parcelas_max', '12', 'Número máximo de parcelas na venda a prazo do PDV. Padrão 12.'],
   ];
   const insertSetting = db.prepare(

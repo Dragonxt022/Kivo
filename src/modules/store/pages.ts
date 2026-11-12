@@ -25,7 +25,17 @@ function page(view: string, permission: string) {
   };
 }
 
-router.get('/pdv', page('store-pdv', 'store.sales.create'));
+router.get('/pdv', (req, res) => {
+  assertAuth(req);
+  if (!req.user.permissions.has('store.sales.create')) return res.redirect('/');
+  // O caixa/vendedor não tem `settings.view` (e /api/settings responde 403): o valor
+  // efetivo do envio automático de cozinha precisa vir junto com a página, senão o
+  // operador nunca dispara o fluxo de rascunho mesmo com a opção ligada.
+  res.render('store-pdv', {
+    user: req.user,
+    kitchenAutoSend: settingsRepository.getBool('pdv.cozinha_envio_automatico', false),
+  });
+});
 router.get('/vendas', page('store-sales', 'store.sales.view'));
 router.get('/orcamentos', page('store-quotes', 'store.quotes.view'));
 
