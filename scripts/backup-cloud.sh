@@ -49,10 +49,22 @@ LOG="$DEST_ROOT/backup.log"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-mkdir -p "$DEST"
-chmod 700 "$DEST_ROOT" "$DEST"
+mkdir -p "$DEST_ROOT"
+chmod 700 "$DEST_ROOT"
 
 log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOG"; }
+
+# Guarda de disco: encher o volume derrubaria o MySQL junto com o backup. Se o
+# espaço livre cair abaixo do limite, é melhor falhar alto do que gravar.
+MIN_FREE_MB="${KURUK_BACKUP_MIN_FREE_MB:-2048}"
+FREE_KB="$(df -Pk "$DEST_ROOT" | awk 'NR==2 {print $4}')"
+if [ -n "$FREE_KB" ] && [ "$FREE_KB" -lt "$((MIN_FREE_MB * 1024))" ]; then
+  log "ERRO: menos de ${MIN_FREE_MB} MB livres em $DEST_ROOT (livre: $((FREE_KB / 1024)) MB)"
+  exit 1
+fi
+
+mkdir -p "$DEST"
+chmod 700 "$DEST"
 
 # Não deixa o log crescer sem limite (rotação simples: mantém ~1 MB).
 if [ -f "$LOG" ] && [ "$(stat -c%s "$LOG")" -gt 5242880 ]; then
@@ -113,10 +125,39 @@ TAR_ITEMS=()
 for item in storage uploads .env; do
   [ -e "$CLOUD_DIR/$item" ] && TAR_ITEMS+=("$item")
 done
-log "compactando ${TAR_ITEMS[*]}"
-tar -czf "$STORAGE_ARCHIVE" -C "$CLOUD_DIR" --ignore-failed-read "${TAR_ITEMS[@]}" \
-  >>"$LOG" 2>&1 || fail "tar do storage falhou"
-gzip -t "$STORAGE_ARCHIVE" 2>/dev/null || fail "arquivo de storage inválido"
+
+# O storage muda pouco (imagens de catálogo/temas), mas é a maior parte do backup.
+# Compactar 30 MB todo dia e guardar 14 cópias seria desperdício — e num catálogo
+# de 5 GB inviabilizaria o disco. Então: se nada mudou desde o restore point
+# anterior, reaproveita o MESMO arquivo por hardlink (mesmo inode, zero bytes
+# novos no disco, remoção segura na retenção).
+FINGERPRINT="$(
+  {
+    find "$CLOUD_DIR/storage" "$CLOUD_DIR/uploads" -type f -printf '%P|%s|%T@\n' 2>/dev/null || true
+    [ -f "$CLOUD_DIR/.env" ] && stat -c '.env|%s|%Y' "$CLOUD_DIR/.env"
+  } | sort | sha256sum | cut -d' ' -f1
+)"
+
+PREV_STORE="$(find "$DEST_ROOT" -mindepth 1 -maxdepth 1 -type d -name '20??-??-??_*' ! -path "$DEST" \
+  | sort -r | head -1)"
+PREV_FP=""
+PREV_ARCHIVE=""
+if [ -n "$PREV_STORE" ] && [ -f "$PREV_STORE/manifest.txt" ]; then
+  PREV_FP="$(sed -n 's/^store_fingerprint=//p' "$PREV_STORE/manifest.txt" | head -1)"
+  PREV_NAME="$(sed -n 's/^store_archive=//p' "$PREV_STORE/manifest.txt" | head -1)"
+  [ -n "$PREV_NAME" ] && PREV_ARCHIVE="$PREV_STORE/$PREV_NAME"
+fi
+
+if [ -n "$PREV_FP" ] && [ "$PREV_FP" = "$FINGERPRINT" ] && [ -f "$PREV_ARCHIVE" ]; then
+  ln "$PREV_ARCHIVE" "$STORAGE_ARCHIVE" 2>/dev/null \
+    || cp -p "$PREV_ARCHIVE" "$STORAGE_ARCHIVE"
+  log "storage inalterado; reaproveitado de $(basename "$PREV_STORE") (hardlink)"
+else
+  log "compactando ${TAR_ITEMS[*]}"
+  tar -czf "$STORAGE_ARCHIVE" -C "$CLOUD_DIR" --ignore-failed-read "${TAR_ITEMS[@]}" \
+    >>"$LOG" 2>&1 || fail "tar do storage falhou"
+  gzip -t "$STORAGE_ARCHIVE" 2>/dev/null || fail "arquivo de storage inválido"
+fi
 chmod 600 "$STORAGE_ARCHIVE"
 STORAGE_BYTES="$(stat -c%s "$STORAGE_ARCHIVE")"
 STORAGE_FILES="$(tar -tzf "$STORAGE_ARCHIVE" | grep -vc '/$' || true)"
@@ -179,6 +220,7 @@ count_live() {
   echo "store_archive=$(basename "$STORAGE_ARCHIVE")"
   echo "store_bytes=$STORAGE_BYTES"
   echo "store_files=$STORAGE_FILES"
+  echo "store_fingerprint=$FINGERPRINT"
   echo "live_companies=$(count_live companies)"
   echo "live_admin_users=$(count_live admin_users)"
   echo "live_plans=$(count_live plans)"

@@ -125,6 +125,36 @@ KURUK_BACKUP_PING_FAIL_URL=http://100.87.5.89:3001/api/push/<token>
 Sucesso faz `GET <url>`; falha faz `GET <url>?status=down&msg=...`. Se o backup não rodar
 no dia, o próprio monitor fica DOWN — é o alerta que importa.
 
+## Espaço em disco
+
+Medido no servidor `old` (nov/2026):
+
+| Item                                     | Tamanho                                             |
+| ---------------------------------------- | --------------------------------------------------- |
+| 1 restore point                          | **~30 MB** (28 MB storage + ~1 MB banco + configs)  |
+| Retenção de 14 dias, catálogo inalterado | **~430 MB**                                         |
+| Dumps MySQL em `/opt/backups`            | ~1 MB/dia (o script da infra mantém 14 + 6 mensais) |
+| Disco livre                              | ~93 GB                                              |
+
+O storage (imagens de catálogo/temas) é a maior parte do backup, mas muda pouco. Por
+isso o script calcula um fingerprint de `storage/`, `uploads/` e `.env`: se nada mudou
+desde o restore point anterior, o arquivo é **reaproveitado por hardlink** — mesmo
+inode, nenhum byte novo no disco, e a retenção continua segura (apagar um ponto antigo
+não afeta os novos).
+
+Antes de gravar, o script confere o espaço livre:
+
+```env
+KURUK_BACKUP_MIN_FREE_MB=2048   # padrão; abaixo disso o backup aborta
+```
+
+Encher o volume derrubaria o MySQL junto, então falhar alto é melhor que gravar.
+
+Limite conhecido: o **offsite** ainda sobe uma cópia do storage por dia (R2 não deduplica).
+Com 30 MB/dia e 30 dias são ~900 MB, dentro do free tier. Se o catálogo passar de ~500 MB,
+vale mudar o storage remoto para archive endereçado por conteúdo (`storage/<sha>.tar.gz`),
+que sobe uma vez por versão.
+
 ## Runbook: o servidor `old` morreu
 
 1. **Provisione** Ubuntu com Docker e o usuário `bruno` (com a mesma chave SSH).
